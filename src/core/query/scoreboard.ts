@@ -73,7 +73,7 @@ const CaseSchema = z.object({
   mustNot: z.array(z.string().trim().min(1)).optional(),
   expect: z.enum(["master", "empty"]).optional(),
   note: z.string().optional(),
-  /** Per-tool overrides, or a list of tools this case is explicitly for. `["recipe"]` marks a recipe case. */
+  /** Object overrides one tool. `["recipe"]` marks a recipe case and still scores the others. */
   tools: z
     .union([
       z.array(ToolNameSchema).min(1),
@@ -110,8 +110,9 @@ export interface GoldenCase {
   mustNot?: string[];
   expect: "master" | "empty";
   /**
-   * Per-tool override, or a list of tools this case is explicitly for.
-   * `["recipe"]` marks a recipe case. A marked recipe case with no card is a miss.
+   * Object form overrides the expectation for the tools it names. Other tools
+   * keep the case's normal expectation. An array (`["recipe"]`) only marks a
+   * recipe case; it does not drop recommend or resolve.
    */
   tools?: Partial<Record<ScoreTool, ToolSpec>> | ScoreTool[];
   note?: string;
@@ -569,7 +570,7 @@ function contextFor(row: GoldenCase): RecommendContext | undefined {
   const screenJob = [row.journey, row.screenType].filter(Boolean).join(" ");
   return {
     id: row.screenType || row.journey || row.slot,
-    ...(row.screenType ? { domain: row.screenType } : {}),
+    ...(row.screenType ? { domain: row.screenType, screenType: row.screenType } : {}),
     ...(screenJob || row.slot
       ? {
           journey: {
@@ -595,7 +596,9 @@ function rate(hits: number, total: number): number | null {
 }
 
 function isRecipeCase(row: GoldenCase): boolean {
-  return Array.isArray(row.tools) && row.tools.includes("recipe");
+  if (!row.tools) return false;
+  if (Array.isArray(row.tools)) return row.tools.includes("recipe");
+  return row.tools.recipe !== undefined;
 }
 
 function toolOverride(row: GoldenCase, tool: ScoreTool): ToolSpec | undefined {
@@ -711,6 +714,7 @@ function grade(
   const acceptable = acceptableIds(spec);
   const inTop = (limit: number) => picks.slice(0, limit).some((pick) => pick.id && acceptable.has(pick.id));
   const masterCase = spec.expect === "master";
+  const acceptedTop = Boolean(spec.expect === "empty" && top?.id && spec.acceptIds.has(top.id));
   const wrongCousin = Boolean(
     masterCase &&
       top?.id &&
@@ -722,7 +726,7 @@ function grade(
     expect: spec.expect,
     top1: masterCase ? inTop(1) : false,
     top3: masterCase ? inTop(3) : false,
-    emptyOk: spec.expect === "empty" ? picks.length === 0 : false,
+    emptyOk: spec.expect === "empty" ? picks.length === 0 || acceptedTop : false,
     wrongCousin,
     leaked: offeredLeak(leakPicks, acceptable, wrongCousin),
     applicable: true,
@@ -876,6 +880,7 @@ function runTool(
       });
     case "resolve":
       return componentUsageCard(index, row.intent, {
+        ...(context ? { context } : {}),
         ...(options.sock ? { sock: options.sock } : {}),
       });
     case "recipe":
@@ -1090,13 +1095,13 @@ export function deltaAgainst(
   if (!previous || !sameSet) {
     return {
       hasPrevious: false,
-      top1: 0,
+      top1: null,
       top3: null,
       top3Reported: false,
-      inventRate: 0,
-      wrongCousinRate: 0,
-      emptyWhenWeak: 0,
-      leakRate: 0,
+      inventRate: null,
+      wrongCousinRate: null,
+      emptyWhenWeak: null,
+      leakRate: null,
     };
   }
   const top3Reported = current.top3Base >= 10 && (previous.top3Base ?? 0) >= 10;

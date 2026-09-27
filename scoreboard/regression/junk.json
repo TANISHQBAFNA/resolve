@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "ho-empty-tablet", "intent": "tablet", "expect": "empty", "note": "Starts with tab. Not an inflection of Tabs." },
+    { "id": "ho-empty-switchboard", "intent": "switchboard", "expect": "empty", "note": "Starts with switch. Not an inflection." },
+    { "id": "ho-empty-cardigan", "intent": "cardigan", "expect": "empty", "note": "Starts with card. Not an inflection." },
+    { "id": "ho-empty-modality", "intent": "modality", "expect": "empty", "note": "Starts with modal. Not an inflection." },
+    { "id": "ho-empty-chipper", "intent": "chipper", "expect": "empty", "note": "Starts with chip. Not an inflection." },
+    { "id": "ho-empty-paycheck", "intent": "paycheck", "expect": "empty", "note": "Starts with pay. Not an inflection." },
+    { "id": "ho-empty-radiology", "intent": "radiology", "expect": "empty", "note": "Starts with radio. Not an inflection." },
+    { "id": "ho-empty-tagline", "intent": "tagline", "expect": "empty", "note": "Starts with tag. Not an inflection." },
+    { "id": "ho-empty-heading-south", "intent": "heading south", "expect": "empty", "note": "heading is a header synonym. south is not a UI word." },
+    { "id": "ho-empty-bottoms", "intent": "bottoms", "expect": "empty", "note": "Plural of the synonym bottom, not of the name footer." },
+    { "id": "ho-empty-footer-ball", "intent": "footer ball", "expect": "empty", "note": "footer matches. ball is not a UI word." },
+    { "id": "ho-empty-x-ray", "intent": "x ray", "expect": "empty", "note": "x means close only alone or beside icon or button." },
+    { "id": "ho-empty-cancel-culture", "intent": "cancel culture", "expect": "empty", "note": "cancel matches close. culture is not a UI word." },
+    { "id": "ho-empty-image-processing", "intent": "image processing", "expect": "empty", "note": "image matches avatar. processing is not a UI word." },
+    { "id": "ho-empty-money-order", "intent": "money order", "expect": "empty", "note": "money matches price. order is not a UI word." }
+  ]
+}

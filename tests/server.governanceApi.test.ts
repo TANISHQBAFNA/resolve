@@ -14,9 +14,11 @@ import { governanceMiddleware } from "@/server/governanceHttp";
 
 describe("/api/governance", () => {
   const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousOsHome = process.env["HOME"];
 
   beforeEach(() => {
     process.env["GRAPHIFY_HOME"] = mkdtempSync(join(tmpdir(), "resolve-gov-"));
+    process.env["HOME"] = mkdtempSync(join(tmpdir(), "resolve-gov-home-"));
     clearCache();
   });
 
@@ -24,6 +26,8 @@ describe("/api/governance", () => {
     clearCache();
     if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
     else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousOsHome === undefined) delete process.env["HOME"];
+    else process.env["HOME"] = previousOsHome;
   });
 
   it("governanceView reads live rules, proposals, and why lines from the active store", () => {

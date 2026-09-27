@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "ho-toggle", "intent": "toggle", "expected": "Switch" },
+    { "id": "ho-dialog", "intent": "dialog", "expected": "Modal" },
+    { "id": "ho-snackbar", "intent": "snackbar", "expected": "Toast" },
+    { "id": "ho-separator", "intent": "separator", "expected": "Divider" },
+    { "id": "ho-rule", "intent": "rule", "expected": "Divider" },
+    { "id": "ho-pill", "intent": "pill", "expected": "Badge" },
+    { "id": "ho-amount", "intent": "amount", "expected": "Price", "mustNot": ["Old Price"] },
+    {
+      "id": "ho-discount",
+      "intent": "discount",
+      "expected": "Coupon Field",
+      "accept": ["Promo Field"],
+      "note": "coupon, promo, and discount are one family. Either offer field is acceptable."
+    },
+    {
+      "id": "ho-promo-code",
+      "intent": "promo code",
+      "expected": "Promo Field",
+      "mustNot": ["Coupon Field"]
+    },
+    {
+      "id": "ho-sign-in-slot",
+      "intent": "sign in",
+      "slot": "primary-cta",
+      "expected": "Button Primary"
+    },
+    {
+      "id": "ho-checkout-slot",
+      "intent": "checkout summary",
+      "screenType": "checkout",
+      "journey": "payment",
+      "slot": "primary-cta",
+      "expected": "Pay CTA",
+      "mustNot": ["Summary Card", "Save CTA"]
+    },
+    { "id": "ho-photo", "intent": "photo", "expected": "Avatar" },
+    { "id": "ho-title", "intent": "title", "expected": "Header Bar" },
+    { "id": "ho-popup", "intent": "popup", "expected": "Modal" },
+    { "id": "ho-money", "intent": "money", "expected": "Price", "mustNot": ["Old Price"] },
+    { "id": "ho-cancel", "intent": "cancel", "expected": "Icon Close" },
+    { "id": "ho-warning", "intent": "warning", "expected": "Alert" }
+  ]
+}

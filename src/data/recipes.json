@@ -6,11 +6,11 @@
       "id": "checkout-summary",
       "title": "Checkout summary",
       "intentAliases": ["checkout", "order summary", "cart", "pay now"],
-      "notes": "Totals and line items plus a primary pay action. Optional field for promo or email.",
+      "notes": "Totals and line items plus a primary pay action. The primary button slot defaults to Pay CTA when that master is in the library. Optional field for promo or email.",
       "slots": [
         { "role": "header", "required": false, "hints": ["header", "title", "nav"] },
         { "role": "line-list", "required": true, "hints": ["payment", "row", "list"] },
-        { "role": "primary-cta", "required": true, "hints": ["button", "primary"] },
+        { "role": "primary-cta", "required": true, "hints": ["button", "primary"], "defaultMasterId": "Pay CTA" },
         { "role": "input", "required": false, "hints": ["input"] }
       ]
     },

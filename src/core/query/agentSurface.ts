@@ -8,6 +8,8 @@ import { extractSubgraph, levelForNode } from "./subgraph";
 import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
 import { placeReady } from "./placeReady";
+import synonymFile from "@/data/synonyms.json";
+import modifierFile from "@/data/ui-modifiers.json";
 import { isRemovedByAbsence, patternFor, staleRefreshHint, type SockState } from "./sock";
 import {
   bindRuleHit,
@@ -104,15 +106,29 @@ const STOPWORDS = new Set([
   "find",
 ]);
 
-const stem = (word: string) =>
-  word.length > 3 && word.endsWith("s") ? word.slice(0, -1) : word;
-
 const tokensOf = (text: string): string[] =>
   text
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter((part) => part.length > 1 && !STOPWORDS.has(part))
-    .map(stem);
+    .filter((part) => part.length > 1 && !STOPWORDS.has(part));
+
+/** Stems of a real inflection: plural s/es, -ing, -ed. Not a prefix of an unrelated word. */
+function inflectionStems(word: string): string[] {
+  const stems: string[] = [];
+  if (word.length >= 5 && word.endsWith("es")) stems.push(word.slice(0, -2));
+  if (word.length >= 4 && word.endsWith("s")) stems.push(word.slice(0, -1));
+  if (word.length >= 6 && word.endsWith("ing")) stems.push(word.slice(0, -3));
+  if (word.length >= 5 && word.endsWith("ed")) stems.push(word.slice(0, -2));
+  return stems.filter((stem) => stem.length >= 3);
+}
+
+function familyKey(token: string, names: readonly string[]): string | undefined {
+  if (names.some((name) => name.includes(token))) return token;
+  for (const stem of inflectionStems(token)) {
+    if (names.some((name) => name.includes(stem))) return stem;
+  }
+  return undefined;
+}
 
 const isScreen = (index: GraphIndex, node: GraphNode): boolean => {
   if (node.type !== "FRAME") return false;
@@ -291,31 +307,60 @@ export function usageCardForComponent(
   return withCost(payload);
 }
 
-function pickResolveTarget(index: GraphIndex, name: string): GraphNode | undefined {
-  const exact = resolveNodeExact(index, name);
-  if (exact) {
-    if (exact.type === "COMPONENT_INSTANCE") return index.getMainComponent(exact.id) ?? exact;
-    return exact;
-  }
-  const hits = searchNodes(index, name, { limit: 16 });
-  if (!hits.length) return undefined;
-  const lower = name.trim().toLowerCase();
-  const ranked = [...hits].sort((a, b) => {
-    const aExact = a.node.name.toLowerCase() === lower ? 1 : 0;
-    const bExact = b.node.name.toLowerCase() === lower ? 1 : 0;
-    if (aExact !== bExact) return bExact - aExact;
-    const rank = (node: GraphNode) =>
-      node.type === "MAIN_COMPONENT" || node.type === "COMPONENT_SET"
-        ? 3
-        : node.type === "VARIANT"
-          ? 2
-          : node.type === "FRAME" || node.type === "SECTION"
-            ? 1
-            : 0;
-    return rank(b.node) - rank(a.node);
-  });
-  const node = ranked[0]!.node;
+function asResolvedNode(index: GraphIndex, node: GraphNode): GraphNode {
   if (node.type === "COMPONENT_INSTANCE") return index.getMainComponent(node.id) ?? node;
+  return node;
+}
+
+/** Masters win over a screen that happens to share the name. */
+function namedNode(index: GraphIndex, predicate: (node: GraphNode) => boolean): GraphNode | undefined {
+  let screen: GraphNode | undefined;
+  for (const node of index.allNodes) {
+    if (!predicate(node)) continue;
+    if (isMasterType(node.type)) return node;
+    if (!screen && (node.type === "FRAME" || node.type === "SECTION")) screen = node;
+  }
+  return screen;
+}
+
+function pickResolveTarget(
+  index: GraphIndex,
+  name: string,
+  context?: RecommendContext,
+): GraphNode | undefined {
+  const trimmed = name.trim();
+  if (!trimmed) return undefined;
+
+  const direct = index.getNode(trimmed);
+  if (direct) return asResolvedNode(index, direct);
+  for (const node of index.allNodes) {
+    if (matchesFigmaId(node, trimmed) || matchesStampedId(node, trimmed, index.graph.fileKey)) {
+      return asResolvedNode(index, node);
+    }
+  }
+
+  // Exact display name, including a deprecated or private master.
+  const caseExact = namedNode(index, (node) => node.name === trimmed);
+  if (caseExact) return asResolvedNode(index, caseExact);
+
+  // Same letters, different casing: a retired name hands back its live replacement.
+  // A private master stays hidden until the caller types the exact name.
+  const folded = trimmed.toLowerCase();
+  const ciExact = namedNode(index, (node) => node.name.toLowerCase() === folded);
+  if (ciExact) {
+    const master = asResolvedNode(index, ciExact);
+    if (master.type === "FRAME" || master.type === "SECTION") return master;
+    if (!isPrivateMaster(index, master)) {
+      if (master.status === "deprecated") return liveReplacement(index, master) ?? master;
+      return master;
+    }
+  }
+
+  const ranked = recommendMasters(index, trimmed, { context, budgetChars: USAGE_CARD_BUDGET });
+  const topId = ranked.candidates[0]?.id;
+  if (!topId) return undefined;
+  const node = index.getNode(topId);
+  if (!node || isPrivateMaster(index, node)) return undefined;
   return node;
 }
 
@@ -326,9 +371,9 @@ function pickResolveTarget(index: GraphIndex, name: string): GraphNode | undefin
 export function componentUsageCard(
   index: GraphIndex,
   name: string,
-  options: { budgetChars?: number; sock?: SockState } = {},
+  options: { budgetChars?: number; sock?: SockState; context?: RecommendContext } = {},
 ) {
-  const node = pickResolveTarget(index, name);
+  const node = pickResolveTarget(index, name, options.context);
   if (!node) {
     return withCost({
       found: false as const,
@@ -347,11 +392,29 @@ export function componentUsageCard(
   const card = usageCardForComponent(index, node, options);
   const { cost, ...body } = card;
   void cost;
-  return withCost({
+  const replacement =
+    node.status === "deprecated" ? liveReplacement(index, node) : undefined;
+  const place = replacement ? placeReady(replacement, index.graph.fileKey) : undefined;
+  const withReplacement = {
     found: true as const,
     kind: "component" as const,
     ...body,
-  });
+    ...(node.status === "deprecated" ? { deprecated: true as const } : {}),
+    ...(replacement && place
+      ? {
+          replacement: {
+            id: replacement.id,
+            name: replacement.name,
+            ...place,
+            why: `replaces ${node.name} (deprecated)`,
+          },
+        }
+      : {}),
+  };
+  const budget = options.budgetChars ?? USAGE_CARD_BUDGET;
+  if (JSON.stringify(withCost(withReplacement)).length <= budget) return withCost(withReplacement);
+  const trimmed = { ...withReplacement, byScreen: [] as typeof body.byScreen };
+  return withCost(trimmed);
 }
 
 /**
@@ -365,9 +428,14 @@ export function similarUsage(index: GraphIndex, question: string) {
   const tokens = tokensOf(question);
   const screens = index.getNodesByType("FRAME").filter((node) => isScreen(index, node));
   const definitions = index.getNodesByType("COMPONENT_SET", "MAIN_COMPONENT", "VARIANT");
-  const familyTokens = tokens.filter((token) =>
-    definitions.some((node) => node.name.toLowerCase().includes(token)),
-  );
+  const definitionNames = definitions.map((node) => node.name.toLowerCase());
+  const familyTokens = [
+    ...new Set(
+      tokens
+        .map((token) => familyKey(token, definitionNames))
+        .filter((token): token is string => Boolean(token)),
+    ),
+  ];
 
   const scored = screens
     .map((screen) => ({ screen, score: overlap(screen.name, tokens) }))
@@ -850,6 +918,8 @@ export interface RecommendContext {
   product?: { id?: string; name?: string };
   client?: { id?: string; name?: string };
   domain?: string;
+  /** Screen kind, same job as `domain` when a caller says "settings" or "checkout". */
+  screenType?: string;
   journey?: { step?: string; screenJob?: string };
   audience?: string;
   constraints?: { density?: string; a11y?: string };
@@ -879,10 +949,17 @@ function refreshHintFor(sock?: SockState, fileKey?: string): string {
   return staleRefreshHint(stale);
 }
 
+/** Place-ready top hit. These fields stay present on candidate 1. */
 export interface RecommendCandidate {
   id: string;
   name: string;
+  why: string;
   type: string;
+  hint: string;
+  deprecated: boolean;
+  instances: number;
+  whereUsed: Array<{ name: string; count: number }>;
+  score: number;
   figmaNodeId?: string;
   nodeId?: string;
   fileKey?: string;
@@ -892,14 +969,19 @@ export interface RecommendCandidate {
   variantProperties?: Record<string, string>;
   set?: string;
   status?: GraphNode["status"];
-  deprecated: boolean;
-  instances: number;
-  whereUsed: Array<{ name: string; count: number }>;
   slots?: string[];
-  score: number;
-  why: string;
-  hint: string;
 }
+
+/** Candidates 2–3. Place with fileKey + figmaNodeId; the rest stays on the top hit. */
+export interface RecommendAlternate {
+  id: string;
+  name: string;
+  why: string;
+  fileKey?: string;
+  figmaNodeId?: string;
+}
+
+export type RecommendHit = RecommendCandidate | RecommendAlternate;
 
 function sameFamily(a: GraphNode, b: GraphNode): boolean {
   if (a.id === b.id) return true;
@@ -950,7 +1032,7 @@ function contextTokenGroups(context?: RecommendContext) {
   return {
     product: tokensOf([context.product?.id, context.product?.name].filter(Boolean).join(" ")),
     client: tokensOf([context.client?.id, context.client?.name].filter(Boolean).join(" ")),
-    domain: tokensOf(context.domain ?? ""),
+    domain: tokensOf([context.domain, context.screenType].filter(Boolean).join(" ")),
     journey: tokensOf([context.journey?.step, context.journey?.screenJob].filter(Boolean).join(" ")),
   };
 }
@@ -976,11 +1058,374 @@ function deniedByRules(index: GraphIndex, node: GraphNode, rules?: LibraryRules)
   return deny.some((rule) => ruleMatches(index, node, rule));
 }
 
+/** Everyday words that mean the same control. Reasons live in src/data/synonyms.json. */
+const SYNONYM_OF = new Map<string, readonly string[]>();
+for (const group of synonymFile.groups) {
+  const terms = group.terms.map((term) => term.toLowerCase()).filter((term) => !term.includes(" "));
+  for (const term of terms) SYNONYM_OF.set(term, terms);
+}
+
+/**
+ * States, sizes, variants, roles, and common UI nouns.
+ * A multi-word ask may keep one of these beside a real component word.
+ * Reasons live in src/data/ui-modifiers.json.
+ */
+const UI_MODIFIER = new Set(modifierFile.words.map((word) => word.term.toLowerCase()));
+
+/** Slot words that pick a variant, not a different component family. */
+const SLOT_QUALIFIERS = new Set(["primary", "secondary", "tertiary", "danger", "ghost"]);
+
+/**
+ * Words that mark journey.step as a component slot (primary-cta, input, message).
+ * A pack step such as "summary" or "form" stays screen context.
+ */
+const SLOT_ROLE_TOKENS = new Set([
+  "cta",
+  "button",
+  "message",
+  "input",
+  "row",
+  "card",
+  "icon",
+  "header",
+  "field",
+  "chip",
+  "badge",
+  "label",
+  "search",
+  "avatar",
+  "banner",
+  "toast",
+  "modal",
+  "switch",
+]);
+
+function slotIsComponentRole(slotTokens: string[]): boolean {
+  return slotTokens.some((token) => SLOT_ROLE_TOKENS.has(token));
+}
+
+/** True when the ask already names a public live master, so the slot must not hide it. */
+function intentNamesMaster(index: GraphIndex, askedTokens: string[]): boolean {
+  if (!askedTokens.length) return false;
+  for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    if (node.status === "deprecated" || isPrivateMasterName(node.name)) continue;
+    const names = new Set(tokensOf(node.name));
+    if (askedTokens.some((token) => names.has(token))) return true;
+  }
+  return false;
+}
+
+const RETIRED_NAME_TOKENS = new Set(["legacy", "old", "deprecated", "retired"]);
+
+function synonymIn(token: string, names: Set<string>): boolean {
+  const group = SYNONYM_OF.get(token);
+  if (!group) return false;
+  return group.some((word) => word !== token && names.has(word));
+}
+
+interface TokenHits {
+  name: number;
+  synonym: number;
+  variant: number;
+  covered: number;
+}
+
+/** Shared UI nouns. One of these alone must not steal a more specific ask. */
+const GENERIC_NAME_TOKENS = new Set([
+  "button",
+  "bar",
+  "field",
+  "icon",
+  "label",
+  "box",
+  "item",
+  "text",
+  "row",
+  "card",
+  "message",
+]);
+
+function collapsedName(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/** Plural s/es or -ing/-ed, either way. "tablet" is not an inflection of "tab". */
+function inflectsName(query: string, nameToken: string): boolean {
+  if (query === nameToken || query.length < 3 || nameToken.length < 3) return false;
+  const [longer, shorter] = query.length >= nameToken.length ? [query, nameToken] : [nameToken, query];
+  if (!longer.startsWith(shorter)) return false;
+  const rest = longer.slice(shorter.length);
+  return rest === "s" || rest === "es" || rest === "ing" || rest === "ed";
+}
+
+function tokenMatchesName(query: string, nameToken: string): boolean {
+  if (query === nameToken || inflectsName(query, nameToken)) return true;
+  return synonymIn(query, new Set([nameToken]));
+}
+
+/** "x" means close only as the whole ask, or right beside icon/button. "x ray" does not. */
+function xMeansClose(text: string): boolean {
+  const parts = text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  if (parts.length === 1) return parts[0] === "x";
+  if (parts.length !== 2) return false;
+  const [left, right] = parts;
+  if (!left || !right) return false;
+  const mark = left === "x" || right === "x";
+  const chrome = left === "icon" || right === "icon" || left === "button" || right === "button";
+  return mark && chrome;
+}
+
+/** Multi-word synonym phrases, such as "tick box" for Checkbox. Single words stay in SYNONYM_OF. */
+function phraseNamesMatch(ask: string, name: string): boolean {
+  const collapsedAsk = collapsedName(ask);
+  const collapsedMaster = collapsedName(name);
+  if (!collapsedAsk || !collapsedMaster) return false;
+  return synonymFile.groups.some((group) => {
+    const asked = group.terms.some((term) => term.includes(" ") && collapsedName(term) === collapsedAsk);
+    if (!asked) return false;
+    return group.terms.some((term) => collapsedName(term) === collapsedMaster);
+  });
+}
+
+function phraseCoversAsk(ask: string): boolean {
+  const collapsedAsk = collapsedName(ask);
+  return synonymFile.groups.some((group) =>
+    group.terms.some((term) => term.includes(" ") && collapsedName(term) === collapsedAsk),
+  );
+}
+
+function liveNameSets(index: GraphIndex): Set<string>[] {
+  const sets: Set<string>[] = [];
+  for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
+    sets.push(new Set(tokensOf(node.name)));
+  }
+  return sets;
+}
+
+function screenWords(index: GraphIndex): string[] {
+  const words: string[] = [];
+  for (const node of index.getNodesByType("FRAME")) {
+    if (!isScreen(index, node)) continue;
+    words.push(...tokensOf(node.name));
+  }
+  return words;
+}
+
+function contextWords(context?: RecommendContext): string[] {
+  if (!context) return [];
+  return tokensOf(
+    [
+      context.domain,
+      context.screenType,
+      context.journey?.step,
+      context.journey?.screenJob,
+      context.product?.name,
+      context.product?.id,
+      context.client?.name,
+      context.client?.id,
+      context.audience,
+    ]
+      .filter((part): part is string => Boolean(part))
+      .join(" "),
+  );
+}
+
+/**
+ * One component word plus ordinary words is not a component ask.
+ * "cancel culture" is empty. "error alert" stays, because error is a status.
+ * A scene word (screen name or caller context) is not junk, and it does not
+ * erase a component word that happens to share that screen's name.
+ */
+function outOfDomainAsk(
+  ask: string,
+  tokens: string[],
+  nameSets: readonly Set<string>[],
+  exempt: ReadonlySet<string>,
+): boolean {
+  if (phraseCoversAsk(ask)) return false;
+  const content = tokens.filter((token) => !RETIRED_NAME_TOKENS.has(token));
+  if (content.length < 2) return false;
+  let matched = 0;
+  let junk = 0;
+  for (const token of content) {
+    const hit = nameSets.some((names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names));
+    if (hit) matched += 1;
+    else if (!UI_MODIFIER.has(token) && !exempt.has(token)) junk += 1;
+  }
+  return matched === 1 && junk > 0;
+}
+
+/** Query is the master name with one letter missing. */
+function oneCharMissing(query: string, name: string): boolean {
+  if (query.length + 1 !== name.length) return false;
+  let i = 0;
+  while (i < query.length && query[i] === name[i]) i += 1;
+  return query.slice(i) === name.slice(i + 1);
+}
+
+/** Neighbouring letters swapped, and nothing else. */
+function adjacentSwap(query: string, name: string): boolean {
+  if (query.length !== name.length || query.length < 2) return false;
+  let i = 0;
+  while (i < query.length && query[i] === name[i]) i += 1;
+  if (i >= query.length - 1) return false;
+  if (query[i] !== name[i + 1] || query[i + 1] !== name[i]) return false;
+  return query.slice(i + 2) === name.slice(i + 2);
+}
+
+/**
+ * Typo against the whole name, spaces removed. At least 5 letters.
+ * A missing letter or a neighbouring swap. Not a substituted letter.
+ * Never used while an exact, phrase, or synonym match exists.
+ */
+function wholeNameTypo(ask: string, name: string): boolean {
+  const query = collapsedName(ask);
+  const master = collapsedName(name);
+  if (query.length < 5 || master.length < 5 || query === master) return false;
+  return oneCharMissing(query, master) || adjacentSwap(query, master);
+}
+
+/**
+ * A multi-word master that only shares a generic token (bar, button, …)
+ * drops out when the ask still has a specific word it does not cover.
+ */
+function genericOnlyMiss(name: string, queryTokens: string[]): boolean {
+  const nameTokens = tokensOf(name);
+  if (!nameTokens.length || !queryTokens.length) return false;
+  const matched = nameTokens.filter((token) => queryTokens.some((query) => tokenMatchesName(query, token)));
+  if (!matched.length) return false;
+  if (matched.some((token) => !GENERIC_NAME_TOKENS.has(token))) return false;
+  return queryTokens.some((query) => {
+    if (GENERIC_NAME_TOKENS.has(query)) return false;
+    return !nameTokens.some((token) => tokenMatchesName(query, token));
+  });
+}
+
+function nameTokenFor(token: string, names: Set<string>, used: Set<string>): string | undefined {
+  if (names.has(token) && !used.has(token)) return token;
+  for (const name of names) {
+    if (!used.has(name) && inflectsName(token, name)) return name;
+  }
+  return undefined;
+}
+
+function tokenHits(nameHaystack: string, variantText: string, tokens: string[]): TokenHits {
+  const names = new Set(tokensOf(nameHaystack));
+  const variants = new Set(tokensOf(variantText));
+  const used = new Set<string>();
+  let name = 0;
+  let synonym = 0;
+  let variant = 0;
+  let covered = 0;
+  const pending: string[] = [];
+  for (const token of tokens) {
+    const hit = nameTokenFor(token, names, used);
+    if (hit) {
+      name += 1;
+      covered += 1;
+      used.add(hit);
+    } else pending.push(token);
+  }
+  const still: string[] = [];
+  for (const token of pending) {
+    const group = SYNONYM_OF.get(token);
+    const hit = group?.find((word) => word !== token && names.has(word) && !used.has(word));
+    if (hit) {
+      synonym += 1;
+      covered += 1;
+      used.add(hit);
+    } else still.push(token);
+  }
+  for (const token of still) {
+    const syn = SYNONYM_OF.get(token);
+    const hit = [...variants].find(
+      (part) => !used.has(part) && (part === token || Boolean(syn?.includes(part) && part !== token)),
+    );
+    if (hit) {
+      variant += 1;
+      covered += 1;
+      used.add(hit);
+    }
+  }
+  return { name, synonym, variant, covered };
+}
+
+/** Name / synonym / variant. One name token outranks any amount of context. */
+function lexicalScore(hits: TokenHits, exactName: boolean): number {
+  if (exactName) return 1_000_000;
+  return hits.name * 100 + hits.synonym * 70 + hits.variant * 40;
+}
+
+/** "checkout summary with primary button" → scene + the component ask. */
+function splitBrief(intent: string): { role: string; scene: string } {
+  const parts = intent.split(/\s+with\s+/i);
+  if (parts.length < 2) return { role: intent.trim(), scene: "" };
+  return { scene: (parts[0] ?? "").trim(), role: parts.slice(1).join(" ").trim() };
+}
+
+function replacedByName(node: GraphNode): string | undefined {
+  const meta = node.metadata?.["replacedBy"];
+  if (typeof meta === "string" && meta.trim()) return meta.trim();
+  const description = node.description ?? "";
+  for (const line of description.split(/\n/)) {
+    const match = line.match(/^\s*replacedBy\s*:\s*(.+?)\s*$/i);
+    if (match?.[1]) return match[1].trim();
+  }
+  return undefined;
+}
+
+function isPrivateMaster(index: GraphIndex, node: GraphNode): boolean {
+  if (isPrivateMasterName(node.name)) return true;
+  const set = setOf(index, node);
+  return Boolean(set && isPrivateMasterName(set.name));
+}
+
+/**
+ * Live master a deprecated name should hand back.
+ * Explicit replacedBy wins. Otherwise the closest live name that still carries
+ * the specific tokens (Legacy Banner → Banner, Old Price → Price).
+ */
+function liveReplacement(index: GraphIndex, node: GraphNode): GraphNode | undefined {
+  const live = index.getNodesByType(...MASTER_TYPES).filter((candidate) => {
+    if (candidate.id === node.id) return false;
+    if (candidate.status === "deprecated") return false;
+    if (isPrivateMaster(index, candidate)) return false;
+    return true;
+  });
+  const explicit = replacedByName(node);
+  if (explicit) {
+    const needle = explicit.toLowerCase();
+    const named = live.filter(
+      (candidate) => candidate.name.toLowerCase() === needle || candidate.id === explicit,
+    );
+    const picked = named.sort(
+      (a, b) =>
+        Number(b.type === "COMPONENT_SET") - Number(a.type === "COMPONENT_SET") ||
+        a.name.length - b.name.length ||
+        a.name.localeCompare(b.name),
+    )[0];
+    if (picked) return picked;
+  }
+  const wanted = tokensOf(node.name).filter((token) => !RETIRED_NAME_TOKENS.has(token));
+  if (!wanted.length) return undefined;
+  const cousins = live.filter((candidate) => {
+    const have = new Set(tokensOf(candidate.name));
+    return wanted.every((token) => have.has(token));
+  });
+  cousins.sort((a, b) => {
+    const extra = (candidate: GraphNode) => tokensOf(candidate.name).length - wanted.length;
+    return extra(a) - extra(b) || a.name.length - b.name.length || a.name.localeCompare(b.name);
+  });
+  return cousins[0];
+}
+
 /**
  * Brief/intent → ranked library masters. Agent does not need the component
- * name. Name/intent, variant props, where-used + sibling co-occurrence, live
- * over stale, deprecated demoted. Optional product/journey context boosts
- * masters used on matching screens. Never invents a component that is not in the graph.
+ * name. A strong name, token, or synonym match leads. Screen, journey, and
+ * usage only break ties among those matches — they cannot pull in a master
+ * the words do not name. Deprecated names resolve to the live replacement.
+ * Never invents a component that is not in the graph.
  */
 export function recommendMasters(
   index: GraphIndex,
@@ -996,43 +1441,90 @@ export function recommendMasters(
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
   const analog = similarUsage(index, intent);
   const analogById = new Map(analog.variants.map((variant) => [variant.id, variant]));
-  const tokens = analog.tokens.length ? analog.tokens : tokensOf(intent);
+  const slotRaw = options.context?.journey?.step?.trim() ?? "";
+  const slotTokens = tokensOf(slotRaw.replace(/-/g, " "));
+  const slotRole = slotIsComponentRole(slotTokens);
+  const brief = splitBrief(intent);
+  const askedTokens = tokensOf(brief.role);
+  if (xMeansClose(brief.role) && !askedTokens.includes("close")) askedTokens.push("close");
+  // Exclusive family only when the slot is a component role and the intent is a
+  // screen job ("sign in"). "input chip" and "checkout summary" already name a
+  // master, so those tokens stay in the lexical score and context breaks the tie.
+  const exclusiveSlot = slotRole && !intentNamesMaster(index, askedTokens);
+  const familyTokens = slotTokens.filter((token) => !SLOT_QUALIFIERS.has(token));
+  const tokens = exclusiveSlot
+    ? familyTokens.length
+      ? familyTokens
+      : askedTokens
+    : [...new Set([...askedTokens, ...(slotRole ? familyTokens : [])])];
+  const extraTokens = exclusiveSlot ? askedTokens.filter((token) => !slotTokens.includes(token)) : [];
+  const sceneTokens = exclusiveSlot
+    ? [...new Set([...tokensOf(brief.scene), ...askedTokens])]
+    : tokensOf(brief.scene);
+  const placeTokens = [...new Set([...tokens, ...extraTokens, ...sceneTokens, ...slotTokens])];
   const nestedByScreen = mastersByScreen(index);
   const ctx = contextTokenGroups(options.context);
   const packRules = options.context?.libraryRules;
   const workspace = options.workspace;
   const graphFileKey = index.graph.fileKey;
+  const intentNeedle = intent.trim().toLowerCase();
 
   type Scored = {
     node: GraphNode;
     score: number;
+    lexical: number;
     why: string[];
+    whyOverride?: string;
     analog: boolean;
     deprecated: boolean;
     instances: number;
     setName?: string;
     exactName: boolean;
+    covered: number;
   };
 
-  const scored: Scored[] = [];
-  for (const node of index.getNodesByType(...MASTER_TYPES)) {
-    const set = setOf(index, node);
-    if (isPrivateMasterName(node.name) || (set && isPrivateMasterName(set.name))) continue;
-    if (deniedByRules(index, node, packRules)) continue;
-    if (node.metadata?.["removedByAbsence"] === true) continue;
-    if (isRemovedByAbsence(options.sock, node)) continue;
-    const intentNeedle = intent.trim().toLowerCase();
+  const scoreNode = (node: GraphNode, set: GraphNode | undefined): Scored | undefined => {
+    const collapsedAsk = collapsedName(intentNeedle);
     const exactName =
       Boolean(intentNeedle) &&
       (node.name.toLowerCase() === intentNeedle ||
-        (Boolean(set) && set!.name.toLowerCase() === intentNeedle && node.type === "COMPONENT_SET"));
+        collapsedName(node.name) === collapsedAsk ||
+        phraseNamesMatch(intentNeedle, node.name) ||
+        (Boolean(set) &&
+          node.type === "COMPONENT_SET" &&
+          (set!.name.toLowerCase() === intentNeedle ||
+            collapsedName(set!.name) === collapsedAsk ||
+            phraseNamesMatch(intentNeedle, set!.name))));
     const nameHaystack = `${node.name} ${set?.name ?? ""}`;
-    const nameScore = overlap(nameHaystack, tokens);
-    const variantScore = overlap(variantHaystack(node), tokens);
+    const variantText = variantHaystack(node);
+    const hits = tokenHits(nameHaystack, variantText, tokens);
+    const extraHits = extraTokens.length ? tokenHits(nameHaystack, variantText, extraTokens) : undefined;
+    // A screen-job slot names the family ("sign in" + primary-cta → buttons).
+    // When the intent already names a master, that gate stays off.
+    let lexical: number;
+    if (exactName) {
+      lexical = lexicalScore(hits, true);
+    } else if (exclusiveSlot) {
+      if (hits.name === 0 && hits.synonym === 0 && hits.variant === 0) return undefined;
+      const familyLexical = hits.name > 0 || hits.synonym > 0 ? 100 : 40;
+      lexical =
+        familyLexical +
+        (extraHits?.name ?? 0) * 100 +
+        (extraHits?.synonym ?? 0) * 70 +
+        (extraHits?.variant ?? 0) * 40;
+    } else {
+      lexical = lexicalScore(hits, false);
+      if (lexical === 0) return undefined;
+      if (genericOnlyMiss(node.name, tokens)) return undefined;
+      const nameTokens = tokensOf(node.name);
+      const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
+      if (nameTokens.length > 0 && matched === nameTokens.length) lexical += 25;
+    }
+
     const analogHit = analogById.get(node.id);
     const screens = screensOfMaster(index, node);
     let whereUsedScore = 0;
-    for (const screen of screens) whereUsedScore += overlap(screen.name, tokens);
+    for (const screen of screens) whereUsedScore += overlap(screen.name, placeTokens);
     let coOccur = 0;
     for (const screen of screens) {
       for (const sibling of nestedByScreen.get(screen.id) ?? []) {
@@ -1043,19 +1535,11 @@ export function recommendMasters(
       }
     }
 
-    if (nameScore === 0 && variantScore === 0 && !analogHit && whereUsedScore === 0 && coOccur === 0) {
-      continue;
-    }
-
     let productHit = 0;
     let clientHit = 0;
     let domainHit = 0;
     let journeyHit = 0;
     if (ctx) {
-      productHit = overlap(nameHaystack, ctx.product);
-      clientHit = overlap(nameHaystack, ctx.client);
-      domainHit = overlap(nameHaystack, ctx.domain);
-      journeyHit = overlap(nameHaystack, ctx.journey);
       for (const screen of screens) {
         productHit += overlap(screen.name, ctx.product);
         clientHit += overlap(screen.name, ctx.client);
@@ -1064,13 +1548,13 @@ export function recommendMasters(
       }
     }
     const libraryHit = isLibraryFileKey(workspace, nodeFileKey(node, graphFileKey));
-
     const deprecated = node.status === "deprecated";
     const instances = computeComponentUsage(index, node).instanceCount;
     const stale = instances === 0;
     const why: string[] = [];
-    if (nameScore > 0) why.push("name");
-    if (variantScore > 0) why.push("variant");
+    if (hits.name > 0 || (extraHits?.name ?? 0) > 0 || exactName) why.push("name");
+    if (hits.synonym > 0 || (extraHits?.synonym ?? 0) > 0) why.push("synonym");
+    if (hits.variant > 0 || (extraHits?.variant ?? 0) > 0) why.push("variant");
     if (analogHit) why.push("similar-screen");
     if (whereUsedScore > 0) why.push("where-used");
     if (coOccur > 0) why.push("co-occur");
@@ -1085,37 +1569,157 @@ export function recommendMasters(
     if (stale) why.push("stale");
 
     const typeBoost = node.type === "COMPONENT_SET" ? 3 : node.type === "MAIN_COMPONENT" ? 2 : 1;
-    const analogBoost = analogHit ? 50 + analogHit.count : 0;
     const sockBoost = sockPattern?.promoted && sockPattern.confidence === "strong" ? 20 : 0;
-    const liveBoost = stale ? 0 : 18 + Math.log1p(instances) * 4;
-    let score =
-      (exactName ? 10_000 : 0) +
-      nameScore * 8 +
-      variantScore * 16 +
-      analogBoost +
-      whereUsedScore * 14 +
-      Math.min(coOccur, 8) * 10 +
-      productHit * 16 +
-      clientHit * 12 +
-      domainHit * 16 +
-      journeyHit * 18 +
-      (libraryHit ? 36 : 0) +
+    let context =
+      Math.min(whereUsedScore, 4) * 40 +
+      Math.min(coOccur, 4) * 8 +
+      Math.min(productHit, 3) * 24 +
+      Math.min(clientHit, 3) * 16 +
+      Math.min(domainHit, 4) * 50 +
+      Math.min(journeyHit, 4) * 50 +
+      (analogHit ? 25 : 0) +
+      (libraryHit ? 20 : 0) +
       sockBoost +
-      liveBoost +
+      (stale ? 0 : Math.min(36, Math.round(Math.log1p(instances) * 10))) +
       typeBoost;
-    if (stale) score -= 24;
-    if (deprecated) score -= 10_000;
+    if (stale) context -= 30;
+    if (slotRole) {
+      const names = new Set(tokensOf(nameHaystack));
+      const variants = new Set(tokensOf(variantText));
+      for (const token of slotTokens) {
+        if (!SLOT_QUALIFIERS.has(token)) continue;
+        if (names.has(token) || variants.has(token)) context += 40;
+      }
+    }
+    context = Math.max(0, Math.min(context, 999));
+    let score = lexical * 1000 + context;
+    if (deprecated) score -= 1_000_000;
 
-    scored.push({
+    return {
       node,
       score,
+      lexical,
       why,
       analog: Boolean(analogHit),
       deprecated,
       instances,
       setName: set && set.id !== node.id ? set.name : undefined,
       exactName,
-    });
+      covered: hits.covered + (extraHits?.covered ?? 0),
+    };
+  };
+
+  const scored: Scored[] = [];
+  const retired: Scored[] = [];
+  let privateCovered = 0;
+  for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    const set = setOf(index, node);
+    if (deniedByRules(index, node, packRules)) continue;
+    if (node.metadata?.["removedByAbsence"] === true) continue;
+    if (isRemovedByAbsence(options.sock, node)) continue;
+    const entry = scoreNode(node, set);
+    if (!entry) continue;
+    if (isPrivateMaster(index, node)) {
+      privateCovered = Math.max(privateCovered, entry.covered);
+      continue;
+    }
+    if (entry.deprecated) retired.push(entry);
+    else scored.push(entry);
+  }
+
+  const publicCovered = scored.reduce((best, entry) => Math.max(best, entry.covered), 0);
+  let blockedByPrivate = false;
+  if (tokens.length > 0 && privateCovered > publicCovered) {
+    scored.length = 0;
+    retired.length = 0;
+    blockedByPrivate = true;
+  }
+
+  const asksRetired =
+    tokens.some((token) => RETIRED_NAME_TOKENS.has(token)) ||
+    retired.some((entry) => entry.exactName);
+  const askedSpecific = tokens.filter((token) => !RETIRED_NAME_TOKENS.has(token));
+  let redirect: { id: string; reason: string; covered: number } | undefined;
+  for (const entry of retired) {
+    const replacement = liveReplacement(index, entry.node);
+    if (!replacement) {
+      scored.push(entry);
+      continue;
+    }
+    const nameSpecific = tokensOf(entry.node.name).filter((token) => !RETIRED_NAME_TOKENS.has(token));
+    const specificOverlap = askedSpecific.filter((token) => nameSpecific.includes(token)).length;
+    // "legacy" alone may name a retired master. "legacy price" must not follow
+    // Legacy Banner just because both names say legacy.
+    if (askedSpecific.length > 0 && specificOverlap === 0) continue;
+    const rank = askedSpecific.length > 0 ? specificOverlap : entry.covered;
+    if (asksRetired && rank > 0 && entry.covered >= publicCovered) {
+      const reason = `replaces ${entry.node.name} (deprecated)`;
+      if (!redirect || rank > redirect.covered) {
+        redirect = { id: replacement.id, reason, covered: rank };
+      }
+    }
+  }
+  if (redirect) {
+    const existing = scored.find((entry) => entry.node.id === redirect!.id);
+    if (existing) {
+      existing.whyOverride = redirect.reason;
+      existing.score += 500_000;
+    } else {
+      const node = index.getNode(redirect.id);
+      if (node && node.status !== "deprecated" && !isPrivateMaster(index, node)) {
+        const set = setOf(index, node);
+        const injected = scoreNode(node, set) ?? {
+          node,
+          score: 0,
+          lexical: 0,
+          why: [] as string[],
+          analog: false,
+          deprecated: false,
+          instances: computeComponentUsage(index, node).instanceCount,
+          setName: set && set.id !== node.id ? set.name : undefined,
+          exactName: false,
+          covered: 0,
+        };
+        injected.whyOverride = redirect.reason;
+        injected.score += 500_000;
+        scored.push(injected);
+      }
+    }
+  }
+
+  const domainExempt = new Set<string>([...contextWords(options.context), ...screenWords(index)]);
+  const outOfDomain = outOfDomainAsk(brief.role, askedTokens, liveNameSets(index), domainExempt);
+  if (outOfDomain) {
+    scored.length = 0;
+    retired.length = 0;
+  }
+
+  if (!blockedByPrivate && !outOfDomain && scored.length === 0 && intentNeedle) {
+    const winners: GraphNode[] = [];
+    for (const node of index.getNodesByType(...MASTER_TYPES)) {
+      if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
+      if (deniedByRules(index, node, packRules)) continue;
+      if (node.metadata?.["removedByAbsence"] === true) continue;
+      if (isRemovedByAbsence(options.sock, node)) continue;
+      if (!wholeNameTypo(intentNeedle, node.name)) continue;
+      winners.push(node);
+    }
+    const winner = winners.length === 1 ? winners[0] : undefined;
+    if (winner) {
+      const set = setOf(index, winner);
+      scored.push({
+        node: winner,
+        score: 15_000,
+        lexical: 15,
+        why: ["typo"],
+        analog: false,
+        deprecated: false,
+        instances: computeComponentUsage(index, winner).instanceCount,
+        setName: set && set.id !== winner.id ? set.name : undefined,
+        exactName: false,
+        covered: 1,
+      });
+    }
   }
 
   const analogIds = new Set(analogById.keys());
@@ -1132,8 +1736,15 @@ export function recommendMasters(
       return false;
     }
     if (entry.node.type !== "VARIANT") return true;
-    if (analogIds.has(entry.node.id)) return true;
-    if (entry.why.includes("variant") || entry.why.includes("where-used") || entry.why.includes("co-occur")) {
+    if (entry.exactName || analogIds.has(entry.node.id)) return true;
+    if (
+      entry.why.includes("name") ||
+      entry.why.includes("synonym") ||
+      entry.why.includes("variant") ||
+      entry.why.includes("typo") ||
+      entry.why.includes("where-used") ||
+      entry.why.includes("co-occur")
+    ) {
       return true;
     }
     return !entry.node.componentSetId || !setIds.has(entry.node.componentSetId);
@@ -1162,13 +1773,15 @@ export function recommendMasters(
         const set = setOf(index, node);
         return {
           node,
-          score: 10_000,
+          score: 1_000_000,
+          lexical: 1_000,
           why: ["bind-rule"],
           analog: false,
           deprecated: node.status === "deprecated",
           instances: computeComponentUsage(index, node).instanceCount,
           setName: set && set.id !== node.id ? set.name : undefined,
           exactName: false,
+          covered: tokens.length,
         };
       },
     });
@@ -1206,14 +1819,16 @@ export function recommendMasters(
       : place.published
         ? "Place fileKey + nodeId + componentKey."
         : "Place fileKey + nodeId. Local-only (no published key).";
-    const why = whyLineForMaster(entry.node, {
-      sock: options.sock,
-      packJourney,
-      bindRule: options.bindRules
-        ? bindRuleHit(options.bindRules, entry.node, bindQuery)
-        : undefined,
-      graphFileKey,
-    });
+    const why =
+      entry.whyOverride ??
+      whyLineForMaster(entry.node, {
+        sock: options.sock,
+        packJourney,
+        bindRule: options.bindRules
+          ? bindRuleHit(options.bindRules, entry.node, bindQuery)
+          : undefined,
+        graphFileKey,
+      });
     return {
       id: entry.node.id,
       name: entry.node.name,
@@ -1232,33 +1847,49 @@ export function recommendMasters(
     };
   };
 
-  let includeSlots = false;
-  let whereLimit = 0;
-  let limit = Math.min(kept.length, 6);
+  const tight = budgetChars <= RECOMMEND_BUDGET;
+  const target = tight ? 3 : 6;
+  let limit = Math.min(kept.length, target);
   let truncated = kept.length > limit;
-  const compactCandidate = (entry: Scored, index: number): RecommendCandidate => {
-    const full = toCandidate(entry, includeSlots, whereLimit);
-    if (index === 0) {
-      return { ...full, whereUsed: [] };
-    }
-    return {
-      id: full.id,
-      name: full.name,
-      type: full.type,
-      deprecated: full.deprecated,
-      instances: full.instances,
+  let dropExtras = false;
+
+  const shortReason = (why: string): string => {
+    const cut = why.split(";")[0]?.trim() || why;
+    return cut.length > 64 ? `${cut.slice(0, 61)}…` : cut;
+  };
+
+  const leadCandidate = (entry: Scored): RecommendCandidate => {
+    const full = toCandidate(entry, false, 0);
+    const next: RecommendCandidate = {
+      ...full,
       whereUsed: [],
-      score: full.score,
-      why: full.why,
-      hint: full.hint,
-      published: full.published,
-      publishState: full.publishState,
-      ...(full.nodeId ? { nodeId: full.nodeId, figmaNodeId: full.figmaNodeId } : {}),
-      ...(full.fileKey ? { fileKey: full.fileKey } : {}),
-      ...(full.componentKey ? { componentKey: full.componentKey } : {}),
+      hint: full.deprecated ? "Deprecated — do not place." : "Place fileKey + nodeId.",
+    };
+    delete next.slots;
+    if (dropExtras) {
+      delete next.set;
+    }
+    return next;
+  };
+
+  const altCandidate = (entry: Scored): RecommendAlternate => {
+    const place = placeReady(entry.node, graphFileKey);
+    const why = entry.whyOverride ?? toCandidate(entry, false, 0).why;
+    return {
+      id: entry.node.id,
+      name: entry.node.name,
+      why: shortReason(why),
+      ...(place.fileKey ? { fileKey: place.fileKey } : {}),
+      ...(place.figmaNodeId ? { figmaNodeId: place.figmaNodeId } : {}),
     };
   };
-  let candidates = kept.slice(0, limit).map((entry, index) => compactCandidate(entry, index));
+
+  const listed = (): RecommendHit[] =>
+    kept.slice(0, limit).map((entry, index) =>
+      index === 0 || !tight ? leadCandidate(entry) : altCandidate(entry),
+    );
+
+  let candidates = listed();
 
   const applied = appliedRecommendContext(options.context);
   const payloadOf = () => {
@@ -1270,54 +1901,55 @@ export function recommendMasters(
       hint:
         candidates.length === 0
           ? `No master matched. Do not invent. ${refreshHintFor(options.sock, graphFileKey)}`
-          : `Place fileKey+nodeId. ${refreshHintFor(options.sock, graphFileKey)}`,
+          : candidates.length > 1 &&
+              candidates.slice(1).some((row) => !("fileKey" in row && row.fileKey) || !("figmaNodeId" in row && row.figmaNodeId))
+            ? `Place fileKey+nodeId on the top hit. Resolve an alternate by id before placing it. ${refreshHintFor(options.sock, graphFileKey)}`
+            : `Place fileKey+nodeId. ${refreshHintFor(options.sock, graphFileKey)}`,
     };
     const fitted = fitBindRuleWarnings(options.bindRules?.warnings, base, budgetChars);
     return { ...base, ...fitted };
   };
 
   let payload = payloadOf();
-  while (JSON.stringify(payload).length > budgetChars && (includeSlots || whereLimit > 0 || limit > 1)) {
-    truncated = true;
-    if (includeSlots) includeSlots = false;
-    else if (whereLimit > 0) whereLimit = whereLimit > 2 ? 2 : whereLimit > 1 ? 1 : 0;
-    else limit = Math.max(1, Math.floor(limit / 2));
-    candidates = kept.slice(0, limit).map((entry, index) => compactCandidate(entry, index));
+  const shrink = () => {
+    candidates = listed();
     payload = payloadOf();
-  }
+  };
 
-  // Order stays. Shorten wording, then drop extra hits, then optional fields, until the cap holds.
   if (JSON.stringify(payload).length > budgetChars) {
     truncated = true;
-    candidates = candidates.map((candidate) => ({
-      ...candidate,
-      why: candidate.why.length > 72 ? `${candidate.why.slice(0, 69)}…` : candidate.why,
-      hint: "Place fileKey + nodeId.",
-    }));
+    dropExtras = true;
+    shrink();
+  }
+  if (JSON.stringify(payload).length > budgetChars && limit > 2) {
+    truncated = true;
+    limit = 2;
+    shrink();
+  }
+  if (JSON.stringify(payload).length > budgetChars && candidates[0] && "hint" in candidates[0]) {
+    truncated = true;
+    const lead = candidates[0];
+    candidates = [
+      {
+        ...lead,
+        why: lead.why.length > 72 ? `${lead.why.slice(0, 69)}…` : lead.why,
+        hint: "Place fileKey + nodeId.",
+      },
+      ...candidates.slice(1),
+    ];
     payload = payloadOf();
   }
   while (JSON.stringify(payload).length > budgetChars && candidates.length > 1) {
     truncated = true;
-    candidates = candidates.slice(0, candidates.length - 1);
-    payload = payloadOf();
+    limit = candidates.length - 1;
+    shrink();
   }
-  if (JSON.stringify(payload).length > budgetChars) {
+  if (JSON.stringify(payload).length > budgetChars && candidates[0] && "variantProperties" in candidates[0]) {
     truncated = true;
-    candidates = candidates.map((candidate) => {
-      const next: RecommendCandidate = { ...candidate, whereUsed: [] };
-      delete next.slots;
-      delete next.set;
-      return next;
-    });
-    payload = payloadOf();
-  }
-  if (JSON.stringify(payload).length > budgetChars) {
-    truncated = true;
-    candidates = candidates.map((candidate) => {
-      const next: RecommendCandidate = { ...candidate };
-      delete next.variantProperties;
-      return next;
-    });
+    const lead = { ...candidates[0] };
+    delete lead.variantProperties;
+    delete lead.set;
+    candidates = [lead, ...candidates.slice(1)];
     payload = payloadOf();
   }
 

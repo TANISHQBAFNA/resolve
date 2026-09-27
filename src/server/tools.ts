@@ -150,6 +150,7 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string", description: "Product id or name. Scopes ranking when a pack matches, else inline." },
         journey: { type: "string", description: "Journey step / screen job. Scopes ranking on top of name/intent." },
         domain: { type: "string", description: 'Product domain, e.g. "checkout" or "onboarding".' },
+        screenType: { type: "string", description: 'Screen kind, e.g. "settings" or "checkout". Same tie-break as domain.' },
         budgetChars: { type: "number", description: "Hard cap on JSON chars. Default 600." },
         ...freshnessProperties,
       },
@@ -182,12 +183,20 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "resolve",
     description:
-      "I know the name, give me the id. Exact master name or id always returns id + fileKey + figmaNodeId even when unused (zero instances). One-line why from SOCK facts. Usage screens are additive. Unknown name: found=false + call recommend \"<intent>\", not an empty list. Frame names return a screen inventory. Cap ~2000 chars.",
+      "I know the name, give me the id. Exact master name or id always returns id + fileKey + figmaNodeId even when unused (zero instances). One-line why from SOCK facts. Optional screenType/journey/domain breaks cousin ties the same way recommend does. A deprecated master comes back flagged, plus its live replacement. Names starting with _ or . return only on an exact name; a fuzzy ask does not. Unknown name: found=false + call recommend \"<intent>\", not an empty list. Frame names return a screen inventory. Cap ~2000 chars.",
     inputSchema: {
       type: "object",
       properties: {
         ...graphIdProperty,
         name: { type: "string", description: 'Component or frame name, e.g. "Main Card" or "Portfolio"' },
+        pack: {
+          type: "string",
+          description: "Context pack id from .graphify/context-packs.json. Else the file's active pack.",
+        },
+        product: { type: "string", description: "Product id or name. Scopes ranking when a pack matches, else inline." },
+        journey: { type: "string", description: "Journey step / screen job. Breaks ties between cousins." },
+        domain: { type: "string", description: 'Product domain, e.g. "checkout" or "settings".' },
+        screenType: { type: "string", description: 'Screen kind, e.g. "settings" or "checkout".' },
         budgetChars: { type: "number", description: "Hard cap on JSON chars. Default 2000." },
         ...freshnessProperties,
       },
@@ -724,9 +733,16 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
     case "resolve": {
       const { index } = context(args);
       const budget = typeof args["budgetChars"] === "number" ? args["budgetChars"] : undefined;
+      const bind = contextBindFromArgs(args);
+      const pack = packForRecommend(bind);
+      const screenType = typeof args["screenType"] === "string" ? args["screenType"] : undefined;
+      const resolvedContext = pack || screenType
+        ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
+        : undefined;
       return componentUsageCard(index, asString(args["name"] ?? args["query"], "name"), {
         budgetChars: budget,
         sock: readSock(),
+        ...(resolvedContext ? { context: resolvedContext } : {}),
       });
     }
 
@@ -762,9 +778,13 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const budget = typeof args["budgetChars"] === "number" ? args["budgetChars"] : undefined;
       const bind = contextBindFromArgs(args);
       const pack = packForRecommend(bind);
+      const screenType = typeof args["screenType"] === "string" ? args["screenType"] : undefined;
+      const resolvedContext = pack || screenType
+        ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
+        : undefined;
       return recommendMasters(index, asString(args["intent"] ?? args["question"] ?? args["query"], "intent"), {
         budgetChars: budget,
-        context: pack,
+        ...(resolvedContext ? { context: resolvedContext } : {}),
         workspace: bind.workspace,
         sock: readSock(),
         bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),

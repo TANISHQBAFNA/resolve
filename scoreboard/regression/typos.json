@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "ho-buton",
+      "intent": "buton",
+      "expected": "Button",
+      "mustNot": ["Input"],
+      "note": "One missing letter in a name of 5 or more letters, and only when nothing else matches."
+    },
+    {
+      "id": "ho-avtar",
+      "intent": "avtar",
+      "expected": "Avatar"
+    },
+    {
+      "id": "ho-chekbox",
+      "intent": "chekbox",
+      "expected": "Checkbox",
+      "note": "Whole name with spaces removed. One missing letter."
+    },
+    {
+      "id": "ho-swtich",
+      "intent": "swtich",
+      "expected": "Switch",
+      "note": "Neighbouring letters swapped."
+    },
+    {
+      "id": "ho-swich",
+      "intent": "swich",
+      "expected": "Switch"
+    },
+    {
+      "id": "ho-dividr",
+      "intent": "dividr",
+      "expected": "Divider"
+    },
+    {
+      "id": "ho-tost",
+      "intent": "tost",
+      "expect": "empty",
+      "note": "Four letters. A typo must not answer."
+    },
+    {
+      "id": "ho-modl",
+      "intent": "modl",
+      "expect": "empty",
+      "note": "Four letters. A typo must not answer."
+    },
+    {
+      "id": "ho-badg",
+      "intent": "badg",
+      "expect": "empty",
+      "note": "Four letters. A typo must not answer."
+    },
+    {
+      "id": "ho-prise",
+      "intent": "prise",
+      "expect": "empty",
+      "mustNot": ["Old Price", "Price"],
+      "note": "A substituted letter is not a typo."
+    },
+    {
+      "id": "ho-empty-kelp",
+      "intent": "kelp forest gauge",
+      "expect": "empty"
+    },
+    {
+      "id": "ho-empty-warp",
+      "intent": "warp drive throttle",
+      "expect": "empty"
+    },
+    {
+      "id": "ho-empty-quartz",
+      "intent": "quartz metronome",
+      "expect": "empty"
+    },
+    { "id": "ho-empty-cart", "intent": "cart", "expect": "empty", "note": "Ordinary word. A typo must not answer." },
+    { "id": "ho-empty-bard", "intent": "bard", "expect": "empty", "note": "Ordinary word. A typo must not answer." },
+    { "id": "ho-empty-coast", "intent": "coast", "expect": "empty", "note": "Ordinary word. A typo must not answer." },
+    { "id": "ho-empty-roast", "intent": "roast", "expect": "empty", "note": "Ordinary word. A typo must not answer." },
+    { "id": "ho-empty-moral", "intent": "moral", "expect": "empty", "note": "Ordinary word. A typo must not answer." },
+    { "id": "ho-empty-radix", "intent": "radix", "expect": "empty", "note": "Ordinary word. A typo must not answer." },
+    { "id": "ho-empty-badger", "intent": "badger", "expect": "empty", "note": "Ordinary word. A typo must not answer." },
+    { "id": "ho-empty-rice", "intent": "rice", "expect": "empty", "note": "Ordinary word. A typo must not answer." },
+    { "id": "ho-empty-chop", "intent": "chop", "expect": "empty", "note": "Ordinary word. A typo must not answer." },
+    { "id": "ho-empty-swatch", "intent": "swatch", "expect": "empty", "note": "Ordinary word. A typo must not answer." },
+    { "id": "ho-empty-maple", "intent": "maple", "expect": "empty", "note": "Ordinary word. A typo must not answer." },
+    { "id": "ho-empty-orbit", "intent": "orbit", "expect": "empty", "note": "Ordinary word. A typo must not answer." }
+  ]
+}

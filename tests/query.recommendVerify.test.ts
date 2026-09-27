@@ -126,10 +126,11 @@ describe("recommend (library ranking)", () => {
   it("ranks analog masters for an intent without requiring the component name", () => {
     const result = recommendMasters(demo, "create account buttons");
     expect(result.candidates.length).toBeGreaterThan(0);
-    expect(result.candidates[0]?.id).toBe(ids.buttonPrimaryLarge);
-    expect(result.candidates[0]?.figmaNodeId).toBeTruthy();
-    expect(result.candidates[0]?.deprecated).toBe(false);
-    expect(result.candidates[0]?.variantProperties?.["Variant"]).toBe("Primary");
+    const lead = result.candidates[0];
+    expect(lead?.id).toBe(ids.buttonPrimaryLarge);
+    expect(lead && "figmaNodeId" in lead && lead.figmaNodeId).toBeTruthy();
+    expect(lead && "deprecated" in lead && lead.deprecated).toBe(false);
+    expect(lead && "variantProperties" in lead && lead.variantProperties?.["Variant"]).toBe("Primary");
     expect(result.cost.chars).toBeLessThan(650);
     expect(result.hint).toMatch(/Do not Read graph\.json/);
   });
@@ -137,11 +138,12 @@ describe("recommend (library ranking)", () => {
   it("demotes deprecated masters below live ones", () => {
     const result = recommendMasters(demo, "banner message");
     const banner = result.candidates.find((candidate) => candidate.id === ids.banner);
-    expect(banner).toBeDefined();
-    expect(banner?.deprecated).toBe(true);
-    const firstDeprecated = result.candidates.findIndex((candidate) => candidate.deprecated);
+    expect(banner && "deprecated" in banner && banner.deprecated).toBe(true);
+    const firstDeprecated = result.candidates.findIndex(
+      (candidate) => "deprecated" in candidate && candidate.deprecated,
+    );
     const lastLive = result.candidates.reduce(
-      (last, candidate, index) => (candidate.deprecated ? last : index),
+      (last, candidate, index) => ("deprecated" in candidate && candidate.deprecated ? last : index),
       -1,
     );
     if (firstDeprecated >= 0 && lastLive >= 0) {
@@ -153,20 +155,21 @@ describe("recommend (library ranking)", () => {
     const { index, ids: lab } = rankingLab();
     const result = recommendMasters(index, "checkout summary with primary button");
 
-    expect(result.candidates[0]?.id).toBe(lab.live);
-    expect(result.candidates[0]?.figmaNodeId).toBe("9:1");
-    expect(result.candidates[0]?.deprecated).toBe(false);
-    expect(result.candidates[0]?.variantProperties?.["Variant"]).toBe("Primary");
-    expect(typeof result.candidates[0]?.why).toBe("string");
+    const lead = result.candidates[0];
+    expect(lead?.id).toBe(lab.live);
+    expect(lead && "figmaNodeId" in lead && lead.figmaNodeId).toBe("9:1");
+    expect(lead && "deprecated" in lead && lead.deprecated).toBe(false);
+    expect(lead && "variantProperties" in lead && lead.variantProperties?.["Variant"]).toBe("Primary");
+    expect(typeof lead?.why).toBe("string");
 
     const ghost = result.candidates.find((candidate) => candidate.id === lab.ghost);
     const dead = result.candidates.find((candidate) => candidate.id === lab.dead);
     expect(result.candidates.findIndex((candidate) => candidate.id === lab.live)).toBe(0);
-    if (ghost) {
+    if (ghost && "instances" in ghost) {
       expect(ghost.instances).toBe(0);
       expect(ghost.why).toBe("no usage yet");
     }
-    if (dead) {
+    if (dead && "deprecated" in dead) {
       expect(dead.deprecated).toBe(true);
       expect(result.candidates.findIndex((candidate) => candidate.id === lab.dead)).toBeGreaterThan(0);
     }
@@ -195,9 +198,9 @@ describe("recommend (library ranking)", () => {
     for (const candidate of live.candidates) {
       const node = demo.getNode(candidate.id);
       expect(node).toBeDefined();
-      expect(["COMPONENT_SET", "MAIN_COMPONENT", "VARIANT"]).toContain(candidate.type);
+      expect(["COMPONENT_SET", "MAIN_COMPONENT", "VARIANT"]).toContain(node?.type);
     }
-    expect(live.candidates.some((candidate) => candidate.type === "FRAME")).toBe(false);
+    expect(live.candidates.some((candidate) => demo.getNode(candidate.id)?.type === "FRAME")).toBe(false);
   });
 
   it("ranks an exact name match first (Button / Avatar must not swap)", () => {

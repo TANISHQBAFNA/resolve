@@ -36,15 +36,23 @@ Cases live in `scoreboard/golden/*.json`. Each file is a list:
 | `accept` | Other masters that are also fine. |
 | `mustNot` | Cousins that must not be the top pick. Example: Pay CTA vs Save CTA, Tag vs Chip. |
 | `expect` | `master` (the default when `expected` is set) or `empty`. |
-| `tools` | Either per-tool overrides, or a list of tools this case is for. `["recipe"]` marks a recipe case. Overrides: asking for `Legacy Banner` by its exact name. Recommend should return the live Banner. Resolve returning Legacy Banner, marked deprecated, is correct. |
+| `tools` | An object overrides the expectation for the tools it names. Every other tool keeps the case's normal expectation. `["recipe"]` marks a recipe case and does not drop recommend or resolve. Example: asking for `Legacy Banner` by its exact name. Recommend should return the live Banner. Resolve returning Legacy Banner, marked deprecated, is correct. |
 
-`empty` means there is no correct master. The card should come back empty, not a guess. Use this for private masters (`_Name`, `.Name`) and for questions the library cannot answer.
+`empty` means there is no correct master. The card should come back empty, not a guess. Use this for private masters (`_Name`, `.Name`) and for questions the library cannot answer. An empty case may also list `accept`. An empty card is correct, and so is a top pick named there. Any other pick is a miss. `ctx-filter-tag` uses that: no Filter master exists, so empty is right, and Tag is acceptable only because the Catalog Filter screen uses it.
 
 The shipped set covers exact names, synonyms, screen-context picks, cousin traps, deprecated masters, private masters, and questions with no answer. There are more than 60 cases. The sample library is `scoreboard/fixture/library.json`.
 
+## Regression set
+
+`scoreboard/regression/` locks ranking bugs found while reviewing this work: phrase matches, typos that must stay empty, and synonym wording. It was written with the ranking code, so a score on it is not accuracy on phrasing the ranker had not already seen. Do not tune weights to lift it.
+
+```bash
+npm run resolve -- score --golden scoreboard/regression --workspace fixture
+```
+
 ## What is measured
 
-Every case is sent through recommend, resolve, recipe, and verify. A tool is scored only when the question is one it can answer.
+Every case is sent through recommend, resolve, recipe, and verify. A tool is scored only when the question is one it can answer. An object in `tools` changes that tool's expectation. It does not skip the others.
 
 | Measure | What it means |
 | --- | --- |
@@ -54,7 +62,7 @@ Every case is sent through recommend, resolve, recipe, and verify. A tool is sco
 | Top-3 | Only cards that offered three or more candidates. Shown as `x/N`, or `n/a (N=0)` when no card held three. The change-since-last-run line leaves top-3 out until that N is at least 10. |
 | Empty-when-weak | For no-answer cases, the card is empty. A tool with no such cases shows `n/a`, not 0%. |
 | Deprecated or private leak | A retired master, or a private `_` / `.` master, was **offered as a pick** (a recommend candidate, a filled recipe slot, or a master verify approves). A master verify only flags does not count. The same pick is not both a leak and a wrong cousin. |
-| Recipe | Scored only on cases marked `"tools": ["recipe"]` that also name a slot. A marked case whose recipe card is missing is a miss, so a broken recipe tool scores `0/3`, not a skip. Reported as “2/3 on screen cases”. No slot means that case is not scored. The first slot is not used as a stand-in. |
+| Recipe | Scored only on cases marked `"tools": ["recipe"]` that also name a slot. A marked case whose recipe card is missing is a miss, so a broken recipe tool scores `0/3`, not a skip. Reported as `hits/cases` on screen cases. No slot means that case is not scored. The first slot is not used as a stand-in. |
 | Verify | The “top-1” column is a did-you-mean hit. It is scored only when the intent is a component name, not free text like “primary button”. The suggestion itself is a component master, not a frame. This row is not mixed into the run-level top-1. |
 | Card size | Median and largest card per tool. Recommend and verify must stay at or under 600 characters. Resolve and recipe must stay at or under 2000. Over the budget, the run fails. |
 | Latency | Median and 95th percentile of those calls. |
@@ -77,7 +85,7 @@ Flags:
 - `--workspace <name>` — which `~/.resolve/<name>` folder holds the run history. `.`, `..`, and slashes are rejected, so a name cannot write outside that folder. The graph still comes from the active store (`GRAPHIFY_HOME`, or `~/.resolve/<name>` when that is the store).
 - `--json` — print the run as JSON instead of the table. The JSON includes every miss. The table stays short.
 
-Each run is saved to `~/.resolve/<name>/scoreboard/<timestamp>.json`. The change since last time is shown only when the previous run used the same golden set and the same workspace. The trend on Overview and Rules uses that same pair of checks. A workspace name of `.`, `..`, or a path returns HTTP 400 from `/api/scoreboard`.
+Each run is saved to `~/.resolve/<name>/scoreboard/<timestamp>.json`. The change since last time is shown only when the previous run used the same golden set and the same workspace. A first run, or a run against a different set, has a null delta — not zeros. The trend on Overview and Rules uses that same pair of checks. A workspace name of `.`, `..`, or a path returns HTTP 400 from `/api/scoreboard`.
 
 The process exits with an error if the invent rate is above 0 or a card is over its size budget. Other numbers are reported. They do not, by themselves, fail the run.
 
