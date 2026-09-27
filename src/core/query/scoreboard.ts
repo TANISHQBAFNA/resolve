@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { z } from "zod";
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
@@ -52,6 +53,13 @@ const GENERIC_NAME_TOKENS = new Set([
   "tertiary",
 ]);
 
+const ToolSpecSchema = z.object({
+  expect: z.enum(["master", "empty", "skip"]).optional(),
+  expected: z.string().trim().min(1).optional(),
+  accept: z.array(z.string().trim().min(1)).optional(),
+  mustNot: z.array(z.string().trim().min(1)).optional(),
+});
+
 const CaseSchema = z.object({
   id: z.string().trim().min(1),
   intent: z.string().trim().min(1),
@@ -63,12 +71,27 @@ const CaseSchema = z.object({
   mustNot: z.array(z.string().trim().min(1)).optional(),
   expect: z.enum(["master", "empty"]).optional(),
   note: z.string().optional(),
+  tools: z
+    .object({
+      recommend: ToolSpecSchema.optional(),
+      resolve: ToolSpecSchema.optional(),
+      recipe: ToolSpecSchema.optional(),
+      verify: ToolSpecSchema.optional(),
+    })
+    .optional(),
 });
 
 const FileSchema = z.object({
   version: z.literal(1).optional(),
   cases: z.array(CaseSchema).min(1),
 });
+
+export interface ToolSpec {
+  expect?: "master" | "empty" | "skip";
+  expected?: string;
+  accept?: string[];
+  mustNot?: string[];
+}
 
 export interface GoldenCase {
   id: string;
@@ -80,6 +103,8 @@ export interface GoldenCase {
   accept?: string[];
   mustNot?: string[];
   expect: "master" | "empty";
+  /** Per-tool override. Resolve of an exact deprecated or private name is not a recommend miss. */
+  tools?: Partial<Record<ScoreTool, ToolSpec>>;
   note?: string;
 }
 
@@ -93,8 +118,11 @@ export interface ScorePick {
 export interface ToolCaseResult {
   tool: ScoreTool;
   picks: ScorePick[];
+  /** How many masters the card actually offered. One candidate makes top-3 meaningless. */
+  candidates: number;
   chars: number;
   ms: number;
+  expect: "master" | "empty";
   top1: boolean;
   top3: boolean;
   emptyOk: boolean;
@@ -113,6 +141,11 @@ export interface ToolRollup {
   emptyWhenWeak: number;
   wrongCousinRate: number;
   leakRate: number;
+  top1Count: number;
+  /** False when scored cards never hold three candidates. */
+  top3Applicable: boolean;
+  candidatesP50: number;
+  candidatesMax: number;
   sizeP50: number;
   sizeMax: number;
   budget: number;
@@ -131,6 +164,8 @@ export interface ScoreReport {
   at: string;
   workspace: string;
   golden: string;
+  /** Hash of the golden files. Deltas compare only the same hash and workspace. */
+  goldenHash?: string;
   storePath?: string;
   fileName?: string;
   builtAt?: string;
@@ -171,7 +206,10 @@ interface BoundCase extends GoldenCase {
 
 interface GraphVocab {
   ids: Set<string>;
+  /** Every node name, including frames. Used for where-used screen labels. */
   names: Set<string>;
+  /** COMPONENT_SET / MAIN_COMPONENT / VARIANT names only. */
+  componentNames: Set<string>;
   fileKeys: Set<string>;
   byId: Map<string, GraphNode>;
 }
@@ -235,19 +273,22 @@ export function resolveMasterByName(index: GraphIndex, name: string): GraphNode 
 function vocabOf(index: GraphIndex): GraphVocab {
   const ids = new Set<string>();
   const names = new Set<string>();
+  const componentNames = new Set<string>();
   const fileKeys = new Set<string>();
   const byId = new Map<string, GraphNode>();
+  const masterTypes = new Set<string>(COMPONENT_DEFINITION_TYPES);
   if (index.graph.fileKey) fileKeys.add(index.graph.fileKey);
   for (const node of index.allNodes) {
     ids.add(node.id);
     if (node.figmaNodeId) ids.add(node.figmaNodeId);
     names.add(node.name);
+    if (masterTypes.has(node.type)) componentNames.add(node.name);
     if (node.fileKey) fileKeys.add(node.fileKey);
     byId.set(node.id, node);
     const key = node.metadata?.["key"];
     if (typeof key === "string" && key.trim()) ids.add(key.trim());
   }
-  return { ids, names, fileKeys, byId };
+  return { ids, names, componentNames, fileKeys, byId };
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -266,6 +307,7 @@ function boolOf(value: unknown): boolean {
 interface RefBag {
   ids: string[];
   names: string[];
+  screenNames: string[];
 }
 
 function pushId(bag: RefBag, value: unknown): void {
@@ -278,30 +320,51 @@ function pushName(bag: RefBag, value: unknown): void {
   if (text) bag.names.push(text);
 }
 
-/** Ids and component names a card offers. Skips echoed inputs and recipe/pack ids. */
-function collectCardRefs(value: unknown, parentKey: string | undefined, bag: RefBag): void {
+const FREE_TEXT_KEYS = new Set([
+  "hint",
+  "why",
+  "intent",
+  "query",
+  "notes",
+  "note",
+  "nextRecommend",
+  "summary",
+  "evidence",
+  "label",
+]);
+
+const COMPONENT_NAME_PARENTS = new Set(["component", "master", "candidates", "components", "didYouMean"]);
+const LOCATION_NAME_PARENTS = new Set(["whereUsed", "screen", "byScreen", "pages", "page"]);
+
+/** Ids in hint / why, and a frame name only when the text quotes it as a component. */
+function scanFreeText(value: unknown, bag: RefBag, known: GraphVocab): void {
+  const text = stringOf(value);
+  if (!text) return;
+  for (const match of text.matchAll(/\bnode:[A-Za-z0-9:_./-]+/g)) bag.ids.push(match[0]);
+  for (const match of text.matchAll(/\b\d+:\d+\b/g)) bag.ids.push(match[0]);
+  for (const match of text.matchAll(/"([^"]{1,80})"|'([^']{1,80})'/g)) {
+    const quoted = (match[1] ?? match[2] ?? "").trim();
+    if (!quoted || known.componentNames.has(quoted)) continue;
+    if (known.names.has(quoted)) bag.names.push(quoted);
+  }
+}
+
+/**
+ * Ids and component names a card offers. Skips echoed inputs and recipe/pack ids.
+ * `screenNames` are where-used labels (frames are allowed). `names` must be masters.
+ */
+function collectCardRefs(value: unknown, parentKey: string | undefined, bag: RefBag, known: GraphVocab): void {
   if (parentKey === "recipe" || parentKey === "context" || parentKey === "cost") return;
   if (Array.isArray(value)) {
-    for (const item of value) collectCardRefs(item, parentKey, bag);
+    for (const item of value) collectCardRefs(item, parentKey, bag, known);
     return;
   }
   const record = asRecord(value);
   if (!record) return;
-  if (record["found"] === false) return;
   const given = stringOf(record["given"]);
   for (const [key, child] of Object.entries(record)) {
-    if (
-      key === "hint" ||
-      key === "why" ||
-      key === "intent" ||
-      key === "query" ||
-      key === "notes" ||
-      key === "note" ||
-      key === "nextRecommend" ||
-      key === "summary" ||
-      key === "evidence" ||
-      key === "label"
-    ) {
+    if (FREE_TEXT_KEYS.has(key)) {
+      scanFreeText(child, bag, known);
       continue;
     }
     if (key === "id" || key === "figmaNodeId" || key === "nodeId" || key === "masterId" || key === "componentKey") {
@@ -314,7 +377,11 @@ function collectCardRefs(value: unknown, parentKey: string | undefined, bag: Ref
     }
     if (key === "name" || key === "set") {
       const text = stringOf(child);
-      if (text && text !== given) pushName(bag, text);
+      if (text && text !== given) {
+        const slot = parentKey ?? "";
+        if (key === "set" || COMPONENT_NAME_PARENTS.has(slot)) bag.names.push(text);
+        else if (LOCATION_NAME_PARENTS.has(slot)) bag.screenNames.push(text);
+      }
       continue;
     }
     if (key === "didYouMean") {
@@ -326,20 +393,24 @@ function collectCardRefs(value: unknown, parentKey: string | undefined, bag: Ref
       }
       continue;
     }
-    collectCardRefs(child, key, bag);
+    collectCardRefs(child, key, bag, known);
   }
 }
 
 export function inventsInCard(card: unknown, index: GraphIndex): string[] {
   const known = vocabOf(index);
-  const bag: RefBag = { ids: [], names: [] };
-  collectCardRefs(card, undefined, bag);
+  const bag: RefBag = { ids: [], names: [], screenNames: [] };
+  collectCardRefs(card, undefined, bag, known);
   const invents: string[] = [];
   for (const id of bag.ids) {
     if (known.ids.has(id) || known.fileKeys.has(id)) continue;
     invents.push(`id ${id}`);
   }
   for (const name of bag.names) {
+    if (known.componentNames.has(name)) continue;
+    invents.push(`name ${name}`);
+  }
+  for (const name of bag.screenNames) {
     if (known.names.has(name)) continue;
     invents.push(`name ${name}`);
   }
@@ -416,7 +487,8 @@ function recipePicks(card: unknown, vocab: GraphVocab, slot?: string): ScorePick
   return picks;
 }
 
-function verifyPicks(card: unknown, vocab: GraphVocab): ScorePick[] {
+/** Masters verify approved. Flagged, rejected, and did-you-mean hits are not offers. */
+function verifyApproved(card: unknown, vocab: GraphVocab): ScorePick[] {
   const record = asRecord(card);
   if (!record) return [];
   const blocked = new Set<string>();
@@ -430,43 +502,38 @@ function verifyPicks(card: unknown, vocab: GraphVocab): ScorePick[] {
     }
   }
   const picks: ScorePick[] = [];
-  if (Array.isArray(record["resolved"])) {
-    for (const item of record["resolved"]) {
-      const row = asRecord(item);
-      if (!row) continue;
-      const id = stringOf(row["id"]);
-      if (!id || blocked.has(id)) continue;
-      const pick = pickFrom(vocab, row);
-      if (pick) picks.push(pick);
-    }
-  }
-  if (!picks.length && Array.isArray(record["unresolved"])) {
-    for (const item of record["unresolved"]) {
-      const row = asRecord(item);
-      const suggestion = asRecord(row?.["didYouMean"]);
-      const pick = suggestion ? pickFrom(vocab, suggestion) : undefined;
-      if (pick) picks.push(pick);
-    }
+  if (!Array.isArray(record["resolved"])) return picks;
+  for (const item of record["resolved"]) {
+    const row = asRecord(item);
+    if (!row) continue;
+    const id = stringOf(row["id"]);
+    if (!id || blocked.has(id)) continue;
+    const pick = pickFrom(vocab, row);
+    if (pick) picks.push(pick);
   }
   return picks;
 }
 
-function leakedMasters(card: unknown, vocab: GraphVocab): boolean {
+/** What verify identified for a name: an approval, a did-you-mean, or a flagged master. */
+function verifyNameHits(card: unknown, vocab: GraphVocab): ScorePick[] {
+  const approved = verifyApproved(card, vocab);
+  if (approved.length) return approved;
   const record = asRecord(card);
-  if (!record) return false;
-  const seen: ScorePick[] = [];
-  seen.push(...recommendPicks(card, vocab));
-  seen.push(...resolvePicks(card, vocab));
-  const slots = Array.isArray(record["slots"]) ? record["slots"] : [];
-  for (const item of slots) {
-    const master = asRecord(asRecord(item)?.["master"]);
-    const pick = master ? pickFrom(vocab, master) : undefined;
-    if (pick) seen.push(pick);
+  if (!record) return [];
+  const suggestions: ScorePick[] = [];
+  if (Array.isArray(record["unresolved"])) {
+    for (const item of record["unresolved"]) {
+      const suggestion = asRecord(asRecord(item)?.["didYouMean"]);
+      const pick = suggestion ? pickFrom(vocab, suggestion) : undefined;
+      if (pick) suggestions.push(pick);
+    }
   }
-  for (const key of ["deprecated", "invents", "resolved"]) {
-    seen.push(...picksFromList(vocab, record[key]));
-  }
-  return seen.some((pick) => pick.deprecated || pick.private);
+  if (suggestions.length) return suggestions;
+  const flagged = [
+    ...picksFromList(vocab, record["deprecated"]),
+    ...picksFromList(vocab, record["invents"]),
+  ];
+  return flagged.filter((pick) => pick.id && vocab.componentNames.has(pick.name));
 }
 
 function cardChars(card: unknown): number {
@@ -506,34 +573,128 @@ function rate(hits: number, total: number): number {
   return hits / total;
 }
 
-function hitIds(row: BoundCase): Set<string> {
-  return new Set([...row.expectedIds, ...row.acceptIds]);
+interface ToolExpectation {
+  applicable: boolean;
+  expect: "master" | "empty";
+  expectedIds: Set<string>;
+  acceptIds: Set<string>;
+  mustNotIds: Set<string>;
+  expectedNode?: GraphNode;
+  expectedName?: string;
+}
+
+function idsForNames(index: GraphIndex, names: string[]): Set<string> {
+  return new Set(names.map((name) => resolveMasterByName(index, name).id));
+}
+
+function nameLikeMaster(index: GraphIndex, intent: string): GraphNode | undefined {
+  const needle = intent.trim().toLowerCase();
+  const hits = index
+    .getNodesByType(...COMPONENT_DEFINITION_TYPES)
+    .filter((node) => node.name.toLowerCase() === needle);
+  if (!hits.length) return undefined;
+  const rank = (node: GraphNode) =>
+    node.type === "COMPONENT_SET" ? 3 : node.type === "MAIN_COMPONENT" ? 2 : 1;
+  hits.sort((a, b) => rank(b) - rank(a) || a.id.localeCompare(b.id));
+  const top = hits[0]!;
+  const tied = hits.filter((node) => node.id !== top.id && rank(node) === rank(top) && node.type === top.type);
+  if (tied.length) return undefined;
+  return top;
+}
+
+function expectationFor(tool: ScoreTool, row: BoundCase, index: GraphIndex): ToolExpectation {
+  const override = row.tools?.[tool];
+  if (override?.expect === "skip") {
+    return {
+      applicable: false,
+      expect: "empty",
+      expectedIds: new Set(),
+      acceptIds: new Set(),
+      mustNotIds: new Set(),
+    };
+  }
+  const named =
+    override?.expected !== undefined
+      ? resolveMasterByName(index, override.expected)
+      : tool === "verify"
+        ? nameLikeMaster(index, row.intent)
+        : row.expectedNode;
+  const expectMode: "master" | "empty" =
+    override?.expect === "master" || override?.expect === "empty"
+      ? override.expect
+      : tool === "verify"
+        ? named
+          ? "master"
+          : "empty"
+        : row.expect;
+  const inherited = !override?.expected && override?.expect === undefined;
+  const acceptIds = idsForNames(index, override?.accept ?? (inherited ? (row.accept ?? []) : []));
+  const mustNotIds = idsForNames(index, override?.mustNot ?? (inherited ? (row.mustNot ?? []) : []));
+  const applicable = tool === "verify" ? Boolean(override || named) : true;
+  return {
+    applicable,
+    expect: expectMode,
+    expectedIds: new Set(named && expectMode === "master" ? [named.id] : []),
+    acceptIds,
+    mustNotIds,
+    ...(named ? { expectedNode: named, expectedName: named.name } : {}),
+  };
+}
+
+function acceptableIds(spec: ToolExpectation): Set<string> {
+  return new Set([...spec.expectedIds, ...spec.acceptIds]);
+}
+
+/**
+ * A deprecated or private master offered as a pick. The same pick is not also
+ * a wrong cousin, and a master the tool was supposed to return is not a leak.
+ */
+function offeredLeak(picks: ScorePick[], acceptable: Set<string>, wrongCousin: boolean): boolean {
+  return picks.some((pick, index) => {
+    if (!pick.deprecated && !pick.private) return false;
+    if (pick.id && acceptable.has(pick.id)) return false;
+    if (wrongCousin && index === 0) return false;
+    return true;
+  });
 }
 
 function grade(
   tool: ScoreTool,
-  row: BoundCase,
+  spec: ToolExpectation,
   picks: ScorePick[],
-  leaked: boolean,
+  leakPicks: ScorePick[],
   index: GraphIndex,
-): Omit<ToolCaseResult, "chars" | "ms" | "picks" | "invents"> {
+): Omit<ToolCaseResult, "chars" | "ms" | "picks" | "invents" | "candidates"> {
+  if (!spec.applicable) {
+    return {
+      tool,
+      expect: spec.expect,
+      top1: false,
+      top3: false,
+      emptyOk: false,
+      wrongCousin: false,
+      leaked: false,
+      applicable: false,
+    };
+  }
   const top = picks[0];
-  const acceptable = hitIds(row);
+  const acceptable = acceptableIds(spec);
   const inTop = (limit: number) => picks.slice(0, limit).some((pick) => pick.id && acceptable.has(pick.id));
-  const masterCase = row.expect === "master";
+  const masterCase = spec.expect === "master";
   const wrongCousin = Boolean(
     masterCase &&
       top?.id &&
       !acceptable.has(top.id) &&
-      (row.mustNotIds.has(top.id) || isCousinPick(row.expectedNode, top, index)),
+      (spec.mustNotIds.has(top.id) || isCousinPick(spec.expectedNode, top, index)),
   );
   return {
     tool,
+    expect: spec.expect,
     top1: masterCase ? inTop(1) : false,
     top3: masterCase ? inTop(3) : false,
-    emptyOk: row.expect === "empty" ? picks.length === 0 : false,
+    emptyOk: spec.expect === "empty" ? picks.length === 0 : false,
     wrongCousin,
-    leaked,
+    leaked: offeredLeak(leakPicks, acceptable, wrongCousin),
     applicable: true,
   };
 }
@@ -580,6 +741,7 @@ export function loadGoldenCases(path: string): GoldenCase[] {
         ...(row.expected ? { expected: row.expected } : {}),
         ...(row.accept?.length ? { accept: row.accept } : {}),
         ...(row.mustNot?.length ? { mustNot: row.mustNot } : {}),
+        ...(row.tools ? { tools: row.tools } : {}),
         expect,
         ...(row.note ? { note: row.note } : {}),
       });
@@ -614,6 +776,36 @@ export interface ScoreRunOptions {
   storePath?: string;
 }
 
+function leakPicksFor(
+  tool: ScoreTool,
+  card: unknown,
+  vocab: GraphVocab,
+  row: BoundCase,
+): ScorePick[] {
+  switch (tool) {
+    case "recommend":
+      return recommendPicks(card, vocab);
+    case "resolve":
+      return resolvePicks(card, vocab);
+    case "recipe":
+      return row.slot ? recipePicks(card, vocab, row.slot) : [];
+    case "verify":
+      return verifyApproved(card, vocab);
+    default: {
+      const _exhaustive: never = tool;
+      return _exhaustive;
+    }
+  }
+}
+
+function candidateCount(tool: ScoreTool, card: unknown, picks: ScorePick[]): number {
+  if (tool === "recommend") {
+    const list = asRecord(card)?.["candidates"];
+    return Array.isArray(list) ? list.length : picks.length;
+  }
+  return picks.length;
+}
+
 function picksFor(
   tool: ScoreTool,
   card: unknown,
@@ -628,7 +820,7 @@ function picksFor(
     case "recipe":
       return recipePicks(card, vocab, row.slot);
     case "verify":
-      return verifyPicks(card, vocab);
+      return verifyNameHits(card, vocab);
     default: {
       const _exhaustive: never = tool;
       return _exhaustive;
@@ -689,12 +881,31 @@ function runTool(
   }
 }
 
+export function hashGoldenSet(path: string): string {
+  const stat = statSync(path);
+  const files = stat.isDirectory()
+    ? readdirSync(path)
+        .filter((name) => name.endsWith(".json"))
+        .sort()
+        .map((name) => join(path, name))
+    : [path];
+  const hash = createHash("sha256");
+  for (const file of files) {
+    hash.update(basename(file));
+    hash.update("\0");
+    hash.update(readFileSync(file));
+    hash.update("\0");
+  }
+  return hash.digest("hex").slice(0, 16);
+}
+
 export function scoreGraph(index: GraphIndex, cases: GoldenCase[], options: ScoreRunOptions = {}): ScoreReport {
   const bound = bindCases(index, cases);
   const vocab = vocabOf(index);
   const results: ToolCaseResult[] = [];
   const invents: ScoreMiss[] = [];
   const misses: ScoreMiss[] = [];
+  const goldenHash = options.golden ? hashGoldenSet(options.golden) : undefined;
 
   for (const row of bound) {
     for (const tool of SCORE_TOOLS) {
@@ -702,24 +913,31 @@ export function scoreGraph(index: GraphIndex, cases: GoldenCase[], options: Scor
       const card = runTool(tool, index, row, options);
       const ms = performance.now() - started;
       const cardInvents = inventsInCard(card, index);
-      const picks = picksFor(tool, card, vocab, row);
-      const leaked =
-        leakedMasters(card, vocab) || picks.some((pick) => pick.deprecated || pick.private);
-      const graded = grade(tool, row, picks, leaked, index);
-      results.push({ ...graded, picks, chars: cardChars(card), ms, invents: cardInvents });
+      let spec = expectationFor(tool, row, index);
+      if (tool === "recipe" && spec.applicable) {
+        const found = asRecord(card)?.["found"] === true;
+        spec = { ...spec, applicable: found && Boolean(row.slot) };
+      }
+      const picks = spec.applicable ? picksFor(tool, card, vocab, row) : [];
+      const leaks = spec.applicable ? leakPicksFor(tool, card, vocab, row) : [];
+      const graded = grade(tool, spec, picks, leaks, index);
+      const candidates = candidateCount(tool, card, picks);
+      results.push({ ...graded, picks, candidates, chars: cardChars(card), ms, invents: cardInvents });
       for (const detail of cardInvents) {
         invents.push({ id: row.id, tool, kind: "invent", detail });
       }
-      if (row.expect === "master" && !graded.top1) {
+      if (!graded.applicable) continue;
+      const expectedName = spec.expectedName ?? row.expected ?? "a master";
+      if (spec.expect === "master" && !graded.top1) {
         const got = picks[0] ? picks[0].name : "empty card";
         misses.push({
           id: row.id,
           tool,
           kind: "top1",
-          detail: `expected ${row.expected ?? "a master"}, top pick ${got}`,
+          detail: `expected ${expectedName}, top pick ${got}`,
         });
       }
-      if (row.expect === "empty" && !graded.emptyOk) {
+      if (spec.expect === "empty" && !graded.emptyOk) {
         misses.push({
           id: row.id,
           tool,
@@ -730,15 +948,22 @@ export function scoreGraph(index: GraphIndex, cases: GoldenCase[], options: Scor
       if (graded.wrongCousin && picks[0]) {
         misses.push({ id: row.id, tool, kind: "cousin", detail: `top pick ${picks[0].name}` });
       }
-      if (leaked) {
-        misses.push({ id: row.id, tool, kind: "leak", detail: "deprecated or private master in the card" });
+      if (graded.leaked) {
+        misses.push({
+          id: row.id,
+          tool,
+          kind: "leak",
+          detail: "deprecated or private master offered as a pick",
+        });
       }
     }
   }
 
-  const tools = SCORE_TOOLS.map((tool) => rollup(tool, results.filter((row) => row.tool === tool), bound));
-  const masterResults = results.filter((_, index) => bound[Math.floor(index / SCORE_TOOLS.length)]?.expect === "master");
-  const emptyResults = results.filter((_, index) => bound[Math.floor(index / SCORE_TOOLS.length)]?.expect === "empty");
+  const tools = SCORE_TOOLS.map((tool) => rollup(tool, results.filter((row) => row.tool === tool)));
+  const applicable = results.filter((row) => row.applicable);
+  const masterResults = applicable.filter((row) => row.expect === "master");
+  const emptyResults = applicable.filter((row) => row.expect === "empty");
+  const top3Base = masterResults.filter((row) => row.candidates >= 3);
   const cousinBase = masterResults.filter((row) => row.picks.length > 0);
   const latency = results.map((row) => row.ms);
   const budgetBreach = tools.some((tool) => tool.overBudget);
@@ -749,6 +974,7 @@ export function scoreGraph(index: GraphIndex, cases: GoldenCase[], options: Scor
     at: options.at ?? new Date().toISOString(),
     workspace: options.workspaceName ?? "default",
     golden: options.golden ?? "",
+    ...(goldenHash ? { goldenHash } : {}),
     ...(options.storePath ? { storePath: options.storePath } : {}),
     ...(index.graph.fileName ? { fileName: index.graph.fileName } : {}),
     ...(index.graph.builtAt ? { builtAt: index.graph.builtAt } : {}),
@@ -758,34 +984,42 @@ export function scoreGraph(index: GraphIndex, cases: GoldenCase[], options: Scor
     inventCount,
     wrongCousinRate: rate(cousinBase.filter((row) => row.wrongCousin).length, cousinBase.length),
     top1: rate(masterResults.filter((row) => row.top1).length, masterResults.length),
-    top3: rate(masterResults.filter((row) => row.top3).length, masterResults.length),
+    top3: rate(top3Base.filter((row) => row.top3).length, top3Base.length),
     emptyWhenWeak: rate(emptyResults.filter((row) => row.emptyOk).length, emptyResults.length),
-    leakRate: rate(results.filter((row) => row.leaked).length, results.length),
+    leakRate: rate(applicable.filter((row) => row.leaked).length, applicable.length),
     latencyP50Ms: percentile(latency, 0.5),
     latencyP95Ms: percentile(latency, 0.95),
     budgetBreach,
     tools,
-    invents: invents.slice(0, 20),
-    misses: misses.slice(0, 40),
+    invents,
+    misses,
   };
 }
 
-function rollup(tool: ScoreTool, rows: ToolCaseResult[], bound: BoundCase[]): ToolRollup {
-  const master = rows.filter((_, index) => bound[index]?.expect === "master");
-  const empty = rows.filter((_, index) => bound[index]?.expect === "empty");
+function rollup(tool: ScoreTool, rows: ToolCaseResult[]): ToolRollup {
+  const applicable = rows.filter((row) => row.applicable);
+  const master = applicable.filter((row) => row.expect === "master");
+  const empty = applicable.filter((row) => row.expect === "empty");
   const withPick = master.filter((row) => row.picks.length > 0);
   const sizes = rows.map((row) => row.chars);
   const sizeMax = sizes.length ? Math.max(...sizes) : 0;
   const budget = SCORE_BUDGETS[tool];
+  const candidateCounts = applicable.map((row) => row.candidates);
+  const candidatesMax = candidateCounts.length ? Math.max(...candidateCounts) : 0;
+  const top1Count = master.filter((row) => row.top1).length;
   return {
     tool,
     cases: rows.length,
     scored: master.length,
-    top1: rate(master.filter((row) => row.top1).length, master.length),
+    top1: rate(top1Count, master.length),
+    top1Count,
     top3: rate(master.filter((row) => row.top3).length, master.length),
+    top3Applicable: master.some((row) => row.candidates >= 3),
+    candidatesP50: Math.round(percentile(candidateCounts, 0.5)),
+    candidatesMax,
     emptyWhenWeak: rate(empty.filter((row) => row.emptyOk).length, empty.length),
     wrongCousinRate: rate(withPick.filter((row) => row.wrongCousin).length, withPick.length),
-    leakRate: rate(rows.filter((row) => row.leaked).length, rows.length),
+    leakRate: rate(applicable.filter((row) => row.leaked).length, applicable.length),
     sizeP50: Math.round(percentile(sizes, 0.5)),
     sizeMax,
     budget,
@@ -797,8 +1031,18 @@ export function scoreExitCode(report: Pick<ScoreReport, "inventCount" | "budgetB
   return report.inventCount > 0 || report.budgetBreach ? 1 : 0;
 }
 
-export function deltaAgainst(current: ScoreReport, previous?: Pick<ScoreReport, "at" | "top1" | "top3" | "inventRate" | "wrongCousinRate" | "emptyWhenWeak" | "leakRate">): ScoreDelta {
-  if (!previous) {
+export function deltaAgainst(
+  current: ScoreReport,
+  previous?: Pick<
+    ScoreReport,
+    "at" | "top1" | "top3" | "inventRate" | "wrongCousinRate" | "emptyWhenWeak" | "leakRate" | "goldenHash" | "workspace"
+  >,
+): ScoreDelta {
+  const sameSet =
+    Boolean(previous?.goldenHash) &&
+    previous?.goldenHash === current.goldenHash &&
+    previous?.workspace === current.workspace;
+  if (!previous || !sameSet) {
     return {
       hasPrevious: false,
       top1: 0,
@@ -835,14 +1079,29 @@ function pad(value: string, width: number): string {
   return value.length >= width ? value : `${value}${" ".repeat(width - value.length)}`;
 }
 
+function top1Cell(tool: ToolRollup): string {
+  if (tool.tool === "recipe") return tool.scored ? `${tool.top1Count}/${tool.scored}` : "n/a";
+  if (tool.tool === "verify") return tool.scored ? pct(tool.top1) : "n/a";
+  return pct(tool.top1);
+}
+
+function top3Cell(tool: ToolRollup): string {
+  if (!tool.top3Applicable) {
+    const count = tool.candidatesMax || tool.candidatesP50;
+    return count ? `n/a (${count} candidate${count === 1 ? "" : "s"})` : "n/a";
+  }
+  return pct(tool.top3);
+}
+
 export function formatScoreTable(report: ScoreReport, delta?: ScoreDelta): string {
   const header = [
     pad("Tool", 12),
-    pad("Top-1", 8),
-    pad("Top-3", 8),
+    pad("Top-1", 10),
+    pad("Top-3", 20),
     pad("Empty ok", 10),
     pad("Wrong cousin", 14),
     pad("Leak", 8),
+    pad("Cands", 8),
     pad("Size p50", 10),
     pad("Size max", 10),
     "Budget",
@@ -850,27 +1109,37 @@ export function formatScoreTable(report: ScoreReport, delta?: ScoreDelta): strin
   const lines = report.tools.map((tool) =>
     [
       pad(tool.tool, 12),
-      pad(pct(tool.top1), 8),
-      pad(pct(tool.top3), 8),
+      pad(top1Cell(tool), 10),
+      pad(top3Cell(tool), 20),
       pad(pct(tool.emptyWhenWeak), 10),
       pad(pct(tool.wrongCousinRate), 14),
       pad(pct(tool.leakRate), 8),
+      pad(String(tool.candidatesP50), 8),
       pad(String(tool.sizeP50), 10),
       pad(String(tool.sizeMax), 10),
       tool.overBudget ? `${tool.budget} over` : String(tool.budget),
     ].join(""),
   );
+  const recipe = report.tools.find((tool) => tool.tool === "recipe");
   const library = report.fileName ? ` — ${report.fileName}` : "";
   const result = report.pass ? "pass" : "fail";
   const compared = !delta?.hasPrevious
     ? "No earlier run to compare."
     : `Compared with ${delta.previousAt}: top-1 ${points(delta.top1)}, top-3 ${points(delta.top3)}, invent ${points(delta.inventRate)}, wrong cousin ${points(delta.wrongCousinRate)}, empty-ok ${points(delta.emptyWhenWeak)}, leak ${points(delta.leakRate)} (points).`;
+  const notes = [
+    recipe
+      ? `Recipe: ${recipe.top1Count}/${recipe.scored} on screen cases.`
+      : "",
+    "Verify top-1 is a did-you-mean hit, scored only on name-like intents.",
+    "Top-3 is n/a when a card holds fewer than three candidates.",
+  ].filter(Boolean);
   return [
     `Scoreboard — ${report.cases} cases${library}`,
     "",
     header,
     ...lines,
     "",
+    ...notes,
     `Invent rate: ${pct(report.inventRate)} (target 0). Anything above 0 fails this run.`,
     `Latency: p50 ${report.latencyP50Ms.toFixed(1)} ms, p95 ${report.latencyP95Ms.toFixed(1)} ms.`,
     `Result: ${result}.`,

@@ -19,7 +19,11 @@
       "intent": "Legacy Banner",
       "expected": "Banner",
       "mustNot": ["Legacy Banner"],
-      "note": "Asking for the deprecated master by its exact name should still not be the placement."
+      "tools": {
+        "recommend": { "expected": "Banner", "mustNot": ["Legacy Banner"] },
+        "resolve": { "expect": "master", "expected": "Legacy Banner" }
+      },
+      "note": "Recommend should hand back the live Banner. Resolve of the exact retired name returns that master."
     },
     {
       "id": "dep-old-price",
@@ -31,7 +35,11 @@
       "id": "dep-legacy-alert",
       "intent": "Legacy Alert",
       "expected": "Alert",
-      "mustNot": ["Legacy Alert"]
+      "mustNot": ["Legacy Alert"],
+      "tools": {
+        "recommend": { "expected": "Alert", "mustNot": ["Legacy Alert"] },
+        "resolve": { "expect": "master", "expected": "Legacy Alert" }
+      }
     },
     {
       "id": "dep-notice",

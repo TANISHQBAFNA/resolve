@@ -20,8 +20,15 @@ function sendGovernanceError(res: { statusCode: number; setHeader: (k: string, v
 
 type ReadOnlyApi = {
   governanceView?: () => unknown;
-  scoreboardView?: () => unknown;
+  scoreboardView?: (env?: NodeJS.ProcessEnv, workspace?: string) => unknown;
 };
+
+function scoreboardWorkspaceQuery(url?: string): string | undefined {
+  const query = url?.split("?")[1];
+  if (!query) return undefined;
+  const value = new URLSearchParams(query).get("workspace")?.trim();
+  return value || undefined;
+}
 
 function readOnlyApiPath(url?: string): "/api/governance" | "/api/scoreboard" | undefined {
   const path = url?.split("?")[0];
@@ -29,9 +36,13 @@ function readOnlyApiPath(url?: string): "/api/governance" | "/api/scoreboard" | 
   return undefined;
 }
 
-function viewForPath(mod: ReadOnlyApi, path: "/api/governance" | "/api/scoreboard"): unknown {
+function viewForPath(
+  mod: ReadOnlyApi,
+  path: "/api/governance" | "/api/scoreboard",
+  url?: string,
+): unknown {
   if (path === "/api/governance") return mod.governanceView?.();
-  return mod.scoreboardView?.();
+  return mod.scoreboardView?.(process.env, scoreboardWorkspaceQuery(url));
 }
 
 function governanceApiPlugin(): Plugin {
@@ -52,7 +63,7 @@ function governanceApiPlugin(): Plugin {
               server.ssrLoadModule("/src/server/scoreboardView.ts") as Promise<ReadOnlyApi>,
             ]);
             const mod = path === "/api/governance" ? governance : scoreboard;
-            sendGovernance(res, viewForPath(mod, path));
+            sendGovernance(res, viewForPath(mod, path, req.url));
           } catch (error) {
             sendGovernanceError(res, error);
           }
@@ -79,7 +90,7 @@ function governanceApiPlugin(): Plugin {
         }
         const specifier = path === "/api/governance" ? "/src/server/governance.ts" : "/src/server/scoreboardView.ts";
         void loadModule(specifier)
-          .then((mod) => sendGovernance(res, viewForPath(mod, path)))
+          .then((mod) => sendGovernance(res, viewForPath(mod, path, req.url)))
           .catch((error) => sendGovernanceError(res, error));
       });
     },

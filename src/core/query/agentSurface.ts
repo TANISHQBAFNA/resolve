@@ -1466,7 +1466,9 @@ export function verifyFrame(
     const node = resolveNodeExact(index, given);
     if (!node) {
       resolved.push({ given });
-      const near = searchNodes(index, given, { limit: 3 })[0]?.node;
+      const near = searchNodes(index, given, { limit: 8 })
+        .map((hit) => asMaster(index, hit.node))
+        .find((node): node is GraphNode => Boolean(node));
       if (near) {
         const fileKey = fileOf(near);
         pushUnique(

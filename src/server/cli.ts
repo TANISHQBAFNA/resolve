@@ -35,6 +35,7 @@ import {
 import {
   deltaAgainst,
   formatScoreTable,
+  hashGoldenSet,
   loadGoldenCases,
   scoreExitCode,
   scoreGraph,
@@ -631,7 +632,7 @@ export async function runCli(argv: string[]): Promise<void> {
 
     case "score": {
       const namedWorkspace = flag(args, "workspace");
-      if (namedWorkspace) process.env["RESOLVE_WORKSPACE"] = namedWorkspace;
+      if (namedWorkspace) process.env["RESOLVE_WORKSPACE"] = scoreboardWorkspaceName({ RESOLVE_WORKSPACE: namedWorkspace });
       clearCache();
       const goldenPath = flag(args, "golden") ?? resolve("scoreboard/golden");
       if (!existsSync(goldenPath)) {
@@ -642,7 +643,8 @@ export async function runCli(argv: string[]): Promise<void> {
       const cases = loadGoldenCases(goldenPath);
       const workspaceName = scoreboardWorkspaceName();
       const historyDir = scoreboardHistoryDir(workspaceName);
-      const previous = previousScore(historyDir);
+      const goldenHash = hashGoldenSet(goldenPath);
+      const previous = previousScore(historyDir, { goldenHash, workspace: workspaceName });
       const report = scoreGraph(loaded.index, cases, {
         recipes: loadRecipes(),
         sock: readSock(),

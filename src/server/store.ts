@@ -81,7 +81,8 @@ export interface StoreInfo {
  * global store at `~/.resolve/<workspace>` so CLI and MCP share a folder
  * across projects without a clone-local `.graphify`.
  */
-function workspaceFolderName(raw: string | undefined): string {
+/** Folder name under `~/.resolve/`. Rejects `.`, `..`, and separators. */
+export function resolveWorkspaceName(raw: string | undefined): string {
   const value = raw?.trim() || "default";
   if (value === "." || value === ".." || value.includes("/") || value.includes("\\")) {
     throw new Error(
@@ -101,7 +102,7 @@ export function defaultGlobalStore(
   env: { HOME?: string; USERPROFILE?: string; RESOLVE_WORKSPACE?: string } = {},
 ): string {
   const home = env.HOME?.trim() || env.USERPROFILE?.trim() || homedir();
-  return join(home, ".resolve", workspaceFolderName(env.RESOLVE_WORKSPACE));
+  return join(home, ".resolve", resolveWorkspaceName(env.RESOLVE_WORKSPACE));
 }
 
 export function discoverStoreRoot(

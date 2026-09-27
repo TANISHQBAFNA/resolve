@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,7 +17,13 @@ import {
 } from "@/core/query/scoreboard";
 import { runCli } from "@/server/cli";
 import { clearCache } from "@/server/store";
-import { readScoreHistory, scoreboardHistoryDir, scoreboardView, writeScoreHistory } from "@/server/scoreboardView";
+import {
+  readScoreHistory,
+  scoreboardHistoryDir,
+  scoreboardView,
+  scoreboardWorkspaceName,
+  writeScoreHistory,
+} from "@/server/scoreboardView";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const goldenDir = join(root, "scoreboard", "golden");
@@ -95,6 +101,14 @@ describe("scoreboard", () => {
     expect(invented.some((row) => row.includes("node:not-real"))).toBe(true);
     const known = resolveMasterByName(index, "Pay CTA");
     expect(inventsInCard({ candidates: [{ id: known.id, name: known.name }] }, index)).toEqual([]);
+    const frame = index.allNodes.find((node) => node.type === "FRAME" && node.name);
+    expect(frame).toBeTruthy();
+    const frameName = inventsInCard({ candidates: [{ id: frame!.id, name: frame!.name }] }, index);
+    expect(frameName.some((row) => row.includes(frame!.name))).toBe(true);
+    expect(inventsInCard({ candidates: [{ whereUsed: [{ name: frame!.name }] }] }, index)).toEqual([]);
+    expect(inventsInCard({ found: false, why: "see node:not-real" }, index).some((row) => row.includes("node:not-real"))).toBe(
+      true,
+    );
   });
 
   it("scores the fixture golden set with invent rate 0 and writes a delta", () => {
@@ -127,14 +141,40 @@ describe("scoreboard", () => {
     expect(delta.hasPrevious).toBe(true);
     const table = formatScoreTable(second, delta);
     expect(table).toMatch(/Invent rate: 0%/);
+    expect(table).toMatch(/Result: pass/);
     expect(table).toMatch(/recommend/);
+    expect(table).toMatch(/on screen cases/);
+    expect(table).toMatch(/n\/a \(1 candidate\)/);
     expect(table).toMatch(/Compared with/);
-    expect(scoreExitCode(first)).toBe(first.budgetBreach ? 1 : 0);
+    const recipe = second.tools.find((tool) => tool.tool === "recipe");
+    expect(recipe?.scored).toBeGreaterThan(0);
+    expect(recipe?.scored).toBeLessThan(second.cases);
+    expect(second.misses.length).toBeGreaterThan(40);
+    expect(second.misses.filter((row) => row.id === "dep-legacy-banner-exact" && row.tool === "resolve")).toEqual([]);
+    expect(second.misses.filter((row) => row.id === "priv-note" && row.tool === "resolve")).toEqual([]);
+    const otherHash = { ...first, goldenHash: "different-set" };
+    expect(deltaAgainst(second, otherHash).hasPrevious).toBe(false);
+    expect(scoreExitCode(first)).toBe(0);
     const page = scoreboardView();
     expect(page.workspace).toBe("fixture");
     expect(page.latest?.cases).toBe(cases.length);
     expect(page.trend).toHaveLength(1);
     expect(JSON.stringify(page)).not.toMatch(/"nodes"\s*:/);
+    expect(page.workspace).toBe("fixture");
+    expect(page.workspaces.some((row) => row.name === "fixture")).toBe(true);
+  });
+
+  it("rejects workspace names that escape ~/.resolve", () => {
+    expect(() => scoreboardHistoryDir("..", { HOME: home })).toThrow(/not allowed/);
+    expect(() => scoreboardHistoryDir(".", { HOME: home })).toThrow(/not allowed/);
+    expect(() => scoreboardHistoryDir("foo/bar", { HOME: home })).toThrow(/not allowed/);
+    expect(() => scoreboardWorkspaceName({ RESOLVE_WORKSPACE: ".." })).toThrow(/not allowed/);
+    expect(scoreboardHistoryDir("fixture", { HOME: home })).toBe(join(home, ".resolve", "fixture", "scoreboard"));
+  });
+
+  it("resolve score --workspace .. does not leave ~/.resolve", async () => {
+    await expect(runCli(["score", "--workspace", "..", "--golden", goldenDir])).rejects.toThrow(/not allowed/);
+    expect(existsSync(join(home, "scoreboard"))).toBe(false);
   });
 
   it("resolve score exits non-zero only for invent or a budget breach", async () => {

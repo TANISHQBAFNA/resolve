@@ -1885,6 +1885,14 @@ pre,
   margin: 0 0 8px;
 }
 
+.scoreboard__pick {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
 .scoreboard table {
   width: 100%;
   border-collapse: collapse;

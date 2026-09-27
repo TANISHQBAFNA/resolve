@@ -2,6 +2,7 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { deltaAgainst, type ScoreDelta, type ScoreReport } from "@/core/query/scoreboard";
+import { resolveWorkspaceName } from "./store";
 
 export interface ScoreTrendPoint {
   at: string;
@@ -14,23 +15,32 @@ export interface ScoreTrendPoint {
   pass: boolean;
 }
 
+export interface ScoreWorkspaceChoice {
+  name: string;
+  at: string;
+}
+
 export interface ScoreboardPage {
   workspace: string;
+  workspaces: ScoreWorkspaceChoice[];
   latest: ScoreReport | null;
   trend: ScoreTrendPoint[];
   delta: ScoreDelta | null;
   hint: string;
 }
 
+function homeDir(env: NodeJS.ProcessEnv): string {
+  return env["HOME"]?.trim() || env["USERPROFILE"]?.trim() || homedir();
+}
+
+/** Same rejection as the store: `.`, `..`, and separators never leave `~/.resolve/`. */
 export function scoreboardWorkspaceName(env: NodeJS.ProcessEnv = process.env): string {
-  const name = (env["RESOLVE_WORKSPACE"]?.trim() || "default").replace(/[^A-Za-z0-9._-]/g, "_");
-  return name || "default";
+  return resolveWorkspaceName(env["RESOLVE_WORKSPACE"]);
 }
 
 export function scoreboardHistoryDir(workspace: string, env: NodeJS.ProcessEnv = process.env): string {
-  const home = env["HOME"]?.trim() || env["USERPROFILE"]?.trim() || homedir();
-  const name = workspace.replace(/[^A-Za-z0-9._-]/g, "_") || "default";
-  return join(home, ".resolve", name, "scoreboard");
+  const name = resolveWorkspaceName(workspace);
+  return join(homeDir(env), ".resolve", name, "scoreboard");
 }
 
 function isReport(value: unknown): value is ScoreReport {
@@ -58,9 +68,20 @@ export function readScoreHistory(dir: string): ScoreReport[] {
   return rows;
 }
 
-export function previousScore(dir: string): ScoreReport | undefined {
+export function previousScore(
+  dir: string,
+  match?: { goldenHash?: string; workspace?: string },
+): ScoreReport | undefined {
   const rows = readScoreHistory(dir);
-  return rows.at(-1);
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const row = rows[index];
+    if (!row) continue;
+    if (match?.goldenHash && row.goldenHash !== match.goldenHash) continue;
+    if (match?.workspace && row.workspace !== match.workspace) continue;
+    if (match?.goldenHash && !row.goldenHash) continue;
+    return row;
+  }
+  return undefined;
 }
 
 export function writeScoreHistory(dir: string, report: ScoreReport): string {
@@ -70,12 +91,41 @@ export function writeScoreHistory(dir: string, report: ScoreReport): string {
   return file;
 }
 
+/** Every workspace under ~/.resolve that has a saved run, oldest first. */
+export function listScoreWorkspaces(env: NodeJS.ProcessEnv = process.env): ScoreWorkspaceChoice[] {
+  const root = join(homeDir(env), ".resolve");
+  let names: string[] = [];
+  try {
+    names = readdirSync(root);
+  } catch {
+    return [];
+  }
+  const rows: ScoreWorkspaceChoice[] = [];
+  for (const name of names) {
+    if (name === "." || name === ".." || name.includes("/") || name.includes("\\")) continue;
+    const latest = readScoreHistory(join(root, name, "scoreboard")).at(-1);
+    if (!latest) continue;
+    rows.push({ name, at: latest.at });
+  }
+  rows.sort((a, b) => a.at.localeCompare(b.at));
+  return rows;
+}
+
 /** Read-only latest run and trend. Never includes the graph. */
-export function scoreboardView(env: NodeJS.ProcessEnv = process.env): ScoreboardPage {
-  const workspace = scoreboardWorkspaceName(env);
+export function scoreboardView(env: NodeJS.ProcessEnv = process.env, selected?: string): ScoreboardPage {
+  const workspaces = listScoreWorkspaces(env);
+  const picked = selected?.trim();
+  const workspace = picked
+    ? resolveWorkspaceName(picked)
+    : (workspaces.at(-1)?.name ?? resolveWorkspaceName(env["RESOLVE_WORKSPACE"]));
   const rows = readScoreHistory(scoreboardHistoryDir(workspace, env));
   const latest = rows.at(-1) ?? null;
-  const previous = rows.length > 1 ? rows[rows.length - 2] : undefined;
+  const previous = latest
+    ? [...rows]
+        .slice(0, -1)
+        .reverse()
+        .find((row) => row.goldenHash && row.goldenHash === latest.goldenHash && row.workspace === latest.workspace)
+    : undefined;
   const trend = rows.slice(-8).map((row) => ({
     at: row.at,
     top1: row.top1,
@@ -88,11 +138,12 @@ export function scoreboardView(env: NodeJS.ProcessEnv = process.env): Scoreboard
   }));
   return {
     workspace,
+    workspaces,
     latest,
     trend,
     delta: latest ? deltaAgainst(latest, previous) : null,
     hint: latest
-      ? `Read-only. Latest run for workspace "${workspace}" is saved under ~/.resolve/${workspace}/scoreboard. Invent rate must stay at 0.`
-      : `No scoreboard run yet for workspace "${workspace}". In a terminal: npm run resolve -- score`,
+      ? `Read-only. Showing workspace "${workspace}". Invent rate must stay at 0.`
+      : `No scoreboard run yet${picked ? ` for workspace "${workspace}"` : ""}. In a terminal: npm run resolve -- score`,
   };
 }

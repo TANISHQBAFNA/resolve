@@ -5,8 +5,8 @@
 A repeatable check that agent cards pick the right master. Offline on the fixture library, same command on a learned library later.
 
 - **Golden set** — `scoreboard/golden/*.json`. Intent, optional screen / journey / slot, expected master by name (resolved to an id in the store), acceptable alternates, must-not cousins, or an empty card when there is no answer.
-- **`resolve score`** — invent rate (must be 0), wrong-cousin rate, top-1 and top-3, empty-when-weak, deprecated or private leaks, card size against the budgets, latency. Saves `~/.resolve/<workspace>/scoreboard/<timestamp>.json` and prints the change since the last run. Exits non-zero on invent or a budget breach.
-- **Rules and Overview** — read-only latest run and trend.
+- **`resolve score`** — invent rate (must be 0), wrong-cousin rate, top-1, top-3 only when a card holds three candidates, empty-when-weak, leaks only when a retired or private master is offered as a pick, card size against the budgets, latency. Recipe is scored on slotted screen cases. Verify’s hit is did-you-mean, and only for name-like asks. Workspace names reject `.`, `..`, and slashes. Saves `~/.resolve/<workspace>/scoreboard/<timestamp>.json` and compares only a previous run of the same golden set. Exits non-zero on invent or a budget breach.
+- **Rules and Overview** — read-only latest run and trend. The page shows the newest run across workspaces, or the workspace you pick.
 - **CI** — typecheck, tests, build, and `resolve score` on the fixture set.
 - **Preview** — the embedded governance loader sets `ws: false`, so preview does not open a websocket on port 24678.
 - **Screen type** — generic words (screen, page, frame, view, untitled, copy, v1/v2, and the like) are not a screen type. If only those words remain, scoping is skipped.
