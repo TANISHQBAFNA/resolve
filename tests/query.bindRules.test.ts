@@ -182,7 +182,9 @@ describe("recommend ranking with bind rules", () => {
     const result = recommendMasters(index, "cta", { bindRules, workspace });
     expect(result.candidates[0]?.id).toBe(ids.live);
     const cousin = result.candidates.find((row) => row.id === ids.cousin);
-    if (cousin) expect(cousin.score).toBeLessThan(result.candidates[0]!.score);
+    if (cousin?.score != null && result.candidates[0]?.score != null) {
+      expect(cousin.score).toBeLessThan(result.candidates[0].score);
+    }
   });
 });
 

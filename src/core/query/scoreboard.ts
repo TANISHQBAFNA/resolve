@@ -569,7 +569,7 @@ function contextFor(row: GoldenCase): RecommendContext | undefined {
   const screenJob = [row.journey, row.screenType].filter(Boolean).join(" ");
   return {
     id: row.screenType || row.journey || row.slot,
-    ...(row.screenType ? { domain: row.screenType } : {}),
+    ...(row.screenType ? { domain: row.screenType, screenType: row.screenType } : {}),
     ...(screenJob || row.slot
       ? {
           journey: {
@@ -594,8 +594,16 @@ function rate(hits: number, total: number): number | null {
   return hits / total;
 }
 
+/** Tools this case is for. When set, every other tool is skipped. */
+function listedTools(row: GoldenCase): ScoreTool[] | undefined {
+  if (!row.tools) return undefined;
+  if (Array.isArray(row.tools)) return row.tools;
+  const specs = row.tools;
+  return SCORE_TOOLS.filter((tool) => specs[tool] !== undefined);
+}
+
 function isRecipeCase(row: GoldenCase): boolean {
-  return Array.isArray(row.tools) && row.tools.includes("recipe");
+  return Boolean(listedTools(row)?.includes("recipe"));
 }
 
 function toolOverride(row: GoldenCase, tool: ScoreTool): ToolSpec | undefined {
@@ -633,6 +641,16 @@ function nameLikeMaster(index: GraphIndex, intent: string): GraphNode | undefine
 }
 
 function expectationFor(tool: ScoreTool, row: BoundCase, index: GraphIndex): ToolExpectation {
+  const listed = listedTools(row);
+  if (listed && !listed.includes(tool)) {
+    return {
+      applicable: false,
+      expect: "empty",
+      expectedIds: new Set(),
+      acceptIds: new Set(),
+      mustNotIds: new Set(),
+    };
+  }
   const override = toolOverride(row, tool);
   if (override?.expect === "skip") {
     return {
@@ -876,6 +894,7 @@ function runTool(
       });
     case "resolve":
       return componentUsageCard(index, row.intent, {
+        ...(context ? { context } : {}),
         ...(options.sock ? { sock: options.sock } : {}),
       });
     case "recipe":
@@ -1090,13 +1109,13 @@ export function deltaAgainst(
   if (!previous || !sameSet) {
     return {
       hasPrevious: false,
-      top1: 0,
+      top1: null,
       top3: null,
       top3Reported: false,
-      inventRate: 0,
-      wrongCousinRate: 0,
-      emptyWhenWeak: 0,
-      leakRate: 0,
+      inventRate: null,
+      wrongCousinRate: null,
+      emptyWhenWeak: null,
+      leakRate: null,
     };
   }
   const top3Reported = current.top3Base >= 10 && (previous.top3Base ?? 0) >= 10;

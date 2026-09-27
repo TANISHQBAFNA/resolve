@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — component picking
+
+Recommend leads with name, token, and synonym. Screen, journey, and usage only break ties among those matches, so a busy screen cannot outrank a master the words actually name. A 600-character recommend card keeps the place-ready top hit and up to two shorter options (name, id, one reason). Asking for a deprecated name returns the live replacement (`replaces Legacy Banner (deprecated)`); resolve still returns the exact master, flagged, plus that replacement. Private `_` / `.` masters return only on an exact name. Resolve accepts the same screen, journey, and domain context as recommend. The checkout recipe's primary button slot defaults to Pay CTA. Scoreboard `tools` is exclusive when set, and a first-run delta is null.
+
 ## Unreleased — accuracy scoreboard
 
 A repeatable check that agent cards pick the right master. Offline on the fixture library, same command on a learned library later.

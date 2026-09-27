@@ -195,9 +195,9 @@ describe("recommend (library ranking)", () => {
     for (const candidate of live.candidates) {
       const node = demo.getNode(candidate.id);
       expect(node).toBeDefined();
-      expect(["COMPONENT_SET", "MAIN_COMPONENT", "VARIANT"]).toContain(candidate.type);
+      expect(["COMPONENT_SET", "MAIN_COMPONENT", "VARIANT"]).toContain(node?.type);
     }
-    expect(live.candidates.some((candidate) => candidate.type === "FRAME")).toBe(false);
+    expect(live.candidates.some((candidate) => demo.getNode(candidate.id)?.type === "FRAME")).toBe(false);
   });
 
   it("ranks an exact name match first (Button / Avatar must not swap)", () => {

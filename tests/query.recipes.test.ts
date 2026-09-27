@@ -68,9 +68,12 @@ describe("recipe load", () => {
     expect(search?.slots.map((slot) => slot.role)).toEqual(
       expect.arrayContaining(["search", "results", "empty"]),
     );
+    const checkout = recipes.find((recipe) => recipe.id === "checkout-summary");
+    expect(checkout?.slots.find((slot) => slot.role === "primary-cta")?.defaultMasterId).toBe("Pay CTA");
     for (const recipe of recipes) {
       expect(recipe.slots.length).toBeGreaterThan(0);
       for (const slot of recipe.slots) {
+        if (recipe.id === "checkout-summary" && slot.role === "primary-cta") continue;
         expect(slot.defaultMasterId).toBeUndefined();
       }
     }

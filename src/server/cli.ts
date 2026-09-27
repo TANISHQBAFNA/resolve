@@ -106,12 +106,15 @@ function usage(): void {
       "      After ingest, list/get bind slots to live masters (or next recommend query).",
       "      Matching .graphify/context-packs.json scopes slot fills + nextRecommend.",
       "      Never invents node ids. Unbound: recommend then verify_frame.",
-      `  resolve recommend "<intent>" [--id] [--budget <chars>] ${PACK_BIND_FLAGS}`,
-      "      Ranked masters: name/intent, variant props, where-used, co-occurrence, bind rules.",
-      "      Product/journey/domain context on top. Live over stale. Deprecated demoted. Cap ~600 chars.",
+      `  resolve recommend "<intent>" [--id] [--budget <chars>] ${PACK_BIND_FLAGS} [--screen-type <kind>]`,
+      "      Ranked masters: name/intent first (exact, token, synonym). Context and usage break ties.",
+      "      Context cannot pull in a name-irrelevant master. Deprecated names return the live replacement.",
+      "      Top hit is place-ready. Hits 2–3 are name, id, and a short reason. Cap 600 chars.",
       "      Each hit has a one-line why from SOCK facts (or 'no usage yet'). Place returned ids only.",
-      "  resolve resolve \"<name>\" [--id] [--budget <chars>]",
+      `  resolve resolve "<name>" [--id] [--budget <chars>] ${PACK_BIND_FLAGS} [--screen-type <kind>]`,
       "      I know the name, give me the id. Exact master always returns id + fileKey + figmaNodeId, even with zero usage.",
+      "      Optional screen type / journey / domain, same as recommend, breaks ties between cousins.",
+      "      Deprecated names come back flagged, with the live replacement. Private (_ / .) names only on an exact match.",
       "      One-line why from SOCK facts. Miss: says so and points at recommend. Not an empty list.",
       `  resolve verify "<frame>" [--id] [--components a,b] [--rules <file>] ${PACK_BIND_FLAGS}`,
       "      After drawing: pass/fail, invents, deprecated, unresolved, bind-rule misses.",
@@ -398,10 +401,14 @@ export async function runCli(argv: string[]): Promise<void> {
       const budget = Number(flag(args, "budget"));
       const bind = bindFromFlags(args);
       const pack = packForRecommend(bind);
+      const screenType = flag(args, "screen-type");
+      const context = pack || screenType
+        ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
+        : undefined;
       printJson(
         recommendMasters(requireGraph(args).index, intent, {
           budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
-          context: pack,
+          ...(context ? { context } : {}),
           workspace: bind.workspace,
           sock: readSock(),
           bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
@@ -414,10 +421,16 @@ export async function runCli(argv: string[]): Promise<void> {
       const name = positionals(args)[0];
       if (!name) throw new Error('Usage: resolve resolve "<name>"');
       const budget = Number(flag(args, "budget"));
+      const bind = bindFromFlags(args);
+      const pack = packForRecommend(bind);
+      const screenType = flag(args, "screen-type");
       printJson(
         componentUsageCard(requireGraph(args).index, name, {
           budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
           sock: readSock(),
+          ...((pack || screenType)
+            ? { context: { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) } }
+            : {}),
         }),
       );
       return;

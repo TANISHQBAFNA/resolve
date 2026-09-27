@@ -358,7 +358,7 @@ function masterFromCandidate(candidate: RecommendCandidate, sock?: SockState, gr
   return {
     id: candidate.id,
     name: candidate.name,
-    type: candidate.type,
+    type: candidate.type ?? "MAIN_COMPONENT",
     figmaNodeId: candidate.figmaNodeId,
     nodeId: candidate.nodeId ?? candidate.figmaNodeId,
     ...(candidate.fileKey ? { fileKey: candidate.fileKey } : {}),
@@ -368,8 +368,8 @@ function masterFromCandidate(candidate: RecommendCandidate, sock?: SockState, gr
     variantProperties: candidate.variantProperties,
     set: candidate.set,
     status: candidate.status,
-    deprecated: candidate.deprecated,
-    hint: candidate.hint,
+    deprecated: candidate.deprecated ?? false,
+    hint: candidate.hint ?? "Place fileKey + nodeId.",
     why: candidate.why || whyLineForMaster(
       { id: candidate.id, name: candidate.name, type: candidate.type as GraphNode["type"], status: candidate.status },
       { sock, graphFileKey },
@@ -444,9 +444,10 @@ function fillSlot(
   });
   const live = ranked.candidates.filter(
     (candidate) =>
-      !candidate.deprecated &&
+      candidate.deprecated === false &&
+      Boolean(candidate.figmaNodeId) &&
       !isPrivateMasterName(candidate.name) &&
-      usageAllowsRecipeFill(sock, candidate.id, candidate.instances),
+      usageAllowsRecipeFill(sock, candidate.id, candidate.instances ?? 0),
   );
   const pick = live.find((candidate) => hintOverlap(candidate, slot.hints) > 0);
   if (!pick) {
@@ -462,7 +463,7 @@ function fillSlot(
     ...base,
     status: "filled",
     master: masterFromCandidate(pick, sock, index.graph.fileKey),
-    hint: pick.hint,
+    hint: pick.hint ?? "Place fileKey + nodeId.",
   };
 }
 
