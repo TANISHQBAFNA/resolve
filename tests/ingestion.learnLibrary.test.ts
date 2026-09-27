@@ -5,7 +5,11 @@ import { join } from "node:path";
 import { learnLibrary } from "@/server/learn";
 import { clearCache, loadGraph, loadLearnCheckpoint } from "@/server/store";
 import { placeReady } from "@/core/query/placeReady";
-import { applyPublishedCatalog } from "@/core/ingestion/learnLibrary";
+import {
+  applyPublishedCatalog,
+  extractLearnOutline,
+  removedMastersByAbsence,
+} from "@/core/ingestion/learnLibrary";
 import { emptyGraph } from "@/core/model";
 import { recommendMasters } from "@/core/query";
 import { indexGraph } from "@/core/query";
@@ -105,6 +109,22 @@ describe("learn_library from Figma MCP get_metadata", () => {
     expect(place.fileKey).toBe("LIB");
   });
 
+  it("records only nested masters per frame from XML", () => {
+    const { units, mastersByUnit } = extractLearnOutline(`
+      <frame id="1:1" name="Home"><component id="9:9" name="Main Card" /></frame>
+      <frame id="1:2" name="Settings"><component id="8:8" name="Divider" /></frame>
+    `);
+    expect(units.map((unit) => unit.name)).toEqual(["Home", "Settings"]);
+    expect(mastersByUnit["1:1"]?.map((row) => row.name)).toEqual(["Main Card"]);
+    expect(mastersByUnit["1:2"]?.map((row) => row.name)).toEqual(["Divider"]);
+    expect(
+      removedMastersByAbsence(mastersByUnit, { "1:1": mastersByUnit["1:1"] ?? [] }),
+    ).toEqual([]);
+    expect(
+      removedMastersByAbsence(mastersByUnit, { "1:1": [] }).map((row) => row.name),
+    ).toEqual(["Main Card"]);
+  });
+
   it("does not swap published keys when node ids share a suffix (Button 12:3 vs Card 112:3)", () => {
     const graph = emptyGraph("LIB", "DS");
     graph.nodes.push(
@@ -184,7 +204,7 @@ describe("learn_library from Figma MCP get_metadata", () => {
         { id: "1:2", name: "Settings", kind: "frame" },
       ],
     });
-    expect(second.progress).toBe("learned 2 of 2 pages; next: none (complete)");
+    expect(second.progress).toBe("learned 2 of 2 pages; library complete");
     expect(second.remaining).toEqual([]);
   });
 
@@ -205,10 +225,63 @@ describe("learn_library from Figma MCP get_metadata", () => {
     const card = loadGraph()?.graph.nodes.find((node) => node.name === "Main Card");
     expect(card?.status).toBe("deprecated");
     expect(card?.metadata?.["removedByAbsence"]).toBe(true);
-    expect(readSock().freshness["LIB"]?.removed?.some((row) => row.name === "Main Card")).toBe(true);
+    expect(readSock().freshness["LIB"]?.removed?.filter((row) => row.name === "Main Card")).toHaveLength(1);
 
     const rec = recommendMasters(indexGraph(loadGraph()!.graph), "Main Card", { sock: readSock() });
     expect(rec.candidates.some((row) => row.name === "Main Card")).toBe(false);
+  });
+
+  const BOTH_XML = `
+<frame id="1:1" name="Home" x="0" y="0" width="440" height="956">
+  <component id="9:9" name="Main Card" x="16" y="80" width="408" height="200" />
+</frame>
+<frame id="1:2" name="Settings" x="500" y="0" width="440" height="956">
+  <component id="8:8" name="Divider" x="16" y="24" width="408" height="1" />
+</frame>
+`;
+
+  it("re-learning a subset of frames keeps other frames' components live", () => {
+    learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      metadataXml: BOTH_XML,
+      version: "1",
+    });
+    learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      metadataXml: SCREEN_XML,
+      version: "1",
+      resume: true,
+    });
+    const divider = loadGraph()?.graph.nodes.find((node) => node.name === "Divider");
+    expect(divider?.status).not.toBe("deprecated");
+    expect(divider?.metadata?.["removedByAbsence"]).not.toBe(true);
+    expect(readSock().freshness["LIB"]?.removed?.some((row) => row.name === "Divider")).toBeFalsy();
+  });
+
+  it("marks a component removed-by-absence exactly once when its frame is re-learned without it", () => {
+    learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      metadataXml: BOTH_XML,
+      version: "1",
+    });
+    learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      metadataXml: `<frame id="1:1" name="Home"></frame>`,
+      version: "2",
+    });
+    const card = loadGraph()?.graph.nodes.find((node) => node.name === "Main Card");
+    const divider = loadGraph()?.graph.nodes.find((node) => node.name === "Divider");
+    expect(card?.status).toBe("deprecated");
+    expect(card?.metadata?.["removedByAbsence"]).toBe(true);
+    expect(divider?.status).not.toBe("deprecated");
+    expect(divider?.metadata?.["removedByAbsence"]).not.toBe(true);
+    const removed = readSock().freshness["LIB"]?.removed ?? [];
+    expect(removed.filter((row) => row.name === "Main Card")).toHaveLength(1);
+    expect(removed.some((row) => row.name === "Divider")).toBe(false);
   });
 
   it("documents the componentKey gap when only get_metadata is passed", () => {

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { buildGraph } from "@/core/transform";
 import { DesignGraphSchema, type DesignGraph, type GraphNode } from "@/core/model";
-import { adaptFigmaMcpMetadata, parseMetadataXml } from "./adapters/figmaMcp";
+import { adaptFigmaMcpMetadata, inferredComponentId, parseMetadataXml } from "./adapters/figmaMcp";
 import type { WorkspaceFileRole } from "@/core/query/workspace";
 
 export interface LearnCatalogItem {
@@ -165,25 +165,120 @@ export function applyPublishedCatalog(graph: DesignGraph, raw: unknown): { appli
   return { applied };
 }
 
-export function extractLearnUnits(xml: string): LearnUnit[] {
+type XmlLike = { tag: string; attrs: Record<string, string>; children: XmlLike[] };
+
+const LEARN_MASTER_TAGS = new Set(["component", "component-set", "componentset"]);
+
+function learnUnitKind(tag: string): LearnUnit["kind"] | undefined {
+  const lower = tag.toLowerCase();
+  if (lower === "canvas" || lower === "page") return "page";
+  if (lower === "frame" || lower === "section") return "frame";
+  return undefined;
+}
+
+function collectNestedMasters(element: XmlLike): LearnUnitMaster[] {
+  const out: LearnUnitMaster[] = [];
+  const seen = new Set<string>();
+  const walk = (node: XmlLike) => {
+    const id = node.attrs["id"]?.trim();
+    const name = node.attrs["name"]?.trim() || id;
+    if (id && LEARN_MASTER_TAGS.has(node.tag.toLowerCase()) && !seen.has(id)) {
+      seen.add(id);
+      out.push({ id, name: name || id, figmaNodeId: id });
+    }
+    if (node.tag.toLowerCase() === "instance" && name && !out.some((row) => row.name === name)) {
+      const inferred = inferredComponentId(name);
+      if (!seen.has(inferred)) {
+        seen.add(inferred);
+        out.push({ id: inferred, name, figmaNodeId: inferred });
+      }
+    }
+    for (const child of node.children) walk(child);
+  };
+  walk(element);
+  return out;
+}
+
+/** Top-level pages/frames plus masters nested inside each unit's own subtree. */
+export function extractLearnOutline(xml: string): {
+  units: LearnUnit[];
+  mastersByUnit: Record<string, LearnUnitMaster[]>;
+} {
   const roots = parseMetadataXml(xml);
   const units: LearnUnit[] = [];
+  const mastersByUnit: Record<string, LearnUnitMaster[]> = {};
   const seen = new Set<string>();
-  const visit = (element: { tag: string; attrs: Record<string, string>; children: typeof element[] }) => {
-    const tag = element.tag.toLowerCase();
+  const visit = (element: XmlLike) => {
     const id = element.attrs["id"]?.trim();
     const name = element.attrs["name"]?.trim() || id;
-    const kind: LearnUnit["kind"] | undefined =
-      tag === "canvas" || tag === "page" ? "page" : tag === "frame" || tag === "section" ? "frame" : undefined;
+    const kind = learnUnitKind(element.tag);
     if (id && name && kind && !seen.has(id)) {
       seen.add(id);
       units.push({ id, name, kind });
+      mastersByUnit[id] = collectNestedMasters(element);
       return;
     }
     for (const child of element.children) visit(child);
   };
   for (const root of roots) visit(root);
-  return units;
+  return { units, mastersByUnit };
+}
+
+export function extractLearnUnits(xml: string): LearnUnit[] {
+  return extractLearnOutline(xml).units;
+}
+
+export function mastersByUnitFromXml(xml: string): Record<string, LearnUnitMaster[]> {
+  return extractLearnOutline(xml).mastersByUnit;
+}
+
+export function sameLearnMaster(a: LearnUnitMaster, b: LearnUnitMaster): boolean {
+  if (a.id && b.id && a.id === b.id) return true;
+  return Boolean(a.figmaNodeId && b.figmaNodeId && a.figmaNodeId === b.figmaNodeId);
+}
+
+export function resolveMastersAgainstGraph(masters: LearnUnitMaster[], graph: DesignGraph): LearnUnitMaster[] {
+  return masters.map((item) => {
+    const node = graph.nodes.find(
+      (candidate) =>
+        isCatalogMaster(candidate) &&
+        (candidate.figmaNodeId === item.figmaNodeId ||
+          candidate.figmaNodeId === item.id ||
+          candidate.id === item.id),
+    );
+    return node ? { id: node.id, name: node.name, figmaNodeId: node.figmaNodeId } : item;
+  });
+}
+
+/** Removed only when every prior home unit was re-sent and none still contains the master. */
+export function removedMastersByAbsence(
+  priorByUnit: Record<string, LearnUnitMaster[]>,
+  resentByUnit: Record<string, LearnUnitMaster[]>,
+): LearnUnitMaster[] {
+  const resentIds = new Set(Object.keys(resentByUnit));
+  const keyOf = (master: LearnUnitMaster) => master.figmaNodeId || master.id;
+  const homes = new Map<string, { master: LearnUnitMaster; units: string[] }>();
+  for (const [unitId, masters] of Object.entries(priorByUnit)) {
+    for (const master of masters) {
+      const key = keyOf(master);
+      if (!key) continue;
+      const row = homes.get(key) ?? { master, units: [] };
+      if (!row.units.includes(unitId)) row.units.push(unitId);
+      homes.set(key, row);
+    }
+  }
+  const removed: LearnUnitMaster[] = [];
+  for (const [key, row] of homes) {
+    const resentHomes = row.units.filter((unitId) => resentIds.has(unitId));
+    if (!resentHomes.length || resentHomes.length !== row.units.length) continue;
+    const stillHere = row.units.some((unitId) =>
+      (resentByUnit[unitId] ?? []).some(
+        (master) => keyOf(master) === key || sameLearnMaster(master, row.master),
+      ),
+    );
+    if (!stillHere) removed.push(row.master);
+  }
+  return removed;
 }
 
 export function uniqueLearnUnits(units: LearnUnit[]): LearnUnit[] {
@@ -202,15 +297,10 @@ export function remainingLearnUnits(outline: LearnUnit[], completed: LearnUnit[]
   return outline.filter((unit) => !done.has(unit.id));
 }
 
-export function learnProgressLine(
-  learned: number,
-  total: number,
-  next?: LearnUnit,
-  completeKnown = false,
-): string {
+export function learnProgressLine(learned: number, total: number, next?: LearnUnit): string {
   if (next) return `learned ${learned} of ${total} pages; next: ${next.name}`;
-  if (completeKnown && total > 0 && learned >= total) {
-    return `learned ${learned} of ${total} pages; next: none (complete)`;
+  if (total > 0 && learned >= total) {
+    return `learned ${learned} of ${total} pages; library complete`;
   }
   return `learned ${learned} of ${total} pages; next: pass next get_metadata page/frame`;
 }
@@ -226,18 +316,29 @@ export function mastersFromGraph(graph: DesignGraph, fileKey?: string): LearnUni
     .map((node) => ({ id: node.id, name: node.name, figmaNodeId: node.figmaNodeId }));
 }
 
+function isInferredMasterId(value: string | undefined): boolean {
+  return Boolean(value?.startsWith("mcp-name:") || value?.includes(":mcp-name:"));
+}
+
 export function markRemovedByAbsence(graph: DesignGraph, missing: LearnUnitMaster[]): GraphNode[] {
   const marked: GraphNode[] = [];
-  for (const gone of missing) {
-    const node = graph.nodes.find(
-      (candidate) =>
-        candidate.id === gone.id ||
-        (gone.figmaNodeId && candidate.figmaNodeId === gone.figmaNodeId && isCatalogMaster(candidate)),
-    );
-    if (!node) continue;
+  const mark = (node: GraphNode) => {
+    if (marked.some((row) => row.id === node.id)) return;
     node.status = "deprecated";
     node.metadata = { ...node.metadata, removedByAbsence: true };
     marked.push(node);
+  };
+  for (const gone of missing) {
+    for (const candidate of graph.nodes) {
+      if (!isCatalogMaster(candidate)) continue;
+      const exact =
+        candidate.id === gone.id ||
+        (gone.figmaNodeId && candidate.figmaNodeId === gone.figmaNodeId);
+      const inferredTwin =
+        candidate.name === gone.name &&
+        (isInferredMasterId(candidate.id) || isInferredMasterId(candidate.figmaNodeId));
+      if (exact || inferredTwin) mark(candidate);
+    }
   }
   return marked;
 }

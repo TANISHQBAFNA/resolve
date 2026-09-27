@@ -1,15 +1,16 @@
 import type { DesignGraph } from "@/core/model";
 import {
   applyPublishedCatalog,
-  extractLearnUnits,
+  extractLearnOutline,
   graphFromMetadataXml,
   hashLearnPayload,
   learnGaps,
   learnProgressLine,
   markRemovedByAbsence,
-  mastersFromGraph,
   mergeDesignGraphs,
   remainingLearnUnits,
+  removedMastersByAbsence,
+  resolveMastersAgainstGraph,
   uniqueLearnUnits,
   type LearnCheckpoint,
   type LearnInput,
@@ -27,6 +28,24 @@ import {
   saveSock,
   storeInfo,
 } from "./store";
+
+function uniqueRemovedMasters(items: RemovedMaster[]): RemovedMaster[] {
+  const out: RemovedMaster[] = [];
+  for (const item of items) {
+    if (
+      out.some(
+        (row) =>
+          row.id === item.id ||
+          (item.figmaNodeId && row.figmaNodeId === item.figmaNodeId) ||
+          row.name === item.name,
+      )
+    ) {
+      continue;
+    }
+    out.push(item);
+  }
+  return out;
+}
 
 function checkpointVersionMismatch(checkpoint: LearnCheckpoint | undefined, input: LearnInput): boolean {
   if (!checkpoint) return false;
@@ -68,7 +87,8 @@ export function learnLibrary(input: LearnInput): LearnResult {
     hash && !versionMismatch && checkpoint?.completedHashes.includes(hash),
   );
 
-  const extracted = xml ? extractLearnUnits(xml) : [];
+  const parsedXml = xml ? extractLearnOutline(xml) : { units: [] as LearnUnit[], mastersByUnit: {} as Record<string, LearnUnitMaster[]> };
+  const extracted = parsedXml.units;
   const priorCompleted = versionMismatch ? [] : (checkpoint?.completedUnits ?? []);
   const outline = uniqueLearnUnits([
     ...(input.outline ?? []),
@@ -78,7 +98,7 @@ export function learnLibrary(input: LearnInput): LearnResult {
 
   let graph: DesignGraph | undefined;
   let added = 0;
-  let incomingMasters: LearnUnitMaster[] = [];
+  let incomingByUnit: Record<string, LearnUnitMaster[]> = {};
   if (xml && !skippedDuplicate) {
     const incoming = graphFromMetadataXml({
       fileKey,
@@ -87,7 +107,12 @@ export function learnLibrary(input: LearnInput): LearnResult {
       lastModified: input.lastModified,
       version: input.version,
     });
-    incomingMasters = mastersFromGraph(incoming, fileKey);
+    incomingByUnit = Object.fromEntries(
+      Object.entries(parsedXml.mastersByUnit).map(([unitId, masters]) => [
+        unitId,
+        resolveMastersAgainstGraph(masters, incoming),
+      ]),
+    );
     const existing = loadFileGraph(fileKey);
     const before = existing?.nodes.length ?? 0;
     graph = existing ? mergeDesignGraphs(existing, incoming) : incoming;
@@ -108,27 +133,18 @@ export function learnLibrary(input: LearnInput): LearnResult {
   if (catalog != null) applyPublishedCatalog(graph, catalog);
 
   const removed: RemovedMaster[] = [];
-  if (xml && !skippedDuplicate && extracted.length) {
-    const priorMastersByUnit = checkpoint?.mastersByUnit ?? {};
-    for (const unit of extracted) {
-      const previous = priorMastersByUnit[unit.id];
-      if (!previous?.length) continue;
-      const missing = previous.filter(
-        (prev) =>
-          !incomingMasters.some(
-            (row) =>
-              row.id === prev.id || (prev.figmaNodeId && row.figmaNodeId === prev.figmaNodeId),
-          ),
-      );
-      for (const node of markRemovedByAbsence(graph, missing)) {
-        if (removed.some((row) => row.id === node.id)) continue;
-        removed.push({
-          id: node.id,
-          name: node.name,
-          figmaNodeId: node.figmaNodeId,
-          reason: "deprecated-by-absence",
-        });
+  if (xml && !skippedDuplicate && Object.keys(incomingByUnit).length) {
+    const gone = removedMastersByAbsence(checkpoint?.mastersByUnit ?? {}, incomingByUnit);
+    for (const node of markRemovedByAbsence(graph, gone)) {
+      if (removed.some((row) => row.id === node.id || (node.figmaNodeId && row.figmaNodeId === node.figmaNodeId))) {
+        continue;
       }
+      removed.push({
+        id: node.id,
+        name: node.name,
+        figmaNodeId: node.figmaNodeId,
+        reason: "deprecated-by-absence",
+      });
     }
   }
 
@@ -146,15 +162,12 @@ export function learnLibrary(input: LearnInput): LearnResult {
   const totalCount = Math.max(outline.length, learnedCount);
   const next = remaining[0];
   const hasFullOutline = Boolean(input.outline?.length) || Boolean(checkpoint?.hasFullOutline && !versionMismatch);
-  const completeKnown = hasFullOutline && remaining.length === 0;
-  const progress = learnProgressLine(learnedCount, totalCount, next, completeKnown);
+  const progress = learnProgressLine(learnedCount, totalCount, next);
 
-  const mastersByUnit: Record<string, LearnUnitMaster[]> = {
-    ...(versionMismatch ? {} : (checkpoint?.mastersByUnit ?? {})),
-  };
+  const mastersByUnit: Record<string, LearnUnitMaster[]> = { ...(checkpoint?.mastersByUnit ?? {}) };
   if (xml && !skippedDuplicate) {
-    for (const unit of extracted) {
-      mastersByUnit[unit.id] = incomingMasters;
+    for (const [unitId, masters] of Object.entries(incomingByUnit)) {
+      mastersByUnit[unitId] = masters;
     }
   }
 
@@ -176,6 +189,8 @@ export function learnLibrary(input: LearnInput): LearnResult {
   };
   saveLearnCheckpoint(nextCheckpoint);
 
+  const priorRemoved = loadSock()?.freshness[fileKey]?.removed ?? [];
+  const nextRemoved = uniqueRemovedMasters([...priorRemoved, ...removed]);
   const sock = applyFreshness(loadSock() ?? emptySock(), [
     {
       fileKey,
@@ -183,9 +198,7 @@ export function learnLibrary(input: LearnInput): LearnResult {
       version: input.version,
       outline: outline.map((unit: LearnUnit) => ({ id: unit.id, name: unit.name, kind: unit.kind })),
       stale: false,
-      removed: removed.length
-        ? [...(loadSock()?.freshness[fileKey]?.removed ?? []), ...removed]
-        : undefined,
+      removed: nextRemoved,
     },
   ]);
   const row = sock.freshness[fileKey];
@@ -199,7 +212,7 @@ export function learnLibrary(input: LearnInput): LearnResult {
         kind: unit.kind,
         action: "refetch" as const,
       })),
-      removed: removed.length ? [...(row.removed ?? []), ...removed] : row.removed,
+      removed: nextRemoved,
     };
   }
   saveSock(sock);
