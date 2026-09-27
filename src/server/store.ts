@@ -239,7 +239,12 @@ export function loadLearnCheckpoint(fileKey: string): LearnCheckpoint | undefine
   try {
     const raw = JSON.parse(readFileSync(path, "utf8")) as LearnCheckpoint;
     if (raw?.fileKey !== fileKey || !Array.isArray(raw.completedHashes)) return undefined;
-    return raw;
+    return {
+      ...raw,
+      completedUnits: raw.completedUnits ?? [],
+      outline: raw.outline ?? [],
+      mastersByUnit: raw.mastersByUnit ?? {},
+    };
   } catch {
     return undefined;
   }

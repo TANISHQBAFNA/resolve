@@ -62,15 +62,16 @@ nodes that are actually rendered or inspected.
 
 ---
 
-## 2. Figma plugin — shipped
+## 2. Figma plugin — internal / unsupported
 
-Built, in `figma-plugin/`. Plain JavaScript, no build step: import
-`figma-plugin/manifest.json` through **Plugins → Development → Import plugin
-from manifest…** and run it.
+`figma-plugin/` is **internal and unsupported** for users. Do not import the
+manifest through **Plugins → Development**. The supported user path is Figma
+MCP `get_metadata` + Resolve `learn_library`, or REST ingest with a token.
+The plugin is not a shipped product feature.
 
-It emits a `SourceDocument` directly, so `JsonIngestionSource` validates it
-against `SourceDocumentSchema` and skips the adapter layer entirely. Running
-in-document closes every gap the other two sources have:
+It emits a `SourceDocument` directly (for maintainers), so
+`JsonIngestionSource` validates it against `SourceDocumentSchema` and skips
+the adapter layer. Running in-document closes gaps the other two sources have:
 
 | | REST | MCP `get_metadata` | Plugin |
 |---|---|---|---|
@@ -82,7 +83,7 @@ in-document closes every gap the other two sources have:
 
 See `figma-plugin/README.md` for scope options and the local POST receiver.
 
-## 2b. Plugin internals (for reference)
+## 2b. Plugin internals (maintainers only — unsupported for users)
 
 A plugin runs inside Figma with the full document in memory, which fixes three
 of the REST limitations at once: real `reactions` (multi-action prototyping),

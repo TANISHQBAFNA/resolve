@@ -25,7 +25,7 @@ After `npm run build:server` (once, if you have the repo) or via `npx`:
     },
     "resolve": {
       "command": "npx",
-      "args": ["-y", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
+      "args": ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
     }
   }
 }
@@ -55,7 +55,7 @@ Local checkout instead of npx:
     },
     "resolve": {
       "command": "npx",
-      "args": ["-y", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
+      "args": ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
     }
   }
 }
@@ -69,7 +69,7 @@ Same store for CLI and MCP: `~/.resolve/default` (or `RESOLVE_WORKSPACE=acme` �
 
 **Secondary — REST token.** `npm run resolve -- ingest '<figma-url>' --role library` with `FIGMA_ACCESS_TOKEN`.
 
-**Big libraries.** Do not dump the whole file. Call `learn_library` on a few frames, stop, come back later. Checkpoints survive across sessions. A view/free seat with a low quota uses the same resume path.
+**Big libraries.** Do not dump the whole file. Call `learn_library` on a few frames, stop, come back later. The card says `learned X of Y pages; next: …`. Checkpoints survive across sessions. A view/free seat with a low quota uses the same resume path. When a file is stale, `freshness.delta` lists the exact pages/frames to re-fetch.
 
 Then: `recipe` / `recommend` → place only returned `fileKey` + `nodeId` (and `componentKey` when published) with Figma `use_figma` → `verify_frame`. A pass writes usage into SOCK. Rules never change themselves.
 

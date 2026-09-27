@@ -9,8 +9,11 @@ import {
   extractSubgraph,
   freshnessSummary,
   isPrivateMasterName,
+  isRealVerifiedFrame,
   listSoci,
+  newlyStrongPatterns,
   parseLibraryRules,
+  proposeStrongPatterns,
   listRecipes,
   pathBetween,
   queryQuestion,
@@ -27,6 +30,7 @@ import {
   packForRecommend,
   type GraphIndex,
   type GraphLevel,
+  type Recipe,
   type ViewMode,
 } from "@/core/query";
 import { buildAiGraphContext, toMarkdownPrompt } from "@/core/ai";
@@ -101,6 +105,18 @@ export const TOOLS: ToolDefinition[] = [
         lastModified: { type: "string" },
         version: { type: "string" },
         resume: { type: "boolean", description: "Resume a checkpointed learn for a large library." },
+        outline: {
+          type: "array",
+          description: "Known pages/frames for this file (id + name). Remaining work is reported as learned X of Y.",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              name: { type: "string" },
+              kind: { type: "string", description: "page | frame" },
+            },
+          },
+        },
       },
       required: ["fileKey"],
     },
@@ -446,6 +462,29 @@ const asNumber = (value: unknown, fallback: number, cap: number): number => {
   return Math.min(parsed, cap);
 };
 
+function parseLearnOutline(value: unknown): Array<{ id: string; name: string; kind: "page" | "frame" }> | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const units: Array<{ id: string; name: string; kind: "page" | "frame" }> = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    const id = typeof rec["id"] === "string" ? rec["id"].trim() : "";
+    const name = typeof rec["name"] === "string" ? rec["name"].trim() : id;
+    const kind = rec["kind"] === "page" ? "page" : "frame";
+    if (!id) continue;
+    units.push({ id, name: name || id, kind });
+  }
+  return units.length ? units : undefined;
+}
+
+function recipeAlreadyEncodes(pattern: { masterId: string; name: string }, recipes: Recipe[]): boolean {
+  return recipes.some((recipe) =>
+    recipe.slots.some(
+      (slot) => slot.defaultMasterId === pattern.masterId || slot.defaultMasterId === pattern.name,
+    ),
+  );
+}
+
 const asStringList = (value: unknown): string[] | undefined => {
   if (typeof value === "string") {
     const items = value
@@ -564,6 +603,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           lastModified: typeof args["lastModified"] === "string" ? args["lastModified"] : undefined,
           version: typeof args["version"] === "string" ? args["version"] : undefined,
           resume: args["resume"] === true,
+          outline: parseLearnOutline(args["outline"]),
         }),
         store: storeInfo(),
       };
@@ -696,14 +736,23 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           }
         }
         if (masters.length) {
+          const realFrame = isRealVerifiedFrame(result.frame);
+          const screenId = realFrame
+            ? `${result.frame!.fileKey}:${result.frame!.figmaNodeId ?? result.frame!.id}`
+            : `obs:${(components ?? []).slice().sort().join(",") || "list"}`;
+          const before = readSock();
+          const recorded = recordVerifiedUsage(before, {
+            screenId,
+            screenName: result.frame?.name ?? frame ?? "observation",
+            masters,
+            journey: typeof args["journey"] === "string" ? args["journey"] : undefined,
+            product: typeof args["product"] === "string" ? args["product"] : undefined,
+            countsTowardThreshold: realFrame,
+          });
           saveSock(
-            recordVerifiedUsage(readSock(), {
-              screenId: result.frame?.id ?? `placed:${(components ?? []).join(",") || "list"}`,
-              screenName: result.frame?.name ?? frame ?? "placed",
-              masters,
-              journey: typeof args["journey"] === "string" ? args["journey"] : undefined,
-              product: typeof args["product"] === "string" ? args["product"] : undefined,
-            }),
+            proposeStrongPatterns(recorded, newlyStrongPatterns(before, recorded), (pattern) =>
+              recipeAlreadyEncodes(pattern, loadRecipes()),
+            ),
           );
         }
       }

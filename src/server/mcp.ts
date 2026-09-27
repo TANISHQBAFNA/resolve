@@ -51,7 +51,7 @@ function handle(request: Request): void {
           "View or free seats have a low read quota — learn a few frames, stop; SOCK saves progress and resumes next session. Big libraries: checkpointed multi-pass learn_library, not a whole-file dump. " +
           "Forced path: learn_library (get_metadata XML + fileKey + role=library; pass search_design_system / get_libraries as libraries to stamp published keys) → recipe if the screen job matches → recommend unbound slots → place only returned fileKey + nodeId (and componentKey when published) via Figma use_figma → verify_frame. " +
           "On verify pass, SOCK records usage automatically. Rules never auto-change (SOCI proposals stay pending). " +
-          "If freshness.stale, learn_library only the changed frames. " +
+          "If freshness.stale, freshness.delta lists the exact pages/frames to re-fetch then learn_library. Removed masters are deprecated-by-absence and must not be recommended. " +
           "resolve \"<name>\" is I-know-the-name-give-me-the-id. " +
           "Do not invent components. Do not Read or dump graph.json. Do not hand-build capture JSON. " +
           "Default tools: learn_library, recipe, recommend, resolve, verify_frame, check_cousins. Set RESOLVE_MCP_ADVANCED=1 for the rest.",

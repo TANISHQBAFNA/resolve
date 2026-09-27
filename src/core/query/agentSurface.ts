@@ -8,7 +8,7 @@ import { extractSubgraph, levelForNode } from "./subgraph";
 import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
 import { placeReady } from "./placeReady";
-import { patternFor, type SockState } from "./sock";
+import { isRemovedByAbsence, patternFor, staleRefreshHint, type SockState } from "./sock";
 
 /**
  * Agent-facing graph surface. Graph stays on disk. Agents call resolve /
@@ -859,6 +859,15 @@ export function parseLibraryRules(raw: unknown): LibraryRules {
 
 const REFRESH_HINT = "If stale, learn_library changed frames. Do not Read graph.json.";
 
+function refreshHintFor(sock?: SockState, fileKey?: string): string {
+  if (!sock) return REFRESH_HINT;
+  const values = Object.values(sock.freshness);
+  const stale = fileKey
+    ? sock.freshness[fileKey]
+    : values.find((row) => row.stale) ?? values[0];
+  return staleRefreshHint(stale);
+}
+
 export interface RecommendCandidate {
   id: string;
   name: string;
@@ -997,6 +1006,8 @@ export function recommendMasters(
     const set = setOf(index, node);
     if (isPrivateMasterName(node.name) || (set && isPrivateMasterName(set.name))) continue;
     if (deniedByRules(index, node, packRules)) continue;
+    if (node.metadata?.["removedByAbsence"] === true) continue;
+    if (isRemovedByAbsence(options.sock, node)) continue;
     const nameHaystack = `${node.name} ${set?.name ?? ""}`;
     const nameScore = overlap(nameHaystack, tokens);
     const variantScore = overlap(variantHaystack(node), tokens);
@@ -1180,8 +1191,8 @@ export function recommendMasters(
     ...(applied ? { context: applied } : {}),
     hint:
       candidates.length === 0
-        ? `No master matched. Do not invent. ${REFRESH_HINT}`
-        : `Place fileKey+nodeId. ${REFRESH_HINT}`,
+        ? `No master matched. Do not invent. ${refreshHintFor(options.sock, graphFileKey)}`
+        : `Place fileKey+nodeId. ${refreshHintFor(options.sock, graphFileKey)}`,
   });
 
   let payload = payloadOf();

@@ -23,6 +23,8 @@ export interface UsageFact {
   deprecated?: boolean;
   private?: boolean;
   promoted: boolean;
+  /** False for component-list-only verifies. Only real frames count toward N=3. */
+  countsTowardThreshold: boolean;
   verifiedAt: string;
 }
 
@@ -43,12 +45,35 @@ export interface SociProposal {
   evidence: string;
 }
 
+export interface FreshnessDeltaItem {
+  id: string;
+  name: string;
+  kind: "page" | "frame";
+  action: "refetch" | "removed";
+}
+
+export interface RemovedMaster {
+  id: string;
+  name: string;
+  figmaNodeId?: string;
+  reason: "deprecated-by-absence";
+}
+
+export interface FreshnessOutlineUnit {
+  id: string;
+  name: string;
+  kind: "page" | "frame";
+}
+
 export interface FileFreshness {
   fileKey: string;
   lastModified?: string;
   version?: string;
   stale: boolean;
   checkedAt: string;
+  outline?: FreshnessOutlineUnit[];
+  delta?: FreshnessDeltaItem[];
+  removed?: RemovedMaster[];
 }
 
 export interface SockState {
@@ -71,6 +96,15 @@ export function inferSlot(name: string): string | undefined {
   return undefined;
 }
 
+export function isRealVerifiedFrame(frame?: {
+  fileKey?: string;
+  figmaNodeId?: string;
+  nodeId?: string;
+}): boolean {
+  const nodeId = frame?.figmaNodeId?.trim() || frame?.nodeId?.trim();
+  return Boolean(frame?.fileKey?.trim() && nodeId);
+}
+
 export function recordVerifiedUsage(
   state: SockState,
   input: {
@@ -87,9 +121,12 @@ export function recordVerifiedUsage(
     journey?: string;
     product?: string;
     verifiedAt?: string;
+    /** Default true so unit tests can simulate real screens. Tools must pass false for list-only. */
+    countsTowardThreshold?: boolean;
   },
 ): SockState {
   const verifiedAt = input.verifiedAt ?? new Date().toISOString();
+  const countsTowardThreshold = input.countsTowardThreshold !== false;
   const nextFacts = [...state.facts];
   for (const master of input.masters) {
     const blocked = Boolean(master.deprecated || master.private);
@@ -110,6 +147,7 @@ export function recordVerifiedUsage(
       deprecated: master.deprecated,
       private: master.private,
       promoted: !blocked,
+      countsTowardThreshold,
       verifiedAt,
     });
   }
@@ -130,7 +168,9 @@ export function patternsOf(state: SockState): UsagePattern[] {
       };
       byMaster.set(fact.masterId, row);
     }
-    if (!row.screens.includes(fact.screenId)) row.screens.push(fact.screenId);
+    if (fact.countsTowardThreshold !== false && !row.screens.includes(fact.screenId)) {
+      row.screens.push(fact.screenId);
+    }
     if (fact.promoted) row.promoted = true;
     if (fact.deprecated || fact.private) row.promoted = false;
   }
@@ -161,7 +201,14 @@ export function usageAllowsRecipeFill(
 
 export function applyFreshness(
   state: SockState,
-  files: Array<{ fileKey: string; lastModified?: string; version?: string }>,
+  files: Array<{
+    fileKey: string;
+    lastModified?: string;
+    version?: string;
+    outline?: FreshnessOutlineUnit[];
+    removed?: RemovedMaster[];
+    stale?: boolean;
+  }>,
   checkedAt = new Date().toISOString(),
 ): SockState {
   const freshness = { ...state.freshness };
@@ -173,12 +220,25 @@ export function applyFreshness(
     const modifiedChanged = Boolean(
       file.lastModified && prev?.lastModified && file.lastModified !== prev.lastModified,
     );
+    const stale = file.stale === false ? false : Boolean(file.stale) || versionChanged || modifiedChanged;
+    const outline = file.outline ?? prev?.outline;
+    const delta: FreshnessDeltaItem[] | undefined = stale
+      ? (outline ?? []).map((unit) => ({
+          id: unit.id,
+          name: unit.name,
+          kind: unit.kind,
+          action: "refetch" as const,
+        }))
+      : [];
     freshness[key] = {
       fileKey: key,
       lastModified: file.lastModified ?? prev?.lastModified,
       version: file.version ?? prev?.version,
-      stale: versionChanged || modifiedChanged,
+      stale,
       checkedAt,
+      ...(outline?.length ? { outline } : {}),
+      ...(delta?.length ? { delta } : {}),
+      removed: file.removed ?? prev?.removed,
     };
   }
   return { ...state, freshness };
@@ -208,4 +268,61 @@ export function proposeRuleChange(state: SockState, summary: string, evidence: s
 
 export function listSoci(state: SockState): SociProposal[] {
   return state.proposals;
+}
+
+export function newlyStrongPatterns(before: SockState, after: SockState): UsagePattern[] {
+  const prev = new Set(
+    patternsOf(before)
+      .filter((row) => row.confidence === "strong")
+      .map((row) => row.masterId),
+  );
+  return patternsOf(after).filter(
+    (row) => row.confidence === "strong" && row.promoted && !prev.has(row.masterId),
+  );
+}
+
+export function proposeStrongPatterns(
+  state: SockState,
+  patterns: UsagePattern[],
+  alreadyEncoded: (pattern: UsagePattern) => boolean,
+): SockState {
+  let next = state;
+  for (const pattern of patterns) {
+    if (alreadyEncoded(pattern)) continue;
+    const slot = inferSlot(pattern.name);
+    const summary = slot
+      ? `Promote ${pattern.name} for ${slot} (strong on ${pattern.screens.length} screens)`
+      : `Promote ${pattern.name} (strong on ${pattern.screens.length} screens)`;
+    if (next.proposals.some((row) => row.summary === summary && row.status === "pending")) continue;
+    next = proposeRuleChange(
+      next,
+      summary,
+      `Verified on distinct screens: ${pattern.screens.join(", ") || "(none)"}.`,
+    );
+  }
+  return next;
+}
+
+export function isRemovedByAbsence(state: SockState | undefined, node: { id: string; figmaNodeId?: string }): boolean {
+  if (!state) return false;
+  for (const row of Object.values(state.freshness)) {
+    if (
+      row.removed?.some(
+        (item) => item.id === node.id || (item.figmaNodeId && item.figmaNodeId === node.figmaNodeId),
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function staleRefreshHint(freshness?: FileFreshness): string {
+  if (!freshness?.stale) return "If stale, learn_library changed frames. Do not Read graph.json.";
+  const refetch = (freshness.delta ?? []).filter((item) => item.action === "refetch");
+  if (refetch.length) {
+    const list = refetch.map((item) => `${item.name} (${item.id})`).join(", ");
+    return `Stale. Re-fetch then learn_library: ${list}. Do not Read graph.json.`;
+  }
+  return "Stale. Re-fetch changed pages/frames then learn_library. Do not Read graph.json.";
 }

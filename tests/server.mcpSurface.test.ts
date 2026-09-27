@@ -80,6 +80,21 @@ describe("MCP default surface + SOCK loop", () => {
     expect(result.pass).toBe(true);
     const sock = readSock();
     expect(sock.facts.some((fact) => fact.name === "Button")).toBe(true);
+    expect(sock.facts.every((fact) => fact.countsTowardThreshold === false)).toBe(true);
+  });
+
+  it("three list-only verify permutations do not make Button strong", () => {
+    saveGraph(graph);
+    callTool("verify_frame", { components: ["Button"] });
+    callTool("verify_frame", { components: ["Button", "Card"] });
+    callTool("verify_frame", { components: ["Card", "Button"] });
+    const sock = readSock();
+    const screens = new Set(
+      sock.facts.filter((fact) => fact.name === "Button" && fact.countsTowardThreshold !== false).map((fact) => fact.screenId),
+    );
+    expect(screens.size).toBe(0);
+    expect(sock.facts.filter((fact) => fact.name === "Button").length).toBeGreaterThan(0);
+    expect(sock.proposals).toEqual([]);
   });
 
   it("stale version on a later query is exposed in card metadata", () => {

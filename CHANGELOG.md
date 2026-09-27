@@ -4,11 +4,12 @@
 
 Agent with only Figma MCP + Resolve MCP can learn a library and stay current. No clone, no hand-built JSON.
 
-- **Install** — `npx -y github:TANISHQBAFNA/resolve resolve-mcp`. Config snippet next to Figma MCP: [docs/SETUP-MCP.md](docs/SETUP-MCP.md). Learning needs a paid Figma MCP seat (Dev/Full) or a REST token. View/free seats: low quota; progress saves and resumes.
+- **Install** — `npx -y -p github:TANISHQBAFNA/resolve resolve-mcp` (the `-p` form starts the MCP server, not the CLI). Config snippet next to Figma MCP: [docs/SETUP-MCP.md](docs/SETUP-MCP.md). Learning needs a paid Figma MCP seat (Dev/Full) or a REST token. View/free seats: low quota; progress saves and resumes.
 - **One store** — `~/.resolve/<workspace>` (or `GRAPHIFY_HOME`). Auto-reload on change. Empty state says `learn_library`.
-- **learn_library** — primary path: Figma MCP `get_metadata` XML + optional `search_design_system` / `get_libraries`. Incremental, checkpointed across sessions. Secondary: REST token ingest. No Figma plugin in the user story.
-- **Place-ready cards** — `fileKey`, `nodeId`, published `componentKey` when known; otherwise `local-only`.
-- **Live usage** — verify pass writes SOCK facts. Freshness on each query; stale → delta learn. Strong pattern = 3 distinct verified screens. Deprecated/private recorded, never promoted. Rules only via SOCI proposal list.
+- **learn_library** — primary path: Figma MCP `get_metadata` XML + optional `search_design_system` / `get_libraries`. Incremental, checkpointed across sessions (`learned X of Y pages; next: …`). Secondary: REST token ingest. Published keys match exact `fileKey` + `nodeId` + master type only. No Figma plugin in the user story (`figma-plugin/` is internal/unsupported).
+- **Place-ready cards** — `fileKey`, `nodeId`, published `componentKey` when known; otherwise `local-only`. Removed-by-absence masters are never recommended.
+- **Live usage** — verify pass writes SOCK facts. Only a real frame (`fileKey` + frame node id) counts toward the N=3 strong threshold; list-only verifies are observations. Freshness.stale includes a delta of pages/frames to re-fetch. Crossing strong vs an existing recipe writes a pending SOCI proposal (`list_soci` stays advanced).
+- **Ingest 429** — honor `Retry-After`, or exponential backoff when that header is missing. Variables go through the same retry. Checkpoints are tied to file version/lastModified so resume never mixes versions.
 - **Default tools** — `learn_library`, `recipe`, `recommend`, `resolve`, `verify_frame`, `check_cousins`. `RESOLVE_MCP_ADVANCED=1` for the rest. Instructions ship on MCP initialize.
 
 ## Unreleased — harden agent loop (Material 3 live gate)

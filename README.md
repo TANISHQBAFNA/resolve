@@ -49,7 +49,7 @@ That’s the setup. Do it once.
 
 | Tool | What to do |
 |------|------------|
-| **Cursor** | One config line next to Figma MCP — [SETUP-MCP.md](docs/SETUP-MCP.md). `npx -y github:TANISHQBAFNA/resolve resolve-mcp`. |
+| **Cursor** | One config line next to Figma MCP — [SETUP-MCP.md](docs/SETUP-MCP.md). `npx -y -p github:TANISHQBAFNA/resolve resolve-mcp`. |
 | **Claude Code** | In this folder: `claude --plugin-dir .` |
 | **Codex / others** | Open this folder. It can read `AGENTS.md` and `skills/resolve`. |
 
