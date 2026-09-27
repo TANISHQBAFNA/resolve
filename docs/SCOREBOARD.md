@@ -38,9 +38,17 @@ Cases live in `scoreboard/golden/*.json`. Each file is a list:
 | `expect` | `master` (the default when `expected` is set) or `empty`. |
 | `tools` | An object overrides the expectation for the tools it names. Every other tool keeps the case's normal expectation. `["recipe"]` marks a recipe case and does not drop recommend or resolve. Example: asking for `Legacy Banner` by its exact name. Recommend should return the live Banner. Resolve returning Legacy Banner, marked deprecated, is correct. |
 
-`empty` means there is no correct master. The card should come back empty, not a guess. Use this for private masters (`_Name`, `.Name`) and for questions the library cannot answer.
+`empty` means there is no correct master. The card should come back empty, not a guess. Use this for private masters (`_Name`, `.Name`) and for questions the library cannot answer. An empty case may also list `accept`. An empty card is correct, and so is a top pick named there. Any other pick is a miss. `ctx-filter-tag` uses that: no Filter master exists, so empty is right, and Tag is acceptable only because the Catalog Filter screen uses it.
 
 The shipped set covers exact names, synonyms, screen-context picks, cousin traps, deprecated masters, private masters, and questions with no answer. There are more than 60 cases. The sample library is `scoreboard/fixture/library.json`.
+
+## Regression set
+
+`scoreboard/regression/` locks ranking bugs found while reviewing this work: phrase matches, typos that must stay empty, and synonym wording. It was written with the ranking code, so a score on it is not accuracy on phrasing the ranker had not already seen. Do not tune weights to lift it.
+
+```bash
+npm run resolve -- score --golden scoreboard/regression --workspace fixture
+```
 
 ## What is measured
 

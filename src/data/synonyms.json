@@ -6,40 +6,44 @@
       "reason": "A call to action is a button."
     },
     {
-      "terms": ["avatar", "profile"],
-      "reason": "A profile picture is an avatar."
+      "terms": ["avatar", "profile", "photo", "image", "picture"],
+      "reason": "A profile photo, image, or picture of a person is an avatar."
     },
     {
-      "terms": ["header", "heading"],
-      "reason": "A heading and a header name the same title block."
+      "terms": ["header", "heading", "title", "top"],
+      "reason": "A heading, title, or top bar is the header."
     },
     {
       "terms": ["search", "find"],
       "reason": "Find is the verb for a search field."
     },
     {
-      "terms": ["price", "cost", "amount"],
-      "reason": "Price, cost, and amount are the same money figure."
+      "terms": ["price", "cost", "amount", "money"],
+      "reason": "Price, cost, amount, and money are the same figure."
     },
     {
-      "terms": ["close", "dismiss"],
-      "reason": "Dismiss is the verb for a close icon."
+      "terms": ["close", "dismiss", "cancel", "x"],
+      "reason": "Dismiss, cancel, and the x mark are the close control."
     },
     {
       "terms": ["empty", "blank"],
       "reason": "A blank state is an empty state."
     },
     {
-      "terms": ["alert", "notice"],
-      "reason": "A notice is an alert."
+      "terms": ["alert", "notice", "warning"],
+      "reason": "A notice or a warning is an alert."
     },
     {
       "terms": ["toggle", "switch"],
       "reason": "A toggle and a switch are the same on-off control."
     },
     {
-      "terms": ["dialog", "modal"],
-      "reason": "A dialog is a modal."
+      "terms": ["dialog", "modal", "popup"],
+      "reason": "A dialog or a popup is a modal."
+    },
+    {
+      "terms": ["footer", "bottom"],
+      "reason": "A bottom bar is a footer."
     },
     {
       "terms": ["snackbar", "toast"],

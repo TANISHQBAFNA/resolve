@@ -18,9 +18,9 @@
     {
       "id": "ho-bottom-bar",
       "intent": "bottom bar",
-      "expect": "empty",
-      "mustNot": ["Header Bar", "Footer Bar"],
-      "note": "bottom matches nothing. bar alone is not a header."
+      "expected": "Footer Bar",
+      "mustNot": ["Header Bar"],
+      "note": "A bottom bar is the footer. Footer Bar is that master."
     },
     {
       "id": "ho-check-box",
@@ -72,6 +72,13 @@
       "id": "ho-close-icon",
       "intent": "close icon",
       "expected": "Icon Close"
+    },
+    {
+      "id": "ho-tag-not-tabs",
+      "intent": "tag",
+      "expected": "Tag",
+      "mustNot": ["Tabs"],
+      "note": "Exact name. Not a typo."
     }
   ]
 }

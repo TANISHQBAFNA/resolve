@@ -35,6 +35,12 @@
       "slot": "primary-cta",
       "expected": "Pay CTA",
       "mustNot": ["Summary Card", "Save CTA"]
-    }
+    },
+    { "id": "ho-photo", "intent": "photo", "expected": "Avatar" },
+    { "id": "ho-title", "intent": "title", "expected": "Header Bar" },
+    { "id": "ho-popup", "intent": "popup", "expected": "Modal" },
+    { "id": "ho-money", "intent": "money", "expected": "Price", "mustNot": ["Old Price"] },
+    { "id": "ho-cancel", "intent": "cancel", "expected": "Icon Close" },
+    { "id": "ho-warning", "intent": "warning", "expected": "Alert" }
   ]
 }

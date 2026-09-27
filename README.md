@@ -84,7 +84,7 @@ Other ways to bring a file in: Figma MCP `learn_library` (primary), or REST inge
 - Bind rules + approve a proposal: [`docs/BIND-RULES.md`](docs/BIND-RULES.md)
 - SOCI (usage → human-approved suggestions): [`docs/SOCI.md`](docs/SOCI.md)
 - Screen recipes (JSON packs): [`docs/RECIPES.md`](docs/RECIPES.md)
-- Accuracy scoreboard: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md)
+- Accuracy scoreboard: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md). `scoreboard/golden` is the scored set. `scoreboard/regression` locks ranking bugs from review. It is not a measure of unseen phrasing.
 - Cursor-focused steps: [`docs/CURSOR-RESOLVE.md`](docs/CURSOR-RESOLVE.md)
 - Building Resolve: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - How tools plug in: [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md)

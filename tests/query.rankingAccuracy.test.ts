@@ -58,8 +58,10 @@ describe("recommend name match beats screen usage", () => {
 
   it("uses screen context only to separate name-relevant cousins", () => {
     const filter = topName(index, "filter", { screenType: "catalog", journey: "browse", slot: "filter" });
-    expect(filter.candidates[0]?.name).not.toBe("List Row");
-    expect(filter.candidates.map((row) => row.name)).not.toContain("Tag");
+    const filterName = filter.candidates[0]?.name;
+    expect(filterName === undefined || filterName === "Tag").toBe(true);
+    expect(filter.candidates.map((row) => row.name)).not.toContain("Chip");
+    expect(filter.candidates.map((row) => row.name)).not.toContain("List Row");
     expect(topName(index, "card", { screenType: "checkout", journey: "review" }).candidates[0]?.name).toBe(
       "Summary Card",
     );
@@ -102,17 +104,31 @@ describe("phrase match and typos", () => {
   it("prefers a whole specific name over a shared generic token", () => {
     expect(topName(index, "radio button").candidates[0]?.name).toBe("Radio");
     expect(topName(index, "tab bar").candidates[0]?.name).toBe("Tabs");
-    expect(topName(index, "bottom bar").candidates).toEqual([]);
+    expect(topName(index, "bottom bar").candidates[0]?.name).toBe("Footer Bar");
+    expect(topName(index, "top bar").candidates[0]?.name).toBe("Header Bar");
+    expect(topName(index, "navigation item").candidates[0]?.name).toBe("Nav Item");
     expect(topName(index, "check box").candidates[0]?.name).toBe("Checkbox");
     expect(topName(index, "page header").candidates[0]?.name).toBe("Header Bar");
     expect(topName(index, "primary button").candidates[0]?.name).toBe("Button Primary");
+    const mainAction = topName(index, "main action button").candidates[0]?.name;
+    expect(mainAction).toBeTruthy();
+    expect(mainAction).not.toBe("Pay CTA");
+    expect(mainAction).not.toBe("Save CTA");
   });
 
-  it("accepts one edit on tokens of four or more characters", () => {
+  it("typos the whole name only when nothing else matches", () => {
     expect(topName(index, "buton").candidates[0]?.name).toBe("Button");
     expect(topName(index, "avtar").candidates[0]?.name).toBe("Avatar");
+    expect(topName(index, "chekbox").candidates[0]?.name).toBe("Checkbox");
+    expect(topName(index, "swtich").candidates[0]?.name).toBe("Switch");
     expect(topName(index, "tag").candidates[0]?.name).toBe("Tag");
     expect(topName(index, "kelp forest gauge").candidates).toEqual([]);
+    const ordinary = ["cart", "bard", "coast", "roast", "moral", "radix", "badger", "rice", "chop", "swatch", "maple", "orbit"];
+    for (const word of ordinary) {
+      expect(recommendMasters(index, word).candidates, word).toEqual([]);
+      const resolved = componentUsageCard(index, word);
+      expect(resolved.found, word).toBe(false);
+    }
   });
 });
 
@@ -123,6 +139,7 @@ describe("deprecated names", () => {
     for (const [intent, live, retired] of [
       ["Legacy Banner", "Banner", "Legacy Banner"],
       ["old price", "Price", "Old Price"],
+      ["legacy price", "Price", "Old Price"],
       ["Legacy Alert", "Alert", "Legacy Alert"],
     ] as const) {
       const result = recommendMasters(index, intent);

@@ -714,6 +714,7 @@ function grade(
   const acceptable = acceptableIds(spec);
   const inTop = (limit: number) => picks.slice(0, limit).some((pick) => pick.id && acceptable.has(pick.id));
   const masterCase = spec.expect === "master";
+  const acceptedTop = Boolean(spec.expect === "empty" && top?.id && spec.acceptIds.has(top.id));
   const wrongCousin = Boolean(
     masterCase &&
       top?.id &&
@@ -725,7 +726,7 @@ function grade(
     expect: spec.expect,
     top1: masterCase ? inTop(1) : false,
     top3: masterCase ? inTop(3) : false,
-    emptyOk: spec.expect === "empty" ? picks.length === 0 : false,
+    emptyOk: spec.expect === "empty" ? picks.length === 0 || acceptedTop : false,
     wrongCousin,
     leaked: offeredLeak(leakPicks, acceptable, wrongCousin),
     applicable: true,

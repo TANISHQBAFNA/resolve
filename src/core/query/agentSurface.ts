@@ -112,7 +112,7 @@ const tokensOf = (text: string): string[] =>
   text
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter((part) => part.length > 1 && !STOPWORDS.has(part))
+    .filter((part) => (part.length > 1 || part === "x") && !STOPWORDS.has(part))
     .map(stem);
 
 const isScreen = (index: GraphIndex, node: GraphNode): boolean => {
@@ -1056,7 +1056,6 @@ const SLOT_ROLE_TOKENS = new Set([
   "cta",
   "button",
   "message",
-  "filter",
   "input",
   "row",
   "card",
@@ -1101,7 +1100,6 @@ interface TokenHits {
   name: number;
   synonym: number;
   variant: number;
-  typo: number;
   covered: number;
 }
 
@@ -1123,41 +1121,47 @@ function collapsedName(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
-/** One insert, delete, or swap. Tokens shorter than 4 never qualify. */
-function editDistanceAtMost1(a: string, b: string): boolean {
-  if (a === b || a.length < 4 || b.length < 4) return false;
-  const delta = a.length - b.length;
-  if (Math.abs(delta) > 1) return false;
-  if (delta === 0) {
-    let diffs = 0;
-    for (let i = 0; i < a.length; i += 1) {
-      if (a[i] !== b[i]) diffs += 1;
-      if (diffs > 1) return false;
-    }
-    return diffs === 1;
-  }
-  const shorter = delta < 0 ? a : b;
-  const longer = delta < 0 ? b : a;
-  let i = 0;
-  let j = 0;
-  let skips = 0;
-  while (i < shorter.length && j < longer.length) {
-    if (shorter[i] === longer[j]) {
-      i += 1;
-      j += 1;
-    } else {
-      skips += 1;
-      j += 1;
-      if (skips > 1) return false;
-    }
-  }
-  return true;
+/** "navigation" covers "nav". A one-letter extension such as badger/badge does not. */
+function wordExtends(query: string, nameToken: string): boolean {
+  const short = query.length <= nameToken.length ? query : nameToken;
+  const long = query.length <= nameToken.length ? nameToken : query;
+  return short.length >= 3 && long.startsWith(short) && long.length - short.length >= 3;
 }
 
 function tokenMatchesName(query: string, nameToken: string): boolean {
   if (query === nameToken) return true;
-  if (synonymIn(query, new Set([nameToken]))) return true;
-  return editDistanceAtMost1(query, nameToken);
+  if (wordExtends(query, nameToken)) return true;
+  return synonymIn(query, new Set([nameToken]));
+}
+
+/** Query is the master name with one letter missing. */
+function oneCharMissing(query: string, name: string): boolean {
+  if (query.length + 1 !== name.length) return false;
+  let i = 0;
+  while (i < query.length && query[i] === name[i]) i += 1;
+  return query.slice(i) === name.slice(i + 1);
+}
+
+/** Neighbouring letters swapped, and nothing else. */
+function adjacentSwap(query: string, name: string): boolean {
+  if (query.length !== name.length || query.length < 2) return false;
+  let i = 0;
+  while (i < query.length && query[i] === name[i]) i += 1;
+  if (i >= query.length - 1) return false;
+  if (query[i] !== name[i + 1] || query[i + 1] !== name[i]) return false;
+  return query.slice(i + 2) === name.slice(i + 2);
+}
+
+/**
+ * Typo against the whole name, spaces removed. At least 5 letters.
+ * A missing letter or a neighbouring swap. Not a substituted letter.
+ * Never used while an exact, phrase, or synonym match exists.
+ */
+function wholeNameTypo(ask: string, name: string): boolean {
+  const query = collapsedName(ask);
+  const master = collapsedName(name);
+  if (query.length < 5 || master.length < 5 || query === master) return false;
+  return oneCharMissing(query, master) || adjacentSwap(query, master);
 }
 
 /**
@@ -1176,44 +1180,59 @@ function genericOnlyMiss(name: string, queryTokens: string[]): boolean {
   });
 }
 
+function nameTokenFor(token: string, names: Set<string>, used: Set<string>): string | undefined {
+  if (names.has(token) && !used.has(token)) return token;
+  for (const name of names) {
+    if (!used.has(name) && wordExtends(token, name)) return name;
+  }
+  return undefined;
+}
+
 function tokenHits(nameHaystack: string, variantText: string, tokens: string[]): TokenHits {
   const names = new Set(tokensOf(nameHaystack));
   const variants = new Set(tokensOf(variantText));
+  const used = new Set<string>();
   let name = 0;
   let synonym = 0;
   let variant = 0;
-  let typo = 0;
   let covered = 0;
+  const pending: string[] = [];
   for (const token of tokens) {
-    if (names.has(token)) {
+    const hit = nameTokenFor(token, names, used);
+    if (hit) {
       name += 1;
       covered += 1;
-      continue;
-    }
-    if (synonymIn(token, names)) {
+      used.add(hit);
+    } else pending.push(token);
+  }
+  const still: string[] = [];
+  for (const token of pending) {
+    const group = SYNONYM_OF.get(token);
+    const hit = group?.find((word) => word !== token && names.has(word) && !used.has(word));
+    if (hit) {
       synonym += 1;
       covered += 1;
-      continue;
-    }
-    if (variants.has(token) || synonymIn(token, variants)) {
+      used.add(hit);
+    } else still.push(token);
+  }
+  for (const token of still) {
+    const syn = SYNONYM_OF.get(token);
+    const hit = [...variants].find(
+      (part) => !used.has(part) && (part === token || Boolean(syn?.includes(part) && part !== token)),
+    );
+    if (hit) {
       variant += 1;
       covered += 1;
-      continue;
-    }
-    const typoName = token.length >= 4 && [...names].some((part) => editDistanceAtMost1(token, part));
-    const typoVariant = token.length >= 4 && [...variants].some((part) => editDistanceAtMost1(token, part));
-    if (typoName || typoVariant) {
-      typo += 1;
-      covered += 1;
+      used.add(hit);
     }
   }
-  return { name, synonym, variant, typo, covered };
+  return { name, synonym, variant, covered };
 }
 
 /** Name / synonym / variant. One name token outranks any amount of context. */
 function lexicalScore(hits: TokenHits, exactName: boolean): number {
   if (exactName) return 1_000_000;
-  return hits.name * 100 + hits.synonym * 70 + hits.variant * 40 + hits.typo * 15;
+  return hits.name * 100 + hits.synonym * 70 + hits.variant * 40;
 }
 
 /** "checkout summary with primary button" → scene + the component ask. */
@@ -1483,14 +1502,17 @@ export function recommendMasters(
   }
 
   const publicCovered = scored.reduce((best, entry) => Math.max(best, entry.covered), 0);
+  let blockedByPrivate = false;
   if (tokens.length > 0 && privateCovered > publicCovered) {
     scored.length = 0;
     retired.length = 0;
+    blockedByPrivate = true;
   }
 
   const asksRetired =
     tokens.some((token) => RETIRED_NAME_TOKENS.has(token)) ||
     retired.some((entry) => entry.exactName);
+  const askedSpecific = tokens.filter((token) => !RETIRED_NAME_TOKENS.has(token));
   let redirect: { id: string; reason: string; covered: number } | undefined;
   for (const entry of retired) {
     const replacement = liveReplacement(index, entry.node);
@@ -1498,10 +1520,16 @@ export function recommendMasters(
       scored.push(entry);
       continue;
     }
-    if (asksRetired && entry.covered >= publicCovered) {
+    const nameSpecific = tokensOf(entry.node.name).filter((token) => !RETIRED_NAME_TOKENS.has(token));
+    const specificOverlap = askedSpecific.filter((token) => nameSpecific.includes(token)).length;
+    // "legacy" alone may name a retired master. "legacy price" must not follow
+    // Legacy Banner just because both names say legacy.
+    if (askedSpecific.length > 0 && specificOverlap === 0) continue;
+    const rank = askedSpecific.length > 0 ? specificOverlap : entry.covered;
+    if (asksRetired && rank > 0 && entry.covered >= publicCovered) {
       const reason = `replaces ${entry.node.name} (deprecated)`;
-      if (!redirect || entry.covered > redirect.covered) {
-        redirect = { id: replacement.id, reason, covered: entry.covered };
+      if (!redirect || rank > redirect.covered) {
+        redirect = { id: replacement.id, reason, covered: rank };
       }
     }
   }
@@ -1533,6 +1561,34 @@ export function recommendMasters(
     }
   }
 
+  if (!blockedByPrivate && scored.length === 0 && intentNeedle) {
+    const winners: GraphNode[] = [];
+    for (const node of index.getNodesByType(...MASTER_TYPES)) {
+      if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
+      if (deniedByRules(index, node, packRules)) continue;
+      if (node.metadata?.["removedByAbsence"] === true) continue;
+      if (isRemovedByAbsence(options.sock, node)) continue;
+      if (!wholeNameTypo(intentNeedle, node.name)) continue;
+      winners.push(node);
+    }
+    const winner = winners.length === 1 ? winners[0] : undefined;
+    if (winner) {
+      const set = setOf(index, winner);
+      scored.push({
+        node: winner,
+        score: 15_000,
+        lexical: 15,
+        why: ["typo"],
+        analog: false,
+        deprecated: false,
+        instances: computeComponentUsage(index, winner).instanceCount,
+        setName: set && set.id !== winner.id ? set.name : undefined,
+        exactName: false,
+        covered: 1,
+      });
+    }
+  }
+
   const analogIds = new Set(analogById.keys());
   const analogSetIds = new Set(
     [...analogById.values()]
@@ -1552,6 +1608,7 @@ export function recommendMasters(
       entry.why.includes("name") ||
       entry.why.includes("synonym") ||
       entry.why.includes("variant") ||
+      entry.why.includes("typo") ||
       entry.why.includes("where-used") ||
       entry.why.includes("co-occur")
     ) {
