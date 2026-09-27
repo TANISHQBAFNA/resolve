@@ -64,15 +64,23 @@ See them:
 npm run resolve -- soci
 ```
 
-Each row has an id, a one-line summary, and the evidence (which screens).
+Each row has an id, a type, a one-line summary, and the evidence (which frames). Same suggestion again? Evidence merges. The list stays capped.
 
-**Approve** (writes `bind-rules.json` and an audit line: who, when, proposal id, before/after):
+There are more types than “require this master”: recipe slot changes, variant candidates, deprecation review, and wrong-cousin hotspots. Plain examples: [SOCI — suggestions from real usage](SOCI.md).
+
+**Approve a require-rule** (writes `bind-rules.json` and an audit line: who, when, proposal id, before/after):
 
 ```bash
-npm run resolve -- approve soci:2026-09-27T00:00:00.000Z:1 --who "Tanishk"
+npm run resolve -- approve soci:require-rule:pay-cta-payment --who "Tanishk"
 ```
 
-**Reject** (keeps the rules file as-is, still writes an audit line):
+**Approve a recipe update** (writes `recipes.json` overlay, not Figma):
+
+```bash
+npm run resolve -- approve soci:recipe-update:checkout-summary-header-node-stepper --who "Tanishk"
+```
+
+**Reject** (keeps the files as-is, still writes an audit line):
 
 ```bash
 npm run resolve -- reject soci:2026-09-27T00:00:00.000Z:1 --who "Tanishk"
@@ -96,7 +104,7 @@ Every recommend, recipe, and named-lookup card includes **one line** of why. It 
 
 If none of those exist: **`no usage yet`**. Resolve will not invent a count from the Figma file tree.
 
-In the browser map, open the **Rules** tab. It lists live rules, pending proposals, and the why line for a master you pick (`/api/governance` from the active store). It is a reading page, not the design app.
+In the browser map, open the **Rules** tab. It lists live rules, pending proposals grouped by type with evidence, and the why line for a master you pick (`/api/governance` from the active store, including `vite preview`). It is a reading page, not the design app.
 
 ---
 

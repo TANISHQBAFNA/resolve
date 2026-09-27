@@ -17,6 +17,7 @@ import {
   parseRecipeFile,
   parseWorkspaceFile,
   serializeBindRulesFile,
+  serializeRecipeFile,
   stampFileKey,
   starterRecipes,
   upsertWorkspaceFile,
@@ -28,6 +29,7 @@ import {
   type LibraryRules,
   type Recipe,
   type SockState,
+  type SociDecision,
   type WorkspaceFile,
   type WorkspaceFileRole,
   type WorkspaceManifest,
@@ -234,6 +236,8 @@ export function loadSock(): SockState | undefined {
       facts: raw.facts,
       freshness: raw.freshness ?? {},
       proposals: raw.proposals ?? [],
+      corrections: raw.corrections ?? [],
+      ...(typeof raw.proposalCap === "number" && raw.proposalCap > 0 ? { proposalCap: raw.proposalCap } : {}),
     };
   } catch {
     return undefined;
@@ -444,18 +448,31 @@ export function writeBindRules(file: BindRulesFile): void {
   writeFileAtomic(bindRulesPath(), `${JSON.stringify(serializeBindRulesFile(file), null, 2)}\n`);
 }
 
+export function writeRecipeOverlay(recipes: Recipe[]): void {
+  writeFileAtomic(recipesPath(), `${JSON.stringify(serializeRecipeFile(recipes), null, 2)}\n`);
+}
+
 export function appendBindAudit(line: AuditLine): void {
   mkdirSync(storeRoot(), { recursive: true });
   appendFileSync(bindAuditPath(), `${JSON.stringify(line)}\n`);
 }
 
-/** Rules first, then proposal status, then audit — a crash cannot approve without a rule. */
-export function commitProposalDecision(decided: {
-  sock: SockState;
-  rules: BindRulesFile;
-  audit: AuditLine;
-}): void {
-  writeBindRules(decided.rules);
+/**
+ * Bind-rules / recipe overlay first, then proposal status, then audit.
+ * Variant and deprecation approvals skip file writes besides sock + audit.
+ */
+export function commitProposalDecision(
+  decided: {
+    sock: SockState;
+    rules: BindRulesFile;
+    audit: AuditLine;
+    recipeOverlay?: Recipe[];
+    writesRules?: boolean;
+    writesRecipes?: boolean;
+  } & Partial<SociDecision>,
+): void {
+  if (decided.writesRules !== false) writeBindRules(decided.rules);
+  if (decided.writesRecipes && decided.recipeOverlay) writeRecipeOverlay(decided.recipeOverlay);
   saveSock(decided.sock);
   appendBindAudit(decided.audit);
 }

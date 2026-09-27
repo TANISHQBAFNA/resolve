@@ -342,7 +342,7 @@ These are the rules you should expect every agent to obey. If it breaks them, st
 
 Optional allow / deny for the whole library: `.graphify/library-rules.json` with `{ "allow": ["Button"], "deny": ["Banner"] }`. If that file is missing, “approved” means: it is in the ingested library, and it is not retired.
 
-**Bind rules** (require this master for this slot, forbid deprecated, prefer library A over B) live in `.graphify/bind-rules.json`. How to write one and how to approve a suggestion: [Bind rules and proposals](BIND-RULES.md).
+**Bind rules** (require this master for this slot, forbid deprecated, prefer library A over B) live in `.graphify/bind-rules.json`. How to write one and how to approve a suggestion: [Bind rules and proposals](BIND-RULES.md). Usage can also suggest recipe slot changes, official variants, deprecation reviews, and wrong-cousin fixes — you still approve each one: [SOCI](SOCI.md).
 
 ---
 
@@ -352,7 +352,7 @@ Be honest with yourself and with agents:
 
 - **Not a Figma replacement.** You still design, comment, and ship in Figma.
 - **Does not create components.** Recipes and packs only point at masters that already exist.
-- **Does not stay live by itself.** Changing Figma does nothing until you ingest again. A pending proposal is only a suggestion until you approve it.
+- **Does not stay live by itself.** Changing Figma does nothing until you ingest again. A pending proposal is only a suggestion until you approve it. SOCI never auto-applies.
 
 ---
 
@@ -391,7 +391,7 @@ Be honest with yourself and with agents:
 ## Where to go next
 
 - **You are a designer using Resolve** — you are in the right file. Keep this tab.
-- **You want to write a bind rule or approve a suggestion** — [Bind rules and proposals](BIND-RULES.md).
+- **You want to write a bind rule or approve a suggestion** — [Bind rules and proposals](BIND-RULES.md) and [SOCI](SOCI.md).
 - **You want to add or replace a screen pack** — [Screen recipes](RECIPES.md) (JSON details under a short plain-English intro).
 - **You work mainly in Cursor** — [Cursor + Resolve](CURSOR-RESOLVE.md) is the same happy path with editor wiring.
 - **You are building Resolve itself** — [Architecture](ARCHITECTURE.md) and [Integrations](INTEGRATIONS.md).

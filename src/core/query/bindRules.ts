@@ -736,6 +736,46 @@ export function serializeBindRulesFile(file: BindRulesFile): { version: 1; rules
   };
 }
 
+const WARNING_OVERFLOW = (count: number) => `and ${count} more warnings`;
+
+/**
+ * Quarantine warnings count toward the agent card budget. Truncate extras with
+ * "and K more warnings" rather than overflowing the cap.
+ */
+export function fitBindRuleWarnings(
+  warnings: BindRuleWarning[] | undefined,
+  base: object,
+  budgetChars: number,
+): { bindRuleWarnings?: BindRuleWarning[]; warningNote?: string } {
+  if (!warnings?.length) return {};
+  const sizeOf = (count: number, note?: string) =>
+    JSON.stringify({
+      ...base,
+      ...(count ? { bindRuleWarnings: warnings.slice(0, count) } : {}),
+      ...(note ? { warningNote: note } : {}),
+    }).length;
+
+  if (sizeOf(warnings.length) <= budgetChars) {
+    return { bindRuleWarnings: warnings };
+  }
+
+  let keep = warnings.length;
+  while (keep > 0 && sizeOf(keep, keep < warnings.length ? WARNING_OVERFLOW(warnings.length - keep) : undefined) > budgetChars) {
+    keep -= 1;
+  }
+  if (keep <= 0) {
+    const leftover = warnings.length;
+    if (JSON.stringify({ ...base, warningNote: WARNING_OVERFLOW(leftover) }).length <= budgetChars) {
+      return { warningNote: WARNING_OVERFLOW(leftover) };
+    }
+    return {};
+  }
+  const more = warnings.length - keep;
+  return more
+    ? { bindRuleWarnings: warnings.slice(0, keep), warningNote: WARNING_OVERFLOW(more) }
+    : { bindRuleWarnings: warnings.slice(0, keep) };
+}
+
 export function rulesEquivalent(left: BindRule, right: BindRule): boolean {
   if (left.kind !== right.kind) return false;
   switch (left.kind) {

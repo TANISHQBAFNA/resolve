@@ -79,6 +79,6 @@ Then: `recipe` / `recommend` → place only returned `fileKey` + `nodeId` (and `
 - Dump the graph into chat
 - Promote a pattern seen on only one verified screen (needs 3)
 - Promote a deprecated or private (`.` / `_`) master
-- Change your rules without a SOCI proposal (list only; approval UI later)
+- Change your rules without a SOCI proposal — you approve (`resolve approve --who`). SOCI never auto-applies.
 
 Default tools: `learn_library`, `recipe`, `recommend`, `resolve`, `verify_frame`, `check_cousins`. Set `RESOLVE_MCP_ADVANCED=1` for the rest.

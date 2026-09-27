@@ -12,6 +12,7 @@ import { isRemovedByAbsence, patternFor, staleRefreshHint, type SockState } from
 import {
   bindRuleHit,
   filterAndScoreByBindRules,
+  fitBindRuleWarnings,
   packJourneyPhrase,
   verifyBindRules,
   whyLineForMaster,
@@ -1259,17 +1260,20 @@ export function recommendMasters(
   let candidates = kept.slice(0, limit).map((entry, index) => compactCandidate(entry, index));
 
   const applied = appliedRecommendContext(options.context);
-  const payloadOf = () => ({
-    intent,
-    candidates,
-    truncated,
-    ...(applied ? { context: applied } : {}),
-    ...(options.bindRules?.warnings?.length ? { bindRuleWarnings: options.bindRules.warnings } : {}),
-    hint:
-      candidates.length === 0
-        ? `No master matched. Do not invent. ${refreshHintFor(options.sock, graphFileKey)}`
-        : `Place fileKey+nodeId. ${refreshHintFor(options.sock, graphFileKey)}`,
-  });
+  const payloadOf = () => {
+    const base = {
+      intent,
+      candidates,
+      truncated,
+      ...(applied ? { context: applied } : {}),
+      hint:
+        candidates.length === 0
+          ? `No master matched. Do not invent. ${refreshHintFor(options.sock, graphFileKey)}`
+          : `Place fileKey+nodeId. ${refreshHintFor(options.sock, graphFileKey)}`,
+    };
+    const fitted = fitBindRuleWarnings(options.bindRules?.warnings, base, budgetChars);
+    return { ...base, ...fitted };
+  };
 
   let payload = payloadOf();
   while (JSON.stringify(payload).length > budgetChars && (includeSlots || whereLimit > 0 || limit > 1)) {
@@ -1486,7 +1490,13 @@ export function verifyFrame(
         ruleFailure.expected ? ` Place ${ruleFailure.expected.name} (${ruleFailure.expected.id}).` : ""
       }`
     : undefined;
-  return withCost({
+  const pending = input.sock?.proposals.filter((row) => row.status === "pending").length ?? 0;
+  const hint = ok
+    ? `Only approved library masters. ${REFRESH_HINT}`
+    : bindHint ??
+      `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`;
+  const pendingHint = pending ? `pending improvements: ${pending}.` : undefined;
+  const base = {
     pass: ok,
     approved: approvedIds.size,
     resolved,
@@ -1494,7 +1504,6 @@ export function verifyFrame(
     deprecated: deprecatedHits,
     unresolved,
     ...(ruleFailure ? { ruleFailure } : {}),
-    ...(input.bindRules?.warnings?.length ? { bindRuleWarnings: input.bindRules.warnings } : {}),
     frame: frameNode
       ? {
           ...briefNode(frameNode),
@@ -1502,9 +1511,9 @@ export function verifyFrame(
         }
       : undefined,
     builtAt: index.graph.builtAt,
-    hint: ok
-      ? `Only approved library masters. ${REFRESH_HINT}`
-      : bindHint ??
-        `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`,
-  });
+    hint: pendingHint ? `${hint} ${pendingHint}` : hint,
+    ...(pending ? { pendingImprovements: pending } : {}),
+  };
+  const fitted = fitBindRuleWarnings(input.bindRules?.warnings, base, 600);
+  return withCost({ ...base, ...fitted });
 }

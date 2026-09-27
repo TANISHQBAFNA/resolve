@@ -9,12 +9,39 @@ export const DEFAULT_USAGE_THRESHOLD = 3;
 
 export type UsageConfidence = "low" | "strong";
 export type SociStatus = "pending" | "approved" | "rejected";
+export type SociProposalType =
+  | "require-rule"
+  | "recipe-update"
+  | "variant-candidate"
+  | "deprecation-candidate"
+  | "wrong-cousin";
+
+export interface SociEvidenceItem {
+  frameId?: string;
+  screenId?: string;
+  screenName?: string;
+  fileKey?: string;
+  count?: number;
+  note?: string;
+}
+
+export interface SociScope {
+  screenType?: string;
+  slot?: string;
+  journey?: string;
+  product?: string;
+  pack?: string;
+  recipeId?: string;
+  masterId?: string;
+}
 
 export interface UsageFact {
   masterId: string;
   name: string;
   fileKey?: string;
   figmaNodeId?: string;
+  /** Verified frame node id when this fact came from a real frame. */
+  frameId?: string;
   screenId: string;
   screenName: string;
   slot?: string;
@@ -26,6 +53,8 @@ export interface UsageFact {
   promoted: boolean;
   /** False for component-list-only verifies. Only real frames count toward N=3. */
   countsTowardThreshold: boolean;
+  /** REST/MCP-derived override keys (never guessed). */
+  overrideKeys?: string[];
   verifiedAt: string;
 }
 
@@ -50,14 +79,62 @@ export interface SociSuggestedRule {
   over?: string;
 }
 
+export interface SociSuggestedRecipe {
+  recipeId: string;
+  slotRole: string;
+  action: "add-slot" | "rebind";
+  masterId: string;
+  masterName: string;
+  hints?: string[];
+  required?: boolean;
+}
+
+export interface SociSuggestedVariant {
+  masterId: string;
+  masterName: string;
+  overrideKey: string;
+  note: string;
+}
+
+export interface SociSuggestedDeprecation {
+  masterId: string;
+  masterName: string;
+  cousinId: string;
+  cousinName: string;
+}
+
+export interface CousinCorrection {
+  fromId: string;
+  fromName: string;
+  fromFileKey?: string;
+  toId: string;
+  toName: string;
+  toFileKey?: string;
+  screenId: string;
+  screenName: string;
+  frameId?: string;
+  fileKey?: string;
+  verifiedAt: string;
+}
+
 export interface SociProposal {
   id: string;
   createdAt: string;
-  kind: "rule";
+  updatedAt?: string;
+  /** @deprecated Use `type`. Kept so existing require-rule rows still load. */
+  kind?: "rule";
+  type?: SociProposalType;
+  scope?: SociScope;
   status: SociStatus;
   summary: string;
-  evidence: string;
+  evidence: string | SociEvidenceItem[];
+  confidence?: UsageConfidence;
   suggestedRule?: SociSuggestedRule;
+  suggestedRecipe?: SociSuggestedRecipe;
+  suggestedVariant?: SociSuggestedVariant;
+  suggestedDeprecation?: SociSuggestedDeprecation;
+  namingFix?: string;
+  decisionNote?: string;
 }
 
 export interface FreshnessDeltaItem {
@@ -97,10 +174,12 @@ export interface SockState {
   facts: UsageFact[];
   freshness: Record<string, FileFreshness>;
   proposals: SociProposal[];
+  corrections?: CousinCorrection[];
+  proposalCap?: number;
 }
 
 export function emptySock(threshold = DEFAULT_USAGE_THRESHOLD): SockState {
-  return { version: 1, threshold, facts: [], freshness: {}, proposals: [] };
+  return { version: 1, threshold, facts: [], freshness: {}, proposals: [], corrections: [] };
 }
 
 export function inferSlot(name: string): string | undefined {
@@ -132,11 +211,13 @@ export function recordVerifiedUsage(
       figmaNodeId?: string;
       deprecated?: boolean;
       private?: boolean;
+      overrideKeys?: string[];
     }>;
     journey?: string;
     product?: string;
     pack?: string;
     slot?: string;
+    frameId?: string;
     verifiedAt?: string;
     /** Default true so unit tests can simulate real screens. Tools must pass false for list-only. */
     countsTowardThreshold?: boolean;
@@ -156,6 +237,7 @@ export function recordVerifiedUsage(
       name: master.name,
       fileKey: master.fileKey,
       figmaNodeId: master.figmaNodeId,
+      ...(input.frameId ? { frameId: input.frameId } : {}),
       screenId: input.screenId,
       screenName: input.screenName,
       ...(input.slot ? { slot: input.slot } : {}),
@@ -166,6 +248,7 @@ export function recordVerifiedUsage(
       private: master.private,
       promoted: !blocked,
       countsTowardThreshold,
+      ...(master.overrideKeys?.length ? { overrideKeys: master.overrideKeys } : {}),
       verifiedAt,
     });
   }
@@ -270,22 +353,92 @@ export function freshnessSummary(state: SockState, fileKey?: string): FileFreshn
   return values[0];
 }
 
+function evidenceList(evidence: string | SociEvidenceItem[]): SociEvidenceItem[] {
+  if (Array.isArray(evidence)) return evidence;
+  if (evidence.trim()) return [{ note: evidence.trim() }];
+  return [];
+}
+
+function requireRuleId(summary: string, suggestedRule?: SociSuggestedRule): string {
+  const key = [
+    suggestedRule?.require,
+    suggestedRule?.screenType,
+    suggestedRule?.slot,
+    suggestedRule?.journey,
+    suggestedRule?.product,
+    suggestedRule?.pack,
+    summary,
+  ]
+    .filter(Boolean)
+    .join(":")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 96);
+  return `soci:require-rule:${key || "rule"}`;
+}
+
 export function proposeRuleChange(
   state: SockState,
   summary: string,
-  evidence: string,
+  evidence: string | SociEvidenceItem[],
   suggestedRule?: SociSuggestedRule,
 ): SockState {
   const createdAt = new Date().toISOString();
-  const id = `soci:${createdAt}:${state.proposals.length + 1}`;
+  const id = requireRuleId(summary, suggestedRule);
+  const existing = state.proposals.find((row) => row.id === id);
+  const items = evidenceList(evidence);
+  if (existing) {
+    if (existing.status !== "pending") return state;
+    const prev = Array.isArray(existing.evidence) ? existing.evidence : evidenceList(existing.evidence);
+    const seen = new Set(prev.map((item) => `${item.screenId ?? ""}:${item.frameId ?? ""}:${item.note ?? ""}`));
+    const merged = [...prev];
+    for (const item of items) {
+      const key = `${item.screenId ?? ""}:${item.frameId ?? ""}:${item.note ?? ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(item);
+    }
+    return {
+      ...state,
+      proposals: state.proposals.map((row) =>
+        row.id === id
+          ? {
+              ...row,
+              type: "require-rule" as const,
+              kind: "rule" as const,
+              summary,
+              evidence: merged.slice(0, 8),
+              updatedAt: createdAt,
+              ...(suggestedRule ? { suggestedRule } : {}),
+            }
+          : row,
+      ),
+    };
+  }
   const proposal: SociProposal = {
     id,
     createdAt,
+    updatedAt: createdAt,
     kind: "rule",
+    type: "require-rule",
     status: "pending",
     summary,
-    evidence,
-    ...(suggestedRule ? { suggestedRule } : {}),
+    evidence: items,
+    confidence: "strong",
+    ...(suggestedRule
+      ? {
+          scope: {
+            ...(suggestedRule.screenType ? { screenType: suggestedRule.screenType } : {}),
+            ...(suggestedRule.slot ? { slot: suggestedRule.slot } : {}),
+            ...(suggestedRule.journey ? { journey: suggestedRule.journey } : {}),
+            ...(suggestedRule.product ? { product: suggestedRule.product } : {}),
+            ...(suggestedRule.pack ? { pack: suggestedRule.pack } : {}),
+            ...(suggestedRule.require ? { masterId: suggestedRule.require } : {}),
+          },
+          suggestedRule,
+        }
+      : {}),
   };
   return { ...state, proposals: [...state.proposals, proposal] };
 }
@@ -374,16 +527,19 @@ export function proposeStrongPatterns(
       .filter(Boolean)
       .join("/");
     const summary = `Promote ${pattern.name} for ${scopeLabel} (strong on ${pattern.screens.length} screens)`;
-    if (next.proposals.some((row) => row.summary === summary && row.status === "pending")) continue;
-    next = proposeRuleChange(
-      next,
-      summary,
-      `Verified on distinct screens: ${pattern.screens.join(", ") || "(none)"}.`,
-      {
-        require: pattern.masterId,
-        ...scope,
-      },
-    );
+    const evidence = facts
+      .filter((fact) => fact.countsTowardThreshold !== false)
+      .map((fact) => ({
+        frameId: fact.frameId ?? fact.screenId,
+        screenId: fact.screenId,
+        screenName: fact.screenName,
+        ...(fact.fileKey ? { fileKey: fact.fileKey } : {}),
+        count: 1,
+      }));
+    next = proposeRuleChange(next, summary, evidence.length ? evidence : `Verified on distinct screens: ${pattern.screens.join(", ") || "(none)"}.`, {
+      require: pattern.masterId,
+      ...scope,
+    });
   }
   return next;
 }

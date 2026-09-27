@@ -14,3 +14,4 @@ export * from "./cousins";
 export * from "./placeReady";
 export * from "./sock";
 export * from "./bindRules";
+export * from "./soci";

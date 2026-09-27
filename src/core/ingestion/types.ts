@@ -65,6 +65,14 @@ export const SourceNodeSchema: z.ZodType<SourceNode> = z.lazy(() =>
     componentSetId: z.string().optional(),
     variantProperties: z.record(z.string()).optional(),
     componentProperties: z.record(z.unknown()).optional(),
+    overrides: z
+      .array(
+        z.object({
+          id: z.string().optional(),
+          overriddenFields: z.array(z.string()).optional(),
+        }),
+      )
+      .optional(),
 
     bounds: SourceBoundsSchema.optional(),
     /** "NONE" | "HORIZONTAL" | "VERTICAL" | "GRID" */
@@ -96,6 +104,7 @@ export interface SourceNode {
   componentSetId?: string;
   variantProperties?: Record<string, string>;
   componentProperties?: Record<string, unknown>;
+  overrides?: Array<{ id?: string; overriddenFields?: string[] }>;
   bounds?: z.infer<typeof SourceBoundsSchema>;
   layoutMode?: string;
   hasImageFill?: boolean;

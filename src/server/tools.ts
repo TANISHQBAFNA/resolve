@@ -1,7 +1,8 @@
 import type { GraphNode } from "@/core/model";
 import {
+  advanceSoci,
   applyFreshness,
-  applyProposalDecision,
+  applySociDecision,
   BindRuleError,
   buildOrientBrief,
   checkFrame,
@@ -10,18 +11,18 @@ import {
   explainNode,
   extractSubgraph,
   freshnessSummary,
+  harvestOverrideKeysForFrame,
   isPrivateMasterName,
   isRealVerifiedFrame,
   listSoci,
   mergeBindRules,
-  newlyStrongPatterns,
   parseLibraryRules,
-  proposeStrongPatterns,
   listRecipes,
   pathBetween,
   queryQuestion,
   recipeCard,
   recommendMasters,
+  recordCousinCorrections,
   recordVerifiedUsage,
   screenInventory,
   searchNodes,
@@ -29,6 +30,7 @@ import {
   usageSummaryFor,
   verifyFrame,
   withCost,
+  withPendingImprovements,
   checkCousins,
   packForRecommend,
   type GraphIndex,
@@ -50,6 +52,7 @@ import {
   saveSock,
   storeInfo,
   readBindRules,
+  readRecipeOverlay,
   commitProposalDecision,
   loadGraph,
 } from "./store";
@@ -283,7 +286,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "list_soci",
     description:
-      "List SOCI rule-change proposals. Usage facts write themselves; rules never do. Approve or reject with approve_proposal / reject_proposal (this advanced surface).",
+      "List SOCI proposals (require-rule, recipe-update, variant-candidate, deprecation-candidate, wrong-cousin). Usage facts write themselves; SOCI never auto-applies. Approve or reject with approve_proposal / reject_proposal (this advanced surface, confirmedBy required).",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -295,6 +298,7 @@ export const TOOLS: ToolDefinition[] = [
       properties: {
         proposalId: { type: "string", description: "Pending SOCI proposal id." },
         confirmedBy: { type: "string", description: "Human name confirming this write. Required. Agents cannot confirm." },
+        note: { type: "string", description: "Optional note stored with variant/deprecation decisions." },
       },
       required: ["proposalId", "confirmedBy"],
     },
@@ -665,7 +669,8 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
     case "list_soci":
       return {
         proposals: listSoci(readSock()),
-        hint: "Usage facts update on verify pass. Rules never auto-change. Approve with approve_proposal (confirmedBy) or CLI: resolve approve <id> --who <name>.",
+        pendingImprovements: readSock().proposals.filter((row) => row.status === "pending").length,
+        hint: "SOCI never auto-applies. Approve with approve_proposal (confirmedBy) or CLI: resolve approve <id> --who <name>. Recipe updates write recipes.json; variant/deprecation record a decision only.",
       };
 
     case "approve_proposal":
@@ -675,7 +680,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const action = name === "approve_proposal" ? "approve" : "reject";
       try {
         const loaded = loadGraph();
-        const decided = applyProposalDecision(
+        const decided = applySociDecision(
           readSock(),
           readBindRules(),
           proposalId,
@@ -685,9 +690,20 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           {
             index: loaded?.index,
             workspace: readWorkspace(),
+            recipes: loadRecipes(),
+            overlay: readRecipeOverlay(),
+            note: typeof args["note"] === "string" ? args["note"] : undefined,
           },
         );
         commitProposalDecision(decided);
+        const hint =
+          action === "reject"
+            ? "Proposal rejected. Audit line appended. SOCI never auto-applies."
+            : decided.writesRecipes
+              ? "Recipe overlay written atomically. Audit line appended. Figma was not edited."
+              : decided.writesRules
+                ? "Rule written to bind-rules.json. Audit line appended. Agents now rank/verify with it."
+                : "Decision recorded for the design team. bind-rules.json and Figma were not edited. Audit line appended.";
         return {
           ok: true,
           action,
@@ -695,10 +711,8 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           who: decided.audit.who,
           when: decided.audit.when,
           rules: decided.rules.rules,
-          hint:
-            action === "approve"
-              ? "Rule written to bind-rules.json. Audit line appended. Agents now rank/verify with it."
-              : "Proposal rejected. bind-rules.json unchanged. Audit line appended.",
+          ...(decided.writesRecipes ? { recipesWritten: true } : {}),
+          hint,
         };
       } catch (error) {
         if (error instanceof BindRuleError) throw new ToolError(error.message);
@@ -835,27 +849,63 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         }
         if (masters.length) {
           const realFrame = isRealVerifiedFrame(result.frame);
+          const frameId = result.frame?.figmaNodeId ?? result.frame?.id;
           const screenId = realFrame
-            ? `${result.frame!.fileKey}:${result.frame!.figmaNodeId ?? result.frame!.id}`
+            ? `${result.frame!.fileKey}:${frameId}`
             : `obs:${(components ?? []).slice().sort().join(",") || "list"}`;
-          const before = readSock();
-          const recorded = recordVerifiedUsage(before, {
+          const harvested =
+            realFrame && result.frame?.id ? harvestOverrideKeysForFrame(index, result.frame.id) : new Map<string, string[]>();
+          const mastersWithOverrides = masters.map((master) => {
+            const keys = harvested.get(master.id);
+            return keys?.length ? { ...master, overrideKeys: keys } : master;
+          });
+          let next = recordVerifiedUsage(readSock(), {
             screenId,
             screenName: result.frame?.name ?? frame ?? "observation",
-            masters,
+            masters: mastersWithOverrides,
             journey: typeof args["journey"] === "string" ? args["journey"] : undefined,
             product: typeof args["product"] === "string" ? args["product"] : undefined,
             pack: typeof args["pack"] === "string" ? args["pack"] : undefined,
+            slot: typeof args["slot"] === "string" ? args["slot"] : undefined,
+            frameId: realFrame ? frameId : undefined,
             countsTowardThreshold: realFrame,
           });
+          if (realFrame && result.frame) {
+            const cousinReport = checkCousins(index, {
+              frame: result.frame.id,
+              recipes: loadRecipes(),
+              context: pack,
+              workspace: bind.workspace ?? readWorkspace(),
+            });
+            const hits = (cousinReport.cousins ?? [])
+              .filter((hit) => hit.confidence === "cousin" && hit.expected)
+              .map((hit) => ({
+                fromId: hit.placed.id,
+                fromName: hit.placed.name,
+                fromFileKey: hit.placed.fileKey,
+                toId: hit.expected!.id,
+                toName: hit.expected!.name,
+                toFileKey: hit.expected!.fileKey,
+              }));
+            next = recordCousinCorrections(next, {
+              screenId,
+              screenName: result.frame.name ?? frame ?? "frame",
+              frameId,
+              fileKey: result.frame.fileKey,
+              hits,
+            });
+          }
           saveSock(
-            proposeStrongPatterns(recorded, newlyStrongPatterns(before, recorded), (pattern) =>
-              recipeAlreadyEncodes(pattern, loadRecipes()),
-            ),
+            advanceSoci(next, {
+              recipes: loadRecipes(),
+              index,
+              workspace: bind.workspace ?? readWorkspace(),
+              alreadyEncoded: (pattern) => recipeAlreadyEncodes(pattern, loadRecipes()),
+            }),
           );
         }
       }
-      return result;
+      return withPendingImprovements(result, readSock());
     }
 
     case "list_recipes": {
@@ -886,14 +936,17 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const intent = typeof args["intent"] === "string" ? args["intent"].trim() : "";
       const extra = intent && intent !== query ? intent : undefined;
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
-      return recipeCard(
-        loadRecipes(),
-        query,
-        resolveGraph(graphId)?.index,
-        extra,
-        contextBindFromArgs(args),
+      return withPendingImprovements(
+        recipeCard(
+          loadRecipes(),
+          query,
+          resolveGraph(graphId)?.index,
+          extra,
+          contextBindFromArgs(args),
+          readSock(),
+          loadBindRulesSafe(),
+        ),
         readSock(),
-        loadBindRulesSafe(),
       );
     }
 

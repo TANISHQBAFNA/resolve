@@ -288,8 +288,9 @@ describe("why line (SOCK facts only)", () => {
       true,
     );
     const result = recommendMasters(index, "pay cta", { bindRules: loaded });
-    expect(result.bindRuleWarnings?.length).toBeGreaterThan(0);
+    expect((result.bindRuleWarnings?.length ?? 0) > 0 || Boolean(result.warningNote)).toBe(true);
     expect(result.candidates.some((row) => row.id === ids.live)).toBe(true);
+    expect(result.cost.chars).toBeLessThan(650);
   });
 
   it("keeps recommend cards under the 600-char budget with a why line", () => {
