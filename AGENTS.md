@@ -63,7 +63,7 @@ No REST token: save Figma MCP `get_metadata` XML and `ingest screen.xml --from-m
 - `get_design_context` / `use_figma` on a FRAME or SECTION until recipe/recommend/resolve returned that id.
 - Skip ingest when the library changed. Re-ingest is the refresh path.
 
-`.graphify/recipes.json` overlay still wins over the starter pack. Optional `.graphify/context-packs.json` binds product + journey + domain to recipes so recommend is not a generic name match. Optional `.graphify/workspace.json` lists linked Figma files (`library` / `product` / `client`). Do not invent `defaultMasterId`s or Figma node ids in packs. See `docs/GUIDE.md` and `docs/RECIPES.md`.
+`.graphify/recipes.json` overlay still wins over the starter pack. Optional `.graphify/context-packs.json` binds product + journey + domain to recipes so recommend is not a generic name match. Optional `.graphify/workspace.json` lists linked Figma files (`library` / `product` / `client`). Optional `.graphify/bind-rules.json` require/forbid/prefer (unknown ids fail validation; rules never auto-change). Do not invent `defaultMasterId`s or Figma node ids in packs. See `docs/GUIDE.md`, `docs/RECIPES.md`, and `docs/BIND-RULES.md`.
 
 Prefer **resolve** over any `keyline` / `graphify` alias.
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased — thin bet C (why line, bind rules, approve)
+
+Human rules stay human. SOCK still records usage. SOCI only proposes.
+
+- **Why line** — every recommend / recipe / named-lookup hit includes one line built only from SOCK facts (real-screen count, confidence, freshness, deprecated/removed, pack/journey, bind-rule hit). No facts: `no usage yet`. Never invented. Recommend/verify cards stay under ~600 chars; recipe cards stay trimmed.
+- **Bind rules** — `.graphify/bind-rules.json` (template: `src/data/bind-rules.example.json`). Shapes: require this master for a screen/slot, forbid deprecated/removed/name, prefer library A over B. Schema validated. Unknown ids fail loudly. CLI and MCP reload on change. Optional `bindRules` on a context pack. Recommend ranks and filters; verify names the rule and returns the correct master id + place hint.
+- **Approve flow** — rules never auto-change. `resolve approve` / `resolve reject` (MCP `approve_proposal` / `reject_proposal` on the advanced surface) write the rules file and append an audit line (who, when, proposal id, before/after). Default MCP stays six tools.
+- **Human view** — Rules tab in the web app: rules, pending proposals, why for a chosen master. Read-only.
+- **Docs** — [docs/BIND-RULES.md](docs/BIND-RULES.md) in plain English.
+
+## Unreleased — Resolve for Figma MCP (plug-and-play + SOCK)
+
 ## Unreleased — Resolve for Figma MCP (plug-and-play + SOCK)
 
 Agent with only Figma MCP + Resolve MCP can learn a library and stay current. No clone, no hand-built JSON.

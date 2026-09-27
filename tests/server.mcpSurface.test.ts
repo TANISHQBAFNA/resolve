@@ -37,7 +37,12 @@ describe("MCP default surface + SOCK loop", () => {
     expect(new Set(names)).toEqual(
       new Set(["learn_library", "recipe", "recommend", "resolve", "verify_frame", "check_cousins"]),
     );
+    expect(names).not.toContain("approve_proposal");
+    expect(names).not.toContain("reject_proposal");
     expect(TOOLS.length).toBeGreaterThan(6);
+    expect(listToolDefinitions(true).map((tool) => tool.name)).toEqual(
+      expect.arrayContaining(["approve_proposal", "reject_proposal", "list_soci"]),
+    );
     expect(listToolDefinitions(true).length).toBe(TOOLS.length);
   });
 

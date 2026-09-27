@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "howToAdd": "Copy this file to .graphify/bind-rules.json (or the store folder Resolve is using). Each rule is one object. require = this screen/slot must use this exact master name or id. forbid = do not place that status or name. prefer = rank this library above that one. Unknown ids fail validation — never guess. Rules never change by themselves; approve a SOCI proposal with: npm run resolve -- approve <id>",
+  "rules": [
+    {
+      "screenType": "payment",
+      "slot": "primary-action",
+      "require": "Pay CTA"
+    },
+    { "forbid": "deprecated" },
+    { "prefer": "Shared DS", "over": "Storefront" }
+  ]
+}

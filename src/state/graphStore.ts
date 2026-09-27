@@ -15,8 +15,8 @@ import {
 
 export type LoadStatus = "idle" | "loading" | "ready" | "error";
 
-/** `explorer` is the focused, level-based view. `atlas` is the whole file. */
-export type ViewSurface = "explorer" | "atlas";
+/** `explorer` is the focused, level-based view. `atlas` is the whole file. `rules` is the bind-rule / why page. */
+export type ViewSurface = "explorer" | "atlas" | "rules";
 
 export interface AtlasSettings {
   /** Fold instances onto their main component so each component is one node. */

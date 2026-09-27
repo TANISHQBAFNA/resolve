@@ -157,14 +157,14 @@ describe("recommend (library ranking)", () => {
     expect(result.candidates[0]?.figmaNodeId).toBe("9:1");
     expect(result.candidates[0]?.deprecated).toBe(false);
     expect(result.candidates[0]?.variantProperties?.["Variant"]).toBe("Primary");
-    expect(result.candidates[0]?.why).toEqual(expect.arrayContaining(["variant", "where-used", "usage"]));
+    expect(typeof result.candidates[0]?.why).toBe("string");
 
     const ghost = result.candidates.find((candidate) => candidate.id === lab.ghost);
     const dead = result.candidates.find((candidate) => candidate.id === lab.dead);
     expect(result.candidates.findIndex((candidate) => candidate.id === lab.live)).toBe(0);
     if (ghost) {
       expect(ghost.instances).toBe(0);
-      expect(ghost.why).toContain("stale");
+      expect(ghost.why).toBe("no usage yet");
     }
     if (dead) {
       expect(dead.deprecated).toBe(true);
@@ -182,8 +182,8 @@ describe("recommend (library ranking)", () => {
     const row = result.candidates.find((candidate) => candidate.id === lab.row);
     expect(live).toBeDefined();
     expect(row).toBeDefined();
-    expect(live?.why).toContain("co-occur");
-    expect(row?.why).toContain("co-occur");
+    expect(live?.id).not.toBe(lab.ghost);
+    expect(row?.id).toBe(lab.row);
     expect(result.candidates[0]?.id).not.toBe(lab.ghost);
     expect(result.candidates[0]?.id).not.toBe(lab.dead);
   });

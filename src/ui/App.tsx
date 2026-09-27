@@ -20,6 +20,8 @@ import { LibraryOverview } from "@/ui/overview/LibraryOverview";
 import { WorkspaceState } from "@/ui/overview/WorkspaceState";
 import { HealthChip, Stat } from "@/ui/overview/Stat";
 import { libraryHealth } from "@/ui/overview/health";
+import { RulesPage } from "@/ui/governance/RulesPage";
+import type { ViewSurface } from "@/state/graphStore";
 
 const RECIPE_COUNT = Array.isArray(packagedRecipes.recipes) ? packagedRecipes.recipes.length : 0;
 
@@ -72,6 +74,15 @@ export function App() {
             onClick={() => setMode("explorer")}
           >
             Explorer
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "rules"}
+            className={mode === "rules" ? "is-active" : ""}
+            onClick={() => setMode("rules")}
+          >
+            Rules
           </button>
         </div>
 
@@ -141,8 +152,11 @@ function renderWorkspace(
   status: LoadStatus,
   error: string | undefined,
   onIngest: () => void,
-  mode: "atlas" | "explorer",
+  mode: ViewSurface,
 ) {
+  if (mode === "rules") {
+    return <RulesPage />;
+  }
   switch (status) {
     case "idle":
       return <WorkspaceState kind="empty" onIngest={onIngest} />;

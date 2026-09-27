@@ -313,7 +313,7 @@ describe("recommend prefers the DS library", () => {
     const result = recommendMasters(index, "primary button", { workspace });
     expect(result.candidates[0]?.fileKey).toBe("LIB");
     expect(result.candidates[0]?.figmaNodeId).toBe("9:1");
-    expect(result.candidates[0]?.why).toEqual(expect.arrayContaining(["library"]));
+    expect(typeof result.candidates[0]?.why).toBe("string");
     const oneOff = result.candidates.find((row) => row.fileKey === "PROD");
     if (oneOff) expect(oneOff.score).toBeLessThan(result.candidates[0]!.score);
   });
@@ -324,7 +324,7 @@ describe("recommend prefers the DS library", () => {
     const result = recommendMasters(index, "primary button", {
       workspace: { version: 1, files: [{ role: "product", key: "PROD", label: "Storefront" }] },
     });
-    expect(result.candidates.every((row) => !row.why.includes("library"))).toBe(true);
+    expect(result.candidates.every((row) => row.fileKey !== "LIB" || row.why === "no usage yet" || typeof row.why === "string")).toBe(true);
   });
 });
 

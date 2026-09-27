@@ -46,7 +46,7 @@ npm run resolve -- cousins "Checkout Summary" --job "checkout summary"
 - Place a deprecated or missing master. Call `recommend` for a live one.
 - Guess a cousin. If `check_cousins` is unsure, say so.
 
-Optional allow/deny: `.graphify/library-rules.json` `{ "allow": ["Button"], "deny": ["Banner"] }`. If missing, approved = in-graph MAIN_COMPONENT / VARIANT (or COMPONENT_SET) and not deprecated.
+Optional allow/deny: `.graphify/library-rules.json` `{ "allow": ["Button"], "deny": ["Banner"] }`. Bind rules (require / forbid / prefer): `.graphify/bind-rules.json` — unknown ids fail validation, never guess. If missing, approved = in-graph MAIN_COMPONENT / VARIANT (or COMPONENT_SET) and not deprecated. Rules never auto-change; `approve_proposal` is advanced MCP / CLI `resolve approve`.
 
 Designers edit `src/data/recipes.json` or overlay `.graphify/recipes.json`. Product + journey + domain: `.graphify/context-packs.json`. Linked files: `.graphify/workspace.json` (see `docs/GUIDE.md`). Do not invent `defaultMasterId`s or Figma node ids in packs.
 

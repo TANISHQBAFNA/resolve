@@ -11,6 +11,7 @@ import {
 } from "./agentSurface";
 import { placeReady } from "./placeReady";
 import { usageAllowsRecipeFill, type SockState } from "./sock";
+import { whyLineForMaster, mergeBindRules, type BindRulesFile } from "./bindRules";
 import {
   appliedContext,
   contextPhrase,
@@ -59,6 +60,7 @@ export interface RecipeMaster {
   status?: GraphNode["status"];
   deprecated: boolean;
   hint?: string;
+  why?: string;
 }
 
 export interface FilledSlot {
@@ -185,6 +187,7 @@ function oneLineHint(text: string | undefined, max = 72): string | undefined {
 
 function compactCardMaster(master: RecipeMaster) {
   const hint = oneLineHint(master.hint, 40);
+  const why = master.why ? oneLineHint(master.why, 80) : undefined;
   return {
     id: master.id,
     name: master.name,
@@ -193,6 +196,7 @@ function compactCardMaster(master: RecipeMaster) {
     ...(master.componentKey ? { componentKey: master.componentKey } : {}),
     status: master.status,
     ...(hint ? { hint } : {}),
+    ...(why ? { why } : {}),
   };
 }
 
@@ -230,13 +234,19 @@ function compactListSlot(slot: FilledSlot) {
   };
 }
 
-export function listRecipes(recipes: Recipe[], index?: GraphIndex, bind?: ContextBind, sock?: SockState) {
+export function listRecipes(
+  recipes: Recipe[],
+  index?: GraphIndex,
+  bind?: ContextBind,
+  sock?: SockState,
+  bindRules?: BindRulesFile,
+) {
   const rows = [...recipes]
     .sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id))
     .map((recipe) => {
       const pack = bind ? packForRecipe(recipe, bind) : undefined;
       const filled = index
-        ? fillRecipe(index, recipe, undefined, pack, bind?.workspace, sock)
+        ? fillRecipe(index, recipe, undefined, pack, bind?.workspace, sock, bindRules)
         : unboundCard(recipe, undefined, pack);
       const context = pack ? appliedContext(pack) : undefined;
       return {
@@ -298,7 +308,7 @@ export function slotRecommendIntent(
     .join(" ");
 }
 
-function masterFromNode(index: GraphIndex, node: GraphNode, hint: string): RecipeMaster {
+function masterFromNode(index: GraphIndex, node: GraphNode, hint: string, sock?: SockState): RecipeMaster {
   const set = node.componentSetId ? index.getNode(node.componentSetId) : undefined;
   const place = placeReady(node, index.graph.fileKey);
   return {
@@ -311,10 +321,11 @@ function masterFromNode(index: GraphIndex, node: GraphNode, hint: string): Recip
     status: node.status,
     deprecated: node.status === "deprecated",
     hint,
+    why: whyLineForMaster(node, { sock, graphFileKey: index.graph.fileKey }),
   };
 }
 
-function masterFromCandidate(candidate: RecommendCandidate): RecipeMaster {
+function masterFromCandidate(candidate: RecommendCandidate, sock?: SockState, graphFileKey?: string): RecipeMaster {
   return {
     id: candidate.id,
     name: candidate.name,
@@ -330,6 +341,10 @@ function masterFromCandidate(candidate: RecommendCandidate): RecipeMaster {
     status: candidate.status,
     deprecated: candidate.deprecated,
     hint: candidate.hint,
+    why: candidate.why || whyLineForMaster(
+      { id: candidate.id, name: candidate.name, type: candidate.type as GraphNode["type"], status: candidate.status },
+      { sock, graphFileKey },
+    ),
   };
 }
 
@@ -347,9 +362,11 @@ function fillSlot(
   pack?: ContextPack,
   workspace?: WorkspaceManifest,
   sock?: SockState,
+  bindRules?: BindRulesFile,
 ): FilledSlot {
   const nextRecommend = slotRecommendIntent(recipe, slot, extraIntent, pack);
   const base = { role: slot.role, required: slot.required, hints: slot.hints, nextRecommend };
+  const mergedRules = mergeBindRules(bindRules ?? { version: 1, rules: [] }, pack?.bindRules);
 
   if (slot.defaultMasterId) {
     const node = resolveNode(index, slot.defaultMasterId);
@@ -376,6 +393,7 @@ function fillSlot(
           index,
           master,
           "Deprecated — do not place. Call recommend for a live master for this slot.",
+          sock,
         ),
         hint: `Bound master ${master.name} is deprecated. Call recommend "${nextRecommend}".`,
       };
@@ -383,7 +401,7 @@ function fillSlot(
     return {
       ...base,
       status: "bound",
-      master: masterFromNode(index, master, "Place this stored figmaNodeId. It is still in the graph."),
+      master: masterFromNode(index, master, "Place this stored figmaNodeId. It is still in the graph.", sock),
       hint: `Bound ${master.name}. Place its figmaNodeId.`,
     };
   }
@@ -393,6 +411,7 @@ function fillSlot(
     ...(pack ? { context: pack } : {}),
     ...(workspace ? { workspace } : {}),
     ...(sock ? { sock } : {}),
+    ...(mergedRules.rules.length ? { bindRules: mergedRules } : {}),
   });
   const live = ranked.candidates.filter(
     (candidate) =>
@@ -413,7 +432,7 @@ function fillSlot(
   return {
     ...base,
     status: "filled",
-    master: masterFromCandidate(pick),
+    master: masterFromCandidate(pick, sock, index.graph.fileKey),
     hint: pick.hint,
   };
 }
@@ -425,8 +444,11 @@ export function fillRecipe(
   pack?: ContextPack,
   workspace?: WorkspaceManifest,
   sock?: SockState,
+  bindRules?: BindRulesFile,
 ): FilledRecipe {
-  const slots = recipe.slots.map((slot) => fillSlot(index, recipe, slot, extraIntent, pack, workspace, sock));
+  const slots = recipe.slots.map((slot) =>
+    fillSlot(index, recipe, slot, extraIntent, pack, workspace, sock, bindRules),
+  );
   const next = slots
     .filter((slot) => slot.status === "unbound" || slot.status === "missing" || slot.status === "deprecated")
     .map((slot) => slot.nextRecommend)
@@ -472,6 +494,7 @@ export function recipeCard(
   extraIntent?: string,
   bind?: ContextBind,
   sock?: SockState,
+  bindRules?: BindRulesFile,
 ) {
   const recipe = matchRecipe(recipes, query);
   if (!recipe) {
@@ -483,7 +506,7 @@ export function recipeCard(
   }
   const pack = bind ? packForRecipe(recipe, bind) : undefined;
   const filled = index
-    ? fillRecipe(index, recipe, extraIntent, pack, bind?.workspace, sock)
+    ? fillRecipe(index, recipe, extraIntent, pack, bind?.workspace, sock, bindRules)
     : unboundCard(recipe, extraIntent, pack);
   return withCost({
     found: true as const,

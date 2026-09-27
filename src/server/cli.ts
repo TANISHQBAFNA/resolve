@@ -11,11 +11,15 @@ import {
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { buildGraph } from "@/core/transform";
 import {
+  actorName,
+  applyProposalDecision,
   buildOrientBrief,
   checkFrame,
   componentUsageCard,
   explainNode,
   listRecipes,
+  listSoci,
+  mergeBindRules,
   packForRecommend,
   pathBetween,
   queryQuestion,
@@ -30,20 +34,25 @@ import {
   type WorkspaceFileRole,
 } from "@/core/query";
 import {
+  appendBindAudit,
   deleteGraph,
   graphPath,
   listGraphs,
   loadContextBind,
   loadRecipes,
   missingGraphMessage,
+  readBindRules,
   readLibraryRules,
+  readSock,
   readWorkspace,
   rebuildIndex,
   resolveGraph,
   saveIngestedFile,
+  saveSock,
   fsIngestCheckpointStore,
   storeInfo,
   workspacePath,
+  writeBindRules,
 } from "./store";
 import { learnLibrary } from "./learn";
 
@@ -84,16 +93,22 @@ function usage(): void {
       "      Matching .graphify/context-packs.json scopes slot fills + nextRecommend.",
       "      Never invents node ids. Unbound: recommend then verify_frame.",
       `  resolve recommend "<intent>" [--id] [--budget <chars>] ${PACK_BIND_FLAGS}`,
-      "      Ranked masters: name/intent, variant props, where-used, co-occurrence.",
-      "      Product/journey/domain context on top. Live over stale. Deprecated demoted. Cap ~2000 chars. Place returned ids only.",
+      "      Ranked masters: name/intent, variant props, where-used, co-occurrence, bind rules.",
+      "      Product/journey/domain context on top. Live over stale. Deprecated demoted. Cap ~600 chars.",
+      "      Each hit has a one-line why from SOCK facts (or 'no usage yet'). Place returned ids only.",
       "  resolve resolve \"<name>\" [--id] [--budget <chars>]",
       "      I know the name, give me the id. Exact master always returns id + fileKey + figmaNodeId, even with zero usage.",
-      "      Miss: says so and points at recommend. Not an empty list.",
+      "      One-line why from SOCK facts. Miss: says so and points at recommend. Not an empty list.",
       `  resolve verify "<frame>" [--id] [--components a,b] [--rules <file>] ${PACK_BIND_FLAGS}`,
-      "      After drawing: pass/fail, invents, deprecated, unresolved. Measures invent rate.",
+      "      After drawing: pass/fail, invents, deprecated, unresolved, bind-rule misses.",
       "      Component list: exact name or id only (fileKey:nodeId ok). Near match = unresolved + did you mean. Private (. / _) fails.",
+      "      Bind rules: .graphify/bind-rules.json (require / forbid / prefer). A miss names the rule and the correct master id.",
       "      Optional .graphify/library-rules.json { allow, deny }. Else in-graph + not deprecated = approved.",
-      "      Same pack flags as recommend. Pack libraryRules are a light hook. Wrong-cousin drift: resolve cousins.",
+      "      Same pack flags as recommend. Wrong-cousin drift: resolve cousins.",
+      "  resolve rules                  List human-authored bind rules",
+      "  resolve soci                   List pending SOCI proposals (rules never auto-change)",
+      "  resolve approve <proposal-id> [--who <name>]   Write the suggested rule + audit line",
+      "  resolve reject <proposal-id> [--who <name>]    Keep rules unchanged + audit line",
       `  resolve cousins ["<frame>"] [--job "<screen job>"] [--components a,b] ${PACK_BIND_FLAGS}`,
       "      Wrong-cousin report: same role / weak name, different master family than the shared DS library.",
       "      Needs a library-role file in .graphify/workspace.json. Unsure → says so. Never invents a master.",
@@ -337,12 +352,22 @@ export async function runCli(argv: string[]): Promise<void> {
       const query = positionals(args)[0];
       const recipes = loadRecipes();
       const bind = bindFromFlags(args);
+      const sock = readSock();
+      const bindRules = readBindRules();
       if (!query || query === "list") {
-        printJson(listRecipes(recipes, resolveGraph(flag(args, "id"))?.index, bind));
+        printJson(listRecipes(recipes, resolveGraph(flag(args, "id"))?.index, bind, sock, bindRules));
         return;
       }
       printJson(
-        recipeCard(recipes, query, resolveGraph(flag(args, "id"))?.index, flag(args, "intent"), bind),
+        recipeCard(
+          recipes,
+          query,
+          resolveGraph(flag(args, "id"))?.index,
+          flag(args, "intent"),
+          bind,
+          sock,
+          bindRules,
+        ),
       );
       return;
     }
@@ -352,11 +377,14 @@ export async function runCli(argv: string[]): Promise<void> {
       if (!intent) throw new Error('Usage: resolve recommend "<intent>"');
       const budget = Number(flag(args, "budget"));
       const bind = bindFromFlags(args);
+      const pack = packForRecommend(bind);
       printJson(
         recommendMasters(requireGraph(args).index, intent, {
           budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
-          context: packForRecommend(bind),
+          context: pack,
           workspace: bind.workspace,
+          sock: readSock(),
+          bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
         }),
       );
       return;
@@ -369,6 +397,7 @@ export async function runCli(argv: string[]): Promise<void> {
       printJson(
         componentUsageCard(requireGraph(args).index, name, {
           budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
+          sock: readSock(),
         }),
       );
       return;
@@ -482,14 +511,59 @@ export async function runCli(argv: string[]): Promise<void> {
         );
       }
       const rulesPath = flag(args, "rules");
+      const bind = bindFromFlags(args);
+      const pack = packForRecommend(bind);
       printJson(
         verifyFrame(requireGraph(args).index, {
           frame,
           components,
           rules: readLibraryRules(rulesPath),
-          context: packForRecommend(bindFromFlags(args)),
+          context: pack,
+          bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
+          sock: readSock(),
         }),
       );
+      return;
+    }
+
+    case "rules":
+      printJson({
+        rules: readBindRules().rules,
+        hint: "Human-authored. Copy src/data/bind-rules.example.json to bind-rules.json. Approve SOCI proposals with resolve approve <id>.",
+      });
+      return;
+
+    case "soci":
+      printJson({
+        proposals: listSoci(readSock()),
+        hint: "Rules never auto-change. resolve approve <id> writes bind-rules.json. resolve reject <id> keeps it.",
+      });
+      return;
+
+    case "approve":
+    case "reject": {
+      const proposalId = positionals(args)[0];
+      if (!proposalId) throw new Error(`Usage: resolve ${command} <proposal-id> [--who <name>]`);
+      const action = command === "approve" ? "approve" : "reject";
+      const decided = applyProposalDecision(
+        readSock(),
+        readBindRules(),
+        proposalId,
+        action,
+        actorName(flag(args, "who")),
+        new Date().toISOString(),
+      );
+      saveSock(decided.sock);
+      writeBindRules(decided.rules);
+      appendBindAudit(decided.audit);
+      printJson({
+        ok: true,
+        action,
+        proposalId,
+        who: decided.audit.who,
+        when: decided.audit.when,
+        rules: decided.rules.rules,
+      });
       return;
     }
 

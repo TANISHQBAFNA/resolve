@@ -1805,6 +1805,63 @@ pre,
   }
 }
 
+.rules-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+  line-height: 1.55;
+}
+
+.rules-page h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.rules-page h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.rules-page__intro p {
+  margin: 0 0 8px;
+}
+
+.rules-page__block {
+  margin-top: 24px;
+  padding: 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.rules-page__block ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.rules-page__block li + li {
+  margin-top: 10px;
+}
+
+.rules-page label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 360px;
+}
+
+.rules-page select {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.rules-page__why {
+  margin: 12px 0 0;
+  font-size: 15px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .workspace-state__pulse {
     animation: none;

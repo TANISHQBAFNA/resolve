@@ -36,6 +36,16 @@ export interface UsagePattern {
   promoted: boolean;
 }
 
+export interface SociSuggestedRule {
+  id?: string;
+  screenType?: string;
+  slot?: string;
+  require?: string;
+  forbid?: string;
+  prefer?: string;
+  over?: string;
+}
+
 export interface SociProposal {
   id: string;
   createdAt: string;
@@ -43,6 +53,7 @@ export interface SociProposal {
   status: SociStatus;
   summary: string;
   evidence: string;
+  suggestedRule?: SociSuggestedRule;
 }
 
 export interface FreshnessDeltaItem {
@@ -252,7 +263,12 @@ export function freshnessSummary(state: SockState, fileKey?: string): FileFreshn
   return values[0];
 }
 
-export function proposeRuleChange(state: SockState, summary: string, evidence: string): SockState {
+export function proposeRuleChange(
+  state: SockState,
+  summary: string,
+  evidence: string,
+  suggestedRule?: SociSuggestedRule,
+): SockState {
   const createdAt = new Date().toISOString();
   const id = `soci:${createdAt}:${state.proposals.length + 1}`;
   const proposal: SociProposal = {
@@ -262,6 +278,7 @@ export function proposeRuleChange(state: SockState, summary: string, evidence: s
     status: "pending",
     summary,
     evidence,
+    ...(suggestedRule ? { suggestedRule } : {}),
   };
   return { ...state, proposals: [...state.proposals, proposal] };
 }
@@ -298,6 +315,10 @@ export function proposeStrongPatterns(
       next,
       summary,
       `Verified on distinct screens: ${pattern.screens.join(", ") || "(none)"}.`,
+      {
+        require: pattern.masterId,
+        ...(slot ? { slot } : {}),
+      },
     );
   }
   return next;

@@ -138,7 +138,7 @@ npm run resolve -- recommend "primary button" --product Storefront --journey sum
 
 `recipe` and `verify` take the same extras, so ranking and the after-draw check follow the same product and step.
 
-**You get:** A short ranked list. Live, used masters rise. Retired ones sink. Product, journey, and domain words sit **on top of** name matching — so “Primary button” in a Storefront checkout pack prefers the checkout Primary, not a random cousin.
+**You get:** A short ranked list. Each row has a one-line **why** built from real usage facts (how many verified screens, confidence, stale/retired, your pack, a bind rule). If Resolve has no facts yet, the line is `no usage yet` — it will not invent a count. Live, used masters rise. Retired ones sink. Bind rules can require one master for a slot, forbid retired ones, or prefer the shared library. Product, journey, and domain words sit **on top of** name matching.
 
 If the list is empty: **do not invent a component.** Change the words (use names from your library), re-ingest, or pick a different pack.
 
@@ -342,6 +342,8 @@ These are the rules you should expect every agent to obey. If it breaks them, st
 
 Optional allow / deny for the whole library: `.graphify/library-rules.json` with `{ "allow": ["Button"], "deny": ["Banner"] }`. If that file is missing, “approved” means: it is in the ingested library, and it is not retired.
 
+**Bind rules** (require this master for this slot, forbid deprecated, prefer library A over B) live in `.graphify/bind-rules.json`. How to write one and how to approve a suggestion: [Bind rules and proposals](BIND-RULES.md).
+
 ---
 
 ## What Resolve does not do yet
@@ -349,9 +351,8 @@ Optional allow / deny for the whole library: `.graphify/library-rules.json` with
 Be honest with yourself and with agents:
 
 - **Not a Figma replacement.** You still design, comment, and ship in Figma.
-- **Not a designer UI for “why this component.”** You do not yet get a visual card that explains the pick. Ranking still happens; the explanation UI is coming. The cousin report is a short pass/fail card, not that UI.
 - **Does not create components.** Recipes and packs only point at masters that already exist.
-- **Does not stay live by itself.** Changing Figma does nothing until you ingest again.
+- **Does not stay live by itself.** Changing Figma does nothing until you ingest again. A pending proposal is only a suggestion until you approve it.
 
 ---
 
@@ -390,6 +391,7 @@ Be honest with yourself and with agents:
 ## Where to go next
 
 - **You are a designer using Resolve** — you are in the right file. Keep this tab.
+- **You want to write a bind rule or approve a suggestion** — [Bind rules and proposals](BIND-RULES.md).
 - **You want to add or replace a screen pack** — [Screen recipes](RECIPES.md) (JSON details under a short plain-English intro).
 - **You work mainly in Cursor** — [Cursor + Resolve](CURSOR-RESOLVE.md) is the same happy path with editor wiring.
 - **You are building Resolve itself** — [Architecture](ARCHITECTURE.md) and [Integrations](INTEGRATIONS.md).

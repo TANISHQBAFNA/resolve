@@ -266,7 +266,7 @@ describe("recommend ranking with product/journey context", () => {
     const pack = parseContextPackFile(samplePackFile).packs[0];
     const result = recommendMasters(index, "primary button", { context: pack });
     expect(result.candidates[0]?.id).toBe(ids.pay);
-    expect(result.candidates[0]?.why).toEqual(expect.arrayContaining(["product", "journey"]));
+    expect(result.candidates[0]?.why).toMatch(/matches/i);
     expect(result.context?.id).toBe("storefront-checkout-summary");
     expect(result.context?.domain).toBe("checkout");
   });

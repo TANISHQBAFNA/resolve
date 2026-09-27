@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, readdirSync, statSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, readdirSync, statSync, appendFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import type { IngestCheckpointStore, ScreensCheckpoint } from "@/core/ingestion/adapters/figmaRestSource";
@@ -6,17 +6,22 @@ import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import {
   assertIngestRoleChange,
   defaultIngestRole,
+  emptyBindRules,
   emptySock,
   indexGraph,
   mergeRecipes,
   mergeWorkspaceGraphs,
+  parseBindRulesFile,
   parseContextPackFile,
   parseLibraryRules,
   parseRecipeFile,
   parseWorkspaceFile,
+  resolveBindRules,
   stampFileKey,
   starterRecipes,
   upsertWorkspaceFile,
+  type BindRulesFile,
+  type AuditLine,
   type ContextBind,
   type ContextPackFile,
   type GraphIndex,
@@ -34,7 +39,7 @@ import type { LearnCheckpoint } from "@/core/ingestion/learnLibrary";
  *
  *   .graphify/graph.json
  *
- * Optional designer files next to it: library-rules.json, recipes.json,
+ * Optional designer files next to it: library-rules.json, bind-rules.json, recipes.json,
  * context-packs.json, workspace.json. Per-file graphs live in files/.
  * Agents call recipe / recommend / resolve / cousins — they do not Read the graph file.
  */
@@ -161,6 +166,8 @@ function storeFingerprint(): string {
   add(graphPath());
   add(workspacePath());
   add(sockPath());
+  add(bindRulesPath());
+  add(libraryRulesPath());
   const filesDir = workspaceFilesDir();
   if (existsSync(filesDir)) {
     for (const name of readdirSync(filesDir).sort()) {
@@ -177,6 +184,15 @@ export function graphPath(): string {
 /** Optional allow/deny list next to graph.json. Missing file = graph status rules. */
 export function libraryRulesPath(): string {
   return join(storeRoot(), "library-rules.json");
+}
+
+/** Human-authored bind rules. Missing file = no extra require/forbid/prefer. */
+export function bindRulesPath(): string {
+  return join(storeRoot(), "bind-rules.json");
+}
+
+export function bindAuditPath(): string {
+  return join(storeRoot(), "bind-rules.audit.jsonl");
 }
 
 /** Designer-editable recipe overlay next to graph.json. Missing file = starter pack only. */
@@ -381,6 +397,29 @@ export function readLibraryRules(explicitPath?: string): LibraryRules | undefine
   }
   const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
   return parseLibraryRules(raw);
+}
+
+export function readBindRules(explicitPath?: string): BindRulesFile {
+  const path = explicitPath ?? (existsSync(bindRulesPath()) ? bindRulesPath() : undefined);
+  if (!path) return emptyBindRules();
+  if (!existsSync(path)) {
+    throw new Error(`Bind rules file not found: ${path}`);
+  }
+  const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
+  const parsed = parseBindRulesFile(raw);
+  const loaded = loadGraph();
+  if (!loaded) return parsed;
+  return resolveBindRules(parsed, { index: loaded.index, workspace: readWorkspace() });
+}
+
+export function writeBindRules(file: BindRulesFile): void {
+  mkdirSync(storeRoot(), { recursive: true });
+  writeFileSync(bindRulesPath(), `${JSON.stringify(file, null, 2)}\n`);
+}
+
+export function appendBindAudit(line: AuditLine): void {
+  mkdirSync(storeRoot(), { recursive: true });
+  appendFileSync(bindAuditPath(), `${JSON.stringify(line)}\n`);
 }
 
 /** Stable id derived from the file it came from. Display only — the file is always graph.json. */

@@ -8,7 +8,7 @@
 
 Resolve is one shared design system brain for your Figma library. Agents pick **real** library components (a Primary button, a checkout row) instead of inventing a new system every time.
 
-**Start here:** **[Resolve — how to use it](docs/GUIDE.md)** — the designer guide. What it is, the happy path, how to write a context pack, what Resolve does not do yet.
+**Start here:** **[Resolve — how to use it](docs/GUIDE.md)** — the designer guide. What it is, the happy path, how to write a context pack, how to write a bind rule, what Resolve does not do yet.
 
 MIT licensed. Free to use.
 
@@ -81,6 +81,7 @@ Other ways to bring a file in: Figma MCP `learn_library` (primary), or REST inge
 
 - **Plug-and-play next to Figma MCP:** [`docs/SETUP-MCP.md`](docs/SETUP-MCP.md)
 - **Designer guide:** [`docs/GUIDE.md`](docs/GUIDE.md)
+- Bind rules + approve a proposal: [`docs/BIND-RULES.md`](docs/BIND-RULES.md)
 - Screen recipes (JSON packs): [`docs/RECIPES.md`](docs/RECIPES.md)
 - Cursor-focused steps: [`docs/CURSOR-RESOLVE.md`](docs/CURSOR-RESOLVE.md)
 - Building Resolve: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
@@ -97,5 +98,4 @@ License: [`LICENSE`](LICENSE) (MIT)
 |-----|------|
 | Map + search + short AI cards | Clearer reports on design-system usage |
 | `recommend` + `verify_frame` (invent rate) | Smoother live Figma links and previews |
-| Screen recipes + product/journey context packs | Designer “why this component” cards; wrong-cousin across products |
-| Works with Figma MCP + Resolve MCP | Optional in-app AI helpers |
+| Why line + bind rules + approve a proposal | Optional in-app AI helpers |

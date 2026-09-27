@@ -1,6 +1,9 @@
 import type { GraphNode } from "@/core/model";
 import {
   applyFreshness,
+  applyProposalDecision,
+  actorName,
+  BindRuleError,
   buildOrientBrief,
   checkFrame,
   computeAnalytics,
@@ -11,6 +14,7 @@ import {
   isPrivateMasterName,
   isRealVerifiedFrame,
   listSoci,
+  mergeBindRules,
   newlyStrongPatterns,
   parseLibraryRules,
   proposeStrongPatterns,
@@ -46,6 +50,9 @@ import {
   resolveGraph,
   saveSock,
   storeInfo,
+  readBindRules,
+  writeBindRules,
+  appendBindAudit,
 } from "./store";
 
 /**
@@ -124,7 +131,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "recommend",
     description:
-      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Optional product/journey/domain context pack (or pack / product / journey / domain, or the active pack) scopes ranking for this product and this journey step. Returns figmaNodeId. Cap ~2000 chars. Forced path: ingest (refresh if library changed) → optional context pack / recipe → recommend unbound slots → place only returned ids → verify_frame. Do not invent components. Do not Read graph.json.",
+      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.graphify/bind-rules.json) require/forbid/prefer. Each hit has a one-line why from SOCK facts (or 'no usage yet'). Optional product/journey/domain context pack. Returns figmaNodeId. Cap ~600 chars. Forced path: learn_library → optional recipe → recommend unbound slots → place only returned ids → verify_frame. Do not invent components. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -172,7 +179,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "resolve",
     description:
-      "I know the name, give me the id. Exact master name or id always returns id + fileKey + figmaNodeId even when unused (zero instances). Usage screens are additive. Unknown name: found=false + call recommend \"<intent>\", not an empty list. Frame names return a screen inventory. Cap ~2000 chars.",
+      "I know the name, give me the id. Exact master name or id always returns id + fileKey + figmaNodeId even when unused (zero instances). One-line why from SOCK facts. Usage screens are additive. Unknown name: found=false + call recommend \"<intent>\", not an empty list. Frame names return a screen inventory. Cap ~2000 chars.",
     inputSchema: {
       type: "object",
       properties: {
@@ -248,7 +255,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "verify_frame",
     description:
-      "After drawing, check a frame or a proposed component list against the library graph. Pass iff every placement is an in-graph MAIN_COMPONENT/VARIANT (or COMPONENT_SET) and not deprecated. Flags invents, deprecated, unresolved. Optional allow/deny rules file. Optional pack / product / journey / domain applies pack libraryRules (still invent/deprecated/unresolved only). Deterministic — no LLM. Use to measure invent rate.",
+      "After drawing, check a frame or a proposed component list against the library graph and bind rules. Pass iff every placement is an in-graph master, not deprecated, and bind require/forbid rules hold. A bind-rule fail names the rule and returns the required master id + place hint. Optional allow/deny. Deterministic — no LLM.",
     inputSchema: {
       type: "object",
       properties: {
@@ -277,8 +284,34 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "list_soci",
     description:
-      "List SOCI rule-change proposals. Usage facts write themselves; rules never do. Approval UI later — this is the data model + list only.",
+      "List SOCI rule-change proposals. Usage facts write themselves; rules never do. Approve or reject with approve_proposal / reject_proposal (this advanced surface).",
     inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "approve_proposal",
+    description:
+      "Human-only. Apply a pending SOCI proposal to bind-rules.json and append an audit line (who, when, proposal id, before/after). Rules never auto-change. Advanced surface.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        proposalId: { type: "string", description: "Pending SOCI proposal id." },
+        who: { type: "string", description: "Who approved. Default RESOLVE_ACTOR or USER." },
+      },
+      required: ["proposalId"],
+    },
+  },
+  {
+    name: "reject_proposal",
+    description:
+      "Human-only. Reject a pending SOCI proposal. Appends an audit line. Does not change bind-rules.json. Advanced surface.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        proposalId: { type: "string", description: "Pending SOCI proposal id." },
+        who: { type: "string", description: "Who rejected. Default RESOLVE_ACTOR or USER." },
+      },
+      required: ["proposalId"],
+    },
   },
   {
     name: "list_recipes",
@@ -498,6 +531,14 @@ const asStringList = (value: unknown): string[] | undefined => {
   return items.length ? items.map((item) => item.trim()) : undefined;
 };
 
+function loadBindRulesSafe() {
+  try {
+    return readBindRules();
+  } catch (error) {
+    throw new ToolError(error instanceof Error ? error.message : String(error));
+  }
+}
+
 function libraryRulesFromArgs(args: Record<string, unknown>) {
   const inline = parseLibraryRules({ allow: args["allow"], deny: args["deny"] });
   try {
@@ -612,14 +653,50 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
     case "list_soci":
       return {
         proposals: listSoci(readSock()),
-        hint: "Usage facts update on verify pass. Rules never auto-change. These proposals need a human. Approval UI later.",
+        hint: "Usage facts update on verify pass. Rules never auto-change. Approve with approve_proposal or CLI: resolve approve <id>.",
       };
+
+    case "approve_proposal":
+    case "reject_proposal": {
+      const proposalId = asString(args["proposalId"] ?? args["id"], "proposalId");
+      const who = actorName(typeof args["who"] === "string" ? args["who"] : undefined);
+      const action = name === "approve_proposal" ? "approve" : "reject";
+      try {
+        const decided = applyProposalDecision(
+          readSock(),
+          readBindRules(),
+          proposalId,
+          action,
+          who,
+          new Date().toISOString(),
+        );
+        saveSock(decided.sock);
+        writeBindRules(decided.rules);
+        appendBindAudit(decided.audit);
+        return {
+          ok: true,
+          action,
+          proposalId,
+          who: decided.audit.who,
+          when: decided.audit.when,
+          rules: decided.rules.rules,
+          hint:
+            action === "approve"
+              ? "Rule written to bind-rules.json. Audit line appended. Agents now rank/verify with it."
+              : "Proposal rejected. bind-rules.json unchanged. Audit line appended.",
+        };
+      } catch (error) {
+        if (error instanceof BindRuleError) throw new ToolError(error.message);
+        throw error;
+      }
+    }
 
     case "resolve": {
       const { index } = context(args);
       const budget = typeof args["budgetChars"] === "number" ? args["budgetChars"] : undefined;
       return componentUsageCard(index, asString(args["name"] ?? args["query"], "name"), {
         budgetChars: budget,
+        sock: readSock(),
       });
     }
 
@@ -654,11 +731,13 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const { index } = context(args);
       const budget = typeof args["budgetChars"] === "number" ? args["budgetChars"] : undefined;
       const bind = contextBindFromArgs(args);
+      const pack = packForRecommend(bind);
       return recommendMasters(index, asString(args["intent"] ?? args["question"] ?? args["query"], "intent"), {
         budgetChars: budget,
-        context: packForRecommend(bind),
+        context: pack,
         workspace: bind.workspace,
         sock: readSock(),
+        bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
       });
     }
 
@@ -693,11 +772,15 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       if (!frame && !components) {
         throw new ToolError("`frame` or `components` is required.");
       }
+      const bind = contextBindFromArgs(args);
+      const pack = packForRecommend(bind);
       const result = verifyFrame(index, {
         frame,
         components,
         rules: libraryRulesFromArgs(args),
-        context: packForRecommend(contextBindFromArgs(args)),
+        context: pack,
+        bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
+        sock: readSock(),
       });
       if (result.pass) {
         const masters: Array<{
@@ -761,7 +844,13 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
 
     case "list_recipes": {
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
-      return listRecipes(loadRecipes(), resolveGraph(graphId)?.index, contextBindFromArgs(args), readSock());
+      return listRecipes(
+        loadRecipes(),
+        resolveGraph(graphId)?.index,
+        contextBindFromArgs(args),
+        readSock(),
+        loadBindRulesSafe(),
+      );
     }
 
     case "recipe":
@@ -770,12 +859,26 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const query = typeof rawQuery === "string" ? rawQuery.trim() : "";
       if (!query || query === "list") {
         const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
-        return listRecipes(loadRecipes(), resolveGraph(graphId)?.index, contextBindFromArgs(args), readSock());
+        return listRecipes(
+          loadRecipes(),
+          resolveGraph(graphId)?.index,
+          contextBindFromArgs(args),
+          readSock(),
+          loadBindRulesSafe(),
+        );
       }
       const intent = typeof args["intent"] === "string" ? args["intent"].trim() : "";
       const extra = intent && intent !== query ? intent : undefined;
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
-      return recipeCard(loadRecipes(), query, resolveGraph(graphId)?.index, extra, contextBindFromArgs(args), readSock());
+      return recipeCard(
+        loadRecipes(),
+        query,
+        resolveGraph(graphId)?.index,
+        extra,
+        contextBindFromArgs(args),
+        readSock(),
+        loadBindRulesSafe(),
+      );
     }
 
     case "list_graphs": {
