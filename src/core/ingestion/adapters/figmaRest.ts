@@ -259,6 +259,22 @@ function walkNode(
   const componentProperties = asRecord(raw["componentProperties"]);
   if (Object.keys(componentProperties).length) node.componentProperties = componentProperties;
 
+  const overrides = asArray(raw["overrides"])
+    .map((item) => {
+      const rec = asRecord(item);
+      const id = asString(rec["id"]);
+      const overriddenFields = asArray(rec["overriddenFields"]).filter(
+        (field): field is string => typeof field === "string" && field.trim().length > 0,
+      );
+      if (!id && !overriddenFields.length) return undefined;
+      return {
+        ...(id ? { id } : {}),
+        ...(overriddenFields.length ? { overriddenFields } : {}),
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => Boolean(row));
+  if (overrides.length) node.overrides = overrides;
+
   const box = asRecord(raw["absoluteBoundingBox"]);
   const x = asNumber(box["x"]);
   const y = asNumber(box["y"]);

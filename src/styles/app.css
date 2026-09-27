@@ -1862,6 +1862,20 @@ pre,
   font-size: 15px;
 }
 
+.rules-page__pending {
+  margin: 8px 0 0;
+  font-weight: 600;
+}
+
+.rules-page__group + .rules-page__group {
+  margin-top: 16px;
+}
+
+.rules-page__group h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .workspace-state__pulse {
     animation: none;

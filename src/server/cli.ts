@@ -11,7 +11,7 @@ import {
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { buildGraph } from "@/core/transform";
 import {
-  applyProposalDecision,
+  applySociDecision,
   buildOrientBrief,
   checkFrame,
   componentUsageCard,
@@ -43,6 +43,7 @@ import {
   missingGraphMessage,
   readBindRules,
   readLibraryRules,
+  readRecipeOverlay,
   readSock,
   readWorkspace,
   rebuildIndex,
@@ -104,9 +105,9 @@ function usage(): void {
       "      Optional .graphify/library-rules.json { allow, deny }. Else in-graph + not deprecated = approved.",
       "      Same pack flags as recommend. Wrong-cousin drift: resolve cousins.",
       "  resolve rules                  List human-authored bind rules",
-      "  resolve soci                   List pending SOCI proposals (rules never auto-change)",
-      "  resolve approve <proposal-id> --who <name>   Write the suggested rule + audit line",
-      "  resolve reject <proposal-id> --who <name>    Keep rules unchanged + audit line",
+      "  resolve soci                   List pending SOCI proposals (never auto-applied)",
+      "  resolve approve <proposal-id> --who <name>   Approve: bind-rules, recipe overlay, or a recorded decision",
+      "  resolve reject <proposal-id> --who <name>    Reject + audit line. SOCI never auto-applies.",
       `  resolve cousins ["<frame>"] [--job "<screen job>"] [--components a,b] ${PACK_BIND_FLAGS}`,
       "      Wrong-cousin report: same role / weak name, different master family than the shared DS library.",
       "      Needs a library-role file in .graphify/workspace.json. Unsure → says so. Never invents a master.",
@@ -537,7 +538,7 @@ export async function runCli(argv: string[]): Promise<void> {
     case "soci":
       printJson({
         proposals: listSoci(readSock()),
-        hint: "Rules never auto-change. resolve approve <id> writes bind-rules.json. resolve reject <id> keeps it.",
+        hint: "SOCI never auto-applies. resolve approve <id> --who <name> writes bind-rules or a recipe overlay, or records a design-team decision. resolve reject <id> keeps files as-is.",
       });
       return;
 
@@ -550,7 +551,7 @@ export async function runCli(argv: string[]): Promise<void> {
       }
       const action = command === "approve" ? "approve" : "reject";
       const loaded = loadGraph();
-      const decided = applyProposalDecision(
+      const decided = applySociDecision(
         readSock(),
         readBindRules(),
         proposalId,
@@ -560,6 +561,8 @@ export async function runCli(argv: string[]): Promise<void> {
         {
           index: loaded?.index,
           workspace: readWorkspace(),
+          recipes: loadRecipes(),
+          overlay: readRecipeOverlay(),
         },
       );
       commitProposalDecision(decided);
@@ -570,6 +573,7 @@ export async function runCli(argv: string[]): Promise<void> {
         who: decided.audit.who,
         when: decided.audit.when,
         rules: decided.rules.rules,
+        ...(decided.writesRecipes ? { recipesWritten: true } : {}),
       });
       return;
     }

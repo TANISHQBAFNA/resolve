@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createServer } from "vite";
+import { createServer } from "http";
+import { createServer as createViteServer } from "vite";
 import { fileURLToPath } from "node:url";
 import { emptySock, proposeRuleChange } from "@/core/query/sock";
 import { parseBindRulesFile } from "@/core/query/bindRules";
 import { clearCache, saveSock, writeBindRules } from "@/server/store";
 import { governanceView } from "@/server/governance";
+import { governanceMiddleware } from "@/server/governanceHttp";
 
 describe("/api/governance", () => {
   const previousHome = process.env["GRAPHIFY_HOME"];
@@ -53,7 +55,7 @@ describe("/api/governance", () => {
       }),
     );
     const root = fileURLToPath(new URL("..", import.meta.url));
-    const server = await createServer({
+    const server = await createViteServer({
       configFile: join(root, "vite.config.ts"),
       root,
       server: { host: "127.0.0.1", port: 0, strictPort: false },
@@ -90,5 +92,32 @@ describe("/api/governance", () => {
     expect(view.rules.some((rule) => rule.kind === "forbid")).toBe(true);
     expect(view.rules.some((rule) => rule.kind === "require" && rule.require === "node:gone")).toBe(false);
     expect(view.warnings.some((row) => /unscoped|unknown|gone/i.test(row.reason))).toBe(true);
+  });
+
+  it("serves /api/governance from the shared production middleware", async () => {
+    writeBindRules(parseBindRulesFile({ rules: [{ forbid: "deprecated" }] }));
+    const server = createServer((req, res) => {
+      governanceMiddleware(req, res, () => {
+        res.statusCode = 404;
+        res.end("no");
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") throw new Error("no port");
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/governance`);
+      expect(response.ok).toBe(true);
+      const body = (await response.json()) as { hint: string; proposalGroups?: unknown[] };
+      expect(body.hint).toMatch(/Read-only/);
+      expect(Array.isArray(body.proposalGroups)).toBe(true);
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+    }
+  });
+
+  it("preview governance loader does not open an HMR socket", () => {
+    const source = readFileSync(new URL("../vite.config.ts", import.meta.url), "utf8");
+    expect(source).toMatch(/middlewareMode:\s*true,\s*hmr:\s*false/);
   });
 });

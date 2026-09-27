@@ -82,6 +82,7 @@ Other ways to bring a file in: Figma MCP `learn_library` (primary), or REST inge
 - **Plug-and-play next to Figma MCP:** [`docs/SETUP-MCP.md`](docs/SETUP-MCP.md)
 - **Designer guide:** [`docs/GUIDE.md`](docs/GUIDE.md)
 - Bind rules + approve a proposal: [`docs/BIND-RULES.md`](docs/BIND-RULES.md)
+- SOCI (usage → human-approved suggestions): [`docs/SOCI.md`](docs/SOCI.md)
 - Screen recipes (JSON packs): [`docs/RECIPES.md`](docs/RECIPES.md)
 - Cursor-focused steps: [`docs/CURSOR-RESOLVE.md`](docs/CURSOR-RESOLVE.md)
 - Building Resolve: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)

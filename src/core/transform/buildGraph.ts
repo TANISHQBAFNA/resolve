@@ -247,6 +247,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
     if (source.visible === false) metadata["hidden"] = true;
     if (source.children?.length) metadata["sourceChildCount"] = source.children.length;
     if (source.componentProperties) metadata["componentProperties"] = source.componentProperties;
+    if (source.overrides?.length) metadata["overrides"] = source.overrides;
     if (source.annotations?.length) metadata["annotations"] = source.annotations;
     node.metadata = metadata;
 

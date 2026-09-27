@@ -179,6 +179,35 @@ export function mergeRecipes(base: Recipe[], overlay: Recipe[]): Recipe[] {
   return [...byId.values()];
 }
 
+export function serializeRecipeFile(recipes: Recipe[]): {
+  version: 1;
+  recipes: Array<{
+    id: string;
+    title: string;
+    intentAliases: string[];
+    notes?: string;
+    contextPackId?: string;
+    slots: Array<{ role: string; required: boolean; hints: string[]; defaultMasterId?: string }>;
+  }>;
+} {
+  return {
+    version: 1,
+    recipes: recipes.map((recipe) => ({
+      id: recipe.id,
+      title: recipe.title,
+      intentAliases: recipe.intentAliases,
+      ...(recipe.notes ? { notes: recipe.notes } : {}),
+      ...(recipe.contextPackId ? { contextPackId: recipe.contextPackId } : {}),
+      slots: recipe.slots.map((slot) => ({
+        role: slot.role,
+        required: slot.required,
+        hints: slot.hints,
+        ...(slot.defaultMasterId ? { defaultMasterId: slot.defaultMasterId } : {}),
+      })),
+    })),
+  };
+}
+
 function oneLineHint(text: string | undefined, max = 72): string | undefined {
   if (!text) return undefined;
   const line = text.split("\n")[0]!.trim();

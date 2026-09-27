@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — SOCI v1 (usage → human-approved improvements)
+
+SOCI turns verified-frame usage into proposals. It never auto-applies.
+
+- **Proposal types** — besides scoped require-rules: recipe slot updates, variant candidates (REST overrides / extra nested instances only), deprecation candidates (unused master while a cousin is strong), wrong-cousin hotspots (verify corrections). List-only verifies never count. Same proposal merges evidence. Cap keeps the top handful per workspace.
+- **Approve** — same gated flow (`confirmedBy` / `--who` + audit). Recipe update writes `recipes.json` atomically. Variant and deprecation record a design-team decision only — no Figma, no masters. Wrong-cousin can write a prefer-over bind rule when files differ.
+- **Surface** — `list_soci` stays advanced. Verify/recipe cards include `pending improvements: N`. Rules tab groups by type with evidence. `/api/governance` is read-only on Vite dev and preview.
+- **Quarantine warnings** count toward the agent card budget (`and K more warnings`).
+- **Docs** — [docs/SOCI.md](docs/SOCI.md). MCP metadata has no override payload; Plugin `detachedInfo` is not in REST — those signals are skipped, never guessed.
+
 ## Unreleased — thin bet C (why line, bind rules, approve)
 
 Human rules stay human. SOCK still records usage. SOCI only proposes.

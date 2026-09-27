@@ -5,16 +5,19 @@ import { tmpdir } from "node:os";
 import { graph } from "./fixture";
 import {
   clearCache,
+  defaultGlobalStore,
   discoverStoreRoot,
   graphPath,
   listGraphs,
   loadContextBind,
   loadGraph,
+  loadSock,
   missingGraphMessage,
   readContextPacks,
   readWorkspace,
   saveGraph,
   saveIngestedFile,
+  sockPath,
   storeInfo,
   storeRoot,
   workspacePath,
@@ -156,5 +159,37 @@ describe("store", () => {
     expect(discoverStoreRoot(empty, { HOME: "/tmp/fake-home", RESOLVE_WORKSPACE: "acme" })).toBe(
       join("/tmp/fake-home", ".resolve", "acme"),
     );
+    expect(defaultGlobalStore({ HOME: "/tmp/fake-home", RESOLVE_WORKSPACE: "acme" })).toBe(
+      join("/tmp/fake-home", ".resolve", "acme"),
+    );
+    expect(() => defaultGlobalStore({ HOME: "/tmp/fake-home", RESOLVE_WORKSPACE: ".." })).toThrow(/RESOLVE_WORKSPACE/);
+    expect(() => defaultGlobalStore({ HOME: "/tmp/fake-home", RESOLVE_WORKSPACE: "." })).toThrow(/RESOLVE_WORKSPACE/);
+    expect(() => defaultGlobalStore({ HOME: "/tmp/fake-home", RESOLVE_WORKSPACE: "a/b" })).toThrow(/RESOLVE_WORKSPACE/);
+    expect(() => defaultGlobalStore({ HOME: "/tmp/fake-home", RESOLVE_WORKSPACE: "a\\b" })).toThrow(/RESOLVE_WORKSPACE/);
+  });
+
+  it("clamps sock.json threshold and proposalCap and trims corrections", () => {
+    const corrections = Array.from({ length: 201 }, (_, i) => ({
+      fromId: "a",
+      toId: "b",
+      screenId: `s${i}`,
+      fromName: "A",
+      toName: "B",
+      screenName: "One",
+      verifiedAt: "2026-01-01T00:00:00.000Z",
+    }));
+    writeFileSync(
+      sockPath(),
+      `${JSON.stringify({ version: 1, threshold: 1, proposalCap: 99, facts: [], freshness: {}, proposals: [], corrections })}\n`,
+    );
+    clearCache();
+    const sock = loadSock();
+    expect(sock?.threshold).toBe(3);
+    expect(sock?.proposalCap).toBe(12);
+    expect(sock?.corrections).toHaveLength(200);
+    expect(sock?.corrections?.[0]?.screenId).toBe("s1");
+    expect(sock?.warnings?.some((line) => /threshold/.test(line))).toBe(true);
+    expect(sock?.warnings?.some((line) => /proposalCap/.test(line))).toBe(true);
+    expect(sock?.warnings?.some((line) => /200/.test(line))).toBe(true);
   });
 });
