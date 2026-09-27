@@ -9,6 +9,14 @@ import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
 import { placeReady } from "./placeReady";
 import { isRemovedByAbsence, patternFor, staleRefreshHint, type SockState } from "./sock";
+import {
+  bindRuleHit,
+  filterAndScoreByBindRules,
+  packJourneyPhrase,
+  verifyBindRules,
+  whyLineForMaster,
+  type BindRulesFile,
+} from "./bindRules";
 
 /**
  * Agent-facing graph surface. Graph stays on disk. Agents call resolve /
@@ -200,7 +208,7 @@ function slotNamesOf(index: GraphIndex, instanceId: string): string[] {
 export function usageCardForComponent(
   index: GraphIndex,
   node: GraphNode,
-  options: { budgetChars?: number } = {},
+  options: { budgetChars?: number; sock?: SockState } = {},
 ) {
   const budgetChars = options.budgetChars ?? USAGE_CARD_BUDGET;
   const usage = computeComponentUsage(index, node);
@@ -265,16 +273,17 @@ export function usageCardForComponent(
   if (publishedHint) {
     base.hint = `${base.hint}${publishedHint}`;
   }
+  const why = whyLineForMaster(node, { sock: options.sock, graphFileKey: index.graph.fileKey });
 
   let byScreen = toByScreen(includeSlots, limit);
-  let payload = { ...base, byScreen, truncated };
+  let payload = { ...base, why, byScreen, truncated };
   // ponytail: drop slots then screens until under budget
   while (JSON.stringify(payload).length > budgetChars && (includeSlots || limit > 1)) {
     truncated = true;
     if (includeSlots) includeSlots = false;
     else limit = Math.max(1, Math.floor(limit / 2));
     byScreen = toByScreen(includeSlots, limit);
-    payload = { ...base, byScreen, truncated };
+    payload = { ...base, why, byScreen, truncated };
   }
 
   return withCost(payload);
@@ -315,7 +324,7 @@ function pickResolveTarget(index: GraphIndex, name: string): GraphNode | undefin
 export function componentUsageCard(
   index: GraphIndex,
   name: string,
-  options: { budgetChars?: number } = {},
+  options: { budgetChars?: number; sock?: SockState } = {},
 ) {
   const node = pickResolveTarget(index, name);
   if (!node) {
@@ -886,7 +895,7 @@ export interface RecommendCandidate {
   whereUsed: Array<{ name: string; count: number }>;
   slots?: string[];
   score: number;
-  why: string[];
+  why: string;
   hint: string;
 }
 
@@ -979,6 +988,7 @@ export function recommendMasters(
     context?: RecommendContext;
     workspace?: WorkspaceManifest;
     sock?: SockState;
+    bindRules?: BindRulesFile;
   } = {},
 ) {
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
@@ -999,6 +1009,7 @@ export function recommendMasters(
     deprecated: boolean;
     instances: number;
     setName?: string;
+    exactName: boolean;
   };
 
   const scored: Scored[] = [];
@@ -1008,6 +1019,11 @@ export function recommendMasters(
     if (deniedByRules(index, node, packRules)) continue;
     if (node.metadata?.["removedByAbsence"] === true) continue;
     if (isRemovedByAbsence(options.sock, node)) continue;
+    const intentNeedle = intent.trim().toLowerCase();
+    const exactName =
+      Boolean(intentNeedle) &&
+      (node.name.toLowerCase() === intentNeedle ||
+        (Boolean(set) && set!.name.toLowerCase() === intentNeedle && node.type === "COMPONENT_SET"));
     const nameHaystack = `${node.name} ${set?.name ?? ""}`;
     const nameScore = overlap(nameHaystack, tokens);
     const variantScore = overlap(variantHaystack(node), tokens);
@@ -1071,6 +1087,7 @@ export function recommendMasters(
     const sockBoost = sockPattern?.promoted && sockPattern.confidence === "strong" ? 20 : 0;
     const liveBoost = stale ? 0 : 18 + Math.log1p(instances) * 4;
     let score =
+      (exactName ? 10_000 : 0) +
       nameScore * 8 +
       variantScore * 16 +
       analogBoost +
@@ -1095,6 +1112,7 @@ export function recommendMasters(
       deprecated,
       instances,
       setName: set && set.id !== node.id ? set.name : undefined,
+      exactName,
     });
   }
 
@@ -1107,8 +1125,10 @@ export function recommendMasters(
   const setIds = new Set(
     scored.filter((entry) => entry.node.type === "COMPONENT_SET").map((entry) => entry.node.id),
   );
-  const kept = scored.filter((entry) => {
-    if (entry.node.type === "COMPONENT_SET" && analogSetIds.has(entry.node.id)) return false;
+  let kept = scored.filter((entry) => {
+    if (entry.node.type === "COMPONENT_SET" && analogSetIds.has(entry.node.id) && !entry.exactName) {
+      return false;
+    }
     if (entry.node.type !== "VARIANT") return true;
     if (analogIds.has(entry.node.id)) return true;
     if (entry.why.includes("variant") || entry.why.includes("where-used") || entry.why.includes("co-occur")) {
@@ -1119,10 +1139,57 @@ export function recommendMasters(
 
   kept.sort(
     (a, b) =>
+      Number(b.exactName) - Number(a.exactName) ||
       b.score - a.score ||
       Number(a.deprecated) - Number(b.deprecated) ||
       a.node.name.localeCompare(b.node.name),
   );
+
+  if (options.bindRules?.rules.length) {
+    kept = filterAndScoreByBindRules(kept, options.bindRules, {
+      intent,
+      domain: options.context?.domain,
+      journey: options.context?.journey?.screenJob || options.context?.journey?.step,
+      product: options.context?.product?.name || options.context?.product?.id,
+      pack: options.context?.id,
+      workspace,
+      graphFileKey,
+      sock: options.sock,
+      index,
+      inject: (node) => {
+        const set = setOf(index, node);
+        return {
+          node,
+          score: 10_000,
+          why: ["bind-rule"],
+          analog: false,
+          deprecated: node.status === "deprecated",
+          instances: computeComponentUsage(index, node).instanceCount,
+          setName: set && set.id !== node.id ? set.name : undefined,
+          exactName: false,
+        };
+      },
+    });
+    kept.sort(
+      (a, b) =>
+        Number(b.exactName) - Number(a.exactName) ||
+        b.score - a.score ||
+        Number(a.deprecated) - Number(b.deprecated) ||
+        a.node.name.localeCompare(b.node.name),
+    );
+  }
+
+  const packJourney = packJourneyPhrase(options.context);
+  const bindQuery = {
+    intent,
+    domain: options.context?.domain,
+    journey: options.context?.journey?.screenJob || options.context?.journey?.step,
+    product: options.context?.product?.name || options.context?.product?.id,
+    pack: options.context?.id,
+    workspace,
+    graphFileKey,
+    sock: options.sock,
+  };
 
   const toCandidate = (
     entry: Scored,
@@ -1137,6 +1204,14 @@ export function recommendMasters(
       : place.published
         ? "Place fileKey + nodeId + componentKey."
         : "Place fileKey + nodeId. Local-only (no published key).";
+    const why = whyLineForMaster(entry.node, {
+      sock: options.sock,
+      packJourney,
+      bindRule: options.bindRules
+        ? bindRuleHit(options.bindRules, entry.node, bindQuery)
+        : undefined,
+      graphFileKey,
+    });
     return {
       id: entry.node.id,
       name: entry.node.name,
@@ -1150,7 +1225,7 @@ export function recommendMasters(
       whereUsed,
       ...(slots.length ? { slots } : {}),
       score: entry.score,
-      why: entry.why,
+      why,
       hint,
     };
   };
@@ -1189,6 +1264,7 @@ export function recommendMasters(
     candidates,
     truncated,
     ...(applied ? { context: applied } : {}),
+    ...(options.bindRules?.warnings?.length ? { bindRuleWarnings: options.bindRules.warnings } : {}),
     hint:
       candidates.length === 0
         ? `No master matched. Do not invent. ${refreshHintFor(options.sock, graphFileKey)}`
@@ -1235,7 +1311,14 @@ export interface VerifyHit {
  */
 export function verifyFrame(
   index: GraphIndex,
-  input: { frame?: string; components?: string[]; rules?: LibraryRules; context?: RecommendContext } = {},
+  input: {
+    frame?: string;
+    components?: string[];
+    rules?: LibraryRules;
+    context?: RecommendContext;
+    bindRules?: BindRulesFile;
+    sock?: SockState;
+  } = {},
 ) {
   const invents: VerifyHit[] = [];
   const deprecatedHits: VerifyHit[] = [];
@@ -1383,13 +1466,35 @@ export function verifyFrame(
   }
 
   const pass = invents.length === 0 && deprecatedHits.length === 0 && unresolved.length === 0;
+  const placed: GraphNode[] = [...approvedIds]
+    .map((id) => index.getNode(id))
+    .filter((node): node is GraphNode => Boolean(node));
+  const ruleFailure = input.bindRules?.rules.length
+    ? verifyBindRules(index, input.bindRules, placed, {
+        domain: input.context?.domain,
+        journey: input.context?.journey?.screenJob || input.context?.journey?.step,
+        product: input.context?.product?.name || input.context?.product?.id,
+        pack: input.context?.id,
+        frameName: frameNode?.name ?? input.frame,
+        sock: input.sock,
+      })
+    : undefined;
+  const bindPass = !ruleFailure;
+  const ok = pass && bindPass;
+  const bindHint = ruleFailure
+    ? `Fail — bind rule ${ruleFailure.rule}: ${ruleFailure.reason}.${
+        ruleFailure.expected ? ` Place ${ruleFailure.expected.name} (${ruleFailure.expected.id}).` : ""
+      }`
+    : undefined;
   return withCost({
-    pass,
+    pass: ok,
     approved: approvedIds.size,
     resolved,
     invents,
     deprecated: deprecatedHits,
     unresolved,
+    ...(ruleFailure ? { ruleFailure } : {}),
+    ...(input.bindRules?.warnings?.length ? { bindRuleWarnings: input.bindRules.warnings } : {}),
     frame: frameNode
       ? {
           ...briefNode(frameNode),
@@ -1397,8 +1502,9 @@ export function verifyFrame(
         }
       : undefined,
     builtAt: index.graph.builtAt,
-    hint: pass
+    hint: ok
       ? `Only approved library masters. ${REFRESH_HINT}`
-      : `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`,
+      : bindHint ??
+        `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`,
   });
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { parseLibraryRules, type LibraryRules } from "./agentSurface";
+import { parseBindRulesFile, type BindRulesFile } from "./bindRules";
 import type { WorkspaceManifest } from "./workspace";
 
 /**
@@ -26,6 +27,7 @@ export interface ContextPack {
   /** Optional product/client file keys or labels from `.graphify/workspace.json`. */
   files?: string[];
   libraryRules?: LibraryRules;
+  bindRules?: BindRulesFile;
 }
 
 export interface ContextPackFile {
@@ -129,6 +131,8 @@ function parseOne(raw: unknown): ContextPack[] {
   if (!id.success) return [];
   const libraryRules = parseLibraryRules(record["libraryRules"] ?? record["library-rules"]);
   const hasRules = Boolean(libraryRules.allow || libraryRules.deny);
+  const bindRaw = record["bindRules"] ?? record["bind-rules"];
+  const bindRules = bindRaw == null ? undefined : parseBindRulesFile(bindRaw);
   return [
     {
       id: id.data,
@@ -141,6 +145,7 @@ function parseOne(raw: unknown): ContextPack[] {
       recipeIds: stringList(record["recipeIds"] ?? record["recipes"]),
       files: stringList(record["files"]),
       ...(hasRules ? { libraryRules } : {}),
+      ...(bindRules?.rules.length ? { bindRules } : {}),
     },
   ];
 }

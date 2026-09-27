@@ -8,9 +8,11 @@ import { graph } from "./fixture";
 
 describe("agent tools", () => {
   const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousAdvanced = process.env["RESOLVE_MCP_ADVANCED"];
 
   beforeEach(() => {
     process.env["GRAPHIFY_HOME"] = mkdtempSync(join(tmpdir(), "resolve-tools-"));
+    process.env["RESOLVE_MCP_ADVANCED"] = "1";
     clearCache();
   });
 
@@ -18,6 +20,8 @@ describe("agent tools", () => {
     clearCache();
     if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
     else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousAdvanced === undefined) delete process.env["RESOLVE_MCP_ADVANCED"];
+    else process.env["RESOLVE_MCP_ADVANCED"] = previousAdvanced;
   });
 
   it("sees a graph written after the process started (no restart, no clearCache)", () => {

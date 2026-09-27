@@ -108,10 +108,10 @@ describe("SOCK usage facts", () => {
   it("proposes a SOCI rule when a pattern newly becomes strong and is not in recipes", () => {
     let sock = emptySock(3);
     const before = sock;
-    for (const screen of ["s1", "s2", "s3"]) {
+    for (const screen of ["pay-1", "pay-2", "pay-3"]) {
       sock = recordVerifiedUsage(sock, {
         screenId: screen,
-        screenName: screen,
+        screenName: "Payment",
         masters: [master("node:btn", "Button")],
       });
     }
@@ -119,6 +119,24 @@ describe("SOCK usage facts", () => {
     expect(listSoci(next)).toHaveLength(1);
     expect(listSoci(next)[0]?.status).toBe("pending");
     expect(listSoci(next)[0]?.summary).toMatch(/Button/);
+    expect(listSoci(next)[0]?.suggestedRule).toMatchObject({
+      require: "node:btn",
+      screenType: "Payment",
+    });
+  });
+
+  it("does not propose an unscoped global require from mixed screens", () => {
+    let sock = emptySock(3);
+    const before = sock;
+    for (const screen of ["Checkout", "Settings", "Home"]) {
+      sock = recordVerifiedUsage(sock, {
+        screenId: screen,
+        screenName: screen,
+        masters: [master("node:input", "Input")],
+      });
+    }
+    const next = proposeStrongPatterns(sock, newlyStrongPatterns(before, sock), () => false);
+    expect(listSoci(next)).toEqual([]);
   });
 
   it("marks freshness stale when version or lastModified changes", () => {
