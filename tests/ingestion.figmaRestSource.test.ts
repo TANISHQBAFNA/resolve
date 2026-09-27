@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchFigmaRestDocument } from "@/core/ingestion/adapters/figmaRestSource";
+import {
+  fetchFigmaRestDocument,
+  memoryCheckpointStore,
+  parseRetryAfterMs,
+} from "@/core/ingestion/adapters/figmaRestSource";
 
 const FILE_KEY = "DEMOFILEKEY0000000001";
 
@@ -271,6 +275,217 @@ describe("fetchFigmaRestDocument", () => {
     expect(names).toContain("0:Screen A");
     expect(names).toContain("1:Screen B");
     expect(fetchMock.mock.calls.filter((call) => String(call[0]).includes("/nodes?")).length).toBe(2);
+  });
+
+  it("parses Retry-After seconds and HTTP-date", () => {
+    expect(parseRetryAfterMs("2")).toBe(2000);
+    expect(parseRetryAfterMs(null)).toBeUndefined();
+    const future = new Date(Date.now() + 5000).toUTCString();
+    const wait = parseRetryAfterMs(future);
+    expect(wait).toBeGreaterThan(1000);
+    expect(wait).toBeLessThan(8000);
+  });
+
+  it("waits Retry-After on 429 then continues the section walk", async () => {
+    const outline = {
+      name: "Live File",
+      document: {
+        id: "0:0",
+        type: "DOCUMENT",
+        children: [
+          {
+            id: "1:0",
+            name: "Page 1",
+            type: "CANVAS",
+            children: [
+              { id: "1:1", name: "Screen A", type: "FRAME" },
+              { id: "1:9", name: "Screen B", type: "FRAME" },
+            ],
+          },
+        ],
+      },
+    };
+    const nodePayload = (id: string, name: string) => ({
+      name: "Live File",
+      nodes: {
+        [id]: {
+          document: { id, name, type: "FRAME", children: [] },
+          components: {},
+          componentSets: {},
+          styles: {},
+        },
+      },
+    });
+    let bHits = 0;
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("/variables/")) return new Response("{}", { status: 404 });
+      if (url.endsWith(`/v1/files/${FILE_KEY}?depth=2`)) {
+        return new Response(JSON.stringify(outline), { status: 200 });
+      }
+      if (url.includes(`/nodes?ids=${encodeURIComponent("1:1")}`)) {
+        return new Response(JSON.stringify(nodePayload("1:1", "Screen A")), { status: 200 });
+      }
+      if (url.includes(`/nodes?ids=${encodeURIComponent("1:9")}`)) {
+        bHits += 1;
+        if (bHits === 1) {
+          return new Response(JSON.stringify({ err: "Rate limit exceeded" }), {
+            status: 429,
+            headers: { "Retry-After": "2" },
+          });
+        }
+        return new Response(JSON.stringify(nodePayload("1:9", "Screen B")), { status: 200 });
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const slept: number[] = [];
+
+    const doc = await fetchFigmaRestDocument(FILE_KEY, {
+      token: "figd_test",
+      origin: "https://api.figma.com",
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+
+    expect(slept).toEqual([2000]);
+    expect(doc.root.children?.[0]?.children?.map((child) => child.name)).toEqual([
+      "Screen A",
+      "Screen B",
+    ]);
+  });
+
+  it("keeps completed sections on a long Retry-After and resumes on re-run", async () => {
+    const outline = {
+      name: "Live File",
+      document: {
+        id: "0:0",
+        type: "DOCUMENT",
+        children: [
+          {
+            id: "1:0",
+            name: "Page 1",
+            type: "CANVAS",
+            children: [
+              { id: "1:1", name: "Screen A", type: "FRAME" },
+              { id: "1:9", name: "Screen B", type: "FRAME" },
+            ],
+          },
+        ],
+      },
+    };
+    const nodePayload = (id: string, name: string) => ({
+      name: "Live File",
+      nodes: {
+        [id]: {
+          document: { id, name, type: "FRAME", children: [] },
+          components: {},
+          componentSets: {},
+          styles: {},
+        },
+      },
+    });
+    let bHits = 0;
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("/variables/")) return new Response("{}", { status: 404 });
+      if (url.endsWith(`/v1/files/${FILE_KEY}?depth=2`)) {
+        return new Response(JSON.stringify(outline), { status: 200 });
+      }
+      if (url.includes(`/nodes?ids=${encodeURIComponent("1:1")}`)) {
+        return new Response(JSON.stringify(nodePayload("1:1", "Screen A")), { status: 200 });
+      }
+      if (url.includes(`/nodes?ids=${encodeURIComponent("1:9")}`)) {
+        bHits += 1;
+        if (bHits === 1) {
+          return new Response(JSON.stringify({ err: "Rate limit exceeded" }), {
+            status: 429,
+            headers: { "Retry-After": "120" },
+          });
+        }
+        return new Response(JSON.stringify(nodePayload("1:9", "Screen B")), { status: 200 });
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const checkpoint = memoryCheckpointStore();
+
+    await expect(
+      fetchFigmaRestDocument(FILE_KEY, {
+        token: "figd_test",
+        origin: "https://api.figma.com",
+        checkpoint,
+        maxRetryAfterMs: 30_000,
+      }),
+    ).rejects.toThrow(/120s/);
+
+    expect(checkpoint.load(FILE_KEY)?.completedIds).toEqual(["1:1"]);
+    expect(fetchMock.mock.calls.filter((call) => String(call[0]).includes("ids=1")).length).toBeGreaterThan(0);
+
+    const doc = await fetchFigmaRestDocument(FILE_KEY, {
+      token: "figd_test",
+      origin: "https://api.figma.com",
+      checkpoint,
+      maxRetryAfterMs: 30_000,
+    });
+
+    expect(doc.root.children?.[0]?.children?.map((child) => child.name)).toEqual([
+      "Screen A",
+      "Screen B",
+    ]);
+    const nodeCalls = fetchMock.mock.calls.filter((call) => String(call[0]).includes("/nodes?"));
+    expect(nodeCalls.filter((call) => String(call[0]).includes(encodeURIComponent("1:1"))).length).toBe(1);
+    expect(nodeCalls.filter((call) => String(call[0]).includes(encodeURIComponent("1:9"))).length).toBe(2);
+    expect(checkpoint.load(FILE_KEY)).toBeUndefined();
+  });
+
+  it("labels unnamed sections in progress instead of a blank name", async () => {
+    const outline = {
+      name: "Live File",
+      document: {
+        id: "0:0",
+        type: "DOCUMENT",
+        children: [
+          {
+            id: "1:0",
+            name: "Search",
+            type: "CANVAS",
+            children: [{ id: "1:1", name: "", type: "SECTION" }],
+          },
+        ],
+      },
+    };
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("/variables/")) return new Response("{}", { status: 404 });
+      if (url.endsWith(`/v1/files/${FILE_KEY}?depth=2`)) {
+        return new Response(JSON.stringify(outline), { status: 200 });
+      }
+      if (url.includes("/nodes?")) {
+        return new Response(
+          JSON.stringify({
+            name: "Live File",
+            nodes: {
+              "1:1": { document: { id: "1:1", name: "", type: "SECTION", children: [] } },
+            },
+          }),
+          { status: 200 },
+        );
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const names: string[] = [];
+    await fetchFigmaRestDocument(FILE_KEY, {
+      token: "figd_test",
+      origin: "https://api.figma.com",
+      onProgress: (info) => {
+        if (info.phase === "screen") names.push(info.name);
+      },
+    });
+    expect(names.some((name) => name.trim().length > 0)).toBe(true);
+    expect(names.join(" ")).toMatch(/Search/);
   });
 });
 

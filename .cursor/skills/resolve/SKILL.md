@@ -19,6 +19,10 @@ description: Use Resolve before any Figma screen build or design-from-brief work
 
 Prefer **resolve** over any `keyline` / `graphify` alias. `npm run keyline` is a deprecated alias this release.
 
+CLI and MCP must share one store. Set `GRAPHIFY_HOME` to the `.graphify` folder, or run both from the same project root. After a CLI ingest the next MCP call reloads from disk — no restart. If a tool says “No graph stored,” it names the path it looked in. `list_graphs` / `get_health` include `store.path` and `store.builtAt`.
+
+`resolve "<name>"` is the “I know the name, give me the id” path. An exact master always comes back with ids, even with zero instances. A miss says so and tells you to `recommend`, not an empty list.
+
 ## Commands (copy-paste)
 
 ```bash
@@ -31,7 +35,9 @@ npm run resolve -- recipe "checkout summary"
 npm run resolve -- recommend "checkout with primary button and input"
 npm run resolve -- recommend "primary button" --pack storefront-checkout-summary
 npm run resolve -- recommend "primary button" --product Storefront --journey summary --domain checkout
-npm run resolve -- resolve "Main Card"            # only if you already know the name
+npm run resolve -- resolve "Main Card"            # I know the name — always returns id + fileKey + figmaNodeId
+npm run resolve -- where                          # store path + builtAt (same as MCP list_graphs.store)
+npm run resolve -- ingest screen.xml --from-metadata --file-key KEY --name "Library"
 npm run resolve -- verify "Checkout Summary"
 npm run resolve -- verify --components "Button,MadeUpCard"
 npm run resolve -- cousins "Checkout Summary" --job "checkout summary"

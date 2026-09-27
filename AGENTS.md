@@ -47,6 +47,12 @@ npm run resolve -- cousins "Checkout Summary"   # when a library + product file 
 
 MCP: `list_recipes` → `recipe` → `recommend` → Figma → `verify_frame` → `check_cousins` when a library file is linked.
 
+CLI and MCP share one store. `GRAPHIFY_HOME` wins; else nearest `.graphify` walking up from cwd. After ingest, the next MCP call reloads from disk (no restart). `list_graphs` / `workspace` / `resolve where` print `store.path` + `builtAt`. If a tool says “No graph stored,” the message names the exact path.
+
+Know the name, need the id: `resolve "Main Card"` (CLI or MCP). Exact master always returns `id` + `fileKey` + `figmaNodeId`, even with zero usage. A miss says so and points at `recommend`.
+
+No REST token: save Figma MCP `get_metadata` XML and `ingest screen.xml --from-metadata --file-key KEY --name "Library"`.
+
 ### Forbidden
 
 - Invent components, names, or node ids.

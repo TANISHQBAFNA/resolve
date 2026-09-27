@@ -57,7 +57,7 @@ For clone flags, tokens, and the optional browser map, see [For developers](../R
 
 **Ingest.** Refresh Resolve’s knowledge from Figma. Do this when the library is new to Resolve, and **again whenever the library changes**. Until you ingest, Resolve cannot point at live components.
 
-**Recipe (screen pack).** A named shopping list for a common screen job. “Checkout summary” might need a header, a line list, a Primary button, and an optional input. Resolve ships seven starters (checkout summary, settings form, empty state, list and detail, sign-in, confirm dialog, nav and content shell). You can add your own.
+**Recipe (screen pack).** A named shopping list for a common screen job. “Checkout summary” might need a header, a line list, a Primary button, and an optional input. Resolve ships eight starters (checkout summary, settings form, search results, empty state, list and detail, sign-in, confirm dialog, nav and content shell). You can add your own.
 
 **Context pack.** A note that says *this product* + *this journey step* (and who it is for). Shared libraries often have two Primary buttons that look alike. A context pack helps Resolve pick the Storefront checkout one, not the admin settings one.
 
@@ -79,7 +79,7 @@ Use a checkout summary as the running example. Swap the words for your screen.
 
 ### 1. Refresh the library (ingest)
 
-Paste a **screen or frame** link, not the whole file unless you really want that. First file is the shared design system (or pass `--role library`). Then ingest each product or client file.
+Paste a **screen or frame** link, not the whole file unless you really want that. First file is the shared design system (or pass `--role library`). Then ingest each product or client file. On a low Figma API tier, `--scope file` is safer (one request). A section-by-section walk honors rate-limit waits and can resume; it also picks up components sitting directly on a page.
 
 ```bash
 npm run resolve -- ingest 'https://www.figma.com/design/…?node-id=…' --role library --label "Shared DS"
@@ -164,7 +164,7 @@ To apply the same product and step as recommend (including a pack’s deny list)
 npm run resolve -- verify "Checkout Summary" --product Storefront --journey summary --domain checkout
 ```
 
-**You get:** Pass or fail. Invented names (like `MadeUpCard`) fail. Retired masters fail. Pieces Resolve cannot match fail. You then judge taste in Figma.
+**You get:** Pass or fail. Invented names (like `MadeUpCard`) fail. Retired masters fail. Pieces Resolve cannot match fail. A near name (`Header` vs `.Header`) is **not** approved — you get an unresolved row with a “did you mean” suggestion. Names that start with `.` or `_` (Figma’s private / unpublished parts) fail rather than pass. The card echoes each name you gave and what it resolved to. You then judge taste in Figma.
 
 ### 6. Check for the wrong cousin (when more than one file is linked)
 
@@ -275,7 +275,7 @@ npm run resolve -- ingest '<library-url>' --role library --label "Shared DS"
 npm run resolve -- ingest '<product-url>' --role product --label "Storefront"
 ```
 
-First ingest with no `--role` is treated as the library. Later ingests default to product. You can change a role by editing the JSON.
+First ingest with no `--role` is treated as the library. Later ingests default to product. Re-ingesting the same file keeps its role. Resolve refuses a silent role change (that would drop the library from cousins). Edit the JSON, or pass `--force-role`, if you really mean to switch.
 
 ### Option B — write the list yourself
 
@@ -367,11 +367,17 @@ Be honest with yourself and with agents:
 
 **Verify says something was invented.** The agent placed a name that is not a library master (or not in this ingest). Run recommend again and place the returned id.
 
+**Verify says not-exact / did you mean.** The name was close but not an exact master name or id. Do not treat that as approved. Use the suggestion only after you confirm it, or pass the stamped `fileKey:nodeId`.
+
+**Ingest dies on rate limit (429).** `--scope file` is one request and is the safer choice on a low API tier. A section walk waits when Figma sends `Retry-After` (and tells you the wait if it is too long). Re-run the same ingest — completed sections are kept.
+
 **Verify says retired or unresolved.** That master is marked don’t-use, or Resolve cannot match it in the current ingest. Recommend a live stand-in. Re-ingest if you just renamed it in Figma.
 
-**Command-line ingest of a figma.com URL fails.** Live ingest from the command line needs `FIGMA_ACCESS_TOKEN`. Everyday use is: Figma connected in the AI tool, or a JSON export from the Figma plugin in this repo. You do **not** need a token for that everyday path.
+**Command-line ingest of a figma.com URL fails.** Live ingest from the command line needs `FIGMA_ACCESS_TOKEN`. Everyday use is: Figma connected in the AI tool, a JSON export from the Figma plugin in this repo, or raw `get_metadata` XML (`npm run resolve -- ingest screen.xml --from-metadata --file-key KEY --name "Library"`). You do **not** need a token for that everyday path.
 
-**“No graph stored.”** Ingest first. Recipe list can run with no library (slots stay open); recommend and verify cannot.
+**“No graph stored.”** The error names the folder it looked in. Ingest first, into that same folder. Set `GRAPHIFY_HOME` so the command line and the AI connection share one store (otherwise they can look in different working directories). Recipe list can run with no library (slots stay open); recommend and verify cannot. `list_graphs` / `workspace` / `resolve where` print the path and `builtAt`.
+
+**I know the component name, I just need the id.** `resolve "Main Card"` (CLI or MCP). An exact master always comes back with its id even if nothing uses it yet. If the name is not in the library, the card says so and tells you to `recommend` the job — not an empty list.
 
 **Older command names.** Prefer `resolve`. `keyline` still works as a short-term alias.
 

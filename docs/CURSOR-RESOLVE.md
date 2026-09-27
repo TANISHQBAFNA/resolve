@@ -61,14 +61,18 @@ After ingest, `recipe list` / `recipe "<job>"` bind slots to live `figmaNodeId`s
 
 `recommend` ranks by name/intent, variant props, where-used, sibling co-occurrence; live over stale; deprecated last. Optional product/journey/domain context pack (`.graphify/context-packs.json`, or `--pack` / `--product` / `--journey` / `--domain`) ranks on top of that. The same flags bind `recipe` list/get and `verify`. Cap ~2000 chars. Empty match still means do not invent.
 
-When you already know the master name:
+When you already know the master name (give me the id):
 
 ```bash
 npm run resolve -- resolve "Main Card"
 npm run resolve -- resolve "Input Field"
 ```
 
-Use the card + `figmaNodeId`. Prefer **resolve** over any keyline / graphify alias.
+Exact name always returns `id` + `fileKey` + `figmaNodeId`, even with zero usage. A miss says so and points at `recommend`. Prefer **resolve** over any keyline / graphify alias.
+
+CLI ingest and the MCP server must share one store. Set `GRAPHIFY_HOME` to the `.graphify` folder, or run both from the same project root. `npm run resolve -- where` and MCP `list_graphs` print the path and `builtAt`. After ingest, the next MCP call sees the new graph without a restart.
+
+No REST token: save Figma MCP `get_metadata` XML and `npm run resolve -- ingest screen.xml --from-metadata --file-key KEY --name "Library"`.
 
 Optional allow/deny file: `.graphify/library-rules.json` with `{ "allow": [...], "deny": [...] }`. If missing, approved = in-graph master and not deprecated.
 

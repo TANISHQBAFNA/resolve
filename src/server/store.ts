@@ -1,7 +1,9 @@
-import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
+import type { IngestCheckpointStore, ScreensCheckpoint } from "@/core/ingestion/adapters/figmaRestSource";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import {
+  assertIngestRoleChange,
   defaultIngestRole,
   indexGraph,
   mergeRecipes,
@@ -53,8 +55,98 @@ export interface StoreIndex {
   graphs: StoredGraphSummary[];
 }
 
+export interface StoreInfo {
+  path: string;
+  graph: string;
+  workspace: string;
+  graphifyHome?: string;
+  builtAt?: string;
+}
+
+/**
+ * GRAPHIFY_HOME wins. Else walk up from cwd (then INIT_CWD) looking for
+ * `.graphify/graph.json` or `workspace.json`, so MCP and CLI share one store
+ * even when their working directories differ. Last resort: `cwd/.graphify`.
+ */
+export function discoverStoreRoot(
+  cwd: string,
+  env: { GRAPHIFY_HOME?: string; INIT_CWD?: string } = {},
+): string {
+  const explicit = env.GRAPHIFY_HOME?.trim();
+  if (explicit) return resolve(explicit);
+  const starts = [cwd, env.INIT_CWD].filter((value): value is string => Boolean(value?.trim()));
+  const seen = new Set<string>();
+  for (const start of starts) {
+    let dir = resolve(start);
+    while (!seen.has(dir)) {
+      seen.add(dir);
+      const candidate = join(dir, ".graphify");
+      if (existsSync(join(candidate, "graph.json")) || existsSync(join(candidate, "workspace.json"))) {
+        return candidate;
+      }
+      const parent = resolve(dir, "..");
+      if (parent === dir) break;
+      dir = parent;
+    }
+  }
+  return resolve(cwd, ".graphify");
+}
+
 export function storeRoot(): string {
-  return resolve(process.env["GRAPHIFY_HOME"] ?? join(process.cwd(), ".graphify"));
+  return discoverStoreRoot(process.cwd(), process.env);
+}
+
+export function storeInfo(): StoreInfo {
+  const home = process.env["GRAPHIFY_HOME"]?.trim();
+  let builtAt: string | undefined;
+  const path = graphPath();
+  if (existsSync(path)) {
+    try {
+      const raw = JSON.parse(readFileSync(path, "utf8")) as { builtAt?: unknown };
+      if (typeof raw.builtAt === "string" && raw.builtAt) builtAt = raw.builtAt;
+    } catch {
+      builtAt = undefined;
+    }
+  }
+  return {
+    path: storeRoot(),
+    graph: path,
+    workspace: workspacePath(),
+    ...(home ? { graphifyHome: home } : {}),
+    ...(builtAt ? { builtAt } : {}),
+  };
+}
+
+export function missingGraphMessage(): string {
+  const info = storeInfo();
+  const homeLine = info.graphifyHome
+    ? `GRAPHIFY_HOME=${info.graphifyHome}`
+    : "GRAPHIFY_HOME is unset — CLI and MCP must use the same folder (set GRAPHIFY_HOME to the path above).";
+  return (
+    `No graph stored. Looked in ${info.graph} (store ${info.path}). ${homeLine} ` +
+    "Ingest first: `npm run resolve -- ingest <figma-url>` or `ingest <file.xml> --from-metadata`. Then resolve — do not Read graph.json."
+  );
+}
+
+function storeFingerprint(): string {
+  const parts: string[] = [];
+  const add = (path: string) => {
+    try {
+      const stat = statSync(path);
+      parts.push(`${path}:${stat.mtimeMs}:${stat.size}`);
+    } catch {
+      parts.push(`${path}:missing`);
+    }
+  };
+  add(graphPath());
+  add(workspacePath());
+  const filesDir = workspaceFilesDir();
+  if (existsSync(filesDir)) {
+    for (const name of readdirSync(filesDir).sort()) {
+      add(join(filesDir, name));
+    }
+  }
+  return parts.join("|");
 }
 
 export function graphPath(): string {
@@ -91,6 +183,36 @@ export function safeFileKey(fileKey: string): string {
 
 export function fileGraphPath(fileKey: string): string {
   return join(workspaceFilesDir(), `${safeFileKey(fileKey)}.json`);
+}
+
+export function ingestCheckpointDir(): string {
+  return join(storeRoot(), "ingest");
+}
+
+export function fsIngestCheckpointStore(): IngestCheckpointStore {
+  const dir = ingestCheckpointDir();
+  const pathFor = (fileKey: string) => join(dir, `${safeFileKey(fileKey)}.partial.json`);
+  return {
+    load(fileKey) {
+      const path = pathFor(fileKey);
+      if (!existsSync(path)) return undefined;
+      try {
+        const parsed = JSON.parse(readFileSync(path, "utf8")) as ScreensCheckpoint;
+        if (parsed?.fileKey === fileKey && Array.isArray(parsed.completedIds)) return parsed;
+      } catch {
+        return undefined;
+      }
+      return undefined;
+    },
+    save(fileKey, data) {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(pathFor(fileKey), `${JSON.stringify(data)}\n`);
+    },
+    clear(fileKey) {
+      const path = pathFor(fileKey);
+      if (existsSync(path)) rmSync(path);
+    },
+  };
 }
 
 export function readRecipeOverlay(explicitPath?: string): Recipe[] {
@@ -300,13 +422,22 @@ export function mergeStoredWorkspace(workspace = readWorkspace()): DesignGraph |
 
 export function saveIngestedFile(
   graph: DesignGraph,
-  options: { role?: WorkspaceFileRole; url?: string; label?: string; graphId?: string } = {},
+  options: {
+    role?: WorkspaceFileRole;
+    url?: string;
+    label?: string;
+    graphId?: string;
+    forceRole?: boolean;
+  } = {},
 ): StoredGraphSummary {
   const stamped = stampFileKey(graph);
   writeFileGraph(stamped);
   const current = readWorkspace();
-  const role = options.role ?? current.files.find((file) => file.key === stamped.fileKey)?.role ?? defaultIngestRole(current);
   const existing = current.files.find((file) => file.key === stamped.fileKey);
+  if (options.role && existing) {
+    assertIngestRoleChange(current, stamped.fileKey, options.role, { forceRole: options.forceRole });
+  }
+  const role = options.role ?? existing?.role ?? defaultIngestRole(current);
   const next: WorkspaceFile = {
     role,
     key: stamped.fileKey,
@@ -333,16 +464,18 @@ export function rebuildIndex(): StoreIndex {
   return { version: 1, graphs: listGraphs() };
 }
 
-const cache = new Map<string, { graph: DesignGraph; index: GraphIndex }>();
+const cache = new Map<string, { graph: DesignGraph; index: GraphIndex; fingerprint: string }>();
 
 export function loadGraph(_graphId?: string): { graph: DesignGraph; index: GraphIndex } | undefined {
+  const fingerprint = storeFingerprint();
   const cached = cache.get("graph");
-  if (cached) return cached;
+  if (cached && cached.fingerprint === fingerprint) return cached;
+  if (cached) cache.clear();
 
   const workspace = existsSync(workspacePath()) ? readWorkspace() : { version: 1 as const, files: [] };
   const merged = workspace.files.length ? mergeStoredWorkspace(workspace) : undefined;
   if (merged) {
-    const entry = { graph: merged, index: indexGraph(merged) };
+    const entry = { graph: merged, index: indexGraph(merged), fingerprint };
     cache.set("graph", entry);
     return entry;
   }
@@ -351,7 +484,7 @@ export function loadGraph(_graphId?: string): { graph: DesignGraph; index: Graph
   if (!existsSync(path)) return undefined;
 
   const graph = stampFileKey(DesignGraphSchema.parse(JSON.parse(readFileSync(path, "utf8"))));
-  const entry = { graph, index: indexGraph(graph) };
+  const entry = { graph, index: indexGraph(graph), fingerprint };
   cache.set("graph", entry);
   return entry;
 }

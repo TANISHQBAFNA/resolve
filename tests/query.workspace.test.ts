@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DesignGraph, GraphEdge, GraphNode, NodeType } from "@/core/model";
 import {
+  assertIngestRoleChange,
   indexGraph,
   isLibraryFileKey,
   mergeWorkspaceGraphs,
@@ -207,6 +208,13 @@ describe("workspace load", () => {
     expect(next.files).toHaveLength(2);
     expect(next.files.find((file) => file.key === "LIB")?.role).toBe("client");
     expect(next.files.find((file) => file.key === "PROD")?.role).toBe("product");
+  });
+
+  it("assertIngestRoleChange refuses a silent library to product swap", () => {
+    expect(() => assertIngestRoleChange(workspace, "LIB", "product")).toThrow(/library/);
+    expect(() => assertIngestRoleChange(workspace, "LIB", "product")).toThrow(/product/);
+    expect(() => assertIngestRoleChange(workspace, "LIB", "library")).not.toThrow();
+    expect(() => assertIngestRoleChange(workspace, "LIB", "product", { forceRole: true })).not.toThrow();
   });
 
   it("rejects junk rather than crashing", () => {

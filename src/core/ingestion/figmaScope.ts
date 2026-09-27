@@ -4,7 +4,7 @@ import type { FigmaTarget } from "./figmaFileKey";
  * Ingest scope.
  *
  * - `node` — the `node-id` on a shared screen / frame / section link
- * - `screens` — each top-level FRAME/SECTION, one REST call at a time
+ * - `screens` — each top-level FRAME/SECTION/COMPONENT/COMPONENT_SET, one REST call at a time
  * - `file` — one `GET /v1/files/:key` (escape hatch)
  * - `auto` — `node` when the URL has a node-id, else `screens`
  */
@@ -25,7 +25,7 @@ type RawNode = {
   children?: unknown;
 };
 
-const SCREEN_TYPES = new Set(["FRAME", "SECTION"]);
+const SCREEN_TYPES = new Set(["FRAME", "SECTION", "COMPONENT", "COMPONENT_SET"]);
 const SKIP_INTO = new Set(["GROUP"]);
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -61,7 +61,7 @@ export function collectTopLevelScreens(document: unknown): ScreenRef[] {
   const visit = (node: RawNode, pageId: string, pageName: string): void => {
     const type = asString(node.type) ?? "";
     const id = asString(node.id);
-    const name = asString(node.name) ?? id ?? "(unnamed)";
+    const name = asString(node.name)?.trim() ?? "";
     if (SCREEN_TYPES.has(type) && id) {
       screens.push({ id, name, type, pageId, pageName });
       return;
@@ -77,6 +77,18 @@ export function collectTopLevelScreens(document: unknown): ScreenRef[] {
     if (!pageId) continue;
     const pageName = asString(canvas.name) ?? pageId;
     for (const child of asArray(canvas.children)) visit(child as RawNode, pageId, pageName);
+  }
+
+  const byPage = new Map<string, ScreenRef[]>();
+  for (const screen of screens) {
+    const list = byPage.get(screen.pageId) ?? [];
+    list.push(screen);
+    byPage.set(screen.pageId, list);
+  }
+  for (const list of byPage.values()) {
+    list.forEach((screen, index) => {
+      if (!screen.name.trim()) screen.name = `${screen.pageName} ${index + 1}`;
+    });
   }
   return screens;
 }

@@ -91,6 +91,24 @@ export function parseWorkspaceFile(raw: unknown): WorkspaceManifest {
   return { version: 1, files };
 }
 
+/** Refuse a silent role swap. Same role or `--force-role` is fine. */
+export function assertIngestRoleChange(
+  manifest: WorkspaceManifest,
+  key: string,
+  role: WorkspaceFileRole,
+  options: { forceRole?: boolean } = {},
+): void {
+  const needle = key.trim().toLowerCase();
+  const existing = manifest.files.find((file) => file.key.toLowerCase() === needle);
+  if (!existing || existing.role === role) return;
+  if (options.forceRole) return;
+  throw new Error(
+    `File ${existing.key} is already ingested as ${existing.role}. ` +
+      `This ingest would change it to ${role}, which would drop the ${existing.role} from cousins / recommend. ` +
+      `Re-run without --role to keep ${existing.role}, edit .graphify/workspace.json, or pass --force-role.`,
+  );
+}
+
 export function upsertWorkspaceFile(
   manifest: WorkspaceManifest,
   next: WorkspaceFile,
