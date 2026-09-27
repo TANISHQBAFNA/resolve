@@ -2,11 +2,11 @@
 
 ## Unreleased — Resolve for Figma MCP (plug-and-play + SOCK)
 
-Agent with only Figma MCP + Resolve MCP can learn a library and stay current. No token, no clone, no hand-built JSON.
+Agent with only Figma MCP + Resolve MCP can learn a library and stay current. No clone, no hand-built JSON.
 
-- **Install** — `npx -y github:TANISHQBAFNA/resolve resolve-mcp`. Config snippet next to Figma MCP: [docs/SETUP-MCP.md](docs/SETUP-MCP.md).
+- **Install** — `npx -y github:TANISHQBAFNA/resolve resolve-mcp`. Config snippet next to Figma MCP: [docs/SETUP-MCP.md](docs/SETUP-MCP.md). Learning needs a paid Figma MCP seat (Dev/Full) or a REST token. View/free seats: low quota; progress saves and resumes.
 - **One store** — `~/.resolve/<workspace>` (or `GRAPHIFY_HOME`). Auto-reload on change. Empty state says `learn_library`.
-- **learn_library** — accepts `get_metadata` XML + optional `search_design_system` / `get_libraries`. Incremental, checkpointed. Plugin / REST remain alternate paths.
+- **learn_library** — primary path: Figma MCP `get_metadata` XML + optional `search_design_system` / `get_libraries`. Incremental, checkpointed across sessions. Secondary: REST token ingest. No Figma plugin in the user story.
 - **Place-ready cards** — `fileKey`, `nodeId`, published `componentKey` when known; otherwise `local-only`.
 - **Live usage** — verify pass writes SOCK facts. Freshness on each query; stale → delta learn. Strong pattern = 3 distinct verified screens. Deprecated/private recorded, never promoted. Rules only via SOCI proposal list.
 - **Default tools** — `learn_library`, `recipe`, `recommend`, `resolve`, `verify_frame`, `check_cousins`. `RESOLVE_MCP_ADVANCED=1` for the rest. Instructions ship on MCP initialize.

@@ -87,7 +87,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "learn_library",
     description:
-      "Load or update SOCK from Figma MCP output. Pass get_metadata XML as metadataXml plus fileKey and role (library|product). Optional libraries = search_design_system / get_libraries (stamps published component keys). Optional designContext. Incremental and resumable. No REST token. Plugin export / REST ingest remain alternate paths for huge libraries.",
+      "Load or update SOCK from Figma MCP output. Pass get_metadata XML as metadataXml plus fileKey and role (library|product). Optional libraries = search_design_system / get_libraries (stamps published component keys). Optional designContext. Incremental and resumable across sessions — use that for big libraries (view/free seats have a low read quota; progress is saved). Needs a paid Figma MCP seat (Dev/Full) or a REST token ingest. Do not invent a hand-built capture.",
     inputSchema: {
       type: "object",
       properties: {

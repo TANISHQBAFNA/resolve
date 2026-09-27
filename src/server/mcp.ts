@@ -47,12 +47,13 @@ function handle(request: Request): void {
         capabilities: { tools: { listChanged: false } },
         serverInfo: SERVER_INFO,
         instructions:
-          "Resolve MCP + Figma MCP is enough. No clone, no REST token, no hand-built JSON. " +
+          "Resolve is for AI tools (Cursor, Claude) with Figma MCP. Learning needs a paid Figma seat with MCP access (Dev or Full), or a Figma access token for REST ingest. " +
+          "View or free seats have a low read quota — learn a few frames, stop; SOCK saves progress and resumes next session. Big libraries: checkpointed multi-pass learn_library, not a whole-file dump. " +
           "Forced path: learn_library (get_metadata XML + fileKey + role=library; pass search_design_system / get_libraries as libraries to stamp published keys) → recipe if the screen job matches → recommend unbound slots → place only returned fileKey + nodeId (and componentKey when published) via Figma use_figma → verify_frame. " +
           "On verify pass, SOCK records usage automatically. Rules never auto-change (SOCI proposals stay pending). " +
           "If freshness.stale, learn_library only the changed frames. " +
           "resolve \"<name>\" is I-know-the-name-give-me-the-id. " +
-          "Do not invent components. Do not Read or dump graph.json. " +
+          "Do not invent components. Do not Read or dump graph.json. Do not hand-build capture JSON. " +
           "Default tools: learn_library, recipe, recommend, resolve, verify_frame, check_cousins. Set RESOLVE_MCP_ADVANCED=1 for the rest.",
       });
       return;

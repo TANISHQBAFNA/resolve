@@ -2,7 +2,14 @@
 
 **Figma rules. Agents resolve.**
 
-You do **not** need a Figma personal access token, a clone of this repo, or a hand-built JSON file. Turn on Figma’s connector and Resolve’s connector in the same AI tool.
+Resolve is for AI tools (Cursor, Claude). Turn on Figma’s connector and Resolve’s connector in the same tool.
+
+Learning a library needs **one** of:
+
+- a **paid Figma seat with MCP access** (Dev or Full), or
+- a **Figma access token** (`FIGMA_ACCESS_TOKEN`) for command-line REST ingest.
+
+**View or free seats** get a low Figma read quota. Resolve does not fail the whole library: it saves progress and **resumes** on the next pass. Feed a few frames per session.
 
 ## One config line
 
@@ -56,15 +63,15 @@ Local checkout instead of npx:
 
 Same store for CLI and MCP: `~/.resolve/default` (or `RESOLVE_WORKSPACE=acme` → `~/.resolve/acme`). Pin a folder with `GRAPHIFY_HOME`. After a learn, the next MCP call sees it — no restart.
 
-## What you tell the agent
+## How the agent learns (two paths)
 
-1. In Figma MCP, call `get_metadata` on a library frame (or a few, for a big file).
-2. Call Resolve `learn_library` with that XML, the **file key**, and `role: "library"`.
-3. Optional: pass `search_design_system` / `get_libraries` as `libraries` so cards include the **published component key** (`importComponentByKeyAsync`). Without that key the card says **local-only**.
-4. `recipe` / `recommend` → place only returned `fileKey` + `nodeId` (and `componentKey` when published) with Figma `use_figma`.
-5. `verify_frame`. A pass writes usage into SOCK. Rules never change themselves.
+**Primary — Figma MCP.** `get_metadata` on a library frame, then Resolve `learn_library` with that XML, the **file key**, and `role: "library"`. Optional: pass `search_design_system` / `get_libraries` as `libraries` so cards include the published component key. Without that key the card says **local-only**.
 
-Huge libraries: the [Figma plugin export](../figma-plugin/README.md) or REST ingest (`FIGMA_ACCESS_TOKEN`) are still the better full-file paths. `learn_library` is checkpointed so you can feed frames in several passes.
+**Secondary — REST token.** `npm run resolve -- ingest '<figma-url>' --role library` with `FIGMA_ACCESS_TOKEN`.
+
+**Big libraries.** Do not dump the whole file. Call `learn_library` on a few frames, stop, come back later. Checkpoints survive across sessions. A view/free seat with a low quota uses the same resume path.
+
+Then: `recipe` / `recommend` → place only returned `fileKey` + `nodeId` (and `componentKey` when published) with Figma `use_figma` → `verify_frame`. A pass writes usage into SOCK. Rules never change themselves.
 
 ## What Resolve will not do
 

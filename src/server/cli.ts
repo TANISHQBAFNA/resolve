@@ -64,7 +64,7 @@ function usage(): void {
       "Resolve — Figma rules. Agents resolve.",
       "",
       "  resolve ingest <file.json | file.xml | figma-url | file-key> [--id <graphId>] [--file-key <key>] [--name <fileName>] [--from-metadata] [--scope node|screens|file] [--role library|product|client] [--force-role] [--label <name>]",
-      "      Build a graph and add it to the workspace. JSON: plugin export, REST body, MCP capture, or a graph.",
+      "      Build a graph and add it to the workspace. JSON: REST body, MCP capture, or a graph.",
       "      --from-metadata: raw Figma MCP get_metadata XML (no REST token). Same as wrapping { metadataXml }.",
       "      GRAPHIFY_HOME wins for the store folder; else nearest .graphify walking up from cwd. MCP and CLI must share it.",
       "      Live Figma: pass the shared screen/frame/section URL (node-id in the link).",
@@ -170,7 +170,7 @@ function toGraph(payload: unknown, args: string[]): DesignGraph {
   }
 
   throw new Error(
-    "Unrecognised JSON. Expected a plugin export, a Figma REST file body, an MCP capture, or a graph.",
+    "Unrecognised JSON. Expected a Figma REST file body, an MCP capture, or a graph.",
   );
 }
 

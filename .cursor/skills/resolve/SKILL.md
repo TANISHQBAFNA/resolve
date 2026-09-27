@@ -9,7 +9,7 @@ description: Use Resolve before any Figma screen build or design-from-brief work
 
 ## Forced path (do this, in order)
 
-1. **Learn / ingest** — Figma MCP `get_metadata` → Resolve `learn_library` (fileKey + role=library). Optional `libraries` from `search_design_system`. Alternate: CLI ingest / plugin. Re-run when that file changed.
+1. **Learn / ingest** — Figma MCP `get_metadata` → Resolve `learn_library` (fileKey + role=library). Optional `libraries` from `search_design_system`. Secondary: REST ingest with `FIGMA_ACCESS_TOKEN`. Big libraries: checkpointed multi-pass. Re-run when that file changed. Needs a paid Figma MCP seat (Dev/Full) or a token. View/free seats: low quota; resume.
 2. **Recipe** — if the screen job matches a pack (`recipe list` / `recipe "<job>"`). After ingest, slots bind to live `figmaNodeId`s. Overlay `.graphify/recipes.json` still wins. Optional `.graphify/context-packs.json` scopes product + journey + domain (slot fills + `nextRecommend`). Packs may name `files` and optional `client`. Optional `--pack` / `--product` / `--journey` / `--domain`.
 3. **Recommend** — every unbound / missing / deprecated slot. Use that slot’s `nextRecommend` query. Prefers DS library masters when `.graphify/workspace.json` has a library-role file. Optional `--pack` / `--product` / `--journey` / `--domain` (or the active pack).
 4. **Place** — Figma MCP (`use_figma` / `get_design_context`) on returned ids **only**. Cards stamp `fileKey` + `figmaNodeId` (ids collide across files).

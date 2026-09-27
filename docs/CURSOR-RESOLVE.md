@@ -72,7 +72,7 @@ Exact name always returns `id` + `fileKey` + `figmaNodeId`, even with zero usage
 
 CLI ingest and the MCP server must share one store. Set `GRAPHIFY_HOME` to the `.graphify` folder, or run both from the same project root. `npm run resolve -- where` and MCP `list_graphs` print the path and `builtAt`. After ingest, the next MCP call sees the new graph without a restart.
 
-No REST token: save Figma MCP `get_metadata` XML and `npm run resolve -- ingest screen.xml --from-metadata --file-key KEY --name "Library"`.
+Primary learn: Figma MCP `get_metadata` → `learn_library` (paid Dev/Full seat). Secondary: REST token ingest. Big libraries: several checkpointed passes. View/free seats: low quota; Resolve resumes.
 
 Optional allow/deny file: `.graphify/library-rules.json` with `{ "allow": [...], "deny": [...] }`. If missing, approved = in-graph master and not deprecated.
 

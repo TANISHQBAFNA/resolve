@@ -20,9 +20,9 @@ npm run resolve -- verify "Checkout"
 npm run resolve -- cousins "Checkout"      # when a library + product file are linked
 ```
 
-CLI and MCP share one store (`GRAPHIFY_HOME`, else nearest `.graphify`). After ingest, the next MCP call sees the graph — no restart. `list_graphs` prints `store.path` + `builtAt`. Know the name: `resolve "Main Card"` always returns the id, even unused. No REST token: `ingest screen.xml --from-metadata --file-key KEY`.
+CLI and MCP share one store (`GRAPHIFY_HOME`, else nearest `.graphify`). After ingest, the next MCP call sees the graph — no restart. `list_graphs` prints `store.path` + `builtAt`. Know the name: `resolve "Main Card"` always returns the id, even unused. Primary learn: Figma MCP `learn_library` (paid Dev/Full seat). Secondary: REST token. Big libraries: checkpointed multi-pass. View/free seats: low quota, resume.
 
-1. **Ingest** — each linked file as needed (`--role library|product|client`). Refresh if that Figma file changed.
+1. **Learn / ingest** — Figma MCP `learn_library`, or REST ingest (`--role library|product|client`). Refresh if that Figma file changed.
 2. **Context / recipe** — if the screen job matches a pack. Overlay `.graphify/recipes.json` still wins. Optional `.graphify/context-packs.json` scopes product + journey + domain. Packs may name `files` and optional `client`. Optional `--pack` / `--product` / `--journey` / `--domain`.
 3. **Recommend** — unbound / missing / deprecated slots (`nextRecommend` on the card). Prefers DS library masters when the workspace has a library-role file. Optional `--pack` / `--product` / `--journey` / `--domain`.
 4. **Place** — `use_figma` / `get_design_context` on returned ids only.
