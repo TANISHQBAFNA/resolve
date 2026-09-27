@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "dep-banner",
+      "intent": "banner",
+      "expected": "Banner",
+      "mustNot": ["Legacy Banner"]
+    },
+    {
+      "id": "dep-legacy-banner-name",
+      "intent": "legacy banner",
+      "expected": "Banner",
+      "mustNot": ["Legacy Banner"],
+      "note": "The retired name should not be handed back as the thing to place."
+    },
+    {
+      "id": "dep-legacy-banner-exact",
+      "intent": "Legacy Banner",
+      "expected": "Banner",
+      "mustNot": ["Legacy Banner"],
+      "note": "Asking for the deprecated master by its exact name should still not be the placement."
+    },
+    {
+      "id": "dep-old-price",
+      "intent": "old price",
+      "expected": "Price",
+      "mustNot": ["Old Price"]
+    },
+    {
+      "id": "dep-legacy-alert",
+      "intent": "Legacy Alert",
+      "expected": "Alert",
+      "mustNot": ["Legacy Alert"]
+    },
+    {
+      "id": "dep-notice",
+      "intent": "notice alert",
+      "expected": "Alert",
+      "mustNot": ["Legacy Alert"]
+    }
+  ]
+}

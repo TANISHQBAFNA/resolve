@@ -1,0 +1,780 @@
+{
+  "fileKey": "SCOREFIX",
+  "fileName": "Scoreboard fixture library",
+  "root": {
+    "id": "0:0",
+    "name": "Document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "p:ds",
+        "name": "Design System",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "s:core",
+            "name": "Core",
+            "type": "SECTION",
+            "children": [
+              {
+                "id": "c:pay",
+                "name": "Pay CTA",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:save",
+                "name": "Save CTA",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:button",
+                "name": "Button",
+                "type": "COMPONENT_SET",
+                "children": [
+                  {
+                    "id": "c:button-primary",
+                    "name": "Button Primary",
+                    "type": "COMPONENT",
+                    "componentSetId": "c:button",
+                    "variantProperties": {
+                      "Style": "Primary"
+                    }
+                  },
+                  {
+                    "id": "c:button-secondary",
+                    "name": "Button Secondary",
+                    "type": "COMPONENT",
+                    "componentSetId": "c:button",
+                    "variantProperties": {
+                      "Style": "Secondary"
+                    }
+                  },
+                  {
+                    "id": "c:button-danger",
+                    "name": "Button Danger",
+                    "type": "COMPONENT",
+                    "componentSetId": "c:button",
+                    "variantProperties": {
+                      "Style": "Danger"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "c:tag",
+                "name": "Tag",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:chip",
+                "name": "Chip",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:input",
+                "name": "Input",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:search",
+                "name": "Search Field",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:text",
+                "name": "Text Field",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:main-card",
+                "name": "Main Card",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:summary-card",
+                "name": "Summary Card",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:banner",
+                "name": "Banner",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:avatar",
+                "name": "Avatar",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:payment-row",
+                "name": "Payment Row",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:header",
+                "name": "Header Bar",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:empty",
+                "name": "Empty Message",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:checkbox",
+                "name": "Checkbox",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:switch",
+                "name": "Switch",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:radio",
+                "name": "Radio",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:price",
+                "name": "Price",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:icon-close",
+                "name": "Icon Close",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:modal",
+                "name": "Modal",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:footer",
+                "name": "Footer Bar",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:list-row",
+                "name": "List Row",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:promo",
+                "name": "Promo Field",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:stepper",
+                "name": "Quantity Stepper",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:coupon",
+                "name": "Coupon Field",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:nav",
+                "name": "Nav Item",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:crumb",
+                "name": "Breadcrumb",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:divider",
+                "name": "Divider",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:badge",
+                "name": "Badge",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:tabs",
+                "name": "Tabs",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:toast",
+                "name": "Toast",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:link",
+                "name": "Link Button",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:alert",
+                "name": "Alert",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:legacy-banner",
+                "name": "Legacy Banner",
+                "type": "COMPONENT",
+                "description": "status: deprecated"
+              },
+              {
+                "id": "c:legacy-alert",
+                "name": "Legacy Alert",
+                "type": "COMPONENT",
+                "description": "status: deprecated"
+              },
+              {
+                "id": "c:old-price",
+                "name": "Old Price",
+                "type": "COMPONENT",
+                "description": "status: deprecated"
+              },
+              {
+                "id": "c:private-note",
+                "name": "_Private Note",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:hidden-badge",
+                "name": ".Hidden Badge",
+                "type": "COMPONENT"
+              },
+              {
+                "id": "c:internal-icon",
+                "name": "_Internal Icon",
+                "type": "COMPONENT"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "p:product",
+        "name": "Product",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "s:screens",
+            "name": "Screens",
+            "type": "SECTION",
+            "children": [
+              {
+                "id": "f:checkout-payment",
+                "name": "Checkout Payment",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:1",
+                    "name": "c:pay",
+                    "type": "INSTANCE",
+                    "componentId": "c:pay"
+                  },
+                  {
+                    "id": "i:2",
+                    "name": "c:payment-row",
+                    "type": "INSTANCE",
+                    "componentId": "c:payment-row"
+                  },
+                  {
+                    "id": "i:3",
+                    "name": "c:price",
+                    "type": "INSTANCE",
+                    "componentId": "c:price"
+                  },
+                  {
+                    "id": "i:4",
+                    "name": "c:header",
+                    "type": "INSTANCE",
+                    "componentId": "c:header"
+                  },
+                  {
+                    "id": "i:5",
+                    "name": "c:promo",
+                    "type": "INSTANCE",
+                    "componentId": "c:promo"
+                  }
+                ]
+              },
+              {
+                "id": "f:checkout-review",
+                "name": "Checkout Review",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:6",
+                    "name": "c:pay",
+                    "type": "INSTANCE",
+                    "componentId": "c:pay"
+                  },
+                  {
+                    "id": "i:7",
+                    "name": "c:summary-card",
+                    "type": "INSTANCE",
+                    "componentId": "c:summary-card"
+                  },
+                  {
+                    "id": "i:8",
+                    "name": "c:payment-row",
+                    "type": "INSTANCE",
+                    "componentId": "c:payment-row"
+                  }
+                ]
+              },
+              {
+                "id": "f:checkout-coupon",
+                "name": "Checkout Coupon",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:9",
+                    "name": "c:coupon",
+                    "type": "INSTANCE",
+                    "componentId": "c:coupon"
+                  },
+                  {
+                    "id": "i:10",
+                    "name": "c:pay",
+                    "type": "INSTANCE",
+                    "componentId": "c:pay"
+                  },
+                  {
+                    "id": "i:11",
+                    "name": "c:price",
+                    "type": "INSTANCE",
+                    "componentId": "c:price"
+                  }
+                ]
+              },
+              {
+                "id": "f:settings-save",
+                "name": "Settings Save",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:12",
+                    "name": "c:save",
+                    "type": "INSTANCE",
+                    "componentId": "c:save"
+                  },
+                  {
+                    "id": "i:13",
+                    "name": "c:input",
+                    "type": "INSTANCE",
+                    "componentId": "c:input"
+                  },
+                  {
+                    "id": "i:14",
+                    "name": "c:avatar",
+                    "type": "INSTANCE",
+                    "componentId": "c:avatar"
+                  },
+                  {
+                    "id": "i:15",
+                    "name": "c:header",
+                    "type": "INSTANCE",
+                    "componentId": "c:header"
+                  }
+                ]
+              },
+              {
+                "id": "f:settings-billing",
+                "name": "Settings Billing",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:16",
+                    "name": "c:save",
+                    "type": "INSTANCE",
+                    "componentId": "c:save"
+                  },
+                  {
+                    "id": "i:17",
+                    "name": "c:payment-row",
+                    "type": "INSTANCE",
+                    "componentId": "c:payment-row"
+                  },
+                  {
+                    "id": "i:18",
+                    "name": "c:switch",
+                    "type": "INSTANCE",
+                    "componentId": "c:switch"
+                  }
+                ]
+              },
+              {
+                "id": "f:catalog-filter",
+                "name": "Catalog Filter",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:19",
+                    "name": "c:tag",
+                    "type": "INSTANCE",
+                    "componentId": "c:tag"
+                  },
+                  {
+                    "id": "i:20",
+                    "name": "c:search",
+                    "type": "INSTANCE",
+                    "componentId": "c:search"
+                  },
+                  {
+                    "id": "i:21",
+                    "name": "c:list-row",
+                    "type": "INSTANCE",
+                    "componentId": "c:list-row"
+                  }
+                ]
+              },
+              {
+                "id": "f:catalog-results",
+                "name": "Catalog Results",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:22",
+                    "name": "c:list-row",
+                    "type": "INSTANCE",
+                    "componentId": "c:list-row"
+                  },
+                  {
+                    "id": "i:23",
+                    "name": "c:main-card",
+                    "type": "INSTANCE",
+                    "componentId": "c:main-card"
+                  },
+                  {
+                    "id": "i:24",
+                    "name": "c:badge",
+                    "type": "INSTANCE",
+                    "componentId": "c:badge"
+                  },
+                  {
+                    "id": "i:25",
+                    "name": "c:tag",
+                    "type": "INSTANCE",
+                    "componentId": "c:tag"
+                  }
+                ]
+              },
+              {
+                "id": "f:product-detail",
+                "name": "Product Detail",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:26",
+                    "name": "c:chip",
+                    "type": "INSTANCE",
+                    "componentId": "c:chip"
+                  },
+                  {
+                    "id": "i:27",
+                    "name": "c:main-card",
+                    "type": "INSTANCE",
+                    "componentId": "c:main-card"
+                  },
+                  {
+                    "id": "i:28",
+                    "name": "c:stepper",
+                    "type": "INSTANCE",
+                    "componentId": "c:stepper"
+                  },
+                  {
+                    "id": "i:29",
+                    "name": "c:button-primary",
+                    "type": "INSTANCE",
+                    "componentId": "c:button-primary"
+                  }
+                ]
+              },
+              {
+                "id": "f:sign-in",
+                "name": "Sign In",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:30",
+                    "name": "c:input",
+                    "type": "INSTANCE",
+                    "componentId": "c:input"
+                  },
+                  {
+                    "id": "i:31",
+                    "name": "c:button-primary",
+                    "type": "INSTANCE",
+                    "componentId": "c:button-primary"
+                  },
+                  {
+                    "id": "i:32",
+                    "name": "c:header",
+                    "type": "INSTANCE",
+                    "componentId": "c:header"
+                  },
+                  {
+                    "id": "i:33",
+                    "name": "c:text",
+                    "type": "INSTANCE",
+                    "componentId": "c:text"
+                  }
+                ]
+              },
+              {
+                "id": "f:create-account",
+                "name": "Create Account",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:34",
+                    "name": "c:input",
+                    "type": "INSTANCE",
+                    "componentId": "c:input"
+                  },
+                  {
+                    "id": "i:35",
+                    "name": "c:button-primary",
+                    "type": "INSTANCE",
+                    "componentId": "c:button-primary"
+                  },
+                  {
+                    "id": "i:36",
+                    "name": "c:checkbox",
+                    "type": "INSTANCE",
+                    "componentId": "c:checkbox"
+                  }
+                ]
+              },
+              {
+                "id": "f:empty-orders",
+                "name": "Empty Orders",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:37",
+                    "name": "c:empty",
+                    "type": "INSTANCE",
+                    "componentId": "c:empty"
+                  },
+                  {
+                    "id": "i:38",
+                    "name": "c:button-secondary",
+                    "type": "INSTANCE",
+                    "componentId": "c:button-secondary"
+                  }
+                ]
+              },
+              {
+                "id": "f:confirm-delete",
+                "name": "Confirm Delete",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:39",
+                    "name": "c:modal",
+                    "type": "INSTANCE",
+                    "componentId": "c:modal"
+                  },
+                  {
+                    "id": "i:40",
+                    "name": "c:button-danger",
+                    "type": "INSTANCE",
+                    "componentId": "c:button-danger"
+                  },
+                  {
+                    "id": "i:41",
+                    "name": "c:button-secondary",
+                    "type": "INSTANCE",
+                    "componentId": "c:button-secondary"
+                  }
+                ]
+              },
+              {
+                "id": "f:legacy-promo",
+                "name": "Legacy Promo",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:42",
+                    "name": "c:legacy-banner",
+                    "type": "INSTANCE",
+                    "componentId": "c:legacy-banner"
+                  },
+                  {
+                    "id": "i:43",
+                    "name": "c:old-price",
+                    "type": "INSTANCE",
+                    "componentId": "c:old-price"
+                  }
+                ]
+              },
+              {
+                "id": "f:retired-notice",
+                "name": "Retired Notice",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:44",
+                    "name": "c:legacy-alert",
+                    "type": "INSTANCE",
+                    "componentId": "c:legacy-alert"
+                  }
+                ]
+              },
+              {
+                "id": "f:internal",
+                "name": "Internal Scratch",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:45",
+                    "name": "c:private-note",
+                    "type": "INSTANCE",
+                    "componentId": "c:private-note"
+                  },
+                  {
+                    "id": "i:46",
+                    "name": "c:hidden-badge",
+                    "type": "INSTANCE",
+                    "componentId": "c:hidden-badge"
+                  },
+                  {
+                    "id": "i:47",
+                    "name": "c:internal-icon",
+                    "type": "INSTANCE",
+                    "componentId": "c:internal-icon"
+                  }
+                ]
+              },
+              {
+                "id": "f:nav-shell",
+                "name": "Nav Shell",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:48",
+                    "name": "c:nav",
+                    "type": "INSTANCE",
+                    "componentId": "c:nav"
+                  },
+                  {
+                    "id": "i:49",
+                    "name": "c:footer",
+                    "type": "INSTANCE",
+                    "componentId": "c:footer"
+                  },
+                  {
+                    "id": "i:50",
+                    "name": "c:crumb",
+                    "type": "INSTANCE",
+                    "componentId": "c:crumb"
+                  },
+                  {
+                    "id": "i:51",
+                    "name": "c:divider",
+                    "type": "INSTANCE",
+                    "componentId": "c:divider"
+                  }
+                ]
+              },
+              {
+                "id": "f:composer",
+                "name": "Composer Message",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:52",
+                    "name": "c:chip",
+                    "type": "INSTANCE",
+                    "componentId": "c:chip"
+                  },
+                  {
+                    "id": "i:53",
+                    "name": "c:text",
+                    "type": "INSTANCE",
+                    "componentId": "c:text"
+                  },
+                  {
+                    "id": "i:54",
+                    "name": "c:icon-close",
+                    "type": "INSTANCE",
+                    "componentId": "c:icon-close"
+                  }
+                ]
+              },
+              {
+                "id": "f:alerts",
+                "name": "Alerts",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:55",
+                    "name": "c:alert",
+                    "type": "INSTANCE",
+                    "componentId": "c:alert"
+                  },
+                  {
+                    "id": "i:56",
+                    "name": "c:toast",
+                    "type": "INSTANCE",
+                    "componentId": "c:toast"
+                  },
+                  {
+                    "id": "i:57",
+                    "name": "c:banner",
+                    "type": "INSTANCE",
+                    "componentId": "c:banner"
+                  }
+                ]
+              },
+              {
+                "id": "f:choices",
+                "name": "Choices",
+                "type": "FRAME",
+                "children": [
+                  {
+                    "id": "i:58",
+                    "name": "c:checkbox",
+                    "type": "INSTANCE",
+                    "componentId": "c:checkbox"
+                  },
+                  {
+                    "id": "i:59",
+                    "name": "c:radio",
+                    "type": "INSTANCE",
+                    "componentId": "c:radio"
+                  },
+                  {
+                    "id": "i:60",
+                    "name": "c:switch",
+                    "type": "INSTANCE",
+                    "componentId": "c:switch"
+                  },
+                  {
+                    "id": "i:61",
+                    "name": "c:tabs",
+                    "type": "INSTANCE",
+                    "componentId": "c:tabs"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "components": {},
+  "componentSets": {},
+  "styles": {},
+  "variables": {},
+  "variableCollections": {},
+  "libraries": {},
+  "source": {
+    "kind": "json",
+    "ingestedAt": "2026-01-01T00:00:00.000Z"
+  }
+}

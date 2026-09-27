@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "empty-confetti", "intent": "holographic confetti cannon", "expect": "empty" },
+    { "id": "empty-warp", "intent": "warp drive throttle", "expect": "empty" },
+    { "id": "empty-periscope", "intent": "submarine periscope", "expect": "empty" },
+    { "id": "empty-origami", "intent": "origami crane latch", "expect": "empty" },
+    { "id": "empty-quartz", "intent": "quartz metronome", "expect": "empty" },
+    { "id": "empty-kelp", "intent": "kelp forest gauge", "expect": "empty" },
+    { "id": "empty-marble", "intent": "marble staircase hinge", "expect": "empty" },
+    { "id": "empty-comet", "intent": "comet tail brush", "expect": "empty" },
+    { "id": "empty-velvet", "intent": "velvet curtain pulley", "expect": "empty" },
+    { "id": "empty-cinder", "intent": "cinder block whistle", "expect": "empty" },
+    { "id": "empty-nebula", "intent": "nebula postage stamp", "expect": "empty" },
+    { "id": "empty-yarrow", "intent": "yarrow tea kettle", "expect": "empty" }
+  ]
+}

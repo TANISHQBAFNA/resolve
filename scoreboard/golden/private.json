@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "priv-note", "intent": "_Private Note", "expect": "empty", "mustNot": ["_Private Note"] },
+    { "id": "priv-badge", "intent": ".Hidden Badge", "expect": "empty", "mustNot": [".Hidden Badge"] },
+    { "id": "priv-icon", "intent": "_Internal Icon", "expect": "empty", "mustNot": ["_Internal Icon"] },
+    { "id": "priv-internal-words", "intent": "internal icon", "expect": "empty", "mustNot": ["_Internal Icon"] },
+    { "id": "priv-hidden-words", "intent": "hidden badge", "expect": "empty", "mustNot": [".Hidden Badge"] },
+    { "id": "priv-note-words", "intent": "private note", "expect": "empty", "mustNot": ["_Private Note"] }
+  ]
+}

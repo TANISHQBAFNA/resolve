@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "ctx-cta-checkout",
+      "intent": "cta",
+      "screenType": "checkout",
+      "journey": "payment",
+      "slot": "primary-cta",
+      "expected": "Pay CTA",
+      "mustNot": ["Save CTA"]
+    },
+    {
+      "id": "ctx-cta-settings",
+      "intent": "cta",
+      "screenType": "settings",
+      "journey": "save",
+      "slot": "primary-cta",
+      "expected": "Save CTA",
+      "mustNot": ["Pay CTA"]
+    },
+    {
+      "id": "ctx-filter-tag",
+      "intent": "filter",
+      "screenType": "catalog",
+      "journey": "browse",
+      "slot": "filter",
+      "expected": "Tag",
+      "mustNot": ["Chip"]
+    },
+    {
+      "id": "ctx-composer-chip",
+      "intent": "input chip",
+      "screenType": "composer",
+      "journey": "message",
+      "slot": "input",
+      "expected": "Chip",
+      "mustNot": ["Tag"]
+    },
+    {
+      "id": "ctx-payment-row",
+      "intent": "row",
+      "screenType": "checkout",
+      "journey": "payment",
+      "expected": "Payment Row",
+      "mustNot": ["List Row"]
+    },
+    {
+      "id": "ctx-list-row",
+      "intent": "row",
+      "screenType": "catalog",
+      "journey": "browse",
+      "expected": "List Row",
+      "mustNot": ["Payment Row"]
+    },
+    {
+      "id": "ctx-summary-card",
+      "intent": "card",
+      "screenType": "checkout",
+      "journey": "review",
+      "expected": "Summary Card",
+      "mustNot": ["Main Card"]
+    },
+    {
+      "id": "ctx-main-card",
+      "intent": "card",
+      "screenType": "catalog",
+      "journey": "browse",
+      "expected": "Main Card",
+      "mustNot": ["Summary Card"]
+    },
+    {
+      "id": "ctx-search",
+      "intent": "search",
+      "screenType": "catalog",
+      "journey": "filter",
+      "expected": "Search Field"
+    },
+    {
+      "id": "ctx-promo",
+      "intent": "promo",
+      "screenType": "checkout",
+      "expected": "Promo Field"
+    },
+    {
+      "id": "ctx-coupon",
+      "intent": "coupon",
+      "screenType": "checkout",
+      "journey": "payment",
+      "expected": "Coupon Field"
+    },
+    {
+      "id": "ctx-danger",
+      "intent": "danger",
+      "screenType": "confirm",
+      "journey": "delete",
+      "slot": "primary-cta",
+      "expected": "Button Danger",
+      "mustNot": ["Button Primary", "Button Secondary"]
+    },
+    {
+      "id": "ctx-recipe-checkout",
+      "intent": "checkout summary",
+      "screenType": "checkout",
+      "journey": "payment",
+      "slot": "primary-cta",
+      "expected": "Pay CTA",
+      "mustNot": ["Save CTA"],
+      "note": "Checkout primary action is Pay CTA, not the generic button."
+    },
+    {
+      "id": "ctx-recipe-sign-in",
+      "intent": "sign in",
+      "slot": "primary-cta",
+      "expected": "Button Primary"
+    },
+    {
+      "id": "ctx-recipe-empty",
+      "intent": "empty state",
+      "slot": "message",
+      "expected": "Empty Message"
+    }
+  ]
+}

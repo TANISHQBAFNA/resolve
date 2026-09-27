@@ -10,6 +10,7 @@ import {
   proposeRuleChange,
   proposeStrongPatterns,
   recordVerifiedUsage,
+  scopeFromUsageFacts,
   usageAllowsRecipeFill,
 } from "@/core/query/sock";
 
@@ -123,6 +124,26 @@ describe("SOCK usage facts", () => {
       require: "node:btn",
       screenType: "Payment",
     });
+  });
+
+  it("does not treat generic screen words as a screen type", () => {
+    const factsFor = (names: string[]) => {
+      let sock = emptySock();
+      names.forEach((screenName, index) => {
+        sock = recordVerifiedUsage(sock, {
+          screenId: `s${index}`,
+          screenName,
+          masters: [master("node:btn", "Button")],
+        });
+      });
+      return sock.facts;
+    };
+    expect(scopeFromUsageFacts(factsFor(["ax Screen", "bx Screen"])).screenType).toBeUndefined();
+    expect(scopeFromUsageFacts(factsFor(["Screen v1", "Page v2"])).screenType).toBeUndefined();
+    expect(scopeFromUsageFacts(factsFor(["Untitled"])).screenType).toBeUndefined();
+    expect(scopeFromUsageFacts(factsFor(["Checkout Screen", "Checkout Page"])).screenType).toBe("checkout");
+    expect(scopeFromUsageFacts(factsFor(["Home v1", "Home v2"])).screenType).toBe("home");
+    expect(scopeFromUsageFacts(factsFor(["Payment"])).screenType).toBe("Payment");
   });
 
   it("does not propose an unscoped global require from mixed screens", () => {

@@ -1876,6 +1876,40 @@ pre,
   font-size: 13px;
 }
 
+.scoreboard h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.scoreboard p {
+  margin: 0 0 8px;
+}
+
+.scoreboard table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.scoreboard th,
+.scoreboard td {
+  text-align: left;
+  padding: 4px 10px 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.scoreboard--compact {
+  padding: 8px 16px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.scoreboard--compact h3 {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .workspace-state__pulse {
     animation: none;

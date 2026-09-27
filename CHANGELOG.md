@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — accuracy scoreboard
+
+A repeatable check that agent cards pick the right master. Offline on the fixture library, same command on a learned library later.
+
+- **Golden set** — `scoreboard/golden/*.json`. Intent, optional screen / journey / slot, expected master by name (resolved to an id in the store), acceptable alternates, must-not cousins, or an empty card when there is no answer.
+- **`resolve score`** — invent rate (must be 0), wrong-cousin rate, top-1 and top-3, empty-when-weak, deprecated or private leaks, card size against the budgets, latency. Saves `~/.resolve/<workspace>/scoreboard/<timestamp>.json` and prints the change since the last run. Exits non-zero on invent or a budget breach.
+- **Rules and Overview** — read-only latest run and trend.
+- **CI** — typecheck, tests, build, and `resolve score` on the fixture set.
+- **Preview** — the embedded governance loader sets `ws: false`, so preview does not open a websocket on port 24678.
+- **Screen type** — generic words (screen, page, frame, view, untitled, copy, v1/v2, and the like) are not a screen type. If only those words remain, scoping is skipped.
+
 ## Unreleased — SOCI v1 (usage → human-approved improvements)
 
 SOCI turns verified-frame usage into proposals. It never auto-applies.
