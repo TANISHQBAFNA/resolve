@@ -1,6 +1,6 @@
-import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, readdirSync, statSync, appendFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, readdirSync, statSync, appendFileSync, renameSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type { IngestCheckpointStore, ScreensCheckpoint } from "@/core/ingestion/adapters/figmaRestSource";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import {
@@ -11,12 +11,12 @@ import {
   indexGraph,
   mergeRecipes,
   mergeWorkspaceGraphs,
-  parseBindRulesFile,
+  loadBindRulesLenient,
   parseContextPackFile,
   parseLibraryRules,
   parseRecipeFile,
   parseWorkspaceFile,
-  resolveBindRules,
+  serializeBindRulesFile,
   stampFileKey,
   starterRecipes,
   upsertWorkspaceFile,
@@ -242,7 +242,7 @@ export function loadSock(): SockState | undefined {
 
 export function saveSock(state: SockState): void {
   mkdirSync(storeRoot(), { recursive: true });
-  writeFileSync(sockPath(), `${JSON.stringify(state, null, 2)}\n`);
+  writeFileAtomic(sockPath(), `${JSON.stringify(state, null, 2)}\n`);
 }
 
 export function readSock(): SockState {
@@ -399,27 +399,65 @@ export function readLibraryRules(explicitPath?: string): LibraryRules | undefine
   return parseLibraryRules(raw);
 }
 
+export function writeFileAtomic(path: string, contents: string): void {
+  mkdirSync(dirname(path), { recursive: true });
+  const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmp, contents);
+  renameSync(tmp, path);
+}
+
 export function readBindRules(explicitPath?: string): BindRulesFile {
   const path = explicitPath ?? (existsSync(bindRulesPath()) ? bindRulesPath() : undefined);
   if (!path) return emptyBindRules();
   if (!existsSync(path)) {
-    throw new Error(`Bind rules file not found: ${path}`);
+    return {
+      version: 1,
+      rules: [],
+      warnings: [{ rule: path, reason: "Bind rules file not found." }],
+    };
   }
-  const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
-  const parsed = parseBindRulesFile(raw);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(path, "utf8"));
+  } catch (error) {
+    return {
+      version: 1,
+      rules: [],
+      warnings: [
+        {
+          rule: path,
+          reason: `not valid JSON (${error instanceof Error ? error.message : String(error)})`,
+        },
+      ],
+    };
+  }
   const loaded = loadGraph();
-  if (!loaded) return parsed;
-  return resolveBindRules(parsed, { index: loaded.index, workspace: readWorkspace() });
+  return loadBindRulesLenient(raw, {
+    index: loaded?.index,
+    workspace: readWorkspace(),
+    sock: readSock(),
+  });
 }
 
 export function writeBindRules(file: BindRulesFile): void {
   mkdirSync(storeRoot(), { recursive: true });
-  writeFileSync(bindRulesPath(), `${JSON.stringify(file, null, 2)}\n`);
+  writeFileAtomic(bindRulesPath(), `${JSON.stringify(serializeBindRulesFile(file), null, 2)}\n`);
 }
 
 export function appendBindAudit(line: AuditLine): void {
   mkdirSync(storeRoot(), { recursive: true });
   appendFileSync(bindAuditPath(), `${JSON.stringify(line)}\n`);
+}
+
+/** Rules first, then proposal status, then audit — a crash cannot approve without a rule. */
+export function commitProposalDecision(decided: {
+  sock: SockState;
+  rules: BindRulesFile;
+  audit: AuditLine;
+}): void {
+  writeBindRules(decided.rules);
+  saveSock(decided.sock);
+  appendBindAudit(decided.audit);
 }
 
 /** Stable id derived from the file it came from. Display only — the file is always graph.json. */

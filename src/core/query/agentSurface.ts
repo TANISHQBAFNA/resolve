@@ -1009,6 +1009,7 @@ export function recommendMasters(
     deprecated: boolean;
     instances: number;
     setName?: string;
+    exactName: boolean;
   };
 
   const scored: Scored[] = [];
@@ -1018,6 +1019,11 @@ export function recommendMasters(
     if (deniedByRules(index, node, packRules)) continue;
     if (node.metadata?.["removedByAbsence"] === true) continue;
     if (isRemovedByAbsence(options.sock, node)) continue;
+    const intentNeedle = intent.trim().toLowerCase();
+    const exactName =
+      Boolean(intentNeedle) &&
+      (node.name.toLowerCase() === intentNeedle ||
+        (Boolean(set) && set!.name.toLowerCase() === intentNeedle && node.type === "COMPONENT_SET"));
     const nameHaystack = `${node.name} ${set?.name ?? ""}`;
     const nameScore = overlap(nameHaystack, tokens);
     const variantScore = overlap(variantHaystack(node), tokens);
@@ -1081,6 +1087,7 @@ export function recommendMasters(
     const sockBoost = sockPattern?.promoted && sockPattern.confidence === "strong" ? 20 : 0;
     const liveBoost = stale ? 0 : 18 + Math.log1p(instances) * 4;
     let score =
+      (exactName ? 10_000 : 0) +
       nameScore * 8 +
       variantScore * 16 +
       analogBoost +
@@ -1105,6 +1112,7 @@ export function recommendMasters(
       deprecated,
       instances,
       setName: set && set.id !== node.id ? set.name : undefined,
+      exactName,
     });
   }
 
@@ -1118,7 +1126,9 @@ export function recommendMasters(
     scored.filter((entry) => entry.node.type === "COMPONENT_SET").map((entry) => entry.node.id),
   );
   let kept = scored.filter((entry) => {
-    if (entry.node.type === "COMPONENT_SET" && analogSetIds.has(entry.node.id)) return false;
+    if (entry.node.type === "COMPONENT_SET" && analogSetIds.has(entry.node.id) && !entry.exactName) {
+      return false;
+    }
     if (entry.node.type !== "VARIANT") return true;
     if (analogIds.has(entry.node.id)) return true;
     if (entry.why.includes("variant") || entry.why.includes("where-used") || entry.why.includes("co-occur")) {
@@ -1129,6 +1139,7 @@ export function recommendMasters(
 
   kept.sort(
     (a, b) =>
+      Number(b.exactName) - Number(a.exactName) ||
       b.score - a.score ||
       Number(a.deprecated) - Number(b.deprecated) ||
       a.node.name.localeCompare(b.node.name),
@@ -1140,6 +1151,7 @@ export function recommendMasters(
       domain: options.context?.domain,
       journey: options.context?.journey?.screenJob || options.context?.journey?.step,
       product: options.context?.product?.name || options.context?.product?.id,
+      pack: options.context?.id,
       workspace,
       graphFileKey,
       sock: options.sock,
@@ -1154,11 +1166,13 @@ export function recommendMasters(
           deprecated: node.status === "deprecated",
           instances: computeComponentUsage(index, node).instanceCount,
           setName: set && set.id !== node.id ? set.name : undefined,
+          exactName: false,
         };
       },
     });
     kept.sort(
       (a, b) =>
+        Number(b.exactName) - Number(a.exactName) ||
         b.score - a.score ||
         Number(a.deprecated) - Number(b.deprecated) ||
         a.node.name.localeCompare(b.node.name),
@@ -1171,6 +1185,7 @@ export function recommendMasters(
     domain: options.context?.domain,
     journey: options.context?.journey?.screenJob || options.context?.journey?.step,
     product: options.context?.product?.name || options.context?.product?.id,
+    pack: options.context?.id,
     workspace,
     graphFileKey,
     sock: options.sock,
@@ -1249,6 +1264,7 @@ export function recommendMasters(
     candidates,
     truncated,
     ...(applied ? { context: applied } : {}),
+    ...(options.bindRules?.warnings?.length ? { bindRuleWarnings: options.bindRules.warnings } : {}),
     hint:
       candidates.length === 0
         ? `No master matched. Do not invent. ${refreshHintFor(options.sock, graphFileKey)}`
@@ -1458,6 +1474,7 @@ export function verifyFrame(
         domain: input.context?.domain,
         journey: input.context?.journey?.screenJob || input.context?.journey?.step,
         product: input.context?.product?.name || input.context?.product?.id,
+        pack: input.context?.id,
         frameName: frameNode?.name ?? input.frame,
         sock: input.sock,
       })
@@ -1477,6 +1494,7 @@ export function verifyFrame(
     deprecated: deprecatedHits,
     unresolved,
     ...(ruleFailure ? { ruleFailure } : {}),
+    ...(input.bindRules?.warnings?.length ? { bindRuleWarnings: input.bindRules.warnings } : {}),
     frame: frameNode
       ? {
           ...briefNode(frameNode),

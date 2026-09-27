@@ -199,6 +199,16 @@ describe("recommend (library ranking)", () => {
     }
     expect(live.candidates.some((candidate) => candidate.type === "FRAME")).toBe(false);
   });
+
+  it("ranks an exact name match first (Button / Avatar must not swap)", () => {
+    const button = recommendMasters(demo, "Button");
+    expect(button.candidates[0]?.name.toLowerCase()).toBe("button");
+    expect(button.candidates.map((row) => row.name)).not.toEqual(["Avatar"]);
+
+    const avatar = recommendMasters(demo, "avatar");
+    expect(avatar.candidates[0]?.name.toLowerCase()).toBe("avatar");
+    expect(avatar.candidates.map((row) => row.name)).not.toEqual(["Button"]);
+  });
 });
 
 describe("verify_frame (invent detection)", () => {

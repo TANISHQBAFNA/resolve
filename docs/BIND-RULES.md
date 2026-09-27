@@ -8,7 +8,7 @@ This is the short designer page. Agents read the cards. You own the file.
 
 ## Write a rule
 
-1. Copy [`src/data/bind-rules.example.json`](../src/data/bind-rules.example.json) to **`.graphify/bind-rules.json`** (or the store folder Resolve is using — `resolve where` prints it).
+1. Copy [`src/data/bind-rules.example.json`](../src/data/bind-rules.example.json) into the **active store** as `bind-rules.json`. That is `~/.resolve/<workspace>/bind-rules.json` in plug-and-play, or repo `.graphify/bind-rules.json` when a local `.graphify` store is present (`resolve where` prints the folder).
 2. Keep the three shapes. Delete the ones you do not need.
 3. Save. CLI and MCP reload the file on the next recommend or verify. No restart.
 
@@ -78,9 +78,9 @@ npm run resolve -- approve soci:2026-09-27T00:00:00.000Z:1 --who "Tanishk"
 npm run resolve -- reject soci:2026-09-27T00:00:00.000Z:1 --who "Tanishk"
 ```
 
-`--who` is optional. Resolve uses `RESOLVE_ACTOR`, then your user name.
+`--who` is required on the CLI. Resolve will not fall back to your user name.
 
-In an AI tool, these actions live on the **advanced** MCP surface (`RESOLVE_MCP_ADVANCED=1`): `approve_proposal` and `reject_proposal`. Everyday agents only get the six tools and cannot change rules.
+In an AI tool, these actions live on the **advanced** MCP surface (`RESOLVE_MCP_ADVANCED=1`): `approve_proposal` and `reject_proposal`. Both also need `confirmedBy: "<human name>"`. Everyday agents only get the six tools; `callTool` refuses advanced names when the flag is unset.
 
 ---
 
@@ -96,7 +96,7 @@ Every recommend, recipe, and named-lookup card includes **one line** of why. It 
 
 If none of those exist: **`no usage yet`**. Resolve will not invent a count from the Figma file tree.
 
-In the browser map, open the **Rules** tab. It lists rules, pending proposals, and the why line for a master you pick. It is a reading page, not the design app.
+In the browser map, open the **Rules** tab. It lists live rules, pending proposals, and the why line for a master you pick (`/api/governance` from the active store). It is a reading page, not the design app.
 
 ---
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DesignGraph, GraphEdge, GraphNode, NodeType } from "@/core/model";
 import {
   BindRuleError,
+  loadBindRulesLenient,
   parseBindRulesFile,
   resolveBindRules,
   whyLine,
@@ -142,6 +143,12 @@ describe("bind rule schema", () => {
       /needs require, forbid, or prefer/,
     );
   });
+
+  it("rejects unscoped require", () => {
+    expect(() => parseBindRulesFile({ rules: [{ require: "Pay CTA" }] })).toThrow(
+      /Unscoped require is invalid/,
+    );
+  });
 });
 
 describe("recommend ranking with bind rules", () => {
@@ -260,6 +267,29 @@ describe("why line (SOCK facts only)", () => {
     const node = index.getNode(ids.live)!;
     expect(index.getAllInstancesOf(ids.live).length).toBeGreaterThan(0);
     expect(whyLineForMaster(node)).toBe("no usage yet");
+  });
+
+  it("quarantines invalid rules on load and still recommends", () => {
+    const { index, ids } = paymentLab();
+    const loaded = loadBindRulesLenient(
+      {
+        rules: [
+          { require: "node:gone" },
+          { forbid: "deprecated" },
+          { screenType: "payment", slot: "primary-action", require: "Pay CTA" },
+        ],
+      },
+      { index },
+    );
+    expect(loaded.rules.some((rule) => rule.kind === "forbid")).toBe(true);
+    expect(loaded.rules.some((rule) => rule.kind === "require" && rule.require === "Pay CTA")).toBe(true);
+    expect(loaded.rules.some((rule) => rule.kind === "require" && rule.require === "node:gone")).toBe(false);
+    expect(loaded.warnings?.some((row) => /gone|unscoped|unknown/i.test(row.reason) || /gone|unscoped/i.test(row.rule))).toBe(
+      true,
+    );
+    const result = recommendMasters(index, "pay cta", { bindRules: loaded });
+    expect(result.bindRuleWarnings?.length).toBeGreaterThan(0);
+    expect(result.candidates.some((row) => row.id === ids.live)).toBe(true);
   });
 
   it("keeps recommend cards under the 600-char budget with a why line", () => {

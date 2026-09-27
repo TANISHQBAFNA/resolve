@@ -2,7 +2,6 @@ import type { GraphNode } from "@/core/model";
 import {
   applyFreshness,
   applyProposalDecision,
-  actorName,
   BindRuleError,
   buildOrientBrief,
   checkFrame,
@@ -51,8 +50,8 @@ import {
   saveSock,
   storeInfo,
   readBindRules,
-  writeBindRules,
-  appendBindAudit,
+  commitProposalDecision,
+  loadGraph,
 } from "./store";
 
 /**
@@ -290,27 +289,27 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "approve_proposal",
     description:
-      "Human-only. Apply a pending SOCI proposal to bind-rules.json and append an audit line (who, when, proposal id, before/after). Rules never auto-change. Advanced surface.",
+      "Human-only. Apply a pending SOCI proposal to bind-rules.json and append an audit line (confirmedBy, when, proposal id, before/after). Rules never auto-change. Advanced surface. Needs RESOLVE_MCP_ADVANCED=1 and confirmedBy.",
     inputSchema: {
       type: "object",
       properties: {
         proposalId: { type: "string", description: "Pending SOCI proposal id." },
-        who: { type: "string", description: "Who approved. Default RESOLVE_ACTOR or USER." },
+        confirmedBy: { type: "string", description: "Human name confirming this write. Required. Agents cannot confirm." },
       },
-      required: ["proposalId"],
+      required: ["proposalId", "confirmedBy"],
     },
   },
   {
     name: "reject_proposal",
     description:
-      "Human-only. Reject a pending SOCI proposal. Appends an audit line. Does not change bind-rules.json. Advanced surface.",
+      "Human-only. Reject a pending SOCI proposal. Appends an audit line. Does not change bind-rules.json. Advanced surface. Needs RESOLVE_MCP_ADVANCED=1 and confirmedBy.",
     inputSchema: {
       type: "object",
       properties: {
         proposalId: { type: "string", description: "Pending SOCI proposal id." },
-        who: { type: "string", description: "Who rejected. Default RESOLVE_ACTOR or USER." },
+        confirmedBy: { type: "string", description: "Human name confirming this reject. Required. Agents cannot confirm." },
       },
-      required: ["proposalId"],
+      required: ["proposalId", "confirmedBy"],
     },
   },
   {
@@ -532,11 +531,17 @@ const asStringList = (value: unknown): string[] | undefined => {
 };
 
 function loadBindRulesSafe() {
-  try {
-    return readBindRules();
-  } catch (error) {
-    throw new ToolError(error instanceof Error ? error.message : String(error));
+  return readBindRules();
+}
+
+function requireConfirmedBy(args: Record<string, unknown>): string {
+  const value = typeof args["confirmedBy"] === "string" ? args["confirmedBy"].trim() : "";
+  if (!value) {
+    throw new ToolError(
+      "approve_proposal / reject_proposal need confirmedBy: '<human name>'. Agents cannot confirm.",
+    );
   }
+  return value;
 }
 
 function libraryRulesFromArgs(args: Record<string, unknown>) {
@@ -618,6 +623,13 @@ function attachCardMeta(result: unknown, args: Record<string, unknown>): unknown
 }
 
 export function callTool(name: string, rawArgs: unknown): unknown {
+  const advanced = process.env["RESOLVE_MCP_ADVANCED"] === "1";
+  const allowed = new Set(listToolDefinitions(advanced).map((tool) => tool.name));
+  if (!allowed.has(name)) {
+    throw new ToolError(
+      `Tool "${name}" is not on the default MCP surface. Set RESOLVE_MCP_ADVANCED=1 to enable it. Agents cannot call advanced tools.`,
+    );
+  }
   const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
   const result = attachCardMeta(dispatchTool(name, args), args);
   if (result && typeof result === "object" && "cost" in result) return result;
@@ -653,15 +665,16 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
     case "list_soci":
       return {
         proposals: listSoci(readSock()),
-        hint: "Usage facts update on verify pass. Rules never auto-change. Approve with approve_proposal or CLI: resolve approve <id>.",
+        hint: "Usage facts update on verify pass. Rules never auto-change. Approve with approve_proposal (confirmedBy) or CLI: resolve approve <id> --who <name>.",
       };
 
     case "approve_proposal":
     case "reject_proposal": {
       const proposalId = asString(args["proposalId"] ?? args["id"], "proposalId");
-      const who = actorName(typeof args["who"] === "string" ? args["who"] : undefined);
+      const who = requireConfirmedBy(args);
       const action = name === "approve_proposal" ? "approve" : "reject";
       try {
+        const loaded = loadGraph();
         const decided = applyProposalDecision(
           readSock(),
           readBindRules(),
@@ -669,10 +682,12 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           action,
           who,
           new Date().toISOString(),
+          {
+            index: loaded?.index,
+            workspace: readWorkspace(),
+          },
         );
-        saveSock(decided.sock);
-        writeBindRules(decided.rules);
-        appendBindAudit(decided.audit);
+        commitProposalDecision(decided);
         return {
           ok: true,
           action,
@@ -830,6 +845,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
             masters,
             journey: typeof args["journey"] === "string" ? args["journey"] : undefined,
             product: typeof args["product"] === "string" ? args["product"] : undefined,
+            pack: typeof args["pack"] === "string" ? args["pack"] : undefined,
             countsTowardThreshold: realFrame,
           });
           saveSock(

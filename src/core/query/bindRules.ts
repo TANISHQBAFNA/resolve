@@ -26,6 +26,9 @@ export interface RequireBindRule {
   id: string;
   screenType?: string;
   slot?: string;
+  journey?: string;
+  product?: string;
+  pack?: string;
   require: string;
   requireId?: string;
   requireName?: string;
@@ -42,13 +45,21 @@ export interface PreferBindRule {
   id: string;
   prefer: string;
   over: string;
+  preferKey?: string;
+  overKey?: string;
 }
 
 export type BindRule = RequireBindRule | ForbidBindRule | PreferBindRule;
 
+export interface BindRuleWarning {
+  rule: string;
+  reason: string;
+}
+
 export interface BindRulesFile {
   version: 1;
   rules: BindRule[];
+  warnings?: BindRuleWarning[];
 }
 
 export interface BindRuleFailure {
@@ -87,10 +98,14 @@ export function emptyBindRules(): BindRulesFile {
   return { version: 1, rules: [] };
 }
 
+export function requireHasScope(rule: Pick<RequireBindRule, "screenType" | "slot" | "journey" | "product" | "pack">): boolean {
+  return Boolean(rule.screenType || rule.slot || rule.journey || rule.product || rule.pack);
+}
+
 export function ruleLabel(rule: BindRule): string {
   switch (rule.kind) {
     case "require": {
-      const scope = [rule.screenType, rule.slot].filter(Boolean).join("/");
+      const scope = [rule.screenType, rule.slot, rule.journey, rule.product, rule.pack].filter(Boolean).join("/");
       return scope ? `require ${scope}` : `require ${rule.requireName ?? rule.require}`;
     }
     case "forbid":
@@ -122,6 +137,9 @@ const RequireShape = z.object({
   id: z.string().trim().min(1).optional(),
   screenType: z.string().trim().min(1).optional(),
   slot: z.string().trim().min(1).optional(),
+  journey: z.string().trim().min(1).optional(),
+  product: z.string().trim().min(1).optional(),
+  pack: z.string().trim().min(1).optional(),
   require: z.string().trim().min(1),
 });
 
@@ -156,11 +174,22 @@ function parseOne(raw: unknown, index: number): BindRule {
       );
     }
     const data = parsed.data;
+    if (!requireHasScope(data)) {
+      throw new BindRuleError(
+        `Bind rule ${index + 1} require needs screenType, slot, journey, product, or pack. Unscoped require is invalid. Never guessing.`,
+      );
+    }
     return {
       kind: "require",
-      id: asId(data.id, `require:${data.screenType ?? ""}/${data.slot ?? data.require}`),
+      id: asId(
+        data.id,
+        `require:${[data.screenType, data.slot, data.journey, data.product, data.pack].filter(Boolean).join("/") || data.require}`,
+      ),
       ...(data.screenType ? { screenType: data.screenType } : {}),
       ...(data.slot ? { slot: data.slot } : {}),
+      ...(data.journey ? { journey: data.journey } : {}),
+      ...(data.product ? { product: data.product } : {}),
+      ...(data.pack ? { pack: data.pack } : {}),
       require: data.require,
     };
   }
@@ -320,7 +349,7 @@ export function resolveBindRules(
             `Bind rule ${ruleLabel(rule)}: unknown library "${rule.over}". Not in workspace.json. Never guessing.`,
           );
         }
-        return { ...rule, prefer: preferKey, over: overKey };
+        return { ...rule, preferKey, overKey };
       }
       default: {
         const _exhaustive: never = rule;
@@ -346,9 +375,24 @@ function haystackOf(parts: Array<string | undefined>): string {
 
 export function requireRuleApplies(
   rule: RequireBindRule,
-  input: { intent?: string; domain?: string; journey?: string; product?: string; frameName?: string },
+  input: {
+    intent?: string;
+    domain?: string;
+    journey?: string;
+    product?: string;
+    frameName?: string;
+    pack?: string;
+  },
 ): boolean {
-  const hay = haystackOf([input.intent, input.domain, input.journey, input.product, input.frameName]);
+  if (!requireHasScope(rule)) return false;
+  const hay = haystackOf([
+    input.intent,
+    input.domain,
+    input.journey,
+    input.product,
+    input.frameName,
+    input.pack,
+  ]);
   if (rule.screenType) {
     const needle = rule.screenType.toLowerCase().replace(/-/g, " ");
     if (!hay.includes(needle)) return false;
@@ -357,6 +401,18 @@ export function requireRuleApplies(
     const needle = rule.slot.toLowerCase().replace(/-/g, " ");
     const tokens = needle.split(/\s+/).filter(Boolean);
     if (!tokens.some((token) => hay.includes(token))) return false;
+  }
+  if (rule.journey) {
+    const needle = rule.journey.toLowerCase().replace(/-/g, " ");
+    if (!hay.includes(needle)) return false;
+  }
+  if (rule.product) {
+    const needle = rule.product.toLowerCase().replace(/-/g, " ");
+    if (!hay.includes(needle)) return false;
+  }
+  if (rule.pack) {
+    const needle = rule.pack.toLowerCase().replace(/-/g, " ");
+    if (!hay.includes(needle)) return false;
   }
   return true;
 }
@@ -390,6 +446,7 @@ export function bindRuleHit(rules: BindRulesFile, node: GraphNode, options: {
   journey?: string;
   product?: string;
   frameName?: string;
+  pack?: string;
   workspace?: WorkspaceManifest;
   graphFileKey?: string;
   sock?: SockState;
@@ -408,7 +465,7 @@ export function bindRuleHit(rules: BindRulesFile, node: GraphNode, options: {
         if (forbidMatches(rule, node, options.sock)) return ruleLabel(rule);
         break;
       case "prefer":
-        if (fileMatchesLibrary(node, rule.prefer, options.workspace, options.graphFileKey)) {
+        if (fileMatchesLibrary(node, rule.preferKey ?? rule.prefer, options.workspace, options.graphFileKey)) {
           return ruleLabel(rule);
         }
         break;
@@ -430,6 +487,7 @@ export function filterAndScoreByBindRules<T extends { node: GraphNode; score: nu
     journey?: string;
     product?: string;
     frameName?: string;
+    pack?: string;
     workspace?: WorkspaceManifest;
     graphFileKey?: string;
     sock?: SockState;
@@ -447,10 +505,10 @@ export function filterAndScoreByBindRules<T extends { node: GraphNode; score: nu
   for (const rule of rules.rules) {
     if (rule.kind !== "prefer") continue;
     next = next.map((entry) => {
-      if (fileMatchesLibrary(entry.node, rule.prefer, options.workspace, options.graphFileKey)) {
+      if (fileMatchesLibrary(entry.node, rule.preferKey ?? rule.prefer, options.workspace, options.graphFileKey)) {
         return { ...entry, score: entry.score + 48 };
       }
-      if (fileMatchesLibrary(entry.node, rule.over, options.workspace, options.graphFileKey)) {
+      if (fileMatchesLibrary(entry.node, rule.overKey ?? rule.over, options.workspace, options.graphFileKey)) {
         return { ...entry, score: entry.score - 48 };
       }
       return entry;
@@ -464,10 +522,15 @@ export function filterAndScoreByBindRules<T extends { node: GraphNode; score: nu
 
   const required: GraphNode[] = [];
   for (const rule of requireRules) {
-    const master = rule.requireId
-      ? options.index.getNode(rule.requireId)
-      : resolveRequireMaster(options.index, rule.require, `Bind rule ${ruleLabel(rule)}`);
-    if (master && !required.some((node) => node.id === master.id)) required.push(master);
+    let master: GraphNode | undefined;
+    try {
+      master = rule.requireId
+        ? options.index.getNode(rule.requireId)
+        : resolveRequireMaster(options.index, rule.require, `Bind rule ${ruleLabel(rule)}`);
+    } catch {
+      continue;
+    }
+    if (master && !required.some((node) => node.id === master!.id)) required.push(master);
   }
   if (!required.length) return next;
 
@@ -544,6 +607,7 @@ export function verifyBindRules(
     journey?: string;
     product?: string;
     frameName?: string;
+    pack?: string;
     sock?: SockState;
   } = {},
 ): BindRuleFailure | undefined {
@@ -562,14 +626,15 @@ export function verifyBindRules(
       }
       case "require": {
         if (!requireRuleApplies(rule, options)) break;
-        const master = rule.requireId
-          ? index.getNode(rule.requireId)
-          : resolveRequireMaster(index, rule.require, `Bind rule ${ruleLabel(rule)}`);
-        if (!master) {
-          throw new BindRuleError(
-            `Bind rule ${ruleLabel(rule)}: unknown master "${rule.require}". Never guessing.`,
-          );
+        let master: GraphNode | undefined;
+        try {
+          master = rule.requireId
+            ? index.getNode(rule.requireId)
+            : resolveRequireMaster(index, rule.require, `Bind rule ${ruleLabel(rule)}`);
+        } catch {
+          break;
         }
+        if (!master) break;
         if (placed.some((node) => node.id === master.id)) break;
         const place = placeReady(master, index.graph.fileKey);
         return {
@@ -599,20 +664,256 @@ export function suggestedRuleFromPattern(pattern: {
   masterId: string;
   name: string;
   screens: string[];
+  screenType?: string;
+  slot?: string;
+  journey?: string;
+  product?: string;
+  pack?: string;
 }): RequireBindRule {
-  const slot = /button|cta|primary/i.test(pattern.name)
-    ? "primary-action"
-    : /header|nav/i.test(pattern.name)
-      ? "header"
-      : undefined;
+  if (!requireHasScope(pattern)) {
+    throw new BindRuleError(
+      `Proposal for ${pattern.name} has no scope from verified frames. Unscoped require is invalid. Never guessing.`,
+    );
+  }
+  const scope = [pattern.screenType, pattern.slot, pattern.journey, pattern.product, pattern.pack]
+    .filter(Boolean)
+    .join("/");
   return {
     kind: "require",
-    id: `require:${slot ?? "general"}/${pattern.masterId}`,
-    ...(slot ? { slot } : {}),
+    id: `require:${scope}/${pattern.masterId}`,
+    ...(pattern.screenType ? { screenType: pattern.screenType } : {}),
+    ...(pattern.slot ? { slot: pattern.slot } : {}),
+    ...(pattern.journey ? { journey: pattern.journey } : {}),
+    ...(pattern.product ? { product: pattern.product } : {}),
+    ...(pattern.pack ? { pack: pattern.pack } : {}),
     require: pattern.masterId,
     requireId: pattern.masterId,
     requireName: pattern.name,
   };
+}
+
+function autoId(rule: BindRule): boolean {
+  return rule.id.startsWith("require:") || rule.id.startsWith("forbid:") || rule.id.startsWith("prefer:");
+}
+
+export function toHumanRule(rule: BindRule): Record<string, string> {
+  switch (rule.kind) {
+    case "require": {
+      const row: Record<string, string> = {};
+      if (rule.id && !autoId(rule)) row.id = rule.id;
+      if (rule.screenType) row.screenType = rule.screenType;
+      if (rule.slot) row.slot = rule.slot;
+      if (rule.journey) row.journey = rule.journey;
+      if (rule.product) row.product = rule.product;
+      if (rule.pack) row.pack = rule.pack;
+      row.require = rule.require;
+      return row;
+    }
+    case "forbid": {
+      const row: Record<string, string> = {};
+      if (rule.id && !autoId(rule)) row.id = rule.id;
+      row.forbid = rule.forbid;
+      return row;
+    }
+    case "prefer": {
+      const row: Record<string, string> = {};
+      if (rule.id && !autoId(rule)) row.id = rule.id;
+      row.prefer = rule.prefer;
+      row.over = rule.over;
+      return row;
+    }
+    default: {
+      const _exhaustive: never = rule;
+      return _exhaustive;
+    }
+  }
+}
+
+export function serializeBindRulesFile(file: BindRulesFile): { version: 1; rules: Array<Record<string, string>> } {
+  return {
+    version: 1,
+    rules: file.rules.map(toHumanRule),
+  };
+}
+
+export function rulesEquivalent(left: BindRule, right: BindRule): boolean {
+  if (left.kind !== right.kind) return false;
+  switch (left.kind) {
+    case "require": {
+      if (right.kind !== "require") return false;
+      const leftNeedle = (left.requireId ?? left.require).toLowerCase();
+      const rightNeedle = (right.requireId ?? right.require).toLowerCase();
+      const leftName = (left.requireName ?? left.require).toLowerCase();
+      const rightName = (right.requireName ?? right.require).toLowerCase();
+      const sameTarget =
+        leftNeedle === rightNeedle ||
+        leftName === rightName ||
+        left.require.toLowerCase() === right.require.toLowerCase();
+      return (
+        sameTarget &&
+        (left.screenType ?? "").toLowerCase() === (right.screenType ?? "").toLowerCase() &&
+        (left.slot ?? "").toLowerCase() === (right.slot ?? "").toLowerCase() &&
+        (left.journey ?? "").toLowerCase() === (right.journey ?? "").toLowerCase() &&
+        (left.product ?? "").toLowerCase() === (right.product ?? "").toLowerCase() &&
+        (left.pack ?? "").toLowerCase() === (right.pack ?? "").toLowerCase()
+      );
+    }
+    case "forbid":
+      return right.kind === "forbid" && left.forbid.toLowerCase() === right.forbid.toLowerCase();
+    case "prefer":
+      return (
+        right.kind === "prefer" &&
+        left.prefer.toLowerCase() === right.prefer.toLowerCase() &&
+        left.over.toLowerCase() === right.over.toLowerCase()
+      );
+    default: {
+      const _exhaustive: never = left;
+      return _exhaustive;
+    }
+  }
+}
+
+export function assertRuleWritable(
+  rule: BindRule,
+  options: {
+    index?: GraphIndex;
+    workspace?: WorkspaceManifest;
+    sock?: SockState;
+    existing?: BindRulesFile;
+  } = {},
+): BindRule {
+  if (options.existing?.rules.some((row) => rulesEquivalent(row, rule))) {
+    throw new BindRuleError(`Bind rule ${ruleLabel(rule)}: duplicate rule. Already in bind-rules.json.`);
+  }
+  switch (rule.kind) {
+    case "require": {
+      if (!requireHasScope(rule)) {
+        throw new BindRuleError(
+          `Bind rule ${ruleLabel(rule)}: unscoped require is invalid. Need screenType, slot, journey, product, or pack. Never guessing.`,
+        );
+      }
+      if (!options.index) {
+        throw new BindRuleError(
+          `Bind rule ${ruleLabel(rule)}: cannot approve without a graph. Ingest first. Never guessing.`,
+        );
+      }
+      const master = resolveRequireMaster(options.index, rule.require, `Bind rule ${ruleLabel(rule)}`);
+      if (master.status === "deprecated") {
+        throw new BindRuleError(
+          `Bind rule ${ruleLabel(rule)}: master "${master.name}" (${master.id}) is deprecated. Never guessing.`,
+        );
+      }
+      if (isRemovedByAbsence(options.sock, master) || master.metadata?.["removedByAbsence"] === true) {
+        throw new BindRuleError(
+          `Bind rule ${ruleLabel(rule)}: master "${master.name}" (${master.id}) was removed. Never guessing.`,
+        );
+      }
+      return { ...rule, require: rule.require, requireId: master.id, requireName: master.name };
+    }
+    case "forbid":
+      return rule;
+    case "prefer": {
+      if (!options.workspace?.files.length) return rule;
+      return resolveBindRules({ version: 1, rules: [rule] }, { workspace: options.workspace }).rules[0]!;
+    }
+    default: {
+      const _exhaustive: never = rule;
+      return _exhaustive;
+    }
+  }
+}
+
+function resolveOneLenient(
+  rule: BindRule,
+  options: { index?: GraphIndex; workspace?: WorkspaceManifest; sock?: SockState },
+): { rule?: BindRule; warning?: BindRuleWarning } {
+  try {
+    if (rule.kind === "require" && !requireHasScope(rule)) {
+      return {
+        warning: {
+          rule: ruleLabel(rule),
+          reason: "unscoped require is invalid. Need screenType, slot, journey, product, or pack.",
+        },
+      };
+    }
+    if (rule.kind === "require" && options.index) {
+      const master = resolveRequireMaster(options.index, rule.require, `Bind rule ${ruleLabel(rule)}`);
+      if (master.status === "deprecated") {
+        return {
+          warning: {
+            rule: ruleLabel(rule),
+            reason: `master "${master.name}" (${master.id}) is deprecated`,
+          },
+        };
+      }
+      if (isRemovedByAbsence(options.sock, master) || master.metadata?.["removedByAbsence"] === true) {
+        return {
+          warning: {
+            rule: ruleLabel(rule),
+            reason: `master "${master.name}" (${master.id}) was removed`,
+          },
+        };
+      }
+      return { rule: { ...rule, requireId: master.id, requireName: master.name } };
+    }
+    if (rule.kind === "prefer" && options.workspace?.files.length) {
+      return { rule: resolveBindRules({ version: 1, rules: [rule] }, { workspace: options.workspace }).rules[0] };
+    }
+    return { rule };
+  } catch (error) {
+    return {
+      warning: {
+        rule: ruleLabel(rule),
+        reason: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
+}
+
+/** Load-time parse: skip invalid rules, keep the rest, name each skip. */
+export function loadBindRulesLenient(
+  raw: unknown,
+  options: { index?: GraphIndex; workspace?: WorkspaceManifest; sock?: SockState } = {},
+): BindRulesFile {
+  const warnings: BindRuleWarning[] = [];
+  if (raw == null) return emptyBindRules();
+  let list: unknown[];
+  if (Array.isArray(raw)) {
+    list = raw;
+  } else if (typeof raw === "object") {
+    const record = raw as Record<string, unknown>;
+    const rules = record["rules"] ?? record["bindRules"];
+    if (rules == null) return emptyBindRules();
+    if (!Array.isArray(rules)) {
+      return {
+        version: 1,
+        rules: [],
+        warnings: [{ rule: "bind-rules.json", reason: "`rules` must be an array. Never guessing." }],
+      };
+    }
+    list = rules;
+  } else {
+    return {
+      version: 1,
+      rules: [],
+      warnings: [{ rule: "bind-rules.json", reason: "must be a JSON object or array. Never guessing." }],
+    };
+  }
+  const kept: BindRule[] = [];
+  list.forEach((item, index) => {
+    try {
+      const parsed = parseOne(item, index);
+      const resolved = resolveOneLenient(parsed, options);
+      if (resolved.warning) warnings.push(resolved.warning);
+      if (resolved.rule) kept.push(resolved.rule);
+    } catch (error) {
+      warnings.push({
+        rule: `rule ${index + 1}`,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+  return { version: 1, rules: kept, ...(warnings.length ? { warnings } : {}) };
 }
 
 export function applyProposalDecision(
@@ -622,6 +923,10 @@ export function applyProposalDecision(
   action: "approve" | "reject",
   who: string,
   when: string,
+  options: {
+    index?: GraphIndex;
+    workspace?: WorkspaceManifest;
+  } = {},
 ): { sock: SockState; rules: BindRulesFile; audit: AuditLine } {
   const proposal = sock.proposals.find((row) => row.id === proposalId);
   if (!proposal) {
@@ -641,7 +946,15 @@ export function applyProposalDecision(
       );
     }
     const parsed = parseBindRulesFile({ rules: [suggested] });
-    nextRules = mergeBindRules(rules, parsed);
+    const written = parsed.rules.map((rule) =>
+      assertRuleWritable(rule, {
+        index: options.index,
+        workspace: options.workspace,
+        sock,
+        existing: rules,
+      }),
+    );
+    nextRules = mergeBindRules(rules, { version: 1, rules: written });
     after = nextRules.rules;
   }
   const nextProposals: SociProposal[] = sock.proposals.map((row) =>

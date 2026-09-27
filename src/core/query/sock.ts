@@ -20,6 +20,7 @@ export interface UsageFact {
   slot?: string;
   journey?: string;
   product?: string;
+  pack?: string;
   deprecated?: boolean;
   private?: boolean;
   promoted: boolean;
@@ -40,6 +41,9 @@ export interface SociSuggestedRule {
   id?: string;
   screenType?: string;
   slot?: string;
+  journey?: string;
+  product?: string;
+  pack?: string;
   require?: string;
   forbid?: string;
   prefer?: string;
@@ -131,6 +135,8 @@ export function recordVerifiedUsage(
     }>;
     journey?: string;
     product?: string;
+    pack?: string;
+    slot?: string;
     verifiedAt?: string;
     /** Default true so unit tests can simulate real screens. Tools must pass false for list-only. */
     countsTowardThreshold?: boolean;
@@ -152,9 +158,10 @@ export function recordVerifiedUsage(
       figmaNodeId: master.figmaNodeId,
       screenId: input.screenId,
       screenName: input.screenName,
-      slot: inferSlot(master.name) ?? inferSlot(input.screenName),
+      ...(input.slot ? { slot: input.slot } : {}),
       journey: input.journey,
       product: input.product,
+      pack: input.pack,
       deprecated: master.deprecated,
       private: master.private,
       promoted: !blocked,
@@ -298,6 +305,60 @@ export function newlyStrongPatterns(before: SockState, after: SockState): UsageP
   );
 }
 
+function uniqueTrimmed(values: Array<string | undefined>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+function firstToken(name: string): string | undefined {
+  const token = name
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .find((part) => part.length > 2);
+  return token;
+}
+
+/** Scope a require proposal from verified frames — never a global require. */
+export function scopeFromUsageFacts(facts: UsageFact[]): {
+  screenType?: string;
+  slot?: string;
+  journey?: string;
+  product?: string;
+  pack?: string;
+} {
+  const counted = facts.filter((fact) => fact.countsTowardThreshold !== false);
+  const screenNames = uniqueTrimmed(counted.map((fact) => fact.screenName));
+  const slots = uniqueTrimmed(counted.map((fact) => fact.slot));
+  const journeys = uniqueTrimmed(counted.map((fact) => fact.journey));
+  const products = uniqueTrimmed(counted.map((fact) => fact.product));
+  const packs = uniqueTrimmed(counted.map((fact) => fact.pack));
+  let screenType: string | undefined;
+  if (screenNames.length === 1) {
+    screenType = screenNames[0];
+  } else if (screenNames.length > 1) {
+    const tokens = screenNames.map(firstToken).filter((token): token is string => Boolean(token));
+    if (tokens.length === screenNames.length && tokens.every((token) => token === tokens[0])) {
+      screenType = tokens[0];
+    }
+  }
+  return {
+    ...(screenType ? { screenType } : {}),
+    ...(slots.length === 1 ? { slot: slots[0] } : {}),
+    ...(journeys.length === 1 ? { journey: journeys[0] } : {}),
+    ...(products.length === 1 ? { product: products[0] } : {}),
+    ...(packs.length === 1 ? { pack: packs[0] } : {}),
+  };
+}
+
 export function proposeStrongPatterns(
   state: SockState,
   patterns: UsagePattern[],
@@ -306,10 +367,13 @@ export function proposeStrongPatterns(
   let next = state;
   for (const pattern of patterns) {
     if (alreadyEncoded(pattern)) continue;
-    const slot = inferSlot(pattern.name);
-    const summary = slot
-      ? `Promote ${pattern.name} for ${slot} (strong on ${pattern.screens.length} screens)`
-      : `Promote ${pattern.name} (strong on ${pattern.screens.length} screens)`;
+    const facts = next.facts.filter((fact) => fact.masterId === pattern.masterId);
+    const scope = scopeFromUsageFacts(facts);
+    if (!scope.screenType && !scope.slot && !scope.journey && !scope.product && !scope.pack) continue;
+    const scopeLabel = [scope.screenType, scope.slot, scope.journey, scope.product, scope.pack]
+      .filter(Boolean)
+      .join("/");
+    const summary = `Promote ${pattern.name} for ${scopeLabel} (strong on ${pattern.screens.length} screens)`;
     if (next.proposals.some((row) => row.summary === summary && row.status === "pending")) continue;
     next = proposeRuleChange(
       next,
@@ -317,7 +381,7 @@ export function proposeStrongPatterns(
       `Verified on distinct screens: ${pattern.screens.join(", ") || "(none)"}.`,
       {
         require: pattern.masterId,
-        ...(slot ? { slot } : {}),
+        ...scope,
       },
     );
   }

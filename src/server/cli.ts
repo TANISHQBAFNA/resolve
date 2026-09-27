@@ -11,7 +11,6 @@ import {
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { buildGraph } from "@/core/transform";
 import {
-  actorName,
   applyProposalDecision,
   buildOrientBrief,
   checkFrame,
@@ -34,11 +33,12 @@ import {
   type WorkspaceFileRole,
 } from "@/core/query";
 import {
-  appendBindAudit,
+  commitProposalDecision,
   deleteGraph,
   graphPath,
   listGraphs,
   loadContextBind,
+  loadGraph,
   loadRecipes,
   missingGraphMessage,
   readBindRules,
@@ -48,11 +48,9 @@ import {
   rebuildIndex,
   resolveGraph,
   saveIngestedFile,
-  saveSock,
   fsIngestCheckpointStore,
   storeInfo,
   workspacePath,
-  writeBindRules,
 } from "./store";
 import { learnLibrary } from "./learn";
 
@@ -107,8 +105,8 @@ function usage(): void {
       "      Same pack flags as recommend. Wrong-cousin drift: resolve cousins.",
       "  resolve rules                  List human-authored bind rules",
       "  resolve soci                   List pending SOCI proposals (rules never auto-change)",
-      "  resolve approve <proposal-id> [--who <name>]   Write the suggested rule + audit line",
-      "  resolve reject <proposal-id> [--who <name>]    Keep rules unchanged + audit line",
+      "  resolve approve <proposal-id> --who <name>   Write the suggested rule + audit line",
+      "  resolve reject <proposal-id> --who <name>    Keep rules unchanged + audit line",
       `  resolve cousins ["<frame>"] [--job "<screen job>"] [--components a,b] ${PACK_BIND_FLAGS}`,
       "      Wrong-cousin report: same role / weak name, different master family than the shared DS library.",
       "      Needs a library-role file in .graphify/workspace.json. Unsure → says so. Never invents a master.",
@@ -526,12 +524,15 @@ export async function runCli(argv: string[]): Promise<void> {
       return;
     }
 
-    case "rules":
+    case "rules": {
+      const bindRules = readBindRules();
       printJson({
-        rules: readBindRules().rules,
-        hint: "Human-authored. Copy src/data/bind-rules.example.json to bind-rules.json. Approve SOCI proposals with resolve approve <id>.",
+        rules: bindRules.rules,
+        ...(bindRules.warnings?.length ? { warnings: bindRules.warnings } : {}),
+        hint: "Human-authored. Copy src/data/bind-rules.example.json to bind-rules.json in the active store (resolve where). Approve SOCI proposals with resolve approve <id> --who <name>.",
       });
       return;
+    }
 
     case "soci":
       printJson({
@@ -543,19 +544,25 @@ export async function runCli(argv: string[]): Promise<void> {
     case "approve":
     case "reject": {
       const proposalId = positionals(args)[0];
-      if (!proposalId) throw new Error(`Usage: resolve ${command} <proposal-id> [--who <name>]`);
+      const who = flag(args, "who")?.trim();
+      if (!proposalId || !who) {
+        throw new Error(`Usage: resolve ${command} <proposal-id> --who <name>`);
+      }
       const action = command === "approve" ? "approve" : "reject";
+      const loaded = loadGraph();
       const decided = applyProposalDecision(
         readSock(),
         readBindRules(),
         proposalId,
         action,
-        actorName(flag(args, "who")),
+        who,
         new Date().toISOString(),
+        {
+          index: loaded?.index,
+          workspace: readWorkspace(),
+        },
       );
-      saveSock(decided.sock);
-      writeBindRules(decided.rules);
-      appendBindAudit(decided.audit);
+      commitProposalDecision(decided);
       printJson({
         ok: true,
         action,

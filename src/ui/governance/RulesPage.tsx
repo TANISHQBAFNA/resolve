@@ -8,6 +8,7 @@ interface GovernancePayload {
   rules: Array<{ id: string; kind: string; label: string; require?: string; requireName?: string }>;
   proposals: Array<{ id: string; status: string; summary: string; evidence: string }>;
   patterns: Array<{ masterId: string; name: string; why: string }>;
+  warnings?: Array<{ rule: string; reason: string }>;
   hint: string;
 }
 
@@ -28,7 +29,7 @@ export function RulesPage() {
     void fetch("/api/governance")
       .then((response) => (response.ok ? response.json() : EXAMPLE))
       .then((payload: GovernancePayload) => {
-        if (payload.rules?.length || payload.proposals?.length) setData(payload);
+        setData(payload);
       })
       .catch(() => undefined);
   }, []);
@@ -64,6 +65,15 @@ export function RulesPage() {
           themselves.
         </p>
         <p className="muted">{data.hint}</p>
+        {data.warnings && data.warnings.length > 0 ? (
+          <ul className="rules-page__warnings">
+            {data.warnings.map((warning) => (
+              <li key={`${warning.rule}:${warning.reason}`}>
+                Skipped {warning.rule}: {warning.reason}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </header>
 
       <section className="rules-page__block">
