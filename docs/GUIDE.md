@@ -373,9 +373,11 @@ Be honest with yourself and with agents:
 
 **Verify says retired or unresolved.** That master is marked don’t-use, or Resolve cannot match it in the current ingest. Recommend a live stand-in. Re-ingest if you just renamed it in Figma.
 
-**Command-line ingest of a figma.com URL fails.** Live ingest from the command line needs `FIGMA_ACCESS_TOKEN`. Everyday use is: Figma connected in the AI tool, or a JSON export from the Figma plugin in this repo. You do **not** need a token for that everyday path.
+**Command-line ingest of a figma.com URL fails.** Live ingest from the command line needs `FIGMA_ACCESS_TOKEN`. Everyday use is: Figma connected in the AI tool, a JSON export from the Figma plugin in this repo, or raw `get_metadata` XML (`npm run resolve -- ingest screen.xml --from-metadata --file-key KEY --name "Library"`). You do **not** need a token for that everyday path.
 
-**“No graph stored.”** Ingest first. Recipe list can run with no library (slots stay open); recommend and verify cannot.
+**“No graph stored.”** The error names the folder it looked in. Ingest first, into that same folder. Set `GRAPHIFY_HOME` so the command line and the AI connection share one store (otherwise they can look in different working directories). Recipe list can run with no library (slots stay open); recommend and verify cannot. `list_graphs` / `workspace` / `resolve where` print the path and `builtAt`.
+
+**I know the component name, I just need the id.** `resolve "Main Card"` (CLI or MCP). An exact master always comes back with its id even if nothing uses it yet. If the name is not in the library, the card says so and tells you to `recommend` the job — not an empty list.
 
 **Older command names.** Prefer `resolve`. `keyline` still works as a short-term alias.
 

@@ -134,10 +134,15 @@ curl -s -X POST http://127.0.0.1:3845/mcp \
         "name":"get_metadata","arguments":{"nodeId":"14430:56021"}}}'
 ```
 
-Feed the result to `adaptFigmaMcpMetadata({ fileKey, fileName, metadataXml,
-variableDefs })`. `CapturedMcpIngestionSource` wraps a stored capture so the
-same adapter runs in tests and in the browser; a live source is the same call
-against a running server.
+Save the XML (the tool result, including the prose Figma wraps around it) and ingest it:
+
+```bash
+npm run resolve -- ingest screen.xml --from-metadata --file-key KEY --name "Library" --role library
+```
+
+No REST token. JSON captures with a `metadataXml` field still work the same way. The adapter is `adaptFigmaMcpMetadata({ fileKey, fileName, metadataXml, variableDefs })`. `CapturedMcpIngestionSource` wraps a stored capture so the same path runs in tests and in the browser.
+
+MCP and CLI must read the same store. `GRAPHIFY_HOME` wins. Else Resolve walks up from the process working directory (then `INIT_CWD`) looking for `.graphify/graph.json` or `workspace.json`. After a CLI ingest, the next MCP call reloads from disk — no server restart. If a tool says “No graph stored,” the message includes the exact path it looked in. `list_graphs` and `get_health` include `store.path` and `store.builtAt`.
 
 ### What MCP metadata cannot tell you
 

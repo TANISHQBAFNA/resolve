@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { TOOLS, callTool, encodeToolResult } from "@/server/tools";
-import { clearCache, saveGraph } from "@/server/store";
+import { ToolError, TOOLS, callTool, encodeToolResult } from "@/server/tools";
+import { clearCache, graphPath, saveGraph, storeRoot } from "@/server/store";
 import { graph } from "./fixture";
 
 describe("agent tools", () => {
@@ -18,6 +18,39 @@ describe("agent tools", () => {
     clearCache();
     if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
     else process.env["GRAPHIFY_HOME"] = previousHome;
+  });
+
+  it("sees a graph written after the process started (no restart, no clearCache)", () => {
+    expect(() => callTool("resolve", { name: "Button" })).toThrow(ToolError);
+    writeFileSync(graphPath(), `${JSON.stringify(graph)}\n`);
+    const result = callTool("resolve", { name: "Button" }) as { found?: boolean; kind?: string };
+    expect(result.found).toBe(true);
+    expect(result.kind).toBe("component");
+  });
+
+  it("missing-graph error names the store path", () => {
+    expect(() => callTool("resolve", { name: "Main Card" })).toThrow(ToolError);
+    try {
+      callTool("resolve", { name: "Main Card" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      expect(message).toContain(graphPath());
+      expect(message).toContain(storeRoot());
+    }
+  });
+
+  it("list_graphs reports the store path so an agent can see which folder MCP is reading", () => {
+    const result = callTool("list_graphs", {}) as {
+      store?: { path: string; graph: string; builtAt?: string };
+    };
+    expect(result.store?.path).toBe(storeRoot());
+    expect(result.store?.graph).toBe(graphPath());
+  });
+
+  it("resolve tool description says it returns the id when you know the name", () => {
+    const resolve = TOOLS.find((tool) => tool.name === "resolve");
+    expect(resolve?.description).toMatch(/know the name|figmaNodeId|id/i);
+    expect(resolve?.description).toMatch(/zero|unused|even when/i);
   });
 
   it("exposes recommend and verify_frame on the same surface as resolve", () => {

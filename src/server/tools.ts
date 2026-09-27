@@ -25,7 +25,16 @@ import {
   type ViewMode,
 } from "@/core/query";
 import { buildAiGraphContext, toMarkdownPrompt } from "@/core/ai";
-import { listGraphs, loadContextBind, loadRecipes, readLibraryRules, readWorkspace, resolveGraph } from "./store";
+import {
+  listGraphs,
+  loadContextBind,
+  loadRecipes,
+  missingGraphMessage,
+  readLibraryRules,
+  readWorkspace,
+  resolveGraph,
+  storeInfo,
+} from "./store";
 
 /**
  * Optional MCP tools. Agents: recommend / recipe / resolve / verify_frame / check_frame.
@@ -95,7 +104,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "resolve",
     description:
-      "Name in, usage card out. Where a component is used (screen names, counts, slot fills, figmaNodeId). Frame names return a screen inventory. Call this instead of reading graph.json. Cap ~2000 chars.",
+      "I know the name, give me the id. Exact master name or id always returns id + fileKey + figmaNodeId even when unused (zero instances). Usage screens are additive. Unknown name: found=false + call recommend \"<intent>\", not an empty list. Frame names return a screen inventory. Cap ~2000 chars.",
     inputSchema: {
       type: "object",
       properties: {
@@ -261,7 +270,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "list_graphs",
     description:
-      "List every stored Figma graph with its id, file name, size and entry points. Call this first to find out what is available.",
+      "List stored graphs and the store this server is reading (path, graph.json, builtAt). GRAPHIFY_HOME wins; else the nearest .graphify walking up from cwd. Call this to confirm MCP and CLI share one folder.",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -422,7 +431,7 @@ function context(args: Record<string, unknown>) {
     throw new ToolError(
       available.length
         ? `Unknown or ambiguous graphId. Available: ${available.join(", ")}. Pass one explicitly.`
-        : "No graph stored. Ingest once: `FIGMA_ACCESS_TOKEN=… npm run resolve -- ingest <figma-url>`. Then resolve, do not Read graph.json.",
+        : missingGraphMessage(),
     );
   }
   return resolved;
@@ -559,11 +568,13 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
 
     case "list_graphs": {
       const graphs = listGraphs();
+      const store = storeInfo();
       return {
         graphs,
+        store,
         hint: graphs.length
           ? "Call list_recipes or recipe \"<job>\", then recommend unbound slots, Figma on returned figmaNodeIds (fileKey + id), then verify_frame. Multi-file workspace: check_cousins on the product frame. Do not Read graph.json."
-          : "Nothing stored yet. Ingest a Figma URL or JSON export first (DS library --role library, then product files). list_recipes still works without a graph.",
+          : `Nothing stored yet. Looked in ${store.graph}. Ingest a Figma URL, JSON export, or get_metadata XML (--from-metadata). list_recipes still works without a graph.`,
       };
     }
 
@@ -687,6 +698,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const analytics = computeAnalytics(index);
       return {
         graphId,
+        store: storeInfo(),
         totals: analytics.totals,
         mostReused: analytics.componentUsage
           .slice(0, 10)

@@ -5,14 +5,17 @@ import { tmpdir } from "node:os";
 import { graph } from "./fixture";
 import {
   clearCache,
+  discoverStoreRoot,
   graphPath,
   listGraphs,
   loadContextBind,
   loadGraph,
+  missingGraphMessage,
   readContextPacks,
   readWorkspace,
   saveGraph,
   saveIngestedFile,
+  storeInfo,
   storeRoot,
   workspacePath,
 } from "@/server/store";
@@ -106,5 +109,45 @@ describe("store", () => {
     const next = saveIngestedFile(graph, { role: "product", forceRole: true });
     expect(next.role).toBe("product");
     expect(readWorkspace().files[0]?.role).toBe("product");
+  });
+
+  it("reloads after another process writes graph.json (no clearCache)", () => {
+    expect(loadGraph()).toBeUndefined();
+    writeFileSync(graphPath(), `${JSON.stringify(graph)}\n`);
+    const first = loadGraph();
+    expect(first?.graph.fileName).toBe(graph.fileName);
+
+    const updated = { ...graph, fileName: "Fresh ingest" };
+    writeFileSync(graphPath(), `${JSON.stringify(updated)}\n`);
+    const again = loadGraph();
+    expect(again?.graph.fileName).toBe("Fresh ingest");
+  });
+
+  it("names the exact store path when no graph is stored", () => {
+    const message = missingGraphMessage();
+    expect(message).toContain(graphPath());
+    expect(message).toContain(storeRoot());
+    expect(message).toMatch(/GRAPHIFY_HOME|ingest/i);
+  });
+
+  it("storeInfo reports the path the server is reading", () => {
+    const info = storeInfo();
+    expect(info.path).toBe(storeRoot());
+    expect(info.graph).toBe(graphPath());
+    expect(info.workspace).toBe(workspacePath());
+    expect(info.builtAt).toBeUndefined();
+    saveGraph(graph);
+    expect(storeInfo().builtAt).toBe(graph.builtAt);
+  });
+
+  it("discoverStoreRoot walks up to a parent .graphify and honors GRAPHIFY_HOME", () => {
+    const root = mkdtempSync(join(tmpdir(), "resolve-discover-"));
+    const nested = join(root, "apps", "agent");
+    mkdirSync(join(root, ".graphify"), { recursive: true });
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(join(root, ".graphify", "graph.json"), "{}\n");
+
+    expect(discoverStoreRoot(nested, {})).toBe(join(root, ".graphify"));
+    expect(discoverStoreRoot(nested, { GRAPHIFY_HOME: dir })).toBe(dir);
   });
 });

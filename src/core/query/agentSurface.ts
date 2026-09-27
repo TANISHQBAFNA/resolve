@@ -250,7 +250,10 @@ export function usageCardForComponent(
     variants: usage.variantCount,
     riskScore: usage.riskScore,
     pages,
-    hint: "Instance this figmaNodeId in Figma. Do not get_design_context on a parent FRAME.",
+    hint:
+      usage.instanceCount === 0
+        ? "Master is in the graph with this id even with zero instances. Place this figmaNodeId. Usage is additive."
+        : "Instance this figmaNodeId in Figma. Do not get_design_context on a parent FRAME.",
   };
 
   let byScreen = toByScreen(includeSlots, limit);
@@ -268,6 +271,11 @@ export function usageCardForComponent(
 }
 
 function pickResolveTarget(index: GraphIndex, name: string): GraphNode | undefined {
+  const exact = resolveNodeExact(index, name);
+  if (exact) {
+    if (exact.type === "COMPONENT_INSTANCE") return index.getMainComponent(exact.id) ?? exact;
+    return exact;
+  }
   const hits = searchNodes(index, name, { limit: 16 });
   if (!hits.length) return undefined;
   const lower = name.trim().toLowerCase();
@@ -304,7 +312,7 @@ export function componentUsageCard(
     return withCost({
       found: false as const,
       name,
-      hint: "No match. Try a component or frame name from the file.",
+      hint: `Nothing named "${name}" in this graph. Call recommend "<intent>" if you know the job, not the name.`,
     });
   }
   if (node.type === "FRAME" || node.type === "SECTION") {
@@ -475,7 +483,9 @@ export function resolveNodeExact(index: GraphIndex, nameOrId: string): GraphNode
   for (const node of index.allNodes) {
     if (matchesFigmaId(node, trimmed)) return node;
     if (matchesStampedId(node, trimmed, index.graph.fileKey)) return node;
-    if (node.name.toLowerCase() === lower) exactName ??= node;
+    if (node.name.toLowerCase() !== lower) continue;
+    if (isMasterType(node.type)) return node;
+    exactName ??= node;
   }
   return exactName;
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { DesignGraph, GraphEdge, GraphNode, NodeType } from "@/core/model";
 import { demoScreensSource } from "@/core/ingestion/adapters/mcpSource";
 import { buildGraph } from "@/core/transform";
 import {
@@ -14,6 +15,13 @@ import {
   toGraphReportMarkdown,
 } from "@/core/query";
 import { ids, index as demo } from "./fixture";
+
+function n(id: string, type: NodeType, name: string, extra: Partial<GraphNode> = {}): GraphNode {
+  return { id, type, name, ...extra };
+}
+function e(type: GraphEdge["type"], source: string, target: string): GraphEdge {
+  return { id: `${type}|${source}|${target}`, source, target, type };
+}
 
 async function load() {
   return indexGraph(buildGraph(await demoScreensSource.load()));
@@ -122,6 +130,67 @@ describe("usage cards (resolve)", () => {
     const slots = card.byScreen.flatMap((row) => row.slots ?? []);
     expect(slots.length).toBeGreaterThan(0);
     expect(card.cost.chars).toBeLessThan(2000);
+  });
+
+  it("returns a zero-usage master with id + fileKey + figmaNodeId, not an empty list", () => {
+    const graph: DesignGraph = {
+      fileKey: "CAP",
+      fileName: "Hand capture",
+      builtAt: "2026-01-01T00:00:00.000Z",
+      source: { kind: "mock", ingestedAt: "2026-01-01T00:00:00.000Z" },
+      warnings: [],
+      nodes: [
+        n("file:CAP", "FILE", "Hand capture", { fileKey: "CAP" }),
+        n("node:p", "PAGE", "Page", { parentId: "file:CAP", pageId: "node:p", fileKey: "CAP" }),
+        n("node:frame", "FRAME", "Main Card", {
+          parentId: "node:p",
+          pageId: "node:p",
+          figmaNodeId: "1:1",
+          fileKey: "CAP",
+        }),
+        n("node:card", "MAIN_COMPONENT", "Main Card", {
+          parentId: "node:p",
+          pageId: "node:p",
+          figmaNodeId: "9:9",
+          fileKey: "CAP",
+          isMainComponent: true,
+        }),
+        n("node:box", "MAIN_COMPONENT", "Information Container", {
+          parentId: "node:p",
+          pageId: "node:p",
+          figmaNodeId: "8:8",
+          fileKey: "CAP",
+          isMainComponent: true,
+        }),
+      ],
+      edges: [
+        e("CONTAINS", "file:CAP", "node:p"),
+        e("CONTAINS", "node:p", "node:frame"),
+        e("CONTAINS", "node:p", "node:card"),
+        e("CONTAINS", "node:p", "node:box"),
+      ],
+    };
+    const index = indexGraph(graph);
+
+    const card = componentUsageCard(index, "Main Card");
+    expect(card.found).toBe(true);
+    if (!("kind" in card) || card.kind !== "component") throw new Error("expected component card");
+    expect(card.component.id).toBe("node:card");
+    expect(card.component.figmaNodeId).toBe("9:9");
+    expect(card.component.fileKey).toBe("CAP");
+    expect(card.instances).toBe(0);
+    expect("components" in card ? card.components : undefined).toBeUndefined();
+
+    const box = componentUsageCard(index, "Information Container");
+    expect(box.found).toBe(true);
+    if (!("kind" in box) || box.kind !== "component") throw new Error("expected component card");
+    expect(box.component.figmaNodeId).toBe("8:8");
+    expect(box.component.fileKey).toBe("CAP");
+
+    const miss = componentUsageCard(index, "Not A Real Master");
+    expect(miss.found).toBe(false);
+    expect(miss.hint).toMatch(/recommend/i);
+    expect(miss.hint).not.toMatch(/\[\]/);
   });
 
   it("Heading counts placements per named screen", async () => {
