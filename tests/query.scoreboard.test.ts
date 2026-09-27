@@ -160,30 +160,34 @@ describe("scoreboard", () => {
     expect(recipe?.emptyWhenWeak).toBeNull();
     expect(verify?.emptyWhenWeak).toBeNull();
     expect(recipe?.top3Base).toBe(0);
-    expect(recommend?.scored).toBe(54);
-    expect(recommend?.top1Count).toBe(54);
-    expect(recommend?.top3Base).toBe(9);
-    expect(recommend?.top3Count).toBe(9);
-    expect(recommend?.candidatesMax).toBeGreaterThanOrEqual(3);
+    expect(recommend?.scored).toBe(57);
+    expect(recommend?.top1Count).toBe(56);
+    expect(recommend?.top3Base).toBe(0);
+    expect(recommend?.top3Count).toBe(0);
+    expect(recommend?.candidatesMax).toBeGreaterThanOrEqual(2);
     expect(recommend?.emptyWhenWeak).toBe(1);
     expect(recommend?.wrongCousinRate).toBe(0);
     expect(recommend?.leakRate).toBe(0);
-    expect(resolveTool?.scored).toBe(57);
-    expect(resolveTool?.top1Count).toBe(57);
+    expect(resolveTool?.scored).toBe(60);
+    expect(resolveTool?.top1Count).toBe(59);
     expect(resolveTool?.leakRate).toBe(0);
     expect(resolveTool?.emptyWhenWeak).toBe(1);
     expect(second.top1Count).toBe((recommend?.top1Count ?? 0) + (resolveTool?.top1Count ?? 0) + (recipe?.top1Count ?? 0));
     expect(second.top1Base).toBe((recommend?.scored ?? 0) + (resolveTool?.scored ?? 0) + (recipe?.scored ?? 0));
-    expect(second.top1Base).toBe(114);
-    expect(second.top1Count).toBe(114);
+    expect(second.top1Base).toBe(120);
+    expect(second.top1Count).toBe(118);
     expect(verify?.scored).toBeGreaterThan(0);
-    expect(second.top3Base).toBe(9);
+    expect(second.top3Base).toBe(1);
     expect(second.top3Base).toBeLessThan(10);
     const recipeLine = table.split("\n").find((line) => line.startsWith("recipe"));
     expect(recipeLine).toMatch(/recipe\s+3\/3\s+n\/a \(N=0\)\s+n\/a\s+/);
     const verifyLine = table.split("\n").find((line) => line.startsWith("verify"));
     expect(verifyLine).toMatch(/n\/a \(N=0\)\s+n\/a\s+/);
-    expect(second.misses).toEqual([]);
+    // Tag and filter are not the same control. Leave this golden case unchanged.
+    expect(second.misses.map((row) => `${row.tool}:${row.id}`).sort()).toEqual([
+      "recommend:ctx-filter-tag",
+      "resolve:ctx-filter-tag",
+    ]);
     expect(second.misses.filter((row) => row.id === "dep-legacy-banner-exact" && row.tool === "resolve")).toEqual([]);
     expect(second.misses.filter((row) => row.id === "priv-note" && row.tool === "resolve")).toEqual([]);
     const cold = deltaAgainst(first);

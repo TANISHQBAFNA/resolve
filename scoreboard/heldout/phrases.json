@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "ho-radio-button",
+      "intent": "radio button",
+      "expected": "Radio",
+      "mustNot": ["Button", "Button Primary"],
+      "note": "The specific word radio beats the generic word button."
+    },
+    {
+      "id": "ho-tab-bar",
+      "intent": "tab bar",
+      "expected": "Tabs",
+      "mustNot": ["Header Bar", "Footer Bar"],
+      "note": "A shared bar token must not pull Header Bar over Tabs."
+    },
+    {
+      "id": "ho-bottom-bar",
+      "intent": "bottom bar",
+      "expect": "empty",
+      "mustNot": ["Header Bar", "Footer Bar"],
+      "note": "bottom matches nothing. bar alone is not a header."
+    },
+    {
+      "id": "ho-check-box",
+      "intent": "check box",
+      "expected": "Checkbox",
+      "mustNot": ["Text Field", "Input"]
+    },
+    {
+      "id": "ho-footer-phrase",
+      "intent": "footer bar",
+      "expected": "Footer Bar",
+      "mustNot": ["Header Bar"]
+    },
+    {
+      "id": "ho-header-phrase",
+      "intent": "header bar",
+      "expected": "Header Bar",
+      "mustNot": ["Footer Bar"]
+    },
+    {
+      "id": "ho-payment-phrase",
+      "intent": "payment row",
+      "expected": "Payment Row",
+      "mustNot": ["List Row"]
+    },
+    {
+      "id": "ho-text-phrase",
+      "intent": "text field",
+      "expected": "Text Field",
+      "mustNot": ["Input"]
+    },
+    {
+      "id": "ho-search-phrase",
+      "intent": "search box",
+      "expected": "Search Field",
+      "mustNot": ["Text Field", "Input"]
+    },
+    {
+      "id": "ho-page-header",
+      "intent": "page header",
+      "expected": "Header Bar"
+    },
+    {
+      "id": "ho-primary-button",
+      "intent": "primary button",
+      "expected": "Button Primary"
+    },
+    {
+      "id": "ho-close-icon",
+      "intent": "close icon",
+      "expected": "Icon Close"
+    }
+  ]
+}

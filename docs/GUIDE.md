@@ -384,6 +384,8 @@ Be honest with yourself and with agents:
 
 **I know the component name, I just need the id.** `resolve "Main Card"` (CLI or MCP). An exact master always comes back with its id even if nothing uses it yet. If the name is not in the library, the card says so and tells you to `recommend` the job — not an empty list.
 
+Resolve is case-sensitive for deprecated and private masters. The exact-case name (`Legacy Banner`, `_Private Note`) returns that master. A different casing (`legacy banner`) returns the live replacement. A private `_` or `.` master stays hidden until the name is typed in that exact case.
+
 **Older command names.** Prefer `resolve`. `keyline` still works as a short-term alias.
 
 ---

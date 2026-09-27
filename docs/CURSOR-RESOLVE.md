@@ -70,6 +70,8 @@ npm run resolve -- resolve "Input Field"
 
 Exact name always returns `id` + `fileKey` + `figmaNodeId`, even with zero usage. A miss says so and points at `recommend`. Prefer **resolve** over any keyline / graphify alias.
 
+Resolve is case-sensitive for deprecated and private masters. `Legacy Banner` and `_Private Note` return that master. `legacy banner` returns the live replacement. Any other casing of a private name returns an empty card.
+
 CLI ingest and the MCP server must share one store. Set `GRAPHIFY_HOME` to the `.graphify` folder, or run both from the same project root. `npm run resolve -- where` and MCP `list_graphs` print the path and `builtAt`. After ingest, the next MCP call sees the new graph without a restart.
 
 Primary learn: Figma MCP `get_metadata` → `learn_library` (paid Dev/Full seat). Secondary: REST token ingest. Big libraries: several checkpointed passes. View/free seats: low quota; Resolve resumes.

@@ -315,8 +315,9 @@ describe("recommend prefers the DS library", () => {
     expect(result.candidates[0]?.figmaNodeId).toBe("9:1");
     expect(typeof result.candidates[0]?.why).toBe("string");
     const oneOff = result.candidates.find((row) => row.fileKey === "PROD");
-    if (oneOff?.score != null && result.candidates[0]?.score != null) {
-      expect(oneOff.score).toBeLessThan(result.candidates[0].score);
+    const lead = result.candidates[0];
+    if (oneOff && "score" in oneOff && lead && "score" in lead) {
+      expect(oneOff.score).toBeLessThan(lead.score);
     }
   });
 

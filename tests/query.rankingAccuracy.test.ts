@@ -57,9 +57,9 @@ describe("recommend name match beats screen usage", () => {
   });
 
   it("uses screen context only to separate name-relevant cousins", () => {
-    expect(topName(index, "filter", { screenType: "catalog", journey: "browse", slot: "filter" }).candidates[0]?.name).toBe(
-      "Tag",
-    );
+    const filter = topName(index, "filter", { screenType: "catalog", journey: "browse", slot: "filter" });
+    expect(filter.candidates[0]?.name).not.toBe("List Row");
+    expect(filter.candidates.map((row) => row.name)).not.toContain("Tag");
     expect(topName(index, "card", { screenType: "checkout", journey: "review" }).candidates[0]?.name).toBe(
       "Summary Card",
     );
@@ -72,6 +72,10 @@ describe("recommend name match beats screen usage", () => {
     expect(topName(index, "cta", { screenType: "checkout", journey: "payment", slot: "primary-cta" }).candidates[0]?.name).toBe(
       "Pay CTA",
     );
+    expect(
+      topName(index, "checkout summary", { screenType: "checkout", journey: "payment", slot: "primary-cta" }).candidates[0]?.name,
+    ).toBe("Pay CTA");
+    expect(topName(index, "sign in", { slot: "primary-cta" }).candidates[0]?.name).toBe("Button Primary");
   });
 
   it("fits two or three candidates in the 600-character card", () => {
@@ -83,7 +87,32 @@ describe("recommend name match beats screen usage", () => {
     expect(lead && "fileKey" in lead && lead.fileKey).toBeTruthy();
     expect(lead && "nodeId" in lead && lead.nodeId).toBeTruthy();
     const alt = result.candidates[1];
-    expect(alt && Object.keys(alt).sort()).toEqual(["id", "name", "why"]);
+    expect(alt && Object.keys(alt).sort()).toEqual(["figmaNodeId", "fileKey", "id", "name", "why"]);
+    expect(alt && "fileKey" in alt && alt.fileKey).toBeTruthy();
+    expect(alt && "figmaNodeId" in alt && alt.figmaNodeId).toBeTruthy();
+    expect(lead && "type" in lead && lead.type).toBeTruthy();
+    expect(lead && "score" in lead && lead.score).toEqual(expect.any(Number));
+    expect(lead && "hint" in lead && lead.hint).toBeTruthy();
+  });
+});
+
+describe("phrase match and typos", () => {
+  const index = fixtureIndex();
+
+  it("prefers a whole specific name over a shared generic token", () => {
+    expect(topName(index, "radio button").candidates[0]?.name).toBe("Radio");
+    expect(topName(index, "tab bar").candidates[0]?.name).toBe("Tabs");
+    expect(topName(index, "bottom bar").candidates).toEqual([]);
+    expect(topName(index, "check box").candidates[0]?.name).toBe("Checkbox");
+    expect(topName(index, "page header").candidates[0]?.name).toBe("Header Bar");
+    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button Primary");
+  });
+
+  it("accepts one edit on tokens of four or more characters", () => {
+    expect(topName(index, "buton").candidates[0]?.name).toBe("Button");
+    expect(topName(index, "avtar").candidates[0]?.name).toBe("Avatar");
+    expect(topName(index, "tag").candidates[0]?.name).toBe("Tag");
+    expect(topName(index, "kelp forest gauge").candidates).toEqual([]);
   });
 });
 
@@ -173,9 +202,7 @@ describe("resolve screen context", () => {
     const filter = componentUsageCard(index, "filter", {
       context: { screenType: "catalog", domain: "catalog", journey: { screenJob: "browse catalog", step: "filter" } },
     });
-    expect(filter.found).toBe(true);
-    if (!filter.found || filter.kind !== "component") return;
-    expect(filter.component.name).toBe("Tag");
+    expect(filter.found).toBe(false);
   });
 });
 
@@ -190,28 +217,31 @@ describe("checkout recipe default", () => {
   });
 });
 
-describe("scoreboard tools are exclusive", () => {
-  it("scores only the tools a case lists", () => {
+describe("scoreboard tools", () => {
+  it("keeps scoring tools an array does not name, and applies object overrides", () => {
     const index = fixtureIndex();
-    const recipeOnly = scoreGraph(index, [
+    const recipeMarked = scoreGraph(index, [
       {
         id: "only-recipe",
         intent: "checkout summary",
         slot: "primary-cta",
+        screenType: "checkout",
+        journey: "payment",
         expected: "Pay CTA",
         expect: "master",
         tools: ["recipe"],
       },
     ]);
-    expect(recipeOnly.tools.find((tool) => tool.tool === "recipe")?.scored).toBe(1);
-    expect(recipeOnly.tools.find((tool) => tool.tool === "recommend")?.scored).toBe(0);
-    expect(recipeOnly.tools.find((tool) => tool.tool === "resolve")?.scored).toBe(0);
+    expect(recipeMarked.tools.find((tool) => tool.tool === "recipe")?.scored).toBe(1);
+    expect(recipeMarked.tools.find((tool) => tool.tool === "recommend")?.top1Count).toBe(1);
+    expect(recipeMarked.tools.find((tool) => tool.tool === "resolve")?.top1Count).toBe(1);
 
-    const resolveOnly = scoreGraph(
+    const resolveOverride = scoreGraph(
       index,
       loadGoldenCases(join(root, "scoreboard", "golden", "private.json")).filter((row) => row.id === "priv-note"),
     );
-    expect(resolveOnly.tools.find((tool) => tool.tool === "resolve")?.scored).toBe(1);
-    expect(resolveOnly.tools.find((tool) => tool.tool === "recommend")?.scored).toBe(0);
+    expect(resolveOverride.tools.find((tool) => tool.tool === "resolve")?.top1Count).toBe(1);
+    expect(resolveOverride.tools.find((tool) => tool.tool === "recommend")?.scored).toBe(0);
+    expect(resolveOverride.misses.filter((row) => row.tool === "recommend")).toEqual([]);
   });
 });

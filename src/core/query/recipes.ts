@@ -442,13 +442,15 @@ function fillSlot(
     ...(sock ? { sock } : {}),
     ...(mergedRules.rules.length ? { bindRules: mergedRules } : {}),
   });
-  const live = ranked.candidates.filter(
-    (candidate) =>
+  const live = ranked.candidates.filter((candidate): candidate is RecommendCandidate => {
+    if (!("deprecated" in candidate) || !("instances" in candidate)) return false;
+    return (
       candidate.deprecated === false &&
       Boolean(candidate.figmaNodeId) &&
       !isPrivateMasterName(candidate.name) &&
-      usageAllowsRecipeFill(sock, candidate.id, candidate.instances ?? 0),
-  );
+      usageAllowsRecipeFill(sock, candidate.id, candidate.instances)
+    );
+  });
   const pick = live.find((candidate) => hintOverlap(candidate, slot.hints) > 0);
   if (!pick) {
     return {

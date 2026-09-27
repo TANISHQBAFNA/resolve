@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "terms": ["button", "cta", "action"],
+      "reason": "A call to action is a button."
+    },
+    {
+      "terms": ["avatar", "profile"],
+      "reason": "A profile picture is an avatar."
+    },
+    {
+      "terms": ["header", "heading"],
+      "reason": "A heading and a header name the same title block."
+    },
+    {
+      "terms": ["search", "find"],
+      "reason": "Find is the verb for a search field."
+    },
+    {
+      "terms": ["price", "cost", "amount"],
+      "reason": "Price, cost, and amount are the same money figure."
+    },
+    {
+      "terms": ["close", "dismiss"],
+      "reason": "Dismiss is the verb for a close icon."
+    },
+    {
+      "terms": ["empty", "blank"],
+      "reason": "A blank state is an empty state."
+    },
+    {
+      "terms": ["alert", "notice"],
+      "reason": "A notice is an alert."
+    },
+    {
+      "terms": ["toggle", "switch"],
+      "reason": "A toggle and a switch are the same on-off control."
+    },
+    {
+      "terms": ["dialog", "modal"],
+      "reason": "A dialog is a modal."
+    },
+    {
+      "terms": ["snackbar", "toast"],
+      "reason": "A snackbar is a toast."
+    },
+    {
+      "terms": ["separator", "divider", "rule"],
+      "reason": "A separator, divider, and rule are the same hairline."
+    },
+    {
+      "terms": ["pill", "badge"],
+      "reason": "A pill is a badge."
+    },
+    {
+      "terms": ["coupon", "promo", "discount"],
+      "reason": "A coupon, promo, and discount are the same offer field."
+    }
+  ]
+}

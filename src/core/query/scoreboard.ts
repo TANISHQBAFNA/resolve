@@ -73,7 +73,7 @@ const CaseSchema = z.object({
   mustNot: z.array(z.string().trim().min(1)).optional(),
   expect: z.enum(["master", "empty"]).optional(),
   note: z.string().optional(),
-  /** Per-tool overrides, or a list of tools this case is explicitly for. `["recipe"]` marks a recipe case. */
+  /** Object overrides one tool. `["recipe"]` marks a recipe case and still scores the others. */
   tools: z
     .union([
       z.array(ToolNameSchema).min(1),
@@ -110,8 +110,9 @@ export interface GoldenCase {
   mustNot?: string[];
   expect: "master" | "empty";
   /**
-   * Per-tool override, or a list of tools this case is explicitly for.
-   * `["recipe"]` marks a recipe case. A marked recipe case with no card is a miss.
+   * Object form overrides the expectation for the tools it names. Other tools
+   * keep the case's normal expectation. An array (`["recipe"]`) only marks a
+   * recipe case; it does not drop recommend or resolve.
    */
   tools?: Partial<Record<ScoreTool, ToolSpec>> | ScoreTool[];
   note?: string;
@@ -594,16 +595,10 @@ function rate(hits: number, total: number): number | null {
   return hits / total;
 }
 
-/** Tools this case is for. When set, every other tool is skipped. */
-function listedTools(row: GoldenCase): ScoreTool[] | undefined {
-  if (!row.tools) return undefined;
-  if (Array.isArray(row.tools)) return row.tools;
-  const specs = row.tools;
-  return SCORE_TOOLS.filter((tool) => specs[tool] !== undefined);
-}
-
 function isRecipeCase(row: GoldenCase): boolean {
-  return Boolean(listedTools(row)?.includes("recipe"));
+  if (!row.tools) return false;
+  if (Array.isArray(row.tools)) return row.tools.includes("recipe");
+  return row.tools.recipe !== undefined;
 }
 
 function toolOverride(row: GoldenCase, tool: ScoreTool): ToolSpec | undefined {
@@ -641,16 +636,6 @@ function nameLikeMaster(index: GraphIndex, intent: string): GraphNode | undefine
 }
 
 function expectationFor(tool: ScoreTool, row: BoundCase, index: GraphIndex): ToolExpectation {
-  const listed = listedTools(row);
-  if (listed && !listed.includes(tool)) {
-    return {
-      applicable: false,
-      expect: "empty",
-      expectedIds: new Set(),
-      acceptIds: new Set(),
-      mustNotIds: new Set(),
-    };
-  }
   const override = toolOverride(row, tool);
   if (override?.expect === "skip") {
     return {

@@ -36,7 +36,7 @@ Cases live in `scoreboard/golden/*.json`. Each file is a list:
 | `accept` | Other masters that are also fine. |
 | `mustNot` | Cousins that must not be the top pick. Example: Pay CTA vs Save CTA, Tag vs Chip. |
 | `expect` | `master` (the default when `expected` is set) or `empty`. |
-| `tools` | Either per-tool overrides, or a list of tools this case is for. When `tools` is set, only those tools are scored. `["recipe"]` marks a recipe case and does not also score recommend or resolve. Overrides: asking for `Legacy Banner` by its exact name. Recommend should return the live Banner. Resolve returning Legacy Banner, marked deprecated, is correct. |
+| `tools` | An object overrides the expectation for the tools it names. Every other tool keeps the case's normal expectation. `["recipe"]` marks a recipe case and does not drop recommend or resolve. Example: asking for `Legacy Banner` by its exact name. Recommend should return the live Banner. Resolve returning Legacy Banner, marked deprecated, is correct. |
 
 `empty` means there is no correct master. The card should come back empty, not a guess. Use this for private masters (`_Name`, `.Name`) and for questions the library cannot answer.
 
@@ -44,7 +44,7 @@ The shipped set covers exact names, synonyms, screen-context picks, cousin traps
 
 ## What is measured
 
-Every case is sent through recommend, resolve, recipe, and verify, unless `tools` limits it to a subset. A tool is scored only when the question is one it can answer.
+Every case is sent through recommend, resolve, recipe, and verify. A tool is scored only when the question is one it can answer. An object in `tools` changes that tool's expectation. It does not skip the others.
 
 | Measure | What it means |
 | --- | --- |
