@@ -77,6 +77,10 @@ export interface SociSuggestedRule {
   forbid?: string;
   prefer?: string;
   over?: string;
+  /** Preferred master. Required for a scoped prefer; absent on a file-wide prefer. */
+  masterId?: string;
+  /** Cousin to demote. Scoped prefer only. */
+  overMasterId?: string;
 }
 
 export interface SociSuggestedRecipe {
@@ -176,6 +180,8 @@ export interface SockState {
   proposals: SociProposal[];
   corrections?: CousinCorrection[];
   proposalCap?: number;
+  /** Load-time notes. Not written back to sock.json. */
+  warnings?: string[];
 }
 
 export function emptySock(threshold = DEFAULT_USAGE_THRESHOLD): SockState {
@@ -212,6 +218,8 @@ export function recordVerifiedUsage(
       deprecated?: boolean;
       private?: boolean;
       overrideKeys?: string[];
+      /** Wins over the shared input.slot. Omit both to record no slot. */
+      slot?: string;
     }>;
     journey?: string;
     product?: string;
@@ -240,7 +248,7 @@ export function recordVerifiedUsage(
       ...(input.frameId ? { frameId: input.frameId } : {}),
       screenId: input.screenId,
       screenName: input.screenName,
-      ...(input.slot ? { slot: input.slot } : {}),
+      ...((master.slot ?? input.slot) ? { slot: master.slot ?? input.slot } : {}),
       journey: input.journey,
       product: input.product,
       pack: input.pack,

@@ -50,7 +50,7 @@ function governanceApiPlugin(): Plugin {
           configFile: false,
           root: fileURLToPath(new URL(".", import.meta.url)),
           appType: "custom",
-          server: { middlewareMode: true },
+          server: { middlewareMode: true, hmr: false },
           resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
         });
         const vite = await loader;

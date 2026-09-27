@@ -11,6 +11,7 @@ import {
 } from "./sock";
 import type { WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
+import type { Recipe } from "./recipes";
 
 /**
  * Human-authored bind rules. SOCK may propose; only a human writes the file.
@@ -47,6 +48,12 @@ export interface PreferBindRule {
   over: string;
   preferKey?: string;
   overKey?: string;
+  /** When set, +48 applies only to this master, not every node in the prefer file. */
+  masterId?: string;
+  /** When set, −48 applies only to this master, not every node in the over file. */
+  overMasterId?: string;
+  screenType?: string;
+  slot?: string;
 }
 
 export type BindRule = RequireBindRule | ForbidBindRule | PreferBindRule;
@@ -92,6 +99,9 @@ export interface AuditLine {
   action: "approve" | "reject";
   before: BindRule[];
   after: BindRule[];
+  /** Set only when a recipe-update approval writes the overlay. */
+  recipeBefore?: Recipe;
+  recipeAfter?: Recipe;
 }
 
 export function emptyBindRules(): BindRulesFile {
@@ -110,8 +120,15 @@ export function ruleLabel(rule: BindRule): string {
     }
     case "forbid":
       return `forbid ${rule.forbid}`;
-    case "prefer":
+    case "prefer": {
+      if (rule.masterId || rule.overMasterId || rule.screenType || rule.slot) {
+        const scope = [rule.screenType, rule.slot].filter(Boolean).join("/");
+        const target = rule.masterId ?? rule.prefer;
+        const other = rule.overMasterId ?? rule.over;
+        return scope ? `prefer ${target} over ${other} for ${scope}` : `prefer ${target} over ${other}`;
+      }
       return `prefer ${rule.prefer} over ${rule.over}`;
+    }
     default: {
       const _exhaustive: never = rule;
       return _exhaustive;
@@ -152,6 +169,10 @@ const PreferPairShape = z.object({
   id: z.string().trim().min(1).optional(),
   prefer: z.string().trim().min(1),
   over: z.string().trim().min(1),
+  masterId: z.string().trim().min(1).optional(),
+  overMasterId: z.string().trim().min(1).optional(),
+  screenType: z.string().trim().min(1).optional(),
+  slot: z.string().trim().min(1).optional(),
 });
 
 const PreferPhraseShape = z.object({
@@ -218,6 +239,10 @@ function parseOne(raw: unknown, index: number): BindRule {
       id: asId(parsed.data.id, `prefer:${parsed.data.prefer}>${parsed.data.over}`),
       prefer: parsed.data.prefer,
       over: parsed.data.over,
+      ...(parsed.data.masterId ? { masterId: parsed.data.masterId } : {}),
+      ...(parsed.data.overMasterId ? { overMasterId: parsed.data.overMasterId } : {}),
+      ...(parsed.data.screenType ? { screenType: parsed.data.screenType } : {}),
+      ...(parsed.data.slot ? { slot: parsed.data.slot } : {}),
     };
   }
   if ("prefer" in record) {
@@ -373,6 +398,65 @@ function haystackOf(parts: Array<string | undefined>): string {
     .replace(/-/g, " ");
 }
 
+function scopeNeedleMatches(
+  rule: { screenType?: string; slot?: string },
+  input: {
+    intent?: string;
+    domain?: string;
+    journey?: string;
+    product?: string;
+    frameName?: string;
+    pack?: string;
+  },
+): boolean {
+  const hay = haystackOf([input.intent, input.domain, input.journey, input.product, input.frameName, input.pack]);
+  if (rule.screenType) {
+    const needle = rule.screenType.toLowerCase().replace(/-/g, " ");
+    if (!hay.includes(needle)) return false;
+  }
+  if (rule.slot) {
+    const needle = rule.slot.toLowerCase().replace(/-/g, " ");
+    const tokens = needle.split(/\s+/).filter(Boolean);
+    if (!tokens.some((token) => hay.includes(token))) return false;
+  }
+  return true;
+}
+
+function preferIsScoped(rule: PreferBindRule): boolean {
+  return Boolean(rule.masterId || rule.overMasterId || rule.screenType || rule.slot);
+}
+
+/**
+ * Unscoped prefer still moves every node in the named files by 48.
+ * A scoped rule (master id plus screenType and/or slot) moves only those masters,
+ * and only when the recommend context matches. A half-scoped rule applies to nobody.
+ */
+function preferBoost(
+  rule: PreferBindRule,
+  node: GraphNode,
+  options: {
+    intent?: string;
+    domain?: string;
+    journey?: string;
+    product?: string;
+    frameName?: string;
+    pack?: string;
+    workspace?: WorkspaceManifest;
+    graphFileKey?: string;
+  },
+): 48 | -48 | 0 {
+  if (!preferIsScoped(rule)) {
+    if (fileMatchesLibrary(node, rule.preferKey ?? rule.prefer, options.workspace, options.graphFileKey)) return 48;
+    if (fileMatchesLibrary(node, rule.overKey ?? rule.over, options.workspace, options.graphFileKey)) return -48;
+    return 0;
+  }
+  if (!rule.masterId || (!rule.screenType && !rule.slot)) return 0;
+  if (!scopeNeedleMatches(rule, options)) return 0;
+  if (matchesId(node, rule.masterId)) return 48;
+  if (rule.overMasterId && matchesId(node, rule.overMasterId)) return -48;
+  return 0;
+}
+
 export function requireRuleApplies(
   rule: RequireBindRule,
   input: {
@@ -465,9 +549,7 @@ export function bindRuleHit(rules: BindRulesFile, node: GraphNode, options: {
         if (forbidMatches(rule, node, options.sock)) return ruleLabel(rule);
         break;
       case "prefer":
-        if (fileMatchesLibrary(node, rule.preferKey ?? rule.prefer, options.workspace, options.graphFileKey)) {
-          return ruleLabel(rule);
-        }
+        if (preferBoost(rule, node, options) > 0) return ruleLabel(rule);
         break;
       default: {
         const _exhaustive: never = rule;
@@ -505,13 +587,8 @@ export function filterAndScoreByBindRules<T extends { node: GraphNode; score: nu
   for (const rule of rules.rules) {
     if (rule.kind !== "prefer") continue;
     next = next.map((entry) => {
-      if (fileMatchesLibrary(entry.node, rule.preferKey ?? rule.prefer, options.workspace, options.graphFileKey)) {
-        return { ...entry, score: entry.score + 48 };
-      }
-      if (fileMatchesLibrary(entry.node, rule.overKey ?? rule.over, options.workspace, options.graphFileKey)) {
-        return { ...entry, score: entry.score - 48 };
-      }
-      return entry;
+      const delta = preferBoost(rule, entry.node, options);
+      return delta ? { ...entry, score: entry.score + delta } : entry;
     });
   }
 
@@ -720,6 +797,10 @@ export function toHumanRule(rule: BindRule): Record<string, string> {
       if (rule.id && !autoId(rule)) row.id = rule.id;
       row.prefer = rule.prefer;
       row.over = rule.over;
+      if (rule.masterId) row.masterId = rule.masterId;
+      if (rule.overMasterId) row.overMasterId = rule.overMasterId;
+      if (rule.screenType) row.screenType = rule.screenType;
+      if (rule.slot) row.slot = rule.slot;
       return row;
     }
     default: {
@@ -804,7 +885,11 @@ export function rulesEquivalent(left: BindRule, right: BindRule): boolean {
       return (
         right.kind === "prefer" &&
         left.prefer.toLowerCase() === right.prefer.toLowerCase() &&
-        left.over.toLowerCase() === right.over.toLowerCase()
+        left.over.toLowerCase() === right.over.toLowerCase() &&
+        (left.masterId ?? "") === (right.masterId ?? "") &&
+        (left.overMasterId ?? "") === (right.overMasterId ?? "") &&
+        (left.screenType ?? "").toLowerCase() === (right.screenType ?? "").toLowerCase() &&
+        (left.slot ?? "").toLowerCase() === (right.slot ?? "").toLowerCase()
       );
     default: {
       const _exhaustive: never = left;

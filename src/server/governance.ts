@@ -40,7 +40,10 @@ export function governanceView(): GovernanceView {
     proposalGroups: groupSociProposals(sock.proposals),
     pendingImprovements: pending,
     patterns,
-    warnings: rules.warnings ?? [],
+    warnings: [
+      ...(rules.warnings ?? []),
+      ...(sock.warnings ?? []).map((reason) => ({ rule: "sock.json", reason })),
+    ],
     hint: pending
       ? `Read-only. pending improvements: ${pending}. Write bind-rules.json / recipes.json yourself, or resolve approve <id> --who <name>. SOCI never auto-applies.`
       : "Read-only. Write bind-rules.json yourself, or resolve approve <id> --who <name> for a pending proposal. SOCI never auto-applies.",

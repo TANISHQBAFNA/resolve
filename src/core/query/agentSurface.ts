@@ -16,6 +16,7 @@ import {
   packJourneyPhrase,
   verifyBindRules,
   whyLineForMaster,
+  type BindRuleWarning,
   type BindRulesFile,
 } from "./bindRules";
 
@@ -1514,6 +1515,34 @@ export function verifyFrame(
     hint: pendingHint ? `${hint} ${pendingHint}` : hint,
     ...(pending ? { pendingImprovements: pending } : {}),
   };
-  const fitted = fitBindRuleWarnings(input.bindRules?.warnings, base, 600);
-  return withCost({ ...base, ...fitted });
+  return fitCardAfterCost(base, input.bindRules?.warnings, 600);
+}
+
+const WARNING_OVERFLOW = (count: number) => `and ${count} more warnings`;
+
+/** Size the verify card after `cost` is attached so the serialized card stays inside the budget. */
+function fitCardAfterCost<T extends object>(
+  base: T,
+  warnings: BindRuleWarning[] | undefined,
+  budgetChars: number,
+): T & { cost: AgentCost } {
+  const list = warnings ?? [];
+  const cardFor = (count: number) => {
+    if (count <= 0) {
+      if (!list.length) return withCost(base);
+      const withNote = withCost({ ...base, warningNote: WARNING_OVERFLOW(list.length) });
+      return JSON.stringify(withNote).length <= budgetChars ? withNote : withCost(base);
+    }
+    const more = list.length - count;
+    const fitted =
+      more > 0
+        ? { bindRuleWarnings: list.slice(0, count), warningNote: WARNING_OVERFLOW(more) }
+        : { bindRuleWarnings: list.slice(0, count) };
+    return withCost({ ...base, ...fitted });
+  };
+  for (let count = list.length; count >= 0; count -= 1) {
+    const card = cardFor(count);
+    if (JSON.stringify(card).length <= budgetChars) return card;
+  }
+  return withCost(base);
 }

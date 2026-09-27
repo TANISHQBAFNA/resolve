@@ -64,7 +64,7 @@ npm run resolve -- reject soci:variant-candidate:node-card-nested-badge --who "T
 | Require rule | Writes `bind-rules.json` + audit line |
 | Recipe update | Writes `recipes.json` overlay + audit line |
 | Variant / deprecation | Decision + note + audit line. No Figma, no masters, no extra rules |
-| Wrong cousin | Prefer-over bind rule when files differ; otherwise a naming note |
+| Wrong cousin | Scoped prefer (master + screen or slot) when files differ and the evidence has a scope; otherwise a naming note |
 
 Reject always keeps the files as they were and still writes an audit line.
 

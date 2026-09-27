@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "http";
@@ -114,5 +114,10 @@ describe("/api/governance", () => {
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     }
+  });
+
+  it("preview governance loader does not open an HMR socket", () => {
+    const source = readFileSync(new URL("../vite.config.ts", import.meta.url), "utf8");
+    expect(source).toMatch(/middlewareMode:\s*true,\s*hmr:\s*false/);
   });
 });

@@ -4,8 +4,10 @@ import type { Recipe } from "./recipes";
 import { matchRecipe } from "./recipes";
 import {
   inferSlot,
+  isRemovedByAbsence,
   patternsOf,
   proposeStrongPatterns,
+  scopeFromUsageFacts,
   type CousinCorrection,
   type SociEvidenceItem,
   type SociProposal,
@@ -50,6 +52,7 @@ export const SOCI_TYPE_LABELS: Record<SociProposalType, string> = {
 
 export const DEFAULT_SOCI_CAP = 12;
 export const SOCI_EVIDENCE_CAP = 8;
+export const SOCI_CORRECTION_CAP = 200;
 
 const GENERIC_NAME_TOKENS = new Set([
   "button",
@@ -303,26 +306,40 @@ function recipeAlreadyHasMaster(recipe: Recipe, masterId: string, masterName: st
   });
 }
 
-function detectRecipeUpdates(state: SockState, recipes: Recipe[]): SociDraft[] {
-  if (!recipes.length) return [];
+interface RecipeSlotCandidate {
+  recipe: Recipe;
+  slotRole: string;
+  masterId: string;
+  masterName: string;
+  facts: UsageFact[];
+}
+
+/**
+ * One proposal per recipe + slot: the master on the most distinct screens.
+ * A tie emits nothing. `closedSlots` maps `recipeId::slot` to the winning
+ * fingerprint, or null when the slot should keep no pending proposal.
+ */
+function detectRecipeUpdates(
+  state: SockState,
+  recipes: Recipe[],
+): { drafts: SociDraft[]; closedSlots: Map<string, string | null> } {
   const drafts: SociDraft[] = [];
+  const closedSlots = new Map<string, string | null>();
+  if (!recipes.length) return { drafts, closedSlots };
   const counted = countedFacts(state);
-  const byKey = new Map<
-    string,
-    { recipe: Recipe; slotRole: string; masterId: string; masterName: string; facts: UsageFact[] }
-  >();
+  const byMaster = new Map<string, RecipeSlotCandidate>();
   for (const fact of counted) {
     if (!fact.promoted || fact.deprecated || fact.private) continue;
     const recipe = recipeForScreen(recipes, fact);
     if (!recipe) continue;
     const slotRole = fact.slot ?? inferSlot(fact.name) ?? inferSlot(recipe.title);
     if (!slotRole) continue;
-    const key = `${recipe.id}::${slotRole}::${fact.masterId}`;
-    const row = byKey.get(key);
+    const key = `${recipe.id}::${slotRole.toLowerCase()}::${fact.masterId}`;
+    const row = byMaster.get(key);
     if (row) {
       if (!row.facts.some((item) => item.screenId === fact.screenId)) row.facts.push(fact);
     } else {
-      byKey.set(key, {
+      byMaster.set(key, {
         recipe,
         slotRole,
         masterId: fact.masterId,
@@ -331,40 +348,84 @@ function detectRecipeUpdates(state: SockState, recipes: Recipe[]): SociDraft[] {
       });
     }
   }
-  for (const row of byKey.values()) {
-    const screens = new Set(row.facts.map((fact) => fact.screenId));
-    if (screens.size < state.threshold) continue;
-    if (recipeAlreadyHasMaster(row.recipe, row.masterId, row.masterName, row.slotRole)) continue;
-    const existingSlot = row.recipe.slots.find((slot) => slot.role.toLowerCase() === row.slotRole.toLowerCase());
+  const bySlot = new Map<string, RecipeSlotCandidate[]>();
+  for (const row of byMaster.values()) {
+    const slotKey = `${row.recipe.id}::${row.slotRole.toLowerCase()}`;
+    const list = bySlot.get(slotKey);
+    if (list) list.push(row);
+    else bySlot.set(slotKey, [row]);
+  }
+  for (const [slotKey, rows] of bySlot) {
+    const ranked = [...rows].sort((a, b) => {
+      const screens = new Set(b.facts.map((fact) => fact.screenId)).size - new Set(a.facts.map((fact) => fact.screenId)).size;
+      return screens || a.masterId.localeCompare(b.masterId);
+    });
+    const winner = ranked[0];
+    if (!winner) continue;
+    const winnerScreens = new Set(winner.facts.map((fact) => fact.screenId)).size;
+    const runnerUp = ranked[1];
+    const runnerScreens = runnerUp ? new Set(runnerUp.facts.map((fact) => fact.screenId)).size : -1;
+    if (runnerScreens === winnerScreens || winnerScreens < state.threshold) {
+      closedSlots.set(slotKey, null);
+      continue;
+    }
+    if (recipeAlreadyHasMaster(winner.recipe, winner.masterId, winner.masterName, winner.slotRole)) {
+      closedSlots.set(slotKey, null);
+      continue;
+    }
+    const fingerprint = `${winner.recipe.id}:${winner.slotRole}:${winner.masterId}`;
+    closedSlots.set(slotKey, fingerprint);
+    const existingSlot = winner.recipe.slots.find((slot) => slot.role.toLowerCase() === winner.slotRole.toLowerCase());
     const action: "add-slot" | "rebind" = existingSlot ? "rebind" : "add-slot";
     const summary =
       action === "rebind"
-        ? `${row.recipe.title}: set ${row.slotRole} to ${row.masterName} (strong on ${screens.size} screens)`
-        : `${row.recipe.title} screens use ${row.masterName} in ${row.slotRole}; recipe has no matching slot`;
+        ? `${winner.recipe.title}: set ${winner.slotRole} to ${winner.masterName} (strong on ${winnerScreens} screens)`
+        : `${winner.recipe.title} screens use ${winner.masterName} in ${winner.slotRole}; recipe has no matching slot`;
     drafts.push({
       type: "recipe-update",
-      fingerprint: `${row.recipe.id}:${row.slotRole}:${row.masterId}`,
+      fingerprint,
       scope: {
-        recipeId: row.recipe.id,
-        slot: row.slotRole,
-        screenType: row.recipe.title,
-        masterId: row.masterId,
+        recipeId: winner.recipe.id,
+        slot: winner.slotRole,
+        screenType: winner.recipe.title,
+        masterId: winner.masterId,
       },
       summary,
-      evidence: evidenceFromFacts(row.facts),
+      evidence: evidenceFromFacts(winner.facts),
       confidence: "strong",
       suggestedRecipe: {
-        recipeId: row.recipe.id,
-        slotRole: row.slotRole,
+        recipeId: winner.recipe.id,
+        slotRole: winner.slotRole,
         action,
-        masterId: row.masterId,
-        masterName: row.masterName,
-        hints: existingSlot?.hints ?? [row.slotRole, ...tokensOf(row.masterName).slice(0, 3)],
+        masterId: winner.masterId,
+        masterName: winner.masterName,
+        hints: existingSlot?.hints ?? [winner.slotRole, ...tokensOf(winner.masterName).slice(0, 3)],
         required: existingSlot?.required ?? false,
       },
     });
   }
-  return drafts;
+  return { drafts, closedSlots };
+}
+
+/** Masters of instances directly on the frame. Descendants inside an instance are not included. */
+export function topLevelMasterIds(index: GraphIndex, frameId: string): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  const walk = (parentId: string) => {
+    for (const child of index.getChildren(parentId)) {
+      if (child.type === "COMPONENT_INSTANCE") {
+        const main = index.getMainComponent(child.id);
+        if (main && !seen.has(main.id)) {
+          seen.add(main.id);
+          ids.push(main.id);
+        }
+        continue;
+      }
+      walk(child.id);
+    }
+  };
+  walk(frameId);
+  return ids;
 }
 
 function instanceNodesUnder(index: GraphIndex, rootId: string): GraphNode[] {
@@ -588,20 +649,42 @@ function detectWrongCousins(state: SockState, workspace?: WorkspaceManifest): So
     const overFile = differentFiles
       ? workspace?.files.find((file) => file.key.toLowerCase() === pair.fromFileKey!.toLowerCase())
       : undefined;
+    const scope = scopeFromUsageFacts(
+      pair.rows.map((row) => ({
+        masterId: pair.toId,
+        name: pair.toName,
+        screenId: row.screenId,
+        screenName: row.screenName,
+        promoted: true,
+        countsTowardThreshold: true,
+        verifiedAt: row.verifiedAt,
+      })),
+    );
+    const scopeBits = [scope.screenType, scope.slot].filter((part): part is string => Boolean(part));
+    const writesRule = Boolean(scopeBits.length && preferFile && overFile);
+    const scopeLabel = scopeBits.join("/");
     drafts.push({
       type: "wrong-cousin",
       fingerprint: `${pair.fromId}:${pair.toId}`,
-      scope: { masterId: pair.toId },
-      summary: differentFiles
-        ? `Prefer ${pair.toName} over cousin ${pair.fromName} (corrected on ${screens.size} screens)`
+      scope: {
+        masterId: pair.toId,
+        ...(scope.screenType ? { screenType: scope.screenType } : {}),
+        ...(scope.slot ? { slot: scope.slot } : {}),
+      },
+      summary: writesRule
+        ? `Prefer ${pair.toName} over ${pair.fromName} for ${scopeLabel} (corrected on ${screens.size} screens)`
         : `Naming fix: agents keep placing ${pair.fromName} where ${pair.toName} is expected (${screens.size} screens)`,
       evidence,
       confidence: "strong",
-      ...(preferFile && overFile
+      ...(writesRule
         ? {
             suggestedRule: {
-              prefer: preferFile.label || preferFile.key,
-              over: overFile.label || overFile.key,
+              prefer: preferFile!.label || preferFile!.key,
+              over: overFile!.label || overFile!.key,
+              masterId: pair.toId,
+              overMasterId: pair.fromId,
+              ...(scope.screenType ? { screenType: scope.screenType } : {}),
+              ...(scope.slot ? { slot: scope.slot } : {}),
             },
           }
         : {}),
@@ -651,7 +734,8 @@ export function recordCousinCorrections(
       verifiedAt,
     });
   }
-  return { ...state, corrections: next };
+  const corrections = next.length > SOCI_CORRECTION_CAP ? next.slice(-SOCI_CORRECTION_CAP) : next;
+  return { ...state, corrections };
 }
 
 export interface AdvanceSociOptions {
@@ -668,8 +752,9 @@ export function advanceSoci(state: SockState, options: AdvanceSociOptions = {}):
   const alreadyEncoded = options.alreadyEncoded ?? (() => false);
   const strong = patternsOf(state).filter((row) => row.confidence === "strong" && row.promoted);
   let next = proposeStrongPatterns(state, strong, alreadyEncoded);
+  const recipeScan = detectRecipeUpdates(next, options.recipes ?? []);
   const drafts: SociDraft[] = [
-    ...detectRecipeUpdates(next, options.recipes ?? []),
+    ...recipeScan.drafts,
     ...detectVariantCandidates(next),
     ...detectDeprecations(next, options.index),
     ...detectWrongCousins(next, options.workspace),
@@ -679,7 +764,19 @@ export function advanceSoci(state: SockState, options: AdvanceSociOptions = {}):
   }
   next = {
     ...next,
-    proposals: next.proposals.map((row) => normalizeProposal(row)),
+    proposals: next.proposals
+      .filter((row) => {
+        if (row.status !== "pending" || proposalTypeOf(row) !== "recipe-update") return true;
+        const recipeId = row.scope?.recipeId ?? row.suggestedRecipe?.recipeId;
+        const slot = row.scope?.slot ?? row.suggestedRecipe?.slotRole;
+        if (!recipeId || !slot) return true;
+        const key = `${recipeId}::${slot.toLowerCase()}`;
+        if (!recipeScan.closedSlots.has(key)) return true;
+        const winner = recipeScan.closedSlots.get(key);
+        if (!winner) return false;
+        return row.id === proposalIdFor("recipe-update", winner);
+      })
+      .map((row) => normalizeProposal(row)),
   };
   return capSociProposals(next, options.cap ?? next.proposalCap ?? DEFAULT_SOCI_CAP);
 }
@@ -742,6 +839,31 @@ export interface SociDecision {
   writesRecipes: boolean;
 }
 
+function refusePending(detail: string): never {
+  throw new BindRuleError(`${detail} Left pending.`);
+}
+
+function assertCurrentMaster(
+  index: GraphIndex | undefined,
+  sock: SockState,
+  id: string,
+  label: string,
+): void {
+  if (!index) {
+    refusePending(`Cannot approve: no graph loaded, so ${label} "${id}" cannot be checked.`);
+  }
+  const node = index.getNode(id);
+  if (!node) {
+    refusePending(`Cannot approve: ${label} "${id}" is not in the graph.`);
+  }
+  if (node.status === "deprecated") {
+    refusePending(`Cannot approve: ${label} "${node.name}" (${id}) is deprecated.`);
+  }
+  if (isRemovedByAbsence(sock, node) || node.metadata?.["removedByAbsence"] === true) {
+    refusePending(`Cannot approve: ${label} "${node.name}" (${id}) was removed.`);
+  }
+}
+
 function markProposal(
   sock: SockState,
   proposalId: string,
@@ -797,6 +919,9 @@ export function applySociDecision(
     }
     case "wrong-cousin": {
       if (action === "approve" && proposal.suggestedRule?.prefer && proposal.suggestedRule.over) {
+        const rule = proposal.suggestedRule;
+        if (rule.masterId) assertCurrentMaster(options.index, sock, rule.masterId, "preferred master");
+        if (rule.overMasterId) assertCurrentMaster(options.index, sock, rule.overMasterId, "cousin");
         const decided = applyProposalDecision(sock, rules, proposalId, action, who, when, {
           index: options.index,
           workspace: options.workspace,
@@ -827,6 +952,7 @@ export function applySociDecision(
       if (!change) {
         throw new BindRuleError(`Proposal "${proposalId}" has no recipe change. Write recipes.json by hand.`);
       }
+      assertCurrentMaster(options.index, sock, change.masterId, "recipe master");
       const recipes = options.recipes ?? [];
       const current = recipes.find((recipe) => recipe.id === change.recipeId);
       if (!current) {
@@ -840,7 +966,16 @@ export function applySociDecision(
       return {
         sock: nextSock,
         rules,
-        audit: { who, when, proposalId, action, before: rules.rules, after: rules.rules },
+        audit: {
+          who,
+          when,
+          proposalId,
+          action,
+          before: rules.rules,
+          after: rules.rules,
+          recipeBefore: current,
+          recipeAfter: updated,
+        },
         recipeOverlay: overlay,
         writesRules: false,
         writesRecipes: true,
@@ -848,6 +983,12 @@ export function applySociDecision(
     }
     case "variant-candidate":
     case "deprecation-candidate": {
+      if (action === "approve" && type === "variant-candidate" && proposal.suggestedVariant?.masterId) {
+        assertCurrentMaster(options.index, sock, proposal.suggestedVariant.masterId, "variant master");
+      }
+      if (action === "approve" && type === "deprecation-candidate" && proposal.suggestedDeprecation?.cousinId) {
+        assertCurrentMaster(options.index, sock, proposal.suggestedDeprecation.cousinId, "cousin");
+      }
       const fallback =
         type === "variant-candidate"
           ? proposal.suggestedVariant?.note ?? "Recorded for the design team. Figma masters were not edited."

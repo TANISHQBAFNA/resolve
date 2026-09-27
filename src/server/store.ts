@@ -20,6 +20,7 @@ import {
   serializeRecipeFile,
   stampFileKey,
   starterRecipes,
+  SOCI_CORRECTION_CAP,
   upsertWorkspaceFile,
   type BindRulesFile,
   type AuditLine,
@@ -80,12 +81,27 @@ export interface StoreInfo {
  * global store at `~/.resolve/<workspace>` so CLI and MCP share a folder
  * across projects without a clone-local `.graphify`.
  */
+function workspaceFolderName(raw: string | undefined): string {
+  const value = raw?.trim() || "default";
+  if (value === "." || value === ".." || value.includes("/") || value.includes("\\")) {
+    throw new Error(
+      `RESOLVE_WORKSPACE "${value}" is not allowed. The store must stay under ~/.resolve/.`,
+    );
+  }
+  const cleaned = value.replace(/[^A-Za-z0-9._-]/g, "_");
+  if (!cleaned || cleaned === "." || cleaned === "..") {
+    throw new Error(
+      `RESOLVE_WORKSPACE "${value}" is not allowed. The store must stay under ~/.resolve/.`,
+    );
+  }
+  return cleaned;
+}
+
 export function defaultGlobalStore(
   env: { HOME?: string; USERPROFILE?: string; RESOLVE_WORKSPACE?: string } = {},
 ): string {
   const home = env.HOME?.trim() || env.USERPROFILE?.trim() || homedir();
-  const workspace = (env.RESOLVE_WORKSPACE?.trim() || "default").replace(/[^A-Za-z0-9._-]/g, "_");
-  return join(home, ".resolve", workspace || "default");
+  return join(home, ".resolve", workspaceFolderName(env.RESOLVE_WORKSPACE));
 }
 
 export function discoverStoreRoot(
@@ -224,20 +240,106 @@ export function learnCheckpointPath(fileKey: string): string {
   return join(storeRoot(), "learn", `${safeFileKey(fileKey)}.json`);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function sanitizeProposals(raw: unknown, warnings: string[]): SockState["proposals"] {
+  if (raw == null) return [];
+  if (!Array.isArray(raw)) {
+    warnings.push("sock.json proposals was not an array; ignored");
+    return [];
+  }
+  const kept: SockState["proposals"] = [];
+  let dropped = 0;
+  for (const entry of raw) {
+    if (!isRecord(entry) || typeof entry["id"] !== "string" || typeof entry["status"] !== "string") {
+      dropped += 1;
+      continue;
+    }
+    kept.push(entry as unknown as SockState["proposals"][number]);
+  }
+  if (dropped) {
+    warnings.push(
+      `sock.json dropped ${dropped} proposal ${dropped === 1 ? "entry" : "entries"} without a string id and status`,
+    );
+  }
+  return kept;
+}
+
+function sanitizeCorrections(raw: unknown, warnings: string[]): SockState["corrections"] {
+  if (raw == null) return [];
+  if (!Array.isArray(raw)) {
+    warnings.push("sock.json corrections was not an array; ignored");
+    return [];
+  }
+  const kept: NonNullable<SockState["corrections"]> = [];
+  let dropped = 0;
+  for (const entry of raw) {
+    if (
+      !isRecord(entry) ||
+      typeof entry["fromId"] !== "string" ||
+      typeof entry["toId"] !== "string" ||
+      typeof entry["screenId"] !== "string"
+    ) {
+      dropped += 1;
+      continue;
+    }
+    kept.push(entry as unknown as NonNullable<SockState["corrections"]>[number]);
+  }
+  if (dropped) {
+    warnings.push(
+      `sock.json dropped ${dropped} correction ${dropped === 1 ? "entry" : "entries"} without string fromId, toId, and screenId`,
+    );
+  }
+  if (kept.length > SOCI_CORRECTION_CAP) {
+    warnings.push(`sock.json corrections trimmed to the latest ${SOCI_CORRECTION_CAP}`);
+    return kept.slice(-SOCI_CORRECTION_CAP);
+  }
+  return kept;
+}
+
+function clampThreshold(raw: unknown, warnings: string[]): number {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return 3;
+  const floored = Math.floor(raw);
+  if (floored < 3) {
+    warnings.push(`sock.json threshold ${raw} clamped to 3`);
+    return 3;
+  }
+  return floored;
+}
+
+function clampProposalCap(raw: unknown, warnings: string[]): number | undefined {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return undefined;
+  const floored = Math.floor(raw);
+  if (floored > 12) {
+    warnings.push(`sock.json proposalCap ${raw} clamped to 12`);
+    return 12;
+  }
+  if (floored < 1) {
+    warnings.push(`sock.json proposalCap ${raw} clamped to 1`);
+    return 1;
+  }
+  return floored;
+}
+
 export function loadSock(): SockState | undefined {
   const path = sockPath();
   if (!existsSync(path)) return undefined;
   try {
-    const raw = JSON.parse(readFileSync(path, "utf8")) as SockState;
-    if (raw?.version !== 1 || !Array.isArray(raw.facts)) return undefined;
+    const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    if (raw?.["version"] !== 1 || !Array.isArray(raw["facts"])) return undefined;
+    const warnings: string[] = [];
+    const proposalCap = clampProposalCap(raw["proposalCap"], warnings);
     return {
       version: 1,
-      threshold: typeof raw.threshold === "number" && raw.threshold > 0 ? raw.threshold : 3,
-      facts: raw.facts,
-      freshness: raw.freshness ?? {},
-      proposals: raw.proposals ?? [],
-      corrections: raw.corrections ?? [],
-      ...(typeof raw.proposalCap === "number" && raw.proposalCap > 0 ? { proposalCap: raw.proposalCap } : {}),
+      threshold: clampThreshold(raw["threshold"], warnings),
+      facts: raw["facts"] as SockState["facts"],
+      freshness: (raw["freshness"] as SockState["freshness"]) ?? {},
+      proposals: sanitizeProposals(raw["proposals"], warnings),
+      corrections: sanitizeCorrections(raw["corrections"], warnings),
+      ...(proposalCap !== undefined ? { proposalCap } : {}),
+      ...(warnings.length ? { warnings } : {}),
     };
   } catch {
     return undefined;
@@ -246,7 +348,9 @@ export function loadSock(): SockState | undefined {
 
 export function saveSock(state: SockState): void {
   mkdirSync(storeRoot(), { recursive: true });
-  writeFileAtomic(sockPath(), `${JSON.stringify(state, null, 2)}\n`);
+  const persist: SockState = { ...state };
+  delete persist.warnings;
+  writeFileAtomic(sockPath(), `${JSON.stringify(persist, null, 2)}\n`);
 }
 
 export function readSock(): SockState {

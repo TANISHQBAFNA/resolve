@@ -83,7 +83,7 @@ npm run resolve -- approve soci:recipe-update:checkout-summary-header-node-stepp
 **Reject** (keeps the files as-is, still writes an audit line):
 
 ```bash
-npm run resolve -- reject soci:2026-09-27T00:00:00.000Z:1 --who "Tanishk"
+npm run resolve -- reject soci:require-rule:pay-cta-payment --who "Tanishk"
 ```
 
 `--who` is required on the CLI. Resolve will not fall back to your user name.

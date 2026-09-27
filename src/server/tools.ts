@@ -25,6 +25,7 @@ import {
   recordCousinCorrections,
   recordVerifiedUsage,
   screenInventory,
+  topLevelMasterIds,
   searchNodes,
   usageCardForComponent,
   usageSummaryFor,
@@ -855,9 +856,16 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
             : `obs:${(components ?? []).slice().sort().join(",") || "list"}`;
           const harvested =
             realFrame && result.frame?.id ? harvestOverrideKeysForFrame(index, result.frame.id) : new Map<string, string[]>();
+          const slotArg = typeof args["slot"] === "string" ? args["slot"] : undefined;
+          const topLevel = result.frame?.id ? new Set(topLevelMasterIds(index, result.frame.id)) : undefined;
           const mastersWithOverrides = masters.map((master) => {
             const keys = harvested.get(master.id);
-            return keys?.length ? { ...master, overrideKeys: keys } : master;
+            const withKeys = keys?.length ? { ...master, overrideKeys: keys } : master;
+            if (!slotArg) return withKeys;
+            if (topLevel) {
+              return topLevel.has(master.id) ? { ...withKeys, slot: slotArg } : withKeys;
+            }
+            return { ...withKeys, slot: slotArg };
           });
           let next = recordVerifiedUsage(readSock(), {
             screenId,
@@ -866,7 +874,6 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
             journey: typeof args["journey"] === "string" ? args["journey"] : undefined,
             product: typeof args["product"] === "string" ? args["product"] : undefined,
             pack: typeof args["pack"] === "string" ? args["pack"] : undefined,
-            slot: typeof args["slot"] === "string" ? args["slot"] : undefined,
             frameId: realFrame ? frameId : undefined,
             countsTowardThreshold: realFrame,
           });
