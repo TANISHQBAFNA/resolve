@@ -3,6 +3,7 @@ import { COMPONENT_DEFINITION_TYPES } from "@/core/model";
 import { parseBindRulesFile, ruleLabel, whyLine } from "@/core/query/bindRules";
 import { useGraphStore } from "@/state/graphStore";
 import exampleRules from "@/data/bind-rules.example.json";
+import { ScoreboardSection } from "@/ui/governance/ScoreboardSection";
 
 const TYPE_LABELS: Record<string, string> = {
   "require-rule": "Require rules",
@@ -184,6 +185,10 @@ export function RulesPage() {
             </div>
           ))
         )}
+      </section>
+
+      <section className="rules-page__block">
+        <ScoreboardSection />
       </section>
 
       <section className="rules-page__block">

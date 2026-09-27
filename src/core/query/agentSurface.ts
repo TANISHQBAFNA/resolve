@@ -1286,6 +1286,41 @@ export function recommendMasters(
     payload = payloadOf();
   }
 
+  // Order stays. Shorten wording, then drop extra hits, then optional fields, until the cap holds.
+  if (JSON.stringify(payload).length > budgetChars) {
+    truncated = true;
+    candidates = candidates.map((candidate) => ({
+      ...candidate,
+      why: candidate.why.length > 72 ? `${candidate.why.slice(0, 69)}…` : candidate.why,
+      hint: "Place fileKey + nodeId.",
+    }));
+    payload = payloadOf();
+  }
+  while (JSON.stringify(payload).length > budgetChars && candidates.length > 1) {
+    truncated = true;
+    candidates = candidates.slice(0, candidates.length - 1);
+    payload = payloadOf();
+  }
+  if (JSON.stringify(payload).length > budgetChars) {
+    truncated = true;
+    candidates = candidates.map((candidate) => {
+      const next: RecommendCandidate = { ...candidate, whereUsed: [] };
+      delete next.slots;
+      delete next.set;
+      return next;
+    });
+    payload = payloadOf();
+  }
+  if (JSON.stringify(payload).length > budgetChars) {
+    truncated = true;
+    candidates = candidates.map((candidate) => {
+      const next: RecommendCandidate = { ...candidate };
+      delete next.variantProperties;
+      return next;
+    });
+    payload = payloadOf();
+  }
+
   return withCost(payload);
 }
 
@@ -1431,7 +1466,9 @@ export function verifyFrame(
     const node = resolveNodeExact(index, given);
     if (!node) {
       resolved.push({ given });
-      const near = searchNodes(index, given, { limit: 3 })[0]?.node;
+      const near = searchNodes(index, given, { limit: 8 })
+        .map((hit) => asMaster(index, hit.node))
+        .find((node): node is GraphNode => Boolean(node));
       if (near) {
         const fileKey = fileOf(near);
         pushUnique(

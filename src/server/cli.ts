@@ -33,7 +33,16 @@ import {
   type WorkspaceFileRole,
 } from "@/core/query";
 import {
+  deltaAgainst,
+  formatScoreTable,
+  hashGoldenSet,
+  loadGoldenCases,
+  scoreExitCode,
+  scoreGraph,
+} from "@/core/query/scoreboard";
+import {
   commitProposalDecision,
+  clearCache,
   deleteGraph,
   graphPath,
   listGraphs,
@@ -54,6 +63,12 @@ import {
   workspacePath,
 } from "./store";
 import { learnLibrary } from "./learn";
+import {
+  previousScore,
+  scoreboardHistoryDir,
+  scoreboardWorkspaceName,
+  writeScoreHistory,
+} from "./scoreboardView";
 
 /**
  * Resolve CLI — ingest each linked file into the workspace
@@ -122,6 +137,12 @@ function usage(): void {
       "  resolve list                 Show the stored graph",
       "  resolve reindex              Confirm graph.json loads",
       "  resolve rm                   Delete graph.json",
+      "  resolve score [--golden <path>] [--workspace <name>] [--json]",
+      "      Accuracy of recommend / resolve / recipe / verify against a golden set.",
+      "      Expected masters are names, resolved to ids in the current graph. Never invents an id.",
+      "      Prints a short table. Exits non-zero when invent rate is above 0 or a card exceeds its budget.",
+      "      Saves the run to ~/.resolve/<workspace>/scoreboard/<timestamp>.json and shows the change since the previous run.",
+      "      Default golden path: scoreboard/golden. Default workspace name: default (or RESOLVE_WORKSPACE).",
       "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
       "",
       "  npm run resolve -- <command>     primary",
@@ -608,6 +629,38 @@ export async function runCli(argv: string[]): Promise<void> {
     case "where":
       printJson(storeInfo());
       return;
+
+    case "score": {
+      const namedWorkspace = flag(args, "workspace");
+      if (namedWorkspace) process.env["RESOLVE_WORKSPACE"] = scoreboardWorkspaceName({ RESOLVE_WORKSPACE: namedWorkspace });
+      clearCache();
+      const goldenPath = flag(args, "golden") ?? resolve("scoreboard/golden");
+      if (!existsSync(goldenPath)) {
+        throw new Error(`No golden set at ${goldenPath}. Pass --golden <path>.`);
+      }
+      const loaded = resolveGraph(flag(args, "id"));
+      if (!loaded) throw new Error(missingGraphMessage());
+      const cases = loadGoldenCases(goldenPath);
+      const workspaceName = scoreboardWorkspaceName();
+      const historyDir = scoreboardHistoryDir(workspaceName);
+      const goldenHash = hashGoldenSet(goldenPath);
+      const previous = previousScore(historyDir, { goldenHash, workspace: workspaceName });
+      const report = scoreGraph(loaded.index, cases, {
+        recipes: loadRecipes(),
+        sock: readSock(),
+        bindRules: readBindRules(),
+        workspace: readWorkspace(),
+        workspaceName,
+        golden: goldenPath,
+        storePath: storeInfo().path,
+      });
+      const delta = deltaAgainst(report, previous);
+      if (args.includes("--json")) printJson({ ...report, delta });
+      else process.stdout.write(`${formatScoreTable(report, delta)}\n`);
+      writeScoreHistory(historyDir, report);
+      if (scoreExitCode(report) !== 0) process.exitCode = 1;
+      return;
+    }
 
     default:
       usage();

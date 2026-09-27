@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "cousin-pay-not-save", "intent": "pay cta", "expected": "Pay CTA", "mustNot": ["Save CTA"] },
+    { "id": "cousin-save-not-pay", "intent": "save cta", "expected": "Save CTA", "mustNot": ["Pay CTA"] },
+    { "id": "cousin-tag-not-chip", "intent": "tag", "expected": "Tag", "mustNot": ["Chip"] },
+    { "id": "cousin-chip-not-tag", "intent": "chip", "expected": "Chip", "mustNot": ["Tag"] },
+    { "id": "cousin-input-not-text", "intent": "input", "expected": "Input", "mustNot": ["Text Field"] },
+    { "id": "cousin-text-not-input", "intent": "text field", "expected": "Text Field", "mustNot": ["Input"] },
+    { "id": "cousin-price-not-old", "intent": "price", "expected": "Price", "mustNot": ["Old Price"] },
+    { "id": "cousin-alert-not-legacy", "intent": "alert", "expected": "Alert", "mustNot": ["Legacy Alert"] },
+    { "id": "cousin-banner-not-legacy", "intent": "banner", "expected": "Banner", "mustNot": ["Legacy Banner"] },
+    { "id": "cousin-card-not-summary", "intent": "main card", "expected": "Main Card", "mustNot": ["Summary Card"] }
+  ]
+}

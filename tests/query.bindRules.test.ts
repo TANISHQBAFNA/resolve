@@ -303,6 +303,6 @@ describe("why line (SOCK facts only)", () => {
     );
     const result = recommendMasters(index, "payment with primary button", { bindRules });
     expect(result.candidates[0]?.why).toBeTypeOf("string");
-    expect(result.cost.chars).toBeLessThan(650);
+    expect(result.cost.chars).toBeLessThanOrEqual(600);
   });
 });

@@ -3,7 +3,8 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "http";
-import { createServer as createViteServer } from "vite";
+import { connect } from "node:net";
+import { createServer as createViteServer, preview } from "vite";
 import { fileURLToPath } from "node:url";
 import { emptySock, proposeRuleChange } from "@/core/query/sock";
 import { parseBindRulesFile } from "@/core/query/bindRules";
@@ -118,6 +119,42 @@ describe("/api/governance", () => {
 
   it("preview governance loader does not open an HMR socket", () => {
     const source = readFileSync(new URL("../vite.config.ts", import.meta.url), "utf8");
-    expect(source).toMatch(/middlewareMode:\s*true,\s*hmr:\s*false/);
+    expect(source).toMatch(/middlewareMode:\s*true,\s*hmr:\s*false,\s*ws:\s*false/);
   });
+
+  it("vite preview serves governance and scoreboard without listening on 24678", async () => {
+    const open = (port: number) =>
+      new Promise<boolean>((resolve) => {
+        const socket = connect({ host: "127.0.0.1", port });
+        const finish = (value: boolean) => {
+          socket.removeAllListeners();
+          socket.destroy();
+          resolve(value);
+        };
+        socket.once("connect", () => finish(true));
+        socket.once("error", () => finish(false));
+      });
+    expect(await open(24678)).toBe(false);
+    const root = fileURLToPath(new URL("..", import.meta.url));
+    const server = await preview({
+      configFile: join(root, "vite.config.ts"),
+      root,
+      preview: { host: "127.0.0.1", port: 0, strictPort: false },
+    });
+    try {
+      const base = server.resolvedUrls?.local[0];
+      expect(base).toBeTruthy();
+      const governance = await fetch(new URL("/api/governance", base!));
+      expect(governance.ok).toBe(true);
+      const scoreboard = await fetch(new URL("/api/scoreboard", base!));
+      expect(scoreboard.ok).toBe(true);
+      const escaped = await fetch(new URL("/api/scoreboard?workspace=..", base!));
+      expect(escaped.status).toBe(400);
+      const body = (await scoreboard.json()) as { hint: string; latest: unknown };
+      expect(body.hint).toMatch(/scoreboard|No scoreboard/i);
+      expect(await open(24678)).toBe(false);
+    } finally {
+      await server.close();
+    }
+  }, 30000);
 });

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — accuracy scoreboard
+
+A repeatable check that agent cards pick the right master. Offline on the fixture library, same command on a learned library later.
+
+- **Golden set** — `scoreboard/golden/*.json`. Intent, optional screen / journey / slot, expected master by name (resolved to an id in the store), acceptable alternates, must-not cousins, or an empty card when there is no answer.
+- **`resolve score`** — invent rate (must be 0), wrong-cousin rate, top-1, top-3 only on cards with three or more candidates (`x/N`, or `n/a` when that count is 0), empty-when-weak (`n/a` when a tool has no empty cases), leaks only when a retired or private master is offered as a pick, card size against the budgets, latency. Run-level top-1, top-3, cousin, empty-ok, and leak leave verify out. Recipe is scored on cases marked `tools: ["recipe"]`; a missing card is a miss. Verify’s hit is did-you-mean, only for name-like asks, and the suggestion is a component master. Workspace names reject `.`, `..`, and slashes (`/api/scoreboard?workspace=..` is 400). Saves `~/.resolve/<workspace>/scoreboard/<timestamp>.json`. The delta and the trend compare only a previous run of the same golden set and workspace. Top-3 stays off the delta line until at least 10 cards qualify. Exits non-zero on invent or a budget breach.
+- **Rules and Overview** — read-only latest run and trend. The page shows the newest run across workspaces, or the workspace you pick.
+- **CI** — typecheck, tests, build, and `resolve score` on the fixture set.
+- **Preview** — the embedded governance loader sets `ws: false`, so preview does not open a websocket on port 24678.
+- **Screen type** — generic words (screen, page, frame, view, untitled, copy, v1/v2, and the like) are not a screen type. If only those words remain, scoping is skipped.
+
 ## Unreleased — SOCI v1 (usage → human-approved improvements)
 
 SOCI turns verified-frame usage into proposals. It never auto-applies.

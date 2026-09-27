@@ -480,12 +480,43 @@ function uniqueTrimmed(values: Array<string | undefined>): string[] {
   return out;
 }
 
-function firstToken(name: string): string | undefined {
-  const token = name
+/** Words that never identify a screen type on their own. */
+const GENERIC_SCREEN_WORDS = new Set([
+  "screen",
+  "page",
+  "frame",
+  "view",
+  "untitled",
+  "copy",
+  "artboard",
+  "section",
+  "canvas",
+  "layer",
+  "default",
+  "draft",
+  "wip",
+  "temp",
+  "tmp",
+  "final",
+  "component",
+  "group",
+  "variant",
+  "master",
+  "instance",
+  "node",
+]);
+
+function isGenericScreenToken(token: string): boolean {
+  if (GENERIC_SCREEN_WORDS.has(token)) return true;
+  return /^v\d+$/.test(token);
+}
+
+/** Specific words left after generic screen words (and v1/v2) are removed. */
+function meaningfulScreenTokens(name: string): string[] {
+  return name
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .find((part) => part.length > 2);
-  return token;
+    .filter((part) => part.length > 2 && !isGenericScreenToken(part));
 }
 
 /** Scope a require proposal from verified frames — never a global require. */
@@ -504,11 +535,13 @@ export function scopeFromUsageFacts(facts: UsageFact[]): {
   const packs = uniqueTrimmed(counted.map((fact) => fact.pack));
   let screenType: string | undefined;
   if (screenNames.length === 1) {
-    screenType = screenNames[0];
+    const only = screenNames[0]!;
+    if (meaningfulScreenTokens(only).length) screenType = only;
   } else if (screenNames.length > 1) {
-    const tokens = screenNames.map(firstToken).filter((token): token is string => Boolean(token));
-    if (tokens.length === screenNames.length && tokens.every((token) => token === tokens[0])) {
-      screenType = tokens[0];
+    const tokenLists = screenNames.map(meaningfulScreenTokens);
+    if (tokenLists.every((list) => list.length > 0)) {
+      const firsts = tokenLists.map((list) => list[0]!);
+      if (firsts.every((token) => token === firsts[0])) screenType = firsts[0];
     }
   }
   return {

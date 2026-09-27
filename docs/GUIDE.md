@@ -393,5 +393,6 @@ Be honest with yourself and with agents:
 - **You are a designer using Resolve** — you are in the right file. Keep this tab.
 - **You want to write a bind rule or approve a suggestion** — [Bind rules and proposals](BIND-RULES.md) and [SOCI](SOCI.md).
 - **You want to add or replace a screen pack** — [Screen recipes](RECIPES.md) (JSON details under a short plain-English intro).
+- **You want to see if Resolve is picking the right masters** — [Scoreboard](SCOREBOARD.md). It scores a sample library offline, and the same command scores a library you learned from Figma.
 - **You work mainly in Cursor** — [Cursor + Resolve](CURSOR-RESOLVE.md) is the same happy path with editor wiring.
 - **You are building Resolve itself** — [Architecture](ARCHITECTURE.md) and [Integrations](INTEGRATIONS.md).

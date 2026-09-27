@@ -21,6 +21,7 @@ import { WorkspaceState } from "@/ui/overview/WorkspaceState";
 import { HealthChip, Stat } from "@/ui/overview/Stat";
 import { libraryHealth } from "@/ui/overview/health";
 import { RulesPage } from "@/ui/governance/RulesPage";
+import { ScoreboardSection } from "@/ui/governance/ScoreboardSection";
 import type { ViewSurface } from "@/state/graphStore";
 
 const RECIPE_COUNT = Array.isArray(packagedRecipes.recipes) ? packagedRecipes.recipes.length : 0;
@@ -188,6 +189,7 @@ function renderWorkspace(
             ) : (
               <>
                 <LibraryOverview />
+                <ScoreboardSection compact />
                 <div className="app__canvas">
                   <AtlasCanvas />
                 </div>

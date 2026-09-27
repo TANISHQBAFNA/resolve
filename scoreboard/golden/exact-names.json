@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "exact-pay-cta", "intent": "Pay CTA", "expected": "Pay CTA" },
+    { "id": "exact-save-cta", "intent": "Save CTA", "expected": "Save CTA" },
+    { "id": "exact-button", "intent": "Button", "expected": "Button" },
+    { "id": "exact-tag", "intent": "Tag", "expected": "Tag", "mustNot": ["Chip"] },
+    { "id": "exact-chip", "intent": "Chip", "expected": "Chip", "mustNot": ["Tag"] },
+    { "id": "exact-input", "intent": "Input", "expected": "Input", "mustNot": ["Text Field"] },
+    { "id": "exact-search-field", "intent": "Search Field", "expected": "Search Field" },
+    { "id": "exact-main-card", "intent": "Main Card", "expected": "Main Card", "mustNot": ["Summary Card"] },
+    { "id": "exact-banner", "intent": "Banner", "expected": "Banner", "mustNot": ["Legacy Banner"] },
+    { "id": "exact-avatar", "intent": "Avatar", "expected": "Avatar" },
+    { "id": "exact-payment-row", "intent": "Payment Row", "expected": "Payment Row", "mustNot": ["List Row"] },
+    { "id": "exact-header-bar", "intent": "Header Bar", "expected": "Header Bar" },
+    { "id": "exact-empty-message", "intent": "Empty Message", "expected": "Empty Message" },
+    { "id": "exact-checkbox", "intent": "Checkbox", "expected": "Checkbox" }
+  ]
+}

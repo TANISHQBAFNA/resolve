@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "dep-banner",
+      "intent": "banner",
+      "expected": "Banner",
+      "mustNot": ["Legacy Banner"]
+    },
+    {
+      "id": "dep-legacy-banner-name",
+      "intent": "legacy banner",
+      "expected": "Banner",
+      "mustNot": ["Legacy Banner"],
+      "note": "The retired name should not be handed back as the thing to place."
+    },
+    {
+      "id": "dep-legacy-banner-exact",
+      "intent": "Legacy Banner",
+      "expected": "Banner",
+      "mustNot": ["Legacy Banner"],
+      "tools": {
+        "recommend": { "expected": "Banner", "mustNot": ["Legacy Banner"] },
+        "resolve": { "expect": "master", "expected": "Legacy Banner" }
+      },
+      "note": "Recommend should hand back the live Banner. Resolve of the exact retired name returns that master."
+    },
+    {
+      "id": "dep-old-price",
+      "intent": "old price",
+      "expected": "Price",
+      "mustNot": ["Old Price"]
+    },
+    {
+      "id": "dep-legacy-alert",
+      "intent": "Legacy Alert",
+      "expected": "Alert",
+      "mustNot": ["Legacy Alert"],
+      "tools": {
+        "recommend": { "expected": "Alert", "mustNot": ["Legacy Alert"] },
+        "resolve": { "expect": "master", "expected": "Legacy Alert" }
+      }
+    },
+    {
+      "id": "dep-notice",
+      "intent": "notice alert",
+      "expected": "Alert",
+      "mustNot": ["Legacy Alert"]
+    }
+  ]
+}

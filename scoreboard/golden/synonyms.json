@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "syn-primary-button", "intent": "primary button", "expected": "Button Primary" },
+    { "id": "syn-secondary-button", "intent": "secondary button", "expected": "Button Secondary" },
+    { "id": "syn-danger-button", "intent": "danger button", "expected": "Button Danger" },
+    { "id": "syn-search-box", "intent": "search box", "expected": "Search Field" },
+    {
+      "id": "syn-pay-button",
+      "intent": "pay button",
+      "screenType": "checkout",
+      "journey": "payment",
+      "expected": "Pay CTA",
+      "mustNot": ["Save CTA"]
+    },
+    {
+      "id": "syn-save-action",
+      "intent": "save action",
+      "screenType": "settings",
+      "journey": "save",
+      "expected": "Save CTA",
+      "mustNot": ["Pay CTA"]
+    },
+    { "id": "syn-user-avatar", "intent": "user avatar", "expected": "Avatar" },
+    { "id": "syn-page-header", "intent": "page header", "expected": "Header Bar" },
+    { "id": "syn-blank-message", "intent": "blank state message", "expected": "Empty Message" },
+    { "id": "syn-price-label", "intent": "price label", "expected": "Price", "mustNot": ["Old Price"] },
+    { "id": "syn-close-icon", "intent": "close icon", "expected": "Icon Close" },
+    { "id": "syn-text-field", "intent": "text field", "expected": "Text Field", "mustNot": ["Input"] }
+  ]
+}
