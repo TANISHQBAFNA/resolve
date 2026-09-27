@@ -127,7 +127,7 @@ describe("store", () => {
     const message = missingGraphMessage();
     expect(message).toContain(graphPath());
     expect(message).toContain(storeRoot());
-    expect(message).toMatch(/GRAPHIFY_HOME|ingest/i);
+    expect(message).toMatch(/learn_library|GRAPHIFY_HOME/i);
   });
 
   it("storeInfo reports the path the server is reading", () => {
@@ -149,5 +149,12 @@ describe("store", () => {
 
     expect(discoverStoreRoot(nested, {})).toBe(join(root, ".graphify"));
     expect(discoverStoreRoot(nested, { GRAPHIFY_HOME: dir })).toBe(dir);
+  });
+
+  it("defaults to ~/.resolve/<workspace> when no local .graphify exists", () => {
+    const empty = mkdtempSync(join(tmpdir(), "resolve-empty-cwd-"));
+    expect(discoverStoreRoot(empty, { HOME: "/tmp/fake-home", RESOLVE_WORKSPACE: "acme" })).toBe(
+      join("/tmp/fake-home", ".resolve", "acme"),
+    );
   });
 });

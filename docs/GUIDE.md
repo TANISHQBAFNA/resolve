@@ -33,10 +33,9 @@ If you can paste a Figma link and copy a small JSON file, you can run this.
 ## What you need
 
 - A **Figma library or file** (a shared screen or frame link is enough to start — you do not have to dump the whole file).
-- **Resolve** on your machine, *or* an AI tool (Cursor, Claude, Codex, and similar) with Resolve connected.
-- **Figma connected** in that same AI tool (the usual Figma connection — you do not need a Figma personal access token for everyday use).
+- **Resolve** connected in the same AI tool as Figma. One config line — see [Resolve next to Figma MCP](SETUP-MCP.md). No personal access token for everyday use.
 
-Do the install once:
+Do the install once (only if you want the repo locally):
 
 ```bash
 git clone https://github.com/TANISHQBAFNA/resolve.git
@@ -77,7 +76,11 @@ For clone flags, tokens, and the optional browser map, see [For developers](../R
 
 Use a checkout summary as the running example. Swap the words for your screen.
 
-### 1. Refresh the library (ingest)
+### 1. Refresh the library (learn / ingest)
+
+Everyday path with only Figma MCP + Resolve MCP: ask the agent to `get_metadata` on a library frame, then `learn_library` with that XML, the file key, and `role: library`. Optional: pass `search_design_system` results so cards include the published component key. SOCK lives in `~/.resolve/default` so CLI and MCP share it.
+
+Or the command-line / plugin path:
 
 Paste a **screen or frame** link, not the whole file unless you really want that. First file is the shared design system (or pass `--role library`). Then ingest each product or client file. On a low Figma API tier, `--scope file` is safer (one request). A section-by-section walk honors rate-limit waits and can resume; it also picks up components sitting directly on a page.
 

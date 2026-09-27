@@ -45,6 +45,7 @@ import {
   storeInfo,
   workspacePath,
 } from "./store";
+import { learnLibrary } from "./learn";
 
 /**
  * Resolve CLI — ingest each linked file into the workspace
@@ -73,6 +74,9 @@ function usage(): void {
       "      First file defaults to role library; later files default to product. Re-run to refresh.",
       "      Changing --role on a file already in the workspace is refused unless --force-role.",
       "      Agents call resolve / cousins — do not Read graph.json.",
+      "",
+      "  resolve learn --file-key <key> [--role library|product|client] [--from-metadata <file.xml>] [--name <fileName>]",
+      "      Same as MCP learn_library. Figma get_metadata XML. No REST token. Resumable.",
       "",
       `  resolve recipe [list | "<name or intent>"] [--id] [--intent "<brief>"] ${PACK_BIND_FLAGS}`,
       "      Screen packs. Overlay .graphify/recipes.json still wins.",
@@ -300,6 +304,32 @@ export async function runCli(argv: string[]): Promise<void> {
       throw new Error(
         `No file at ${target}. Pass a JSON path, a Figma URL, or a file key (with FIGMA_ACCESS_TOKEN).`,
       );
+    }
+
+    case "learn": {
+      const target = args.find((arg) => !arg.startsWith("--"));
+      const xmlPath = flag(args, "from-metadata") ?? target;
+      const fileKey = flag(args, "file-key");
+      if (!fileKey) throw new Error("Usage: resolve learn --file-key <key> [--from-metadata <file.xml>] [--role library]");
+      let metadataXml: string | undefined;
+      if (xmlPath) {
+        const resolved = resolve(xmlPath);
+        if (!existsSync(resolved)) throw new Error(`No file at ${xmlPath}.`);
+        metadataXml = readFileSync(resolved, "utf8");
+      }
+      printJson(
+        learnLibrary({
+          fileKey,
+          role: ingestRole(args),
+          fileName: flag(args, "name"),
+          label: flag(args, "label") ?? flag(args, "name"),
+          metadataXml,
+          lastModified: flag(args, "last-modified"),
+          version: flag(args, "version"),
+          resume: args.includes("--resume"),
+        }),
+      );
+      return;
     }
 
     case "recipe":

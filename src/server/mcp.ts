@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { TOOLS, ToolError, callTool, encodeToolResult } from "./tools";
+import { listToolDefinitions, ToolError, callTool, encodeToolResult } from "./tools";
 
 /**
  * MCP server over stdio.
@@ -47,10 +47,13 @@ function handle(request: Request): void {
         capabilities: { tools: { listChanged: false } },
         serverInfo: SERVER_INFO,
         instructions:
-          "Forced path: ingest (re-run if the library changed) → recipe if the screen job matches → recommend unbound slots → place only returned figmaNodeIds → verify_frame. " +
-          "Do not invent components. Do not Read or dump graph.json. Ingest the shared Figma node-id, not the whole file. " +
-          "Skill tools: list_recipes, recipe, recommend, resolve, verify_frame, get_screen_inventory, check_frame. " +
-          "Do not get_design_context on a FRAME or SECTION until recipe/recommend/resolve returns an id.",
+          "Resolve MCP + Figma MCP is enough. No clone, no REST token, no hand-built JSON. " +
+          "Forced path: learn_library (get_metadata XML + fileKey + role=library; pass search_design_system / get_libraries as libraries to stamp published keys) → recipe if the screen job matches → recommend unbound slots → place only returned fileKey + nodeId (and componentKey when published) via Figma use_figma → verify_frame. " +
+          "On verify pass, SOCK records usage automatically. Rules never auto-change (SOCI proposals stay pending). " +
+          "If freshness.stale, learn_library only the changed frames. " +
+          "resolve \"<name>\" is I-know-the-name-give-me-the-id. " +
+          "Do not invent components. Do not Read or dump graph.json. " +
+          "Default tools: learn_library, recipe, recommend, resolve, verify_frame, check_cousins. Set RESOLVE_MCP_ADVANCED=1 for the rest.",
       });
       return;
 
@@ -59,7 +62,7 @@ function handle(request: Request): void {
       return;
 
     case "tools/list":
-      reply(id, { tools: TOOLS });
+      reply(id, { tools: listToolDefinitions() });
       return;
 
     case "tools/call": {
@@ -113,4 +116,4 @@ input.on("line", (line) => {
 
 input.on("close", () => process.exit(0));
 
-process.stderr.write(`[resolve] MCP server ready — ${TOOLS.length} tools\n`);
+process.stderr.write(`[resolve] MCP server ready — ${listToolDefinitions().length} tools\n`);

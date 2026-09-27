@@ -49,7 +49,7 @@ That’s the setup. Do it once.
 
 | Tool | What to do |
 |------|------------|
-| **Cursor** | Open this folder. Resolve skill + MCP (`npm run mcp`). |
+| **Cursor** | One config line next to Figma MCP — [SETUP-MCP.md](docs/SETUP-MCP.md). `npx -y github:TANISHQBAFNA/resolve resolve-mcp`. |
 | **Claude Code** | In this folder: `claude --plugin-dir .` |
 | **Codex / others** | Open this folder. It can read `AGENTS.md` and `skills/resolve`. |
 
@@ -79,6 +79,7 @@ Other ways to bring a file in: Figma connection (default), [Figma plugin](figma-
 
 ## More docs
 
+- **Plug-and-play next to Figma MCP:** [`docs/SETUP-MCP.md`](docs/SETUP-MCP.md)
 - **Designer guide:** [`docs/GUIDE.md`](docs/GUIDE.md)
 - Screen recipes (JSON packs): [`docs/RECIPES.md`](docs/RECIPES.md)
 - Cursor-focused steps: [`docs/CURSOR-RESOLVE.md`](docs/CURSOR-RESOLVE.md)

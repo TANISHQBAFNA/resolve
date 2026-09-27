@@ -4,6 +4,17 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Resolve — Figma rules. Agents resolve. One-node Figma component usage map for Cursor agents.",
+  "bin": {
+    "resolve-mcp": "./bin/resolve-mcp.mjs",
+    "resolve-figma": "./bin/resolve-cli.mjs"
+  },
+  "files": [
+    "bin",
+    "dist-server",
+    "docs",
+    "README.md",
+    "AGENTS.md"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build && vite build --config vite.server.config.ts",
@@ -14,6 +25,7 @@
     "test:all": "vitest run && playwright test",
     "test:watch": "vitest",
     "build:server": "vite build --config vite.server.config.ts",
+    "prepare": "vite build --config vite.server.config.ts",
     "resolve": "node dist-server/cli.mjs",
     "mcp": "node dist-server/mcp.mjs",
     "keyline": "node dist-server/cli.mjs",
