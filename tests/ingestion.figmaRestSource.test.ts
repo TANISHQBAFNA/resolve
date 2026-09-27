@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  exponentialBackoffMs,
   fetchFigmaRestDocument,
   memoryCheckpointStore,
   parseRetryAfterMs,
@@ -127,7 +128,11 @@ describe("fetchFigmaRestDocument", () => {
       vi.fn(async () => new Response(JSON.stringify({ err: "Rate limit exceeded" }), { status: 429 })),
     );
     await expect(
-      fetchFigmaRestDocument(FILE_KEY, { token: "figd_SECRET", origin: "https://api.figma.com" }),
+      fetchFigmaRestDocument(FILE_KEY, {
+        token: "figd_SECRET",
+        origin: "https://api.figma.com",
+        sleep: async () => undefined,
+      }),
     ).rejects.toThrow(/rate limited.*Rate limit exceeded/i);
   });
 
@@ -486,6 +491,142 @@ describe("fetchFigmaRestDocument", () => {
     });
     expect(names.some((name) => name.trim().length > 0)).toBe(true);
     expect(names.join(" ")).toMatch(/Search/);
+  });
+
+  it("uses exponential backoff when 429 has no Retry-After", async () => {
+    expect(exponentialBackoffMs(0)).toBe(1000);
+    expect(exponentialBackoffMs(1)).toBe(2000);
+    expect(exponentialBackoffMs(2)).toBe(4000);
+
+    let hits = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.includes("/variables/")) return new Response("{}", { status: 404 });
+        if (url.endsWith(`/v1/files/${FILE_KEY}`)) {
+          hits += 1;
+          if (hits < 3) {
+            return new Response(JSON.stringify({ err: "Rate limit exceeded" }), { status: 429 });
+          }
+          return new Response(JSON.stringify(restFile), { status: 200 });
+        }
+        throw new Error(`unexpected ${url}`);
+      }),
+    );
+    const slept: number[] = [];
+    const doc = await fetchFigmaRestDocument(FILE_KEY, {
+      token: "figd_test",
+      origin: "https://api.figma.com",
+      scope: "file",
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+    expect(slept).toEqual([1000, 2000]);
+    expect(doc.fileName).toBe("Live File");
+  });
+
+  it("retries the variables request through the same 429 policy", async () => {
+    let varHits = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.includes("/variables/")) {
+          varHits += 1;
+          if (varHits === 1) {
+            return new Response(JSON.stringify({ err: "Rate limit exceeded" }), { status: 429 });
+          }
+          return new Response(JSON.stringify({ meta: { variables: {} } }), { status: 200 });
+        }
+        if (url.endsWith(`/v1/files/${FILE_KEY}`)) {
+          return new Response(JSON.stringify(restFile), { status: 200 });
+        }
+        throw new Error(`unexpected ${url}`);
+      }),
+    );
+    const slept: number[] = [];
+    await fetchFigmaRestDocument(FILE_KEY, {
+      token: "figd_test",
+      origin: "https://api.figma.com",
+      scope: "file",
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+    expect(varHits).toBe(2);
+    expect(slept).toEqual([1000]);
+  });
+
+  it("discards an ingest checkpoint when the file version changed", async () => {
+    const outline = (version: string) => ({
+      name: "Live File",
+      version,
+      lastModified: `t-${version}`,
+      document: {
+        id: "0:0",
+        type: "DOCUMENT",
+        children: [
+          {
+            id: "1:0",
+            name: "Page 1",
+            type: "CANVAS",
+            children: [
+              { id: "1:1", name: "Screen A", type: "FRAME" },
+              { id: "1:9", name: "Screen B", type: "FRAME" },
+            ],
+          },
+        ],
+      },
+    });
+    const nodePayload = (id: string, name: string) => ({
+      name: "Live File",
+      nodes: {
+        [id]: {
+          document: { id, name, type: "FRAME", children: [] },
+          components: {},
+          componentSets: {},
+          styles: {},
+        },
+      },
+    });
+    const checkpoint = memoryCheckpointStore();
+    checkpoint.save(FILE_KEY, {
+      fileKey: FILE_KEY,
+      version: "1",
+      lastModified: "t-1",
+      completedIds: ["1:1", "1:9"],
+      pages: {},
+      components: {},
+      componentSets: {},
+      styles: {},
+    });
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("/variables/")) return new Response("{}", { status: 404 });
+      if (url.endsWith(`/v1/files/${FILE_KEY}?depth=2`)) {
+        return new Response(JSON.stringify(outline("2")), { status: 200 });
+      }
+      if (url.includes(`/nodes?ids=${encodeURIComponent("1:1")}`)) {
+        return new Response(JSON.stringify(nodePayload("1:1", "Screen A")), { status: 200 });
+      }
+      if (url.includes(`/nodes?ids=${encodeURIComponent("1:9")}`)) {
+        return new Response(JSON.stringify(nodePayload("1:9", "Screen B")), { status: 200 });
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchFigmaRestDocument(FILE_KEY, {
+      token: "figd_test",
+      origin: "https://api.figma.com",
+      checkpoint,
+    });
+
+    const nodeCalls = fetchMock.mock.calls.filter((call) => String(call[0]).includes("/nodes?"));
+    expect(nodeCalls.filter((call) => String(call[0]).includes(encodeURIComponent("1:1"))).length).toBe(1);
+    expect(nodeCalls.filter((call) => String(call[0]).includes(encodeURIComponent("1:9"))).length).toBe(1);
   });
 });
 

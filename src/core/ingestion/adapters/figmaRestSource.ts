@@ -16,7 +16,8 @@ import { adaptFigmaRestFile } from "./figmaRest";
  * Default scope is the shared node (`?node-id=`), not the whole file. Whole
  * files walk top-level FRAME/SECTION/COMPONENT/COMPONENT_SET nodes one at a
  * time. `--scope file` is one request (safer on a low API tier). 429s honor
- * Retry-After; completed sections checkpoint so a re-run resumes.
+ * Retry-After, or exponential backoff when that header is missing. Completed
+ * sections checkpoint (tied to file version/lastModified) so a re-run resumes.
  *
  * Token never lives in the bundle. Browser sends it per-request through the
  * Vite `/api/figma` proxy (CORS). Node/CLI reads `FIGMA_ACCESS_TOKEN`.
@@ -24,6 +25,12 @@ import { adaptFigmaRestFile } from "./figmaRest";
 
 export const FIGMA_API_ORIGIN = "https://api.figma.com";
 export const DEFAULT_MAX_RETRY_AFTER_MS = 30_000;
+export const DEFAULT_BACKOFF_MS = 1_000;
+export const DEFAULT_MAX_RATE_LIMIT_RETRIES = 5;
+
+export function exponentialBackoffMs(attempt: number, capMs = DEFAULT_MAX_RETRY_AFTER_MS): number {
+  return Math.min(capMs, DEFAULT_BACKOFF_MS * 2 ** Math.max(0, attempt));
+}
 
 export function parseRetryAfterMs(header: string | null, now = Date.now()): number | undefined {
   if (!header) return undefined;
@@ -37,11 +44,25 @@ export function parseRetryAfterMs(header: string | null, now = Date.now()): numb
 
 export interface ScreensCheckpoint {
   fileKey: string;
+  version?: string;
+  lastModified?: string;
   completedIds: string[];
   pages: Record<string, { id: string; name: string; type: "CANVAS"; children: unknown[] }>;
   components: Record<string, unknown>;
   componentSets: Record<string, unknown>;
   styles: Record<string, unknown>;
+}
+
+export function checkpointMatchesFileVersion(
+  saved: ScreensCheckpoint | undefined,
+  version?: string,
+  lastModified?: string,
+): saved is ScreensCheckpoint {
+  if (!saved) return false;
+  if (saved.version && version && saved.version !== version) return false;
+  if (saved.lastModified && lastModified && saved.lastModified !== lastModified) return false;
+  if ((version || lastModified) && !saved.version && !saved.lastModified) return false;
+  return true;
 }
 
 export interface IngestCheckpointStore {
@@ -140,6 +161,7 @@ async function figmaGet(
 interface RetryPolicy {
   sleep: (ms: number) => Promise<void>;
   maxRetryAfterMs: number;
+  maxRateLimitRetries?: number;
 }
 
 async function getJson(
@@ -150,6 +172,7 @@ async function getJson(
   signal?: AbortSignal,
   retry?: RetryPolicy,
 ): Promise<unknown> {
+  let headerlessAttempts = 0;
   for (;;) {
     let res: Response;
     try {
@@ -159,10 +182,15 @@ async function getJson(
     }
     if (res.status === 429) {
       const detail = await figmaError(res);
-      const waitMs = parseRetryAfterMs(res.headers.get("Retry-After"));
+      const headerWait = parseRetryAfterMs(res.headers.get("Retry-After"));
       const maxWait = retry?.maxRetryAfterMs ?? DEFAULT_MAX_RETRY_AFTER_MS;
-      if (waitMs === undefined) {
-        throw new Error(`${httpFailureKind(429)} for ${fileKey}: ${detail}`);
+      const maxHeaderless = retry?.maxRateLimitRetries ?? DEFAULT_MAX_RATE_LIMIT_RETRIES;
+      const waitMs = headerWait ?? exponentialBackoffMs(headerlessAttempts, maxWait);
+      if (headerWait === undefined) {
+        headerlessAttempts += 1;
+        if (headerlessAttempts > maxHeaderless) {
+          throw new Error(`${httpFailureKind(429)} for ${fileKey}: ${detail}`);
+        }
       }
       const secs = Math.round(waitMs / 1000);
       if (waitMs > maxWait) {
@@ -189,10 +217,10 @@ async function fetchVariables(
   fileKey: string,
   token: string,
   signal?: AbortSignal,
+  retry?: RetryPolicy,
 ): Promise<unknown> {
   try {
-    const varRes = await figmaGet(origin, `/v1/files/${fileKey}/variables/local`, token, signal);
-    if (varRes.ok) return await varRes.json();
+    return await getJson(origin, `/v1/files/${fileKey}/variables/local`, token, fileKey, signal, retry);
   } catch {
     // Enterprise-gated. 403/404 is expected — the graph still builds.
   }
@@ -266,7 +294,7 @@ export async function fetchFigmaRestDocument(
     sleep: options.sleep ?? defaultSleep,
     maxRetryAfterMs: options.maxRetryAfterMs ?? DEFAULT_MAX_RETRY_AFTER_MS,
   };
-  const variablesPromise = fetchVariables(origin, fileKey, token, options.signal);
+  const variablesPromise = fetchVariables(origin, fileKey, token, options.signal, retry);
 
   if (scope === "file") {
     options.onProgress?.({ phase: "file", done: 0, total: 1, name: fileKey });
@@ -304,7 +332,11 @@ export async function fetchFigmaRestDocument(
     return fetchFullFile(origin, fileKey, token, options.signal, variables, retry);
   }
 
-  const saved = options.checkpoint?.load(fileKey);
+  const outlineVersion = asString(outline["version"]);
+  const outlineModified = asString(outline["lastModified"]);
+  const loaded = options.checkpoint?.load(fileKey);
+  const saved = checkpointMatchesFileVersion(loaded, outlineVersion, outlineModified) ? loaded : undefined;
+  if (loaded && !saved) options.checkpoint?.clear(fileKey);
   const components: Record<string, unknown> = { ...(saved?.components ?? {}) };
   const componentSets: Record<string, unknown> = { ...(saved?.componentSets ?? {}) };
   const styles: Record<string, unknown> = { ...(saved?.styles ?? {}) };
@@ -322,6 +354,8 @@ export async function fetchFigmaRestDocument(
   const persist = () => {
     options.checkpoint?.save(fileKey, {
       fileKey,
+      version: outlineVersion,
+      lastModified: outlineModified,
       completedIds: [...completed],
       pages: Object.fromEntries(pages),
       components,

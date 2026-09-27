@@ -26,7 +26,9 @@ Use Resolve before any Figma screen build or design-from-brief work.
 
 ```bash
 npm run build:server
-npm run resolve -- ingest '<figma-url>' --role library   # re-run if that file changed
+# Everyday: Figma MCP get_metadata → learn_library (paid Dev/Full MCP seat)
+npm run resolve -- learn --file-key KEY --from-metadata screen.xml --role library
+npm run resolve -- ingest '<figma-url>' --role library   # secondary: REST token
 npm run resolve -- ingest '<product-url>' --role product
 npm run resolve -- recipe list             # after ingest, slots bind to live ids
 npm run resolve -- recipe "checkout summary"

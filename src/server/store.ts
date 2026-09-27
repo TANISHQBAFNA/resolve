@@ -1,10 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, readdirSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import type { IngestCheckpointStore, ScreensCheckpoint } from "@/core/ingestion/adapters/figmaRestSource";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import {
   assertIngestRoleChange,
   defaultIngestRole,
+  emptySock,
   indexGraph,
   mergeRecipes,
   mergeWorkspaceGraphs,
@@ -20,10 +22,12 @@ import {
   type GraphIndex,
   type LibraryRules,
   type Recipe,
+  type SockState,
   type WorkspaceFile,
   type WorkspaceFileRole,
   type WorkspaceManifest,
 } from "@/core/query";
+import type { LearnCheckpoint } from "@/core/ingestion/learnLibrary";
 
 /**
  * Durable graph store. One file:
@@ -64,15 +68,31 @@ export interface StoreInfo {
 }
 
 /**
- * GRAPHIFY_HOME wins. Else walk up from cwd (then INIT_CWD) looking for
- * `.graphify/graph.json` or `workspace.json`, so MCP and CLI share one store
- * even when their working directories differ. Last resort: `cwd/.graphify`.
+ * GRAPHIFY_HOME / RESOLVE_HOME win. Else walk up from cwd (then INIT_CWD)
+ * looking for `.graphify/graph.json` or `workspace.json`. Last resort: one
+ * global store at `~/.resolve/<workspace>` so CLI and MCP share a folder
+ * across projects without a clone-local `.graphify`.
  */
+export function defaultGlobalStore(
+  env: { HOME?: string; USERPROFILE?: string; RESOLVE_WORKSPACE?: string } = {},
+): string {
+  const home = env.HOME?.trim() || env.USERPROFILE?.trim() || homedir();
+  const workspace = (env.RESOLVE_WORKSPACE?.trim() || "default").replace(/[^A-Za-z0-9._-]/g, "_");
+  return join(home, ".resolve", workspace || "default");
+}
+
 export function discoverStoreRoot(
   cwd: string,
-  env: { GRAPHIFY_HOME?: string; INIT_CWD?: string } = {},
+  env: {
+    GRAPHIFY_HOME?: string;
+    RESOLVE_HOME?: string;
+    INIT_CWD?: string;
+    HOME?: string;
+    USERPROFILE?: string;
+    RESOLVE_WORKSPACE?: string;
+  } = {},
 ): string {
-  const explicit = env.GRAPHIFY_HOME?.trim();
+  const explicit = env.GRAPHIFY_HOME?.trim() || env.RESOLVE_HOME?.trim();
   if (explicit) return resolve(explicit);
   const starts = [cwd, env.INIT_CWD].filter((value): value is string => Boolean(value?.trim()));
   const seen = new Set<string>();
@@ -89,7 +109,7 @@ export function discoverStoreRoot(
       dir = parent;
     }
   }
-  return resolve(cwd, ".graphify");
+  return defaultGlobalStore(env);
 }
 
 export function storeRoot(): string {
@@ -121,10 +141,10 @@ export function missingGraphMessage(): string {
   const info = storeInfo();
   const homeLine = info.graphifyHome
     ? `GRAPHIFY_HOME=${info.graphifyHome}`
-    : "GRAPHIFY_HOME is unset — CLI and MCP must use the same folder (set GRAPHIFY_HOME to the path above).";
+    : "Default store is ~/.resolve/default (or RESOLVE_WORKSPACE). Set GRAPHIFY_HOME to pin a folder.";
   return (
-    `No graph stored. Looked in ${info.graph} (store ${info.path}). ${homeLine} ` +
-    "Ingest first: `npm run resolve -- ingest <figma-url>` or `ingest <file.xml> --from-metadata`. Then resolve — do not Read graph.json."
+    `No library in SOCK. Looked in ${info.graph} (store ${info.path}). ${homeLine} ` +
+    "One step: call learn_library with Figma MCP get_metadata XML + fileKey + role=library. Then recipe / recommend. Do not Read graph.json."
   );
 }
 
@@ -140,6 +160,7 @@ function storeFingerprint(): string {
   };
   add(graphPath());
   add(workspacePath());
+  add(sockPath());
   const filesDir = workspaceFilesDir();
   if (existsSync(filesDir)) {
     for (const name of readdirSync(filesDir).sort()) {
@@ -175,6 +196,64 @@ export function workspacePath(): string {
 
 export function workspaceFilesDir(): string {
   return join(storeRoot(), "files");
+}
+
+export function sockPath(): string {
+  return join(storeRoot(), "sock.json");
+}
+
+export function learnCheckpointPath(fileKey: string): string {
+  return join(storeRoot(), "learn", `${safeFileKey(fileKey)}.json`);
+}
+
+export function loadSock(): SockState | undefined {
+  const path = sockPath();
+  if (!existsSync(path)) return undefined;
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8")) as SockState;
+    if (raw?.version !== 1 || !Array.isArray(raw.facts)) return undefined;
+    return {
+      version: 1,
+      threshold: typeof raw.threshold === "number" && raw.threshold > 0 ? raw.threshold : 3,
+      facts: raw.facts,
+      freshness: raw.freshness ?? {},
+      proposals: raw.proposals ?? [],
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+export function saveSock(state: SockState): void {
+  mkdirSync(storeRoot(), { recursive: true });
+  writeFileSync(sockPath(), `${JSON.stringify(state, null, 2)}\n`);
+}
+
+export function readSock(): SockState {
+  return loadSock() ?? emptySock();
+}
+
+export function loadLearnCheckpoint(fileKey: string): LearnCheckpoint | undefined {
+  const path = learnCheckpointPath(fileKey);
+  if (!existsSync(path)) return undefined;
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8")) as LearnCheckpoint;
+    if (raw?.fileKey !== fileKey || !Array.isArray(raw.completedHashes)) return undefined;
+    return {
+      ...raw,
+      completedUnits: raw.completedUnits ?? [],
+      outline: raw.outline ?? [],
+      mastersByUnit: raw.mastersByUnit ?? {},
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+export function saveLearnCheckpoint(checkpoint: LearnCheckpoint): void {
+  const path = learnCheckpointPath(checkpoint.fileKey);
+  mkdirSync(join(storeRoot(), "learn"), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(checkpoint, null, 2)}\n`);
 }
 
 export function safeFileKey(fileKey: string): string {

@@ -1,17 +1,25 @@
 import type { GraphNode } from "@/core/model";
 import {
+  applyFreshness,
   buildOrientBrief,
   checkFrame,
   computeAnalytics,
   componentUsageCard,
   explainNode,
   extractSubgraph,
+  freshnessSummary,
+  isPrivateMasterName,
+  isRealVerifiedFrame,
+  listSoci,
+  newlyStrongPatterns,
   parseLibraryRules,
+  proposeStrongPatterns,
   listRecipes,
   pathBetween,
   queryQuestion,
   recipeCard,
   recommendMasters,
+  recordVerifiedUsage,
   screenInventory,
   searchNodes,
   usageCardForComponent,
@@ -22,17 +30,21 @@ import {
   packForRecommend,
   type GraphIndex,
   type GraphLevel,
+  type Recipe,
   type ViewMode,
 } from "@/core/query";
 import { buildAiGraphContext, toMarkdownPrompt } from "@/core/ai";
+import { learnLibrary } from "./learn";
 import {
   listGraphs,
   loadContextBind,
   loadRecipes,
   missingGraphMessage,
   readLibraryRules,
+  readSock,
   readWorkspace,
   resolveGraph,
+  saveSock,
   storeInfo,
 } from "./store";
 
@@ -54,7 +66,61 @@ const graphIdProperty = {
   },
 };
 
+export const DEFAULT_TOOL_NAMES = [
+  "learn_library",
+  "recipe",
+  "recommend",
+  "resolve",
+  "verify_frame",
+  "check_cousins",
+] as const;
+
+export function listToolDefinitions(advanced = process.env["RESOLVE_MCP_ADVANCED"] === "1"): ToolDefinition[] {
+  if (advanced) return TOOLS;
+  const allowed = new Set<string>(DEFAULT_TOOL_NAMES);
+  return TOOLS.filter((tool) => allowed.has(tool.name));
+}
+
+const freshnessProperties = {
+  fileKey: { type: "string", description: "Figma file key for the freshness check." },
+  lastModified: { type: "string", description: "Figma lastModified the agent already has. Marks stale on change." },
+  version: { type: "string", description: "Figma file version the agent already has. Marks stale on change." },
+};
+
 export const TOOLS: ToolDefinition[] = [
+  {
+    name: "learn_library",
+    description:
+      "Load or update SOCK from Figma MCP output. Pass get_metadata XML as metadataXml plus fileKey and role (library|product). Optional libraries = search_design_system / get_libraries (stamps published component keys). Optional designContext. Incremental and resumable across sessions — use that for big libraries (view/free seats have a low read quota; progress is saved). Needs a paid Figma MCP seat (Dev/Full) or a REST token ingest. Do not invent a hand-built capture.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        fileKey: { type: "string", description: "Figma file key." },
+        role: { type: "string", description: "library | product | client" },
+        fileName: { type: "string" },
+        label: { type: "string" },
+        metadataXml: { type: "string", description: "Raw Figma MCP get_metadata XML (prose around it is fine)." },
+        libraries: { description: "search_design_system or get_libraries JSON. Stamps published keys." },
+        designContext: { description: "Optional get_design_context payload. Used only to stamp keys/names." },
+        lastModified: { type: "string" },
+        version: { type: "string" },
+        resume: { type: "boolean", description: "Resume a checkpointed learn for a large library." },
+        outline: {
+          type: "array",
+          description: "Known pages/frames for this file (id + name). Remaining work is reported as learned X of Y.",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              name: { type: "string" },
+              kind: { type: "string", description: "page | frame" },
+            },
+          },
+        },
+      },
+      required: ["fileKey"],
+    },
+  },
   {
     name: "recommend",
     description:
@@ -74,7 +140,8 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string", description: "Product id or name. Scopes ranking when a pack matches, else inline." },
         journey: { type: "string", description: "Journey step / screen job. Scopes ranking on top of name/intent." },
         domain: { type: "string", description: 'Product domain, e.g. "checkout" or "onboarding".' },
-        budgetChars: { type: "number", description: "Hard cap on JSON chars. Default 2000." },
+        budgetChars: { type: "number", description: "Hard cap on JSON chars. Default 600." },
+        ...freshnessProperties,
       },
       required: ["intent"],
     },
@@ -98,6 +165,7 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
+        ...freshnessProperties,
       },
     },
   },
@@ -111,6 +179,7 @@ export const TOOLS: ToolDefinition[] = [
         ...graphIdProperty,
         name: { type: "string", description: 'Component or frame name, e.g. "Main Card" or "Portfolio"' },
         budgetChars: { type: "number", description: "Hard cap on JSON chars. Default 2000." },
+        ...freshnessProperties,
       },
       required: ["name"],
     },
@@ -201,8 +270,15 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
+        ...freshnessProperties,
       },
     },
+  },
+  {
+    name: "list_soci",
+    description:
+      "List SOCI rule-change proposals. Usage facts write themselves; rules never do. Approval UI later — this is the data model + list only.",
+    inputSchema: { type: "object", properties: {} },
   },
   {
     name: "list_recipes",
@@ -239,8 +315,8 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
+        ...freshnessProperties,
       },
-      required: ["query"],
     },
   },
   {
@@ -386,6 +462,29 @@ const asNumber = (value: unknown, fallback: number, cap: number): number => {
   return Math.min(parsed, cap);
 };
 
+function parseLearnOutline(value: unknown): Array<{ id: string; name: string; kind: "page" | "frame" }> | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const units: Array<{ id: string; name: string; kind: "page" | "frame" }> = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    const id = typeof rec["id"] === "string" ? rec["id"].trim() : "";
+    const name = typeof rec["name"] === "string" ? rec["name"].trim() : id;
+    const kind = rec["kind"] === "page" ? "page" : "frame";
+    if (!id) continue;
+    units.push({ id, name: name || id, kind });
+  }
+  return units.length ? units : undefined;
+}
+
+function recipeAlreadyEncodes(pattern: { masterId: string; name: string }, recipes: Recipe[]): boolean {
+  return recipes.some((recipe) =>
+    recipe.slots.some(
+      (slot) => slot.defaultMasterId === pattern.masterId || slot.defaultMasterId === pattern.name,
+    ),
+  );
+}
+
 const asStringList = (value: unknown): string[] | undefined => {
   if (typeof value === "string") {
     const items = value
@@ -454,9 +553,32 @@ const brief = (node: GraphNode) => ({
   owner: node.owner,
 });
 
+function attachCardMeta(result: unknown, args: Record<string, unknown>): unknown {
+  if (!result || typeof result !== "object" || Array.isArray(result)) return result;
+  const fileKey =
+    (typeof args["fileKey"] === "string" && args["fileKey"].trim()) ||
+    resolveGraph()?.graph.fileKey;
+  if (
+    fileKey &&
+    (typeof args["lastModified"] === "string" || typeof args["version"] === "string")
+  ) {
+    saveSock(
+      applyFreshness(readSock(), [
+        {
+          fileKey,
+          lastModified: typeof args["lastModified"] === "string" ? args["lastModified"] : undefined,
+          version: typeof args["version"] === "string" ? args["version"] : undefined,
+        },
+      ]),
+    );
+  }
+  const freshness = freshnessSummary(readSock(), fileKey);
+  return freshness ? { ...result, freshness } : result;
+}
+
 export function callTool(name: string, rawArgs: unknown): unknown {
   const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
-  const result = dispatchTool(name, args);
+  const result = attachCardMeta(dispatchTool(name, args), args);
   if (result && typeof result === "object" && "cost" in result) return result;
   if (result && typeof result === "object" && !Array.isArray(result)) return withCost(result);
   return result;
@@ -464,6 +586,35 @@ export function callTool(name: string, rawArgs: unknown): unknown {
 
 function dispatchTool(name: string, args: Record<string, unknown>): unknown {
   switch (name) {
+    case "learn_library": {
+      const fileKey = asString(args["fileKey"] ?? args["file_key"], "fileKey");
+      const roleRaw = typeof args["role"] === "string" ? args["role"].trim() : undefined;
+      const role =
+        roleRaw === "library" || roleRaw === "product" || roleRaw === "client" ? roleRaw : undefined;
+      return {
+        ...learnLibrary({
+          fileKey,
+          role,
+          fileName: typeof args["fileName"] === "string" ? args["fileName"] : undefined,
+          label: typeof args["label"] === "string" ? args["label"] : undefined,
+          metadataXml: typeof args["metadataXml"] === "string" ? args["metadataXml"] : undefined,
+          libraries: args["libraries"],
+          designContext: args["designContext"],
+          lastModified: typeof args["lastModified"] === "string" ? args["lastModified"] : undefined,
+          version: typeof args["version"] === "string" ? args["version"] : undefined,
+          resume: args["resume"] === true,
+          outline: parseLearnOutline(args["outline"]),
+        }),
+        store: storeInfo(),
+      };
+    }
+
+    case "list_soci":
+      return {
+        proposals: listSoci(readSock()),
+        hint: "Usage facts update on verify pass. Rules never auto-change. These proposals need a human. Approval UI later.",
+      };
+
     case "resolve": {
       const { index } = context(args);
       const budget = typeof args["budgetChars"] === "number" ? args["budgetChars"] : undefined;
@@ -507,6 +658,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         budgetChars: budget,
         context: packForRecommend(bind),
         workspace: bind.workspace,
+        sock: readSock(),
       });
     }
 
@@ -541,29 +693,89 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       if (!frame && !components) {
         throw new ToolError("`frame` or `components` is required.");
       }
-      return verifyFrame(index, {
+      const result = verifyFrame(index, {
         frame,
         components,
         rules: libraryRulesFromArgs(args),
         context: packForRecommend(contextBindFromArgs(args)),
       });
+      if (result.pass) {
+        const masters: Array<{
+          id: string;
+          name: string;
+          fileKey?: string;
+          figmaNodeId?: string;
+          deprecated?: boolean;
+          private?: boolean;
+        }> = [];
+        for (const row of result.resolved) {
+          if (!row.id) continue;
+          const node = index.getNode(row.id);
+          if (!node) continue;
+          masters.push({
+            id: node.id,
+            name: node.name,
+            fileKey: row.fileKey,
+            figmaNodeId: node.figmaNodeId,
+            deprecated: node.status === "deprecated",
+            private: isPrivateMasterName(node.name),
+          });
+        }
+        if (result.frame) {
+          for (const instance of index.getNestedInstances(result.frame.id)) {
+            const main = index.getMainComponent(instance.id);
+            if (!main || masters.some((row) => row.id === main.id)) continue;
+            masters.push({
+              id: main.id,
+              name: main.name,
+              fileKey: main.fileKey,
+              figmaNodeId: main.figmaNodeId,
+              deprecated: main.status === "deprecated",
+              private: isPrivateMasterName(main.name),
+            });
+          }
+        }
+        if (masters.length) {
+          const realFrame = isRealVerifiedFrame(result.frame);
+          const screenId = realFrame
+            ? `${result.frame!.fileKey}:${result.frame!.figmaNodeId ?? result.frame!.id}`
+            : `obs:${(components ?? []).slice().sort().join(",") || "list"}`;
+          const before = readSock();
+          const recorded = recordVerifiedUsage(before, {
+            screenId,
+            screenName: result.frame?.name ?? frame ?? "observation",
+            masters,
+            journey: typeof args["journey"] === "string" ? args["journey"] : undefined,
+            product: typeof args["product"] === "string" ? args["product"] : undefined,
+            countsTowardThreshold: realFrame,
+          });
+          saveSock(
+            proposeStrongPatterns(recorded, newlyStrongPatterns(before, recorded), (pattern) =>
+              recipeAlreadyEncodes(pattern, loadRecipes()),
+            ),
+          );
+        }
+      }
+      return result;
     }
 
     case "list_recipes": {
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
-      return listRecipes(loadRecipes(), resolveGraph(graphId)?.index, contextBindFromArgs(args));
+      return listRecipes(loadRecipes(), resolveGraph(graphId)?.index, contextBindFromArgs(args), readSock());
     }
 
     case "recipe":
     case "get_recipe": {
-      const query = asString(
-        args["query"] ?? args["name"] ?? args["recipe"] ?? args["intent"],
-        "query",
-      );
+      const rawQuery = args["query"] ?? args["name"] ?? args["recipe"];
+      const query = typeof rawQuery === "string" ? rawQuery.trim() : "";
+      if (!query || query === "list") {
+        const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
+        return listRecipes(loadRecipes(), resolveGraph(graphId)?.index, contextBindFromArgs(args), readSock());
+      }
       const intent = typeof args["intent"] === "string" ? args["intent"].trim() : "";
       const extra = intent && intent !== query ? intent : undefined;
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
-      return recipeCard(loadRecipes(), query, resolveGraph(graphId)?.index, extra, contextBindFromArgs(args));
+      return recipeCard(loadRecipes(), query, resolveGraph(graphId)?.index, extra, contextBindFromArgs(args), readSock());
     }
 
     case "list_graphs": {
@@ -574,7 +786,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         store,
         hint: graphs.length
           ? "Call list_recipes or recipe \"<job>\", then recommend unbound slots, Figma on returned figmaNodeIds (fileKey + id), then verify_frame. Multi-file workspace: check_cousins on the product frame. Do not Read graph.json."
-          : `Nothing stored yet. Looked in ${store.graph}. Ingest a Figma URL, JSON export, or get_metadata XML (--from-metadata). list_recipes still works without a graph.`,
+          : `No library in SOCK. Looked in ${store.graph}. Call learn_library with get_metadata XML + fileKey + role=library.`,
       };
     }
 

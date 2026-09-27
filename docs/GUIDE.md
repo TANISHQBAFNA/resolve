@@ -33,10 +33,10 @@ If you can paste a Figma link and copy a small JSON file, you can run this.
 ## What you need
 
 - A **Figma library or file** (a shared screen or frame link is enough to start — you do not have to dump the whole file).
-- **Resolve** on your machine, *or* an AI tool (Cursor, Claude, Codex, and similar) with Resolve connected.
-- **Figma connected** in that same AI tool (the usual Figma connection — you do not need a Figma personal access token for everyday use).
+- **Resolve** connected in the same AI tool as Figma. One config line — see [Resolve next to Figma MCP](SETUP-MCP.md).
+- **A paid Figma seat with MCP access (Dev or Full)**, *or* a **Figma access token** for command-line REST ingest. View or free seats can still learn, but Figma’s read quota is low — Resolve saves progress and resumes across sessions.
 
-Do the install once:
+Do the install once (only if you want the repo locally):
 
 ```bash
 git clone https://github.com/TANISHQBAFNA/resolve.git
@@ -77,9 +77,11 @@ For clone flags, tokens, and the optional browser map, see [For developers](../R
 
 Use a checkout summary as the running example. Swap the words for your screen.
 
-### 1. Refresh the library (ingest)
+### 1. Refresh the library (learn / ingest)
 
-Paste a **screen or frame** link, not the whole file unless you really want that. First file is the shared design system (or pass `--role library`). Then ingest each product or client file. On a low Figma API tier, `--scope file` is safer (one request). A section-by-section walk honors rate-limit waits and can resume; it also picks up components sitting directly on a page.
+Everyday path (Figma MCP + Resolve MCP): ask the agent to `get_metadata` on a library frame, then `learn_library` with that XML, the file key, and `role: library`. Optional: pass `search_design_system` results so cards include the published component key. SOCK lives in `~/.resolve/default` so CLI and MCP share it. A big library is several short passes — Resolve checkpoints and resumes.
+
+Secondary path (REST token): paste a **screen or frame** link. First file is the shared design system (or pass `--role library`). Then ingest each product or client file. On a low Figma API tier, `--scope file` is safer (one request). A section-by-section walk honors rate-limit waits and can resume.
 
 ```bash
 npm run resolve -- ingest 'https://www.figma.com/design/…?node-id=…' --role library --label "Shared DS"
@@ -90,7 +92,7 @@ Or ask the agent: “Ingest this Figma frame into Resolve as the library.” The
 
 **You get:** Resolve now knows the masters in those files. Cards stamp **file key + Figma component id**. If the product file used a library component, Resolve links that stub to the ingested library file — not only a “source unknown” bucket.
 
-If ingest fails on a live `figma.com` link from the command line, you need a Figma access token, or ingest through the Figma connection / plugin export instead (see troubleshooting). You do **not** need a live token to merge files that are already ingested (tests and fixtures work without one).
+If ingest fails on a live `figma.com` link from the command line, you need `FIGMA_ACCESS_TOKEN`, or learn through Figma MCP in the AI tool (`learn_library`) instead. You do **not** need a live token to merge files that are already ingested (tests and fixtures work without one).
 
 Re-run ingest for a file after you add, rename, or retire components in that file.
 
@@ -373,7 +375,9 @@ Be honest with yourself and with agents:
 
 **Verify says retired or unresolved.** That master is marked don’t-use, or Resolve cannot match it in the current ingest. Recommend a live stand-in. Re-ingest if you just renamed it in Figma.
 
-**Command-line ingest of a figma.com URL fails.** Live ingest from the command line needs `FIGMA_ACCESS_TOKEN`. Everyday use is: Figma connected in the AI tool, a JSON export from the Figma plugin in this repo, or raw `get_metadata` XML (`npm run resolve -- ingest screen.xml --from-metadata --file-key KEY --name "Library"`). You do **not** need a token for that everyday path.
+**Command-line ingest of a figma.com URL fails.** Live REST ingest needs `FIGMA_ACCESS_TOKEN`. Everyday use is Figma MCP in the AI tool (`learn_library` with `get_metadata` XML). That needs a paid Dev/Full seat with MCP access. View or free seats hit a low read quota — keep going; Resolve saves progress and resumes.
+
+**The library is huge / quota ran out.** Do not start over. Call `learn_library` on the next frames in a later session. Checkpoints survive.
 
 **“No graph stored.”** The error names the folder it looked in. Ingest first, into that same folder. Set `GRAPHIFY_HOME` so the command line and the AI connection share one store (otherwise they can look in different working directories). Recipe list can run with no library (slots stay open); recommend and verify cannot. `list_graphs` / `workspace` / `resolve where` print the path and `builtAt`.
 

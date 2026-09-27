@@ -7,6 +7,8 @@ import { searchNodes } from "./search";
 import { extractSubgraph, levelForNode } from "./subgraph";
 import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
+import { placeReady } from "./placeReady";
+import { isRemovedByAbsence, patternFor, staleRefreshHint, type SockState } from "./sock";
 
 /**
  * Agent-facing graph surface. Graph stays on disk. Agents call resolve /
@@ -170,7 +172,7 @@ export function screenInventory(index: GraphIndex, nodeId: string) {
 }
 
 const USAGE_CARD_BUDGET = 2000;
-const RECOMMEND_BUDGET = 2000;
+const RECOMMEND_BUDGET = 600;
 const MASTER_TYPES = COMPONENT_DEFINITION_TYPES;
 
 const screenOf = (index: GraphIndex, nodeId: string): GraphNode | undefined => {
@@ -255,6 +257,14 @@ export function usageCardForComponent(
         ? "Master is in the graph with this id even with zero instances. Place this figmaNodeId. Usage is additive."
         : "Instance this figmaNodeId in Figma. Do not get_design_context on a parent FRAME.",
   };
+  const place = placeReady(node, index.graph.fileKey);
+  Object.assign(base.component, place);
+  const publishedHint = place.published
+    ? undefined
+    : " Unpublished (local-only) — no published component key. Pass search_design_system / get_libraries to learn_library.";
+  if (publishedHint) {
+    base.hint = `${base.hint}${publishedHint}`;
+  }
 
   let byScreen = toByScreen(includeSlots, limit);
   let payload = { ...base, byScreen, truncated };
@@ -847,15 +857,27 @@ export function parseLibraryRules(raw: unknown): LibraryRules {
   return { allow: list(record["allow"]), deny: list(record["deny"]) };
 }
 
-const REFRESH_HINT =
-  "Re-ingest to refresh the library before recommend/verify if Figma changed. Do not Read graph.json.";
+const REFRESH_HINT = "If stale, learn_library changed frames. Do not Read graph.json.";
+
+function refreshHintFor(sock?: SockState, fileKey?: string): string {
+  if (!sock) return REFRESH_HINT;
+  const values = Object.values(sock.freshness);
+  const stale = fileKey
+    ? sock.freshness[fileKey]
+    : values.find((row) => row.stale) ?? values[0];
+  return staleRefreshHint(stale);
+}
 
 export interface RecommendCandidate {
   id: string;
   name: string;
   type: string;
   figmaNodeId?: string;
+  nodeId?: string;
   fileKey?: string;
+  componentKey?: string;
+  published?: boolean;
+  publishState?: "published" | "local-only";
   variantProperties?: Record<string, string>;
   set?: string;
   status?: GraphNode["status"];
@@ -952,7 +974,12 @@ function deniedByRules(index: GraphIndex, node: GraphNode, rules?: LibraryRules)
 export function recommendMasters(
   index: GraphIndex,
   intent: string,
-  options: { budgetChars?: number; context?: RecommendContext; workspace?: WorkspaceManifest } = {},
+  options: {
+    budgetChars?: number;
+    context?: RecommendContext;
+    workspace?: WorkspaceManifest;
+    sock?: SockState;
+  } = {},
 ) {
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
   const analog = similarUsage(index, intent);
@@ -979,6 +1006,8 @@ export function recommendMasters(
     const set = setOf(index, node);
     if (isPrivateMasterName(node.name) || (set && isPrivateMasterName(set.name))) continue;
     if (deniedByRules(index, node, packRules)) continue;
+    if (node.metadata?.["removedByAbsence"] === true) continue;
+    if (isRemovedByAbsence(options.sock, node)) continue;
     const nameHaystack = `${node.name} ${set?.name ?? ""}`;
     const nameScore = overlap(nameHaystack, tokens);
     const variantScore = overlap(variantHaystack(node), tokens);
@@ -1033,10 +1062,13 @@ export function recommendMasters(
     if (journeyHit > 0) why.push("journey");
     if (libraryHit) why.push("library");
     if (instances > 0) why.push("usage");
+    const sockPattern = options.sock ? patternFor(options.sock, node.id) : undefined;
+    if (sockPattern?.promoted && sockPattern.confidence === "strong") why.push("sock-usage");
     if (stale) why.push("stale");
 
     const typeBoost = node.type === "COMPONENT_SET" ? 3 : node.type === "MAIN_COMPONENT" ? 2 : 1;
     const analogBoost = analogHit ? 50 + analogHit.count : 0;
+    const sockBoost = sockPattern?.promoted && sockPattern.confidence === "strong" ? 20 : 0;
     const liveBoost = stale ? 0 : 18 + Math.log1p(instances) * 4;
     let score =
       nameScore * 8 +
@@ -1049,6 +1081,7 @@ export function recommendMasters(
       domainHit * 16 +
       journeyHit * 18 +
       (libraryHit ? 36 : 0) +
+      sockBoost +
       liveBoost +
       typeBoost;
     if (stale) score -= 24;
@@ -1097,22 +1130,18 @@ export function recommendMasters(
     whereLimit: number,
   ): RecommendCandidate => {
     const whereUsed = whereUsedRows(index, entry.node, whereLimit);
-    const where = whereUsed.map((row) => row.name).join(", ");
     const slots = includeSlots ? slotsForComponent(index, entry.node) : [];
+    const place = placeReady(entry.node, graphFileKey);
     const hint = entry.deprecated
-      ? "Deprecated — do not place. Pick a live master from this list."
-      : entry.instances === 0
-        ? "Live master, but unused in this file. Prefer a where-used candidate when one exists."
-        : entry.analog
-          ? `Place this figmaNodeId. Similar screens nest it${where ? ` (${where})` : ""}.`
-          : `Place this figmaNodeId in Figma.${where ? ` Used on ${where}.` : ""}`;
-    const fileKey = nodeFileKey(entry.node, graphFileKey);
+      ? "Deprecated — do not place."
+      : place.published
+        ? "Place fileKey + nodeId + componentKey."
+        : "Place fileKey + nodeId. Local-only (no published key).";
     return {
       id: entry.node.id,
       name: entry.node.name,
       type: entry.node.type,
-      figmaNodeId: entry.node.figmaNodeId,
-      ...(fileKey ? { fileKey } : {}),
+      ...place,
       variantProperties: entry.node.variantProperties,
       set: entry.setName,
       status: entry.node.status,
@@ -1126,24 +1155,44 @@ export function recommendMasters(
     };
   };
 
-  let includeSlots = true;
-  let whereLimit = 4;
+  let includeSlots = false;
+  let whereLimit = 0;
   let limit = Math.min(kept.length, 6);
-  let truncated = false;
-  let candidates = kept.slice(0, limit).map((entry) => toCandidate(entry, includeSlots, whereLimit));
+  let truncated = kept.length > limit;
+  const compactCandidate = (entry: Scored, index: number): RecommendCandidate => {
+    const full = toCandidate(entry, includeSlots, whereLimit);
+    if (index === 0) {
+      return { ...full, whereUsed: [] };
+    }
+    return {
+      id: full.id,
+      name: full.name,
+      type: full.type,
+      deprecated: full.deprecated,
+      instances: full.instances,
+      whereUsed: [],
+      score: full.score,
+      why: full.why,
+      hint: full.hint,
+      published: full.published,
+      publishState: full.publishState,
+      ...(full.nodeId ? { nodeId: full.nodeId, figmaNodeId: full.figmaNodeId } : {}),
+      ...(full.fileKey ? { fileKey: full.fileKey } : {}),
+      ...(full.componentKey ? { componentKey: full.componentKey } : {}),
+    };
+  };
+  let candidates = kept.slice(0, limit).map((entry, index) => compactCandidate(entry, index));
 
   const applied = appliedRecommendContext(options.context);
   const payloadOf = () => ({
     intent,
-    builtAt: index.graph.builtAt,
     candidates,
-    similarScreens: analog.screens.slice(0, 4),
     truncated,
     ...(applied ? { context: applied } : {}),
     hint:
       candidates.length === 0
-        ? `No library master matched. Do not invent a component. ${REFRESH_HINT}`
-        : `Use these figmaNodeIds with Figma MCP. Do not invent one-offs. ${REFRESH_HINT}`,
+        ? `No master matched. Do not invent. ${refreshHintFor(options.sock, graphFileKey)}`
+        : `Place fileKey+nodeId. ${refreshHintFor(options.sock, graphFileKey)}`,
   });
 
   let payload = payloadOf();
@@ -1152,7 +1201,7 @@ export function recommendMasters(
     if (includeSlots) includeSlots = false;
     else if (whereLimit > 0) whereLimit = whereLimit > 2 ? 2 : whereLimit > 1 ? 1 : 0;
     else limit = Math.max(1, Math.floor(limit / 2));
-    candidates = kept.slice(0, limit).map((entry) => toCandidate(entry, includeSlots, whereLimit));
+    candidates = kept.slice(0, limit).map((entry, index) => compactCandidate(entry, index));
     payload = payloadOf();
   }
 

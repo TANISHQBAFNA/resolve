@@ -130,7 +130,7 @@ describe("recommend (library ranking)", () => {
     expect(result.candidates[0]?.figmaNodeId).toBeTruthy();
     expect(result.candidates[0]?.deprecated).toBe(false);
     expect(result.candidates[0]?.variantProperties?.["Variant"]).toBe("Primary");
-    expect(result.cost.chars).toBeLessThan(2000);
+    expect(result.cost.chars).toBeLessThan(650);
     expect(result.hint).toMatch(/Do not Read graph\.json/);
   });
 
@@ -170,12 +170,14 @@ describe("recommend (library ranking)", () => {
       expect(dead.deprecated).toBe(true);
       expect(result.candidates.findIndex((candidate) => candidate.id === lab.dead)).toBeGreaterThan(0);
     }
-    expect(result.cost.chars).toBeLessThan(2000);
+    expect(result.cost.chars).toBeLessThan(650);
   });
 
   it("boosts masters that co-occur with brief siblings on the same frame", () => {
     const { index, ids: lab } = rankingLab();
-    const result = recommendMasters(index, "checkout with primary button and payment row");
+    const result = recommendMasters(index, "checkout with primary button and payment row", {
+      budgetChars: 2000,
+    });
     const live = result.candidates.find((candidate) => candidate.id === lab.live);
     const row = result.candidates.find((candidate) => candidate.id === lab.row);
     expect(live).toBeDefined();
@@ -207,6 +209,7 @@ describe("verify_frame (invent detection)", () => {
     expect(result.deprecated).toEqual([]);
     expect(result.pass).toBe(true);
     expect(result.approved).toBeGreaterThan(0);
+    expect(result.cost.chars).toBeLessThan(650);
   });
 
   it("flags proposed names that are not in the graph as invents", () => {

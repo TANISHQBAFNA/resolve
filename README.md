@@ -49,13 +49,13 @@ That’s the setup. Do it once.
 
 | Tool | What to do |
 |------|------------|
-| **Cursor** | Open this folder. Resolve skill + MCP (`npm run mcp`). |
+| **Cursor** | One config line next to Figma MCP — [SETUP-MCP.md](docs/SETUP-MCP.md). `npx -y -p github:TANISHQBAFNA/resolve resolve-mcp`. |
 | **Claude Code** | In this folder: `claude --plugin-dir .` |
 | **Codex / others** | Open this folder. It can read `AGENTS.md` and `skills/resolve`. |
 
-Turn on **Figma MCP** in the same tool. Everyday use does **not** need a Figma personal access token.
+Turn on **Figma MCP** in the same tool. Learning needs a **paid Figma seat with MCP access (Dev or Full)**, or a **Figma access token** for REST ingest. View or free seats have a low read quota — Resolve saves progress and resumes.
 
-Live command-line ingest of a `figma.com` URL does need `FIGMA_ACCESS_TOKEN`. Designers can ingest through the Figma connection in the AI tool, or from a JSON export of the plugin in this repo.
+Live command-line ingest of a `figma.com` URL needs `FIGMA_ACCESS_TOKEN`. Everyday use is Figma MCP in the AI tool (`learn_library`).
 
 Day-to-day commands (full explanation in the [guide](docs/GUIDE.md)):
 
@@ -73,12 +73,13 @@ Prefer the command name `resolve`. `npm run keyline` still works as a deprecated
 
 Optional: click around the map in a browser with `npm run dev` (sample data, no login).
 
-Other ways to bring a file in: Figma connection (default), [Figma plugin](figma-plugin/README.md) in this repo, or a saved JSON capture.
+Other ways to bring a file in: Figma MCP `learn_library` (primary), or REST ingest with a token (secondary). Big libraries: several checkpointed passes.
 
 ---
 
 ## More docs
 
+- **Plug-and-play next to Figma MCP:** [`docs/SETUP-MCP.md`](docs/SETUP-MCP.md)
 - **Designer guide:** [`docs/GUIDE.md`](docs/GUIDE.md)
 - Screen recipes (JSON packs): [`docs/RECIPES.md`](docs/RECIPES.md)
 - Cursor-focused steps: [`docs/CURSOR-RESOLVE.md`](docs/CURSOR-RESOLVE.md)
@@ -97,4 +98,4 @@ License: [`LICENSE`](LICENSE) (MIT)
 | Map + search + short AI cards | Clearer reports on design-system usage |
 | `recommend` + `verify_frame` (invent rate) | Smoother live Figma links and previews |
 | Screen recipes + product/journey context packs | Designer “why this component” cards; wrong-cousin across products |
-| Works with MCP / plugin | Optional in-app AI helpers |
+| Works with Figma MCP + Resolve MCP | Optional in-app AI helpers |

@@ -9,6 +9,8 @@ import {
   withCost,
   type RecommendCandidate,
 } from "./agentSurface";
+import { placeReady } from "./placeReady";
+import { usageAllowsRecipeFill, type SockState } from "./sock";
 import {
   appliedContext,
   contextPhrase,
@@ -47,7 +49,11 @@ export interface RecipeMaster {
   name: string;
   type: string;
   figmaNodeId?: string;
+  nodeId?: string;
   fileKey?: string;
+  componentKey?: string;
+  published?: boolean;
+  publishState?: "published" | "local-only";
   variantProperties?: Record<string, string>;
   set?: string;
   status?: GraphNode["status"];
@@ -178,12 +184,13 @@ function oneLineHint(text: string | undefined, max = 72): string | undefined {
 }
 
 function compactCardMaster(master: RecipeMaster) {
-  const hint = oneLineHint(master.hint);
+  const hint = oneLineHint(master.hint, 40);
   return {
     id: master.id,
     name: master.name,
-    ...(master.figmaNodeId ? { figmaNodeId: master.figmaNodeId } : {}),
+    ...(master.figmaNodeId ? { figmaNodeId: master.figmaNodeId, nodeId: master.nodeId ?? master.figmaNodeId } : {}),
     ...(master.fileKey ? { fileKey: master.fileKey } : {}),
+    ...(master.componentKey ? { componentKey: master.componentKey } : {}),
     status: master.status,
     ...(hint ? { hint } : {}),
   };
@@ -223,13 +230,13 @@ function compactListSlot(slot: FilledSlot) {
   };
 }
 
-export function listRecipes(recipes: Recipe[], index?: GraphIndex, bind?: ContextBind) {
+export function listRecipes(recipes: Recipe[], index?: GraphIndex, bind?: ContextBind, sock?: SockState) {
   const rows = [...recipes]
     .sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id))
     .map((recipe) => {
       const pack = bind ? packForRecipe(recipe, bind) : undefined;
       const filled = index
-        ? fillRecipe(index, recipe, undefined, pack, bind?.workspace)
+        ? fillRecipe(index, recipe, undefined, pack, bind?.workspace, sock)
         : unboundCard(recipe, undefined, pack);
       const context = pack ? appliedContext(pack) : undefined;
       return {
@@ -293,12 +300,12 @@ export function slotRecommendIntent(
 
 function masterFromNode(index: GraphIndex, node: GraphNode, hint: string): RecipeMaster {
   const set = node.componentSetId ? index.getNode(node.componentSetId) : undefined;
+  const place = placeReady(node, index.graph.fileKey);
   return {
     id: node.id,
     name: node.name,
     type: node.type,
-    figmaNodeId: node.figmaNodeId,
-    ...(node.fileKey || index.graph.fileKey ? { fileKey: node.fileKey ?? index.graph.fileKey } : {}),
+    ...place,
     variantProperties: node.variantProperties,
     set: set && set.id !== node.id ? set.name : undefined,
     status: node.status,
@@ -313,7 +320,11 @@ function masterFromCandidate(candidate: RecommendCandidate): RecipeMaster {
     name: candidate.name,
     type: candidate.type,
     figmaNodeId: candidate.figmaNodeId,
+    nodeId: candidate.nodeId ?? candidate.figmaNodeId,
     ...(candidate.fileKey ? { fileKey: candidate.fileKey } : {}),
+    ...(candidate.componentKey ? { componentKey: candidate.componentKey } : {}),
+    published: candidate.published,
+    publishState: candidate.publishState,
     variantProperties: candidate.variantProperties,
     set: candidate.set,
     status: candidate.status,
@@ -335,6 +346,7 @@ function fillSlot(
   extraIntent?: string,
   pack?: ContextPack,
   workspace?: WorkspaceManifest,
+  sock?: SockState,
 ): FilledSlot {
   const nextRecommend = slotRecommendIntent(recipe, slot, extraIntent, pack);
   const base = { role: slot.role, required: slot.required, hints: slot.hints, nextRecommend };
@@ -377,11 +389,16 @@ function fillSlot(
   }
 
   const ranked = recommendMasters(index, nextRecommend, {
+    budgetChars: 2000,
     ...(pack ? { context: pack } : {}),
     ...(workspace ? { workspace } : {}),
+    ...(sock ? { sock } : {}),
   });
   const live = ranked.candidates.filter(
-    (candidate) => !candidate.deprecated && !isPrivateMasterName(candidate.name),
+    (candidate) =>
+      !candidate.deprecated &&
+      !isPrivateMasterName(candidate.name) &&
+      usageAllowsRecipeFill(sock, candidate.id, candidate.instances),
   );
   const pick = live.find((candidate) => hintOverlap(candidate, slot.hints) > 0);
   if (!pick) {
@@ -407,8 +424,9 @@ export function fillRecipe(
   extraIntent?: string,
   pack?: ContextPack,
   workspace?: WorkspaceManifest,
+  sock?: SockState,
 ): FilledRecipe {
-  const slots = recipe.slots.map((slot) => fillSlot(index, recipe, slot, extraIntent, pack, workspace));
+  const slots = recipe.slots.map((slot) => fillSlot(index, recipe, slot, extraIntent, pack, workspace, sock));
   const next = slots
     .filter((slot) => slot.status === "unbound" || slot.status === "missing" || slot.status === "deprecated")
     .map((slot) => slot.nextRecommend)
@@ -453,6 +471,7 @@ export function recipeCard(
   index?: GraphIndex,
   extraIntent?: string,
   bind?: ContextBind,
+  sock?: SockState,
 ) {
   const recipe = matchRecipe(recipes, query);
   if (!recipe) {
@@ -464,7 +483,7 @@ export function recipeCard(
   }
   const pack = bind ? packForRecipe(recipe, bind) : undefined;
   const filled = index
-    ? fillRecipe(index, recipe, extraIntent, pack, bind?.workspace)
+    ? fillRecipe(index, recipe, extraIntent, pack, bind?.workspace, sock)
     : unboundCard(recipe, extraIntent, pack);
   return withCost({
     found: true as const,
@@ -472,6 +491,6 @@ export function recipeCard(
     recipe: { id: filled.recipe.id, title: filled.recipe.title },
     slots: filled.slots.map(compactCardSlot),
     ...(filled.context ? { context: filled.context } : {}),
-    hint: filled.hint,
+    hint: "Place bound figmaNodeIds, then verify_frame. Do not Read graph.json.",
   });
 }
