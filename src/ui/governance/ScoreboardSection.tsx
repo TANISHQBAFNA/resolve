@@ -3,15 +3,17 @@ import { useEffect, useState } from "react";
 interface ToolRow {
   tool: string;
   scored: number;
-  top1: number;
+  top1: number | null;
   top1Count: number;
-  top3: number;
-  top3Applicable: boolean;
+  top3: number | null;
+  top3Count?: number;
+  top3Base?: number;
+  top3Applicable?: boolean;
   candidatesP50: number;
   candidatesMax: number;
-  emptyWhenWeak: number;
-  wrongCousinRate: number;
-  leakRate: number;
+  emptyWhenWeak: number | null;
+  wrongCousinRate: number | null;
+  leakRate: number | null;
   sizeP50: number;
   sizeMax: number;
   budget: number;
@@ -20,7 +22,9 @@ interface ToolRow {
 
 interface TrendPoint {
   at: string;
-  top1: number;
+  top1: number | null;
+  top1Count?: number;
+  top1Base?: number;
   inventRate: number;
   pass: boolean;
 }
@@ -47,7 +51,8 @@ interface ScoreboardPayload {
   hint: string;
 }
 
-function pct(rate: number): string {
+function pct(rate: number | null | undefined): string {
+  if (rate == null) return "n/a";
   return `${Math.round(rate * 100)}%`;
 }
 
@@ -59,16 +64,23 @@ function when(iso: string): string {
 
 function top1Cell(tool: ToolRow): string {
   if (tool.tool === "recipe") return tool.scored ? `${tool.top1Count}/${tool.scored}` : "n/a";
-  if (!tool.scored && tool.tool === "verify") return "n/a";
   return pct(tool.top1);
 }
 
 function top3Cell(tool: ToolRow): string {
-  if (!tool.top3Applicable) {
-    const count = tool.candidatesMax || tool.candidatesP50;
-    return count ? `n/a (${count} candidate${count === 1 ? "" : "s"})` : "n/a";
+  if (typeof tool.top3Base === "number") {
+    if (!tool.top3Base) return "n/a (N=0)";
+    return `${tool.top3Count ?? 0}/${tool.top3Base}`;
   }
+  if (!tool.top3Applicable) return "n/a (N=0)";
   return pct(tool.top3);
+}
+
+function trendBit(point: TrendPoint): string {
+  if (typeof point.top1Count === "number" && typeof point.top1Base === "number" && point.top1Base > 0) {
+    return `${point.top1Count}/${point.top1Base}`;
+  }
+  return pct(point.top1);
 }
 
 export function ScoreboardSection({ compact = false }: { compact?: boolean }) {
@@ -162,7 +174,7 @@ export function ScoreboardSection({ compact = false }: { compact?: boolean }) {
           )}
           {trend.length > 1 ? (
             <p className="muted">
-              Top-1 trend: {trend.map((point) => pct(point.top1)).join(" → ")}
+              Top-1 trend (verify excluded): {trend.map((point) => trendBit(point)).join(" → ")}
             </p>
           ) : null}
           {compact ? null : <p className="muted">{data.hint}</p>}

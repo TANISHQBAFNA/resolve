@@ -6,13 +6,18 @@ import { resolveWorkspaceName } from "./store";
 
 export interface ScoreTrendPoint {
   at: string;
-  top1: number;
-  top3: number;
+  top1: number | null;
+  top1Count: number;
+  top1Base: number;
+  top3: number | null;
+  top3Count: number;
+  top3Base: number;
   inventRate: number;
-  wrongCousinRate: number;
-  emptyWhenWeak: number;
-  leakRate: number;
+  wrongCousinRate: number | null;
+  emptyWhenWeak: number | null;
+  leakRate: number | null;
   pass: boolean;
+  goldenHash?: string;
 }
 
 export interface ScoreWorkspaceChoice {
@@ -27,6 +32,8 @@ export interface ScoreboardPage {
   trend: ScoreTrendPoint[];
   delta: ScoreDelta | null;
   hint: string;
+  error?: string;
+  status?: 400;
 }
 
 function homeDir(env: NodeJS.ProcessEnv): string {
@@ -111,30 +118,52 @@ export function listScoreWorkspaces(env: NodeJS.ProcessEnv = process.env): Score
   return rows;
 }
 
+function sameSet(row: ScoreReport, latest: ScoreReport): boolean {
+  return Boolean(row.goldenHash) && row.goldenHash === latest.goldenHash && row.workspace === latest.workspace;
+}
+
 /** Read-only latest run and trend. Never includes the graph. */
 export function scoreboardView(env: NodeJS.ProcessEnv = process.env, selected?: string): ScoreboardPage {
-  const workspaces = listScoreWorkspaces(env);
   const picked = selected?.trim();
+  if (picked) {
+    try {
+      resolveWorkspaceName(picked);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        workspace: picked,
+        workspaces: [],
+        latest: null,
+        trend: [],
+        delta: null,
+        hint: message,
+        error: message,
+        status: 400,
+      };
+    }
+  }
+  const workspaces = listScoreWorkspaces(env);
   const workspace = picked
     ? resolveWorkspaceName(picked)
     : (workspaces.at(-1)?.name ?? resolveWorkspaceName(env["RESOLVE_WORKSPACE"]));
   const rows = readScoreHistory(scoreboardHistoryDir(workspace, env));
   const latest = rows.at(-1) ?? null;
-  const previous = latest
-    ? [...rows]
-        .slice(0, -1)
-        .reverse()
-        .find((row) => row.goldenHash && row.goldenHash === latest.goldenHash && row.workspace === latest.workspace)
-    : undefined;
-  const trend = rows.slice(-8).map((row) => ({
+  const comparable = latest ? rows.filter((row) => sameSet(row, latest)) : [];
+  const previous = comparable.length > 1 ? comparable[comparable.length - 2] : undefined;
+  const trend = comparable.slice(-8).map((row) => ({
     at: row.at,
     top1: row.top1,
+    top1Count: row.top1Count ?? 0,
+    top1Base: row.top1Base ?? 0,
     top3: row.top3,
+    top3Count: row.top3Count ?? 0,
+    top3Base: row.top3Base ?? 0,
     inventRate: row.inventRate,
     wrongCousinRate: row.wrongCousinRate,
     emptyWhenWeak: row.emptyWhenWeak,
     leakRate: row.leakRate,
     pass: row.pass,
+    ...(row.goldenHash ? { goldenHash: row.goldenHash } : {}),
   }));
   return {
     workspace,

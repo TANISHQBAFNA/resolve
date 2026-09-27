@@ -106,19 +106,22 @@
       "slot": "primary-cta",
       "expected": "Pay CTA",
       "mustNot": ["Save CTA"],
+      "tools": ["recipe"],
       "note": "Checkout primary action is Pay CTA, not the generic button."
     },
     {
       "id": "ctx-recipe-sign-in",
       "intent": "sign in",
       "slot": "primary-cta",
-      "expected": "Button Primary"
+      "expected": "Button Primary",
+      "tools": ["recipe"]
     },
     {
       "id": "ctx-recipe-empty",
       "intent": "empty state",
       "slot": "message",
-      "expected": "Empty Message"
+      "expected": "Empty Message",
+      "tools": ["recipe"]
     }
   ]
 }

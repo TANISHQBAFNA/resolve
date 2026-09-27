@@ -148,6 +148,8 @@ describe("/api/governance", () => {
       expect(governance.ok).toBe(true);
       const scoreboard = await fetch(new URL("/api/scoreboard", base!));
       expect(scoreboard.ok).toBe(true);
+      const escaped = await fetch(new URL("/api/scoreboard?workspace=..", base!));
+      expect(escaped.status).toBe(400);
       const body = (await scoreboard.json()) as { hint: string; latest: unknown };
       expect(body.hint).toMatch(/scoreboard|No scoreboard/i);
       expect(await open(24678)).toBe(false);

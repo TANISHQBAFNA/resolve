@@ -6,7 +6,12 @@ import react from "@vitejs/plugin-react";
 import { fileURLToPath, URL } from "node:url";
 
 function sendGovernance(res: { statusCode: number; setHeader: (k: string, v: string) => void; end: (body: string) => void }, view: unknown): void {
-  res.statusCode = 200;
+  const rejected =
+    view !== null &&
+    typeof view === "object" &&
+    "status" in view &&
+    (view as { status?: unknown }).status === 400;
+  res.statusCode = rejected ? 400 : 200;
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(view));

@@ -53,6 +53,8 @@ const GENERIC_NAME_TOKENS = new Set([
   "tertiary",
 ]);
 
+const ToolNameSchema = z.enum(["recommend", "resolve", "recipe", "verify"]);
+
 const ToolSpecSchema = z.object({
   expect: z.enum(["master", "empty", "skip"]).optional(),
   expected: z.string().trim().min(1).optional(),
@@ -71,13 +73,17 @@ const CaseSchema = z.object({
   mustNot: z.array(z.string().trim().min(1)).optional(),
   expect: z.enum(["master", "empty"]).optional(),
   note: z.string().optional(),
+  /** Per-tool overrides, or a list of tools this case is explicitly for. `["recipe"]` marks a recipe case. */
   tools: z
-    .object({
-      recommend: ToolSpecSchema.optional(),
-      resolve: ToolSpecSchema.optional(),
-      recipe: ToolSpecSchema.optional(),
-      verify: ToolSpecSchema.optional(),
-    })
+    .union([
+      z.array(ToolNameSchema).min(1),
+      z.object({
+        recommend: ToolSpecSchema.optional(),
+        resolve: ToolSpecSchema.optional(),
+        recipe: ToolSpecSchema.optional(),
+        verify: ToolSpecSchema.optional(),
+      }),
+    ])
     .optional(),
 });
 
@@ -103,8 +109,11 @@ export interface GoldenCase {
   accept?: string[];
   mustNot?: string[];
   expect: "master" | "empty";
-  /** Per-tool override. Resolve of an exact deprecated or private name is not a recommend miss. */
-  tools?: Partial<Record<ScoreTool, ToolSpec>>;
+  /**
+   * Per-tool override, or a list of tools this case is explicitly for.
+   * `["recipe"]` marks a recipe case. A marked recipe case with no card is a miss.
+   */
+  tools?: Partial<Record<ScoreTool, ToolSpec>> | ScoreTool[];
   note?: string;
 }
 
@@ -136,14 +145,17 @@ export interface ToolRollup {
   tool: ScoreTool;
   cases: number;
   scored: number;
-  top1: number;
-  top3: number;
-  emptyWhenWeak: number;
-  wrongCousinRate: number;
-  leakRate: number;
+  /** Null when the denominator is 0. Never report that as 0%. */
+  top1: number | null;
+  top3: number | null;
+  emptyWhenWeak: number | null;
+  wrongCousinRate: number | null;
+  leakRate: number | null;
   top1Count: number;
-  /** False when scored cards never hold three candidates. */
-  top3Applicable: boolean;
+  /** Hits among cards that offered 3 or more candidates. */
+  top3Count: number;
+  /** Cards that offered 3 or more candidates. 0 means top-3 is n/a. */
+  top3Base: number;
   candidatesP50: number;
   candidatesMax: number;
   sizeP50: number;
@@ -173,11 +185,17 @@ export interface ScoreReport {
   pass: boolean;
   inventRate: number;
   inventCount: number;
-  wrongCousinRate: number;
-  top1: number;
-  top3: number;
-  emptyWhenWeak: number;
-  leakRate: number;
+  wrongCousinRate: number | null;
+  /** Run-level top-1 excludes verify. Null when nothing was scored. */
+  top1: number | null;
+  top1Count: number;
+  top1Base: number;
+  /** Run-level top-3 is only cards with 3+ candidates, verify excluded. */
+  top3: number | null;
+  top3Count: number;
+  top3Base: number;
+  emptyWhenWeak: number | null;
+  leakRate: number | null;
   latencyP50Ms: number;
   latencyP95Ms: number;
   budgetBreach: boolean;
@@ -189,12 +207,14 @@ export interface ScoreReport {
 export interface ScoreDelta {
   hasPrevious: boolean;
   previousAt?: string;
-  top1: number;
-  top3: number;
-  inventRate: number;
-  wrongCousinRate: number;
-  emptyWhenWeak: number;
-  leakRate: number;
+  top1: number | null;
+  /** Omitted from the CLI line unless both runs have a top-3 base of at least 10. */
+  top3: number | null;
+  top3Reported: boolean;
+  inventRate: number | null;
+  wrongCousinRate: number | null;
+  emptyWhenWeak: number | null;
+  leakRate: number | null;
 }
 
 interface BoundCase extends GoldenCase {
@@ -568,9 +588,19 @@ function percentile(values: number[], p: number): number {
   return sorted[index]!;
 }
 
-function rate(hits: number, total: number): number {
-  if (total <= 0) return 0;
+/** Null when nothing was scored. Callers must print that as n/a, not 0%. */
+function rate(hits: number, total: number): number | null {
+  if (total <= 0) return null;
   return hits / total;
+}
+
+function isRecipeCase(row: GoldenCase): boolean {
+  return Array.isArray(row.tools) && row.tools.includes("recipe");
+}
+
+function toolOverride(row: GoldenCase, tool: ScoreTool): ToolSpec | undefined {
+  if (!row.tools || Array.isArray(row.tools)) return undefined;
+  return row.tools[tool];
 }
 
 interface ToolExpectation {
@@ -603,7 +633,7 @@ function nameLikeMaster(index: GraphIndex, intent: string): GraphNode | undefine
 }
 
 function expectationFor(tool: ScoreTool, row: BoundCase, index: GraphIndex): ToolExpectation {
-  const override = row.tools?.[tool];
+  const override = toolOverride(row, tool);
   if (override?.expect === "skip") {
     return {
       applicable: false,
@@ -914,9 +944,9 @@ export function scoreGraph(index: GraphIndex, cases: GoldenCase[], options: Scor
       const ms = performance.now() - started;
       const cardInvents = inventsInCard(card, index);
       let spec = expectationFor(tool, row, index);
-      if (tool === "recipe" && spec.applicable) {
-        const found = asRecord(card)?.["found"] === true;
-        spec = { ...spec, applicable: found && Boolean(row.slot) };
+      if (tool === "recipe") {
+        // Explicit recipe cases stay scored when the tool returns no card. That is a miss, not a skip.
+        spec = { ...spec, applicable: isRecipeCase(row) && Boolean(row.slot) };
       }
       const picks = spec.applicable ? picksFor(tool, card, vocab, row) : [];
       const leaks = spec.applicable ? leakPicksFor(tool, card, vocab, row) : [];
@@ -960,14 +990,17 @@ export function scoreGraph(index: GraphIndex, cases: GoldenCase[], options: Scor
   }
 
   const tools = SCORE_TOOLS.map((tool) => rollup(tool, results.filter((row) => row.tool === tool)));
-  const applicable = results.filter((row) => row.applicable);
-  const masterResults = applicable.filter((row) => row.expect === "master");
-  const emptyResults = applicable.filter((row) => row.expect === "empty");
-  const top3Base = masterResults.filter((row) => row.candidates >= 3);
+  // Verify did-you-mean is a different question. It stays on its own row and out of the run-level figures.
+  const accuracy = results.filter((row) => row.applicable && row.tool !== "verify");
+  const masterResults = accuracy.filter((row) => row.expect === "master");
+  const emptyResults = accuracy.filter((row) => row.expect === "empty");
+  const top3Rows = masterResults.filter((row) => row.candidates >= 3);
   const cousinBase = masterResults.filter((row) => row.picks.length > 0);
   const latency = results.map((row) => row.ms);
   const budgetBreach = tools.some((tool) => tool.overBudget);
   const inventCount = invents.length;
+  const top1Count = masterResults.filter((row) => row.top1).length;
+  const top3Count = top3Rows.filter((row) => row.top3).length;
 
   return {
     version: 1,
@@ -980,13 +1013,17 @@ export function scoreGraph(index: GraphIndex, cases: GoldenCase[], options: Scor
     ...(index.graph.builtAt ? { builtAt: index.graph.builtAt } : {}),
     cases: cases.length,
     pass: inventCount === 0 && !budgetBreach,
-    inventRate: rate(results.filter((row) => row.invents.length > 0).length, results.length),
+    inventRate: rate(results.filter((row) => row.invents.length > 0).length, results.length) ?? 0,
     inventCount,
     wrongCousinRate: rate(cousinBase.filter((row) => row.wrongCousin).length, cousinBase.length),
-    top1: rate(masterResults.filter((row) => row.top1).length, masterResults.length),
-    top3: rate(top3Base.filter((row) => row.top3).length, top3Base.length),
+    top1: rate(top1Count, masterResults.length),
+    top1Count,
+    top1Base: masterResults.length,
+    top3: rate(top3Count, top3Rows.length),
+    top3Count,
+    top3Base: top3Rows.length,
     emptyWhenWeak: rate(emptyResults.filter((row) => row.emptyOk).length, emptyResults.length),
-    leakRate: rate(applicable.filter((row) => row.leaked).length, applicable.length),
+    leakRate: rate(accuracy.filter((row) => row.leaked).length, accuracy.length),
     latencyP50Ms: percentile(latency, 0.5),
     latencyP95Ms: percentile(latency, 0.95),
     budgetBreach,
@@ -1007,14 +1044,17 @@ function rollup(tool: ScoreTool, rows: ToolCaseResult[]): ToolRollup {
   const candidateCounts = applicable.map((row) => row.candidates);
   const candidatesMax = candidateCounts.length ? Math.max(...candidateCounts) : 0;
   const top1Count = master.filter((row) => row.top1).length;
+  const top3Rows = master.filter((row) => row.candidates >= 3);
+  const top3Count = top3Rows.filter((row) => row.top3).length;
   return {
     tool,
     cases: rows.length,
     scored: master.length,
     top1: rate(top1Count, master.length),
     top1Count,
-    top3: rate(master.filter((row) => row.top3).length, master.length),
-    top3Applicable: master.some((row) => row.candidates >= 3),
+    top3: rate(top3Count, top3Rows.length),
+    top3Count,
+    top3Base: top3Rows.length,
     candidatesP50: Math.round(percentile(candidateCounts, 0.5)),
     candidatesMax,
     emptyWhenWeak: rate(empty.filter((row) => row.emptyOk).length, empty.length),
@@ -1031,12 +1071,17 @@ export function scoreExitCode(report: Pick<ScoreReport, "inventCount" | "budgetB
   return report.inventCount > 0 || report.budgetBreach ? 1 : 0;
 }
 
+function deltaRate(current: number | null, previous: number | null | undefined): number | null {
+  if (current == null || previous == null) return null;
+  return current - previous;
+}
+
 export function deltaAgainst(
   current: ScoreReport,
   previous?: Pick<
     ScoreReport,
     "at" | "top1" | "top3" | "inventRate" | "wrongCousinRate" | "emptyWhenWeak" | "leakRate" | "goldenHash" | "workspace"
-  >,
+  > & { top3Base?: number },
 ): ScoreDelta {
   const sameSet =
     Boolean(previous?.goldenHash) &&
@@ -1046,30 +1091,35 @@ export function deltaAgainst(
     return {
       hasPrevious: false,
       top1: 0,
-      top3: 0,
+      top3: null,
+      top3Reported: false,
       inventRate: 0,
       wrongCousinRate: 0,
       emptyWhenWeak: 0,
       leakRate: 0,
     };
   }
+  const top3Reported = current.top3Base >= 10 && (previous.top3Base ?? 0) >= 10;
   return {
     hasPrevious: true,
     previousAt: previous.at,
-    top1: current.top1 - previous.top1,
-    top3: current.top3 - previous.top3,
-    inventRate: current.inventRate - previous.inventRate,
-    wrongCousinRate: current.wrongCousinRate - previous.wrongCousinRate,
-    emptyWhenWeak: current.emptyWhenWeak - previous.emptyWhenWeak,
-    leakRate: current.leakRate - previous.leakRate,
+    top1: deltaRate(current.top1, previous.top1),
+    top3: top3Reported ? deltaRate(current.top3, previous.top3) : null,
+    top3Reported,
+    inventRate: deltaRate(current.inventRate, previous.inventRate),
+    wrongCousinRate: deltaRate(current.wrongCousinRate, previous.wrongCousinRate),
+    emptyWhenWeak: deltaRate(current.emptyWhenWeak, previous.emptyWhenWeak),
+    leakRate: deltaRate(current.leakRate, previous.leakRate),
   };
 }
 
-function pct(rateValue: number): string {
+function pct(rateValue: number | null): string {
+  if (rateValue == null) return "n/a";
   return `${Math.round(rateValue * 100)}%`;
 }
 
-function points(delta: number): string {
+function points(delta: number | null): string {
+  if (delta == null) return "n/a";
   const rounded = Math.round(delta * 100);
   if (rounded === 0) return "0";
   return rounded > 0 ? `+${rounded}` : `${rounded}`;
@@ -1081,16 +1131,12 @@ function pad(value: string, width: number): string {
 
 function top1Cell(tool: ToolRollup): string {
   if (tool.tool === "recipe") return tool.scored ? `${tool.top1Count}/${tool.scored}` : "n/a";
-  if (tool.tool === "verify") return tool.scored ? pct(tool.top1) : "n/a";
   return pct(tool.top1);
 }
 
 function top3Cell(tool: ToolRollup): string {
-  if (!tool.top3Applicable) {
-    const count = tool.candidatesMax || tool.candidatesP50;
-    return count ? `n/a (${count} candidate${count === 1 ? "" : "s"})` : "n/a";
-  }
-  return pct(tool.top3);
+  if (!tool.top3Base) return "n/a (N=0)";
+  return `${tool.top3Count}/${tool.top3Base}`;
 }
 
 export function formatScoreTable(report: ScoreReport, delta?: ScoreDelta): string {
@@ -1123,15 +1169,26 @@ export function formatScoreTable(report: ScoreReport, delta?: ScoreDelta): strin
   const recipe = report.tools.find((tool) => tool.tool === "recipe");
   const library = report.fileName ? ` — ${report.fileName}` : "";
   const result = report.pass ? "pass" : "fail";
+  const deltaBits = delta?.hasPrevious
+    ? [
+        `top-1 ${points(delta.top1)}`,
+        ...(delta.top3Reported ? [`top-3 ${points(delta.top3)}`] : []),
+        `invent ${points(delta.inventRate)}`,
+        `wrong cousin ${points(delta.wrongCousinRate)}`,
+        `empty-ok ${points(delta.emptyWhenWeak)}`,
+        `leak ${points(delta.leakRate)}`,
+      ]
+    : [];
   const compared = !delta?.hasPrevious
     ? "No earlier run to compare."
-    : `Compared with ${delta.previousAt}: top-1 ${points(delta.top1)}, top-3 ${points(delta.top3)}, invent ${points(delta.inventRate)}, wrong cousin ${points(delta.wrongCousinRate)}, empty-ok ${points(delta.emptyWhenWeak)}, leak ${points(delta.leakRate)} (points).`;
+    : `Compared with ${delta.previousAt}: ${deltaBits.join(", ")} (points).`;
+  const runTop1 = report.top1Base ? `${report.top1Count}/${report.top1Base}` : "n/a";
+  const runTop3 = report.top3Base ? `${report.top3Count}/${report.top3Base}` : "n/a (N=0)";
   const notes = [
-    recipe
-      ? `Recipe: ${recipe.top1Count}/${recipe.scored} on screen cases.`
-      : "",
-    "Verify top-1 is a did-you-mean hit, scored only on name-like intents.",
-    "Top-3 is n/a when a card holds fewer than three candidates.",
+    `Run top-1: ${runTop1} (verify excluded). Run top-3: ${runTop3}.`,
+    recipe ? `Recipe: ${recipe.top1Count}/${recipe.scored} on screen cases.` : "",
+    "Verify top-1 is a did-you-mean hit, scored only on name-like intents. It is not part of the run-level figures.",
+    "Top-3 counts only cards with three or more candidates.",
   ].filter(Boolean);
   return [
     `Scoreboard — ${report.cases} cases${library}`,

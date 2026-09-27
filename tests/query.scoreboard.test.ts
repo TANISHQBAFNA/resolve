@@ -144,11 +144,33 @@ describe("scoreboard", () => {
     expect(table).toMatch(/Result: pass/);
     expect(table).toMatch(/recommend/);
     expect(table).toMatch(/on screen cases/);
-    expect(table).toMatch(/n\/a \(1 candidate\)/);
+    expect(table).toMatch(/n\/a \(N=0\)/);
+    expect(table).not.toMatch(/n\/a \(1 candidate\)/);
+    expect(table).toMatch(/Run top-1: \d+\/\d+ \(verify excluded\)/);
     expect(table).toMatch(/Compared with/);
+    const compared = table.split("\n").find((line) => line.startsWith("Compared"));
+    expect(compared).toBeTruthy();
+    expect(compared).not.toMatch(/top-3/);
     const recipe = second.tools.find((tool) => tool.tool === "recipe");
-    expect(recipe?.scored).toBeGreaterThan(0);
-    expect(recipe?.scored).toBeLessThan(second.cases);
+    const recommend = second.tools.find((tool) => tool.tool === "recommend");
+    const resolveTool = second.tools.find((tool) => tool.tool === "resolve");
+    const verify = second.tools.find((tool) => tool.tool === "verify");
+    expect(recipe?.scored).toBe(3);
+    expect(recipe?.top1Count).toBe(2);
+    expect(recipe?.emptyWhenWeak).toBeNull();
+    expect(verify?.emptyWhenWeak).toBeNull();
+    expect(recipe?.top3Base).toBe(0);
+    expect(recommend?.top3Base).toBe(0);
+    expect(second.top1Count).toBe((recommend?.top1Count ?? 0) + (resolveTool?.top1Count ?? 0) + (recipe?.top1Count ?? 0));
+    expect(second.top1Base).toBe((recommend?.scored ?? 0) + (resolveTool?.scored ?? 0) + (recipe?.scored ?? 0));
+    expect(second.top1Base).toBe(120);
+    expect(second.top1Count).toBe(82);
+    expect(verify?.scored).toBeGreaterThan(0);
+    expect(second.top3Base).toBeLessThan(10);
+    const recipeLine = table.split("\n").find((line) => line.startsWith("recipe"));
+    expect(recipeLine).toMatch(/recipe\s+2\/3\s+n\/a \(N=0\)\s+n\/a\s+/);
+    const verifyLine = table.split("\n").find((line) => line.startsWith("verify"));
+    expect(verifyLine).toMatch(/n\/a \(N=0\)\s+n\/a\s+/);
     expect(second.misses.length).toBeGreaterThan(40);
     expect(second.misses.filter((row) => row.id === "dep-legacy-banner-exact" && row.tool === "resolve")).toEqual([]);
     expect(second.misses.filter((row) => row.id === "priv-note" && row.tool === "resolve")).toEqual([]);
@@ -159,9 +181,41 @@ describe("scoreboard", () => {
     expect(page.workspace).toBe("fixture");
     expect(page.latest?.cases).toBe(cases.length);
     expect(page.trend).toHaveLength(1);
+    writeScoreHistory(dir, { ...first, at: "2026-09-26T00:00:00.000Z", goldenHash: "other-set" });
+    const mixed = scoreboardView();
+    expect(mixed.trend.every((point) => point.goldenHash === second.goldenHash)).toBe(true);
+    expect(mixed.trend.some((point) => point.goldenHash === "other-set")).toBe(false);
+    expect(scoreboardView({ HOME: home }, "..").status).toBe(400);
     expect(JSON.stringify(page)).not.toMatch(/"nodes"\s*:/);
     expect(page.workspace).toBe("fixture");
     expect(page.workspaces.some((row) => row.name === "fixture")).toBe(true);
+  });
+
+  it("counts a marked recipe case with no card as a miss", () => {
+    const index = fixtureIndex();
+    const cases = loadGoldenCases(goldenDir).filter(
+      (row) => Array.isArray(row.tools) && row.tools.includes("recipe"),
+    );
+    expect(cases.map((row) => row.id).sort()).toEqual([
+      "ctx-recipe-checkout",
+      "ctx-recipe-empty",
+      "ctx-recipe-sign-in",
+    ]);
+    const broken = scoreGraph(index, cases, { recipes: [] });
+    const recipe = broken.tools.find((tool) => tool.tool === "recipe");
+    expect(recipe?.scored).toBe(3);
+    expect(recipe?.top1Count).toBe(0);
+    expect(broken.misses.filter((row) => row.tool === "recipe" && row.kind === "top1")).toHaveLength(3);
+    const unmarked = scoreGraph(index, [
+      {
+        id: "not-a-recipe",
+        intent: "checkout summary",
+        slot: "primary-cta",
+        expected: "Pay CTA",
+        expect: "master",
+      },
+    ]);
+    expect(unmarked.tools.find((tool) => tool.tool === "recipe")?.scored).toBe(0);
   });
 
   it("rejects workspace names that escape ~/.resolve", () => {
