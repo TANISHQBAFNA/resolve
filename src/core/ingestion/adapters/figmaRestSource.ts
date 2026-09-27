@@ -14,13 +14,60 @@ import { adaptFigmaRestFile } from "./figmaRest";
  * only fetches.
  *
  * Default scope is the shared node (`?node-id=`), not the whole file. Whole
- * files walk top-level FRAME/SECTION nodes one at a time.
+ * files walk top-level FRAME/SECTION/COMPONENT/COMPONENT_SET nodes one at a
+ * time. `--scope file` is one request (safer on a low API tier). 429s honor
+ * Retry-After; completed sections checkpoint so a re-run resumes.
  *
  * Token never lives in the bundle. Browser sends it per-request through the
  * Vite `/api/figma` proxy (CORS). Node/CLI reads `FIGMA_ACCESS_TOKEN`.
  */
 
 export const FIGMA_API_ORIGIN = "https://api.figma.com";
+export const DEFAULT_MAX_RETRY_AFTER_MS = 30_000;
+
+export function parseRetryAfterMs(header: string | null, now = Date.now()): number | undefined {
+  if (!header) return undefined;
+  const trimmed = header.trim();
+  if (!trimmed) return undefined;
+  if (/^\d+(\.\d+)?$/.test(trimmed)) return Math.round(Number(trimmed) * 1000);
+  const parsed = Date.parse(trimmed);
+  if (Number.isNaN(parsed)) return undefined;
+  return Math.max(0, parsed - now);
+}
+
+export interface ScreensCheckpoint {
+  fileKey: string;
+  completedIds: string[];
+  pages: Record<string, { id: string; name: string; type: "CANVAS"; children: unknown[] }>;
+  components: Record<string, unknown>;
+  componentSets: Record<string, unknown>;
+  styles: Record<string, unknown>;
+}
+
+export interface IngestCheckpointStore {
+  load(fileKey: string): ScreensCheckpoint | undefined;
+  save(fileKey: string, data: ScreensCheckpoint): void;
+  clear(fileKey: string): void;
+}
+
+export function memoryCheckpointStore(): IngestCheckpointStore {
+  const bag = new Map<string, ScreensCheckpoint>();
+  return {
+    load: (fileKey) => bag.get(fileKey),
+    save: (fileKey, data) => {
+      bag.set(fileKey, structuredClone(data));
+    },
+    clear: (fileKey) => {
+      bag.delete(fileKey);
+    },
+  };
+}
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 export function figmaApiOrigin(): string {
   return typeof window === "undefined" ? FIGMA_API_ORIGIN : "/api/figma";
@@ -45,6 +92,9 @@ export interface FetchFigmaRestOptions {
   origin?: string;
   scope?: FigmaIngestScope;
   onProgress?: (info: IngestProgress) => void;
+  sleep?: (ms: number) => Promise<void>;
+  maxRetryAfterMs?: number;
+  checkpoint?: IngestCheckpointStore;
 }
 
 function httpFailureKind(status: number): string {
@@ -87,26 +137,50 @@ async function figmaGet(
   });
 }
 
+interface RetryPolicy {
+  sleep: (ms: number) => Promise<void>;
+  maxRetryAfterMs: number;
+}
+
 async function getJson(
   origin: string,
   path: string,
   token: string,
   fileKey: string,
   signal?: AbortSignal,
+  retry?: RetryPolicy,
 ): Promise<unknown> {
-  let res: Response;
-  try {
-    res = await figmaGet(origin, path, token, signal);
-  } catch (cause) {
-    throw wrapNetworkError(fileKey, cause);
-  }
-  if (!res.ok) {
-    throw new Error(`${httpFailureKind(res.status)} for ${fileKey}: ${await figmaError(res)}`);
-  }
-  try {
-    return await res.json();
-  } catch {
-    throw new Error(`Figma file ${fileKey}: malformed JSON response.`);
+  for (;;) {
+    let res: Response;
+    try {
+      res = await figmaGet(origin, path, token, signal);
+    } catch (cause) {
+      throw wrapNetworkError(fileKey, cause);
+    }
+    if (res.status === 429) {
+      const detail = await figmaError(res);
+      const waitMs = parseRetryAfterMs(res.headers.get("Retry-After"));
+      const maxWait = retry?.maxRetryAfterMs ?? DEFAULT_MAX_RETRY_AFTER_MS;
+      if (waitMs === undefined) {
+        throw new Error(`${httpFailureKind(429)} for ${fileKey}: ${detail}`);
+      }
+      const secs = Math.round(waitMs / 1000);
+      if (waitMs > maxWait) {
+        throw new Error(
+          `${httpFailureKind(429)} for ${fileKey}: Retry-After ${secs}s (too long to wait). Re-run ingest to resume completed sections. ${detail}`,
+        );
+      }
+      await (retry?.sleep ?? defaultSleep)(waitMs);
+      continue;
+    }
+    if (!res.ok) {
+      throw new Error(`${httpFailureKind(res.status)} for ${fileKey}: ${await figmaError(res)}`);
+    }
+    try {
+      return await res.json();
+    } catch {
+      throw new Error(`Figma file ${fileKey}: malformed JSON response.`);
+    }
   }
 }
 
@@ -144,8 +218,9 @@ async function fetchFullFile(
   token: string,
   signal: AbortSignal | undefined,
   variables: unknown,
+  retry?: RetryPolicy,
 ): Promise<SourceDocument> {
-  const file = await getJson(origin, `/v1/files/${fileKey}`, token, fileKey, signal);
+  const file = await getJson(origin, `/v1/files/${fileKey}`, token, fileKey, signal, retry);
   return adaptFile(fileKey, file, variables);
 }
 
@@ -156,9 +231,17 @@ async function fetchNodesFile(
   token: string,
   signal: AbortSignal | undefined,
   pages?: ScreenRef[],
+  retry?: RetryPolicy,
 ): Promise<unknown> {
   const ids = encodeURIComponent(nodeIds.join(","));
-  const body = await getJson(origin, `/v1/files/${fileKey}/nodes?ids=${ids}`, token, fileKey, signal);
+  const body = await getJson(
+    origin,
+    `/v1/files/${fileKey}/nodes?ids=${ids}`,
+    token,
+    fileKey,
+    signal,
+    retry,
+  );
   try {
     return fileFromNodesResponse(body, pages);
   } catch {
@@ -179,12 +262,16 @@ export async function fetchFigmaRestDocument(
   const fileKey = target.fileKey;
   const origin = (options.origin ?? figmaApiOrigin()).replace(/\/$/, "");
   const scope = resolveIngestScope(target, options.scope ?? "auto");
+  const retry: RetryPolicy = {
+    sleep: options.sleep ?? defaultSleep,
+    maxRetryAfterMs: options.maxRetryAfterMs ?? DEFAULT_MAX_RETRY_AFTER_MS,
+  };
   const variablesPromise = fetchVariables(origin, fileKey, token, options.signal);
 
   if (scope === "file") {
     options.onProgress?.({ phase: "file", done: 0, total: 1, name: fileKey });
     const variables = await variablesPromise;
-    return fetchFullFile(origin, fileKey, token, options.signal, variables);
+    return fetchFullFile(origin, fileKey, token, options.signal, variables, retry);
   }
 
   if (scope === "node") {
@@ -195,7 +282,7 @@ export async function fetchFigmaRestDocument(
       name: target.nodeIds.join(", "),
     });
     const [file, variables] = await Promise.all([
-      fetchNodesFile(origin, fileKey, target.nodeIds, token, options.signal),
+      fetchNodesFile(origin, fileKey, target.nodeIds, token, options.signal, undefined, retry),
       variablesPromise,
     ]);
     options.onProgress?.({
@@ -209,30 +296,41 @@ export async function fetchFigmaRestDocument(
 
   options.onProgress?.({ phase: "outline", done: 0, total: 1, name: fileKey });
   const outline = asRecord(
-    await getJson(origin, `/v1/files/${fileKey}?depth=2`, token, fileKey, options.signal),
+    await getJson(origin, `/v1/files/${fileKey}?depth=2`, token, fileKey, options.signal, retry),
   );
   const screens = collectTopLevelScreens(outline["document"]);
   if (!screens.length) {
     const variables = await variablesPromise;
-    return fetchFullFile(origin, fileKey, token, options.signal, variables);
+    return fetchFullFile(origin, fileKey, token, options.signal, variables, retry);
   }
 
-  const components: Record<string, unknown> = {};
-  const componentSets: Record<string, unknown> = {};
-  const styles: Record<string, unknown> = {};
+  const saved = options.checkpoint?.load(fileKey);
+  const components: Record<string, unknown> = { ...(saved?.components ?? {}) };
+  const componentSets: Record<string, unknown> = { ...(saved?.componentSets ?? {}) };
+  const styles: Record<string, unknown> = { ...(saved?.styles ?? {}) };
   const pages = new Map<string, { id: string; name: string; type: "CANVAS"; children: unknown[] }>();
-
-  for (let i = 0; i < screens.length; i += 1) {
-    const screen = screens[i]!;
-    options.onProgress?.({
-      phase: "screen",
-      done: i,
-      total: screens.length,
-      name: screen.name,
+  for (const page of Object.values(saved?.pages ?? {})) {
+    pages.set(page.id, {
+      id: page.id,
+      name: page.name,
+      type: "CANVAS",
+      children: [...page.children],
     });
-    const wrapped = asRecord(
-      await fetchNodesFile(origin, fileKey, [screen.id], token, options.signal, [screen]),
-    );
+  }
+  const completed = new Set(saved?.completedIds ?? []);
+
+  const persist = () => {
+    options.checkpoint?.save(fileKey, {
+      fileKey,
+      completedIds: [...completed],
+      pages: Object.fromEntries(pages),
+      components,
+      componentSets,
+      styles,
+    });
+  };
+
+  const mergeWrapped = (wrapped: Record<string, unknown>) => {
     Object.assign(components, asRecord(wrapped["components"]));
     Object.assign(componentSets, asRecord(wrapped["componentSets"]));
     Object.assign(styles, asRecord(wrapped["styles"]));
@@ -253,6 +351,23 @@ export async function fetchFigmaRestDocument(
       }
       bucket.children.push(...asArray(rec["children"]));
     }
+  };
+
+  for (let i = 0; i < screens.length; i += 1) {
+    const screen = screens[i]!;
+    options.onProgress?.({
+      phase: "screen",
+      done: i,
+      total: screens.length,
+      name: screen.name,
+    });
+    if (completed.has(screen.id)) continue;
+    const wrapped = asRecord(
+      await fetchNodesFile(origin, fileKey, [screen.id], token, options.signal, [screen], retry),
+    );
+    mergeWrapped(wrapped);
+    completed.add(screen.id);
+    persist();
   }
 
   options.onProgress?.({
@@ -262,6 +377,7 @@ export async function fetchFigmaRestDocument(
     name: screens[screens.length - 1]?.name ?? fileKey,
   });
 
+  options.checkpoint?.clear(fileKey);
   const variables = await variablesPromise;
   return adaptFile(
     fileKey,

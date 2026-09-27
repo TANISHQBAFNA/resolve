@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { TOOLS, ToolError, callTool } from "./tools";
+import { TOOLS, ToolError, callTool, encodeToolResult } from "./tools";
 
 /**
  * MCP server over stdio.
@@ -71,7 +71,7 @@ function handle(request: Request): void {
       try {
         const result = callTool(call.name, call.arguments);
         reply(id, {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text", text: encodeToolResult(result) }],
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

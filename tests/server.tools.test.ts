@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { TOOLS, callTool } from "@/server/tools";
+import { TOOLS, callTool, encodeToolResult } from "@/server/tools";
 import { clearCache, saveGraph } from "@/server/store";
 import { graph } from "./fixture";
 
@@ -110,6 +110,13 @@ describe("agent tools", () => {
       domain: "checkout",
     }) as { candidates: Array<{ id: string }>; context?: { id: string } };
     expect(Array.isArray(result.candidates)).toBe(true);
+  });
+
+  it("encodes MCP tool results as compact JSON", () => {
+    const payload = { pass: true, approved: 1 };
+    const text = encodeToolResult(payload);
+    expect(text).toBe(JSON.stringify(payload));
+    expect(text).not.toContain("\n");
   });
 
   it("recipe, list_recipes, and verify_frame accept the same pack-bind fields as recommend", () => {

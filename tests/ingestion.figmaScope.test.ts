@@ -46,8 +46,32 @@ describe("collectTopLevelScreens", () => {
         },
       ],
     });
-    expect(screens.map((screen) => screen.id)).toEqual(["1:1", "1:2", "1:5"]);
+    expect(screens.map((screen) => screen.id)).toEqual(["1:1", "1:2", "1:5", "1:6"]);
     expect(screens[1]).toMatchObject({ pageId: "1:0", pageName: "Page", type: "SECTION" });
+    expect(screens[3]).toMatchObject({ id: "1:6", name: "Button", type: "COMPONENT" });
+  });
+
+  it("collects page-level COMPONENT_SET and labels unnamed sections", () => {
+    const screens = collectTopLevelScreens({
+      id: "0:0",
+      type: "DOCUMENT",
+      children: [
+        {
+          id: "2:0",
+          name: "Search",
+          type: "CANVAS",
+          children: [
+            { id: "2:1", name: "Search docked layout", type: "COMPONENT_SET" },
+            { id: "2:2", name: "", type: "SECTION" },
+            { id: "2:3", type: "COMPONENT_SET" },
+          ],
+        },
+      ],
+    });
+    expect(screens.map((screen) => screen.id)).toEqual(["2:1", "2:2", "2:3"]);
+    expect(screens[0]?.type).toBe("COMPONENT_SET");
+    expect(screens[1]?.name).toBe("Search 2");
+    expect(screens[2]?.name).toMatch(/^Search /);
   });
 });
 

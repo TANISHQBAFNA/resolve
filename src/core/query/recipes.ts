@@ -3,6 +3,7 @@ import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import packagedRecipes from "@/data/recipes.json";
 import {
+  isPrivateMasterName,
   recommendMasters,
   resolveNode,
   withCost,
@@ -170,6 +171,37 @@ export function mergeRecipes(base: Recipe[], overlay: Recipe[]): Recipe[] {
   return [...byId.values()];
 }
 
+function oneLineHint(text: string | undefined, max = 72): string | undefined {
+  if (!text) return undefined;
+  const line = text.split("\n")[0]!.trim();
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+}
+
+function compactCardMaster(master: RecipeMaster) {
+  const hint = oneLineHint(master.hint);
+  return {
+    id: master.id,
+    name: master.name,
+    ...(master.figmaNodeId ? { figmaNodeId: master.figmaNodeId } : {}),
+    ...(master.fileKey ? { fileKey: master.fileKey } : {}),
+    status: master.status,
+    ...(hint ? { hint } : {}),
+  };
+}
+
+function compactCardSlot(slot: FilledSlot) {
+  const unbound =
+    slot.status === "unbound" || slot.status === "missing" || slot.status === "deprecated";
+  const hint = slot.master ? undefined : oneLineHint(slot.hint);
+  return {
+    role: slot.role,
+    status: slot.status,
+    ...(slot.master ? { master: compactCardMaster(slot.master) } : {}),
+    ...(unbound ? { nextRecommend: slot.nextRecommend } : {}),
+    ...(hint ? { hint } : {}),
+  };
+}
+
 function compactListSlot(slot: FilledSlot) {
   const master = slot.master
     ? {
@@ -317,6 +349,13 @@ function fillSlot(
         hint: `Stored master "${slot.defaultMasterId}" is not in the graph. Call recommend "${nextRecommend}". Do not invent a node id.`,
       };
     }
+    if (isPrivateMasterName(master.name)) {
+      return {
+        ...base,
+        status: "missing",
+        hint: `Stored master "${master.name}" is private (leading . or _). Call recommend "${nextRecommend}". Do not place unpublished parts.`,
+      };
+    }
     if (master.status === "deprecated") {
       return {
         ...base,
@@ -341,7 +380,9 @@ function fillSlot(
     ...(pack ? { context: pack } : {}),
     ...(workspace ? { workspace } : {}),
   });
-  const live = ranked.candidates.filter((candidate) => !candidate.deprecated);
+  const live = ranked.candidates.filter(
+    (candidate) => !candidate.deprecated && !isPrivateMasterName(candidate.name),
+  );
   const pick = live.find((candidate) => hintOverlap(candidate, slot.hints) > 0);
   if (!pick) {
     return {
@@ -428,6 +469,9 @@ export function recipeCard(
   return withCost({
     found: true as const,
     query,
-    ...filled,
+    recipe: { id: filled.recipe.id, title: filled.recipe.title },
+    slots: filled.slots.map(compactCardSlot),
+    ...(filled.context ? { context: filled.context } : {}),
+    hint: filled.hint,
   });
 }

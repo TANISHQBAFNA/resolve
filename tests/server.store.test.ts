@@ -86,4 +86,25 @@ describe("store", () => {
     expect(loaded?.graph.nodes.every((node) => node.fileKey === graph.fileKey)).toBe(true);
     expect(listGraphs()[0]?.role).toBe("library");
   });
+
+  it("refuses to silently change an existing file role", () => {
+    saveIngestedFile(graph, { role: "library", label: "Shared DS" });
+    expect(() => saveIngestedFile(graph, { role: "product" })).toThrow(/already .*library/);
+    expect(() => saveIngestedFile(graph, { role: "product" })).toThrow(/force-role|product/);
+    expect(readWorkspace().files[0]?.role).toBe("library");
+  });
+
+  it("keeps the existing role on a same-file refresh when --role is omitted", () => {
+    saveIngestedFile(graph, { role: "library", label: "Shared DS" });
+    const again = saveIngestedFile(graph, { label: "Shared DS" });
+    expect(again.role).toBe("library");
+    expect(readWorkspace().files[0]?.role).toBe("library");
+  });
+
+  it("changes role only when forceRole is set", () => {
+    saveIngestedFile(graph, { role: "library", label: "Shared DS" });
+    const next = saveIngestedFile(graph, { role: "product", forceRole: true });
+    expect(next.role).toBe("product");
+    expect(readWorkspace().files[0]?.role).toBe("product");
+  });
 });

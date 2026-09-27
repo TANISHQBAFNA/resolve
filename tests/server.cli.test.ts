@@ -28,4 +28,22 @@ describe("resolve ingest --role", () => {
     );
     await expect(runCli(["ingest", "--role"])).rejects.toThrow(/Unknown --role/);
   });
+
+  it("help says --scope file is safer on low API tiers and mentions --force-role", async () => {
+    const chunks: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await runCli([]);
+    } finally {
+      process.stdout.write = write;
+    }
+    const help = chunks.join("");
+    expect(help).toMatch(/--scope file/);
+    expect(help).toMatch(/low API|low-tier|safer/i);
+    expect(help).toMatch(/--force-role/);
+  });
 });

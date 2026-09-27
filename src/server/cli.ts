@@ -40,6 +40,7 @@ import {
   rebuildIndex,
   resolveGraph,
   saveIngestedFile,
+  fsIngestCheckpointStore,
   storeRoot,
   workspacePath,
 } from "./store";
@@ -60,12 +61,14 @@ function usage(): void {
     [
       "Resolve — Figma rules. Agents resolve.",
       "",
-      "  resolve ingest <file.json | figma-url | file-key> [--id <graphId>] [--file-key <key>] [--name <fileName>] [--scope node|screens|file] [--role library|product|client] [--label <name>]",
+      "  resolve ingest <file.json | figma-url | file-key> [--id <graphId>] [--file-key <key>] [--name <fileName>] [--scope node|screens|file] [--role library|product|client] [--force-role] [--label <name>]",
       "      Build a graph and add it to the workspace. JSON: plugin export, REST body, MCP capture, or a graph.",
       "      Live Figma: pass the shared screen/frame/section URL (node-id in the link).",
-      "      No node-id → each top-level screen, one request at a time. --scope file = whole dump.",
+      "      No node-id → each top-level FRAME/SECTION/COMPONENT/COMPONENT_SET, one request at a time.",
+      "      --scope file is one request — safer on a low API tier. Section walks honor Retry-After and resume.",
       "      Token from FIGMA_ACCESS_TOKEN. Writes .graphify/files/<key>.json + workspace.json.",
       "      First file defaults to role library; later files default to product. Re-run to refresh.",
+      "      Changing --role on a file already in the workspace is refused unless --force-role.",
       "      Agents call resolve / cousins — do not Read graph.json.",
       "",
       `  resolve recipe [list | "<name or intent>"] [--id] [--intent "<brief>"] ${PACK_BIND_FLAGS}`,
@@ -80,6 +83,7 @@ function usage(): void {
       "      Usage card: screens, slot fills, figmaNodeId. When you already know the name.",
       `  resolve verify "<frame>" [--id] [--components a,b] [--rules <file>] ${PACK_BIND_FLAGS}`,
       "      After drawing: pass/fail, invents, deprecated, unresolved. Measures invent rate.",
+      "      Component list: exact name or id only (fileKey:nodeId ok). Near match = unresolved + did you mean. Private (. / _) fails.",
       "      Optional .graphify/library-rules.json { allow, deny }. Else in-graph + not deprecated = approved.",
       "      Same pack flags as recommend. Pack libraryRules are a light hook. Wrong-cousin drift: resolve cousins.",
       `  resolve cousins ["<frame>"] [--job "<screen job>"] [--components a,b] ${PACK_BIND_FLAGS}`,
@@ -158,6 +162,7 @@ function writeStored(graph: DesignGraph, args: string[], target?: string): void 
   const summary = saveIngestedFile(graph, {
     graphId: flag(args, "id"),
     role: ingestRole(args),
+    forceRole: args.includes("--force-role"),
     url: target && /^https?:\/\//.test(target) ? target : flag(args, "url"),
     label: flag(args, "label") ?? flag(args, "name"),
   });
@@ -194,6 +199,7 @@ async function ingestLive(target: string, args: string[]): Promise<void> {
   const document = await fetchFigmaRestDocument(target, {
     token,
     scope: ingestScope(args),
+    checkpoint: fsIngestCheckpointStore(),
     onProgress: (info) => {
       if (info.phase === "outline") {
         process.stderr.write(`Outlining ${info.name}\n`);

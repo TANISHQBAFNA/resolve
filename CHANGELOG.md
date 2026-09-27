@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — harden agent loop (Material 3 live gate)
+
+No new product bets. Recommend + verify no longer invent on a real library.
+
+- **verify** — component lists approve only an exact name or exact id (including stamped `fileKey:nodeId`). A near match is unresolved with a did-you-mean, never `pass`. The card echoes each given name and what it resolved to. Private masters (name starts with `.` or `_`) fail rather than approve.
+- **recommend / recipe** — private `.` / `_` masters are not candidates or slot fills. `search` is a real recommend term. New starter `search-results` recipe; “search results list” no longer routes to empty-state. “no results” still does. Recipe cards drop fields that do not help an agent place.
+- **ingest** — 429 honors `Retry-After` with a bounded wait (and a clear message when the wait is too long). Completed sections checkpoint so a re-run resumes. Page-level COMPONENT / COMPONENT_SET are collected. Unnamed sections get `page name + index`. `--scope file` is documented as the safer low-tier choice. Same-file `--role` change is refused unless `--force-role`.
+- **MCP** — tool results are compact JSON.
+
 ## Unreleased — Michigan UAT Ready-with-minor
 
 Low defects after bet B. No new product bets.

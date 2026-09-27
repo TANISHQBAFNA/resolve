@@ -359,6 +359,11 @@ export const TOOLS: ToolDefinition[] = [
 
 /* ------------------------------------------------------------------ */
 
+/** Compact JSON for MCP tool results. Pretty-print wastes agent context. */
+export function encodeToolResult(result: unknown): string {
+  return JSON.stringify(result);
+}
+
 export class ToolError extends Error {}
 
 const asString = (value: unknown, name: string): string => {

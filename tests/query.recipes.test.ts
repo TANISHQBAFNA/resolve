@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { DesignGraph } from "@/core/model";
 import {
   fillRecipe,
+  indexGraph,
   listRecipes,
   matchRecipe,
   mergeRecipes,
@@ -57,10 +59,15 @@ describe("recipe load", () => {
   it("ships a starter set designers can edit without code", () => {
     const recipes = starterRecipes();
     expect(recipes.length).toBeGreaterThanOrEqual(4);
-    expect(recipes.length).toBeLessThanOrEqual(8);
+    expect(recipes.length).toBeLessThanOrEqual(9);
     const ids = new Set(recipes.map((recipe) => recipe.id));
     expect(ids.has("checkout-summary")).toBe(true);
     expect(ids.has("sign-in")).toBe(true);
+    expect(ids.has("search-results")).toBe(true);
+    const search = recipes.find((recipe) => recipe.id === "search-results");
+    expect(search?.slots.map((slot) => slot.role)).toEqual(
+      expect.arrayContaining(["search", "results", "empty"]),
+    );
     for (const recipe of recipes) {
       expect(recipe.slots.length).toBeGreaterThan(0);
       for (const slot of recipe.slots) {
@@ -115,6 +122,14 @@ describe("recipe list + match by intent", () => {
     expect(matchRecipe(recipes, "pay now")?.id).toBe("checkout-summary");
     expect(matchRecipe(recipes, "I need a login screen")?.id).toBe("sign-in");
     expect(matchRecipe(recipes, "quantum flux")).toBeUndefined();
+  });
+
+  it("routes search-results intents away from empty-state, keeps no-results on empty-state", () => {
+    const recipes = starterRecipes();
+    expect(matchRecipe(recipes, "search results list")?.id).toBe("search-results");
+    expect(matchRecipe(recipes, "search results")?.id).toBe("search-results");
+    expect(matchRecipe(recipes, "no results")?.id).toBe("empty-state");
+    expect(matchRecipe(recipes, "empty state")?.id).toBe("empty-state");
   });
 });
 
@@ -213,6 +228,16 @@ describe("recipe slot fill", () => {
     expect(card.slots.some((slot) => slot.master?.figmaNodeId)).toBe(true);
     expect(card.hint).toMatch(/verify_frame/);
     expect(card.hint).toMatch(/Do not Read graph\.json/);
+    expect(card.cost.chars).toBeLessThan(1100);
+    for (const slot of card.slots) {
+      if (!slot.master) continue;
+      expect(Object.keys(slot.master).sort()).toEqual(
+        expect.arrayContaining(["id", "name", "fileKey", "status", "hint"]),
+      );
+      expect(slot.master).not.toHaveProperty("variantProperties");
+      expect(slot.master).not.toHaveProperty("set");
+      expect("hints" in slot).toBe(false);
+    }
   });
 
   it("recipeCard without a graph leaves slots unbound instead of inventing nodes", () => {
@@ -257,6 +282,39 @@ describe("recipe slot fill", () => {
     expect(line?.master?.id).toBe(ids.paymentRow);
     expect(line?.master?.figmaNodeId).toBeTruthy();
     expect(listed.hint).toMatch(/Overlay/);
+  });
+
+  it("does not fill a header slot with a private .Header master", () => {
+    const graph: DesignGraph = {
+      fileKey: "M3",
+      fileName: "Material",
+      builtAt: "2026-01-01T00:00:00.000Z",
+      source: { kind: "mock", ingestedAt: "2026-01-01T00:00:00.000Z" },
+      warnings: [],
+      nodes: [
+        { id: "file:M3", type: "FILE", name: "Material", fileKey: "M3" },
+        { id: "node:p", type: "PAGE", name: "App", parentId: "file:M3", pageId: "node:p", fileKey: "M3" },
+        {
+          id: "node:dot",
+          type: "MAIN_COMPONENT",
+          name: ".Header",
+          parentId: "node:p",
+          pageId: "node:p",
+          figmaNodeId: "4:10",
+          fileKey: "M3",
+          isMainComponent: true,
+        },
+      ],
+      edges: [
+        { id: "CONTAINS|file:M3|node:p", source: "file:M3", target: "node:p", type: "CONTAINS" },
+        { id: "CONTAINS|node:p|node:dot", source: "node:p", target: "node:dot", type: "CONTAINS" },
+      ],
+    };
+    const recipe = parseRecipeFile(sampleFile).find((row) => row.id === "checkout-summary")!;
+    const filled = fillRecipe(indexGraph(graph), recipe);
+    const header = filled.slots.find((slot) => slot.role === "header");
+    expect(header?.master?.name).not.toBe(".Header");
+    expect(header?.status).toBe("unbound");
   });
 
   it("listRecipes leaves missing overlay ids unbound with a recommend query", () => {

@@ -90,7 +90,6 @@ const STOPWORDS = new Set([
   "from",
   "between",
   "find",
-  "search",
 ]);
 
 const stem = (word: string) =>
@@ -434,19 +433,55 @@ export function sharedComponents(index: GraphIndex, fromId: string, toId: string
   return shared.sort((a, b) => b.here + b.there - (a.here + a.there));
 }
 
-export function resolveNode(index: GraphIndex, nameOrId: string): GraphNode | undefined {
+export function isPrivateMasterName(name: string): boolean {
+  const trimmed = name.trim();
+  return trimmed.startsWith(".") || trimmed.startsWith("_");
+}
+
+function idVariants(value: string): string[] {
+  return [...new Set([value, value.replace(/-/g, ":"), value.replace(/:/g, "-")])];
+}
+
+function matchesFigmaId(node: GraphNode, raw: string): boolean {
+  const figmaId = node.figmaNodeId;
+  if (!figmaId) return false;
+  const needles = new Set(idVariants(raw));
+  return idVariants(figmaId).some((id) => needles.has(id));
+}
+
+function matchesStampedId(node: GraphNode, given: string, graphFileKey?: string): boolean {
+  const fileKey = nodeFileKey(node, graphFileKey);
+  if (!fileKey) return false;
+  const prefix = fileKey.toLowerCase();
+  const lower = given.toLowerCase();
+  if (lower.length <= prefix.length + 1) return false;
+  if (!lower.startsWith(prefix)) return false;
+  const sep = given[fileKey.length];
+  if (sep !== ":" && sep !== "-") return false;
+  const rest = given.slice(fileKey.length + 1);
+  if (!rest) return false;
+  if (idVariants(node.id).includes(rest) || node.id === rest) return true;
+  return matchesFigmaId(node, rest);
+}
+
+/** Exact graph id, Figma id, stamped `fileKey:nodeId`, or exact name. No fuzzy. */
+export function resolveNodeExact(index: GraphIndex, nameOrId: string): GraphNode | undefined {
   const trimmed = nameOrId.trim();
   if (!trimmed) return undefined;
   const direct = index.getNode(trimmed);
   if (direct) return direct;
-  const colon = trimmed.replace(/-/g, ":");
-  const dash = trimmed.replace(/:/g, "-");
+  const lower = trimmed.toLowerCase();
+  let exactName: GraphNode | undefined;
   for (const node of index.allNodes) {
-    const figmaId = node.figmaNodeId;
-    if (!figmaId) continue;
-    if (figmaId === trimmed || figmaId === colon || figmaId === dash) return node;
+    if (matchesFigmaId(node, trimmed)) return node;
+    if (matchesStampedId(node, trimmed, index.graph.fileKey)) return node;
+    if (node.name.toLowerCase() === lower) exactName ??= node;
   }
-  return searchNodes(index, trimmed, { limit: 1 })[0]?.node;
+  return exactName;
+}
+
+export function resolveNode(index: GraphIndex, nameOrId: string): GraphNode | undefined {
+  return resolveNodeExact(index, nameOrId) ?? searchNodes(index, nameOrId.trim(), { limit: 1 })[0]?.node;
 }
 
 export function suggestQuestions(index: GraphIndex, analytics: GraphAnalytics): string[] {
@@ -931,8 +966,9 @@ export function recommendMasters(
 
   const scored: Scored[] = [];
   for (const node of index.getNodesByType(...MASTER_TYPES)) {
-    if (deniedByRules(index, node, packRules)) continue;
     const set = setOf(index, node);
+    if (isPrivateMasterName(node.name) || (set && isPrivateMasterName(set.name))) continue;
+    if (deniedByRules(index, node, packRules)) continue;
     const nameHaystack = `${node.name} ${set?.name ?? ""}`;
     const nameScore = overlap(nameHaystack, tokens);
     const variantScore = overlap(variantHaystack(node), tokens);
@@ -1113,16 +1149,25 @@ export function recommendMasters(
   return withCost(payload);
 }
 
-export type VerifyReason = "not-in-graph" | "not-a-master" | "denied";
-export type UnresolvedReason = "unresolved-instance" | "frame-not-in-graph";
+export type VerifyReason = "not-in-graph" | "not-a-master" | "denied" | "private";
+export type UnresolvedReason = "unresolved-instance" | "frame-not-in-graph" | "not-exact";
+
+export interface VerifyResolved {
+  given: string;
+  name?: string;
+  id?: string;
+  fileKey?: string;
+}
 
 export interface VerifyHit {
   name: string;
+  given?: string;
   id?: string;
   figmaNodeId?: string;
   fileKey?: string;
   reason?: VerifyReason | UnresolvedReason;
   status?: GraphNode["status"];
+  didYouMean?: { name: string; id?: string; fileKey?: string };
 }
 
 /**
@@ -1136,6 +1181,7 @@ export function verifyFrame(
   const invents: VerifyHit[] = [];
   const deprecatedHits: VerifyHit[] = [];
   const unresolved: VerifyHit[] = [];
+  const resolved: VerifyResolved[] = [];
   const approvedIds = new Set<string>();
   const seenInvent = new Set<string>();
   const seenDeprecated = new Set<string>();
@@ -1189,6 +1235,10 @@ export function verifyFrame(
   };
 
   const considerMaster = (master: GraphNode, given: string) => {
+    if (isPrivateMasterName(master.name)) {
+      pushUnique(invents, seenInvent, stampHit(master, { reason: "private", given }), `private:${master.id}`);
+      return;
+    }
     if (blockedByRules(master, given)) {
       pushUnique(invents, seenInvent, stampHit(master, { reason: "denied" }), `denied:${master.id}`);
       return;
@@ -1231,14 +1281,43 @@ export function verifyFrame(
   for (const raw of input.components ?? []) {
     const given = raw.trim();
     if (!given) continue;
-    const node = resolveNode(index, given);
+    const node = resolveNodeExact(index, given);
     if (!node) {
-      pushUnique(invents, seenInvent, { name: given, reason: "not-in-graph" }, `invent:${given.toLowerCase()}`);
+      resolved.push({ given });
+      const near = searchNodes(index, given, { limit: 3 })[0]?.node;
+      if (near) {
+        const fileKey = fileOf(near);
+        pushUnique(
+          unresolved,
+          seenUnresolved,
+          {
+            name: given,
+            given,
+            reason: "not-exact",
+            didYouMean: {
+              name: near.name,
+              id: near.id,
+              ...(fileKey ? { fileKey } : {}),
+            },
+          },
+          `fuzzy:${given.toLowerCase()}`,
+        );
+        continue;
+      }
+      pushUnique(invents, seenInvent, { name: given, given, reason: "not-in-graph" }, `invent:${given.toLowerCase()}`);
       continue;
     }
     const master = asMaster(index, node);
+    const echoed = master ?? node;
+    const fileKey = fileOf(echoed);
+    resolved.push({
+      given,
+      name: echoed.name,
+      id: echoed.id,
+      ...(fileKey ? { fileKey } : {}),
+    });
     if (!master) {
-      pushUnique(invents, seenInvent, stampHit(node, { reason: "not-a-master" }), `invent:${node.id}`);
+      pushUnique(invents, seenInvent, stampHit(node, { reason: "not-a-master", given }), `invent:${node.id}`);
       continue;
     }
     considerMaster(master, given);
@@ -1248,6 +1327,7 @@ export function verifyFrame(
   return withCost({
     pass,
     approved: approvedIds.size,
+    resolved,
     invents,
     deprecated: deprecatedHits,
     unresolved,

@@ -45,7 +45,7 @@ You can list recipes with no library map yet. Slots stay `unbound` and each one 
 
 | File | Role |
 |------|------|
-| [`src/data/recipes.json`](../src/data/recipes.json) | Starter pack shipped with Resolve (7 common screens). |
+| [`src/data/recipes.json`](../src/data/recipes.json) | Starter pack shipped with Resolve (8 common screens). |
 | `.graphify/recipes.json` | Your overlay. Same shape. Matching `id` replaces a starter recipe; new ids append. |
 | [`.graphify/context-packs.json`](#context-packs) | Product + journey context. Bind to recipes via `recipeIds` or `contextPackId`. |
 | [`src/data/context-packs.example.json`](../src/data/context-packs.example.json) | Copy-paste template. Not loaded until you drop it in `.graphify/`. |

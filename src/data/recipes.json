@@ -25,6 +25,17 @@
       ]
     },
     {
+      "id": "search-results",
+      "title": "Search results",
+      "intentAliases": ["search results", "search results list", "results list", "search page"],
+      "notes": "Search bar, a results list, and an empty / no-results state.",
+      "slots": [
+        { "role": "search", "required": true, "hints": ["search", "input", "field"] },
+        { "role": "results", "required": true, "hints": ["list", "row"] },
+        { "role": "empty", "required": false, "hints": ["empty", "message"] }
+      ]
+    },
+    {
       "id": "empty-state",
       "title": "Empty state",
       "intentAliases": ["empty", "zero state", "no results", "blank"],

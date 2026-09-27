@@ -41,7 +41,7 @@ npm run resolve -- workspace
 
 Roles are `library` | `product` | `client`. First ingest with no `--role` is the library; later files default to product. An unknown `--role` fails (no silent fallback). Or copy `src/data/workspace.example.json` to `.graphify/workspace.json` and ingest each row.
 
-Paste the shared screen/frame/section URL. `node-id` is the ingest scope. No `node-id`: each top-level screen, one request at a time. `--scope file` dumps the whole tree.
+Paste the shared screen/frame/section URL. `node-id` is the ingest scope. No `node-id`: each top-level FRAME/SECTION/COMPONENT/COMPONENT_SET, one request at a time. `--scope file` is one request — safer on a low API tier. Section walks honor `Retry-After` (bounded) and checkpoint completed sections so a re-run resumes. Changing `--role` on a file already in the workspace is refused unless `--force-role`.
 
 **Human path.** Dev UI **Load Figma** — PAT + URL. Token stays in
 `sessionStorage`. Vite proxies `/api/figma` → `https://api.figma.com` so the
@@ -51,8 +51,10 @@ browser can call REST at all.
 `FIGMA_ACCESS_TOKEN` (or `FIGMA_TOKEN`). UI never puts the token in the bundle.
 
 **Scope.** Shared links hit `GET /v1/files/:key/nodes?ids=`. Whole-file ingest
-outlines with `?depth=2`, then fetches each top-level FRAME/SECTION. Empty
-outline (component-library pages) falls back to one `GET /v1/files/:key`.
+outlines with `?depth=2`, then fetches each top-level FRAME/SECTION/COMPONENT/
+COMPONENT_SET. Empty outline falls back to one `GET /v1/files/:key`. Prefer
+`--scope file` on a low API tier. 429 responses honor `Retry-After`; completed
+sections stay on disk under `.graphify/ingest/` so the next run resumes.
 
 **Thumbnails.** `GET /v1/images/:key?ids=a,b,c&format=png&scale=1` in batches;
 write the URLs onto `GraphNode.thumbnailUrl`. Rate-limited — do it lazily for

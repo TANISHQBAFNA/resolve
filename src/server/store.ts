@@ -1,7 +1,9 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
+import type { IngestCheckpointStore, ScreensCheckpoint } from "@/core/ingestion/adapters/figmaRestSource";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import {
+  assertIngestRoleChange,
   defaultIngestRole,
   indexGraph,
   mergeRecipes,
@@ -91,6 +93,36 @@ export function safeFileKey(fileKey: string): string {
 
 export function fileGraphPath(fileKey: string): string {
   return join(workspaceFilesDir(), `${safeFileKey(fileKey)}.json`);
+}
+
+export function ingestCheckpointDir(): string {
+  return join(storeRoot(), "ingest");
+}
+
+export function fsIngestCheckpointStore(): IngestCheckpointStore {
+  const dir = ingestCheckpointDir();
+  const pathFor = (fileKey: string) => join(dir, `${safeFileKey(fileKey)}.partial.json`);
+  return {
+    load(fileKey) {
+      const path = pathFor(fileKey);
+      if (!existsSync(path)) return undefined;
+      try {
+        const parsed = JSON.parse(readFileSync(path, "utf8")) as ScreensCheckpoint;
+        if (parsed?.fileKey === fileKey && Array.isArray(parsed.completedIds)) return parsed;
+      } catch {
+        return undefined;
+      }
+      return undefined;
+    },
+    save(fileKey, data) {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(pathFor(fileKey), `${JSON.stringify(data)}\n`);
+    },
+    clear(fileKey) {
+      const path = pathFor(fileKey);
+      if (existsSync(path)) rmSync(path);
+    },
+  };
 }
 
 export function readRecipeOverlay(explicitPath?: string): Recipe[] {
@@ -300,13 +332,22 @@ export function mergeStoredWorkspace(workspace = readWorkspace()): DesignGraph |
 
 export function saveIngestedFile(
   graph: DesignGraph,
-  options: { role?: WorkspaceFileRole; url?: string; label?: string; graphId?: string } = {},
+  options: {
+    role?: WorkspaceFileRole;
+    url?: string;
+    label?: string;
+    graphId?: string;
+    forceRole?: boolean;
+  } = {},
 ): StoredGraphSummary {
   const stamped = stampFileKey(graph);
   writeFileGraph(stamped);
   const current = readWorkspace();
-  const role = options.role ?? current.files.find((file) => file.key === stamped.fileKey)?.role ?? defaultIngestRole(current);
   const existing = current.files.find((file) => file.key === stamped.fileKey);
+  if (options.role && existing) {
+    assertIngestRoleChange(current, stamped.fileKey, options.role, { forceRole: options.forceRole });
+  }
+  const role = options.role ?? existing?.role ?? defaultIngestRole(current);
   const next: WorkspaceFile = {
     role,
     key: stamped.fileKey,
