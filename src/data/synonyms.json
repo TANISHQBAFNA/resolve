@@ -6,24 +6,24 @@
       "reason": "A call to action is a button."
     },
     {
-      "terms": ["avatar", "profile", "photo", "image", "picture"],
-      "reason": "A profile photo, image, or picture of a person is an avatar."
+      "terms": ["avatar", "profile", "photo", "image", "picture", "headshot"],
+      "reason": "A profile photo, image, picture, or headshot of a person is an avatar."
     },
     {
-      "terms": ["header", "heading", "title", "top"],
-      "reason": "A heading, title, or top bar is the header."
+      "terms": ["header", "heading", "title", "top", "masthead"],
+      "reason": "A heading, title, top bar, or masthead is the header."
     },
     {
-      "terms": ["search", "find"],
-      "reason": "Find is the verb for a search field."
+      "terms": ["search", "find", "query"],
+      "reason": "Find and query are the verb and the field for search."
     },
     {
       "terms": ["price", "cost", "amount", "money"],
       "reason": "Price, cost, amount, and money are the same figure."
     },
     {
-      "terms": ["close", "dismiss", "cancel", "x"],
-      "reason": "Dismiss, cancel, and the x mark are the close control."
+      "terms": ["close", "dismiss", "cancel", "exit"],
+      "reason": "Dismiss, cancel, and exit are the close control. The letter x is not a synonym; it only counts as the whole ask or beside icon or button."
     },
     {
       "terms": ["empty", "blank"],
@@ -58,8 +58,28 @@
       "reason": "A pill is a badge."
     },
     {
-      "terms": ["coupon", "promo", "discount"],
-      "reason": "A coupon, promo, and discount are the same offer field."
+      "terms": ["coupon", "promo", "discount", "voucher"],
+      "reason": "A coupon, promo, discount, or voucher is the same offer field."
+    },
+    {
+      "terms": ["link", "hyperlink"],
+      "reason": "A hyperlink is a link."
+    },
+    {
+      "terms": ["nav", "navigation"],
+      "reason": "Navigation is the full word for nav."
+    },
+    {
+      "terms": ["checkbox", "tick box"],
+      "reason": "A tick box is a checkbox."
+    },
+    {
+      "terms": ["nav item", "sidebar item"],
+      "reason": "A sidebar item is a nav item."
+    },
+    {
+      "terms": ["list row", "table row"],
+      "reason": "A table row is a list row."
     }
   ]
 }

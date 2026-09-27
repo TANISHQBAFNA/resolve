@@ -123,12 +123,69 @@ describe("phrase match and typos", () => {
     expect(topName(index, "swtich").candidates[0]?.name).toBe("Switch");
     expect(topName(index, "tag").candidates[0]?.name).toBe("Tag");
     expect(topName(index, "kelp forest gauge").candidates).toEqual([]);
-    const ordinary = ["cart", "bard", "coast", "roast", "moral", "radix", "badger", "rice", "chop", "swatch", "maple", "orbit"];
-    for (const word of ordinary) {
+  });
+
+  it("returns empty for ordinary words and non-UI phrases", () => {
+    const junk = [
+      "cart",
+      "bard",
+      "coast",
+      "roast",
+      "moral",
+      "radix",
+      "badger",
+      "rice",
+      "chop",
+      "swatch",
+      "maple",
+      "orbit",
+      "tablet",
+      "switchboard",
+      "cardigan",
+      "modality",
+      "chipper",
+      "paycheck",
+      "radiology",
+      "tagline",
+      "heading south",
+      "bottoms",
+      "footer ball",
+      "x ray",
+      "cancel culture",
+      "image processing",
+      "money order",
+    ];
+    for (const word of junk) {
       expect(recommendMasters(index, word).candidates, word).toEqual([]);
       const resolved = componentUsageCard(index, word);
       expect(resolved.found, word).toBe(false);
     }
+  });
+
+  it("keeps inflections, the x mark, UI modifiers, and design synonyms", () => {
+    expect(topName(index, "buttons").candidates[0]?.name).toBe("Button");
+    expect(topName(index, "chips").candidates[0]?.name).toBe("Chip");
+    expect(topName(index, "tabs").candidates[0]?.name).toBe("Tabs");
+    expect(topName(index, "x").candidates[0]?.name).toBe("Icon Close");
+    expect(topName(index, "x icon").candidates[0]?.name).toBe("Icon Close");
+    expect(topName(index, "x button").candidates[0]?.name).toBe("Icon Close");
+    expect(topName(index, "error alert").candidates[0]?.name).toBe("Alert");
+    expect(topName(index, "info banner").candidates[0]?.name).toBe("Banner");
+    expect(topName(index, "count badge").candidates[0]?.name).toBe("Badge");
+    expect(topName(index, "close button").candidates[0]?.name).toBe("Icon Close");
+    expect(topName(index, "toast message").candidates[0]?.name).toBe("Toast");
+    expect(topName(index, "total price").candidates[0]?.name).toBe("Price");
+    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button Primary");
+    expect(topName(index, "on off switch").candidates[0]?.name).toBe("Switch");
+    expect(topName(index, "headshot").candidates[0]?.name).toBe("Avatar");
+    expect(topName(index, "masthead").candidates[0]?.name).toBe("Header Bar");
+    expect(topName(index, "exit").candidates[0]?.name).toBe("Icon Close");
+    expect(topName(index, "query").candidates[0]?.name).toBe("Search Field");
+    expect(topName(index, "tick box").candidates[0]?.name).toBe("Checkbox");
+    expect(topName(index, "hyperlink").candidates[0]?.name).toBe("Link Button");
+    expect(["Coupon Field", "Promo Field"]).toContain(topName(index, "voucher").candidates[0]?.name);
+    expect(topName(index, "sidebar item").candidates[0]?.name).toBe("Nav Item");
+    expect(topName(index, "table row").candidates[0]?.name).toBe("List Row");
   });
 });
 

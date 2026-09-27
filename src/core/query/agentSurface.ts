@@ -9,6 +9,7 @@ import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
 import { placeReady } from "./placeReady";
 import synonymFile from "@/data/synonyms.json";
+import modifierFile from "@/data/ui-modifiers.json";
 import { isRemovedByAbsence, patternFor, staleRefreshHint, type SockState } from "./sock";
 import {
   bindRuleHit,
@@ -105,15 +106,29 @@ const STOPWORDS = new Set([
   "find",
 ]);
 
-const stem = (word: string) =>
-  word.length > 3 && word.endsWith("s") ? word.slice(0, -1) : word;
-
 const tokensOf = (text: string): string[] =>
   text
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter((part) => (part.length > 1 || part === "x") && !STOPWORDS.has(part))
-    .map(stem);
+    .filter((part) => part.length > 1 && !STOPWORDS.has(part));
+
+/** Stems of a real inflection: plural s/es, -ing, -ed. Not a prefix of an unrelated word. */
+function inflectionStems(word: string): string[] {
+  const stems: string[] = [];
+  if (word.length >= 5 && word.endsWith("es")) stems.push(word.slice(0, -2));
+  if (word.length >= 4 && word.endsWith("s")) stems.push(word.slice(0, -1));
+  if (word.length >= 6 && word.endsWith("ing")) stems.push(word.slice(0, -3));
+  if (word.length >= 5 && word.endsWith("ed")) stems.push(word.slice(0, -2));
+  return stems.filter((stem) => stem.length >= 3);
+}
+
+function familyKey(token: string, names: readonly string[]): string | undefined {
+  if (names.some((name) => name.includes(token))) return token;
+  for (const stem of inflectionStems(token)) {
+    if (names.some((name) => name.includes(stem))) return stem;
+  }
+  return undefined;
+}
 
 const isScreen = (index: GraphIndex, node: GraphNode): boolean => {
   if (node.type !== "FRAME") return false;
@@ -413,9 +428,14 @@ export function similarUsage(index: GraphIndex, question: string) {
   const tokens = tokensOf(question);
   const screens = index.getNodesByType("FRAME").filter((node) => isScreen(index, node));
   const definitions = index.getNodesByType("COMPONENT_SET", "MAIN_COMPONENT", "VARIANT");
-  const familyTokens = tokens.filter((token) =>
-    definitions.some((node) => node.name.toLowerCase().includes(token)),
-  );
+  const definitionNames = definitions.map((node) => node.name.toLowerCase());
+  const familyTokens = [
+    ...new Set(
+      tokens
+        .map((token) => familyKey(token, definitionNames))
+        .filter((token): token is string => Boolean(token)),
+    ),
+  ];
 
   const scored = screens
     .map((screen) => ({ screen, score: overlap(screen.name, tokens) }))
@@ -1041,9 +1061,16 @@ function deniedByRules(index: GraphIndex, node: GraphNode, rules?: LibraryRules)
 /** Everyday words that mean the same control. Reasons live in src/data/synonyms.json. */
 const SYNONYM_OF = new Map<string, readonly string[]>();
 for (const group of synonymFile.groups) {
-  const terms = group.terms.map((term) => term.toLowerCase());
+  const terms = group.terms.map((term) => term.toLowerCase()).filter((term) => !term.includes(" "));
   for (const term of terms) SYNONYM_OF.set(term, terms);
 }
+
+/**
+ * States, sizes, variants, roles, and common UI nouns.
+ * A multi-word ask may keep one of these beside a real component word.
+ * Reasons live in src/data/ui-modifiers.json.
+ */
+const UI_MODIFIER = new Set(modifierFile.words.map((word) => word.term.toLowerCase()));
 
 /** Slot words that pick a variant, not a different component family. */
 const SLOT_QUALIFIERS = new Set(["primary", "secondary", "tertiary", "danger", "ghost"]);
@@ -1115,23 +1142,118 @@ const GENERIC_NAME_TOKENS = new Set([
   "text",
   "row",
   "card",
+  "message",
 ]);
 
 function collapsedName(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
-/** "navigation" covers "nav". A one-letter extension such as badger/badge does not. */
-function wordExtends(query: string, nameToken: string): boolean {
-  const short = query.length <= nameToken.length ? query : nameToken;
-  const long = query.length <= nameToken.length ? nameToken : query;
-  return short.length >= 3 && long.startsWith(short) && long.length - short.length >= 3;
+/** Plural s/es or -ing/-ed, either way. "tablet" is not an inflection of "tab". */
+function inflectsName(query: string, nameToken: string): boolean {
+  if (query === nameToken || query.length < 3 || nameToken.length < 3) return false;
+  const [longer, shorter] = query.length >= nameToken.length ? [query, nameToken] : [nameToken, query];
+  if (!longer.startsWith(shorter)) return false;
+  const rest = longer.slice(shorter.length);
+  return rest === "s" || rest === "es" || rest === "ing" || rest === "ed";
 }
 
 function tokenMatchesName(query: string, nameToken: string): boolean {
-  if (query === nameToken) return true;
-  if (wordExtends(query, nameToken)) return true;
+  if (query === nameToken || inflectsName(query, nameToken)) return true;
   return synonymIn(query, new Set([nameToken]));
+}
+
+/** "x" means close only as the whole ask, or right beside icon/button. "x ray" does not. */
+function xMeansClose(text: string): boolean {
+  const parts = text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  if (parts.length === 1) return parts[0] === "x";
+  if (parts.length !== 2) return false;
+  const [left, right] = parts;
+  if (!left || !right) return false;
+  const mark = left === "x" || right === "x";
+  const chrome = left === "icon" || right === "icon" || left === "button" || right === "button";
+  return mark && chrome;
+}
+
+/** Multi-word synonym phrases, such as "tick box" for Checkbox. Single words stay in SYNONYM_OF. */
+function phraseNamesMatch(ask: string, name: string): boolean {
+  const collapsedAsk = collapsedName(ask);
+  const collapsedMaster = collapsedName(name);
+  if (!collapsedAsk || !collapsedMaster) return false;
+  return synonymFile.groups.some((group) => {
+    const asked = group.terms.some((term) => term.includes(" ") && collapsedName(term) === collapsedAsk);
+    if (!asked) return false;
+    return group.terms.some((term) => collapsedName(term) === collapsedMaster);
+  });
+}
+
+function phraseCoversAsk(ask: string): boolean {
+  const collapsedAsk = collapsedName(ask);
+  return synonymFile.groups.some((group) =>
+    group.terms.some((term) => term.includes(" ") && collapsedName(term) === collapsedAsk),
+  );
+}
+
+function liveNameSets(index: GraphIndex): Set<string>[] {
+  const sets: Set<string>[] = [];
+  for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
+    sets.push(new Set(tokensOf(node.name)));
+  }
+  return sets;
+}
+
+function screenWords(index: GraphIndex): string[] {
+  const words: string[] = [];
+  for (const node of index.getNodesByType("FRAME")) {
+    if (!isScreen(index, node)) continue;
+    words.push(...tokensOf(node.name));
+  }
+  return words;
+}
+
+function contextWords(context?: RecommendContext): string[] {
+  if (!context) return [];
+  return tokensOf(
+    [
+      context.domain,
+      context.screenType,
+      context.journey?.step,
+      context.journey?.screenJob,
+      context.product?.name,
+      context.product?.id,
+      context.client?.name,
+      context.client?.id,
+      context.audience,
+    ]
+      .filter((part): part is string => Boolean(part))
+      .join(" "),
+  );
+}
+
+/**
+ * One component word plus ordinary words is not a component ask.
+ * "cancel culture" is empty. "error alert" stays, because error is a status.
+ * A scene word (screen name or caller context) is not junk, and it does not
+ * erase a component word that happens to share that screen's name.
+ */
+function outOfDomainAsk(
+  ask: string,
+  tokens: string[],
+  nameSets: readonly Set<string>[],
+  exempt: ReadonlySet<string>,
+): boolean {
+  if (phraseCoversAsk(ask)) return false;
+  const content = tokens.filter((token) => !RETIRED_NAME_TOKENS.has(token));
+  if (content.length < 2) return false;
+  let matched = 0;
+  let junk = 0;
+  for (const token of content) {
+    const hit = nameSets.some((names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names));
+    if (hit) matched += 1;
+    else if (!UI_MODIFIER.has(token) && !exempt.has(token)) junk += 1;
+  }
+  return matched === 1 && junk > 0;
 }
 
 /** Query is the master name with one letter missing. */
@@ -1183,7 +1305,7 @@ function genericOnlyMiss(name: string, queryTokens: string[]): boolean {
 function nameTokenFor(token: string, names: Set<string>, used: Set<string>): string | undefined {
   if (names.has(token) && !used.has(token)) return token;
   for (const name of names) {
-    if (!used.has(name) && wordExtends(token, name)) return name;
+    if (!used.has(name) && inflectsName(token, name)) return name;
   }
   return undefined;
 }
@@ -1324,6 +1446,7 @@ export function recommendMasters(
   const slotRole = slotIsComponentRole(slotTokens);
   const brief = splitBrief(intent);
   const askedTokens = tokensOf(brief.role);
+  if (xMeansClose(brief.role) && !askedTokens.includes("close")) askedTokens.push("close");
   // Exclusive family only when the slot is a component role and the intent is a
   // screen job ("sign in"). "input chip" and "checkout summary" already name a
   // master, so those tokens stay in the lexical score and context breaks the tie.
@@ -1366,9 +1489,12 @@ export function recommendMasters(
       Boolean(intentNeedle) &&
       (node.name.toLowerCase() === intentNeedle ||
         collapsedName(node.name) === collapsedAsk ||
+        phraseNamesMatch(intentNeedle, node.name) ||
         (Boolean(set) &&
           node.type === "COMPONENT_SET" &&
-          (set!.name.toLowerCase() === intentNeedle || collapsedName(set!.name) === collapsedAsk)));
+          (set!.name.toLowerCase() === intentNeedle ||
+            collapsedName(set!.name) === collapsedAsk ||
+            phraseNamesMatch(intentNeedle, set!.name))));
     const nameHaystack = `${node.name} ${set?.name ?? ""}`;
     const variantText = variantHaystack(node);
     const hits = tokenHits(nameHaystack, variantText, tokens);
@@ -1561,7 +1687,14 @@ export function recommendMasters(
     }
   }
 
-  if (!blockedByPrivate && scored.length === 0 && intentNeedle) {
+  const domainExempt = new Set<string>([...contextWords(options.context), ...screenWords(index)]);
+  const outOfDomain = outOfDomainAsk(brief.role, askedTokens, liveNameSets(index), domainExempt);
+  if (outOfDomain) {
+    scored.length = 0;
+    retired.length = 0;
+  }
+
+  if (!blockedByPrivate && !outOfDomain && scored.length === 0 && intentNeedle) {
     const winners: GraphNode[] = [];
     for (const node of index.getNodesByType(...MASTER_TYPES)) {
       if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
