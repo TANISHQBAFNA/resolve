@@ -140,9 +140,9 @@ npm run resolve -- recommend "primary button" --product Storefront --journey sum
 
 `recipe` and `verify` take the same extras, so ranking and the after-draw check follow the same product and step.
 
-**You get:** A short ranked list. Each row has a one-line **why** built from real usage facts (how many verified screens, confidence, stale/retired, your pack, a bind rule). If Resolve has no facts yet, the line is `no usage yet` — it will not invent a count. Live, used masters rise. Retired ones sink. Bind rules can require one master for a slot, forbid retired ones, or prefer the shared library. Product, journey, and domain words sit **on top of** name matching.
+**You get:** A short ranked list. Each row has a one-line **why** built from real usage facts (how many verified screens, confidence, stale/retired, your pack, a bind rule). If Resolve has not verified the master on a screen yet, the line is `not verified on a screen yet`. If the file has instances but no verified screen, it is `used N× in file`. Resolve will not invent a verified-screen count. Live, used masters rise. Retired ones sink. Bind rules can require one master for a slot, forbid retired ones, or prefer the shared library. Product, journey, and domain words sit **on top of** name matching.
 
-Each pick also has `ex`: a real populated instance already in the library, or the sentence that no real example is known. Open the full config before drawing:
+The **top pick** also has `ex`: a real populated instance already in the library (`fileKey:nodeId` when that instance is in another file), or `none` plus a short reason. Call `get_example` for the other hits. Open the full config before drawing:
 
 ```bash
 npm run resolve -- example "Pay CTA"
@@ -178,7 +178,15 @@ To apply the same product and step as recommend (including a pack’s deny list)
 npm run resolve -- verify "Checkout Summary" --product Storefront --journey summary --domain checkout
 ```
 
-**You get:** Pass or fail. Invented names (like `MadeUpCard`) fail. Retired masters fail. Pieces Resolve cannot match fail. Known leftover template text (for example `Request Bank Certificate`) fails. Copy that still matches the master default, and a fixed height clearly larger than the content, are warnings with a one-line reason. A near name (`Header` vs `.Header`) is **not** approved — you get an unresolved row with a “did you mean” suggestion. Names that start with `.` or `_` (Figma’s private / unpublished parts) fail rather than pass. The card echoes each name you gave and what it resolved to. You then judge taste in Figma.
+**You get:** Pass or fail. Invented names (like `MadeUpCard`) fail. Retired masters fail. Pieces Resolve cannot match fail. Lorem-ipsum filler fails. Copy that still matches the master default is a warning, and it fails only when that default is also on the placeholder list. A fixed height clearly larger than the content is a warning, unless real examples of that component use the same fixed height. A near name (`Header` vs `.Header`) is **not** approved — you get an unresolved row with a “did you mean” suggestion. Names that start with `.` or `_` (Figma’s private / unpublished parts) fail rather than pass. The card echoes each name you gave and what it resolved to. You then judge taste in Figma.
+
+Team template strings are not built in. Put them in `.graphify/placeholders.json`:
+
+```json
+{ "placeholders": ["Your template sentence"] }
+```
+
+A string there fails only when it is also the component’s default text. The word Placeholder fails only in that same case. A text layer with no characters does not count — only real characters do.
 
 ### 6. Check for the wrong cousin (when more than one file is linked)
 

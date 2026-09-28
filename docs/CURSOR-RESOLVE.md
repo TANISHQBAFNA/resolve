@@ -42,7 +42,7 @@ Once per file (**re-run when the design library changes** — this is the refres
 npm run resolve -- ingest '<figma-file-or-design-url>'
 ```
 
-## Recipe → recommend → draw → verify (everyday)
+## Pick → open the real example → clone → fill → verify (everyday)
 
 Forced path. Agent does not invent components. Cards stay the interface — **do not** `Read` `.graphify/graph.json`.
 
@@ -52,6 +52,8 @@ npm run resolve -- ingest '<product-url>' --role product
 npm run resolve -- recipe list
 npm run resolve -- recipe "checkout summary"
 npm run resolve -- recommend "checkout summary with primary button and input"
+npm run resolve -- example "Button"            # top pick carries ex; call example for the others
+# clone that instance, replace the content, place only the returned figmaNodeIds
 npm run resolve -- verify "Checkout Summary"
 npm run resolve -- verify --components "Button,MadeUpCard"
 npm run resolve -- cousins "Checkout Summary"

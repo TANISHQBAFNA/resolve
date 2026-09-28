@@ -210,6 +210,11 @@ export function bindRulesPath(): string {
   return join(storeRoot(), "bind-rules.json");
 }
 
+/** Team template strings. Missing file = lorem-ipsum family only. */
+export function placeholdersPath(): string {
+  return join(storeRoot(), "placeholders.json");
+}
+
 export function bindAuditPath(): string {
   return join(storeRoot(), "bind-rules.audit.jsonl");
 }
@@ -496,6 +501,24 @@ export function writeFileGraph(graph: DesignGraph): string {
   const path = fileGraphPath(stamped.fileKey);
   writeFileSync(path, `${JSON.stringify(stamped, null, 2)}\n`);
   return path;
+}
+
+/** `{ "placeholders": ["…"] }` next to the graph. Whole-string match. Not built in. */
+export function readPlaceholders(explicitPath?: string): string[] {
+  const path = explicitPath ?? (existsSync(placeholdersPath()) ? placeholdersPath() : undefined);
+  if (!path || !existsSync(path)) return [];
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return [];
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+  const list = (raw as { placeholders?: unknown }).placeholders;
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => item.trim());
 }
 
 export function readLibraryRules(explicitPath?: string): LibraryRules | undefined {

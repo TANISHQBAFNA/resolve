@@ -237,7 +237,6 @@ function toSourceNode(
 
   const characters = element.attrs["characters"];
   if (characters) node.characters = characters;
-  else if (type === "TEXT" && name !== "(unnamed)") node.characters = name;
   const sizingVertical = element.attrs["layoutSizingVertical"];
   if (sizingVertical) node.layoutSizingVertical = sizingVertical;
   const sizingHorizontal = element.attrs["layoutSizingHorizontal"];

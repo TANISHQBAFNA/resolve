@@ -57,6 +57,7 @@ import {
   saveSock,
   storeInfo,
   readBindRules,
+  readPlaceholders,
   readRecipeOverlay,
   commitProposalDecision,
   loadGraph,
@@ -139,7 +140,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "recommend",
     description:
-      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.graphify/bind-rules.json) require/forbid/prefer. Each hit has a one-line why from SOCK facts (or 'no usage yet') and ex: a real populated instance node id, or 'no real example known — ask the designer or open a screen that uses it'. Call get_example for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Optional product/journey/domain context pack. Returns figmaNodeId. Cap ~600 chars. Forced path: learn_library → optional recipe → recommend → get_example → clone → fill → verify_frame. Do not invent components. Do not Read graph.json.",
+      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.graphify/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (SOCK facts, 'used N× in file', or 'not verified on a screen yet') and ex: a real populated instance node id, 'fileKey:nodeId' when that instance lives in another file, or 'none' plus exWhy. Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Optional product/journey/domain context pack. Returns figmaNodeId. Cap 600 chars. Forced path: learn_library → optional recipe → recommend → get_example → clone → fill → verify_frame. Do not invent components. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -216,7 +217,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_example",
     description:
-      "Full config for the real populated instance behind a recommend/resolve/recipe ex pointer. Returns file key, node id, screen name, variant props, child structure (tabs, dividers, row count), and sizing. instruction: Clone this instance and replace content; do not start from the default variant. When none is known, example is 'no real example known — ask the designer or open a screen that uses it'. Never invents a node. Retired and private masters are not examples.",
+      "Full config for the real populated instance behind a pick. The recommend card puts ex on the top pick only; call this for the others. Returns file key, node id, screen name, variant props, child structure (tabs, dividers, row count), and sizing. instruction: Clone this instance and replace content; do not start from the default variant. When none is known, ex is 'none' and exWhy says why (bare defaults only, not on any screen, use the live replacement, or no such component — call recommend). The long sentence stays here. Never invents a node. Retired and private masters are not examples.",
     inputSchema: {
       type: "object",
       properties: {
@@ -771,6 +772,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         ...(resolvedContext ? { context: resolvedContext } : {}),
         workspace: bind.workspace,
         sock: readSock(),
+        placeholders: readPlaceholders(),
       });
     }
 
@@ -787,6 +789,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         budgetChars: budget,
         sock: readSock(),
         workspace: bind.workspace ?? readWorkspace(),
+        placeholders: readPlaceholders(),
         ...(resolvedContext ? { context: resolvedContext } : {}),
       });
     }
@@ -833,6 +836,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         workspace: bind.workspace,
         sock: readSock(),
         bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
+        placeholders: readPlaceholders(),
       });
     }
 
@@ -879,6 +883,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
         sock: readSock(),
         workspace: bind.workspace ?? readWorkspace(),
+        placeholders: readPlaceholders(),
       });
       if (result.pass) {
         const masters: Array<{
@@ -929,8 +934,9 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           const mastersWithOverrides = masters.map((master) => {
             const keys = harvested.get(master.id);
             const withKeys = keys?.length ? { ...master, overrideKeys: keys } : master;
-            const example =
-              result.frame?.id ? exampleFactForMasterOnFrame(index, result.frame.id, master.id) : undefined;
+            const example = result.frame?.id
+              ? exampleFactForMasterOnFrame(index, result.frame.id, master.id, readPlaceholders())
+              : undefined;
             const withExample = example ? { ...withKeys, ...example } : withKeys;
             if (!slotArg) return withExample;
             if (topLevel) {
@@ -995,6 +1001,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           contextBindFromArgs(args),
           readSock(),
           loadBindRulesSafe(),
+          readPlaceholders(),
         ),
       );
     }
@@ -1012,6 +1019,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
             contextBindFromArgs(args),
             readSock(),
             loadBindRulesSafe(),
+            readPlaceholders(),
           ),
         );
       }
@@ -1028,6 +1036,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         contextBindFromArgs(args),
         readSock(),
         loadBindRulesSafe(),
+        readPlaceholders(),
       );
       const also = ranked.slice(1).map((recipe) => recipe.title);
       return withPendingImprovements(

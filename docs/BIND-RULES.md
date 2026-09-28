@@ -102,7 +102,7 @@ Every recommend, recipe, and named-lookup card includes **one line** of why. It 
 - this product/journey pack
 - a bind-rule hit
 
-If none of those exist: **`no usage yet`**. Resolve will not invent a count from the Figma file tree.
+If none of those exist and the master has instances in the file: **`used N× in file`**. If it has no instances either: **`not verified on a screen yet`**. Resolve will not invent a verified-screen count from the Figma file tree.
 
 In the browser map, open the **Rules** tab. It lists live rules, pending proposals grouped by type with evidence, and the why line for a master you pick (`/api/governance` from the active store, including `vite preview`). It is a reading page, not the design app.
 

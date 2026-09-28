@@ -2,9 +2,9 @@
 
 ## Unreleased — real example with every pick
 
-Sep 28, 2026 IST. Recommend, resolve, and recipe picks include `ex`: a real populated instance (file key, node id, screen, compact config) or an explicit “no real example known”. `get_example` / `resolve example` returns the full config. Clone that instance and replace content; do not start from the default variant. A populated shape verified on 3 screens becomes the preferred example (SOCK). Bind rules still change only through human-approved SOCI suggestions.
+Sep 28, 2026 IST. The top recommend pick includes `ex`: a real populated instance (file key when it differs, node id, screen, compact config) or `none` plus a short reason. `get_example` / `resolve example` returns the full config for that pick and for the others. Clone that instance and replace content; do not start from the default variant. A populated shape verified on 3 screens becomes the preferred example (SOCK), and a variant pick only learns that variant. Bind rules still change only through human-approved SOCI suggestions.
 
-`verify_frame` fails known leftover template text and warns on leftover default copy and an oversized fixed height. Recommend and verify cards stay within 600 characters. Resolve and recipe cards stay within 2000.
+`verify_frame` fails lorem-ipsum filler. Leftover default copy warns, and fails only when that default is also listed in `.graphify/placeholders.json`. An oversized fixed height warns unless real examples use the same height. Recommend and verify cards stay within 600 characters. Resolve and recipe cards stay within 2000.
 
 ## Unreleased — component picking
 
@@ -35,7 +35,7 @@ SOCI turns verified-frame usage into proposals. It never auto-applies.
 
 Human rules stay human. SOCK still records usage. SOCI only proposes.
 
-- **Why line** — every recommend / recipe / named-lookup hit includes one line built only from SOCK facts (real-screen count, confidence, freshness, deprecated/removed, pack/journey, bind-rule hit). No facts: `no usage yet`. Never invented. Recommend/verify cards stay under ~600 chars; recipe cards stay trimmed.
+- **Why line** — every recommend / recipe / named-lookup hit includes one line built only from SOCK facts (real-screen count, confidence, freshness, deprecated/removed, pack/journey, bind-rule hit). No verified screen but instances exist: `used N× in file`. No instances: `not verified on a screen yet`. Never invented. Recommend/verify cards stay under ~600 chars; recipe cards stay trimmed.
 - **Bind rules** — `.graphify/bind-rules.json` (template: `src/data/bind-rules.example.json`). Shapes: require this master for a screen/slot, forbid deprecated/removed/name, prefer library A over B. Schema validated. Unknown ids fail loudly. CLI and MCP reload on change. Optional `bindRules` on a context pack. Recommend ranks and filters; verify names the rule and returns the correct master id + place hint.
 - **Approve flow** — rules never auto-change. `resolve approve` / `resolve reject` (MCP `approve_proposal` / `reject_proposal` on the advanced surface) write the rules file and append an audit line (who, when, proposal id, before/after). Default MCP stays six tools.
 - **Human view** — Rules tab in the web app: rules, pending proposals, why for a chosen master. Read-only.

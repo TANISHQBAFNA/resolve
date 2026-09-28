@@ -112,6 +112,24 @@ describe("MCP adapter", () => {
     expect(screen?.styleIds).toEqual({ "effect:Shadow/Card": "mcp:Shadow/Card" });
   });
 
+  it("does not copy a text layer name into characters when characters are absent", () => {
+    const xml = `<frame id="1:1" name="Screen" x="0" y="0" width="200" height="80">
+      <text id="1:9" name="Request Bank Certificate" x="0" y="0" width="180" height="24" />
+      <text id="1:10" name="Label" x="0" y="28" width="80" height="16" characters="Pay now" />
+    </frame>`;
+    const adapted = adaptFigmaMcpMetadata({
+      fileKey: "KEY",
+      fileName: "Text",
+      metadataXml: xml,
+      ingestedAt: "2026-01-01T00:00:00.000Z",
+    });
+    const graph = buildGraph(adapted, { builtAt: "2026-01-01T00:00:00.000Z" });
+    const untitled = graph.nodes.find((node) => node.figmaNodeId === "1:9");
+    const filled = graph.nodes.find((node) => node.figmaNodeId === "1:10");
+    expect(untitled?.metadata?.["text"]).toBeUndefined();
+    expect(filled?.metadata?.["text"]).toBe("Pay now");
+  });
+
   it("refuses an empty payload rather than producing a hollow graph", () => {
     expect(() =>
       adaptFigmaMcpMetadata({ fileKey: "K", fileName: "F", metadataXml: "no xml here" }),

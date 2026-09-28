@@ -168,7 +168,7 @@ describe("recommend (library ranking)", () => {
     expect(result.candidates.findIndex((candidate) => candidate.id === lab.live)).toBe(0);
     if (ghost && "instances" in ghost) {
       expect(ghost.instances).toBe(0);
-      expect(ghost.why).toBe("no usage yet");
+      expect(ghost.why).toBe("not verified on a screen yet");
     }
     if (dead && "deprecated" in dead) {
       expect(dead.deprecated).toBe(true);

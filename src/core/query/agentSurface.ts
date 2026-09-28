@@ -23,11 +23,13 @@ import {
 } from "./bindRules";
 import {
   examplePointer,
+  exampleSentence,
+  EX_NONE,
   frameContentWarnings,
   getExample,
-  NO_EXAMPLE,
   type ContentWarning,
   type ExampleQuery,
+  type ExampleReason,
 } from "./examples";
 
 /**
@@ -233,7 +235,7 @@ function slotNamesOf(index: GraphIndex, instanceId: string): string[] {
 
 function exampleQuery(
   index: GraphIndex,
-  options: { sock?: SockState; context?: RecommendContext },
+  options: { sock?: SockState; context?: RecommendContext; placeholders?: string[] },
 ): ExampleQuery {
   return {
     sock: options.sock,
@@ -241,13 +243,19 @@ function exampleQuery(
     product: options.context?.product?.name || options.context?.product?.id,
     journey: options.context?.journey?.screenJob || options.context?.journey?.step,
     domain: options.context?.domain || options.context?.screenType,
+    placeholders: options.placeholders,
   };
 }
 
 export function usageCardForComponent(
   index: GraphIndex,
   node: GraphNode,
-  options: { budgetChars?: number; sock?: SockState; context?: RecommendContext } = {},
+  options: {
+    budgetChars?: number;
+    sock?: SockState;
+    context?: RecommendContext;
+    placeholders?: string[];
+  } = {},
 ) {
   const budgetChars = options.budgetChars ?? USAGE_CARD_BUDGET;
   const usage = computeComponentUsage(index, node);
@@ -318,18 +326,22 @@ export function usageCardForComponent(
       base.hint = `${base.hint} Unpublished (local-only) — no published component key. Pass search_design_system / get_libraries to learn_library.`;
     }
   }
-  const why = whyLineForMaster(node, { sock: options.sock, graphFileKey: index.graph.fileKey });
+  const why = whyLineForMaster(node, {
+    sock: options.sock,
+    graphFileKey: index.graph.fileKey,
+    instances: usage.instanceCount,
+  });
   const ex = examplePointer(index, node, exampleQuery(index, options), budgetChars <= RECOMMEND_BUDGET ? "id" : "screen");
 
   let byScreen = toByScreen(includeSlots, limit);
-  let payload = { ...base, why, ex, byScreen, truncated };
+  let payload = { ...base, why, ...ex, byScreen, truncated };
   // ponytail: drop slots then screens until under budget
   while (JSON.stringify(payload).length > budgetChars && (includeSlots || limit > 1)) {
     truncated = true;
     if (includeSlots) includeSlots = false;
     else limit = Math.max(1, Math.floor(limit / 2));
     byScreen = toByScreen(includeSlots, limit);
-    payload = { ...base, why, ex, byScreen, truncated };
+    payload = { ...base, why, ...ex, byScreen, truncated };
   }
 
   return withCost(payload);
@@ -424,6 +436,7 @@ export function componentUsageCard(
     sock?: SockState;
     context?: RecommendContext;
     workspace?: WorkspaceManifest;
+    placeholders?: string[];
   } = {},
 ) {
   const node = pickResolveTarget(index, name, options.context, options.workspace);
@@ -478,11 +491,19 @@ export function exampleCard(
     sock?: SockState;
     context?: RecommendContext;
     workspace?: WorkspaceManifest;
+    placeholders?: string[];
   } = {},
 ) {
   const node = pickResolveTarget(index, name, options.context, options.workspace);
+  const unknown: ExampleReason = "no such component — call recommend";
   if (!node || node.type === "FRAME" || node.type === "SECTION") {
-    return withCost({ found: false as const, name, example: NO_EXAMPLE });
+    return withCost({
+      found: false as const,
+      name,
+      ex: EX_NONE,
+      exWhy: unknown,
+      example: exampleSentence(unknown),
+    });
   }
   const lookup = getExample(index, node, exampleQuery(index, options));
   if (!lookup.found) {
@@ -490,7 +511,9 @@ export function exampleCard(
       found: false as const,
       name: variantCardName(index, node),
       id: node.id,
-      example: NO_EXAMPLE,
+      ex: EX_NONE,
+      exWhy: lookup.reason,
+      example: exampleSentence(lookup.reason),
     });
   }
   const { id: exampleId, ...example } = lookup.example;
@@ -1134,7 +1157,6 @@ export interface RecommendCandidate {
   type: string;
   hint: string;
   deprecated: boolean;
-  /** Omitted on a tight card so the real-example pointer still fits. */
   instances?: number;
   whereUsed?: Array<{ name: string; count: number }>;
   score: number;
@@ -1150,8 +1172,11 @@ export interface RecommendCandidate {
   set?: string;
   status?: GraphNode["status"];
   slots?: string[];
-  /** Real instance node id, or the no-example sentence. Full config is get_example. */
+  /** Top pick only. Node id, `fileKey:nodeId` when the example file differs, or `none`. */
   ex?: string;
+  exFileKey?: string;
+  exWhy?: ExampleReason;
+  exNote?: "other product";
 }
 
 /** Candidates 2–3. Place with fileKey + figmaNodeId; the rest stays on the top hit. */
@@ -1743,6 +1768,7 @@ export function recommendMasters(
     workspace?: WorkspaceManifest;
     sock?: SockState;
     bindRules?: BindRulesFile;
+    placeholders?: string[];
   } = {},
 ) {
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
@@ -2150,6 +2176,7 @@ export function recommendMasters(
           ? bindRuleHit(options.bindRules, entry.node, bindQuery)
           : undefined,
         graphFileKey,
+        instances: entry.instances,
       });
     return {
       id: entry.node.id,
@@ -2174,7 +2201,7 @@ export function recommendMasters(
   let limit = Math.min(kept.length, target);
   let truncated = kept.length > limit;
   let dropExtras = false;
-  let slimLead = false;
+  let dropVariant = false;
   const exQuery = exampleQuery(index, options);
 
   const shortReason = (why: string): string => {
@@ -2188,20 +2215,15 @@ export function recommendMasters(
     const next: RecommendCandidate = {
       ...full,
       whereUsed: [],
-      ex: pointer,
+      ...pointer,
       hint: full.deprecated ? "Deprecated — do not place." : "Place fileKey + nodeId.",
     };
     if (lowConfidence) next.confidence = "low";
     delete next.slots;
-    if (slimLead) {
-      delete next.published;
-      delete next.publishState;
-      delete next.instances;
-      if (!next.whereUsed?.length) delete next.whereUsed;
-    }
     if (dropExtras) {
       delete next.set;
     }
+    if (dropVariant) delete next.variantProperties;
     return next;
   };
 
@@ -2225,19 +2247,22 @@ export function recommendMasters(
   let candidates = listed();
 
   const applied = appliedRecommendContext(options.context);
+  let contextEcho = applied ? { ...applied } : undefined;
+  const echoBag: { hint?: string } = {};
   const payloadOf = () => {
     const base = {
       intent,
       candidates,
       truncated,
-      ...(applied ? { context: applied } : {}),
+      ...(contextEcho ? { context: contextEcho } : {}),
       hint:
-        candidates.length === 0
+        echoBag.hint ??
+        (candidates.length === 0
           ? `No master matched. Do not invent. ${refreshHintFor(options.sock, graphFileKey)}`
           : candidates.length > 1 &&
               candidates.slice(1).some((row) => !("fileKey" in row && row.fileKey) || !("figmaNodeId" in row && row.figmaNodeId))
             ? `Place fileKey+nodeId on the top hit. Resolve an alternate by id before placing it. ${refreshHintFor(options.sock, graphFileKey)}`
-            : `Place fileKey+nodeId. ${refreshHintFor(options.sock, graphFileKey)}`,
+            : `Place fileKey+nodeId. ${refreshHintFor(options.sock, graphFileKey)}`),
     };
     const fitted = fitBindRuleWarnings(options.bindRules?.warnings, base, budgetChars);
     return { ...base, ...fitted };
@@ -2255,76 +2280,144 @@ export function recommendMasters(
     candidates = [lead, ...candidates.slice(1)];
     payload = payloadOf();
   }
-  if (JSON.stringify(payload).length > budgetChars) {
-    truncated = true;
-    slimLead = true;
-    shrink();
-  }
-  if (JSON.stringify(payload).length > budgetChars) {
-    truncated = true;
+  const overBudget = () => JSON.stringify(payload).length > budgetChars;
+  if (overBudget()) {
     dropExtras = true;
     shrink();
   }
-  if (JSON.stringify(payload).length > budgetChars && limit > 2) {
-    truncated = true;
-    limit = 2;
-    shrink();
-  }
-  if (JSON.stringify(payload).length > budgetChars && candidates[0] && "hint" in candidates[0]) {
-    truncated = true;
-    const lead = candidates[0];
-    candidates = [
-      {
-        ...lead,
-        why: lead.why.length > 72 ? `${lead.why.slice(0, 69)}…` : lead.why,
-        hint: "Place fileKey + nodeId.",
-      },
-      ...candidates.slice(1),
+  if (overBudget()) {
+    const ceiling = Math.min(kept.length, target);
+    const counts = [...new Set([ceiling, Math.min(2, ceiling), 1])].filter((count) => count >= 1);
+    const plans = [
+      ...counts.map((count) => ({ count, variants: true })),
+      ...counts.map((count) => ({ count, variants: false })),
     ];
-    payload = payloadOf();
-  }
-  while (JSON.stringify(payload).length > budgetChars && candidates.length > 2) {
-    truncated = true;
-    limit = candidates.length - 1;
-    shrink();
-  }
-  if (JSON.stringify(payload).length > budgetChars && candidates[0] && "variantProperties" in candidates[0]) {
-    truncated = true;
-    const lead = { ...candidates[0] };
-    delete lead.variantProperties;
-    delete lead.set;
-    candidates = [lead, ...candidates.slice(1)];
-    payload = payloadOf();
-  }
-  while (JSON.stringify(payload).length > budgetChars && candidates.length > 1) {
-    truncated = true;
-    limit = candidates.length - 1;
-    shrink();
+    for (const plan of plans) {
+      limit = plan.count;
+      dropVariant = !plan.variants;
+      truncated = kept.length > plan.count;
+      shrink();
+      fitEcho(payload, contextEcho, echoBag, budgetChars);
+      payload = payloadOf();
+      if (!overBudget()) break;
+      const lead = candidates[0];
+      if (lead && "why" in lead && lead.why.length > 72) {
+        lead.why = `${lead.why.slice(0, 69)}…`;
+        payload = payloadOf();
+        if (!overBudget()) break;
+      }
+    }
   }
   const warningsWanted = options.bindRules?.warnings?.length ?? 0;
   const warningMissing = () =>
     warningsWanted > 0 && !payload.bindRuleWarnings?.length && !payload.warningNote;
-  if (warningMissing()) {
-    truncated = true;
-    slimLead = true;
-    shrink();
+  fitEcho(payload, contextEcho, echoBag, budgetChars);
+  payload = payloadOf();
+  if (warningMissing() || JSON.stringify(payload).length > budgetChars) {
+    fitEcho(payload, contextEcho, echoBag, budgetChars);
+    payload = payloadOf();
   }
   while (warningMissing() && candidates.length > 1) {
     truncated = true;
     limit = candidates.length - 1;
     shrink();
+    fitEcho(payload, contextEcho, echoBag, budgetChars);
+    payload = payloadOf();
+  }
+  if (JSON.stringify(payload).length > budgetChars) {
+    fitEcho(payload, contextEcho, echoBag, budgetChars, true);
+    payload = payloadOf();
+  }
+  if (JSON.stringify(payload).length > budgetChars) {
+    const lead = candidates[0];
+    if (lead && "whereUsed" in lead && Array.isArray(lead.whereUsed) && lead.whereUsed.length === 0) {
+      delete lead.whereUsed;
+    }
+    if (contextEcho && "files" in contextEcho) delete contextEcho["files"];
+    payload = payloadOf();
   }
   if (JSON.stringify(payload).length > budgetChars) {
     shrinkNameFields(payload, budgetChars);
   }
-  if (JSON.stringify(payload).length > budgetChars && candidates[0] && "type" in candidates[0]) {
-    const lead: RecommendCandidate = { ...candidates[0] };
-    delete (lead as { score?: number }).score;
-    if (!lead.deprecated) delete (lead as { deprecated?: boolean }).deprecated;
-    candidates[0] = lead;
+  if (JSON.stringify(payload).length > budgetChars) {
+    const lead = payload.candidates?.[0];
+    if (lead && "why" in lead && typeof lead.why === "string" && lead.why.length > 48) {
+      lead.why = `${lead.why.slice(0, 47)}…`;
+    }
+    echoBag.hint = "Place fileKey + nodeId.";
+    payload = payloadOf();
+    if (JSON.stringify(payload).length > budgetChars) shrinkNameFields(payload, budgetChars);
   }
 
   return withCost(payload);
+}
+
+const ECHO_KEYS = ["journey", "product", "domain", "id", "client"] as const;
+
+/** Shorten echoed context and the matches-clause before any name cut. */
+function fitEcho(
+  payload: { candidates?: RecommendHit[]; hint?: string },
+  context: Record<string, unknown> | undefined,
+  bag: { hint?: string },
+  budget: number,
+  hard = false,
+): void {
+  let guard = 0;
+  const floor = hard ? 8 : 48;
+  const size = () => JSON.stringify(payload).length;
+  while (size() > budget && guard < 48) {
+    guard += 1;
+    const hint = bag.hint ?? payload.hint;
+    if (typeof hint === "string" && hint.includes("If stale, learn_library. ")) {
+      bag.hint = hint.replace("If stale, learn_library. ", "");
+      payload.hint = bag.hint;
+      continue;
+    }
+    if (hard && typeof hint === "string" && hint.includes(" Do not Read graph.json.")) {
+      bag.hint = hint.replace(" Do not Read graph.json.", "");
+      payload.hint = bag.hint;
+      continue;
+    }
+    if (context) {
+      let cut = false;
+      for (const key of ECHO_KEYS) {
+        const value = context[key];
+        if (typeof value !== "string" || value.length <= floor) continue;
+        const nextLen = Math.max(floor, value.length - Math.max(8, size() - budget));
+        context[key] = `${value.slice(0, nextLen - 1)}…`;
+        cut = true;
+        break;
+      }
+      if (cut) continue;
+      const files = context["files"];
+      if (Array.isArray(files)) {
+        const long = files.findIndex((item) => typeof item === "string" && item.length > floor);
+        if (long >= 0) {
+          const value = files[long] as string;
+          const nextLen = Math.max(floor, value.length - Math.max(8, size() - budget));
+          files[long] = `${value.slice(0, nextLen - 1)}…`;
+          continue;
+        }
+        if (hard && files.length > 1) {
+          context["files"] = files.slice(0, 1);
+          continue;
+        }
+      }
+    }
+    const lead = payload.candidates?.[0];
+    if (lead && "why" in lead && typeof lead.why === "string" && lead.why.includes("matches ")) {
+      const next = lead.why.replace(/matches [^;]{8,}/, (part) => {
+        const body = part.slice("matches ".length);
+        const keep = Math.max(8, body.length - Math.max(8, size() - budget));
+        return `matches ${body.slice(0, keep - 1)}…`;
+      });
+      if (next !== lead.why) {
+        lead.why = next;
+        continue;
+      }
+    }
+    break;
+  }
 }
 
 export type VerifyReason = "not-in-graph" | "not-a-master" | "denied" | "private";
@@ -2362,6 +2455,7 @@ export function verifyFrame(
     bindRules?: BindRulesFile;
     sock?: SockState;
     workspace?: WorkspaceManifest;
+    placeholders?: string[];
   } = {},
 ) {
   const invents: VerifyHit[] = [];
@@ -2536,7 +2630,9 @@ export function verifyFrame(
     else if (master) considerMaster(master, given);
   }
 
-  const content = frameNode ? frameContentWarnings(index, frameNode.id) : { warnings: [], blocking: false };
+  const content = frameNode
+    ? frameContentWarnings(index, frameNode.id, input.placeholders)
+    : { warnings: [], blocking: false };
   const pass = invents.length === 0 && deprecatedHits.length === 0 && unresolved.length === 0;
   const placed: GraphNode[] = [...approvedIds]
     .map((id) => index.getNode(id))
@@ -2652,8 +2748,25 @@ function shrinkNameFields(
       .sort((a, b) => (b.parent[b.key] as string).length - (a.parent[a.key] as string).length)[0];
     if (long) {
       const text = long.parent[long.key] as string;
-      const nextLen = Math.max(floorOf(long.key), text.length - 32);
-      long.parent[long.key] = `${text.slice(0, nextLen - 1)}…`;
+      const floor = floorOf(long.key);
+      const overflow = size(payload) - budget;
+      const target = Math.max(floor, text.length - overflow);
+      if (target >= text.length) {
+        if (!deepNames) {
+          deepNames = true;
+          continue;
+        }
+        break;
+      }
+      const next = `${text.slice(0, target - 1)}…`;
+      if (next.length >= text.length) {
+        if (!deepNames) {
+          deepNames = true;
+          continue;
+        }
+        break;
+      }
+      long.parent[long.key] = next;
       continue;
     }
     const hinted = payload as { hint?: string };

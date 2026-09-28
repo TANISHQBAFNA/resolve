@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SourceDocumentSchema } from "@/core/ingestion/types";
 import { buildGraph } from "@/core/transform";
-import { indexGraph } from "@/core/query";
+import { indexGraph, recommendMasters } from "@/core/query";
 import {
   formatScoreTable,
   inventsInCard,
@@ -27,6 +27,7 @@ import {
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const goldenDir = join(root, "scoreboard", "golden");
+const regressionDir = join(root, "scoreboard", "regression");
 
 function fixtureIndex() {
   const raw: unknown = JSON.parse(readFileSync(join(root, "scoreboard", "fixture", "library.json"), "utf8"));
@@ -252,6 +253,75 @@ describe("scoreboard", () => {
   it("resolve score --workspace .. does not leave ~/.resolve", async () => {
     await expect(runCli(["score", "--workspace", "..", "--golden", goldenDir])).rejects.toThrow(/not allowed/);
     expect(existsSync(join(home, "scoreboard"))).toBe(false);
+  });
+
+  it("keeps the main top-pick fields plus ex on golden and regression recommends", () => {
+    const index = fixtureIndex();
+    const rows = [...loadGoldenCases(goldenDir), ...loadGoldenCases(regressionDir)];
+    const required = ["published", "publishState", "deprecated", "score", "instances", "ex", "whereUsed"] as const;
+    for (const row of rows) {
+      const screenJob = [row.journey, row.screenType].filter(Boolean).join(" ");
+      const context =
+        row.screenType || row.journey || row.slot
+          ? {
+              id: row.screenType || row.journey || row.slot || row.id,
+              ...(row.screenType ? { domain: row.screenType, screenType: row.screenType } : {}),
+              ...(screenJob || row.slot ? { journey: { screenJob: screenJob || row.slot } } : {}),
+            }
+          : undefined;
+      const card = recommendMasters(index, row.intent, context ? { context } : {});
+      expect(card.cost.chars, row.id).toBeLessThanOrEqual(600);
+      expect(inventsInCard(card, index), row.id).toEqual([]);
+      const lead = card.candidates[0];
+      if (!lead) continue;
+      for (const field of required) expect(lead, `${row.id} ${field}`).toHaveProperty(field);
+      if ("ex" in lead) {
+        expect(lead.ex === "none" || !String(lead.ex).includes(" ")).toBe(true);
+        expect(String(lead.ex).length).toBeLessThan(40);
+      }
+      if ("score" in lead) expect(typeof lead.score).toBe("number");
+      if ("deprecated" in lead) expect(typeof lead.deprecated).toBe("boolean");
+      if ("publishState" in lead) expect(["published", "local-only"]).toContain(lead.publishState);
+    }
+  });
+
+  it("keeps recommend within 600 for long context packs", () => {
+    const index = fixtureIndex();
+    const long = "Storefront checkout journey ".repeat(40);
+    const card = recommendMasters(index, "primary button", {
+      context: {
+        id: `pack-${long}`,
+        product: { name: `Cards ${long}` },
+        client: { name: `Client ${long}` },
+        domain: `payments ${long}`,
+        journey: { screenJob: long, step: long },
+        files: [long, `${long}-b`],
+      },
+    });
+    expect(card.cost.chars).toBeLessThanOrEqual(600);
+    const lead = card.candidates[0];
+    expect(lead && "name" in lead && lead.name.endsWith("…")).toBe(false);
+    expect(lead && "publishState" in lead).toBe(true);
+    expect(lead && "deprecated" in lead).toBe(true);
+    expect(lead && "score" in lead).toBe(true);
+
+    let over = 0;
+    let max = 0;
+    for (let i = 0; i < 2000; i += 1) {
+      const text = `${"journey ".repeat(8 + (i % 80))}${i}`;
+      const fuzzed = recommendMasters(index, i % 4 === 0 ? "card" : "button", {
+        context: {
+          id: `fuzz-${i}-${text}`,
+          product: { name: `Product ${text}` },
+          domain: `domain ${text}`,
+          journey: { screenJob: text },
+        },
+      });
+      if (fuzzed.cost.chars > max) max = fuzzed.cost.chars;
+      if (fuzzed.cost.chars > 600) over += 1;
+    }
+    expect(over).toBe(0);
+    expect(max).toBeLessThanOrEqual(600);
   });
 
   it("resolve score exits non-zero only for invent or a budget breach", async () => {

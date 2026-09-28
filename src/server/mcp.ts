@@ -49,10 +49,10 @@ function handle(request: Request): void {
         instructions:
           "Resolve is for AI tools (Cursor, Claude) with Figma MCP. Learning needs a paid Figma seat with MCP access (Dev or Full), or a Figma access token for REST ingest. " +
           "View or free seats have a low read quota — learn a few frames, stop; SOCK saves progress and resumes next session. Big libraries: checkpointed multi-pass learn_library, not a whole-file dump. " +
-          "Forced path: learn_library (get_metadata XML + fileKey + role=library; pass search_design_system / get_libraries as libraries to stamp published keys) → recipe if the screen job matches → recommend unbound slots → get_example on each pick (card field ex) → clone that instance and replace content; do not start from the default variant → verify_frame. " +
+          "Forced path: learn_library (get_metadata XML + fileKey + role=library; pass search_design_system / get_libraries as libraries to stamp published keys) → recipe if the screen job matches → recommend unbound slots → get_example (ex is on the top pick; call get_example for the others) → clone that instance and replace content; do not start from the default variant → verify_frame. " +
           "Placing a component into a different Figma file needs the library published and search_design_system output passed as libraries; otherwise build inside the library file. " +
           "On verify pass, SOCK records usage automatically. Rules never auto-change (SOCI proposals stay pending until a human approve_proposal / reject_proposal on the advanced surface with confirmedBy, or CLI resolve approve --who). " +
-          "Each recommend/recipe/resolve hit includes a one-line why from SOCK facts (or 'no usage yet'). Bind rules in bind-rules.json require/forbid/prefer; verify names a missed rule and the correct master id. " +
+          "The top pick includes a one-line why from SOCK facts, 'used N× in file', or 'not verified on a screen yet'. Bind rules in bind-rules.json require/forbid/prefer; verify names a missed rule and the correct master id. Team template strings live in placeholders.json. " +
           "If freshness.stale, freshness.delta lists the exact pages/frames to re-fetch then learn_library. Removed masters are deprecated-by-absence and must not be recommended. " +
           "resolve \"<name>\" is I-know-the-name-give-me-the-id. " +
           "Do not invent components. Do not Read or dump graph.json. Do not hand-build capture JSON. " +

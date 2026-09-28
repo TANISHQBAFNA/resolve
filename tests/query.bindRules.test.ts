@@ -228,11 +228,12 @@ describe("verify_frame bind rules", () => {
 });
 
 describe("why line (SOCK facts only)", () => {
-  it("says no usage yet when there are no facts", () => {
-    expect(whyLine({})).toBe("no usage yet");
+  it("says not verified when there are no facts", () => {
+    expect(whyLine({})).toBe("not verified on a screen yet");
+    expect(whyLine({ instances: 4 })).toBe("used 4× in file");
     const { index, ids } = paymentLab();
     const node = index.getNode(ids.live)!;
-    expect(whyLineForMaster(node, { sock: emptySock() })).toBe("no usage yet");
+    expect(whyLineForMaster(node, { sock: emptySock() })).toBe("not verified on a screen yet");
   });
 
   it("is a snapshot of counted real-screen usage, confidence, freshness, status, pack, rule", () => {
@@ -269,7 +270,8 @@ describe("why line (SOCK facts only)", () => {
     const { index, ids } = paymentLab();
     const node = index.getNode(ids.live)!;
     expect(index.getAllInstancesOf(ids.live).length).toBeGreaterThan(0);
-    expect(whyLineForMaster(node)).toBe("no usage yet");
+    expect(whyLineForMaster(node)).toBe("not verified on a screen yet");
+    expect(whyLineForMaster(node, { instances: index.getAllInstancesOf(ids.live).length })).toMatch(/used \d+× in file/);
   });
 
   it("quarantines invalid rules on load and still recommends", () => {

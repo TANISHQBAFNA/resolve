@@ -15,13 +15,27 @@ export const CLONE_INSTRUCTION =
 export const NO_EXAMPLE =
   "no real example known — ask the designer or open a screen that uses it";
 
-/** Whole-string template copy. Short chrome labels are not in this list. */
-const KNOWN_PLACEHOLDERS = new Set([
-  "request bank certificate",
+/** Short card value. The long sentence stays on get_example. */
+export const EX_NONE = "none";
+
+export type ExampleReason =
+  | "bare defaults only"
+  | "not on any screen"
+  | "use the live replacement"
+  | "no such component — call recommend";
+
+/** Generic filler only. Team strings live in `.graphify/placeholders.json`. */
+const LOREM_EXACT = new Set([
+  "lorem",
   "lorem ipsum",
+  "lorem ipsum dolor",
   "lorem ipsum dolor sit amet",
-  "placeholder",
-  "placeholder text",
+  "dolor sit amet",
+  "consectetur adipiscing",
+  "consectetur adipiscing elit",
+  "sample text",
+  "your text here",
+  "text goes here",
 ]);
 
 const MASTER_TYPES = new Set<string>(COMPONENT_DEFINITION_TYPES);
@@ -32,6 +46,8 @@ export interface ExampleQuery {
   journey?: string;
   domain?: string;
   graphFileKey?: string;
+  /** Team template strings. Whole-string match. Not built in. */
+  placeholders?: string[];
 }
 
 export interface RealExample {
@@ -45,11 +61,19 @@ export interface RealExample {
   height?: number;
   preferred: boolean;
   instruction: typeof CLONE_INSTRUCTION;
+  exNote?: "other product";
 }
 
 export type ExampleLookup =
   | { found: true; example: RealExample }
-  | { found: false; example: typeof NO_EXAMPLE };
+  | { found: false; reason: ExampleReason };
+
+export interface ExamplePointer {
+  ex: string;
+  exFileKey?: string;
+  exWhy?: ExampleReason;
+  exNote?: "other product";
+}
 
 export interface ContentWarning {
   figmaNodeId?: string;
@@ -118,13 +142,11 @@ function instancesOfFamily(index: GraphIndex, master: GraphNode): GraphNode[] {
   return [...seen.values()];
 }
 
+/** Real characters only. A layer name is not text when the characters attribute is missing. */
 function textOf(node: GraphNode): string | undefined {
   const meta = node.metadata?.["text"];
   if (typeof meta === "string" && meta.trim()) return meta.trim();
-  if (node.type !== "TEXT_LAYER") return undefined;
-  const name = node.name.trim();
-  if (!name || name === "(unnamed)") return undefined;
-  return name;
+  return undefined;
 }
 
 function ownTexts(index: GraphIndex, rootId: string): string[] {
@@ -147,8 +169,52 @@ function isChromeLabel(text: string): boolean {
   return trimmed.length < 20 && words.length < 3;
 }
 
-function isPlaceholder(text: string): boolean {
-  return KNOWN_PLACEHOLDERS.has(text.trim().toLowerCase());
+export function exampleSentence(reason: ExampleReason): string {
+  switch (reason) {
+    case "bare defaults only":
+    case "not on any screen":
+      return NO_EXAMPLE;
+    case "use the live replacement":
+      return "Deprecated. Use the live replacement. Do not clone this master.";
+    case "no such component — call recommend":
+      return "No such component — call recommend.";
+    default: {
+      const neverReason: never = reason;
+      return neverReason;
+    }
+  }
+}
+
+function normalized(text: string): string {
+  return text.trim().toLowerCase().replace(/[.…]+$/g, "").trim();
+}
+
+/** Lorem-ipsum family and the same kind of generic filler. Not product copy. */
+export function isLoremFiller(text: string): boolean {
+  const lower = normalized(text);
+  if (!lower) return false;
+  if (LOREM_EXACT.has(lower)) return true;
+  if (lower.startsWith("lorem ipsum")) return true;
+  if (/^x{3,}$/.test(lower) || lower === "todo" || lower === "tbd") return true;
+  return false;
+}
+
+function isPlaceholderWord(text: string): boolean {
+  const lower = normalized(text);
+  return lower === "placeholder" || lower === "placeholder text";
+}
+
+function isTeamPlaceholder(text: string, team: string[] | undefined): boolean {
+  if (!team?.length) return false;
+  const lower = text.trim().toLowerCase();
+  return team.some((item) => item.trim().toLowerCase() === lower);
+}
+
+function isHardPlaceholder(text: string, team: string[] | undefined, defaults: Set<string>): boolean {
+  if (isLoremFiller(text)) return true;
+  const isDefault = defaults.has(text.trim().toLowerCase());
+  if (!isDefault) return false;
+  return isTeamPlaceholder(text, team) || isPlaceholderWord(text);
 }
 
 function sizingOf(node: GraphNode): RealExample["sizing"] {
@@ -182,11 +248,15 @@ function variantOf(index: GraphIndex, instance: GraphNode): Record<string, strin
   return undefined;
 }
 
+function hasWord(name: string, word: string): boolean {
+  return new RegExp(`\\b${word}\\b`, "i").test(name);
+}
+
 function classify(node: GraphNode): "tab" | "divider" | "row" | undefined {
   const name = node.name.trim();
-  if (/tab/i.test(name)) return "tab";
-  if (/divider/i.test(name) || /^title$/i.test(name)) return "divider";
-  if (/row|information/i.test(name)) return "row";
+  if (hasWord(name, "tab")) return "tab";
+  if (hasWord(name, "divider") || /^title$/i.test(name)) return "divider";
+  if (hasWord(name, "row") || hasWord(name, "information")) return "row";
   return undefined;
 }
 
@@ -274,20 +344,40 @@ function masterTexts(index: GraphIndex, main: GraphNode): Set<string> {
   return texts;
 }
 
-function describeInstance(index: GraphIndex, instance: GraphNode): Described {
+function describeInstance(index: GraphIndex, instance: GraphNode, team: string[] | undefined): Described {
   const parts = collectParts(index, instance);
   const main = index.getMainComponent(instance.id);
   const masterParts = main ? collectParts(index, main) : undefined;
   const texts = ownTexts(index, instance.id);
   const defaults = main ? masterTexts(index, main) : new Set<string>();
-  const filledText = texts.some((text) => !defaults.has(text.toLowerCase()) && !isChromeLabel(text));
+  const substantive = texts.filter((text) => !isChromeLabel(text));
+  const placeholderText = substantive.some((text) => isHardPlaceholder(text, team, defaults));
+  const filledText = substantive.some(
+    (text) => !defaults.has(text.toLowerCase()) && !isHardPlaceholder(text, team, defaults),
+  );
   const sameStructure = masterParts ? structureKey(parts) === structureKey(masterParts) : false;
   return {
     parts,
     configKey: configKeyOf(parts),
     summary: summaryOf(parts),
-    populated: !sameStructure || filledText,
+    populated: !placeholderText && (!sameStructure || filledText),
   };
+}
+
+function isDocsFrame(name: string): boolean {
+  return (/\bdocs?\b/i.test(name) && /\busage\b/i.test(name)) || /\bdocumentation\b/i.test(name);
+}
+
+function contextBlob(screen: GraphNode, facts: UsageFact[]): string {
+  return [screen.name, ...facts.flatMap((fact) => [fact.product, fact.journey, fact.pack, fact.screenName])]
+    .filter((part): part is string => Boolean(part))
+    .join(" ")
+    .toLowerCase();
+}
+
+function blobHas(blob: string, needle: string | undefined): boolean {
+  const trimmed = needle?.trim().toLowerCase();
+  return Boolean(trimmed && blob.includes(trimmed));
 }
 
 function fileKeyOf(index: GraphIndex, node: GraphNode, query: ExampleQuery): string | undefined {
@@ -328,41 +418,59 @@ function preferredConfig(sock: SockState | undefined, ids: string[]): string | u
 }
 
 function contextScore(screen: GraphNode, facts: UsageFact[], query: ExampleQuery): number {
-  const blob = [screen.name, ...facts.flatMap((fact) => [fact.product, fact.journey, fact.pack, fact.screenName])]
-    .filter((part): part is string => Boolean(part))
-    .join(" ")
-    .toLowerCase();
+  const blob = contextBlob(screen, facts);
   let score = 0;
-  const product = query.product?.trim().toLowerCase();
-  const journey = query.journey?.trim().toLowerCase();
-  const domain = query.domain?.trim().toLowerCase();
-  if (product && blob.includes(product)) score += 40;
-  if (journey && blob.includes(journey)) score += 40;
-  if (domain && blob.includes(domain)) score += 20;
+  if (blobHas(blob, query.product)) score += 40;
+  if (blobHas(blob, query.journey)) score += 40;
+  if (blobHas(blob, query.domain)) score += 20;
   return score;
 }
 
 export function getExample(index: GraphIndex, master: GraphNode, query: ExampleQuery = {}): ExampleLookup {
-  const none = (): ExampleLookup => ({ found: false, example: NO_EXAMPLE });
+  const miss = (reason: ExampleReason): ExampleLookup => ({ found: false, reason });
   let node = master;
   if (node.type === "COMPONENT_INSTANCE") {
     const main = index.getMainComponent(node.id);
-    if (!main) return none();
+    if (!main) return miss("not on any screen");
     node = main;
   }
-  if (!MASTER_TYPES.has(node.type) || blocked(index, node)) return none();
+  if (!MASTER_TYPES.has(node.type)) return miss("no such component — call recommend");
+  if (node.status === "deprecated") return miss("use the live replacement");
+  const set = node.componentSetId ? index.getNode(node.componentSetId) : undefined;
+  if (set?.status === "deprecated") return miss("use the live replacement");
+  if (blocked(index, node)) return miss("not on any screen");
 
-  const ids = familyIds(index, node);
+  const variantPick = node.type === "VARIANT";
+  const ids = variantPick ? [node.id] : familyIds(index, node);
   const preferredKey = preferredConfig(query.sock, ids);
-  const ranked: Array<{ instance: GraphNode; screen: GraphNode; described: Described; score: number }> = [];
+  const instances = variantPick ? index.getAllInstancesOf(node.id) : instancesOfFamily(index, node);
+  const ranked: Array<{
+    instance: GraphNode;
+    screen: GraphNode;
+    described: Described;
+    score: number;
+    blob: string;
+  }> = [];
+  let sawInstance = false;
+  const cleanCache = new Map<string, boolean>();
+  const screenClean = (screenId: string): boolean => {
+    const cached = cleanCache.get(screenId);
+    if (cached !== undefined) return cached;
+    const content = frameContentWarnings(index, screenId, query.placeholders);
+    const clean = !content.blocking && content.warnings.length === 0;
+    cleanCache.set(screenId, clean);
+    return clean;
+  };
 
-  for (const instance of instancesOfFamily(index, node)) {
+  for (const instance of instances) {
     const main = index.getMainComponent(instance.id);
     if (!main || blocked(index, main)) continue;
+    if (variantPick && main.id !== node.id) continue;
     if (!instance.figmaNodeId) continue;
     const screen = screenOf(index, instance.id);
     if (!screen) continue;
-    const described = describeInstance(index, instance);
+    sawInstance = true;
+    const described = describeInstance(index, instance, query.placeholders);
     if (!described.populated) continue;
     const fileKey = fileKeyOf(index, screen, query);
     const facts = (query.sock?.facts ?? []).filter(
@@ -372,24 +480,43 @@ export function getExample(index: GraphIndex, master: GraphNode, query: ExampleQ
     const richness = described.parts.tabs.length + described.parts.dividers.length + described.parts.rows.length;
     let score = contextScore(screen, facts, query) + Math.min(30, richness);
     if (verified) score += 100;
+    if (screenClean(screen.id)) score += 80;
     if (described.parts.sizing === "hug") score += 15;
-    if (preferredKey && described.configKey === preferredKey) score += 1000;
-    ranked.push({ instance, screen, described, score });
+    if (isDocsFrame(screen.name)) score -= 200;
+    ranked.push({ instance, screen, described, score, blob: contextBlob(screen, facts) });
   }
 
-  const pool = preferredKey
-    ? ranked.filter((row) => row.described.configKey === preferredKey)
-    : ranked;
-  const usable = pool.length ? pool : ranked;
-  usable.sort(
+  if (!ranked.length) return miss(sawInstance ? "bare defaults only" : "not on any screen");
+
+  let pool = ranked;
+  let otherProduct = false;
+  if (query.product?.trim()) {
+    const matched = pool.filter((row) => blobHas(row.blob, query.product));
+    if (matched.length) pool = matched;
+    else otherProduct = true;
+  }
+  if (query.journey?.trim()) {
+    const matched = pool.filter((row) => blobHas(row.blob, query.journey));
+    if (matched.length) pool = matched;
+  }
+  const liveScreens = pool.filter((row) => !isDocsFrame(row.screen.name));
+  if (liveScreens.length) pool = liveScreens;
+  const clean = pool.filter((row) => screenClean(row.screen.id));
+  if (clean.length) pool = clean;
+  if (preferredKey) {
+    const preferred = pool.filter((row) => row.described.configKey === preferredKey);
+    if (preferred.length) pool = preferred;
+  }
+  pool.sort(
     (a, b) =>
       b.score - a.score ||
       a.screen.name.localeCompare(b.screen.name) ||
       (a.instance.figmaNodeId ?? "").localeCompare(b.instance.figmaNodeId ?? ""),
   );
-  const picked = usable[0];
-  if (!picked) return none();
+  const picked = pool[0];
+  if (!picked) return miss("not on any screen");
   const fileKey = fileKeyOf(index, picked.instance, query) ?? fileKeyOf(index, picked.screen, query);
+  const note = otherProduct ? ("other product" as const) : undefined;
   return {
     found: true,
     example: {
@@ -403,6 +530,7 @@ export function getExample(index: GraphIndex, master: GraphNode, query: ExampleQ
       ...(picked.described.parts.height !== undefined ? { height: Math.round(picked.described.parts.height) } : {}),
       preferred: Boolean(preferredKey && picked.described.configKey === preferredKey),
       instruction: CLONE_INSTRUCTION,
+      ...(note ? { exNote: note } : {}),
     },
   };
 }
@@ -412,12 +540,20 @@ export function examplePointer(
   master: GraphNode,
   query: ExampleQuery = {},
   detail: "id" | "screen" = "id",
-): string {
+): ExamplePointer {
   const lookup = getExample(index, master, query);
-  if (!lookup.found) return NO_EXAMPLE;
-  if (detail === "id") return lookup.example.nodeId;
+  if (!lookup.found) return { ex: EX_NONE, exWhy: lookup.reason };
+  const pickFile = fileKeyOf(index, master, query);
+  const file = lookup.example.fileKey;
+  const cross = Boolean(file && pickFile && file !== pickFile);
+  const ref = cross && file ? `${file}:${lookup.example.nodeId}` : lookup.example.nodeId;
   const screen = lookup.example.screen.length > 32 ? `${lookup.example.screen.slice(0, 31)}…` : lookup.example.screen;
-  return `${lookup.example.nodeId}@${screen}`;
+  const ex = detail === "id" ? ref : `${ref}@${screen}`;
+  return {
+    ex,
+    ...(cross && file ? { exFileKey: file } : {}),
+    ...(lookup.example.exNote ? { exNote: lookup.example.exNote } : {}),
+  };
 }
 
 /** Populated shape on this frame, for SOCK. Bare defaults are omitted. */
@@ -425,6 +561,7 @@ export function exampleFactForMasterOnFrame(
   index: GraphIndex,
   frameId: string,
   masterId: string,
+  team?: string[],
 ): { configKey: string; exampleNodeId: string } | undefined {
   let best: { configKey: string; exampleNodeId: string; richness: number } | undefined;
   for (const instance of index.getNestedInstances(frameId)) {
@@ -432,7 +569,7 @@ export function exampleFactForMasterOnFrame(
     if (!main) continue;
     if (main.id !== masterId && main.componentSetId !== masterId) continue;
     if (blocked(index, main)) continue;
-    const described = describeInstance(index, instance);
+    const described = describeInstance(index, instance, team);
     if (!described.populated) continue;
     const richness = described.summary.length;
     if (!best || richness > best.richness) {
@@ -462,6 +599,33 @@ function quote(text: string): string {
   return shown;
 }
 
+interface TextHit {
+  text: string;
+  layer: string;
+}
+
+function textsOf(index: GraphIndex, rootId: string): TextHit[] {
+  const out: TextHit[] = [];
+  const walk = (id: string) => {
+    for (const child of index.getChildren(id)) {
+      if (child.type === "COMPONENT_INSTANCE") continue;
+      const text = textOf(child);
+      if (text) out.push({ text, layer: child.name });
+      walk(child.id);
+    }
+  };
+  walk(rootId);
+  return out;
+}
+
+function isInputish(name: string): boolean {
+  return /\b(input|field|search|textarea)\b/i.test(name);
+}
+
+function isHintLayer(name: string): boolean {
+  return /\b(hint|placeholder)\b/i.test(name);
+}
+
 function peersHug(described: Map<string, Described>, instanceId: string, mainId: string, index: GraphIndex): boolean {
   for (const [id, row] of described) {
     if (id === instanceId || !row.populated || row.parts.sizing !== "hug") continue;
@@ -477,14 +641,34 @@ function peersHug(described: Map<string, Described>, instanceId: string, mainId:
   return false;
 }
 
+function peersShareFixedHeight(
+  index: GraphIndex,
+  instance: GraphNode,
+  used: number,
+  team: string[] | undefined,
+): boolean {
+  const main = index.getMainComponent(instance.id);
+  if (!main) return false;
+  for (const other of index.getAllInstancesOf(main.id)) {
+    if (other.id === instance.id) continue;
+    const described = describeInstance(index, other, team);
+    if (!described.populated || described.parts.sizing !== "fixed") continue;
+    const height = described.parts.height;
+    if (height === undefined) continue;
+    if (Math.abs(height - used) <= 2) return true;
+  }
+  return false;
+}
+
 export function frameContentWarnings(
   index: GraphIndex,
   frameId: string,
+  team: string[] | undefined = undefined,
 ): { warnings: ContentWarning[]; blocking: boolean } {
   const warnings: ContentWarning[] = [];
   const instances = index.getNestedInstances(frameId);
   const described = new Map<string, Described>();
-  for (const instance of instances) described.set(instance.id, describeInstance(index, instance));
+  for (const instance of instances) described.set(instance.id, describeInstance(index, instance, team));
 
   for (const instance of instances) {
     const main = index.getMainComponent(instance.id);
@@ -494,11 +678,15 @@ export function frameContentWarnings(
       ...(instance.figmaNodeId ? { figmaNodeId: instance.figmaNodeId } : { id: instance.id }),
       ...(fileKey && fileKey !== index.graph.fileKey ? { fileKey } : {}),
     };
-    const texts = ownTexts(index, instance.id);
+    const hits = textsOf(index, instance.id);
     const defaults = masterTexts(index, main);
-    const placeholders = texts.filter((text) => isPlaceholder(text));
+    const inputHint = isInputish(main.name) || isInputish(instance.name);
+    const considered = hits.filter((hit) => !(inputHint && isHintLayer(hit.layer)));
+    const texts = considered.map((hit) => hit.text);
+    const placeholders = texts.filter((text) => isHardPlaceholder(text, team, defaults));
     const leftovers = texts.filter(
-      (text) => !isPlaceholder(text) && defaults.has(text.toLowerCase()) && !isChromeLabel(text),
+      (text) =>
+        !isHardPlaceholder(text, team, defaults) && defaults.has(text.toLowerCase()) && !isChromeLabel(text),
     );
     if (placeholders.length) {
       const extra = placeholders.length > 1 ? ` (+${placeholders.length - 1})` : "";
@@ -530,6 +718,7 @@ export function frameContentWarnings(
     const clearly = slack >= 48 && slack > content * 0.35;
     const againstHug = fixed && hugPeer && slack >= 32;
     if (mode === "hug" || mode === "fill") continue;
+    if (peersShareFixedHeight(index, instance, used, team)) continue;
     if (!((fixed || mode === "unknown") && clearly) && !againstHug) continue;
     const viaMin = minHeight !== undefined && minHeight >= box && minHeight - content >= 48;
     const reason = viaMin

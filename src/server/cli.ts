@@ -53,6 +53,7 @@ import {
   missingGraphMessage,
   readBindRules,
   readLibraryRules,
+  readPlaceholders,
   readRecipeOverlay,
   readSock,
   readWorkspace,
@@ -110,9 +111,10 @@ function usage(): void {
       `  resolve recommend "<intent>" [--id] [--budget <chars>] ${PACK_BIND_FLAGS} [--screen-type <kind>]`,
       "      Ranked masters: name/intent first (exact, token, synonym). Context and usage break ties.",
       "      Context cannot pull in a name-irrelevant master. Deprecated names return the live replacement.",
-      "      Top hit is place-ready. Hits 2–3 are name, id, and a short reason. Cap 600 chars.",
-      "      Each hit has ex: a real instance node id, or says when no real example is known.",
-      "      Each hit has a one-line why from SOCK facts (or 'no usage yet'). Clone ex; do not start from the default.",
+      "      Top hit is place-ready and carries ex. Hits 2–3 are name, id, and a short reason. Cap 600 chars.",
+      "      ex is a real instance node id, fileKey:nodeId when the example file differs, or none plus a short reason.",
+      "      Call resolve example for the full config and for hits 2–3. Clone ex; do not start from the default.",
+      "      Why line: SOCK facts, 'used N× in file', or 'not verified on a screen yet'.",
       `  resolve example "<name>" [--id] ${PACK_BIND_FLAGS}`,
       "      Full config for ex: file key, node id, screen, variant, structure, sizing.",
       "      Clone this instance and replace content; do not start from the default variant.",
@@ -383,7 +385,9 @@ export async function runCli(argv: string[]): Promise<void> {
       const sock = readSock();
       const bindRules = readBindRules();
       if (!query || query === "list") {
-        printJson(listRecipes(recipes, resolveGraph(flag(args, "id"))?.index, bind, sock, bindRules));
+        printJson(
+          listRecipes(recipes, resolveGraph(flag(args, "id"))?.index, bind, sock, bindRules, readPlaceholders()),
+        );
         return;
       }
       printJson(
@@ -395,6 +399,7 @@ export async function runCli(argv: string[]): Promise<void> {
           bind,
           sock,
           bindRules,
+          readPlaceholders(),
         ),
       );
       return;
@@ -414,6 +419,7 @@ export async function runCli(argv: string[]): Promise<void> {
           ...(context ? { context } : {}),
           workspace: bind.workspace,
           sock: readSock(),
+          placeholders: readPlaceholders(),
         }),
       );
       return;
@@ -436,6 +442,7 @@ export async function runCli(argv: string[]): Promise<void> {
           workspace: bind.workspace,
           sock: readSock(),
           bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
+          placeholders: readPlaceholders(),
         }),
       );
       return;
@@ -452,6 +459,7 @@ export async function runCli(argv: string[]): Promise<void> {
         componentUsageCard(requireGraph(args).index, name, {
           budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
           sock: readSock(),
+          placeholders: readPlaceholders(),
           ...((pack || screenType)
             ? { context: { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) } }
             : {}),
@@ -580,6 +588,7 @@ export async function runCli(argv: string[]): Promise<void> {
           context: pack,
           bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
           sock: readSock(),
+          placeholders: readPlaceholders(),
         }),
       );
       return;

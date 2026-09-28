@@ -118,7 +118,7 @@ Same store for CLI and MCP: `~/.resolve/default` (or `RESOLVE_WORKSPACE=acme` �
 
 **Big libraries.** Do not dump the whole file. Call `learn_library` on a few frames, stop, come back later. The card says `learned X of Y pages; next: …`. Checkpoints survive across sessions. A view/free seat with a low quota uses the same resume path. When a file is stale, `freshness.delta` lists the exact pages/frames to re-fetch.
 
-Then: `recipe` / `recommend` → `get_example` on each pick (`ex`) → clone that instance and replace content; do not start from the default variant → place only returned `fileKey` + `nodeId` (and `componentKey` when published) with Figma `use_figma` → `verify_frame`. A pass writes usage into SOCK. The same populated shape on 3 verified screens becomes the preferred example. Rules never change themselves.
+Then: `recipe` / `recommend` → `get_example` (`ex` is on the top pick; call `get_example` for the others) → clone that instance and replace content; do not start from the default variant → place only returned `fileKey` + `nodeId` (and `componentKey` when published) with Figma `use_figma` → `verify_frame`. A pass writes usage into SOCK. The same populated shape on 3 verified screens becomes the preferred example. Rules never change themselves. Team template strings go in `.graphify/placeholders.json`.
 
 ## What Resolve will not do
 

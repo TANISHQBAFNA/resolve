@@ -90,6 +90,8 @@ export interface WhyFacts {
   removed?: boolean;
   packJourney?: string;
   bindRule?: string;
+  /** Placements in the file. Not a verified-screen count. */
+  instances?: number;
 }
 
 export interface AuditLine {
@@ -625,13 +627,17 @@ export function whyLine(facts: WhyFacts): string {
     const confidence =
       facts.confidence === "strong" ? ", strong" : facts.confidence === "low" ? ", low confidence" : "";
     parts.push(`used on ${facts.usageScreens} ${noun}${confidence}`);
+  } else if (typeof facts.instances === "number" && facts.instances > 0) {
+    parts.push(`used ${facts.instances}× in file`);
+  } else {
+    parts.push("not verified on a screen yet");
   }
   if (facts.deprecated) parts.push("deprecated");
   if (facts.removed) parts.push("removed");
   if (facts.stale) parts.push("stale");
   if (facts.packJourney) parts.push(`matches ${facts.packJourney}`);
   if (facts.bindRule) parts.push(`bind rule ${facts.bindRule}`);
-  return parts.length ? parts.join("; ") : "no usage yet";
+  return parts.join("; ");
 }
 
 export function whyLineForMaster(
@@ -641,6 +647,7 @@ export function whyLineForMaster(
     packJourney?: string;
     bindRule?: string;
     graphFileKey?: string;
+    instances?: number;
   } = {},
 ): string {
   const pattern = options.sock ? patternFor(options.sock, node.id) : undefined;
@@ -657,6 +664,7 @@ export function whyLineForMaster(
     removed,
     packJourney: options.packJourney,
     bindRule: options.bindRule,
+    instances: options.instances,
   });
 }
 
