@@ -6,6 +6,7 @@ import {
   isPrivateMasterName,
   recommendMasters,
   resolveNode,
+  variantCardName,
   withCost,
   type RecommendCandidate,
 } from "./agentSurface";
@@ -342,7 +343,7 @@ function masterFromNode(index: GraphIndex, node: GraphNode, hint: string, sock?:
   const place = placeReady(node, index.graph.fileKey);
   return {
     id: node.id,
-    name: node.name,
+    name: variantCardName(index, node),
     type: node.type,
     ...place,
     variantProperties: node.variantProperties,

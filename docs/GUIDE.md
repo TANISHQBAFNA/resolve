@@ -81,6 +81,8 @@ Use a checkout summary as the running example. Swap the words for your screen.
 
 Everyday path (Figma MCP + Resolve MCP): ask the agent to `get_metadata` on a library frame, then `learn_library` with that XML, the file key, and `role: library`. Optional: pass `search_design_system` results so cards include the published component key. SOCK lives in `~/.resolve/default` so CLI and MCP share it. A big library is several short passes — Resolve checkpoints and resumes.
 
+Placing a component into a **different** Figma file needs the library published, and `search_design_system` output passed as `libraries`. Otherwise build inside the library file.
+
 Secondary path (REST token): paste a **screen or frame** link. First file is the shared design system (or pass `--role library`). Then ingest each product or client file. On a low Figma API tier, `--scope file` is safer (one request). A section-by-section walk honors rate-limit waits and can resume.
 
 ```bash

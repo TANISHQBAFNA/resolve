@@ -8,6 +8,7 @@ import {
   componentUsageCard,
   isPrivateMasterName,
   recommendMasters,
+  variantCardName,
   verifyFrame,
   type RecommendContext,
 } from "./agentSurface";
@@ -303,7 +304,10 @@ function vocabOf(index: GraphIndex): GraphVocab {
     ids.add(node.id);
     if (node.figmaNodeId) ids.add(node.figmaNodeId);
     names.add(node.name);
-    if (masterTypes.has(node.type)) componentNames.add(node.name);
+    if (masterTypes.has(node.type)) {
+      componentNames.add(node.name);
+      if (node.type === "VARIANT") componentNames.add(variantCardName(index, node));
+    }
     if (node.fileKey) fileKeys.add(node.fileKey);
     byId.set(node.id, node);
     const key = node.metadata?.["key"];

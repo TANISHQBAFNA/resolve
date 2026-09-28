@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,6 +52,35 @@ async function listToolsFrom(command: string, args: string[]): Promise<string[]>
     }, 12_000);
   });
 }
+
+describe("Node version gate", () => {
+  it("rejects Node below 22.12 with a one-line stderr message", () => {
+    const guard = join(root, "bin", "node-version.mjs");
+    const probe = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `import { nodeVersionMessage, nodeVersionTooOld } from ${JSON.stringify(guard)};
+        if (!nodeVersionTooOld("v22.11.0")) process.exit(2);
+        if (nodeVersionTooOld("v22.12.0")) process.exit(3);
+        if (nodeVersionTooOld("v24.0.0")) process.exit(4);
+        process.stderr.write(nodeVersionMessage("v20.11.1"));
+        process.exit(0);`,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(probe.status).toBe(0);
+    expect(probe.stderr).toBe(
+      "Resolve needs Node.js 22.12 or newer (this is v20.11.1). Install the LTS from https://nodejs.org\n",
+    );
+    const bin = readFileSync(join(root, "bin", "resolve-mcp.mjs"), "utf8");
+    const gate = bin.indexOf("nodeVersionTooOld");
+    const server = bin.indexOf("dist-server");
+    expect(gate).toBeGreaterThan(-1);
+    expect(gate).toBeLessThan(server);
+  });
+});
 
 describe("documented MCP install command", () => {
   it("docs use npx -p github:… resolve-mcp so the server bin starts", () => {

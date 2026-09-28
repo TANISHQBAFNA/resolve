@@ -270,6 +270,7 @@ export function usageCardForComponent(
   const base = {
     component: {
       ...briefNode(node),
+      name: variantCardName(index, node),
       ...(nodeFileKey(node) ? { fileKey: nodeFileKey(node) } : {}),
       variantProperties: node.variantProperties,
       identity: node.metadata?.["identity"],
@@ -404,7 +405,7 @@ export function componentUsageCard(
       ? {
           replacement: {
             id: replacement.id,
-            name: replacement.name,
+            name: variantCardName(index, replacement),
             ...place,
             why: `replaces ${node.name} (deprecated)`,
           },
@@ -532,7 +533,42 @@ export function sharedComponents(index: GraphIndex, fromId: string, toId: string
 
 export function isPrivateMasterName(name: string): boolean {
   const trimmed = name.trim();
-  return trimmed.startsWith(".") || trimmed.startsWith("_");
+  if (trimmed.startsWith(".") || trimmed.startsWith("_")) return true;
+  const variant = trimmed.split(" / ").at(-1)?.trim() ?? "";
+  return variant !== trimmed && (variant.startsWith(".") || variant.startsWith("_"));
+}
+
+/** Instance layer names guessed by MCP (`mcp-name:`) are not library masters. */
+export function isNameInferredMaster(node: GraphNode): boolean {
+  if (node.metadata?.["identity"] === "inferred-from-name") return true;
+  const id = `${node.id} ${node.figmaNodeId ?? ""}`;
+  return id.includes("mcp-name:");
+}
+
+const VARIANT_PROP_NAME = /^[^,=]+=[^,=]+(?:,\s*[^,=]+=[^,=]+)*$/;
+
+function variantLabel(node: GraphNode): string {
+  const name = node.name.trim();
+  if (VARIANT_PROP_NAME.test(name)) return name;
+  const props = node.variantProperties;
+  if (props) {
+    const parts = Object.entries(props)
+      .filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].length > 0)
+      .map(([key, value]) => `${key}=${value}`);
+    if (parts.length) return parts.join(", ");
+  }
+  return name;
+}
+
+/** Card label for a variant: `Button / Type=Primary`. Other nodes keep their name. */
+export function variantCardName(index: GraphIndex, node: GraphNode): string {
+  if (node.type !== "VARIANT") return node.name;
+  const set = node.componentSetId ? index.getNode(node.componentSetId) : undefined;
+  const setName = set?.name.trim();
+  if (!setName) return node.name;
+  const label = variantLabel(node);
+  if (!label || label === setName) return node.name;
+  return `${setName} / ${label}`;
 }
 
 function idVariants(value: string): string[] {
@@ -569,14 +605,23 @@ export function resolveNodeExact(index: GraphIndex, nameOrId: string): GraphNode
   if (direct) return direct;
   const lower = trimmed.toLowerCase();
   let exactName: GraphNode | undefined;
+  let realMaster: GraphNode | undefined;
+  let inferredMaster: GraphNode | undefined;
   for (const node of index.allNodes) {
     if (matchesFigmaId(node, trimmed)) return node;
     if (matchesStampedId(node, trimmed, index.graph.fileKey)) return node;
-    if (node.name.toLowerCase() !== lower) continue;
-    if (isMasterType(node.type)) return node;
+    const nameHit =
+      node.name.toLowerCase() === lower ||
+      (node.type === "VARIANT" && variantCardName(index, node).toLowerCase() === lower);
+    if (!nameHit) continue;
+    if (isMasterType(node.type)) {
+      if (isNameInferredMaster(node)) inferredMaster ??= node;
+      else realMaster ??= node;
+      continue;
+    }
     exactName ??= node;
   }
-  return exactName;
+  return realMaster ?? inferredMaster ?? exactName;
 }
 
 export function resolveNode(index: GraphIndex, nameOrId: string): GraphNode | undefined {
@@ -845,13 +890,15 @@ export function checkFrame(index: GraphIndex, intent: string) {
   const analog = similarUsage(index, intent);
   const avoid = analog.variants.filter((variant) => index.getNode(variant.id)?.status === "deprecated");
   const use = analog.variants.find((variant) => index.getNode(variant.id)?.status !== "deprecated");
+  const useNode = use ? index.getNode(use.id) : undefined;
+  const useLabel = useNode ? variantCardName(index, useNode) : use?.name;
   return withCost({
     intent,
     use: use ?? null,
     avoid,
     similarScreens: analog.screens,
     hint: use
-      ? `Use ${use.set ? `${use.set} / ` : ""}${use.name}. Nested on ${use.on.map((screen) => screen.name).join(", ")}.${
+      ? `Use ${useLabel}. Nested on ${use.on.map((screen) => screen.name).join(", ")}.${
           avoid.length ? ` Avoid deprecated: ${avoid.map((variant) => variant.name).join(", ")}.` : ""
         }`
       : analog.variants.length
@@ -1964,7 +2011,7 @@ export function recommendMasters(
       });
     return {
       id: entry.node.id,
-      name: entry.node.name,
+      name: variantCardName(index, entry.node),
       type: entry.node.type,
       ...place,
       variantProperties: entry.node.variantProperties,
@@ -2011,7 +2058,7 @@ export function recommendMasters(
     const why = entry.whyOverride ?? toCandidate(entry, false, 0).why;
     return {
       id: entry.node.id,
-      name: entry.node.name,
+      name: variantCardName(index, entry.node),
       why: shortReason(why),
       ...(place.fileKey ? { fileKey: place.fileKey } : {}),
       ...(place.figmaNodeId ? { figmaNodeId: place.figmaNodeId } : {}),
@@ -2180,7 +2227,7 @@ export function verifyFrame(
   const stampHit = (node: GraphNode, extra: Omit<VerifyHit, "name" | "id" | "figmaNodeId" | "fileKey"> = {}): VerifyHit => {
     const fileKey = fileOf(node);
     return {
-      name: node.name,
+      name: variantCardName(index, node),
       id: node.id,
       figmaNodeId: node.figmaNodeId,
       ...(fileKey ? { fileKey } : {}),
@@ -2188,7 +2235,36 @@ export function verifyFrame(
     };
   };
 
+  const realMasterByName = (name: string): GraphNode | undefined => {
+    const needle = name.trim().toLowerCase();
+    if (!needle) return undefined;
+    let found: GraphNode | undefined;
+    for (const node of index.getNodesByType(...MASTER_TYPES)) {
+      if (isNameInferredMaster(node)) continue;
+      const raw = node.name.trim().toLowerCase();
+      const card = variantCardName(index, node).trim().toLowerCase();
+      if (raw !== needle && card !== needle) continue;
+      if (found) return undefined;
+      found = node;
+    }
+    return found;
+  };
+
   const considerMaster = (master: GraphNode, given: string) => {
+    if (isNameInferredMaster(master)) {
+      const real = realMasterByName(master.name) ?? realMasterByName(given);
+      if (real && real.id !== master.id) {
+        considerMaster(real, given);
+        return;
+      }
+      pushUnique(
+        invents,
+        seenInvent,
+        stampHit(master, { reason: "not-a-master", given }),
+        `invent:${master.id}`,
+      );
+      return;
+    }
     if (isPrivateMasterName(master.name)) {
       pushUnique(invents, seenInvent, stampHit(master, { reason: "private", given }), `private:${master.id}`);
       return;
@@ -2241,7 +2317,7 @@ export function verifyFrame(
       const near = searchNodes(index, given, { limit: 8 })
         .map((hit) => asMaster(index, hit.node))
         .find((node): node is GraphNode => Boolean(node));
-      if (near) {
+        if (near && !isNameInferredMaster(near)) {
         const fileKey = fileOf(near);
         pushUnique(
           unresolved,
@@ -2251,7 +2327,7 @@ export function verifyFrame(
             given,
             reason: "not-exact",
             didYouMean: {
-              name: near.name,
+              name: variantCardName(index, near),
               id: near.id,
               ...(fileKey ? { fileKey } : {}),
             },
@@ -2264,11 +2340,15 @@ export function verifyFrame(
       continue;
     }
     const master = asMaster(index, node);
-    const echoed = master ?? node;
+    const approvable =
+      master && isNameInferredMaster(master)
+        ? realMasterByName(master.name) ?? realMasterByName(given)
+        : master;
+    const echoed = approvable ?? master ?? node;
     const fileKey = fileOf(echoed);
     resolved.push({
       given,
-      name: echoed.name,
+      name: variantCardName(index, echoed),
       id: echoed.id,
       ...(fileKey ? { fileKey } : {}),
     });
@@ -2276,7 +2356,7 @@ export function verifyFrame(
       pushUnique(invents, seenInvent, stampHit(node, { reason: "not-a-master", given }), `invent:${node.id}`);
       continue;
     }
-    considerMaster(master, given);
+    considerMaster(approvable ?? master, given);
   }
 
   const pass = invents.length === 0 && deprecatedHits.length === 0 && unresolved.length === 0;

@@ -160,6 +160,7 @@ describe("recommend (library ranking)", () => {
     expect(lead && "figmaNodeId" in lead && lead.figmaNodeId).toBe("9:1");
     expect(lead && "deprecated" in lead && lead.deprecated).toBe(false);
     expect(lead && "variantProperties" in lead && lead.variantProperties?.["Variant"]).toBe("Primary");
+    expect(lead?.name).toBe("Button / Variant=Primary");
     expect(typeof lead?.why).toBe("string");
 
     const ghost = result.candidates.find((candidate) => candidate.id === lab.ghost);
@@ -404,6 +405,24 @@ describe("verify exact names — no fuzzy approve (Material invent)", () => {
     );
   });
 
+  it("does not approve a name-guessed product instance as a library master", () => {
+    const { index } = materialLab();
+    index.graph.nodes.push(
+      n("node:fancy", "MAIN_COMPONENT", "Fancy Pay Button", {
+        figmaNodeId: "mcp-name:Fancy Pay Button",
+        fileKey: "M3",
+        isMainComponent: true,
+        metadata: { identity: "inferred-from-name" },
+      }),
+    );
+    const result = verifyFrame(indexGraph(index.graph), { components: ["Fancy Pay Button"] });
+    expect(result.pass).toBe(false);
+    expect(result.approved).toBe(0);
+    expect(result.invents.some((hit) => hit.name === "Fancy Pay Button" && hit.reason === "not-a-master")).toBe(
+      true,
+    );
+  });
+
   it("flags an exact private master instead of approving it", () => {
     const { index, ids: lab } = materialLab();
     const result = verifyFrame(index, { components: [".Header"] });
@@ -428,6 +447,14 @@ describe("recommend hides private masters and keeps search as a term", () => {
     const { index, ids: lab } = materialLab();
     const result = recommendMasters(index, "search");
     expect(result.candidates.length).toBeGreaterThan(0);
-    expect(result.candidates.some((candidate) => candidate.id === lab.searchSet)).toBe(true);
+    expect(
+      result.candidates.some(
+        (candidate) => candidate.id === lab.searchSet || candidate.id === lab.searchVariant,
+      ),
+    ).toBe(true);
+    expect(result.candidates.some((candidate) => candidate.name.includes("Search docked layout"))).toBe(
+      true,
+    );
+    expect(result.cost.chars).toBeLessThanOrEqual(600);
   });
 });

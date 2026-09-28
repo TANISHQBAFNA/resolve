@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import { buildGraph } from "@/core/transform";
 import { DesignGraphSchema, type DesignGraph, type GraphNode } from "@/core/model";
-import { adaptFigmaMcpMetadata, inferredComponentId, parseMetadataXml } from "./adapters/figmaMcp";
+import {
+  adaptFigmaMcpMetadata,
+  inferredComponentId,
+  isMetadataComponentSet,
+  parseMetadataXml,
+} from "./adapters/figmaMcp";
 import type { WorkspaceFileRole } from "@/core/query/workspace";
 
 export interface LearnCatalogItem {
@@ -167,7 +172,30 @@ export function applyPublishedCatalog(graph: DesignGraph, raw: unknown): { appli
 
 type XmlLike = { tag: string; attrs: Record<string, string>; children: XmlLike[] };
 
-const LEARN_MASTER_TAGS = new Set(["component", "component-set", "componentset"]);
+const LEARN_MASTER_TAGS = new Set([
+  "component",
+  "symbol",
+  "component-set",
+  "component_set",
+  "componentset",
+]);
+
+export const LEARN_ZERO_COMPONENTS =
+  "Learned 0 components. Make sure you passed the LIBRARY file's metadata, not a product screen";
+
+export function realLearnedComponentCount(graph: DesignGraph, fileKey?: string): number {
+  const want = fileKey?.trim();
+  return graph.nodes.filter((node) => {
+    if (node.type !== "MAIN_COMPONENT" && node.type !== "COMPONENT_SET" && node.type !== "VARIANT") {
+      return false;
+    }
+    if (node.metadata?.["identity"] === "inferred-from-name") return false;
+    const id = `${node.id} ${node.figmaNodeId ?? ""}`;
+    if (id.includes("mcp-name:")) return false;
+    if (!want) return true;
+    return (node.fileKey ?? graph.fileKey).trim() === want;
+  }).length;
+}
 
 function learnUnitKind(tag: string): LearnUnit["kind"] | undefined {
   const lower = tag.toLowerCase();
@@ -182,7 +210,9 @@ function collectNestedMasters(element: XmlLike): LearnUnitMaster[] {
   const walk = (node: XmlLike) => {
     const id = node.attrs["id"]?.trim();
     const name = node.attrs["name"]?.trim() || id;
-    if (id && LEARN_MASTER_TAGS.has(node.tag.toLowerCase()) && !seen.has(id)) {
+    const tag = node.tag.toLowerCase();
+    const isMaster = LEARN_MASTER_TAGS.has(tag) || (tag === "frame" && isMetadataComponentSet(node));
+    if (id && isMaster && !seen.has(id)) {
       seen.add(id);
       out.push({ id, name: name || id, figmaNodeId: id });
     }

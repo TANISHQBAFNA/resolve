@@ -1,7 +1,14 @@
 #!/usr/bin/env node
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { nodeVersionMessage, nodeVersionTooOld } from "./node-version.mjs";
+
+if (nodeVersionTooOld(process.version)) {
+  process.stderr.write(nodeVersionMessage(process.version));
+  process.exit(1);
+}
+
+const { existsSync } = await import("node:fs");
+const { dirname, join } = await import("node:path");
+const { fileURLToPath, pathToFileURL } = await import("node:url");
 
 const root = dirname(fileURLToPath(import.meta.url));
 const mcp = join(root, "..", "dist-server", "mcp.mjs");

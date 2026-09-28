@@ -144,7 +144,9 @@ const ELEMENT_TO_FIGMA_TYPE: Record<string, string> = {
   frame: "FRAME",
   instance: "INSTANCE",
   component: "COMPONENT",
+  symbol: "COMPONENT",
   "component-set": "COMPONENT_SET",
+  component_set: "COMPONENT_SET",
   componentset: "COMPONENT_SET",
   slot: "SLOT",
   group: "GROUP",
@@ -170,6 +172,42 @@ export function figmaTypeForElement(tag: string): string {
   return ELEMENT_TO_FIGMA_TYPE[normalised] ?? normalised.toUpperCase().replace(/-/g, "_");
 }
 
+/** Figma variant layer name: `Type=Primary` or `Type=Primary, Size=Large`. */
+export function isVariantStyleName(name: string): boolean {
+  const trimmed = name.trim();
+  if (!trimmed.includes("=")) return false;
+  return trimmed.split(",").every((part) => {
+    const eq = part.indexOf("=");
+    if (eq <= 0) return false;
+    const key = part.slice(0, eq).trim();
+    const value = part.slice(eq + 1).trim();
+    return key.length > 0 && value.length > 0;
+  });
+}
+
+export interface MetadataElement {
+  tag: string;
+  attrs: Record<string, string>;
+  children: MetadataElement[];
+}
+
+/**
+ * Official Figma MCP `get_metadata` writes sets as `<component-set>`,
+ * `<component_set>`, or a `<frame>` whose direct children are all
+ * variant-named `<symbol>` / `<component>` nodes.
+ */
+export function isMetadataComponentSet(element: MetadataElement): boolean {
+  const tag = element.tag.toLowerCase();
+  if (tag === "component-set" || tag === "component_set" || tag === "componentset") return true;
+  if (tag !== "frame") return false;
+  if (!element.children.length) return false;
+  return element.children.every((child) => {
+    const childTag = child.tag.toLowerCase();
+    if (childTag !== "symbol" && childTag !== "component") return false;
+    return isVariantStyleName(child.attrs["name"] ?? "");
+  });
+}
+
 /** Synthetic component id for a name-inferred main component. */
 export const inferredComponentId = (name: string): string => `mcp-name:${name}`;
 
@@ -178,7 +216,7 @@ function toSourceNode(
   components: Record<string, SourceComponentMeta>,
   fallbackId: string,
 ): SourceNode {
-  const type = figmaTypeForElement(element.tag);
+  const type = isMetadataComponentSet(element) ? "COMPONENT_SET" : figmaTypeForElement(element.tag);
   const name = element.attrs["name"] ?? "(unnamed)";
   const id = element.attrs["id"]?.trim() || fallbackId;
   const node: SourceNode = {

@@ -220,6 +220,14 @@ export function checkCousins(
       ok += 1;
       continue;
     }
+    const placedName = master.name.trim().toLowerCase();
+    if (
+      placedName &&
+      libraryMasters.some((candidate) => candidate.name.trim().toLowerCase() === placedName)
+    ) {
+      ok += 1;
+      continue;
+    }
 
     const set = master.componentSetId ? index.getNode(master.componentSetId) : undefined;
     const slot = filled?.slots.find((row) => hintHit(master, set?.name, row.hints) > 0);

@@ -193,6 +193,42 @@ describe("wrong-cousin report", () => {
     expect(report.hint.toLowerCase()).toMatch(/not sure|do not invent/);
   });
 
+  it("does not flag a same-name library master when the product node is only a name guess", () => {
+    const { index } = cousinLab();
+    const graph = index.graph;
+    graph.nodes.push(
+      n("node:lib-card", "MAIN_COMPONENT", "Summary Card", {
+        figmaNodeId: "4:1",
+        fileKey: "LIB",
+        isMainComponent: true,
+      }),
+      n("node:lib-price", "MAIN_COMPONENT", "Price", {
+        figmaNodeId: "4:2",
+        fileKey: "LIB",
+        isMainComponent: true,
+      }),
+      n("node:guess-card", "MAIN_COMPONENT", "Summary Card", {
+        figmaNodeId: "mcp-name:Summary Card",
+        fileKey: "PROD",
+        isMainComponent: true,
+        metadata: { identity: "inferred-from-name" },
+      }),
+      n("node:guess-price", "MAIN_COMPONENT", "Price", {
+        figmaNodeId: "mcp-name:Price",
+        fileKey: "PROD",
+        isMainComponent: true,
+        metadata: { identity: "inferred-from-name" },
+      }),
+    );
+    const report = checkCousins(indexGraph(graph), {
+      components: ["node:guess-card", "node:guess-price"],
+      workspace,
+    });
+    expect(report.cousins.map((hit) => hit.placed.name)).not.toContain("Summary Card");
+    expect(report.cousins.map((hit) => hit.placed.name)).not.toContain("Price");
+    expect(report.ok).toBeGreaterThan(0);
+  });
+
   it("refuses when the workspace has no library-role file", () => {
     const { index } = cousinLab();
     const report = checkCousins(index, {

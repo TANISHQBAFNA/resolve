@@ -3,17 +3,16 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { learnLibrary } from "@/server/learn";
-import { clearCache, loadGraph, loadLearnCheckpoint } from "@/server/store";
+import { clearCache, loadGraph, loadLearnCheckpoint, readSock, readWorkspace } from "@/server/store";
 import { placeReady } from "@/core/query/placeReady";
 import {
   applyPublishedCatalog,
   extractLearnOutline,
+  LEARN_ZERO_COMPONENTS,
   removedMastersByAbsence,
 } from "@/core/ingestion/learnLibrary";
+import { checkCousins, indexGraph, recommendMasters, verifyFrame } from "@/core/query";
 import { emptyGraph } from "@/core/model";
-import { recommendMasters } from "@/core/query";
-import { indexGraph } from "@/core/query";
-import { readSock } from "@/server/store";
 
 /** Real-shaped Figma MCP get_metadata output (prose wrapper + XML). */
 const SCREEN_XML = `
@@ -288,5 +287,69 @@ describe("learn_library from Figma MCP get_metadata", () => {
     const result = learnLibrary({ fileKey: "LIB", role: "library", metadataXml: SCREEN_XML });
     expect(result.gaps[0]?.missing).toBe("componentKey");
     expect(result.gaps[0]?.hint).toMatch(/search_design_system|get_libraries/);
+  });
+
+  it("warns instead of success when metadata has no real components", () => {
+    const result = learnLibrary({
+      fileKey: "PROD",
+      role: "product",
+      metadataXml: `
+        <frame id="1:1" name="Checkout">
+          <instance id="1:2" name="Fancy Pay Button" />
+        </frame>
+      `,
+    });
+    expect(result.learned).toBe(false);
+    expect(result.hint).toBe(LEARN_ZERO_COMPONENTS);
+    expect(result.progress).toBe(LEARN_ZERO_COMPONENTS);
+    expect(result.hint).not.toMatch(/Next: recipe or recommend/);
+  });
+
+  it("does not approve product instance names, and does not flag same-name library masters as cousins", () => {
+    learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      metadataXml: `
+        <frame id="9:0" name="Components">
+          <component id="9:1" name="Summary Card" />
+          <symbol id="9:2" name="Price" />
+        </frame>
+      `,
+    });
+    learnLibrary({
+      fileKey: "PROD",
+      role: "product",
+      metadataXml: `
+        <frame id="2:1" name="Checkout Summary">
+          <instance id="2:2" name="Summary Card" />
+          <instance id="2:3" name="Price" />
+          <instance id="2:4" name="Fancy Pay Button" />
+        </frame>
+      `,
+    });
+    const loaded = loadGraph();
+    expect(loaded).toBeDefined();
+    const index = loaded!.index;
+    const fake = verifyFrame(index, { components: ["Fancy Pay Button"] });
+    expect(fake.pass).toBe(false);
+    expect(fake.approved).toBe(0);
+    expect(fake.invents.some((hit) => hit.name === "Fancy Pay Button")).toBe(true);
+
+    const card = verifyFrame(index, { components: ["Summary Card", "Price"] });
+    expect(card.pass).toBe(true);
+    expect(card.invents).toEqual([]);
+    expect(card.resolved?.map((row) => row.id).every((id) => !String(id).includes("mcp-name:"))).toBe(
+      true,
+    );
+
+    const report = checkCousins(index, {
+      frame: "Checkout Summary",
+      workspace: readWorkspace(),
+    });
+    expect(report.checked).toBe(true);
+    expect(report.ok).toBeGreaterThanOrEqual(2);
+    const flagged = [...report.cousins, ...report.unsure].map((hit) => hit.placed.name);
+    expect(flagged).not.toContain("Summary Card");
+    expect(flagged).not.toContain("Price");
   });
 });

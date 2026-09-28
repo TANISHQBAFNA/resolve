@@ -49,6 +49,9 @@ describe("MCP metadata parsing", () => {
     expect(figmaTypeForElement("frame")).toBe("FRAME");
     expect(figmaTypeForElement("rounded-rectangle")).toBe("RECTANGLE");
     expect(figmaTypeForElement("slot")).toBe("SLOT");
+    expect(figmaTypeForElement("symbol")).toBe("COMPONENT");
+    expect(figmaTypeForElement("component_set")).toBe("COMPONENT_SET");
+    expect(figmaTypeForElement("component-set")).toBe("COMPONENT_SET");
     expect(figmaTypeForElement("some-future-thing")).toBe("SOME_FUTURE_THING");
   });
 
@@ -113,6 +116,87 @@ describe("MCP adapter", () => {
     expect(() =>
       adaptFigmaMcpMetadata({ fileKey: "K", fileName: "F", metadataXml: "no xml here" }),
     ).toThrow(/no elements/i);
+  });
+});
+
+describe("Figma MCP get_metadata component shapes", () => {
+  function masterNames(xml: string): string[] {
+    const graph = buildGraph(
+      adaptFigmaMcpMetadata({ fileKey: "LIB", fileName: "DS", metadataXml: xml }),
+    );
+    return indexGraph(graph)
+      .getNodesByType("COMPONENT_SET", "MAIN_COMPONENT", "VARIANT")
+      .map((node) => `${node.type}:${node.name}`)
+      .sort();
+  }
+
+  it("reads a component element as a main component", () => {
+    expect(masterNames(`<component id="1:1" name="Price" />`)).toEqual(["MAIN_COMPONENT:Price"]);
+  });
+
+  it("reads a symbol element as a main component", () => {
+    expect(masterNames(`<symbol id="2:2" name="Summary Card" />`)).toEqual([
+      "MAIN_COMPONENT:Summary Card",
+    ]);
+  });
+
+  it("reads a component-set of symbols as a set plus variants", () => {
+    expect(
+      masterNames(`
+        <component-set id="3:0" name="Button">
+          <symbol id="3:1" name="Type=Primary" />
+          <symbol id="3:2" name="Type=Secondary" />
+        </component-set>
+      `),
+    ).toEqual([
+      "COMPONENT_SET:Button",
+      "VARIANT:Type=Primary",
+      "VARIANT:Type=Secondary",
+    ]);
+  });
+
+  it("reads a component_set of components as a set plus variants", () => {
+    expect(
+      masterNames(`
+        <component_set id="4:0" name="Button">
+          <component id="4:1" name="Type=Primary, Size=Large" />
+        </component_set>
+      `),
+    ).toEqual(["COMPONENT_SET:Button", "VARIANT:Type=Primary, Size=Large"]);
+  });
+
+  it("treats a frame of only variant-named symbols as a component set", () => {
+    expect(
+      masterNames(`
+        <frame id="5:0" name="Button" x="0" y="0" width="200" height="40">
+          <symbol id="5:1" name="Type=Primary" x="0" y="0" width="200" height="40" />
+          <symbol id="5:2" name="Type=Secondary" x="0" y="48" width="200" height="40" />
+        </frame>
+      `),
+    ).toEqual([
+      "COMPONENT_SET:Button",
+      "VARIANT:Type=Primary",
+      "VARIANT:Type=Secondary",
+    ]);
+  });
+
+  it("leaves a frame that also contains a non-variant child as a frame", () => {
+    const graph = buildGraph(
+      adaptFigmaMcpMetadata({
+        fileKey: "LIB",
+        fileName: "DS",
+        metadataXml: `
+          <frame id="6:0" name="Screen">
+            <symbol id="6:1" name="Type=Primary" />
+            <text id="6:2" name="Hello" />
+          </frame>
+        `,
+      }),
+    );
+    const index = indexGraph(graph);
+    expect(index.getNodesByType("FRAME").map((node) => node.name)).toContain("Screen");
+    expect(index.getNodesByType("COMPONENT_SET")).toEqual([]);
+    expect(index.getNodesByType("MAIN_COMPONENT").map((node) => node.name)).toEqual(["Type=Primary"]);
   });
 });
 

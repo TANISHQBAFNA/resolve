@@ -4,8 +4,10 @@ import {
   extractLearnOutline,
   graphFromMetadataXml,
   hashLearnPayload,
+  LEARN_ZERO_COMPONENTS,
   learnGaps,
   learnProgressLine,
+  realLearnedComponentCount,
   markRemovedByAbsence,
   mergeDesignGraphs,
   remainingLearnUnits,
@@ -218,8 +220,15 @@ export function learnLibrary(input: LearnInput): LearnResult {
   saveSock(sock);
 
   const gaps = learnGaps(graph, catalog != null);
+  const realComponents = realLearnedComponentCount(graph, fileKey);
+  const zeroComponents = realComponents === 0;
+  const progressLine = zeroComponents ? LEARN_ZERO_COMPONENTS : progress;
+  const hint = zeroComponents
+    ? LEARN_ZERO_COMPONENTS
+    : gaps[0]?.hint ??
+      `${progress}. SOCK updated (${graph.nodes.length} nodes). Next: recipe or recommend. Do not Read graph.json. Store ${storeInfo().path}`;
   return {
-    learned: true,
+    learned: !zeroComponents,
     fileKey,
     nodes: graph.nodes.length,
     added,
@@ -231,7 +240,7 @@ export function learnLibrary(input: LearnInput): LearnResult {
     totalCount,
     remaining,
     next,
-    progress,
-    hint: gaps[0]?.hint ?? `${progress}. SOCK updated (${graph.nodes.length} nodes). Next: recipe or recommend. Do not Read graph.json. Store ${storeInfo().path}`,
+    progress: progressLine,
+    hint,
   };
 }

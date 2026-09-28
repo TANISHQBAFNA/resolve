@@ -47,11 +47,21 @@ npm run build:server
 
 That’s the setup. Do it once.
 
+### Before you start (Claude)
+
+1. `node -v` is **22.12 or newer**. Older than that: install the current LTS from [nodejs.org](https://nodejs.org).
+2. `git --version`. On a Mac this installs the command line tools if they are missing.
+3. Run `npx -y -p github:TANISHQBAFNA/resolve resolve-mcp` once in Terminal and wait for `[resolve] MCP server ready`.
+4. If Claude Desktop cannot start it, set `command` to the full path from `which npx`.
+
 | Tool | What to do |
 |------|------------|
 | **Cursor** | One config line next to Figma MCP — [SETUP-MCP.md](docs/SETUP-MCP.md). `npx -y -p github:TANISHQBAFNA/resolve resolve-mcp`. |
-| **Claude Code** | In this folder: `claude --plugin-dir .` |
+| **Claude Desktop** | Resolve command only in `claude_desktop_config.json`. Add Figma under Settings → Connectors. [SETUP-MCP.md](docs/SETUP-MCP.md). |
+| **Claude Code** | `claude mcp add resolve -s user -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp` then `claude mcp add --transport http figma https://mcp.figma.com/mcp -s user`. `/mcp` to log in. |
 | **Codex / others** | Open this folder. It can read `AGENTS.md` and `skills/resolve`. |
+
+Developer option (this repo): `claude --plugin-dir .`
 
 Turn on **Figma MCP** in the same tool. Learning needs a **paid Figma seat with MCP access (Dev or Full)**, or a **Figma access token** for REST ingest. View or free seats have a low read quota — Resolve saves progress and resumes.
 

@@ -12,7 +12,7 @@ description: Use Resolve before any Figma screen build or design-from-brief work
 1. **Ingest** — store each linked Figma file. Shared DS: `--role library`. Product/client files next. Re-run when that file changed.
 2. **Recipe** — if the screen job matches a pack (`recipe list` / `recipe "<job>"`). After ingest, slots bind to live `figmaNodeId`s. Overlay `.graphify/recipes.json` still wins. Optional `.graphify/context-packs.json` scopes product + journey + domain (slot fills + `nextRecommend`). Packs may name `files` and optional `client`. Optional `--pack` / `--product` / `--journey` / `--domain`.
 3. **Recommend** — every unbound / missing / deprecated slot. Use that slot’s `nextRecommend` query. Prefers DS library masters when `.graphify/workspace.json` has a library-role file. Optional `--pack` / `--product` / `--journey` / `--domain` (or the active pack).
-4. **Place** — Figma MCP (`use_figma` / `get_design_context`) on returned ids **only**. Cards stamp `fileKey` + `figmaNodeId` (ids collide across files).
+4. **Place** — Figma MCP (`use_figma` / `get_design_context`) on returned ids **only**. Cards stamp `fileKey` + `figmaNodeId` (ids collide across files). Placing into a different file needs the library published and `search_design_system` output passed as `libraries`; otherwise build inside the library file.
 5. **Verify** — `verify_frame` on the new frame or placed names. Same optional `--pack` / `--product` / `--journey` / `--domain`.
 6. **Cousins** — when a library file and a product/client file are linked, `cousins` / `check_cousins` on the product frame or screen job. Unsure means stop. Do not invent a master.
 7. **Human taste** — stop. Do not over-generate.

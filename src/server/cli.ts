@@ -163,7 +163,7 @@ function flag(args: string[], name: string): string | undefined {
 export function looksLikeMetadataXml(text: string): boolean {
   const trimmed = text.trim();
   if (!trimmed || trimmed.startsWith("{") || trimmed.startsWith("[")) return false;
-  return /<(frame|component|component-set|componentSet|instance|section|canvas|page)\b/i.test(
+  return /<(frame|component|component-set|component_set|componentSet|symbol|instance|section|canvas|page)\b/i.test(
     trimmed,
   );
 }
