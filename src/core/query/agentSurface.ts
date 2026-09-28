@@ -1,4 +1,10 @@
 import { buildAiGraphContext, toMarkdownPrompt } from "@/core/ai";
+import {
+  assertVerifyTextInput,
+  scopedOverlay,
+  TEXT_NO_FRAME,
+  textStampsFrom,
+} from "@/core/ingestion/textStamps";
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import { computeAnalytics, computeComponentUsage, type GraphAnalytics } from "./analytics";
 import { detectCommunitiesForIndex } from "./communities";
@@ -27,9 +33,11 @@ import {
   EX_NONE,
   frameContentWarnings,
   getExample,
+  instanceTextLayers,
   type ContentWarning,
   type ExampleQuery,
   type ExampleReason,
+  type TextChecked,
 } from "./examples";
 
 /**
@@ -858,7 +866,7 @@ export function toGraphReportMarkdown(brief: OrientBrief): string {
     "1. Optional: `recipe \"<screen job>\"` — pack of masters + slots with `figmaNodeId`s.",
     "2. `recommend \"<intent>\"` — ranked masters for unbound slots (`figmaNodeId`, variants, where-used).",
     "3. Figma (`use_figma` / `get_design_context`) on those `figmaNodeId`s only.",
-    "4. `verify_frame` on the new frame or placed names — invents / deprecated / unresolved.",
+    "4. Before `verify_frame`, fetch the frame's design context so Resolve can read the text. Pass it as `designContext`. Pass design context to `learn_library` too, so the component default is stored. Then `verify_frame` — invents / deprecated / unresolved / leftover text.",
     "5. `resolve \"<component>\"` when you already know the name (usage card).",
     "6. Do **not** call `get_design_context` on a FRAME or SECTION until recipe/recommend/resolve returns an id.",
     "",
@@ -2456,8 +2464,14 @@ export function verifyFrame(
     sock?: SockState;
     workspace?: WorkspaceManifest;
     placeholders?: string[];
+    /** Figma get_design_context, or get_metadata that includes characters. */
+    designContext?: unknown;
+    /** Agent-passed text: `{ nodeId, characters }` list, id→string map, or `{ texts }`. */
+    texts?: unknown;
   } = {},
 ) {
+  assertVerifyTextInput(input.designContext, "designContext");
+  assertVerifyTextInput(input.texts, "texts");
   const invents: VerifyHit[] = [];
   const deprecatedHits: VerifyHit[] = [];
   const unresolved: VerifyHit[] = [];
@@ -2630,9 +2644,19 @@ export function verifyFrame(
     else if (master) considerMaster(master, given);
   }
 
+  const frameKey = frameNode ? fileOf(frameNode) : undefined;
+  const layers = frameNode
+    ? instanceTextLayers(index, frameNode.id).filter((layer) => {
+        const key = fileOf(layer);
+        return !frameKey || !key || key === frameKey;
+      })
+    : [];
+  const applied = frameNode
+    ? scopedOverlay(layers, textStampsFrom(input.designContext), textStampsFrom(input.texts))
+    : undefined;
   const content = frameNode
-    ? frameContentWarnings(index, frameNode.id, input.placeholders)
-    : { warnings: [], blocking: false };
+    ? frameContentWarnings(index, frameNode.id, input.placeholders, { overlay: applied?.overlay })
+    : { warnings: [] as ContentWarning[], blocking: false, textChecked: false as const, textReason: TEXT_NO_FRAME };
   const pass = invents.length === 0 && deprecatedHits.length === 0 && unresolved.length === 0;
   const placed: GraphNode[] = [...approvedIds]
     .map((id) => index.getNode(id))
@@ -2680,7 +2704,95 @@ export function verifyFrame(
     hint: pendingHint ? `${hint} ${pendingHint}` : hint,
     ...(pending ? { pendingImprovements: pending } : {}),
   };
-  return fitCardAfterCost(base, input.bindRules?.warnings, content.warnings, 600);
+  const fitted = fitCardAfterCost(base, input.bindRules?.warnings, content.warnings, 600);
+  return stampTextCheck(fitted, {
+    textChecked: content.textChecked,
+    textReason: content.textReason,
+    ...(applied && applied.textOverrides > 0 ? { textOverrides: applied.textOverrides } : {}),
+  });
+}
+
+function repriced<T extends object>(value: T): Omit<T, "cost"> & { cost: AgentCost } {
+  const rest = { ...value } as T & { cost?: unknown };
+  delete rest.cost;
+  return withCost(rest);
+}
+
+type Stamped<T> = T & { textChecked: TextChecked; textReason?: string; textOverrides?: number };
+
+function warningMore(note: string | undefined): number {
+  const match = note?.match(/^and (\d+) more warnings$/);
+  return match ? Number(match[1]) : 0;
+}
+
+function stampTextCheck<T extends { hint: string }>(
+  fitted: T,
+  content: { textChecked: TextChecked; textReason?: string; textOverrides?: number },
+): Stamped<T> {
+  const budget = 600;
+  const fits = (value: object) => JSON.stringify(value).length <= budget;
+  const price = (value: object): Stamped<T> => repriced(value) as unknown as Stamped<T>;
+  const seed = { ...fitted } as T & {
+    warnings?: ContentWarning[];
+    warningNote?: string;
+    cost?: unknown;
+    textReason?: string;
+    textOverrides?: number;
+    textChecked?: TextChecked;
+  };
+  delete seed.cost;
+  let hint = seed.hint;
+  let warnings = seed.warnings ? [...seed.warnings] : undefined;
+  let warningNote = seed.warningNote;
+  let keepReason = content.textChecked !== true && Boolean(content.textReason);
+  let keepOverrides = Boolean(content.textOverrides && content.textOverrides > 0);
+  let extra = warningMore(warningNote);
+
+  const build = (): Stamped<T> => {
+    const next: Record<string, unknown> = { ...seed, hint };
+    delete next["cost"];
+    delete next["warnings"];
+    delete next["warningNote"];
+    delete next["textReason"];
+    delete next["textOverrides"];
+    delete next["textChecked"];
+    next["hint"] = hint;
+    next["textChecked"] = content.textChecked;
+    if (keepReason && content.textReason) next["textReason"] = content.textReason;
+    if (keepOverrides && content.textOverrides) next["textOverrides"] = content.textOverrides;
+    if (warnings && warnings.length > 0) next["warnings"] = warnings;
+    if (warningNote) next["warningNote"] = warningNote;
+    return price(next);
+  };
+
+  let card = build();
+  if (fits(card)) return card;
+  keepReason = false;
+  card = build();
+  if (fits(card)) return card;
+  while (!fits(card) && hint.length > 12) {
+    const overflow = JSON.stringify(card).length - budget;
+    const cut = Math.max(8, overflow + 1);
+    const nextLen = Math.max(12, hint.length - cut);
+    if (nextLen >= hint.length) break;
+    hint = `${hint.slice(0, nextLen - 1)}…`;
+    card = build();
+  }
+  if (fits(card)) return card;
+  while (!fits(card) && warnings && warnings.length > 0) {
+    warnings.pop();
+    extra += 1;
+    warningNote = WARNING_OVERFLOW(extra);
+    card = build();
+  }
+  if (fits(card)) return card;
+  keepOverrides = false;
+  card = build();
+  if (fits(card)) return card;
+  const bare = { ...card } as Record<string, unknown>;
+  delete bare["cost"];
+  shrinkNameFields(bare, budget, (value) => JSON.stringify(withCost(value)).length);
+  return price(bare);
 }
 
 const WARNING_OVERFLOW = (count: number) => `and ${count} more warnings`;

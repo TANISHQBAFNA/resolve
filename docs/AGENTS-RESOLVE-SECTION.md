@@ -27,14 +27,14 @@ CLI and MCP share one store (`GRAPHIFY_HOME`, else nearest `.graphify`). After i
 2. **Context / recipe** — if the screen job matches a pack. Overlay `.graphify/recipes.json` still wins. Optional `.graphify/context-packs.json` scopes product + journey + domain. Packs may name `files` and optional `client`. Optional `--pack` / `--product` / `--journey` / `--domain`.
 3. **Pick** — unbound / missing / deprecated slots (`nextRecommend` on the card). Prefers DS library masters when the workspace has a library-role file. Optional `--pack` / `--product` / `--journey` / `--domain`. The top pick carries `ex`.
 4. **Open the real example** — `get_example` / `resolve example` for the full config. Call it for hits that are not the top pick. Clone that instance and replace the content. Do not start from the default variant.
-5. **Verify** — `verify_frame` after the clone is filled (invents / deprecated / unresolved / leftover template text). Same optional `--pack` / `--product` / `--journey` / `--domain`.
+5. **Verify** — before verify, fetch the frame's design context so Resolve can read the text. Pass it as `designContext`. Pass design context to `learn_library` as well, or the component default stays unknown and `textChecked` is `partial`. `texts` only fills empty layers in the frame. Then `verify_frame` (invents / deprecated / unresolved / leftover template text). Same optional `--pack` / `--product` / `--journey` / `--domain`.
 6. **Cousins** — `check_cousins` when a library file and a product/client file are linked. Unsure means do not invent.
 
 ### Forbidden
 
 - Invent components, names, or node ids.
 - `Read` `.graphify/graph.json` or dump the graph.
-- `get_design_context` on a FRAME until recipe/recommend/resolve returned that id.
+- `get_design_context` on a FRAME until recipe/recommend/resolve returned that id. Exception: before verify, fetch the frame you just drew so Resolve can read the text.
 
 Designers add recipes in JSON (`src/data/recipes.json` or `.graphify/recipes.json`), product+journey+domain packs in `.graphify/context-packs.json`, and linked files in `.graphify/workspace.json`. See [GUIDE.md](GUIDE.md).
 

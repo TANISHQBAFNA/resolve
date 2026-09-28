@@ -1,4 +1,5 @@
 import type { GraphNode } from "@/core/model";
+import { TextInputError } from "@/core/ingestion/textStamps";
 import {
   advanceSoci,
   applyFreshness,
@@ -107,7 +108,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "learn_library",
     description:
-      "Load or update SOCK from Figma MCP output. Pass get_metadata XML as metadataXml plus fileKey and role (library|product). Optional libraries = search_design_system / get_libraries (stamps published component keys). Optional designContext. Incremental and resumable across sessions — use that for big libraries (view/free seats have a low read quota; progress is saved). Needs a paid Figma MCP seat (Dev/Full) or a REST token ingest. Do not invent a hand-built capture.",
+      "Load or update SOCK from Figma MCP output. Pass get_metadata XML as metadataXml plus fileKey and role (library|product). Optional libraries = search_design_system / get_libraries (stamps published component keys). Pass designContext too when you have it: metadata usually has no characters, and learn keeps master default text only from real characters. Incremental and resumable across sessions — use that for big libraries (view/free seats have a low read quota; progress is saved). Needs a paid Figma MCP seat (Dev/Full) or a REST token ingest. Do not invent a hand-built capture.",
     inputSchema: {
       type: "object",
       properties: {
@@ -117,7 +118,10 @@ export const TOOLS: ToolDefinition[] = [
         label: { type: "string" },
         metadataXml: { type: "string", description: "Raw Figma MCP get_metadata XML (prose around it is fine)." },
         libraries: { description: "search_design_system or get_libraries JSON. Stamps published keys." },
-        designContext: { description: "Optional get_design_context payload. Used only to stamp keys/names." },
+        designContext: {
+          description:
+            "get_design_context for this file. Pass it on learn so master default text is stored. A layer name is not text. Metadata alone leaves defaults unknown.",
+        },
         lastModified: { type: "string" },
         version: { type: "string" },
         resume: { type: "boolean", description: "Resume a checkpointed learn for a large library." },
@@ -297,7 +301,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "verify_frame",
     description:
-      "After drawing, check a frame or a proposed component list against the library graph and bind rules. Pass iff every placement is an in-graph master, not deprecated, and bind require/forbid rules hold. Warnings (not failures) for leftover default text and a fixed height that clearly exceeds the content. Known placeholder strings fail. A bind-rule fail names the rule and returns the required master id + place hint. Optional allow/deny. Deterministic — no LLM.",
+      "After drawing, check a frame or a proposed component list against the library graph and bind rules. Pass iff every placement is an in-graph master, not deprecated, and bind require/forbid rules hold. Before verify, fetch the frame's design context so Resolve can read the text — pass it as designContext. texts fills empty layers inside this frame only and cannot replace stored copy or component defaults. textChecked is true only when instance text and the component default were both read; otherwise it is partial, false, or n/a. A component list with no frame is textChecked false. Warnings (not failures) for leftover default text and a fixed height that clearly exceeds the content. Known placeholder strings fail. A bind-rule fail names the rule and returns the required master id + place hint. Optional allow/deny. Deterministic — no LLM.",
     inputSchema: {
       type: "object",
       properties: {
@@ -319,6 +323,14 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
+        designContext: {
+          description:
+            "Figma get_design_context (or get_metadata that includes characters) for this frame. Before verify, fetch the frame's design context so Resolve can read the text.",
+        },
+        texts: {
+          description:
+            "Fill empty text layers inside this frame only: { \"1:3\": \"Pay now\" } or [{ nodeId, characters }]. Does not replace stored copy and does not change component defaults. At most 2000 entries, 2000 characters each. Never a layer name.",
+        },
         ...freshnessProperties,
       },
     },
@@ -875,16 +887,24 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       }
       const bind = contextBindFromArgs(args);
       const pack = packForRecommend(bind);
-      const result = verifyFrame(index, {
-        frame,
-        components,
-        rules: libraryRulesFromArgs(args),
-        context: pack,
-        bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
-        sock: readSock(),
-        workspace: bind.workspace ?? readWorkspace(),
-        placeholders: readPlaceholders(),
-      });
+      let result;
+      try {
+        result = verifyFrame(index, {
+          frame,
+          components,
+          rules: libraryRulesFromArgs(args),
+          context: pack,
+          bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
+          sock: readSock(),
+          workspace: bind.workspace ?? readWorkspace(),
+          placeholders: readPlaceholders(),
+          designContext: args["designContext"],
+          texts: args["texts"],
+        });
+      } catch (error) {
+        if (error instanceof TextInputError) throw new ToolError(error.message);
+        throw error;
+      }
       if (result.pass) {
         const masters: Array<{
           id: string;

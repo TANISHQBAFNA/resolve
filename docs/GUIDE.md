@@ -162,8 +162,10 @@ It must not invent a new “Primary button.” It must not paste the whole libra
 
 ### 5. Check the draft (verify)
 
+Before verify, fetch the frame's design context so Resolve can read the text. Pass that file as `--design-context`. Also pass design context when you learn the library (`learn_library` / `resolve learn --design-context`), so the component's default text is stored. Metadata alone has no characters. `textChecked` is true only when the instance text and that default were both read. A `texts` map only fills empty layers inside the frame; it does not replace copy already in the graph.
+
 ```bash
-npm run resolve -- verify "Checkout Summary"
+npm run resolve -- verify "Checkout Summary" --design-context ./payment-context.txt
 ```
 
 You can also pass the names it placed:
@@ -216,13 +218,14 @@ When Resolve is connected, the agent can call the same steps by name:
 | `recommend` | Rank live masters for a brief; you can name a pack, or the product, journey step, and domain. `ex` points at a real instance |
 | `resolve` | Look up a master you already know by name (for example `"Main Card"`) |
 | `get_example` | Full config for that real instance: screen, variant, structure, sizing |
-| `verify_frame` | Check the drawn frame or the placed names; leftover template text fails; oversized height warns |
+| `learn_library` | Load Figma metadata. Pass design context so master default text is stored |
+| `verify_frame` | Check the drawn frame or the placed names. Pass the frame's design context first so text can be read |
 | `check_cousins` | After a multi-file workspace exists: flag lookalikes that are not the shared DS master |
 | `list_graphs` | Linked files (library / product / client) and their sizes |
 
 On the Figma side, the agent may open a component **only after** one of those cards returned its id. Everyday names for that are `use_figma` and `get_design_context`.
 
-You do not need to memorize this table. If the agent follows this repo’s Resolve instructions, it already has the order: ingest each linked file → recipe → recommend open slots → open the real example → clone → fill → verify → cousin check when a library + product file are linked.
+You do not need to memorize this table. If the agent follows this repo’s Resolve instructions, it already has the order: ingest each linked file (pass design context so defaults are stored) → recipe → recommend open slots → open the real example → clone → fill → fetch the frame's design context → verify → cousin check when a library + product file are linked.
 
 ---
 

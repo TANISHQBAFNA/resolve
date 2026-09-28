@@ -501,4 +501,23 @@ describe("learn_library from Figma MCP get_metadata", () => {
     expect(approved.some((node) => node.figmaNodeId === "22:3")).toBe(true);
     expect(approved.some((node) => node.figmaNodeId === "22:4")).toBe(true);
   });
+
+  it("keeps master default text from design context and ignores the layer name", () => {
+    const xml = `
+      <frame id="0:1" name="Kit" x="0" y="0" width="320" height="48">
+        <component id="9:1" name="Bene Dropdown" x="0" y="0" width="320" height="48">
+          <text id="9:2" name="Label" x="8" y="8" width="200" height="24" />
+        </component>
+      </frame>`;
+    learnLibrary({
+      fileKey: "BENE",
+      role: "library",
+      fileName: "Bene",
+      metadataXml: xml,
+      designContext: `<p data-node-id="9:2">Request Bank Certificate</p>`,
+    });
+    const text = loadGraph()?.graph.nodes.find((node) => node.figmaNodeId === "9:2");
+    expect(text?.name).toBe("Label");
+    expect(text?.metadata?.["text"]).toBe("Request Bank Certificate");
+  });
 });

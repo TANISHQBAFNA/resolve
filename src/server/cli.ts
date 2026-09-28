@@ -100,8 +100,8 @@ function usage(): void {
       "      Changing --role on a file already in the workspace is refused unless --force-role.",
       "      Agents call resolve / cousins — do not Read graph.json.",
       "",
-      "  resolve learn --file-key <key> [--role library|product|client] [--from-metadata <file.xml>] [--name <fileName>]",
-      "      Same as MCP learn_library. Figma get_metadata XML. No REST token. Resumable.",
+      "  resolve learn --file-key <key> [--role library|product|client] [--from-metadata <file.xml>] [--design-context <file>] [--name <fileName>]",
+      "      Same as MCP learn_library. Figma get_metadata XML. Pass design context so master default text is stored. No REST token. Resumable.",
       "",
       `  resolve recipe [list | "<name or intent>"] [--id] [--intent "<brief>"] ${PACK_BIND_FLAGS}`,
       "      Screen packs. Overlay .graphify/recipes.json still wins.",
@@ -123,8 +123,10 @@ function usage(): void {
       "      Optional screen type / journey / domain, same as recommend, breaks ties between cousins.",
       "      Deprecated names come back flagged, with the live replacement. Private (_ / .) names only on an exact match.",
       "      One-line why from SOCK facts. Miss: says so and points at recommend. Not an empty list.",
-      `  resolve verify "<frame>" [--id] [--components a,b] [--rules <file>] ${PACK_BIND_FLAGS}`,
+      `  resolve verify "<frame>" [--id] [--components a,b] [--rules <file>] [--design-context <file>] [--texts <json>] ${PACK_BIND_FLAGS}`,
       "      After drawing: pass/fail, invents, deprecated, unresolved, bind-rule misses.",
+      "      Before verify, fetch the frame's design context so Resolve can read the text. Pass that file as --design-context.",
+      "      --texts fills empty layers in the frame only (JSON). It does not replace stored copy.",
       "      Component list: exact name or id only (fileKey:nodeId ok). Near match = unresolved + did you mean. Private (. / _) fails.",
       "      Bind rules: .graphify/bind-rules.json (require / forbid / prefer). A miss names the rule and the correct master id.",
       "      Optional .graphify/library-rules.json { allow, deny }. Else in-graph + not deprecated = approved.",
@@ -160,6 +162,28 @@ function usage(): void {
       "",
     ].join("\n"),
   );
+}
+
+function readDesignContextFile(path: string): string {
+  if (!existsSync(path)) {
+    throw new Error(
+      `Design context file not found: ${path}. Pass the path to the frame's get_design_context output.`,
+    );
+  }
+  try {
+    return readFileSync(path, "utf8");
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Could not read design context file ${path}. ${detail}`);
+  }
+}
+
+function parseTextsFlag(raw: string): unknown {
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error(`--texts must be JSON, for example '{"1:3":"Pay now"}'.`);
+  }
 }
 
 function flag(args: string[], name: string): string | undefined {
@@ -356,6 +380,7 @@ export async function runCli(argv: string[]): Promise<void> {
       const xmlPath = flag(args, "from-metadata") ?? target;
       const fileKey = flag(args, "file-key");
       if (!fileKey) throw new Error("Usage: resolve learn --file-key <key> [--from-metadata <file.xml>] [--role library]");
+      const designContextPath = flag(args, "design-context");
       let metadataXml: string | undefined;
       if (xmlPath) {
         const resolved = resolve(xmlPath);
@@ -369,6 +394,7 @@ export async function runCli(argv: string[]): Promise<void> {
           fileName: flag(args, "name"),
           label: flag(args, "label") ?? flag(args, "name"),
           metadataXml,
+          ...(designContextPath ? { designContext: readDesignContextFile(designContextPath) } : {}),
           lastModified: flag(args, "last-modified"),
           version: flag(args, "version"),
           resume: args.includes("--resume"),
@@ -578,6 +604,10 @@ export async function runCli(argv: string[]): Promise<void> {
         );
       }
       const rulesPath = flag(args, "rules");
+      const designContextPath = flag(args, "design-context");
+      const textsRaw = flag(args, "texts");
+      const designContext = designContextPath ? readDesignContextFile(designContextPath) : undefined;
+      const texts = textsRaw ? parseTextsFlag(textsRaw) : undefined;
       const bind = bindFromFlags(args);
       const pack = packForRecommend(bind);
       printJson(
@@ -589,6 +619,8 @@ export async function runCli(argv: string[]): Promise<void> {
           bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
           sock: readSock(),
           placeholders: readPlaceholders(),
+          ...(designContext !== undefined ? { designContext } : {}),
+          ...(texts !== undefined ? { texts } : {}),
         }),
       );
       return;

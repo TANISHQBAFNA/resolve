@@ -80,4 +80,13 @@ describe("resolve ingest --role", () => {
     expect(loaded?.graph.fileKey).toBe("METAKEY");
     expect(loaded?.graph.nodes.some((node) => node.name === "Main Card")).toBe(true);
   });
+
+  it("rejects a missing design-context file and bad --texts JSON", async () => {
+    await expect(runCli(["verify", "Screen", "--design-context", "/tmp/resolve-missing-design-context.txt"])).rejects.toThrow(
+      /Design context file not found: \/tmp\/resolve-missing-design-context\.txt/,
+    );
+    await expect(runCli(["verify", "Screen", "--texts", "{not json"])).rejects.toThrow(
+      /--texts must be JSON/,
+    );
+  });
 });
