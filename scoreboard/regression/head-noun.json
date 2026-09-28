@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "note": "Regression, not a held-out set. These asks were emptied or mis-ranked by the multi-word junk rule. Written with the fix, so a score here is not accuracy on phrasing the ranker had not already seen.",
+  "cases": [
+    {
+      "id": "reg-login-field",
+      "intent": "login field",
+      "expected": "Text Field",
+      "accept": ["Input"],
+      "note": "login is a noun modifier. field is the head."
+    },
+    {
+      "id": "reg-billing-address-field",
+      "intent": "billing address field",
+      "expected": "Text Field",
+      "accept": ["Input"],
+      "note": "Worked before the junk rule. address sits in front of field."
+    },
+    {
+      "id": "reg-cart-badge",
+      "intent": "cart badge",
+      "expected": "Badge",
+      "note": "cart modifies badge. badge is the head."
+    },
+    {
+      "id": "reg-shipping-alert",
+      "intent": "shipping alert",
+      "expected": "Alert",
+      "note": "Worked before the junk rule. shipping modifies alert."
+    },
+    {
+      "id": "reg-newsletter-checkbox",
+      "intent": "newsletter checkbox",
+      "expected": "Checkbox"
+    },
+    {
+      "id": "reg-delivery-banner",
+      "intent": "delivery banner",
+      "expected": "Banner"
+    },
+    {
+      "id": "reg-wishlist-chip",
+      "intent": "wishlist chip",
+      "expected": "Chip",
+      "accept": ["Tag"]
+    },
+    {
+      "id": "reg-notifications-switch",
+      "intent": "notifications switch",
+      "expected": "Switch"
+    },
+    {
+      "id": "reg-modal-window",
+      "intent": "modal window",
+      "expected": "Modal",
+      "note": "window after modal is a UI noun, not a second head."
+    },
+    {
+      "id": "reg-user-pic",
+      "intent": "user pic",
+      "expected": "Avatar",
+      "note": "pic is a short form of picture. user is already a UI word."
+    },
+    {
+      "id": "reg-close-mark",
+      "intent": "close mark",
+      "expected": "Icon Close",
+      "note": "mark after close is the symbol, same job as icon."
+    },
+    {
+      "id": "reg-promo-input",
+      "intent": "promo input",
+      "expected": "Promo Field",
+      "mustNot": ["Input"],
+      "note": "promo names the field. input is the generic word and must not win."
+    }
+  ]
+}

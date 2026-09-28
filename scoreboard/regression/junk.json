@@ -15,6 +15,16 @@
     { "id": "ho-empty-x-ray", "intent": "x ray", "expect": "empty", "note": "x means close only alone or beside icon or button." },
     { "id": "ho-empty-cancel-culture", "intent": "cancel culture", "expect": "empty", "note": "cancel matches close. culture is not a UI word." },
     { "id": "ho-empty-image-processing", "intent": "image processing", "expect": "empty", "note": "image matches avatar. processing is not a UI word." },
-    { "id": "ho-empty-money-order", "intent": "money order", "expect": "empty", "note": "money matches price. order is not a UI word." }
+    { "id": "ho-empty-money-order", "intent": "money order", "expect": "empty", "note": "money matches price. order is not a UI word." },
+    { "id": "ho-empty-card-game", "intent": "card game", "expect": "empty", "note": "card matches. game is the head, so card is not the component." },
+    { "id": "ho-empty-radio-station", "intent": "radio station", "expect": "empty", "note": "radio matches. station is the head." },
+    { "id": "ho-empty-price-of-gold", "intent": "price of gold", "expect": "empty", "note": "price matches. gold is the head." },
+    { "id": "ho-empty-badge-of-honor", "intent": "badge of honor", "expect": "empty", "note": "badge matches. honor is the head." },
+    { "id": "ho-empty-chip-shop", "intent": "chip shop", "expect": "empty", "note": "chip matches. shop is the head." },
+    { "id": "ho-empty-exit-strategy", "intent": "exit strategy", "expect": "empty", "note": "exit matches close. strategy is the head." },
+    { "id": "ho-empty-stepper-motor", "intent": "stepper motor", "expect": "empty", "note": "stepper matches. motor is the head." },
+    { "id": "ho-empty-divider-wall", "intent": "divider wall", "expect": "empty", "note": "divider matches. wall is the head." },
+    { "id": "ho-empty-switch-off-lights", "intent": "switch off lights", "expect": "empty", "note": "switch matches. lights is the head. off is only a state word." },
+    { "id": "ho-empty-link-in-bio", "intent": "link in bio", "expect": "empty", "note": "link matches. bio is the head." }
   ]
 }
