@@ -55,6 +55,10 @@ export interface UsageFact {
   countsTowardThreshold: boolean;
   /** REST/MCP-derived override keys (never guessed). */
   overrideKeys?: string[];
+  /** Populated instance shape. Absent on a bare default. */
+  configKey?: string;
+  /** Graph id of the instance that carried configKey. */
+  exampleNodeId?: string;
   verifiedAt: string;
 }
 
@@ -218,6 +222,8 @@ export function recordVerifiedUsage(
       deprecated?: boolean;
       private?: boolean;
       overrideKeys?: string[];
+      configKey?: string;
+      exampleNodeId?: string;
       /** Wins over the shared input.slot. Omit both to record no slot. */
       slot?: string;
     }>;
@@ -257,6 +263,8 @@ export function recordVerifiedUsage(
       promoted: !blocked,
       countsTowardThreshold,
       ...(master.overrideKeys?.length ? { overrideKeys: master.overrideKeys } : {}),
+      ...(master.configKey ? { configKey: master.configKey } : {}),
+      ...(master.exampleNodeId ? { exampleNodeId: master.exampleNodeId } : {}),
       verifiedAt,
     });
   }

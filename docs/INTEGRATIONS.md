@@ -168,7 +168,8 @@ traverse it instead of re-reading the file. Each tool is a thin wrapper over
 |---|---|
 | `list_recipes()` | starter pack + `.graphify/recipes.json` overlay |
 | `recipe(query)` / `get_recipe` | `recipeCard` — slots with `fileKey` + `figmaNodeId`, unbound → recommend query |
-| `recommend(intent)` | `recommendMasters(index, intent)` — ranked library masters, deprecated demoted. Prefers library-role files when the workspace has one. |
+| `recommend(intent)` | `recommendMasters(index, intent)` — ranked library masters, deprecated demoted. Prefers library-role files when the workspace has one. `ex` points at a real instance. |
+| `get_example(name)` | Full config for that instance: screen, variant, structure, sizing. |
 | `resolve(name)` | `componentUsageCard(index, name)` — usage card when the name is known |
 | `verify_frame(frame\|components)` | `verifyFrame(index, …)` — invents / deprecated / unresolved. Cards stamp `fileKey` + `figmaNodeId` when known. |
 | `check_cousins(frame\|job)` | `checkCousins` — wrong-cousin report. Needs a library-role file in `.graphify/workspace.json`. |

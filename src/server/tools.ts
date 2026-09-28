@@ -32,6 +32,8 @@ import {
   usageCardForComponent,
   usageSummaryFor,
   verifyFrame,
+  exampleCard,
+  exampleFactForMasterOnFrame,
   withCost,
   withPendingImprovements,
   checkCousins,
@@ -55,6 +57,7 @@ import {
   saveSock,
   storeInfo,
   readBindRules,
+  readPlaceholders,
   readRecipeOverlay,
   commitProposalDecision,
   loadGraph,
@@ -83,6 +86,7 @@ export const DEFAULT_TOOL_NAMES = [
   "recipe",
   "recommend",
   "resolve",
+  "get_example",
   "verify_frame",
   "check_cousins",
 ] as const;
@@ -136,7 +140,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "recommend",
     description:
-      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.graphify/bind-rules.json) require/forbid/prefer. Each hit has a one-line why from SOCK facts (or 'no usage yet'). Optional product/journey/domain context pack. Returns figmaNodeId. Cap ~600 chars. Forced path: learn_library → optional recipe → recommend unbound slots → place only returned ids → verify_frame. Do not invent components. Do not Read graph.json.",
+      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.graphify/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (SOCK facts, 'used N× in file', or 'not verified on a screen yet') and ex: a real populated instance node id, 'fileKey:nodeId' when that instance lives in another file, or 'none' plus exWhy. Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Optional product/journey/domain context pack. Returns figmaNodeId. Cap 600 chars. Forced path: learn_library → optional recipe → recommend → get_example → clone → fill → verify_frame. Do not invent components. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -211,6 +215,25 @@ export const TOOLS: ToolDefinition[] = [
     },
   },
   {
+    name: "get_example",
+    description:
+      "Full config for the real populated instance behind a pick. The recommend card puts ex on the top pick only; call this for the others. Returns file key, node id, screen name, variant props, child structure (tabs, dividers, row count), and sizing. instruction: Clone this instance and replace content; do not start from the default variant. When none is known, ex is 'none' and exWhy says why (bare defaults only, not on any screen, use the live replacement, or no such component — call recommend). The long sentence stays here. Never invents a node. Retired and private masters are not examples.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...graphIdProperty,
+        name: { type: "string", description: "Master name, graph id, or figma node id from the pick." },
+        pack: { type: "string" },
+        product: { type: "string" },
+        journey: { type: "string" },
+        domain: { type: "string" },
+        screenType: { type: "string" },
+        ...freshnessProperties,
+      },
+      required: ["name"],
+    },
+  },
+  {
     name: "orient",
     description:
       "Start here only if you have not called recommend or resolve. God nodes and communities. Prefer recommend.",
@@ -274,7 +297,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "verify_frame",
     description:
-      "After drawing, check a frame or a proposed component list against the library graph and bind rules. Pass iff every placement is an in-graph master, not deprecated, and bind require/forbid rules hold. A bind-rule fail names the rule and returns the required master id + place hint. Optional allow/deny. Deterministic — no LLM.",
+      "After drawing, check a frame or a proposed component list against the library graph and bind rules. Pass iff every placement is an in-graph master, not deprecated, and bind require/forbid rules hold. Warnings (not failures) for leftover default text and a fixed height that clearly exceeds the content. Known placeholder strings fail. A bind-rule fail names the rule and returns the required master id + place hint. Optional allow/deny. Deterministic — no LLM.",
     inputSchema: {
       type: "object",
       properties: {
@@ -737,6 +760,22 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       }
     }
 
+    case "get_example": {
+      const { index } = context(args);
+      const bind = contextBindFromArgs(args);
+      const pack = packForRecommend(bind);
+      const screenType = typeof args["screenType"] === "string" ? args["screenType"] : undefined;
+      const resolvedContext = pack || screenType
+        ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
+        : undefined;
+      return exampleCard(index, asString(args["name"] ?? args["id"] ?? args["query"], "name"), {
+        ...(resolvedContext ? { context: resolvedContext } : {}),
+        workspace: bind.workspace,
+        sock: readSock(),
+        placeholders: readPlaceholders(),
+      });
+    }
+
     case "resolve": {
       const { index } = context(args);
       const budget = typeof args["budgetChars"] === "number" ? args["budgetChars"] : undefined;
@@ -750,6 +789,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         budgetChars: budget,
         sock: readSock(),
         workspace: bind.workspace ?? readWorkspace(),
+        placeholders: readPlaceholders(),
         ...(resolvedContext ? { context: resolvedContext } : {}),
       });
     }
@@ -796,6 +836,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         workspace: bind.workspace,
         sock: readSock(),
         bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
+        placeholders: readPlaceholders(),
       });
     }
 
@@ -842,6 +883,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
         sock: readSock(),
         workspace: bind.workspace ?? readWorkspace(),
+        placeholders: readPlaceholders(),
       });
       if (result.pass) {
         const masters: Array<{
@@ -892,11 +934,15 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           const mastersWithOverrides = masters.map((master) => {
             const keys = harvested.get(master.id);
             const withKeys = keys?.length ? { ...master, overrideKeys: keys } : master;
-            if (!slotArg) return withKeys;
+            const example = result.frame?.id
+              ? exampleFactForMasterOnFrame(index, result.frame.id, master.id, readPlaceholders())
+              : undefined;
+            const withExample = example ? { ...withKeys, ...example } : withKeys;
+            if (!slotArg) return withExample;
             if (topLevel) {
-              return topLevel.has(master.id) ? { ...withKeys, slot: slotArg } : withKeys;
+              return topLevel.has(master.id) ? { ...withExample, slot: slotArg } : withExample;
             }
-            return { ...withKeys, slot: slotArg };
+            return { ...withExample, slot: slotArg };
           });
           let next = recordVerifiedUsage(readSock(), {
             screenId,
@@ -955,6 +1001,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           contextBindFromArgs(args),
           readSock(),
           loadBindRulesSafe(),
+          readPlaceholders(),
         ),
       );
     }
@@ -972,6 +1019,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
             contextBindFromArgs(args),
             readSock(),
             loadBindRulesSafe(),
+            readPlaceholders(),
           ),
         );
       }
@@ -988,6 +1036,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         contextBindFromArgs(args),
         readSock(),
         loadBindRulesSafe(),
+        readPlaceholders(),
       );
       const also = ranked.slice(1).map((recipe) => recipe.title);
       return withPendingImprovements(

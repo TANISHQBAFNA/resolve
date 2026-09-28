@@ -19,7 +19,7 @@ The rest of this page is the JSON shape if you are adding or replacing a recipe.
 | You | You do |
 |-----|--------|
 | **Designer** | Add or edit recipes in JSON. Optionally bind a slot to a master that already exists after ingest. Drop a product + journey pack in `.graphify/context-packs.json` and bind it with `recipeIds`. |
-| **Agent** | `list_recipes` → `recipe "checkout summary"` → `recommend` any open slot → place those ids → `verify_frame`. Never dump the stored library map. |
+| **Agent** | `list_recipes` → `recipe "checkout summary"` → pick any open slot → open the real example (`get_example`; `ex` is on the top pick) → clone → fill → `verify_frame`. Never dump the stored library map. |
 
 Recipes do **not** create components. Never invent a Figma component id.
 
@@ -126,7 +126,8 @@ npm run resolve -- recipe "checkout summary"
 npm run resolve -- recommend "checkout primary button"
 npm run resolve -- recommend "primary button" --pack storefront-checkout-summary
 npm run resolve -- recommend "primary button" --product Storefront --journey summary --domain checkout
-# draw with returned Figma component ids (fileKey + figmaNodeId)
+npm run resolve -- example "Button"
+# clone that instance, fill it, place only the returned Figma component ids (fileKey + figmaNodeId)
 npm run resolve -- verify "Checkout Summary"
 npm run resolve -- cousins "Checkout Summary" --job "checkout summary"
 ```

@@ -33,6 +33,8 @@ npm run resolve -- ingest '<product-url>' --role product
 npm run resolve -- recipe list             # after ingest, slots bind to live ids
 npm run resolve -- recipe "checkout summary"
 npm run resolve -- recommend "checkout with primary button"   # unbound slots only
+npm run resolve -- example "Main Card"        # full config for the ex pointer
+# clone that instance, replace content, do not start from the default variant
 # place ONLY the returned figmaNodeIds (use_figma / get_design_context)
 npm run resolve -- verify "Checkout Summary"
 npm run resolve -- cousins "Checkout Summary"   # when a library + product file are linked
@@ -42,12 +44,13 @@ npm run resolve -- cousins "Checkout Summary"   # when a library + product file 
 |------|------|------|
 | 1. Ingest | No graph, or a linked Figma file changed | `ingest '<url>'` (`--role library\|product\|client`). Each linked file as needed. |
 | 2. Context / recipe | Screen job matches a pack (checkout, sign-in, empty state, …). Optional `.graphify/context-packs.json` scopes product + journey + domain. Packs may name `files` and optional `client`. | `recipe list` then `recipe "<job>"` (optional `--pack` / `--product` / `--journey` / `--domain`) |
-| 3. Recommend | Slot is unbound / missing / deprecated. Prefers DS library masters when workspace has a library-role file. | `recommend "<nextRecommend>"` (optional `--pack` / `--product` / `--journey` / `--domain`) |
-| 4. Place | Drawing in Figma | returned `figmaNodeId`s **only** (cards also stamp `fileKey`). A different file needs the library published and `search_design_system` output passed as `libraries`; otherwise build inside the library file. |
-| 5. Verify | After the draw | `verify_frame` on the frame or placed names (optional `--pack` / `--product` / `--journey` / `--domain`) |
-| 6. Cousins | Multi-file workspace exists (library + product/client) | `cousins` / `check_cousins` on the product frame or `--job` |
+| 3. Recommend | Slot is unbound / missing / deprecated. Prefers DS library masters when workspace has a library-role file. | `recommend "<nextRecommend>"` (optional `--pack` / `--product` / `--journey` / `--domain`). Card field `ex` is a real instance, or says no real example is known. |
+| 4. Example | After a pick | `get_example` / `resolve example` for the full config. Clone that instance and replace content. Do not start from the default variant. |
+| 5. Place | Drawing in Figma | returned `figmaNodeId`s **only** (cards also stamp `fileKey`). A different file needs the library published and `search_design_system` output passed as `libraries`; otherwise build inside the library file. |
+| 6. Verify | After the draw | `verify_frame` on the frame or placed names (optional `--pack` / `--product` / `--journey` / `--domain`). Known placeholder text fails. Leftover default copy and an oversized fixed height warn. |
+| 7. Cousins | Multi-file workspace exists (library + product/client) | `cousins` / `check_cousins` on the product frame or `--job` |
 
-MCP: `list_recipes` → `recipe` → `recommend` → Figma → `verify_frame` → `check_cousins` when a library file is linked.
+MCP: `list_recipes` → `recipe` → `recommend` → `get_example` → clone → fill → `verify_frame` → `check_cousins` when a library file is linked.
 
 CLI and MCP share one store. `GRAPHIFY_HOME` wins; else nearest `.graphify` walking up from cwd. After ingest, the next MCP call reloads from disk (no restart). `list_graphs` / `workspace` / `resolve where` print `store.path` + `builtAt`. If a tool says “No graph stored,” the message names the exact path.
 

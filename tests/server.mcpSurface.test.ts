@@ -31,11 +31,11 @@ describe("MCP default surface + SOCK loop", () => {
     else process.env["RESOLVE_MCP_ADVANCED"] = previousAdvanced;
   });
 
-  it("default tool list is the six agent tools", () => {
+  it("default tool list is the agent tools", () => {
     const names = listToolDefinitions(false).map((tool) => tool.name);
-    expect(names).toHaveLength(6);
+    expect(names).toHaveLength(7);
     expect(new Set(names)).toEqual(
-      new Set(["learn_library", "recipe", "recommend", "resolve", "verify_frame", "check_cousins"]),
+      new Set(["learn_library", "recipe", "recommend", "resolve", "get_example", "verify_frame", "check_cousins"]),
     );
     expect(names).not.toContain("approve_proposal");
     expect(names).not.toContain("reject_proposal");

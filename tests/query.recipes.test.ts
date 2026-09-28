@@ -233,7 +233,7 @@ describe("recipe slot fill", () => {
     expect(card.slots.some((slot) => slot.master?.figmaNodeId)).toBe(true);
     expect(card.hint).toMatch(/verify_frame/);
     expect(card.hint).toMatch(/Do not Read graph\.json/);
-    expect(card.cost.chars).toBeLessThan(1200);
+    expect(card.cost.chars).toBeLessThanOrEqual(2000);
     for (const slot of card.slots) {
       if (!slot.master) continue;
       expect(Object.keys(slot.master).sort()).toEqual(

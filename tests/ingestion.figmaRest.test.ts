@@ -64,6 +64,34 @@ describe("figma REST adapter", () => {
     ]);
   });
 
+  it("keeps text and sizing from the REST node", () => {
+    const doc = adaptFigmaRestFile({
+      fileKey: "SIZE",
+      file: {
+        name: "Sizing",
+        document: {
+          id: "0:0",
+          type: "DOCUMENT",
+          children: [
+            {
+              id: "1:1",
+              type: "TEXT",
+              name: "Label",
+              characters: "Request Bank Certificate",
+              layoutSizingVertical: "FIXED",
+              minHeight: 320,
+            },
+          ],
+        },
+      },
+      kind: "mock",
+    });
+    const text = doc.root.children?.[0];
+    expect(text?.characters).toBe("Request Bank Certificate");
+    expect(text?.layoutSizingVertical).toBe("FIXED");
+    expect(text?.minHeight).toBe(320);
+  });
+
   it("detects image fills and auto layout", () => {
     expect(findNode("10:14")?.hasImageFill).toBe(true);
     expect(findNode("10:21")?.layoutMode).toBe("VERTICAL");
