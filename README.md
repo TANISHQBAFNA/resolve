@@ -4,39 +4,123 @@
 
 > [github.com/TANISHQBAFNA/resolve](https://github.com/TANISHQBAFNA/resolve)
 
-**You set the design rules. AI builds inside them — faster and more accurately.**
+Resolve is the shared brain for your Figma design system. You already have the components. Resolve makes an agent ask for those components before it builds a screen.
 
-Resolve is one shared design system brain for your Figma library. Agents pick **real** library components (a Primary button, a checkout row) instead of inventing a new system every time.
+**Line:** Figma rules. Agents resolve.
 
-**Start here:** **[Resolve — how to use it](docs/GUIDE.md)** — the designer guide. What it is, the happy path, how to write a context pack, how to write a bind rule, what Resolve does not do yet.
+You set the design rules. The agent builds inside them.
 
-MIT licensed. Free to use.
+MIT licensed. Free to use. The longer walkthrough is the [designer guide](docs/GUIDE.md).
 
----
+## 30 seconds
 
-## The loop (one glance)
+Checkout summary, as the example.
 
-1. **You** set rules, screen packs, linked Figma files (shared library + product/client), and (when one library serves several products) a context pack for *this* product and *this* journey step
-2. **Resolve** holds one knowledge workspace — not one giant Figma file
-3. **AI** asks what to reuse (`recipe`, then `recommend`), then drafts from those masters
-4. **Resolve** checks the draft (`verify_frame`) and, when more than one file is linked, the wrong-cousin report
-5. **You** judge taste
-
-Resolve is not “AI that designs.” It is **your rules, made easy for AI to follow** — without pasting the whole Figma file into chat.
+1. **Ask.** “Checkout summary with a primary button.”
+2. **The right component.** Resolve returns your library’s Primary button: the real component, its file, and its id. The agent places that existing button.
+3. **Check.** After the screen exists, run the check (`verify_frame` on that frame). A pass means the pieces are real library components. You still decide whether the screen looks right.
 
 ---
 
-## Who this is for
+## Seven layers, one connected system
 
-Designers and product people who work with AI and want the AI to respect the library — not invent random UI.
+Read from the foundation up. Each layer uses checkout as the example.
 
-You don’t need to be a developer. If you can clone a GitHub repo and paste a Figma link, you’re fine. The full walkthrough is in the [guide](docs/GUIDE.md).
+**SOCK** (System of Connected Knowledge) is the knowledge layer: layers 1 to 5. **SOCI** (System of Connected Intelligence) is the learning loop: layer 6. Layer 7 is the accuracy scoreboard.
+
+1. **The design system itself** — SOCK. Real components and their variants. A retired component is flagged, so it is not offered as the one to place. Checkout: the Primary button and its variants. A retired “Pay now” button stays marked retired.
+2. **Product and journey context** — SOCK. Which product, and which step in the journey. Checkout: the Storefront product, on the summary step.
+3. **Many files, one source of truth** — SOCK. The shared library is the source. A product file can still contain its own lookalike. Checkout: a team’s own copy of Price is flagged as a wrong copy.
+4. **Rules and reasons** — SOCK. Each pick includes a short why-this card. Bind rules (must use, must not use, prefer) change only when a person changes them. Checkout: the card says this is the library Primary for the pay step. A person is the only one who edits that rule.
+5. **Usage learning** — SOCK. A pattern counts after 3 real screens that pass the check. Checkout: a price row plus the Primary button, on three checkout screens that passed. One screen is not enough.
+6. **The SOCI loop** — SOCI. SOCI suggests a change. A person approves it. Checkout: after those three screens, SOCI can suggest adding that pattern to the checkout recipe. Nothing in the rules changes until you approve.
+7. **The accuracy scoreboard.** A repeatable check that the ask returned the right component, that nothing was invented, and that a retired or private component was not offered as a pick. Checkout: “checkout summary with a primary button” is scored against the Primary button you expected.
+
+---
+
+## Accuracy, honestly
+
+**Top-1** means the first component returned is the right one. **Invent** means a component that is not in the library. **Leak** means a retired or private component was offered as a pick.
+
+The repo test set is 118/118 top-1, with invent 0 and leak 0. In an independent blind test on a sample library (not yet a real company library), top-1 went from 38% to 83% on unseen asks after PR #19.
+
+How the repo set is built: [scoreboard](docs/SCOREBOARD.md).
+
+---
+
+## What's new
+
+Newest first. Dates are IST (India Standard Time).
+
+- **Sep 28, 2026 — [PR #18](https://github.com/TANISHQBAFNA/resolve/pull/18).** Fix library verify, Figma metadata, and Claude setup. Claude Desktop and Claude Code setup. `verify_frame` approves only real library masters. `check_cousins` fixes, including a team’s own copy of Price. More Figma metadata formats. A Node 22.12 check. Long “Set / Variant” names stay inside the card size limit.
+- **Sep 28, 2026 — [PR #19](https://github.com/TANISHQBAFNA/resolve/pull/19).** Keep component picks when words describe the component (cart badge, login field). Asks like “cart badge” and “login field” now return the right component.
+- **Sep 27, 2026 — [PR #17](https://github.com/TANISHQBAFNA/resolve/pull/17).** Rank component picks by name before screen context.
+- **Sep 27, 2026 — [PR #16](https://github.com/TANISHQBAFNA/resolve/pull/16).** Add an offline accuracy scoreboard for agent cards.
+- **Sep 27, 2026 — [PR #15](https://github.com/TANISHQBAFNA/resolve/pull/15).** SOCI v1: usage-driven improvement proposals.
+- **Sep 27, 2026 — [PR #14](https://github.com/TANISHQBAFNA/resolve/pull/14).** Thin bet C: why line, bind rules, and approve flow. Why-this cards, bind rules, and a person approves.
+- **Sep 27, 2026 — [PR #13](https://github.com/TANISHQBAFNA/resolve/pull/13).** Resolve for Figma MCP: plug-and-play and SOCK live usage learning.
+- **Sep 27, 2026 — [PR #12](https://github.com/TANISHQBAFNA/resolve/pull/12).** Harden the agent loop: invent gates, a live shared store, and lookup by the component’s real name.
+
+---
+
+## Not yet
+
+- Not proven on a real company library yet.
+- SOCI does not compare journeys across products yet.
+- Linking several design systems is a later step.
+
+---
+
+## Setup
+
+Needs Node 22.12 or newer (`node -v`). Full page, including Cursor: [SETUP-MCP.md](docs/SETUP-MCP.md).
+
+Turn on Figma in the same tool. Learning a library needs a paid Figma seat with MCP access (Dev or Full), or a Figma access token for command-line ingest. A view or free seat has a low read quota. Resolve saves progress and resumes.
+
+In Terminal, run this once and wait until you see `[resolve] MCP server ready`:
+
+```bash
+npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
+```
+
+If Claude Desktop cannot start Resolve, set `command` to the full path from `which npx`.
+
+### Claude Code
+
+```bash
+claude mcp add resolve -s user -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
+claude mcp add --transport http figma https://mcp.figma.com/mcp -s user
+```
+
+Then in Claude Code run `/mcp` and log in to Figma.
+
+### Claude Desktop
+
+Add Figma in **Settings → Connectors**. Do not put a Figma `url` entry in the config file. That breaks Claude Desktop.
+
+Resolve only. Config file:
+
+- Mac: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Or open **Settings → Developer → Edit Config**.
+
+```json
+{
+  "mcpServers": {
+    "resolve": {
+      "command": "npx",
+      "args": ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
+    }
+  }
+}
+```
+
+Quit Claude Desktop with **Cmd+Q** (not the window close button) and reopen. Check that `resolve` is listed under **Settings → Developer**.
 
 ---
 
 ## For developers
-
-Needs Node 22.12 or newer.
 
 ```bash
 git clone https://github.com/TANISHQBAFNA/resolve.git
@@ -45,69 +129,27 @@ npm install
 npm run build:server
 ```
 
-That’s the setup. Do it once.
-
-### Before you start (Claude)
-
-1. `node -v` is **22.12 or newer**. Older than that: install the current LTS from [nodejs.org](https://nodejs.org).
-2. `git --version`. On a Mac this installs the command line tools if they are missing.
-3. Run `npx -y -p github:TANISHQBAFNA/resolve resolve-mcp` once in Terminal and wait for `[resolve] MCP server ready`.
-4. If Claude Desktop cannot start it, set `command` to the full path from `which npx`.
-
-| Tool | What to do |
-|------|------------|
-| **Cursor** | One config line next to Figma MCP — [SETUP-MCP.md](docs/SETUP-MCP.md). `npx -y -p github:TANISHQBAFNA/resolve resolve-mcp`. |
-| **Claude Desktop** | Resolve command only in `claude_desktop_config.json`. Add Figma under Settings → Connectors. [SETUP-MCP.md](docs/SETUP-MCP.md). |
-| **Claude Code** | `claude mcp add resolve -s user -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp` then `claude mcp add --transport http figma https://mcp.figma.com/mcp -s user`. `/mcp` to log in. |
-| **Codex / others** | Open this folder. It can read `AGENTS.md` and `skills/resolve`. |
-
-Developer option (this repo): `claude --plugin-dir .`
-
-Turn on **Figma MCP** in the same tool. Learning needs a **paid Figma seat with MCP access (Dev or Full)**, or a **Figma access token** for REST ingest. View or free seats have a low read quota — Resolve saves progress and resumes.
-
-Live command-line ingest of a `figma.com` URL needs `FIGMA_ACCESS_TOKEN`. Everyday use is Figma MCP in the AI tool (`learn_library`).
-
-Day-to-day commands (full explanation in the [guide](docs/GUIDE.md)):
+Day-to-day commands (explained in the [guide](docs/GUIDE.md)):
 
 ```bash
 npm run resolve -- ingest '<figma-url>'
 npm run resolve -- recipe list
 npm run resolve -- recipe "checkout summary"
 npm run resolve -- recommend "checkout summary with primary button"
-npm run resolve -- recommend "primary button" --pack storefront-checkout-summary
-npm run resolve -- recommend "primary button" --product Storefront --journey summary --domain checkout
 npm run resolve -- verify "Checkout Summary"
 ```
 
-Prefer the command name `resolve`. `npm run keyline` still works as a deprecated alias for this release.
+`npm run keyline` still works as a deprecated alias for this release. Optional: `npm run dev` opens the map in a browser (sample data, no login).
 
-Optional: click around the map in a browser with `npm run dev` (sample data, no login).
-
-Other ways to bring a file in: Figma MCP `learn_library` (primary), or REST ingest with a token (secondary). Big libraries: several checkpointed passes.
-
----
-
-## More docs
-
-- **Plug-and-play next to Figma MCP:** [`docs/SETUP-MCP.md`](docs/SETUP-MCP.md)
-- **Designer guide:** [`docs/GUIDE.md`](docs/GUIDE.md)
-- Bind rules + approve a proposal: [`docs/BIND-RULES.md`](docs/BIND-RULES.md)
-- SOCI (usage → human-approved suggestions): [`docs/SOCI.md`](docs/SOCI.md)
-- Screen recipes (JSON packs): [`docs/RECIPES.md`](docs/RECIPES.md)
-- Accuracy scoreboard: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md). `scoreboard/golden` is the scored set. `scoreboard/regression` locks ranking bugs from review. It is not a measure of unseen phrasing.
-- Cursor-focused steps: [`docs/CURSOR-RESOLVE.md`](docs/CURSOR-RESOLVE.md)
+- Plug-and-play next to Figma: [`docs/SETUP-MCP.md`](docs/SETUP-MCP.md)
+- Designer guide: [`docs/GUIDE.md`](docs/GUIDE.md)
+- Bind rules and approving a proposal: [`docs/BIND-RULES.md`](docs/BIND-RULES.md)
+- SOCI: [`docs/SOCI.md`](docs/SOCI.md)
+- Screen recipes: [`docs/RECIPES.md`](docs/RECIPES.md)
+- Accuracy scoreboard: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md)
+- Cursor steps: [`docs/CURSOR-RESOLVE.md`](docs/CURSOR-RESOLVE.md)
 - Building Resolve: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - How tools plug in: [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md)
 - Toolchain versions: [`CHANGELOG.md`](CHANGELOG.md)
 
 License: [`LICENSE`](LICENSE) (MIT)
-
----
-
-## Roadmap (short)
-
-| Now | Next ideas |
-|-----|------|
-| Map + search + short AI cards | Clearer reports on design-system usage |
-| `recommend` + `verify_frame` (invent rate) | Smoother live Figma links and previews |
-| Why line + bind rules + approve a proposal | Optional in-app AI helpers |
