@@ -500,4 +500,50 @@ describe("card budgets with long variant labels", () => {
     expect(verified.cost.chars).toBeLessThanOrEqual(600);
     expect(JSON.stringify(verified).length).toBeLessThanOrEqual(600);
   });
+
+  it("fits a 213-character variant label plus three fake names in 600 characters", () => {
+    const label = `Type=${"P".repeat(208)}`;
+    expect(label).toHaveLength(213);
+    const graph: DesignGraph = {
+      fileKey: "LIB",
+      fileName: "Long labels",
+      builtAt: FROZEN,
+      source: { kind: "mock", ingestedAt: FROZEN },
+      warnings: [],
+      nodes: [
+        n("file:LIB", "FILE", "Long labels", { fileKey: "LIB" }),
+        n("node:set", "COMPONENT_SET", "Button", { figmaNodeId: "1:1", fileKey: "LIB" }),
+        n("node:variant", "VARIANT", label, {
+          componentSetId: "node:set",
+          figmaNodeId: "1:2",
+          fileKey: "LIB",
+          variantProperties: { Type: "P".repeat(208) },
+        }),
+      ],
+      edges: [],
+    };
+    const verified = verifyFrame(indexGraph(graph), {
+      components: [label, "Nope Alpha", "Nope Beta", "Nope Gamma"],
+    });
+    expect(verified.cost.chars).toBeLessThanOrEqual(600);
+    expect(JSON.stringify(verified).length).toBeLessThanOrEqual(600);
+  });
+
+  it("fits four 213-character names in 600 characters", () => {
+    const names = ["A", "B", "C", "D"].map((prefix) => `${prefix}${"y".repeat(212)}`);
+    expect(names.every((name) => name.length === 213)).toBe(true);
+    const graph: DesignGraph = {
+      fileKey: "LIB",
+      fileName: "Long labels",
+      builtAt: FROZEN,
+      source: { kind: "mock", ingestedAt: FROZEN },
+      warnings: [],
+      nodes: [n("file:LIB", "FILE", "Long labels", { fileKey: "LIB" })],
+      edges: [],
+    };
+    const verified = verifyFrame(indexGraph(graph), { components: names });
+    expect(verified.pass).toBe(false);
+    expect(verified.cost.chars).toBeLessThanOrEqual(600);
+    expect(JSON.stringify(verified).length).toBeLessThanOrEqual(600);
+  });
 });

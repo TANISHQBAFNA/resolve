@@ -288,6 +288,8 @@ export function usageCardForComponent(
   };
   if (inferred) {
     delete base.component.figmaNodeId;
+    const component = base.component as { id?: string };
+    if (component.id?.includes("mcp-name:")) delete component.id;
   } else {
     const place = placeReady(node, index.graph.fileKey);
     Object.assign(base.component, place);
@@ -2487,6 +2489,20 @@ const WARNING_OVERFLOW = (count: number) => `and ${count} more warnings`;
 
 const NAME_FLOOR = 16;
 
+/** Drop `given` when it repeats `name`. Only called once a card is already over budget. */
+function dropEchoedGiven(value: unknown): void {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const item of value) dropEchoedGiven(item);
+    return;
+  }
+  const record = value as Record<string, unknown>;
+  if (typeof record["given"] === "string" && record["given"] === record["name"]) {
+    delete record["given"];
+  }
+  for (const child of Object.values(record)) dropEchoedGiven(child);
+}
+
 function collectNameSlots(
   value: unknown,
   slots: Array<{ parent: Record<string, unknown>; key: string }>,
@@ -2498,21 +2514,27 @@ function collectNameSlots(
   }
   const record = value as Record<string, unknown>;
   for (const [key, child] of Object.entries(record)) {
-    if (key === "given" || key === "hint" || key === "why" || key === "cost") continue;
-    if (key === "name" && typeof child === "string") slots.push({ parent: record, key });
+    if (key === "hint" || key === "why" || key === "cost") continue;
+    if ((key === "name" || key === "given") && typeof child === "string") slots.push({ parent: record, key });
     else collectNameSlots(child, slots);
   }
 }
 
-/** Shorten the longest `name` fields until `size(payload)` fits. Ids stay intact. */
+/** Shorten the longest `name` / `given` fields until `size(payload)` fits. Ids stay intact. */
 function shrinkNameFields(
   payload: object,
   budget: number,
   size: (value: object) => number = (value) => JSON.stringify(value).length,
 ): void {
+  let droppedEcho = false;
   let guard = 0;
-  while (size(payload) > budget && guard < 120) {
+  while (size(payload) > budget && guard < 160) {
     guard += 1;
+    if (!droppedEcho) {
+      dropEchoedGiven(payload);
+      droppedEcho = true;
+      continue;
+    }
     const slots: Array<{ parent: Record<string, unknown>; key: string }> = [];
     collectNameSlots(payload, slots);
     const long = slots

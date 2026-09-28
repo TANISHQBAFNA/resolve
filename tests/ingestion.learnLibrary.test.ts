@@ -385,6 +385,47 @@ describe("learn_library from Figma MCP get_metadata", () => {
     expect(flagged).not.toContain("Price");
   });
 
+  it("flags Cart Page instances when the product file also has local Price and Summary Card masters", () => {
+    learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      metadataXml: `
+        <frame id="9:0" name="Components">
+          <component id="22:3" name="Price" />
+          <component id="22:4" name="Summary Card" />
+        </frame>
+      `,
+    });
+    learnLibrary({
+      fileKey: "PROD",
+      role: "product",
+      metadataXml: `
+        <frame id="5:1" name="Cart Page">
+          <instance id="5:2" name="Price" />
+          <instance id="5:3" name="Summary Card" />
+        </frame>
+        <component id="5:4" name="Price" />
+        <component id="5:5" name="Summary Card" />
+      `,
+    });
+    const loaded = loadGraph();
+    expect(loaded).toBeDefined();
+    const index = loaded!.index;
+    const workspace = readWorkspace();
+    const expectBoth = (report: ReturnType<typeof checkCousins>) => {
+      expect(report.checked).toBe(true);
+      const names = report.cousins.map((hit) => hit.placed.name).sort();
+      expect(names).toEqual(["Price", "Summary Card"]);
+      expect(report.cousins.every((hit) => hit.placed.fileKey === "PROD")).toBe(true);
+      expect(report.cousins.every((hit) => !String(hit.placed.id).includes("mcp-name:"))).toBe(true);
+      expect(report.cousins.every((hit) => hit.expected?.fileKey === "LIB")).toBe(true);
+      expect(report.ok).toBe(0);
+    };
+    expectBoth(checkCousins(index, { frame: "Cart Page", workspace }));
+    expectBoth(checkCousins(index, { fileKey: "PROD", workspace }));
+    expectBoth(checkCousins(index, { components: ["Price", "Summary Card"], workspace }));
+  });
+
   it("places the real library master, not an mcp-name guess, and passes a clashing checkout review", () => {
     learnLibrary({
       fileKey: "LIB",
@@ -424,6 +465,8 @@ describe("learn_library from Figma MCP get_metadata", () => {
 
     const fancy = recommendMasters(index, "fancy pay button", { workspace });
     expect(JSON.stringify(fancy)).not.toContain("mcp-name:");
+    const fancyCard = componentUsageCard(index, "Fancy Pay Button", { workspace });
+    expect(JSON.stringify(fancyCard)).not.toContain("mcp-name:");
     expect(fancy.candidates.every((candidate) => !candidate.name.toLowerCase().includes("fancy pay"))).toBe(
       true,
     );

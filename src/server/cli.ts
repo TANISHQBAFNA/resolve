@@ -126,7 +126,7 @@ function usage(): void {
       "  resolve soci                   List pending SOCI proposals (never auto-applied)",
       "  resolve approve <proposal-id> --who <name>   Approve: bind-rules, recipe overlay, or a recorded decision",
       "  resolve reject <proposal-id> --who <name>    Reject + audit line. SOCI never auto-applies.",
-      `  resolve cousins ["<frame>"] [--job "<screen job>"] [--components a,b] ${PACK_BIND_FLAGS}`,
+      `  resolve cousins ["<frame>"] [--file-key <key>] [--job "<screen job>"] [--components a,b] ${PACK_BIND_FLAGS}`,
       "      Wrong-cousin report: same role / weak name, different master family than the shared DS library.",
       "      Needs a library-role file in .graphify/workspace.json. Unsure → says so. Never invents a master.",
       "  resolve workspace              Linked files + store path / builtAt (same as MCP list_graphs.store)",
@@ -489,15 +489,17 @@ export async function runCli(argv: string[]): Promise<void> {
             .map((item) => item.trim())
             .filter(Boolean)
         : undefined;
-      if (!frame && !components?.length && !flag(args, "job")) {
+      const fileKey = flag(args, "file-key");
+      if (!frame && !components?.length && !flag(args, "job") && !fileKey) {
         throw new Error(
-          `Usage: resolve cousins "<frame>" [--job "<screen job>"] [--components a,b] ${PACK_BIND_FLAGS}`,
+          `Usage: resolve cousins "<frame>" [--file-key <key>] [--job "<screen job>"] [--components a,b] ${PACK_BIND_FLAGS}`,
         );
       }
       const bind = bindFromFlags(args);
       printJson(
         checkCousins(resolveGraph(flag(args, "id"))?.index, {
           frame,
+          fileKey,
           components,
           job: flag(args, "job"),
           recipes: loadRecipes(),

@@ -179,6 +179,11 @@ export const TOOLS: ToolDefinition[] = [
         journey: { type: "string" },
         domain: { type: "string" },
         ...freshnessProperties,
+        fileKey: {
+          type: "string",
+          description:
+            "Product/client file key. Checks every instance in that file. Also used for the freshness check.",
+        },
       },
     },
   },
@@ -800,11 +805,13 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const frame = typeof args["frame"] === "string" ? args["frame"] : undefined;
       const components = asStringList(args["components"]);
       const job = typeof args["job"] === "string" ? args["job"] : undefined;
-      if (!frame && !components && !job) {
-        throw new ToolError("`frame`, `components`, or `job` is required.");
+      const fileKey = typeof args["fileKey"] === "string" ? args["fileKey"] : undefined;
+      if (!frame && !components && !job && !fileKey?.trim()) {
+        throw new ToolError("`frame`, `components`, `fileKey`, or `job` is required.");
       }
       return checkCousins(resolveGraph(graphId)?.index, {
         frame,
+        fileKey,
         components,
         job,
         recipes: loadRecipes(),
