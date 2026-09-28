@@ -286,6 +286,20 @@ function walkNode(
 
   const layoutMode = asString(raw["layoutMode"]);
   if (layoutMode && layoutMode !== "NONE") node.layoutMode = layoutMode;
+  const characters = asString(raw["characters"]);
+  if (characters) node.characters = characters;
+  const layoutSizingHorizontal = asString(raw["layoutSizingHorizontal"]);
+  if (layoutSizingHorizontal) node.layoutSizingHorizontal = layoutSizingHorizontal;
+  const layoutSizingVertical = asString(raw["layoutSizingVertical"]);
+  if (layoutSizingVertical) node.layoutSizingVertical = layoutSizingVertical;
+  const primaryAxisSizingMode = asString(raw["primaryAxisSizingMode"]);
+  if (primaryAxisSizingMode) node.primaryAxisSizingMode = primaryAxisSizingMode;
+  const counterAxisSizingMode = asString(raw["counterAxisSizingMode"]);
+  if (counterAxisSizingMode) node.counterAxisSizingMode = counterAxisSizingMode;
+  const minHeight = asNumber(raw["minHeight"]);
+  if (minHeight !== undefined) node.minHeight = minHeight;
+  const minWidth = asNumber(raw["minWidth"]);
+  if (minWidth !== undefined) node.minWidth = minWidth;
   if (hasImageFill(raw)) node.hasImageFill = true;
 
   const styleIds = collectStyleIds(raw);

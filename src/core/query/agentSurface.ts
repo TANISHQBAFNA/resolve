@@ -21,6 +21,14 @@ import {
   type BindRuleWarning,
   type BindRulesFile,
 } from "./bindRules";
+import {
+  examplePointer,
+  frameContentWarnings,
+  getExample,
+  NO_EXAMPLE,
+  type ContentWarning,
+  type ExampleQuery,
+} from "./examples";
 
 /**
  * Agent-facing graph surface. Graph stays on disk. Agents call resolve /
@@ -223,10 +231,23 @@ function slotNamesOf(index: GraphIndex, instanceId: string): string[] {
   return [...names].sort();
 }
 
+function exampleQuery(
+  index: GraphIndex,
+  options: { sock?: SockState; context?: RecommendContext },
+): ExampleQuery {
+  return {
+    sock: options.sock,
+    graphFileKey: index.graph.fileKey,
+    product: options.context?.product?.name || options.context?.product?.id,
+    journey: options.context?.journey?.screenJob || options.context?.journey?.step,
+    domain: options.context?.domain || options.context?.screenType,
+  };
+}
+
 export function usageCardForComponent(
   index: GraphIndex,
   node: GraphNode,
-  options: { budgetChars?: number; sock?: SockState } = {},
+  options: { budgetChars?: number; sock?: SockState; context?: RecommendContext } = {},
 ) {
   const budgetChars = options.budgetChars ?? USAGE_CARD_BUDGET;
   const usage = computeComponentUsage(index, node);
@@ -298,16 +319,17 @@ export function usageCardForComponent(
     }
   }
   const why = whyLineForMaster(node, { sock: options.sock, graphFileKey: index.graph.fileKey });
+  const ex = examplePointer(index, node, exampleQuery(index, options), budgetChars <= RECOMMEND_BUDGET ? "id" : "screen");
 
   let byScreen = toByScreen(includeSlots, limit);
-  let payload = { ...base, why, byScreen, truncated };
+  let payload = { ...base, why, ex, byScreen, truncated };
   // ponytail: drop slots then screens until under budget
   while (JSON.stringify(payload).length > budgetChars && (includeSlots || limit > 1)) {
     truncated = true;
     if (includeSlots) includeSlots = false;
     else limit = Math.max(1, Math.floor(limit / 2));
     byScreen = toByScreen(includeSlots, limit);
-    payload = { ...base, why, byScreen, truncated };
+    payload = { ...base, why, ex, byScreen, truncated };
   }
 
   return withCost(payload);
@@ -446,6 +468,39 @@ export function componentUsageCard(
   if (JSON.stringify(withCost(withReplacement)).length <= budget) return withCost(withReplacement);
   const trimmed = { ...withReplacement, byScreen: [] as typeof body.byScreen };
   return withCost(trimmed);
+}
+
+/** Full config for the real instance behind a pick's `ex` pointer. */
+export function exampleCard(
+  index: GraphIndex,
+  name: string,
+  options: {
+    sock?: SockState;
+    context?: RecommendContext;
+    workspace?: WorkspaceManifest;
+  } = {},
+) {
+  const node = pickResolveTarget(index, name, options.context, options.workspace);
+  if (!node || node.type === "FRAME" || node.type === "SECTION") {
+    return withCost({ found: false as const, name, example: NO_EXAMPLE });
+  }
+  const lookup = getExample(index, node, exampleQuery(index, options));
+  if (!lookup.found) {
+    return withCost({
+      found: false as const,
+      name: variantCardName(index, node),
+      id: node.id,
+      example: NO_EXAMPLE,
+    });
+  }
+  const { id: exampleId, ...example } = lookup.example;
+  return withCost({
+    found: true as const,
+    name: variantCardName(index, node),
+    id: node.id,
+    exampleId,
+    ...example,
+  });
 }
 
 /**
@@ -1079,8 +1134,9 @@ export interface RecommendCandidate {
   type: string;
   hint: string;
   deprecated: boolean;
-  instances: number;
-  whereUsed: Array<{ name: string; count: number }>;
+  /** Omitted on a tight card so the real-example pointer still fits. */
+  instances?: number;
+  whereUsed?: Array<{ name: string; count: number }>;
   score: number;
   /** Set when an unknown noun sits in front of the head. Ranking is unchanged. */
   confidence?: "low";
@@ -1094,6 +1150,8 @@ export interface RecommendCandidate {
   set?: string;
   status?: GraphNode["status"];
   slots?: string[];
+  /** Real instance node id, or the no-example sentence. Full config is get_example. */
+  ex?: string;
 }
 
 /** Candidates 2–3. Place with fileKey + figmaNodeId; the rest stays on the top hit. */
@@ -1103,6 +1161,8 @@ export interface RecommendAlternate {
   why: string;
   fileKey?: string;
   figmaNodeId?: string;
+  /** Real instance node id when one is known. Omitted when there is no example. */
+  ex?: string;
 }
 
 export type RecommendHit = RecommendCandidate | RecommendAlternate;
@@ -2114,6 +2174,8 @@ export function recommendMasters(
   let limit = Math.min(kept.length, target);
   let truncated = kept.length > limit;
   let dropExtras = false;
+  let slimLead = false;
+  const exQuery = exampleQuery(index, options);
 
   const shortReason = (why: string): string => {
     const cut = why.split(";")[0]?.trim() || why;
@@ -2122,13 +2184,21 @@ export function recommendMasters(
 
   const leadCandidate = (entry: Scored): RecommendCandidate => {
     const full = toCandidate(entry, false, 0);
+    const pointer = examplePointer(index, entry.node, exQuery, tight ? "id" : "screen");
     const next: RecommendCandidate = {
       ...full,
       whereUsed: [],
+      ex: pointer,
       hint: full.deprecated ? "Deprecated — do not place." : "Place fileKey + nodeId.",
     };
     if (lowConfidence) next.confidence = "low";
     delete next.slots;
+    if (slimLead) {
+      delete next.published;
+      delete next.publishState;
+      delete next.instances;
+      if (!next.whereUsed?.length) delete next.whereUsed;
+    }
     if (dropExtras) {
       delete next.set;
     }
@@ -2187,6 +2257,11 @@ export function recommendMasters(
   }
   if (JSON.stringify(payload).length > budgetChars) {
     truncated = true;
+    slimLead = true;
+    shrink();
+  }
+  if (JSON.stringify(payload).length > budgetChars) {
+    truncated = true;
     dropExtras = true;
     shrink();
   }
@@ -2208,7 +2283,7 @@ export function recommendMasters(
     ];
     payload = payloadOf();
   }
-  while (JSON.stringify(payload).length > budgetChars && candidates.length > 1) {
+  while (JSON.stringify(payload).length > budgetChars && candidates.length > 2) {
     truncated = true;
     limit = candidates.length - 1;
     shrink();
@@ -2221,8 +2296,32 @@ export function recommendMasters(
     candidates = [lead, ...candidates.slice(1)];
     payload = payloadOf();
   }
+  while (JSON.stringify(payload).length > budgetChars && candidates.length > 1) {
+    truncated = true;
+    limit = candidates.length - 1;
+    shrink();
+  }
+  const warningsWanted = options.bindRules?.warnings?.length ?? 0;
+  const warningMissing = () =>
+    warningsWanted > 0 && !payload.bindRuleWarnings?.length && !payload.warningNote;
+  if (warningMissing()) {
+    truncated = true;
+    slimLead = true;
+    shrink();
+  }
+  while (warningMissing() && candidates.length > 1) {
+    truncated = true;
+    limit = candidates.length - 1;
+    shrink();
+  }
   if (JSON.stringify(payload).length > budgetChars) {
     shrinkNameFields(payload, budgetChars);
+  }
+  if (JSON.stringify(payload).length > budgetChars && candidates[0] && "type" in candidates[0]) {
+    const lead: RecommendCandidate = { ...candidates[0] };
+    delete (lead as { score?: number }).score;
+    if (!lead.deprecated) delete (lead as { deprecated?: boolean }).deprecated;
+    candidates[0] = lead;
   }
 
   return withCost(payload);
@@ -2437,6 +2536,7 @@ export function verifyFrame(
     else if (master) considerMaster(master, given);
   }
 
+  const content = frameNode ? frameContentWarnings(index, frameNode.id) : { warnings: [], blocking: false };
   const pass = invents.length === 0 && deprecatedHits.length === 0 && unresolved.length === 0;
   const placed: GraphNode[] = [...approvedIds]
     .map((id) => index.getNode(id))
@@ -2452,7 +2552,7 @@ export function verifyFrame(
       })
     : undefined;
   const bindPass = !ruleFailure;
-  const ok = pass && bindPass;
+  const ok = pass && bindPass && !content.blocking;
   const bindHint = ruleFailure
     ? `Fail — bind rule ${ruleFailure.rule}: ${ruleFailure.reason}.${
         ruleFailure.expected ? ` Place ${ruleFailure.expected.name} (${ruleFailure.expected.id}).` : ""
@@ -2461,8 +2561,10 @@ export function verifyFrame(
   const pending = input.sock?.proposals.filter((row) => row.status === "pending").length ?? 0;
   const hint = ok
     ? `Only approved library masters. ${REFRESH_HINT}`
-    : bindHint ??
-      `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`;
+    : content.blocking && pass && bindPass
+      ? `Fail — placeholder text left in a placed instance. ${REFRESH_HINT}`
+      : bindHint ??
+        `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`;
   const pendingHint = pending ? `pending improvements: ${pending}.` : undefined;
   const base = {
     pass: ok,
@@ -2482,12 +2584,14 @@ export function verifyFrame(
     hint: pendingHint ? `${hint} ${pendingHint}` : hint,
     ...(pending ? { pendingImprovements: pending } : {}),
   };
-  return fitCardAfterCost(base, input.bindRules?.warnings, 600);
+  return fitCardAfterCost(base, input.bindRules?.warnings, content.warnings, 600);
 }
 
 const WARNING_OVERFLOW = (count: number) => `and ${count} more warnings`;
 
 const NAME_FLOOR = 16;
+/** Real master names stay intact. Only oversized labels shrink, so a cut never invents a name. */
+const COMPONENT_NAME_FLOOR = 80;
 
 /** Drop `given` when it repeats `name`. Only called once a card is already over budget. */
 function dropEchoedGiven(value: unknown): void {
@@ -2514,7 +2618,7 @@ function collectNameSlots(
   }
   const record = value as Record<string, unknown>;
   for (const [key, child] of Object.entries(record)) {
-    if (key === "hint" || key === "why" || key === "cost") continue;
+    if (key === "hint" || key === "why" || key === "cost" || key === "ex") continue;
     if ((key === "name" || key === "given") && typeof child === "string") slots.push({ parent: record, key });
     else collectNameSlots(child, slots);
   }
@@ -2527,8 +2631,9 @@ function shrinkNameFields(
   size: (value: object) => number = (value) => JSON.stringify(value).length,
 ): void {
   let droppedEcho = false;
+  let deepNames = false;
   let guard = 0;
-  while (size(payload) > budget && guard < 160) {
+  while (size(payload) > budget && guard < 240) {
     guard += 1;
     if (!droppedEcho) {
       dropEchoedGiven(payload);
@@ -2537,21 +2642,27 @@ function shrinkNameFields(
     }
     const slots: Array<{ parent: Record<string, unknown>; key: string }> = [];
     collectNameSlots(payload, slots);
+    const floorOf = (key: string) =>
+      key === "name" ? (deepNames ? NAME_FLOOR : COMPONENT_NAME_FLOOR) : NAME_FLOOR;
     const long = slots
       .filter((slot) => {
         const text = slot.parent[slot.key];
-        return typeof text === "string" && text.length > NAME_FLOOR;
+        return typeof text === "string" && text.length > floorOf(slot.key);
       })
       .sort((a, b) => (b.parent[b.key] as string).length - (a.parent[a.key] as string).length)[0];
     if (long) {
       const text = long.parent[long.key] as string;
-      const nextLen = Math.max(NAME_FLOOR, text.length - 32);
+      const nextLen = Math.max(floorOf(long.key), text.length - 32);
       long.parent[long.key] = `${text.slice(0, nextLen - 1)}…`;
       continue;
     }
     const hinted = payload as { hint?: string };
     if (typeof hinted.hint === "string" && hinted.hint.length > 48) {
       hinted.hint = `${hinted.hint.slice(0, 47)}…`;
+      continue;
+    }
+    if (!deepNames) {
+      deepNames = true;
       continue;
     }
     break;
@@ -2561,27 +2672,32 @@ function shrinkNameFields(
 /** Size the verify card after `cost` is attached so the serialized card stays inside the budget. */
 function fitCardAfterCost<T extends object>(
   base: T,
-  warnings: BindRuleWarning[] | undefined,
+  bindWarnings: BindRuleWarning[] | undefined,
+  contentWarnings: ContentWarning[] | undefined,
   budgetChars: number,
-): T & { cost: AgentCost } {
+): T & {
+  cost: AgentCost;
+  warnings?: ContentWarning[];
+  bindRuleWarnings?: BindRuleWarning[];
+  warningNote?: string;
+} {
   shrinkNameFields(base, budgetChars, (value) => JSON.stringify(withCost(value)).length);
-  const list = warnings ?? [];
-  const cardFor = (count: number) => {
-    if (count <= 0) {
-      if (!list.length) return withCost(base);
-      const withNote = withCost({ ...base, warningNote: WARNING_OVERFLOW(list.length) });
-      return JSON.stringify(withNote).length <= budgetChars ? withNote : withCost(base);
-    }
-    const more = list.length - count;
-    const fitted =
-      more > 0
-        ? { bindRuleWarnings: list.slice(0, count), warningNote: WARNING_OVERFLOW(more) }
-        : { bindRuleWarnings: list.slice(0, count) };
+  const binds = bindWarnings ?? [];
+  const content = contentWarnings ?? [];
+  const cardFor = (contentCount: number, bindCount: number) => {
+    const more = content.length - contentCount + (binds.length - bindCount);
+    const fitted: Record<string, unknown> = {};
+    if (contentCount > 0) fitted["warnings"] = content.slice(0, contentCount);
+    if (bindCount > 0) fitted["bindRuleWarnings"] = binds.slice(0, bindCount);
+    if (more > 0) fitted["warningNote"] = WARNING_OVERFLOW(more);
+    if (!contentCount && !bindCount && !more) return withCost(base);
     return withCost({ ...base, ...fitted });
   };
-  for (let count = list.length; count >= 0; count -= 1) {
-    const card = cardFor(count);
-    if (JSON.stringify(card).length <= budgetChars) return card;
+  for (let contentCount = content.length; contentCount >= 0; contentCount -= 1) {
+    for (let bindCount = binds.length; bindCount >= 0; bindCount -= 1) {
+      const card = cardFor(contentCount, bindCount);
+      if (JSON.stringify(card).length <= budgetChars) return card;
+    }
   }
   return withCost(base);
 }

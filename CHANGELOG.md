@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — real example with every pick
+
+Sep 28, 2026 IST. Recommend, resolve, and recipe picks include `ex`: a real populated instance (file key, node id, screen, compact config) or an explicit “no real example known”. `get_example` / `resolve example` returns the full config. Clone that instance and replace content; do not start from the default variant. A populated shape verified on 3 screens becomes the preferred example (SOCK). Bind rules still change only through human-approved SOCI suggestions.
+
+`verify_frame` fails known leftover template text and warns on leftover default copy and an oversized fixed height. Recommend and verify cards stay within 600 characters. Resolve and recipe cards stay within 2000.
+
 ## Unreleased — component picking
 
 Recommend leads with name, token, and synonym. Screen, journey, and usage only break ties among those matches, so a busy screen cannot outrank a master the words actually name. A multi-word master matches as a phrase before a single generic token (`button`, `bar`) counts. A typo is checked only when nothing else matched: the whole name with spaces removed, at least 5 letters, one missing letter or a neighbouring swap, and only when a single master wins. `scoreboard/regression` locks those ranking bugs. It is not a measure of unseen phrasing. A slot such as `primary-cta` is the component role when the intent does not already name a master (`sign in`). A journey step such as `summary` stays context. A 600-character recommend card keeps the place-ready top hit (score included) and up to two shorter options that still carry `fileKey` and `figmaNodeId`. Synonyms live in `src/data/synonyms.json`. Asking for a deprecated name returns the live replacement (`replaces Legacy Banner (deprecated)`); resolve returns the exact-case master, flagged, plus that replacement. A different casing returns the live replacement. Private `_` / `.` masters return only on an exact-case name. Resolve accepts the same screen, journey, and domain context as recommend. The checkout recipe's primary button slot defaults to Pay CTA. A `tools` object overrides that tool only. `["recipe"]` still scores recommend and resolve. A first-run delta is null.

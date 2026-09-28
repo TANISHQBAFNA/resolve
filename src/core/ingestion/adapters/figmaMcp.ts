@@ -235,6 +235,22 @@ function toSourceNode(
 
   if (element.attrs["hidden"] === "true") node.visible = false;
 
+  const characters = element.attrs["characters"];
+  if (characters) node.characters = characters;
+  else if (type === "TEXT" && name !== "(unnamed)") node.characters = name;
+  const sizingVertical = element.attrs["layoutSizingVertical"];
+  if (sizingVertical) node.layoutSizingVertical = sizingVertical;
+  const sizingHorizontal = element.attrs["layoutSizingHorizontal"];
+  if (sizingHorizontal) node.layoutSizingHorizontal = sizingHorizontal;
+  const primaryAxis = element.attrs["primaryAxisSizingMode"];
+  if (primaryAxis) node.primaryAxisSizingMode = primaryAxis;
+  const counterAxis = element.attrs["counterAxisSizingMode"];
+  if (counterAxis) node.counterAxisSizingMode = counterAxis;
+  const minHeight = Number(element.attrs["minHeight"]);
+  if (Number.isFinite(minHeight) && element.attrs["minHeight"]) node.minHeight = minHeight;
+  const minWidth = Number(element.attrs["minWidth"]);
+  if (Number.isFinite(minWidth) && element.attrs["minWidth"]) node.minWidth = minWidth;
+
   if (type === "INSTANCE") {
     const componentId = inferredComponentId(name);
     node.componentId = componentId;

@@ -17,8 +17,8 @@ MIT licensed. Free to use. The longer walkthrough is the [designer guide](docs/G
 Checkout summary, as the example.
 
 1. **Ask.** “Checkout summary with a primary button.”
-2. **The right component.** Resolve returns your library’s Primary button: the real component, its file, and its id. The agent places that existing button.
-3. **Check.** After the screen exists, run the check (`verify_frame` on that frame). A pass means the pieces are real library components. You still decide whether the screen looks right.
+2. **The right component.** Resolve returns your library’s Primary button: the real component, its file, and its id, plus a real instance to clone. The agent clones that instance and replaces the content. It does not start from the bare default.
+3. **Check.** After the screen exists, run the check (`verify_frame` on that frame). Leftover template text fails. A pass means the pieces are real library components. You still decide whether the screen looks right.
 
 ---
 
@@ -52,6 +52,7 @@ How the repo set is built: [scoreboard](docs/SCOREBOARD.md).
 
 Newest first. Dates are IST (India Standard Time).
 
+- **Sep 28, 2026.** Real example with every pick. Each recommend, resolve, and recipe pick points at a real populated instance (`ex`). `get_example` / `resolve example` returns the file, screen, variant, structure, and sizing. Clone that instance and replace the content. Do not start from the default variant. If none is known, the card says so. The same populated shape on 3 verified screens becomes the preferred example. `verify_frame` fails leftover template text such as “Request Bank Certificate”, and warns on leftover default copy and an oversized fixed height. Recommend and verify cards stay within 600 characters (max 599 and 522 on the fixture). Resolve and recipe stay within 2000 (max 1053 and 1009). Repo set stays 118/118 top-1, invent 0, leak 0.
 - **Sep 28, 2026 — [PR #18](https://github.com/TANISHQBAFNA/resolve/pull/18).** Fix library verify, Figma metadata, and Claude setup. Claude Desktop and Claude Code setup. `verify_frame` approves only real library masters. `check_cousins` fixes, including a team’s own copy of Price. More Figma metadata formats. A Node 22.12 check. Long “Set / Variant” names stay inside the card size limit.
 - **Sep 28, 2026 — [PR #19](https://github.com/TANISHQBAFNA/resolve/pull/19).** Keep component picks when words describe the component (cart badge, login field). Asks like “cart badge” and “login field” now return the right component.
 - **Sep 27, 2026 — [PR #17](https://github.com/TANISHQBAFNA/resolve/pull/17).** Rank component picks by name before screen context.
@@ -136,6 +137,7 @@ npm run resolve -- ingest '<figma-url>'
 npm run resolve -- recipe list
 npm run resolve -- recipe "checkout summary"
 npm run resolve -- recommend "checkout summary with primary button"
+npm run resolve -- example "Main Card"
 npm run resolve -- verify "Checkout Summary"
 ```
 

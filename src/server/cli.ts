@@ -27,6 +27,7 @@ import {
   describeRole,
   parseIngestRole,
   recommendMasters,
+  exampleCard,
   toGraphReportMarkdown,
   verifyFrame,
   WORKSPACE_FILE_ROLES,
@@ -110,7 +111,11 @@ function usage(): void {
       "      Ranked masters: name/intent first (exact, token, synonym). Context and usage break ties.",
       "      Context cannot pull in a name-irrelevant master. Deprecated names return the live replacement.",
       "      Top hit is place-ready. Hits 2–3 are name, id, and a short reason. Cap 600 chars.",
-      "      Each hit has a one-line why from SOCK facts (or 'no usage yet'). Place returned ids only.",
+      "      Each hit has ex: a real instance node id, or says when no real example is known.",
+      "      Each hit has a one-line why from SOCK facts (or 'no usage yet'). Clone ex; do not start from the default.",
+      `  resolve example "<name>" [--id] ${PACK_BIND_FLAGS}`,
+      "      Full config for ex: file key, node id, screen, variant, structure, sizing.",
+      "      Clone this instance and replace content; do not start from the default variant.",
       `  resolve resolve "<name>" [--id] [--budget <chars>] ${PACK_BIND_FLAGS} [--screen-type <kind>]`,
       "      I know the name, give me the id. Exact master always returns id + fileKey + figmaNodeId, even with zero usage.",
       "      Optional screen type / journey / domain, same as recommend, breaks ties between cousins.",
@@ -391,6 +396,25 @@ export async function runCli(argv: string[]): Promise<void> {
           sock,
           bindRules,
         ),
+      );
+      return;
+    }
+
+    case "example": {
+      const name = positionals(args)[0];
+      if (!name) throw new Error('Usage: resolve example "<name>"');
+      const bind = bindFromFlags(args);
+      const pack = packForRecommend(bind);
+      const screenType = flag(args, "screen-type");
+      const context = pack || screenType
+        ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
+        : undefined;
+      printJson(
+        exampleCard(requireGraph(args).index, name, {
+          ...(context ? { context } : {}),
+          workspace: bind.workspace,
+          sock: readSock(),
+        }),
       );
       return;
     }

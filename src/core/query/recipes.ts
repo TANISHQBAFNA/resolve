@@ -12,6 +12,7 @@ import {
   withCost,
   type RecommendCandidate,
 } from "./agentSurface";
+import { examplePointer, type ExampleQuery } from "./examples";
 import { placeReady } from "./placeReady";
 import { usageAllowsRecipeFill, type SockState } from "./sock";
 import { whyLineForMaster, mergeBindRules, type BindRulesFile } from "./bindRules";
@@ -64,6 +65,8 @@ export interface RecipeMaster {
   deprecated: boolean;
   hint?: string;
   why?: string;
+  /** Real instance node id, `nodeId@screen`, or the no-example sentence. */
+  ex?: string;
 }
 
 export interface FilledSlot {
@@ -460,7 +463,23 @@ export function slotRecommendIntent(
     .join(" ");
 }
 
-function masterFromNode(index: GraphIndex, node: GraphNode, hint: string, sock?: SockState): RecipeMaster {
+function exampleQueryFor(index: GraphIndex, sock?: SockState, pack?: ContextPack): ExampleQuery {
+  return {
+    sock,
+    graphFileKey: index.graph.fileKey,
+    product: pack?.product?.name || pack?.product?.id,
+    journey: pack?.journey?.screenJob || pack?.journey?.step,
+    domain: pack?.domain,
+  };
+}
+
+function masterFromNode(
+  index: GraphIndex,
+  node: GraphNode,
+  hint: string,
+  sock?: SockState,
+  pack?: ContextPack,
+): RecipeMaster {
   const set = node.componentSetId ? index.getNode(node.componentSetId) : undefined;
   const place = placeReady(node, index.graph.fileKey);
   return {
@@ -474,6 +493,7 @@ function masterFromNode(index: GraphIndex, node: GraphNode, hint: string, sock?:
     deprecated: node.status === "deprecated",
     hint,
     why: whyLineForMaster(node, { sock, graphFileKey: index.graph.fileKey }),
+    ex: examplePointer(index, node, exampleQueryFor(index, sock, pack), "screen"),
   };
 }
 
@@ -493,6 +513,7 @@ function masterFromCandidate(candidate: RecommendCandidate, sock?: SockState, gr
     status: candidate.status,
     deprecated: candidate.deprecated ?? false,
     hint: candidate.hint ?? "Place fileKey + nodeId.",
+    ...(candidate.ex ? { ex: candidate.ex } : {}),
     why: candidate.why || whyLineForMaster(
       { id: candidate.id, name: candidate.name, type: candidate.type as GraphNode["type"], status: candidate.status },
       { sock, graphFileKey },
@@ -550,6 +571,7 @@ function fillSlot(
           master,
           "Deprecated — do not place. Call recommend for a live master for this slot.",
           sock,
+          pack,
         ),
         hint: `Bound master ${master.name} is deprecated. Call recommend "${nextRecommend}".`,
       };
@@ -557,7 +579,7 @@ function fillSlot(
     return {
       ...base,
       status: "bound",
-      master: masterFromNode(index, master, "Place this stored figmaNodeId. It is still in the graph.", sock),
+      master: masterFromNode(index, master, "Place this stored figmaNodeId. It is still in the graph.", sock, pack),
       hint: `Bound ${master.name}. Place its figmaNodeId.`,
     };
   }
@@ -570,7 +592,7 @@ function fillSlot(
     ...(mergedRules.rules.length ? { bindRules: mergedRules } : {}),
   });
   const live = ranked.candidates.filter((candidate): candidate is RecommendCandidate => {
-    if (!("deprecated" in candidate) || !("instances" in candidate)) return false;
+    if (!("deprecated" in candidate) || typeof candidate.instances !== "number") return false;
     return (
       candidate.deprecated === false &&
       Boolean(candidate.figmaNodeId) &&

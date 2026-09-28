@@ -77,6 +77,14 @@ export const SourceNodeSchema: z.ZodType<SourceNode> = z.lazy(() =>
     bounds: SourceBoundsSchema.optional(),
     /** "NONE" | "HORIZONTAL" | "VERTICAL" | "GRID" */
     layoutMode: z.string().optional(),
+    /** TEXT node characters, when the source sent them. */
+    characters: z.string().optional(),
+    layoutSizingHorizontal: z.string().optional(),
+    layoutSizingVertical: z.string().optional(),
+    primaryAxisSizingMode: z.string().optional(),
+    counterAxisSizingMode: z.string().optional(),
+    minHeight: z.number().optional(),
+    minWidth: z.number().optional(),
     hasImageFill: z.boolean().optional(),
 
     /** style slot ("fill" | "text" | "effect" | "grid" | "stroke") -> style id */
@@ -107,6 +115,13 @@ export interface SourceNode {
   overrides?: Array<{ id?: string; overriddenFields?: string[] }>;
   bounds?: z.infer<typeof SourceBoundsSchema>;
   layoutMode?: string;
+  characters?: string;
+  layoutSizingHorizontal?: string;
+  layoutSizingVertical?: string;
+  primaryAxisSizingMode?: string;
+  counterAxisSizingMode?: string;
+  minHeight?: number;
+  minWidth?: number;
   hasImageFill?: boolean;
   styleIds?: Record<string, string>;
   variableIds?: Record<string, string>;

@@ -1,6 +1,6 @@
 ---
 name: resolve
-description: Use Resolve before any Figma screen build or design-from-brief work in Cursor. Forced path: ingest each linked file → (optional context pack / recipe) → recommend unbound slots → place returned ids only → verify_frame → cousins when a multi-file workspace exists. Never Read graph.json. Never invent components.
+description: Use Resolve before any Figma screen build or design-from-brief work in Cursor. Forced path: ingest each linked file → (optional context pack / recipe) → recommend unbound slots → get_example → clone that instance and fill → verify_frame → cousins when a multi-file workspace exists. Never Read graph.json. Never invent components.
 ---
 
 # Resolve
@@ -11,11 +11,12 @@ description: Use Resolve before any Figma screen build or design-from-brief work
 
 1. **Learn / ingest** — Figma MCP `get_metadata` → Resolve `learn_library` (fileKey + role=library). Optional `libraries` from `search_design_system`. Secondary: REST ingest with `FIGMA_ACCESS_TOKEN`. Big libraries: checkpointed multi-pass. Re-run when that file changed. Needs a paid Figma MCP seat (Dev/Full) or a token. View/free seats: low quota; resume.
 2. **Recipe** — if the screen job matches a pack (`recipe list` / `recipe "<job>"`). After ingest, slots bind to live `figmaNodeId`s. Overlay `.graphify/recipes.json` still wins. Optional `.graphify/context-packs.json` scopes product + journey + domain (slot fills + `nextRecommend`). Packs may name `files` and optional `client`. Optional `--pack` / `--product` / `--journey` / `--domain`.
-3. **Recommend** — every unbound / missing / deprecated slot. Use that slot’s `nextRecommend` query. Prefers DS library masters when `.graphify/workspace.json` has a library-role file. Optional `--pack` / `--product` / `--journey` / `--domain` (or the active pack).
-4. **Place** — Figma MCP (`use_figma` / `get_design_context`) on returned ids **only**. Cards stamp `fileKey` + `figmaNodeId` (ids collide across files). Placing into a different file needs the library published and `search_design_system` output passed as `libraries`; otherwise build inside the library file.
-5. **Verify** — `verify_frame` on the new frame or placed names. Same optional `--pack` / `--product` / `--journey` / `--domain`.
-6. **Cousins** — when a library file and a product/client file are linked, `cousins` / `check_cousins` on the product frame or screen job. Unsure means stop. Do not invent a master.
-7. **Human taste** — stop. Do not over-generate.
+3. **Recommend** — every unbound / missing / deprecated slot. Use that slot’s `nextRecommend` query. Prefers DS library masters when `.graphify/workspace.json` has a library-role file. Optional `--pack` / `--product` / `--journey` / `--domain` (or the active pack). Each pick has `ex`: a real instance node id, or the sentence that no real example is known.
+4. **Example** — `get_example` / `resolve example "<name>"` for file key, screen, variant, structure, and sizing. Clone that instance and replace content. Do not start from the default variant. A missing example means ask the designer or open a screen that uses it.
+5. **Place** — Figma MCP (`use_figma` / `get_design_context`) on returned ids **only**. Cards stamp `fileKey` + `figmaNodeId` (ids collide across files). Placing into a different file needs the library published and `search_design_system` output passed as `libraries`; otherwise build inside the library file.
+6. **Verify** — `verify_frame` on the new frame or placed names. Same optional `--pack` / `--product` / `--journey` / `--domain`. Known placeholder text fails. Leftover default copy and an oversized fixed height warn.
+7. **Cousins** — when a library file and a product/client file are linked, `cousins` / `check_cousins` on the product frame or screen job. Unsure means stop. Do not invent a master.
+8. **Human taste** — stop. Do not over-generate.
 
 Prefer **resolve** over any `keyline` / `graphify` alias. `npm run keyline` is a deprecated alias this release.
 
@@ -36,6 +37,7 @@ npm run resolve -- recommend "checkout with primary button and input"
 npm run resolve -- recommend "primary button" --pack storefront-checkout-summary
 npm run resolve -- recommend "primary button" --product Storefront --journey summary --domain checkout
 npm run resolve -- resolve "Main Card"            # I know the name — always returns id + fileKey + figmaNodeId
+npm run resolve -- example "Main Card"            # full config for the ex pointer
 npm run resolve -- where                          # store path + builtAt (same as MCP list_graphs.store)
 npm run resolve -- ingest screen.xml --from-metadata --file-key KEY --name "Library"
 npm run resolve -- verify "Checkout Summary"
@@ -56,13 +58,13 @@ Optional allow/deny: `.graphify/library-rules.json` `{ "allow": ["Button"], "den
 
 Designers edit `src/data/recipes.json` or overlay `.graphify/recipes.json`. Product + journey + domain: `.graphify/context-packs.json`. Linked files: `.graphify/workspace.json` (see `docs/GUIDE.md`). Do not invent `defaultMasterId`s or Figma node ids in packs.
 
-Skill tools: `list_recipes`, `recipe` / `get_recipe`, `recommend`, `resolve`, `verify_frame`, `check_cousins`, `get_screen_inventory`, `check_frame` (analog shortcut).
+Skill tools: `list_recipes`, `recipe` / `get_recipe`, `recommend`, `resolve`, `get_example`, `verify_frame`, `check_cousins`, `get_screen_inventory`, `check_frame` (analog shortcut).
 
 ## Caps
 
 | Level | When |
 |-------|------|
-| **Level-1** (default) | Single component / local edit — recipe or recommend + place + verify |
+| **Level-1** (default) | Single component / local edit — recipe or recommend + example + clone + verify |
 | **Level-2** | Only when blast radius is large (shared masters, multi-screen impact) |
 | **Whole-file** | Only if the user explicitly asks |
 

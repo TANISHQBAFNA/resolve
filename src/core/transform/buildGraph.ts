@@ -244,6 +244,13 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
 
     const metadata: Record<string, unknown> = { figmaType: source.type };
     if (source.layoutMode) metadata["layoutMode"] = source.layoutMode;
+    if (source.characters) metadata["text"] = source.characters;
+    if (source.layoutSizingHorizontal) metadata["layoutSizingHorizontal"] = source.layoutSizingHorizontal;
+    if (source.layoutSizingVertical) metadata["layoutSizingVertical"] = source.layoutSizingVertical;
+    if (source.primaryAxisSizingMode) metadata["primaryAxisSizingMode"] = source.primaryAxisSizingMode;
+    if (source.counterAxisSizingMode) metadata["counterAxisSizingMode"] = source.counterAxisSizingMode;
+    if (source.minHeight !== undefined) metadata["minHeight"] = source.minHeight;
+    if (source.minWidth !== undefined) metadata["minWidth"] = source.minWidth;
     if (source.visible === false) metadata["hidden"] = true;
     if (source.children?.length) metadata["sourceChildCount"] = source.children.length;
     if (source.componentProperties) metadata["componentProperties"] = source.componentProperties;
