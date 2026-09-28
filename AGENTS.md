@@ -43,7 +43,7 @@ npm run resolve -- cousins "Checkout Summary"   # when a library + product file 
 | 1. Ingest | No graph, or a linked Figma file changed | `ingest '<url>'` (`--role library\|product\|client`). Each linked file as needed. |
 | 2. Context / recipe | Screen job matches a pack (checkout, sign-in, empty state, …). Optional `.graphify/context-packs.json` scopes product + journey + domain. Packs may name `files` and optional `client`. | `recipe list` then `recipe "<job>"` (optional `--pack` / `--product` / `--journey` / `--domain`) |
 | 3. Recommend | Slot is unbound / missing / deprecated. Prefers DS library masters when workspace has a library-role file. | `recommend "<nextRecommend>"` (optional `--pack` / `--product` / `--journey` / `--domain`) |
-| 4. Place | Drawing in Figma | returned `figmaNodeId`s **only** (cards also stamp `fileKey`) |
+| 4. Place | Drawing in Figma | returned `figmaNodeId`s **only** (cards also stamp `fileKey`). A different file needs the library published and `search_design_system` output passed as `libraries`; otherwise build inside the library file. |
 | 5. Verify | After the draw | `verify_frame` on the frame or placed names (optional `--pack` / `--product` / `--journey` / `--domain`) |
 | 6. Cousins | Multi-file workspace exists (library + product/client) | `cousins` / `check_cousins` on the product frame or `--job` |
 

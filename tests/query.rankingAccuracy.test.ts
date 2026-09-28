@@ -48,7 +48,7 @@ describe("recommend name match beats screen usage", () => {
   const index = fixtureIndex();
 
   it("ranks everyday asks by name, not by a busier neighbor", () => {
-    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button Primary");
+    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button / Style=Primary");
     expect(topName(index, "page header").candidates[0]?.name).toBe("Header Bar");
     expect(topName(index, "user avatar").candidates[0]?.name).toBe("Avatar");
     expect(topName(index, "price label").candidates[0]?.name).toBe("Price");
@@ -77,7 +77,9 @@ describe("recommend name match beats screen usage", () => {
     expect(
       topName(index, "checkout summary", { screenType: "checkout", journey: "payment", slot: "primary-cta" }).candidates[0]?.name,
     ).toBe("Pay CTA");
-    expect(topName(index, "sign in", { slot: "primary-cta" }).candidates[0]?.name).toBe("Button Primary");
+    expect(topName(index, "sign in", { slot: "primary-cta" }).candidates[0]?.name).toBe(
+      "Button / Style=Primary",
+    );
   });
 
   it("fits two or three candidates in the 600-character card", () => {
@@ -109,7 +111,7 @@ describe("phrase match and typos", () => {
     expect(topName(index, "navigation item").candidates[0]?.name).toBe("Nav Item");
     expect(topName(index, "check box").candidates[0]?.name).toBe("Checkbox");
     expect(topName(index, "page header").candidates[0]?.name).toBe("Header Bar");
-    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button Primary");
+    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button / Style=Primary");
     const mainAction = topName(index, "main action button").candidates[0]?.name;
     expect(mainAction).toBeTruthy();
     expect(mainAction).not.toBe("Pay CTA");
@@ -188,7 +190,7 @@ describe("phrase match and typos", () => {
     expect(topName(index, "close button").candidates[0]?.name).toBe("Icon Close");
     expect(topName(index, "toast message").candidates[0]?.name).toBe("Toast");
     expect(topName(index, "total price").candidates[0]?.name).toBe("Price");
-    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button Primary");
+    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button / Style=Primary");
     expect(topName(index, "on off switch").candidates[0]?.name).toBe("Switch");
     expect(topName(index, "headshot").candidates[0]?.name).toBe("Avatar");
     expect(topName(index, "masthead").candidates[0]?.name).toBe("Header Bar");

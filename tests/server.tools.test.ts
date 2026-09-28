@@ -75,30 +75,42 @@ describe("agent tools", () => {
 
   it("list_recipes returns the starter pack without a stored graph", () => {
     const result = callTool("list_recipes", {}) as {
-      recipes: Array<{
+      recipes?: Array<{
         id: string;
         slots: Array<{ status: string; master?: unknown; nextRecommend?: string }>;
       }>;
+      recipe?: {
+        id: string;
+        slots?: Array<{ status: string; master?: unknown; nextRecommend?: string }>;
+      };
+      also?: string[];
     };
-    expect(result.recipes.some((recipe) => recipe.id === "checkout-summary")).toBe(true);
-    const checkout = result.recipes.find((recipe) => recipe.id === "checkout-summary");
-    expect(checkout?.slots.every((slot) => slot.status === "unbound")).toBe(true);
-    expect(checkout?.slots.every((slot) => !slot.master)).toBe(true);
-    expect(checkout?.slots.some((slot) => slot.nextRecommend)).toBe(true);
+    expect(JSON.stringify(result).length).toBeLessThanOrEqual(2000);
+    const listed = result.recipes?.find((recipe) => recipe.id === "checkout-summary");
+    const best = result.recipe?.id === "checkout-summary" ? result.recipe : listed;
+    expect(best?.id).toBe("checkout-summary");
+    expect(best?.slots?.every((slot) => slot.status === "unbound")).toBe(true);
+    expect(best?.slots?.every((slot) => !slot.master)).toBe(true);
+    if (result.recipes) {
+      expect(best?.slots?.some((slot) => slot.nextRecommend)).toBe(true);
+    } else {
+      expect(result.also?.length).toBeGreaterThan(0);
+    }
   });
 
   it("list_recipes binds live masters when a graph is stored", () => {
     saveGraph(graph);
-    const result = callTool("list_recipes", {}) as {
-      recipes: Array<{
-        id: string;
-        slots: Array<{ role: string; status: string; master?: { id: string; figmaNodeId?: string } }>;
-      }>;
+    const listed = callTool("list_recipes", {}) as { recipes?: unknown; recipe?: { id: string }; also?: string[] };
+    expect(JSON.stringify(listed).length).toBeLessThanOrEqual(2000);
+    const result = callTool("recipe", { query: "checkout summary" }) as {
+      recipe?: { id: string };
+      slots: Array<{ role: string; status: string; master?: { id: string; figmaNodeId?: string } }>;
     };
-    const checkout = result.recipes.find((recipe) => recipe.id === "checkout-summary");
-    const bound = checkout?.slots.filter((slot) => slot.status === "filled" || slot.status === "bound");
-    expect(bound?.length).toBeGreaterThan(0);
-    expect(bound?.every((slot) => slot.master?.id && slot.master.figmaNodeId)).toBe(true);
+    expect(result.recipe?.id).toBe("checkout-summary");
+    const bound = result.slots.filter((slot) => slot.status === "filled" || slot.status === "bound");
+    expect(bound.length).toBeGreaterThan(0);
+    expect(bound.every((slot) => slot.master?.id && slot.master.figmaNodeId)).toBe(true);
+    expect(JSON.stringify(result).length).toBeLessThanOrEqual(2000);
   });
 
   it("recipe list binds an active context pack without inventing ids", () => {
@@ -117,18 +129,17 @@ describe("agent tools", () => {
         ],
       }),
     );
-    const result = callTool("list_recipes", {}) as {
-      recipes: Array<{
-        id: string;
-        context?: { id: string; domain?: string };
-        slots: Array<{ master?: unknown; nextRecommend?: string }>;
-      }>;
+    const result = callTool("recipe", { query: "checkout summary" }) as {
+      recipe?: { id: string };
+      context?: { id: string; domain?: string };
+      slots: Array<{ master?: unknown; nextRecommend?: string }>;
     };
-    const checkout = result.recipes.find((recipe) => recipe.id === "checkout-summary");
-    expect(checkout?.context?.id).toBe("storefront-checkout-summary");
-    expect(checkout?.context?.domain).toBe("checkout");
-    expect(checkout?.slots.every((slot) => !slot.master)).toBe(true);
-    expect(checkout?.slots[0]?.nextRecommend).toMatch(/storefront|checkout/i);
+    expect(JSON.stringify(result).length).toBeLessThanOrEqual(2000);
+    expect(result.recipe?.id).toBe("checkout-summary");
+    expect(result.context?.id).toBe("storefront-checkout-summary");
+    expect(result.context?.domain).toBe("checkout");
+    expect(result.slots.every((slot) => !slot.master)).toBe(true);
+    expect(result.slots[0]?.nextRecommend).toMatch(/storefront|checkout/i);
   });
 
   it("recommend accepts product/journey flags on the tool", () => {

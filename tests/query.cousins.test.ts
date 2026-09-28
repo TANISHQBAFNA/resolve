@@ -193,6 +193,161 @@ describe("wrong-cousin report", () => {
     expect(report.hint.toLowerCase()).toMatch(/not sure|do not invent/);
   });
 
+  it("does not flag a same-name library master when the product node is only a name guess", () => {
+    const { index } = cousinLab();
+    const graph = index.graph;
+    graph.nodes.push(
+      n("node:lib-card", "MAIN_COMPONENT", "Summary Card", {
+        figmaNodeId: "4:1",
+        fileKey: "LIB",
+        isMainComponent: true,
+      }),
+      n("node:lib-price", "MAIN_COMPONENT", "Price", {
+        figmaNodeId: "4:2",
+        fileKey: "LIB",
+        isMainComponent: true,
+      }),
+      n("node:guess-card", "MAIN_COMPONENT", "Summary Card", {
+        figmaNodeId: "mcp-name:Summary Card",
+        fileKey: "PROD",
+        isMainComponent: true,
+        metadata: { identity: "inferred-from-name" },
+      }),
+      n("node:guess-price", "MAIN_COMPONENT", "Price", {
+        figmaNodeId: "mcp-name:Price",
+        fileKey: "PROD",
+        isMainComponent: true,
+        metadata: { identity: "inferred-from-name" },
+      }),
+    );
+    const report = checkCousins(indexGraph(graph), {
+      components: ["node:guess-card", "node:guess-price"],
+      workspace,
+    });
+    expect(report.cousins.map((hit) => hit.placed.name)).not.toContain("Summary Card");
+    expect(report.cousins.map((hit) => hit.placed.name)).not.toContain("Price");
+    expect(report.ok).toBeGreaterThan(0);
+  });
+
+  it("still flags a real local copy that shares a library master's name", () => {
+    const { index } = cousinLab();
+    const graph = index.graph;
+    graph.nodes.push(
+      n("node:lib-card", "MAIN_COMPONENT", "Summary Card", {
+        figmaNodeId: "4:1",
+        fileKey: "LIB",
+        isMainComponent: true,
+      }),
+      n("node:lib-price", "MAIN_COMPONENT", "Price", {
+        figmaNodeId: "4:2",
+        fileKey: "LIB",
+        isMainComponent: true,
+      }),
+      n("node:local-card", "MAIN_COMPONENT", "Summary Card", {
+        figmaNodeId: "3:1",
+        fileKey: "PROD",
+        isMainComponent: true,
+      }),
+      n("node:local-price", "MAIN_COMPONENT", "Price", {
+        figmaNodeId: "3:2",
+        fileKey: "PROD",
+        isMainComponent: true,
+      }),
+    );
+    const report = checkCousins(indexGraph(graph), {
+      components: ["node:local-card", "node:local-price"],
+      workspace,
+    });
+    const flagged = report.cousins.map((hit) => hit.placed.name);
+    expect(flagged).toContain("Summary Card");
+    expect(flagged).toContain("Price");
+    expect(report.cousins.every((hit) => hit.expected?.fileKey === "LIB")).toBe(true);
+    expect(report.ok).toBe(0);
+  });
+
+  it("flags local Price and Summary Card on Cart Page even when instances are name guesses", () => {
+    const graph: DesignGraph = {
+      fileKey: "LIB",
+      fileName: "Shared DS",
+      builtAt: FROZEN,
+      source: { kind: "mock", ingestedAt: FROZEN },
+      warnings: [],
+      nodes: [
+        n("file:LIB", "FILE", "Shared DS", { fileKey: "LIB" }),
+        n("node:lib-price", "MAIN_COMPONENT", "Price", {
+          figmaNodeId: "22:3",
+          fileKey: "LIB",
+          isMainComponent: true,
+        }),
+        n("node:lib-card", "MAIN_COMPONENT", "Summary Card", {
+          figmaNodeId: "22:4",
+          fileKey: "LIB",
+          isMainComponent: true,
+        }),
+        n("file:PROD", "FILE", "Storefront", { fileKey: "PROD" }),
+        n("node:cart", "FRAME", "Cart Page", { figmaNodeId: "5:1", fileKey: "PROD" }),
+        n("node:local-price", "MAIN_COMPONENT", "Price", {
+          figmaNodeId: "5:4",
+          fileKey: "PROD",
+          isMainComponent: true,
+        }),
+        n("node:local-card", "MAIN_COMPONENT", "Summary Card", {
+          figmaNodeId: "5:5",
+          fileKey: "PROD",
+          isMainComponent: true,
+        }),
+        n("node:guess-price", "MAIN_COMPONENT", "Price", {
+          figmaNodeId: "mcp-name:Price",
+          fileKey: "PROD",
+          isMainComponent: true,
+          metadata: { identity: "inferred-from-name" },
+        }),
+        n("node:guess-card", "MAIN_COMPONENT", "Summary Card", {
+          figmaNodeId: "mcp-name:Summary Card",
+          fileKey: "PROD",
+          isMainComponent: true,
+          metadata: { identity: "inferred-from-name" },
+        }),
+        n("node:inst-price", "COMPONENT_INSTANCE", "Price", {
+          parentId: "node:cart",
+          mainComponentId: "node:guess-price",
+          figmaNodeId: "5:2",
+          fileKey: "PROD",
+          isInstance: true,
+        }),
+        n("node:inst-card", "COMPONENT_INSTANCE", "Summary Card", {
+          parentId: "node:cart",
+          mainComponentId: "node:guess-card",
+          figmaNodeId: "5:3",
+          fileKey: "PROD",
+          isInstance: true,
+        }),
+      ],
+      edges: [
+        e("NESTS", "node:cart", "node:inst-price"),
+        e("NESTS", "node:cart", "node:inst-card"),
+        e("INSTANCE_OF", "node:inst-price", "node:guess-price"),
+        e("INSTANCE_OF", "node:inst-card", "node:guess-card"),
+      ],
+    };
+    const index = indexGraph(graph);
+    const expectBoth = (report: ReturnType<typeof checkCousins>) => {
+      expect(report.checked).toBe(true);
+      const names = report.cousins.map((hit) => hit.placed.name).sort();
+      expect(names).toEqual(["Price", "Summary Card"]);
+      expect(report.cousins.every((hit) => hit.placed.fileKey === "PROD")).toBe(true);
+      expect(report.cousins.every((hit) => hit.placed.id === "node:local-price" || hit.placed.id === "node:local-card")).toBe(
+        true,
+      );
+      expect(JSON.stringify(report.cousins)).not.toContain("mcp-name:");
+      expect(report.cousins.every((hit) => hit.expected?.fileKey === "LIB")).toBe(true);
+      expect(report.ok).toBe(0);
+    };
+    expectBoth(checkCousins(index, { frame: "Cart Page", workspace }));
+    expectBoth(checkCousins(index, { fileKey: "PROD", workspace }));
+    expectBoth(checkCousins(index, { components: ["Price", "Summary Card"], workspace }));
+  });
+
   it("refuses when the workspace has no library-role file", () => {
     const { index } = cousinLab();
     const report = checkCousins(index, {

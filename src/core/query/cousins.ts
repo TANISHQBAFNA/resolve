@@ -1,5 +1,6 @@
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import {
+  isNameInferredMaster,
   resolveNode,
   withCost,
   type RecommendContext,
@@ -134,6 +135,7 @@ export function checkCousins(
   index: GraphIndex | undefined,
   input: {
     frame?: string;
+    fileKey?: string;
     components?: string[];
     job?: string;
     recipes?: Recipe[];
@@ -178,19 +180,66 @@ export function checkCousins(
     placed.push(master);
   };
 
+  const fileOf = (node: GraphNode) => (nodeFileKey(node, fallback) ?? "").toLowerCase();
+
+  /** Real component defined in the same file. Remote library stubs and name guesses do not count. */
+  const sameFileLocalMaster = (master: GraphNode): GraphNode | undefined => {
+    const file = fileOf(master);
+    const name = master.name.trim().toLowerCase();
+    if (!file || !name) return undefined;
+    return index.getNodesByType("COMPONENT_SET", "MAIN_COMPONENT", "VARIANT").find((node) => {
+      if (node.id === master.id || node.isRemote || isNameInferredMaster(node)) return false;
+      if (isLibraryMaster(node, workspace, index, fallback)) return false;
+      return node.name.trim().toLowerCase() === name && fileOf(node) === file;
+    });
+  };
+
+  const localCopiesNamed = (name: string): GraphNode[] => {
+    const needle = name.trim().toLowerCase();
+    if (!needle) return [];
+    return index.getNodesByType("COMPONENT_SET", "MAIN_COMPONENT", "VARIANT").filter((node) => {
+      if (node.isRemote || isNameInferredMaster(node)) return false;
+      if (isLibraryMaster(node, workspace, index, fallback)) return false;
+      return node.name.trim().toLowerCase() === needle;
+    });
+  };
+
+  const pushPlacement = (master: GraphNode | undefined) => {
+    if (!master) return;
+    if (isNameInferredMaster(master)) {
+      pushMaster(sameFileLocalMaster(master) ?? master);
+      return;
+    }
+    pushMaster(master);
+  };
+
   let frameNode: GraphNode | undefined;
   if (input.frame?.trim()) {
     frameNode = resolveNode(index, input.frame.trim());
     if (frameNode) {
       for (const instance of index.getNestedInstances(frameNode.id)) {
-        pushMaster(index.getMainComponent(instance.id));
+        pushPlacement(index.getMainComponent(instance.id));
       }
     }
   }
+  const fileKey = input.fileKey?.trim().toLowerCase();
+  if (fileKey) {
+    for (const instance of index.getNodesByType("COMPONENT_INSTANCE")) {
+      if (fileOf(instance) !== fileKey) continue;
+      pushPlacement(index.getMainComponent(instance.id));
+    }
+  }
   for (const raw of input.components ?? []) {
-    const node = resolveNode(index, raw.trim());
-    if (!node) continue;
-    pushMaster(asMaster(index, node));
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const node = resolveNode(index, trimmed);
+    const master = node ? asMaster(index, node) : undefined;
+    const copies = localCopiesNamed(master?.name ?? trimmed);
+    if (copies.length) {
+      for (const copy of copies) pushMaster(copy);
+      continue;
+    }
+    pushPlacement(master);
   }
 
   if (!placed.length) {
@@ -220,9 +269,23 @@ export function checkCousins(
       ok += 1;
       continue;
     }
+    const placedName = master.name.trim().toLowerCase();
+    // A guessed instance name is not a second master — unless this file already
+    // defines a real component with that name. That local copy is the cousin.
+    const localCopy = isNameInferredMaster(master) ? sameFileLocalMaster(master) : undefined;
+    const subject = localCopy ?? master;
+    if (
+      !localCopy &&
+      isNameInferredMaster(master) &&
+      placedName &&
+      libraryMasters.some((candidate) => candidate.name.trim().toLowerCase() === placedName)
+    ) {
+      ok += 1;
+      continue;
+    }
 
-    const set = master.componentSetId ? index.getNode(master.componentSetId) : undefined;
-    const slot = filled?.slots.find((row) => hintHit(master, set?.name, row.hints) > 0);
+    const set = subject.componentSetId ? index.getNode(subject.componentSetId) : undefined;
+    const slot = filled?.slots.find((row) => hintHit(subject, set?.name, row.hints) > 0);
     const expectedFromSlot =
       slot?.master && slot.status !== "deprecated"
         ? index.getNode(slot.master.id)
@@ -232,9 +295,9 @@ export function checkCousins(
         ? expectedFromSlot
         : undefined;
 
-    if (expectedLibrary && !sameFamily(master, expectedLibrary)) {
+    if (expectedLibrary && !sameFamily(subject, expectedLibrary)) {
       cousins.push({
-        placed: stamp(master, fallback),
+        placed: stamp(subject, fallback),
         role: slot?.role,
         expected: stamp(expectedLibrary, fallback),
         why: "same role, different master family than the shared DS library",
@@ -245,18 +308,18 @@ export function checkCousins(
 
     const scored = libraryMasters
       .map((candidate) => {
-        const overlap = nameOverlap(master, candidate, set ? tokensOf(set.name) : []);
+        const overlap = nameOverlap(subject, candidate, set ? tokensOf(set.name) : []);
         const score = overlap.specific.length * 4 + overlap.shared.length;
         return { candidate, overlap, score };
       })
-      .filter((row) => row.score > 0 && !sameFamily(master, row.candidate))
+      .filter((row) => row.score > 0 && !sameFamily(subject, row.candidate))
       .sort((a, b) => b.score - a.score || a.candidate.name.localeCompare(b.candidate.name));
 
     const top = scored[0];
     const runnerUp = scored[1];
     if (!top) {
       unsure.push({
-        placed: stamp(master, fallback),
+        placed: stamp(subject, fallback),
         why: "no confident library match — will not invent a master",
         confidence: "unsure",
       });
@@ -264,7 +327,7 @@ export function checkCousins(
     }
     if (top.overlap.specific.length === 0 && top.overlap.shared.length < 2) {
       unsure.push({
-        placed: stamp(master, fallback),
+        placed: stamp(subject, fallback),
         why: "name match is only a generic word — not sure this is a cousin",
         confidence: "unsure",
       });
@@ -272,7 +335,7 @@ export function checkCousins(
     }
     if (runnerUp && runnerUp.score === top.score) {
       unsure.push({
-        placed: stamp(master, fallback),
+        placed: stamp(subject, fallback),
         why: "several library masters match equally — not sure which family is expected",
         confidence: "unsure",
       });
@@ -280,7 +343,7 @@ export function checkCousins(
     }
 
     cousins.push({
-      placed: stamp(master, fallback),
+      placed: stamp(subject, fallback),
       role: slot?.role,
       expected: stamp(top.candidate, fallback),
       why: "same role or weak name match, different master family / file than the DS library",

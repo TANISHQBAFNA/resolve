@@ -1,5 +1,11 @@
 {
   "name": "resolve-figma",
   "description": "Resolve — Figma rules. Agents resolve. Ingest a node, then resolve a component name for a usage card. Do not dump graph.json.",
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "mcpServers": {
+    "resolve": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist-server/mcp.mjs"]
+    }
+  }
 }

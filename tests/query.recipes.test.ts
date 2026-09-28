@@ -3,8 +3,10 @@ import type { DesignGraph } from "@/core/model";
 import {
   fillRecipe,
   indexGraph,
+  capRecipePayload,
   listRecipes,
   matchRecipe,
+  RECIPE_RESPONSE_BUDGET,
   mergeRecipes,
   parseRecipeFile,
   recipeCard,
@@ -342,5 +344,33 @@ describe("recipe slot fill", () => {
     expect(signIn?.slots[0]?.status).toBe("missing");
     expect(signIn?.slots[0]?.master).toBeUndefined();
     expect(signIn?.slots[0]?.nextRecommend).toMatch(/button/i);
+  });
+});
+
+describe("recipe response budget", () => {
+  it("returns the best recipe plus the other names when several matches exceed 2000 characters", () => {
+    const recipes = Array.from({ length: 6 }, (_, index) => ({
+      id: `pack-${index}`,
+      title: `Pack ${index}`,
+      intentAliases: ["shared job"],
+      notes: "n".repeat(280),
+      slots: Array.from({ length: 4 }, (_, slot) => ({
+        role: `role-${slot}`,
+        required: true,
+        status: "unbound" as const,
+        nextRecommend: "recommend this long slot query ".repeat(6),
+      })),
+    }));
+    const listed = { recipes, hint: "full list" };
+    expect(JSON.stringify(listed).length).toBeGreaterThan(RECIPE_RESPONSE_BUDGET);
+    const capped = capRecipePayload(listed);
+    expect(JSON.stringify(capped).length).toBeLessThanOrEqual(RECIPE_RESPONSE_BUDGET);
+    expect(capped).toEqual(
+      expect.objectContaining({
+        recipe: expect.objectContaining({ id: "pack-0", title: "Pack 0" }),
+        also: expect.arrayContaining(["Pack 1", "Pack 2"]),
+      }),
+    );
+    expect(capped).not.toHaveProperty("recipes");
   });
 });

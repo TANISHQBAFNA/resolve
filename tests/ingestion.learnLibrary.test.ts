@@ -3,17 +3,17 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { learnLibrary } from "@/server/learn";
-import { clearCache, loadGraph, loadLearnCheckpoint } from "@/server/store";
+import { clearCache, loadGraph, loadLearnCheckpoint, readSock, readWorkspace } from "@/server/store";
 import { placeReady } from "@/core/query/placeReady";
 import {
   applyPublishedCatalog,
   extractLearnOutline,
+  LEARN_PRODUCT_EMPTY,
+  LEARN_ZERO_COMPONENTS,
   removedMastersByAbsence,
 } from "@/core/ingestion/learnLibrary";
+import { checkCousins, componentUsageCard, indexGraph, recommendMasters, verifyFrame } from "@/core/query";
 import { emptyGraph } from "@/core/model";
-import { recommendMasters } from "@/core/query";
-import { indexGraph } from "@/core/query";
-import { readSock } from "@/server/store";
 
 /** Real-shaped Figma MCP get_metadata output (prose wrapper + XML). */
 const SCREEN_XML = `
@@ -288,5 +288,217 @@ describe("learn_library from Figma MCP get_metadata", () => {
     const result = learnLibrary({ fileKey: "LIB", role: "library", metadataXml: SCREEN_XML });
     expect(result.gaps[0]?.missing).toBe("componentKey");
     expect(result.gaps[0]?.hint).toMatch(/search_design_system|get_libraries/);
+  });
+
+  it("warns instead of success when a library learn has no real components", () => {
+    const result = learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      metadataXml: `
+        <frame id="1:1" name="Checkout">
+          <instance id="1:2" name="Fancy Pay Button" />
+        </frame>
+      `,
+    });
+    expect(result.learned).toBe(false);
+    expect(result.hint).toBe(LEARN_ZERO_COMPONENTS);
+    expect(result.progress).toBe(LEARN_ZERO_COMPONENTS);
+    expect(result.hint).not.toMatch(/Next: recipe or recommend/);
+  });
+
+  it("records a product learn when screens or usage were learned", () => {
+    const instances = learnLibrary({
+      fileKey: "PROD",
+      role: "product",
+      metadataXml: `
+        <frame id="1:1" name="Checkout">
+          <instance id="1:2" name="Fancy Pay Button" />
+        </frame>
+      `,
+    });
+    expect(instances.learned).toBe(true);
+    expect(instances.hint).not.toBe(LEARN_ZERO_COMPONENTS);
+    expect(instances.hint).not.toMatch(/library complete/);
+    expect(instances.progress).toMatch(/product screens recorded/);
+    expect(instances.hint).toMatch(/Usage is saved/);
+
+    const locals = learnLibrary({
+      fileKey: "PROD2",
+      role: "product",
+      metadataXml: `
+        <frame id="3:1" name="Checkout Review">
+          <component id="3:2" name="Price" />
+        </frame>
+      `,
+    });
+    expect(locals.learned).toBe(true);
+    expect(locals.progress).toBe("learned 1 of 1 pages; product screens recorded");
+    expect(locals.progress).not.toMatch(/library complete/);
+    expect(locals.hint).not.toBe(LEARN_PRODUCT_EMPTY);
+  });
+
+  it("does not approve product instance names, and does not flag same-name library masters as cousins", () => {
+    learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      metadataXml: `
+        <frame id="9:0" name="Components">
+          <component id="9:1" name="Summary Card" />
+          <symbol id="9:2" name="Price" />
+        </frame>
+      `,
+    });
+    learnLibrary({
+      fileKey: "PROD",
+      role: "product",
+      metadataXml: `
+        <frame id="2:1" name="Checkout Summary">
+          <instance id="2:2" name="Summary Card" />
+          <instance id="2:3" name="Price" />
+          <instance id="2:4" name="Fancy Pay Button" />
+        </frame>
+      `,
+    });
+    const loaded = loadGraph();
+    expect(loaded).toBeDefined();
+    const index = loaded!.index;
+    const fake = verifyFrame(index, { components: ["Fancy Pay Button"] });
+    expect(fake.pass).toBe(false);
+    expect(fake.approved).toBe(0);
+    expect(fake.invents.some((hit) => hit.name === "Fancy Pay Button")).toBe(true);
+
+    const card = verifyFrame(index, { components: ["Summary Card", "Price"] });
+    expect(card.pass).toBe(true);
+    expect(card.invents).toEqual([]);
+    expect(card.resolved?.map((row) => row.id).every((id) => !String(id).includes("mcp-name:"))).toBe(
+      true,
+    );
+
+    const report = checkCousins(index, {
+      frame: "Checkout Summary",
+      workspace: readWorkspace(),
+    });
+    expect(report.checked).toBe(true);
+    expect(report.ok).toBeGreaterThanOrEqual(2);
+    const flagged = [...report.cousins, ...report.unsure].map((hit) => hit.placed.name);
+    expect(flagged).not.toContain("Summary Card");
+    expect(flagged).not.toContain("Price");
+  });
+
+  it("flags Cart Page instances when the product file also has local Price and Summary Card masters", () => {
+    learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      metadataXml: `
+        <frame id="9:0" name="Components">
+          <component id="22:3" name="Price" />
+          <component id="22:4" name="Summary Card" />
+        </frame>
+      `,
+    });
+    learnLibrary({
+      fileKey: "PROD",
+      role: "product",
+      metadataXml: `
+        <frame id="5:1" name="Cart Page">
+          <instance id="5:2" name="Price" />
+          <instance id="5:3" name="Summary Card" />
+        </frame>
+        <component id="5:4" name="Price" />
+        <component id="5:5" name="Summary Card" />
+      `,
+    });
+    const loaded = loadGraph();
+    expect(loaded).toBeDefined();
+    const index = loaded!.index;
+    const workspace = readWorkspace();
+    const expectBoth = (report: ReturnType<typeof checkCousins>) => {
+      expect(report.checked).toBe(true);
+      const names = report.cousins.map((hit) => hit.placed.name).sort();
+      expect(names).toEqual(["Price", "Summary Card"]);
+      expect(report.cousins.every((hit) => hit.placed.fileKey === "PROD")).toBe(true);
+      expect(report.cousins.every((hit) => !String(hit.placed.id).includes("mcp-name:"))).toBe(true);
+      expect(report.cousins.every((hit) => hit.expected?.fileKey === "LIB")).toBe(true);
+      expect(report.ok).toBe(0);
+    };
+    expectBoth(checkCousins(index, { frame: "Cart Page", workspace }));
+    expectBoth(checkCousins(index, { fileKey: "PROD", workspace }));
+    expectBoth(checkCousins(index, { components: ["Price", "Summary Card"], workspace }));
+  });
+
+  it("places the real library master, not an mcp-name guess, and passes a clashing checkout review", () => {
+    learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      metadataXml: `
+        <frame id="9:0" name="Components">
+          <component id="22:3" name="Price" />
+          <component id="22:4" name="Summary Card" />
+          <instance id="22:9" name="Price" />
+        </frame>
+      `,
+    });
+    learnLibrary({
+      fileKey: "PROD",
+      role: "product",
+      metadataXml: `
+        <frame id="4:1" name="Checkout Review">
+          <component id="4:2" name="Summary Card" />
+          <component id="4:3" name="Price" />
+          <instance id="4:4" name="Summary Card" />
+          <instance id="4:5" name="Price" />
+        </frame>
+        <frame id="4:9" name="Scratch">
+          <instance id="4:6" name="Fancy Pay Button" />
+        </frame>
+      `,
+    });
+    const loaded = loadGraph();
+    expect(loaded).toBeDefined();
+    const index = loaded!.index;
+    const workspace = readWorkspace();
+
+    const recommended = recommendMasters(index, "Price", { workspace });
+    expect(recommended.candidates.length).toBeGreaterThan(0);
+    expect(recommended.candidates[0]).toEqual(expect.objectContaining({ figmaNodeId: "22:3" }));
+    expect(JSON.stringify(recommended)).not.toContain("mcp-name:");
+
+    const fancy = recommendMasters(index, "fancy pay button", { workspace });
+    expect(JSON.stringify(fancy)).not.toContain("mcp-name:");
+    const fancyCard = componentUsageCard(index, "Fancy Pay Button", { workspace });
+    expect(JSON.stringify(fancyCard)).not.toContain("mcp-name:");
+    expect(fancy.candidates.every((candidate) => !candidate.name.toLowerCase().includes("fancy pay"))).toBe(
+      true,
+    );
+
+    const resolved = componentUsageCard(index, "Price", { workspace });
+    expect(resolved).toEqual(
+      expect.objectContaining({
+        found: true,
+        kind: "component",
+      }),
+    );
+    if (resolved.found && resolved.kind === "component") {
+      expect(resolved.component.figmaNodeId).toBe("22:3");
+      expect(resolved.component.figmaNodeId).not.toContain("mcp-name:");
+    }
+
+    const review = verifyFrame(index, {
+      frame: "Checkout Review",
+      components: ["Summary Card", "Price"],
+      workspace,
+    });
+    expect(review.pass).toBe(true);
+    expect(review.approved).toBeGreaterThanOrEqual(2);
+    expect(review.invents).toEqual([]);
+    const approved = (review.resolved ?? []).flatMap((row) => {
+      if (!row.id) return [];
+      const node = index.getNode(row.id);
+      return node ? [node] : [];
+    });
+    expect(approved.length).toBeGreaterThanOrEqual(2);
+    expect(approved.every((node) => node.fileKey === "LIB")).toBe(true);
+    expect(approved.some((node) => node.figmaNodeId === "22:3")).toBe(true);
+    expect(approved.some((node) => node.figmaNodeId === "22:4")).toBe(true);
   });
 });

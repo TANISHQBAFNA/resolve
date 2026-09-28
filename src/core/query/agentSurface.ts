@@ -267,10 +267,12 @@ export function usageCardForComponent(
   let includeSlots = true;
   let limit = Math.max(byScreenMap.size, 1);
   let truncated = false;
+  const inferred = isNameInferredMaster(node);
   const base = {
     component: {
       ...briefNode(node),
-      ...(nodeFileKey(node) ? { fileKey: nodeFileKey(node) } : {}),
+      name: variantCardName(index, node),
+      ...(!inferred && nodeFileKey(node) ? { fileKey: nodeFileKey(node) } : {}),
       variantProperties: node.variantProperties,
       identity: node.metadata?.["identity"],
     },
@@ -278,18 +280,22 @@ export function usageCardForComponent(
     variants: usage.variantCount,
     riskScore: usage.riskScore,
     pages,
-    hint:
-      usage.instanceCount === 0
+    hint: inferred
+      ? "Instance name guess. Not a placeable master. Call recommend for a library component."
+      : usage.instanceCount === 0
         ? "Master is in the graph with this id even with zero instances. Place this figmaNodeId. Usage is additive."
         : "Instance this figmaNodeId in Figma. Do not get_design_context on a parent FRAME.",
   };
-  const place = placeReady(node, index.graph.fileKey);
-  Object.assign(base.component, place);
-  const publishedHint = place.published
-    ? undefined
-    : " Unpublished (local-only) — no published component key. Pass search_design_system / get_libraries to learn_library.";
-  if (publishedHint) {
-    base.hint = `${base.hint}${publishedHint}`;
+  if (inferred) {
+    delete base.component.figmaNodeId;
+    const component = base.component as { id?: string };
+    if (component.id?.includes("mcp-name:")) delete component.id;
+  } else {
+    const place = placeReady(node, index.graph.fileKey);
+    Object.assign(base.component, place);
+    if (!place.published) {
+      base.hint = `${base.hint} Unpublished (local-only) — no published component key. Pass search_design_system / get_libraries to learn_library.`;
+    }
   }
   const why = whyLineForMaster(node, { sock: options.sock, graphFileKey: index.graph.fileKey });
 
@@ -327,19 +333,35 @@ function pickResolveTarget(
   index: GraphIndex,
   name: string,
   context?: RecommendContext,
+  workspace?: WorkspaceManifest,
 ): GraphNode | undefined {
   const trimmed = name.trim();
   if (!trimmed) return undefined;
 
   const direct = index.getNode(trimmed);
-  if (direct) return asResolvedNode(index, direct);
+  if (direct) return placeableNode(index, asResolvedNode(index, direct), workspace);
   for (const node of index.allNodes) {
     if (matchesFigmaId(node, trimmed) || matchesStampedId(node, trimmed, index.graph.fileKey)) {
-      return asResolvedNode(index, node);
+      return placeableNode(index, asResolvedNode(index, node), workspace);
     }
   }
 
-  // Exact display name, including a deprecated or private master.
+  const reals = realMastersNamed(index, trimmed);
+  if (reals.length >= 1) {
+    const chosen =
+      reals.length === 1
+        ? reals[0]!
+        : placeableMasterByName(index, trimmed, workspace) ??
+          [...reals].sort((a, b) => a.id.localeCompare(b.id))[0]!;
+    const card = variantCardName(index, chosen);
+    const exactCase = chosen.name === trimmed || card === trimmed;
+    if (!exactCase && chosen.status === "deprecated" && !isPrivateMaster(index, chosen)) {
+      return liveReplacement(index, chosen) ?? chosen;
+    }
+    return chosen;
+  }
+
+  // No real master. An instance-name guess can still describe usage, but the card is not placeable.
   const caseExact = namedNode(index, (node) => node.name === trimmed);
   if (caseExact) return asResolvedNode(index, caseExact);
 
@@ -356,7 +378,11 @@ function pickResolveTarget(
     }
   }
 
-  const ranked = recommendMasters(index, trimmed, { context, budgetChars: USAGE_CARD_BUDGET });
+  const ranked = recommendMasters(index, trimmed, {
+    context,
+    budgetChars: USAGE_CARD_BUDGET,
+    workspace,
+  });
   const topId = ranked.candidates[0]?.id;
   if (!topId) return undefined;
   const node = index.getNode(topId);
@@ -371,9 +397,14 @@ function pickResolveTarget(
 export function componentUsageCard(
   index: GraphIndex,
   name: string,
-  options: { budgetChars?: number; sock?: SockState; context?: RecommendContext } = {},
+  options: {
+    budgetChars?: number;
+    sock?: SockState;
+    context?: RecommendContext;
+    workspace?: WorkspaceManifest;
+  } = {},
 ) {
-  const node = pickResolveTarget(index, name, options.context);
+  const node = pickResolveTarget(index, name, options.context, options.workspace);
   if (!node) {
     return withCost({
       found: false as const,
@@ -404,7 +435,7 @@ export function componentUsageCard(
       ? {
           replacement: {
             id: replacement.id,
-            name: replacement.name,
+            name: variantCardName(index, replacement),
             ...place,
             why: `replaces ${node.name} (deprecated)`,
           },
@@ -532,7 +563,87 @@ export function sharedComponents(index: GraphIndex, fromId: string, toId: string
 
 export function isPrivateMasterName(name: string): boolean {
   const trimmed = name.trim();
-  return trimmed.startsWith(".") || trimmed.startsWith("_");
+  if (trimmed.startsWith(".") || trimmed.startsWith("_")) return true;
+  const variant = trimmed.split(" / ").at(-1)?.trim() ?? "";
+  return variant !== trimmed && (variant.startsWith(".") || variant.startsWith("_"));
+}
+
+/** Instance layer names guessed by MCP (`mcp-name:`) are not library masters. */
+export function isNameInferredMaster(node: GraphNode): boolean {
+  if (node.metadata?.["identity"] === "inferred-from-name") return true;
+  const id = `${node.id} ${node.figmaNodeId ?? ""}`;
+  return id.includes("mcp-name:");
+}
+
+function realMastersNamed(index: GraphIndex, name: string): GraphNode[] {
+  const needle = name.trim().toLowerCase();
+  if (!needle) return [];
+  const hits: GraphNode[] = [];
+  for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    if (isNameInferredMaster(node)) continue;
+    const raw = node.name.trim().toLowerCase();
+    const card = variantCardName(index, node).trim().toLowerCase();
+    if (raw !== needle && card !== needle) continue;
+    hits.push(node);
+  }
+  return hits;
+}
+
+/**
+ * Real master for a name. Never an `mcp-name:` guess.
+ * When several real masters share the name, the library-role file wins.
+ * A clash with no library-role master returns undefined (do not guess).
+ */
+export function placeableMasterByName(
+  index: GraphIndex,
+  name: string,
+  workspace?: WorkspaceManifest,
+): GraphNode | undefined {
+  const hits = realMastersNamed(index, name);
+  if (hits.length === 0) return undefined;
+  if (hits.length === 1) return hits[0];
+  const library = hits.filter((node) =>
+    isLibraryFileKey(workspace, nodeFileKey(node, index.graph.fileKey)),
+  );
+  if (!library.length) return undefined;
+  library.sort((a, b) => a.id.localeCompare(b.id));
+  return library[0];
+}
+
+/** Id lookup: a guessed main redirects to the real master of that name, or nothing. */
+function placeableNode(
+  index: GraphIndex,
+  node: GraphNode,
+  workspace?: WorkspaceManifest,
+): GraphNode | undefined {
+  if (!isMasterType(node.type) || !isNameInferredMaster(node)) return node;
+  return placeableMasterByName(index, node.name, workspace);
+}
+
+const VARIANT_PROP_NAME = /^[^,=]+=[^,=]+(?:,\s*[^,=]+=[^,=]+)*$/;
+
+function variantLabel(node: GraphNode): string {
+  const name = node.name.trim();
+  if (VARIANT_PROP_NAME.test(name)) return name;
+  const props = node.variantProperties;
+  if (props) {
+    const parts = Object.entries(props)
+      .filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].length > 0)
+      .map(([key, value]) => `${key}=${value}`);
+    if (parts.length) return parts.join(", ");
+  }
+  return name;
+}
+
+/** Card label for a variant: `Button / Type=Primary`. Other nodes keep their name. */
+export function variantCardName(index: GraphIndex, node: GraphNode): string {
+  if (node.type !== "VARIANT") return node.name;
+  const set = node.componentSetId ? index.getNode(node.componentSetId) : undefined;
+  const setName = set?.name.trim();
+  if (!setName) return node.name;
+  const label = variantLabel(node);
+  if (!label || label === setName) return node.name;
+  return `${setName} / ${label}`;
 }
 
 function idVariants(value: string): string[] {
@@ -569,14 +680,23 @@ export function resolveNodeExact(index: GraphIndex, nameOrId: string): GraphNode
   if (direct) return direct;
   const lower = trimmed.toLowerCase();
   let exactName: GraphNode | undefined;
+  let realMaster: GraphNode | undefined;
+  let inferredMaster: GraphNode | undefined;
   for (const node of index.allNodes) {
     if (matchesFigmaId(node, trimmed)) return node;
     if (matchesStampedId(node, trimmed, index.graph.fileKey)) return node;
-    if (node.name.toLowerCase() !== lower) continue;
-    if (isMasterType(node.type)) return node;
+    const nameHit =
+      node.name.toLowerCase() === lower ||
+      (node.type === "VARIANT" && variantCardName(index, node).toLowerCase() === lower);
+    if (!nameHit) continue;
+    if (isMasterType(node.type)) {
+      if (isNameInferredMaster(node)) inferredMaster ??= node;
+      else realMaster ??= node;
+      continue;
+    }
     exactName ??= node;
   }
-  return exactName;
+  return realMaster ?? inferredMaster ?? exactName;
 }
 
 export function resolveNode(index: GraphIndex, nameOrId: string): GraphNode | undefined {
@@ -845,13 +965,15 @@ export function checkFrame(index: GraphIndex, intent: string) {
   const analog = similarUsage(index, intent);
   const avoid = analog.variants.filter((variant) => index.getNode(variant.id)?.status === "deprecated");
   const use = analog.variants.find((variant) => index.getNode(variant.id)?.status !== "deprecated");
+  const useNode = use ? index.getNode(use.id) : undefined;
+  const useLabel = useNode ? variantCardName(index, useNode) : use?.name;
   return withCost({
     intent,
     use: use ?? null,
     avoid,
     similarScreens: analog.screens,
     hint: use
-      ? `Use ${use.set ? `${use.set} / ` : ""}${use.name}. Nested on ${use.on.map((screen) => screen.name).join(", ")}.${
+      ? `Use ${useLabel}. Nested on ${use.on.map((screen) => screen.name).join(", ")}.${
           avoid.length ? ` Avoid deprecated: ${avoid.map((variant) => variant.name).join(", ")}.` : ""
         }`
       : analog.variants.length
@@ -1515,6 +1637,7 @@ function liveReplacement(index: GraphIndex, node: GraphNode): GraphNode | undefi
     if (candidate.id === node.id) return false;
     if (candidate.status === "deprecated") return false;
     if (isPrivateMaster(index, candidate)) return false;
+    if (isNameInferredMaster(candidate)) return false;
     return true;
   });
   const explicit = replacedByName(node);
@@ -1743,6 +1866,7 @@ export function recommendMasters(
   const retired: Scored[] = [];
   let privateCovered = 0;
   for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    if (isNameInferredMaster(node)) continue;
     const set = setOf(index, node);
     if (deniedByRules(index, node, packRules)) continue;
     if (node.metadata?.["removedByAbsence"] === true) continue;
@@ -1829,6 +1953,7 @@ export function recommendMasters(
     const winners: GraphNode[] = [];
     for (const node of index.getNodesByType(...MASTER_TYPES)) {
       if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
+      if (isNameInferredMaster(node)) continue;
       if (deniedByRules(index, node, packRules)) continue;
       if (node.metadata?.["removedByAbsence"] === true) continue;
       if (isRemovedByAbsence(options.sock, node)) continue;
@@ -1925,7 +2050,11 @@ export function recommendMasters(
     );
   }
 
-  kept = withoutGenericCousins(kept, tokens, allowClip);
+  kept = withoutGenericCousins(
+    kept.filter((entry) => !isNameInferredMaster(entry.node)),
+    tokens,
+    allowClip,
+  );
 
   const packJourney = packJourneyPhrase(options.context);
   const bindQuery = {
@@ -1964,7 +2093,7 @@ export function recommendMasters(
       });
     return {
       id: entry.node.id,
-      name: entry.node.name,
+      name: variantCardName(index, entry.node),
       type: entry.node.type,
       ...place,
       variantProperties: entry.node.variantProperties,
@@ -2011,7 +2140,7 @@ export function recommendMasters(
     const why = entry.whyOverride ?? toCandidate(entry, false, 0).why;
     return {
       id: entry.node.id,
-      name: entry.node.name,
+      name: variantCardName(index, entry.node),
       why: shortReason(why),
       ...(place.fileKey ? { fileKey: place.fileKey } : {}),
       ...(place.figmaNodeId ? { figmaNodeId: place.figmaNodeId } : {}),
@@ -2092,6 +2221,9 @@ export function recommendMasters(
     candidates = [lead, ...candidates.slice(1)];
     payload = payloadOf();
   }
+  if (JSON.stringify(payload).length > budgetChars) {
+    shrinkNameFields(payload, budgetChars);
+  }
 
   return withCost(payload);
 }
@@ -2130,6 +2262,7 @@ export function verifyFrame(
     context?: RecommendContext;
     bindRules?: BindRulesFile;
     sock?: SockState;
+    workspace?: WorkspaceManifest;
   } = {},
 ) {
   const invents: VerifyHit[] = [];
@@ -2180,7 +2313,7 @@ export function verifyFrame(
   const stampHit = (node: GraphNode, extra: Omit<VerifyHit, "name" | "id" | "figmaNodeId" | "fileKey"> = {}): VerifyHit => {
     const fileKey = fileOf(node);
     return {
-      name: node.name,
+      name: variantCardName(index, node),
       id: node.id,
       figmaNodeId: node.figmaNodeId,
       ...(fileKey ? { fileKey } : {}),
@@ -2188,7 +2321,24 @@ export function verifyFrame(
     };
   };
 
+  const realMasterByName = (name: string): GraphNode | undefined =>
+    placeableMasterByName(index, name, input.workspace);
+
   const considerMaster = (master: GraphNode, given: string) => {
+    if (isNameInferredMaster(master)) {
+      const real = realMasterByName(master.name) ?? realMasterByName(given);
+      if (real && real.id !== master.id) {
+        considerMaster(real, given);
+        return;
+      }
+      pushUnique(
+        invents,
+        seenInvent,
+        stampHit(master, { reason: "not-a-master", given }),
+        `invent:${master.id}`,
+      );
+      return;
+    }
     if (isPrivateMasterName(master.name)) {
       pushUnique(invents, seenInvent, stampHit(master, { reason: "private", given }), `private:${master.id}`);
       return;
@@ -2241,7 +2391,7 @@ export function verifyFrame(
       const near = searchNodes(index, given, { limit: 8 })
         .map((hit) => asMaster(index, hit.node))
         .find((node): node is GraphNode => Boolean(node));
-      if (near) {
+        if (near && !isNameInferredMaster(near)) {
         const fileKey = fileOf(near);
         pushUnique(
           unresolved,
@@ -2251,7 +2401,7 @@ export function verifyFrame(
             given,
             reason: "not-exact",
             didYouMean: {
-              name: near.name,
+              name: variantCardName(index, near),
               id: near.id,
               ...(fileKey ? { fileKey } : {}),
             },
@@ -2264,19 +2414,27 @@ export function verifyFrame(
       continue;
     }
     const master = asMaster(index, node);
-    const echoed = master ?? node;
+    const preferred =
+      placeableMasterByName(index, given, input.workspace) ??
+      (master ? placeableMasterByName(index, master.name, input.workspace) : undefined);
+    const echoed = preferred ?? master ?? node;
     const fileKey = fileOf(echoed);
     resolved.push({
       given,
-      name: echoed.name,
+      name: variantCardName(index, echoed),
       id: echoed.id,
       ...(fileKey ? { fileKey } : {}),
     });
-    if (!master) {
+    if (!master && !preferred) {
       pushUnique(invents, seenInvent, stampHit(node, { reason: "not-a-master", given }), `invent:${node.id}`);
       continue;
     }
-    considerMaster(master, given);
+    if (!preferred && master && isNameInferredMaster(master)) {
+      considerMaster(master, given);
+      continue;
+    }
+    if (preferred) considerMaster(preferred, given);
+    else if (master) considerMaster(master, given);
   }
 
   const pass = invents.length === 0 && deprecatedHits.length === 0 && unresolved.length === 0;
@@ -2329,12 +2487,84 @@ export function verifyFrame(
 
 const WARNING_OVERFLOW = (count: number) => `and ${count} more warnings`;
 
+const NAME_FLOOR = 16;
+
+/** Drop `given` when it repeats `name`. Only called once a card is already over budget. */
+function dropEchoedGiven(value: unknown): void {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const item of value) dropEchoedGiven(item);
+    return;
+  }
+  const record = value as Record<string, unknown>;
+  if (typeof record["given"] === "string" && record["given"] === record["name"]) {
+    delete record["given"];
+  }
+  for (const child of Object.values(record)) dropEchoedGiven(child);
+}
+
+function collectNameSlots(
+  value: unknown,
+  slots: Array<{ parent: Record<string, unknown>; key: string }>,
+): void {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const item of value) collectNameSlots(item, slots);
+    return;
+  }
+  const record = value as Record<string, unknown>;
+  for (const [key, child] of Object.entries(record)) {
+    if (key === "hint" || key === "why" || key === "cost") continue;
+    if ((key === "name" || key === "given") && typeof child === "string") slots.push({ parent: record, key });
+    else collectNameSlots(child, slots);
+  }
+}
+
+/** Shorten the longest `name` / `given` fields until `size(payload)` fits. Ids stay intact. */
+function shrinkNameFields(
+  payload: object,
+  budget: number,
+  size: (value: object) => number = (value) => JSON.stringify(value).length,
+): void {
+  let droppedEcho = false;
+  let guard = 0;
+  while (size(payload) > budget && guard < 160) {
+    guard += 1;
+    if (!droppedEcho) {
+      dropEchoedGiven(payload);
+      droppedEcho = true;
+      continue;
+    }
+    const slots: Array<{ parent: Record<string, unknown>; key: string }> = [];
+    collectNameSlots(payload, slots);
+    const long = slots
+      .filter((slot) => {
+        const text = slot.parent[slot.key];
+        return typeof text === "string" && text.length > NAME_FLOOR;
+      })
+      .sort((a, b) => (b.parent[b.key] as string).length - (a.parent[a.key] as string).length)[0];
+    if (long) {
+      const text = long.parent[long.key] as string;
+      const nextLen = Math.max(NAME_FLOOR, text.length - 32);
+      long.parent[long.key] = `${text.slice(0, nextLen - 1)}…`;
+      continue;
+    }
+    const hinted = payload as { hint?: string };
+    if (typeof hinted.hint === "string" && hinted.hint.length > 48) {
+      hinted.hint = `${hinted.hint.slice(0, 47)}…`;
+      continue;
+    }
+    break;
+  }
+}
+
 /** Size the verify card after `cost` is attached so the serialized card stays inside the budget. */
 function fitCardAfterCost<T extends object>(
   base: T,
   warnings: BindRuleWarning[] | undefined,
   budgetChars: number,
 ): T & { cost: AgentCost } {
+  shrinkNameFields(base, budgetChars, (value) => JSON.stringify(withCost(value)).length);
   const list = warnings ?? [];
   const cardFor = (count: number) => {
     if (count <= 0) {

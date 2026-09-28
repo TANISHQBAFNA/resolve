@@ -22,5 +22,7 @@ export {
   classifyTokenValue,
   figmaTypeForElement,
   inferredComponentId,
+  isMetadataComponentSet,
+  isVariantStyleName,
   MCP_COLLECTION_ID,
 } from "./adapters/figmaMcp";

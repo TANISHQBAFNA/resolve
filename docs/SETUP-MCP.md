@@ -11,6 +11,18 @@ Learning a library needs **one** of:
 
 **View or free seats** get a low Figma read quota. Resolve does not fail the whole library: it saves progress and **resumes** on the next pass. Feed a few frames per session.
 
+## Before you start
+
+1. `node -v` must be **22.12 or newer**. If it is older, install the current LTS from [nodejs.org](https://nodejs.org).
+2. `git --version`. On a Mac, that command installs the command line tools if they are missing.
+3. In Terminal, run this once and wait until you see `[resolve] MCP server ready`:
+
+```bash
+npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
+```
+
+4. If Claude Desktop cannot start Resolve, use the full path from `which npx` as the `command` (keep the same `args`).
+
 ## One config line
 
 After `npm run build:server` (once, if you have the repo) or via `npx`:
@@ -31,26 +43,59 @@ After `npm run build:server` (once, if you have the repo) or via `npx`:
 }
 ```
 
-Local checkout instead of npx:
+Local checkout instead of npx. No `cwd`. Use the absolute path to the built server:
 
 ```json
 {
   "mcpServers": {
     "resolve": {
       "command": "node",
-      "args": ["dist-server/mcp.mjs"],
-      "cwd": "/absolute/path/to/resolve"
+      "args": ["/absolute/path/to/resolve/dist-server/mcp.mjs"]
     }
   }
 }
 ```
 
-### Claude Desktop / Claude Code
+### Claude Desktop
+
+Add Figma in **Settings → Connectors**. Do not put a Figma `url` entry in the config file. That breaks Claude Desktop.
+
+Resolve only. Config file:
+
+- Mac: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Or open **Settings → Developer → Edit Config**.
+
+```json
+{
+  "mcpServers": {
+    "resolve": {
+      "command": "npx",
+      "args": ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
+    }
+  }
+}
+```
+
+Quit Claude Desktop with **Cmd+Q** (not the window close button) and reopen. Check that `resolve` is listed under **Settings → Developer**.
+
+### Claude Code
+
+```bash
+claude mcp add resolve -s user -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
+claude mcp add --transport http figma https://mcp.figma.com/mcp -s user
+```
+
+Then in Claude Code run `/mcp` and log in to Figma.
+
+Plugin installs read the server from `.claude-plugin/plugin.json`. If you write a Claude Code project config that lists Figma, set `"type": "http"`:
 
 ```json
 {
   "mcpServers": {
     "figma": {
+      "type": "http",
       "url": "https://mcp.figma.com/mcp"
     },
     "resolve": {
@@ -66,6 +111,8 @@ Same store for CLI and MCP: `~/.resolve/default` (or `RESOLVE_WORKSPACE=acme` �
 ## How the agent learns (two paths)
 
 **Primary — Figma MCP.** `get_metadata` on a library frame, then Resolve `learn_library` with that XML, the **file key**, and `role: "library"`. Optional: pass `search_design_system` / `get_libraries` as `libraries` so cards include the published component key. Without that key the card says **local-only**.
+
+**Different file.** Placing a component into a different Figma file needs the library published, plus `search_design_system` output passed as `libraries`. Otherwise build inside the library file. A product screen (`role: "product"`, or any file that is not the library) does not become the approved master list.
 
 **Secondary — REST token.** `npm run resolve -- ingest '<figma-url>' --role library` with `FIGMA_ACCESS_TOKEN`.
 

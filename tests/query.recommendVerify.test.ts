@@ -160,6 +160,7 @@ describe("recommend (library ranking)", () => {
     expect(lead && "figmaNodeId" in lead && lead.figmaNodeId).toBe("9:1");
     expect(lead && "deprecated" in lead && lead.deprecated).toBe(false);
     expect(lead && "variantProperties" in lead && lead.variantProperties?.["Variant"]).toBe("Primary");
+    expect(lead?.name).toBe("Button / Variant=Primary");
     expect(typeof lead?.why).toBe("string");
 
     const ghost = result.candidates.find((candidate) => candidate.id === lab.ghost);
@@ -404,6 +405,24 @@ describe("verify exact names — no fuzzy approve (Material invent)", () => {
     );
   });
 
+  it("does not approve a name-guessed product instance as a library master", () => {
+    const { index } = materialLab();
+    index.graph.nodes.push(
+      n("node:fancy", "MAIN_COMPONENT", "Fancy Pay Button", {
+        figmaNodeId: "mcp-name:Fancy Pay Button",
+        fileKey: "M3",
+        isMainComponent: true,
+        metadata: { identity: "inferred-from-name" },
+      }),
+    );
+    const result = verifyFrame(indexGraph(index.graph), { components: ["Fancy Pay Button"] });
+    expect(result.pass).toBe(false);
+    expect(result.approved).toBe(0);
+    expect(result.invents.some((hit) => hit.name === "Fancy Pay Button" && hit.reason === "not-a-master")).toBe(
+      true,
+    );
+  });
+
   it("flags an exact private master instead of approving it", () => {
     const { index, ids: lab } = materialLab();
     const result = verifyFrame(index, { components: [".Header"] });
@@ -428,6 +447,103 @@ describe("recommend hides private masters and keeps search as a term", () => {
     const { index, ids: lab } = materialLab();
     const result = recommendMasters(index, "search");
     expect(result.candidates.length).toBeGreaterThan(0);
-    expect(result.candidates.some((candidate) => candidate.id === lab.searchSet)).toBe(true);
+    expect(
+      result.candidates.some(
+        (candidate) => candidate.id === lab.searchSet || candidate.id === lab.searchVariant,
+      ),
+    ).toBe(true);
+    expect(result.candidates.some((candidate) => candidate.name.includes("Search docked layout"))).toBe(
+      true,
+    );
+    expect(result.cost.chars).toBeLessThanOrEqual(600);
+  });
+});
+
+describe("card budgets with long variant labels", () => {
+  it("keeps recommend and a four-name verify_frame within 600 characters", () => {
+    const label = `Type=Primary, Note=${"x".repeat(180)}`;
+    const nodes: GraphNode[] = [
+      n("file:LIB", "FILE", "Long labels", { fileKey: "LIB" }),
+      n("node:set", "COMPONENT_SET", "Button", { figmaNodeId: "1:1", fileKey: "LIB" }),
+    ];
+    const ids = ["1:2", "1:3", "1:4", "1:5"];
+    for (const id of ids) {
+      nodes.push(
+        n(`node:${id}`, "VARIANT", label, {
+          componentSetId: "node:set",
+          figmaNodeId: id,
+          fileKey: "LIB",
+          variantProperties: { Type: "Primary", Note: "x".repeat(180) },
+        }),
+      );
+    }
+    const graph: DesignGraph = {
+      fileKey: "LIB",
+      fileName: "Long labels",
+      builtAt: FROZEN,
+      source: { kind: "mock", ingestedAt: FROZEN },
+      warnings: [],
+      nodes,
+      edges: [],
+    };
+    const index = indexGraph(graph);
+    const recommended = recommendMasters(index, "primary");
+    expect(recommended.candidates.length).toBeGreaterThan(0);
+    expect(recommended.cost.chars).toBeLessThanOrEqual(600);
+    expect(JSON.stringify(recommended).length).toBeGreaterThan(200);
+
+    const verified = verifyFrame(index, {
+      components: ids.map((id) => `node:${id}`),
+    });
+    expect(verified.pass).toBe(true);
+    expect(verified.approved).toBe(4);
+    expect(verified.cost.chars).toBeLessThanOrEqual(600);
+    expect(JSON.stringify(verified).length).toBeLessThanOrEqual(600);
+  });
+
+  it("fits a 213-character variant label plus three fake names in 600 characters", () => {
+    const label = `Type=${"P".repeat(208)}`;
+    expect(label).toHaveLength(213);
+    const graph: DesignGraph = {
+      fileKey: "LIB",
+      fileName: "Long labels",
+      builtAt: FROZEN,
+      source: { kind: "mock", ingestedAt: FROZEN },
+      warnings: [],
+      nodes: [
+        n("file:LIB", "FILE", "Long labels", { fileKey: "LIB" }),
+        n("node:set", "COMPONENT_SET", "Button", { figmaNodeId: "1:1", fileKey: "LIB" }),
+        n("node:variant", "VARIANT", label, {
+          componentSetId: "node:set",
+          figmaNodeId: "1:2",
+          fileKey: "LIB",
+          variantProperties: { Type: "P".repeat(208) },
+        }),
+      ],
+      edges: [],
+    };
+    const verified = verifyFrame(indexGraph(graph), {
+      components: [label, "Nope Alpha", "Nope Beta", "Nope Gamma"],
+    });
+    expect(verified.cost.chars).toBeLessThanOrEqual(600);
+    expect(JSON.stringify(verified).length).toBeLessThanOrEqual(600);
+  });
+
+  it("fits four 213-character names in 600 characters", () => {
+    const names = ["A", "B", "C", "D"].map((prefix) => `${prefix}${"y".repeat(212)}`);
+    expect(names.every((name) => name.length === 213)).toBe(true);
+    const graph: DesignGraph = {
+      fileKey: "LIB",
+      fileName: "Long labels",
+      builtAt: FROZEN,
+      source: { kind: "mock", ingestedAt: FROZEN },
+      warnings: [],
+      nodes: [n("file:LIB", "FILE", "Long labels", { fileKey: "LIB" })],
+      edges: [],
+    };
+    const verified = verifyFrame(indexGraph(graph), { components: names });
+    expect(verified.pass).toBe(false);
+    expect(verified.cost.chars).toBeLessThanOrEqual(600);
+    expect(JSON.stringify(verified).length).toBeLessThanOrEqual(600);
   });
 });
