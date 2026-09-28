@@ -1,8 +1,11 @@
 import type { GraphNode } from "@/core/model";
 import { COMPONENT_DEFINITION_TYPES } from "@/core/model";
+import { TEXT_UNCHECKED_REASON } from "@/core/ingestion/textStamps";
 import type { GraphIndex } from "./GraphIndex";
 import type { SockState, UsageFact } from "./sock";
 import { nodeFileKey } from "./workspaceMerge";
+
+export { TEXT_UNCHECKED_REASON };
 
 /**
  * Real populated instances already in the graph.
@@ -48,6 +51,8 @@ export interface ExampleQuery {
   graphFileKey?: string;
   /** Team template strings. Whole-string match. Not built in. */
   placeholders?: string[];
+  /** Per-request memo. Same object across budget-shrink passes. */
+  cache?: ExampleCache;
 }
 
 export interface RealExample {
@@ -99,6 +104,57 @@ interface Described {
   populated: boolean;
 }
 
+interface ExampleCache {
+  described: Map<string, Described>;
+  masterText: Map<string, Set<string>>;
+  masterParts: Map<string, Parts>;
+  definition: Map<string, GraphNode>;
+  peerFixed: Map<string, Array<{ id: string; height: number }>>;
+  examples: Map<string, ExampleLookup>;
+}
+
+/** Sync call stack only. One recommend/verify at a time; no await inside. */
+let active: ExampleCache | undefined;
+let activeOverlay: ReadonlyMap<string, string> | undefined;
+let describeCalls = 0;
+
+export function resetDescribeCalls(): void {
+  describeCalls = 0;
+}
+
+export function takeDescribeCalls(): number {
+  const count = describeCalls;
+  describeCalls = 0;
+  return count;
+}
+
+function createExampleCache(): ExampleCache {
+  return {
+    described: new Map(),
+    masterText: new Map(),
+    masterParts: new Map(),
+    definition: new Map(),
+    peerFixed: new Map(),
+    examples: new Map(),
+  };
+}
+
+function cacheOf(query: ExampleQuery): ExampleCache {
+  if (!query.cache) query.cache = createExampleCache();
+  return query.cache;
+}
+
+function enter(cache: ExampleCache, overlay?: ReadonlyMap<string, string>): () => void {
+  const prev = active;
+  const prevOverlay = activeOverlay;
+  active = cache;
+  activeOverlay = overlay;
+  return () => {
+    active = prev;
+    activeOverlay = prevOverlay;
+  };
+}
+
 function isPrivateName(name: string): boolean {
   const trimmed = name.trim();
   if (trimmed.startsWith(".") || trimmed.startsWith("_")) return true;
@@ -144,9 +200,33 @@ function instancesOfFamily(index: GraphIndex, master: GraphNode): GraphNode[] {
 
 /** Real characters only. A layer name is not text when the characters attribute is missing. */
 function textOf(node: GraphNode): string | undefined {
+  const over = activeOverlay?.get(node.id);
+  if (typeof over === "string" && over.trim()) return over.trim();
   const meta = node.metadata?.["text"];
   if (typeof meta === "string" && meta.trim()) return meta.trim();
   return undefined;
+}
+
+function isInferredMaster(node: GraphNode): boolean {
+  if (node.metadata?.["identity"] === "inferred-from-name") return true;
+  return `${node.id} ${node.figmaNodeId ?? ""}`.includes("mcp-name:");
+}
+
+/** Name-inferred MCP stubs have no default copy. The real master of that name does. */
+function definitionFor(index: GraphIndex, main: GraphNode): GraphNode {
+  const cached = active?.definition.get(main.id);
+  if (cached) return cached;
+  let resolved = main;
+  if (isInferredMaster(main)) {
+    const needle = main.name.trim().toLowerCase();
+    const hits = index.getNodesByType("MAIN_COMPONENT", "COMPONENT_SET", "VARIANT").filter((node) => {
+      if (node.id === main.id || isInferredMaster(node)) return false;
+      return node.name.trim().toLowerCase() === needle;
+    });
+    if (hits.length === 1 && hits[0]) resolved = hits[0];
+  }
+  active?.definition.set(main.id, resolved);
+  return resolved;
 }
 
 function ownTexts(index: GraphIndex, rootId: string): string[] {
@@ -328,28 +408,42 @@ function summaryOf(parts: Parts): string {
 }
 
 function masterTexts(index: GraphIndex, main: GraphNode): Set<string> {
+  const cached = active?.masterText.get(main.id);
+  if (cached) return cached;
   const texts = new Set(ownTexts(index, main.id).map((text) => text.toLowerCase()));
   const setId = main.type === "COMPONENT_SET" ? main.id : main.componentSetId;
-  if (!setId) return texts;
-  const variants = index.getVariantsOf(setId);
-  const named = variants.find(
-    (variant) =>
-      /default/i.test(variant.name) ||
-      Object.values(variant.variantProperties ?? {}).some((value) => /default/i.test(value)),
-  );
-  const fallback = named ?? variants[0];
-  if (fallback) {
-    for (const text of ownTexts(index, fallback.id)) texts.add(text.toLowerCase());
+  if (setId) {
+    const variants = index.getVariantsOf(setId);
+    const named = variants.find(
+      (variant) =>
+        /default/i.test(variant.name) ||
+        Object.values(variant.variantProperties ?? {}).some((value) => /default/i.test(value)),
+    );
+    const fallback = named ?? variants[0];
+    if (fallback) {
+      for (const text of ownTexts(index, fallback.id)) texts.add(text.toLowerCase());
+    }
   }
+  active?.masterText.set(main.id, texts);
   return texts;
 }
 
+function masterPartsOf(index: GraphIndex, definition: GraphNode): Parts {
+  const cached = active?.masterParts.get(definition.id);
+  if (cached) return cached;
+  const parts = collectParts(index, definition);
+  active?.masterParts.set(definition.id, parts);
+  return parts;
+}
+
 function describeInstance(index: GraphIndex, instance: GraphNode, team: string[] | undefined): Described {
+  describeCalls += 1;
   const parts = collectParts(index, instance);
   const main = index.getMainComponent(instance.id);
-  const masterParts = main ? collectParts(index, main) : undefined;
+  const definition = main ? definitionFor(index, main) : undefined;
+  const masterParts = definition ? masterPartsOf(index, definition) : undefined;
   const texts = ownTexts(index, instance.id);
-  const defaults = main ? masterTexts(index, main) : new Set<string>();
+  const defaults = definition ? masterTexts(index, definition) : new Set<string>();
   const substantive = texts.filter((text) => !isChromeLabel(text));
   const placeholderText = substantive.some((text) => isHardPlaceholder(text, team, defaults));
   const filledText = substantive.some(
@@ -362,6 +456,14 @@ function describeInstance(index: GraphIndex, instance: GraphNode, team: string[]
     summary: summaryOf(parts),
     populated: !placeholderText && (!sameStructure || filledText),
   };
+}
+
+function describeCached(index: GraphIndex, instance: GraphNode, team: string[] | undefined): Described {
+  const hit = active?.described.get(instance.id);
+  if (hit) return hit;
+  const described = describeInstance(index, instance, team);
+  active?.described.set(instance.id, described);
+  return described;
 }
 
 function isDocsFrame(name: string): boolean {
@@ -426,7 +528,7 @@ function contextScore(screen: GraphNode, facts: UsageFact[], query: ExampleQuery
   return score;
 }
 
-export function getExample(index: GraphIndex, master: GraphNode, query: ExampleQuery = {}): ExampleLookup {
+function resolveExample(index: GraphIndex, master: GraphNode, query: ExampleQuery): ExampleLookup {
   const miss = (reason: ExampleReason): ExampleLookup => ({ found: false, reason });
   let node = master;
   if (node.type === "COMPONENT_INSTANCE") {
@@ -456,7 +558,7 @@ export function getExample(index: GraphIndex, master: GraphNode, query: ExampleQ
   const screenClean = (screenId: string): boolean => {
     const cached = cleanCache.get(screenId);
     if (cached !== undefined) return cached;
-    const content = frameContentWarnings(index, screenId, query.placeholders);
+    const content = frameContentWarnings(index, screenId, query.placeholders, { cache: active });
     const clean = !content.blocking && content.warnings.length === 0;
     cleanCache.set(screenId, clean);
     return clean;
@@ -470,7 +572,7 @@ export function getExample(index: GraphIndex, master: GraphNode, query: ExampleQ
     const screen = screenOf(index, instance.id);
     if (!screen) continue;
     sawInstance = true;
-    const described = describeInstance(index, instance, query.placeholders);
+    const described = describeCached(index, instance, query.placeholders);
     if (!described.populated) continue;
     const fileKey = fileKeyOf(index, screen, query);
     const facts = (query.sock?.facts ?? []).filter(
@@ -533,6 +635,20 @@ export function getExample(index: GraphIndex, master: GraphNode, query: ExampleQ
       ...(note ? { exNote: note } : {}),
     },
   };
+}
+
+export function getExample(index: GraphIndex, master: GraphNode, query: ExampleQuery = {}): ExampleLookup {
+  const cache = cacheOf(query);
+  const memo = cache.examples.get(master.id);
+  if (memo) return memo;
+  const leave = enter(cache);
+  try {
+    const lookup = resolveExample(index, master, query);
+    cache.examples.set(master.id, lookup);
+    return lookup;
+  } finally {
+    leave();
+  }
 }
 
 export function examplePointer(
@@ -641,6 +757,24 @@ function peersHug(described: Map<string, Described>, instanceId: string, mainId:
   return false;
 }
 
+function peerFixedRows(
+  index: GraphIndex,
+  mainId: string,
+  team: string[] | undefined,
+): Array<{ id: string; height: number }> {
+  const cached = active?.peerFixed.get(mainId);
+  if (cached) return cached;
+  const rows: Array<{ id: string; height: number }> = [];
+  for (const other of index.getAllInstancesOf(mainId)) {
+    const described = describeCached(index, other, team);
+    if (!described.populated || described.parts.sizing !== "fixed") continue;
+    if (described.parts.height === undefined) continue;
+    rows.push({ id: other.id, height: described.parts.height });
+  }
+  active?.peerFixed.set(mainId, rows);
+  return rows;
+}
+
 function peersShareFixedHeight(
   index: GraphIndex,
   instance: GraphNode,
@@ -649,13 +783,9 @@ function peersShareFixedHeight(
 ): boolean {
   const main = index.getMainComponent(instance.id);
   if (!main) return false;
-  for (const other of index.getAllInstancesOf(main.id)) {
-    if (other.id === instance.id) continue;
-    const described = describeInstance(index, other, team);
-    if (!described.populated || described.parts.sizing !== "fixed") continue;
-    const height = described.parts.height;
-    if (height === undefined) continue;
-    if (Math.abs(height - used) <= 2) return true;
+  for (const row of peerFixedRows(index, main.id, team)) {
+    if (row.id === instance.id) continue;
+    if (Math.abs(row.height - used) <= 2) return true;
   }
   return false;
 }
@@ -664,11 +794,44 @@ export function frameContentWarnings(
   index: GraphIndex,
   frameId: string,
   team: string[] | undefined = undefined,
-): { warnings: ContentWarning[]; blocking: boolean } {
+  scope?: { overlay?: ReadonlyMap<string, string>; cache?: ExampleCache },
+): { warnings: ContentWarning[]; blocking: boolean; textChecked: boolean; textReason?: string } {
+  const cache = scope?.cache ?? active ?? createExampleCache();
+  const overlay = scope?.overlay ?? activeOverlay;
+  const leave = enter(cache, overlay);
+  try {
+    return frameContentWarningsInner(index, frameId, team);
+  } finally {
+    leave();
+  }
+}
+
+function textCoverage(index: GraphIndex, instances: readonly GraphNode[]): { layers: number; missing: number } {
+  let layers = 0;
+  let missing = 0;
+  const walk = (id: string) => {
+    for (const child of index.getChildren(id)) {
+      if (child.type === "COMPONENT_INSTANCE") continue;
+      if (child.type === "TEXT_LAYER") {
+        layers += 1;
+        if (!textOf(child)) missing += 1;
+      }
+      walk(child.id);
+    }
+  };
+  for (const instance of instances) walk(instance.id);
+  return { layers, missing };
+}
+
+function frameContentWarningsInner(
+  index: GraphIndex,
+  frameId: string,
+  team: string[] | undefined,
+): { warnings: ContentWarning[]; blocking: boolean; textChecked: boolean; textReason?: string } {
   const warnings: ContentWarning[] = [];
   const instances = index.getNestedInstances(frameId);
   const described = new Map<string, Described>();
-  for (const instance of instances) described.set(instance.id, describeInstance(index, instance, team));
+  for (const instance of instances) described.set(instance.id, describeCached(index, instance, team));
 
   for (const instance of instances) {
     const main = index.getMainComponent(instance.id);
@@ -679,7 +842,7 @@ export function frameContentWarnings(
       ...(fileKey && fileKey !== index.graph.fileKey ? { fileKey } : {}),
     };
     const hits = textsOf(index, instance.id);
-    const defaults = masterTexts(index, main);
+    const defaults = masterTexts(index, definitionFor(index, main));
     const inputHint = isInputish(main.name) || isInputish(instance.name);
     const considered = hits.filter((hit) => !(inputHint && isHintLayer(hit.layer)));
     const texts = considered.map((hit) => hit.text);
@@ -727,5 +890,12 @@ export function frameContentWarnings(
     warnings.push({ ...stamp, kind: "oversized-height", reason });
   }
 
-  return { warnings, blocking: warnings.some((warning) => warning.kind === "placeholder") };
+  const coverage = textCoverage(index, instances);
+  const textChecked = coverage.layers > 0 && coverage.missing === 0;
+  return {
+    warnings,
+    blocking: warnings.some((warning) => warning.kind === "placeholder"),
+    textChecked,
+    ...(textChecked ? {} : { textReason: TEXT_UNCHECKED_REASON }),
+  };
 }

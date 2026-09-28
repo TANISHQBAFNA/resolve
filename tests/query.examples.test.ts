@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DesignGraph, GraphEdge, GraphNode, NodeType } from "@/core/model";
+import { adaptFigmaMcpMetadata } from "@/core/ingestion";
+import { buildGraph } from "@/core/transform";
 import {
   componentUsageCard,
   exampleCard,
@@ -11,6 +13,9 @@ import {
   indexGraph,
   NO_EXAMPLE,
   recommendMasters,
+  resetDescribeCalls,
+  takeDescribeCalls,
+  TEXT_UNCHECKED_REASON,
   verifyFrame,
   CLONE_INSTRUCTION,
 } from "@/core/query";
@@ -1082,5 +1087,158 @@ describe("example pointer review fixes", () => {
     const warnings = frameContentWarnings(index, "node:frame").warnings;
     expect(warnings.some((warning) => warning.kind === "oversized-height")).toBe(false);
     expect(warnings.some((warning) => warning.kind === "leftover-text")).toBe(false);
+  });
+});
+
+const BENE_MCP = `
+<frame id="0:1" name="Kit" x="0" y="0" width="400" height="80">
+  <component id="9:1" name="Bene Dropdown" x="0" y="0" width="320" height="48">
+    <text id="9:2" name="Label" x="8" y="8" width="280" height="24" characters="Request Bank Certificate" />
+  </component>
+</frame>
+<frame id="1:1" name="Payment" x="0" y="120" width="400" height="80">
+  <instance id="1:2" name="Bene Dropdown" x="8" y="8" width="320" height="48">
+    <text id="1:3" name="Request Bank Certificate" x="8" y="8" width="280" height="24" />
+  </instance>
+</frame>
+`;
+
+const BENE_DESIGN_CONTEXT = `
+export default function Payment() {
+  return (
+    <div data-node-id="1:1" data-name="Payment">
+      <div data-node-id="1:2" data-name="Bene Dropdown">
+        <p data-node-id="1:3">Request Bank Certificate</p>
+      </div>
+    </div>
+  );
+}
+`;
+
+describe("verify reads Figma MCP text, not layer names", () => {
+  function beneIndex() {
+    const graph = buildGraph(
+      adaptFigmaMcpMetadata({
+        fileKey: "BENE",
+        fileName: "Bene",
+        metadataXml: BENE_MCP,
+        ingestedAt: "2026-01-01T00:00:00.000Z",
+      }),
+      { builtAt: "2026-01-01T00:00:00.000Z" },
+    );
+    return indexGraph(graph);
+  }
+
+  it("stays silent on names alone and catches the Bene default once characters arrive", () => {
+    const index = beneIndex();
+    const bare = index.allNodes.find((node) => node.figmaNodeId === "1:3");
+    expect(bare?.type).toBe("TEXT_LAYER");
+    expect(bare?.metadata?.["text"]).toBeUndefined();
+
+    const silent = verifyFrame(index, { frame: "Payment" });
+    expect(silent.textChecked).toBe(false);
+    expect(silent.textReason).toBe(TEXT_UNCHECKED_REASON);
+    expect(
+      (silent.warnings ?? []).some((warning) => warning.kind === "leftover-text" || warning.kind === "placeholder"),
+    ).toBe(false);
+    expect(silent.pass).toBe(true);
+
+    const caught = verifyFrame(index, { frame: "Payment", designContext: BENE_DESIGN_CONTEXT });
+    expect(caught.textChecked).toBe(true);
+    expect(caught.textReason).toBeUndefined();
+    expect(caught.warnings?.map((warning) => warning.kind)).toContain("leftover-text");
+    expect(caught.warnings?.find((warning) => warning.kind === "leftover-text")?.reason).toMatch(
+      /Request Bank Certificate/,
+    );
+    expect(caught.cost.chars).toBeLessThanOrEqual(600);
+
+    const filled = verifyFrame(index, {
+      frame: "Payment",
+      texts: { "1:3": "Account 102938 paid" },
+    });
+    expect(filled.textChecked).toBe(true);
+    expect((filled.warnings ?? []).some((warning) => warning.kind === "leftover-text")).toBe(false);
+    expect(filled.pass).toBe(true);
+  });
+});
+
+function fixedFarm(count: number) {
+  const nodes: GraphNode[] = [];
+  const edges: GraphEdge[] = [];
+  const file = "file:F";
+  const page = "node:page";
+  const master = "node:button";
+  const masterText = "node:button-text";
+  nodes.push(
+    n(file, "FILE", "Farm", { fileKey: "FARM" }),
+    n(page, "PAGE", "Screens", { parentId: file, pageId: page, fileKey: "FARM" }),
+    n(master, "MAIN_COMPONENT", "Button", {
+      parentId: page,
+      pageId: page,
+      figmaNodeId: "9:1",
+      fileKey: "FARM",
+      isMainComponent: true,
+      metadata: { layoutMode: "VERTICAL", layoutSizingVertical: "FIXED" },
+      bounds: { x: 0, y: 0, width: 200, height: 48 },
+    }),
+    n(masterText, "TEXT_LAYER", "Label", {
+      parentId: master,
+      metadata: { text: "Click here please" },
+      bounds: { x: 0, y: 0, width: 120, height: 20 },
+    }),
+  );
+  edges.push(e("CONTAINS", file, page), e("CONTAINS", page, master), e("CONTAINS", master, masterText));
+  for (let i = 0; i < count; i += 1) {
+    const frame = `node:f:${i}`;
+    const inst = `node:i:${i}`;
+    const text = `node:t:${i}`;
+    nodes.push(
+      n(frame, "FRAME", `Screen ${i}`, { parentId: page, pageId: page, figmaNodeId: `1:${i}`, fileKey: "FARM" }),
+      n(inst, "COMPONENT_INSTANCE", "Button", {
+        parentId: frame,
+        pageId: page,
+        isInstance: true,
+        mainComponentId: master,
+        figmaNodeId: `2:${i}`,
+        fileKey: "FARM",
+        bounds: { x: 0, y: 0, width: 200, height: 160 },
+        metadata: { layoutMode: "VERTICAL", layoutSizingVertical: "FIXED" },
+      }),
+      n(text, "TEXT_LAYER", "Label", {
+        parentId: inst,
+        metadata: { text: `Pay invoice number ${i} today` },
+        bounds: { x: 8, y: 8, width: 160, height: 24 },
+      }),
+    );
+    edges.push(
+      e("CONTAINS", page, frame),
+      e("CONTAINS", frame, inst),
+      e("CONTAINS", inst, text),
+      e("INSTANCE_OF", inst, master),
+      e("NESTS", frame, inst),
+    );
+  }
+  return graphOf(nodes, edges, "FARM");
+}
+
+describe("example describe stays linear", () => {
+  it("describes each instance once per request, including a second lookup", () => {
+    const small = fixedFarm(40);
+    const large = fixedFarm(80);
+    const masterSmall = small.getNode("node:button")!;
+    const masterLarge = large.getNode("node:button")!;
+    const query: { placeholders?: string[] } = {};
+    resetDescribeCalls();
+    getExample(small, masterSmall, query);
+    const first = takeDescribeCalls();
+    getExample(small, masterSmall, query);
+    expect(takeDescribeCalls()).toBe(0);
+    resetDescribeCalls();
+    getExample(large, masterLarge, {});
+    const second = takeDescribeCalls();
+    expect(first).toBeGreaterThan(0);
+    expect(first).toBeLessThanOrEqual(40 * 2);
+    expect(second).toBeLessThanOrEqual(first * 2 + 8);
+    expect(second).toBeLessThan(80 * 40);
   });
 });

@@ -117,7 +117,10 @@ export const TOOLS: ToolDefinition[] = [
         label: { type: "string" },
         metadataXml: { type: "string", description: "Raw Figma MCP get_metadata XML (prose around it is fine)." },
         libraries: { description: "search_design_system or get_libraries JSON. Stamps published keys." },
-        designContext: { description: "Optional get_design_context payload. Used only to stamp keys/names." },
+        designContext: {
+          description:
+            "Optional get_design_context. Stamps published keys when present, and master/default text characters when present. A layer name is not text.",
+        },
         lastModified: { type: "string" },
         version: { type: "string" },
         resume: { type: "boolean", description: "Resume a checkpointed learn for a large library." },
@@ -297,7 +300,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "verify_frame",
     description:
-      "After drawing, check a frame or a proposed component list against the library graph and bind rules. Pass iff every placement is an in-graph master, not deprecated, and bind require/forbid rules hold. Warnings (not failures) for leftover default text and a fixed height that clearly exceeds the content. Known placeholder strings fail. A bind-rule fail names the rule and returns the required master id + place hint. Optional allow/deny. Deterministic — no LLM.",
+      "After drawing, check a frame or a proposed component list against the library graph and bind rules. Pass iff every placement is an in-graph master, not deprecated, and bind require/forbid rules hold. Before verify, fetch the frame's design context so Resolve can read the text — pass it as designContext (or texts). get_metadata alone has no characters; textChecked is false until real text arrives. Warnings (not failures) for leftover default text and a fixed height that clearly exceeds the content. Known placeholder strings fail. A bind-rule fail names the rule and returns the required master id + place hint. Optional allow/deny. Deterministic — no LLM.",
     inputSchema: {
       type: "object",
       properties: {
@@ -319,6 +322,14 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
+        designContext: {
+          description:
+            "Figma get_design_context (or get_metadata that includes characters) for this frame. Before verify, fetch the frame's design context so Resolve can read the text.",
+        },
+        texts: {
+          description:
+            "Text characters by node id when you already have them: { \"1:2\": \"Pay now\" } or [{ nodeId, characters }]. Same job as designContext. Never a layer name.",
+        },
         ...freshnessProperties,
       },
     },
@@ -884,6 +895,8 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         sock: readSock(),
         workspace: bind.workspace ?? readWorkspace(),
         placeholders: readPlaceholders(),
+        designContext: args["designContext"],
+        texts: args["texts"],
       });
       if (result.pass) {
         const masters: Array<{

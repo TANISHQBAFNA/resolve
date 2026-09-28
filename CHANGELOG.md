@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — live text in verify, example caching
+
+Sep 28, 2026 IST. `verify_frame` reads text characters from Figma `get_design_context` (or a `texts` map passed on the call). Metadata alone does not carry characters; the card then sets `textChecked: false` and a short reason instead of implying the copy check passed. Leftover default text is judged against master text kept at learn time when characters were available. Layer names are never used as text. Instance descriptions, peer heights, and the chosen example are computed once per request so recommend and `get_example` stay linear on large files. On a generated fixture, 73k-node recommend went from 763 ms to 85 ms and `get_example` from 571 ms to 44 ms (24k: 143→66 ms and 83→27 ms). `npm run bench` rebuilds that fixture.
+
 ## Unreleased — real example with every pick
 
 Sep 28, 2026 IST. The top recommend pick includes `ex`: a real populated instance (file key when it differs, node id, screen, compact config) or `none` plus a short reason. `get_example` / `resolve example` returns the full config for that pick and for the others. Clone that instance and replace content; do not start from the default variant. A populated shape verified on 3 screens becomes the preferred example (SOCK), and a variant pick only learns that variant. Bind rules still change only through human-approved SOCI suggestions.

@@ -1,4 +1,5 @@
 import { buildAiGraphContext, toMarkdownPrompt } from "@/core/ai";
+import { textOverlay, textStampsFrom } from "@/core/ingestion/textStamps";
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import { computeAnalytics, computeComponentUsage, type GraphAnalytics } from "./analytics";
 import { detectCommunitiesForIndex } from "./communities";
@@ -858,7 +859,7 @@ export function toGraphReportMarkdown(brief: OrientBrief): string {
     "1. Optional: `recipe \"<screen job>\"` — pack of masters + slots with `figmaNodeId`s.",
     "2. `recommend \"<intent>\"` — ranked masters for unbound slots (`figmaNodeId`, variants, where-used).",
     "3. Figma (`use_figma` / `get_design_context`) on those `figmaNodeId`s only.",
-    "4. `verify_frame` on the new frame or placed names — invents / deprecated / unresolved.",
+    "4. Before `verify_frame`, fetch the frame's design context so Resolve can read the text. Pass it as `designContext`. Then `verify_frame` — invents / deprecated / unresolved / leftover text.",
     "5. `resolve \"<component>\"` when you already know the name (usage card).",
     "6. Do **not** call `get_design_context` on a FRAME or SECTION until recipe/recommend/resolve returns an id.",
     "",
@@ -2456,6 +2457,10 @@ export function verifyFrame(
     sock?: SockState;
     workspace?: WorkspaceManifest;
     placeholders?: string[];
+    /** Figma get_design_context, or get_metadata that includes characters. */
+    designContext?: unknown;
+    /** Agent-passed text: `{ nodeId, characters }` list, id→string map, or `{ texts }`. */
+    texts?: unknown;
   } = {},
 ) {
   const invents: VerifyHit[] = [];
@@ -2630,9 +2635,12 @@ export function verifyFrame(
     else if (master) considerMaster(master, given);
   }
 
+  const overlay = frameNode
+    ? textOverlay(index.allNodes, [...textStampsFrom(input.designContext), ...textStampsFrom(input.texts)])
+    : undefined;
   const content = frameNode
-    ? frameContentWarnings(index, frameNode.id, input.placeholders)
-    : { warnings: [], blocking: false };
+    ? frameContentWarnings(index, frameNode.id, input.placeholders, { overlay })
+    : { warnings: [], blocking: false, textChecked: false as const, textReason: undefined };
   const pass = invents.length === 0 && deprecatedHits.length === 0 && unresolved.length === 0;
   const placed: GraphNode[] = [...approvedIds]
     .map((id) => index.getNode(id))
@@ -2680,7 +2688,35 @@ export function verifyFrame(
     hint: pendingHint ? `${hint} ${pendingHint}` : hint,
     ...(pending ? { pendingImprovements: pending } : {}),
   };
-  return fitCardAfterCost(base, input.bindRules?.warnings, content.warnings, 600);
+  const fitted = fitCardAfterCost(base, input.bindRules?.warnings, content.warnings, 600);
+  return stampTextCheck(fitted, frameNode ? content : undefined);
+}
+
+function repriced<T extends object>(value: T): Omit<T, "cost"> & { cost: AgentCost } {
+  const rest = { ...value } as T & { cost?: unknown };
+  delete rest.cost;
+  return withCost(rest);
+}
+
+type Stamped<T> = T & { textChecked?: boolean; textReason?: string };
+
+function stampTextCheck<T extends { hint: string }>(
+  fitted: T,
+  content: { textChecked: boolean; textReason?: string } | undefined,
+): Stamped<T> {
+  if (!content) return fitted;
+  const textFields = content.textChecked
+    ? { textChecked: true as const }
+    : { textChecked: false as const, textReason: content.textReason };
+  const fits = (value: object) => JSON.stringify(value).length <= 600;
+  const price = (value: object): Stamped<T> => repriced(value) as unknown as Stamped<T>;
+  let card = price({ ...fitted, ...textFields });
+  if (fits(card)) return card;
+  if (content.textChecked) return fitted;
+  while (!fits(card) && card.hint.length > 40) {
+    card = price({ ...card, hint: `${card.hint.slice(0, card.hint.length - 12)}…` });
+  }
+  return fits(card) ? card : fitted;
 }
 
 const WARNING_OVERFLOW = (count: number) => `and ${count} more warnings`;

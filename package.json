@@ -21,6 +21,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "bench": "vitest run --config vitest.bench.config.ts --reporter=verbose",
     "test:e2e": "playwright test",
     "test:all": "vitest run && playwright test",
     "test:watch": "vitest",

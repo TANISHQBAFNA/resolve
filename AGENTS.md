@@ -36,6 +36,7 @@ npm run resolve -- recommend "checkout with primary button"   # unbound slots on
 npm run resolve -- example "Main Card"        # full config for the ex pointer
 # clone that instance, replace content, do not start from the default variant
 # place ONLY the returned figmaNodeIds (use_figma / get_design_context)
+# before verify, fetch the frame's design context so Resolve can read the text
 npm run resolve -- verify "Checkout Summary"
 npm run resolve -- cousins "Checkout Summary"   # when a library + product file are linked
 ```
@@ -47,7 +48,7 @@ npm run resolve -- cousins "Checkout Summary"   # when a library + product file 
 | 3. Recommend | Slot is unbound / missing / deprecated. Prefers DS library masters when workspace has a library-role file. | `recommend "<nextRecommend>"` (optional `--pack` / `--product` / `--journey` / `--domain`). Card field `ex` is a real instance, or says no real example is known. |
 | 4. Example | After a pick | `get_example` / `resolve example` for the full config. Clone that instance and replace content. Do not start from the default variant. |
 | 5. Place | Drawing in Figma | returned `figmaNodeId`s **only** (cards also stamp `fileKey`). A different file needs the library published and `search_design_system` output passed as `libraries`; otherwise build inside the library file. |
-| 6. Verify | After the draw | `verify_frame` on the frame or placed names (optional `--pack` / `--product` / `--journey` / `--domain`). Known placeholder text fails. Leftover default copy and an oversized fixed height warn. |
+| 6. Verify | After the draw | Before verify, fetch the frame's design context so Resolve can read the text. Pass it to `verify_frame` (`designContext` or `texts`). `get_metadata` has no characters; `textChecked` is false until they arrive. Then leftover default copy warns and known placeholder text fails. Optional `--pack` / `--product` / `--journey` / `--domain`. |
 | 7. Cousins | Multi-file workspace exists (library + product/client) | `cousins` / `check_cousins` on the product frame or `--job` |
 
 MCP: `list_recipes` → `recipe` → `recommend` → `get_example` → clone → fill → `verify_frame` → `check_cousins` when a library file is linked.
@@ -63,7 +64,7 @@ No REST token: save Figma MCP `get_metadata` XML and `ingest screen.xml --from-m
 - Invent components, names, or node ids.
 - `Read` `.graphify/graph.json` (or any `graph.json`). Cards/CLI/MCP only.
 - Dump the graph, REST JSON, or a whole-file metadata tree into context.
-- `get_design_context` / `use_figma` on a FRAME or SECTION until recipe/recommend/resolve returned that id.
+- `get_design_context` / `use_figma` on a FRAME or SECTION until recipe/recommend/resolve returned that id. Exception: before verify, fetch the frame you just drew so Resolve can read the text.
 - Skip ingest when the library changed. Re-ingest is the refresh path.
 
 `.graphify/recipes.json` overlay still wins over the starter pack. Optional `.graphify/context-packs.json` binds product + journey + domain to recipes so recommend is not a generic name match. Optional `.graphify/workspace.json` lists linked Figma files (`library` / `product` / `client`). Optional `.graphify/bind-rules.json` require/forbid/prefer (unknown ids fail validation; rules never auto-change). Do not invent `defaultMasterId`s or Figma node ids in packs. See `docs/GUIDE.md`, `docs/RECIPES.md`, and `docs/BIND-RULES.md`.

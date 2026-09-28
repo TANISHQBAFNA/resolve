@@ -123,8 +123,9 @@ function usage(): void {
       "      Optional screen type / journey / domain, same as recommend, breaks ties between cousins.",
       "      Deprecated names come back flagged, with the live replacement. Private (_ / .) names only on an exact match.",
       "      One-line why from SOCK facts. Miss: says so and points at recommend. Not an empty list.",
-      `  resolve verify "<frame>" [--id] [--components a,b] [--rules <file>] ${PACK_BIND_FLAGS}`,
+      `  resolve verify "<frame>" [--id] [--components a,b] [--rules <file>] [--design-context <file>] [--texts <json>] ${PACK_BIND_FLAGS}`,
       "      After drawing: pass/fail, invents, deprecated, unresolved, bind-rule misses.",
+      "      Before verify, fetch the frame's design context so Resolve can read the text. Pass that file as --design-context.",
       "      Component list: exact name or id only (fileKey:nodeId ok). Near match = unresolved + did you mean. Private (. / _) fails.",
       "      Bind rules: .graphify/bind-rules.json (require / forbid / prefer). A miss names the rule and the correct master id.",
       "      Optional .graphify/library-rules.json { allow, deny }. Else in-graph + not deprecated = approved.",
@@ -578,6 +579,8 @@ export async function runCli(argv: string[]): Promise<void> {
         );
       }
       const rulesPath = flag(args, "rules");
+      const designContextPath = flag(args, "design-context");
+      const textsRaw = flag(args, "texts");
       const bind = bindFromFlags(args);
       const pack = packForRecommend(bind);
       printJson(
@@ -589,6 +592,8 @@ export async function runCli(argv: string[]): Promise<void> {
           bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
           sock: readSock(),
           placeholders: readPlaceholders(),
+          ...(designContextPath ? { designContext: readFileSync(designContextPath, "utf8") } : {}),
+          ...(textsRaw ? { texts: JSON.parse(textsRaw) as unknown } : {}),
         }),
       );
       return;

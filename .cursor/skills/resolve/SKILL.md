@@ -14,7 +14,7 @@ description: Use Resolve before any Figma screen build or design-from-brief work
 3. **Pick** — every unbound / missing / deprecated slot. Use that slot’s `nextRecommend` query. Prefers DS library masters when `.graphify/workspace.json` has a library-role file. Optional `--pack` / `--product` / `--journey` / `--domain` (or the active pack). The top pick has `ex`: a real instance node id, `fileKey:nodeId` when the example is in another file, or `none` plus a short reason. Call `get_example` for the others.
 4. **Example** — `get_example` / `resolve example "<name>"` for file key, screen, variant, structure, and sizing. Clone that instance and replace content. Do not start from the default variant. A missing example means ask the designer or open a screen that uses it.
 5. **Place** — Figma MCP (`use_figma` / `get_design_context`) on returned ids **only**. Cards stamp `fileKey` + `figmaNodeId` (ids collide across files). Placing into a different file needs the library published and `search_design_system` output passed as `libraries`; otherwise build inside the library file.
-6. **Verify** — `verify_frame` on the new frame or placed names. Same optional `--pack` / `--product` / `--journey` / `--domain`. Lorem-ipsum filler fails. Leftover default copy warns, and fails only when that default is also on `.graphify/placeholders.json`. An oversized fixed height warns unless real examples use that same height.
+6. **Verify** — before verify, fetch the frame's design context so Resolve can read the text. Pass that payload as `designContext` (or `texts`). `get_metadata` alone has no characters; `textChecked` is false until real text arrives. Then `verify_frame` on the new frame or placed names. Same optional `--pack` / `--product` / `--journey` / `--domain`. Lorem-ipsum filler fails. Leftover default copy warns, and fails only when that default is also on `.graphify/placeholders.json`. An oversized fixed height warns unless real examples use that same height.
 7. **Cousins** — when a library file and a product/client file are linked, `cousins` / `check_cousins` on the product frame or screen job. Unsure means stop. Do not invent a master.
 8. **Human taste** — stop. Do not over-generate.
 
@@ -50,7 +50,7 @@ npm run resolve -- cousins "Checkout Summary" --job "checkout summary"
 - Invent a component, name, or node id.
 - `Read` `.graphify/graph.json` or any `graph.json`. Cards are the source of truth.
 - Dump the graph / REST / whole-file metadata into context.
-- Call `get_design_context` on a FRAME or SECTION until recipe/recommend/resolve returned that id.
+- Call `get_design_context` on a FRAME or SECTION until recipe/recommend/resolve returned that id. Exception: before `verify_frame`, fetch the frame you just drew so Resolve can read the text.
 - Place a deprecated or missing master. Call `recommend` for a live one.
 - Guess a cousin. If `check_cousins` is unsure, say so.
 
