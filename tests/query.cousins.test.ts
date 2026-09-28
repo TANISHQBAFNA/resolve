@@ -229,6 +229,42 @@ describe("wrong-cousin report", () => {
     expect(report.ok).toBeGreaterThan(0);
   });
 
+  it("still flags a real local copy that shares a library master's name", () => {
+    const { index } = cousinLab();
+    const graph = index.graph;
+    graph.nodes.push(
+      n("node:lib-card", "MAIN_COMPONENT", "Summary Card", {
+        figmaNodeId: "4:1",
+        fileKey: "LIB",
+        isMainComponent: true,
+      }),
+      n("node:lib-price", "MAIN_COMPONENT", "Price", {
+        figmaNodeId: "4:2",
+        fileKey: "LIB",
+        isMainComponent: true,
+      }),
+      n("node:local-card", "MAIN_COMPONENT", "Summary Card", {
+        figmaNodeId: "3:1",
+        fileKey: "PROD",
+        isMainComponent: true,
+      }),
+      n("node:local-price", "MAIN_COMPONENT", "Price", {
+        figmaNodeId: "3:2",
+        fileKey: "PROD",
+        isMainComponent: true,
+      }),
+    );
+    const report = checkCousins(indexGraph(graph), {
+      components: ["node:local-card", "node:local-price"],
+      workspace,
+    });
+    const flagged = report.cousins.map((hit) => hit.placed.name);
+    expect(flagged).toContain("Summary Card");
+    expect(flagged).toContain("Price");
+    expect(report.cousins.every((hit) => hit.expected?.fileKey === "LIB")).toBe(true);
+    expect(report.ok).toBe(0);
+  });
+
   it("refuses when the workspace has no library-role file", () => {
     const { index } = cousinLab();
     const report = checkCousins(index, {

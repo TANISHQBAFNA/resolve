@@ -3,7 +3,9 @@ import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import packagedRecipes from "@/data/recipes.json";
 import {
+  isNameInferredMaster,
   isPrivateMasterName,
+  placeableMasterByName,
   recommendMasters,
   resolveNode,
   variantCardName,
@@ -327,6 +329,126 @@ export function matchRecipe(recipes: Recipe[], query: string): Recipe | undefine
   return best?.recipe;
 }
 
+/** Every recipe a loose query hits, best first. Exact id/title/alias stays a single hit. */
+export function rankRecipes(recipes: Recipe[], query: string): Recipe[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return [];
+  const exact = recipes.filter(
+    (recipe) => recipe.id.toLowerCase() === needle || recipe.title.toLowerCase() === needle,
+  );
+  if (exact.length) return exact;
+  const alias = recipes.filter((recipe) =>
+    recipe.intentAliases.some((item) => item.trim().toLowerCase() === needle),
+  );
+  if (alias.length) return alias;
+
+  const tokens = tokensOf(query);
+  if (!tokens.length) return [];
+  const scored: Array<{ recipe: Recipe; score: number }> = [];
+  for (const recipe of recipes) {
+    const haystack = new Set(tokensOf([recipe.id, recipe.title, ...recipe.intentAliases].join(" ")));
+    const score = tokens.reduce((count, token) => count + (haystack.has(token) ? 1 : 0), 0);
+    if (score > 0) scored.push({ recipe, score });
+  }
+  scored.sort((a, b) => b.score - a.score || a.recipe.title.localeCompare(b.recipe.title));
+  return scored.map((row) => row.recipe);
+}
+
+export const RECIPE_RESPONSE_BUDGET = 2000;
+
+function payloadSize(value: unknown): number {
+  return JSON.stringify(value).length;
+}
+
+function slimListedRecipe(row: Record<string, unknown>): Record<string, unknown> {
+  const slots = Array.isArray(row["slots"]) ? row["slots"] : [];
+  return {
+    id: row["id"],
+    title: row["title"],
+    slots: slots.map((slot) => {
+      const record = slot as Record<string, unknown>;
+      const master = record["master"];
+      const masterRecord =
+        master && typeof master === "object" ? (master as Record<string, unknown>) : undefined;
+      return {
+        role: record["role"],
+        status: record["status"],
+        ...(masterRecord
+          ? {
+              master: {
+                id: masterRecord["id"],
+                name: masterRecord["name"],
+                figmaNodeId: masterRecord["figmaNodeId"],
+                ...(masterRecord["fileKey"] ? { fileKey: masterRecord["fileKey"] } : {}),
+              },
+            }
+          : {}),
+      };
+    }),
+  };
+}
+
+/**
+ * MCP recipe payloads stay within 2000 characters.
+ * Several matches: the best recipe, plus the names of the others.
+ */
+export function capRecipePayload(value: object, budget = RECIPE_RESPONSE_BUDGET): object {
+  if (payloadSize(value) <= budget) return value;
+  const record = value as Record<string, unknown>;
+  const recipes = record["recipes"];
+  if (Array.isArray(recipes) && recipes.length > 0) {
+    const rows = recipes.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object");
+    const best = rows[0];
+    if (!best) return value;
+    const titles = rows.slice(1).map((row) => String(row["title"] ?? row["id"] ?? "")).filter(Boolean);
+    const pack = (recipe: unknown, also: string[], omitted: number) => ({
+      recipe,
+      also,
+      ...(omitted > 0 ? { omitted } : {}),
+      hint: "Best matching recipe. Other matches are names only — call recipe with that title. Do not Read graph.json.",
+    });
+    let recipe: unknown = best;
+    let also = titles;
+    let payload: object = pack(recipe, also, 0);
+    if (payloadSize(payload) > budget) {
+      recipe = slimListedRecipe(best);
+      payload = pack(recipe, also, 0);
+    }
+    while (payloadSize(payload) > budget && also.length > 0) {
+      also = also.slice(0, -1);
+      payload = pack(recipe, also, titles.length - also.length);
+    }
+    let slots = Array.isArray((recipe as { slots?: unknown[] }).slots)
+      ? [...((recipe as { slots: unknown[] }).slots)]
+      : [];
+    while (payloadSize(payload) > budget && slots.length > 0) {
+      slots = slots.slice(0, -1);
+      recipe = { ...(recipe as object), slots };
+      payload = pack(recipe, also, titles.length - also.length);
+    }
+    if (payloadSize(payload) > budget) {
+      const title = String(best["title"] ?? best["id"] ?? "");
+      payload = pack({ id: best["id"], title: title.slice(0, 80) }, [], titles.length);
+    }
+    return payload;
+  }
+
+  const next: Record<string, unknown> = { ...record };
+  let also = Array.isArray(next["also"]) ? [...(next["also"] as unknown[])].filter((item) => typeof item === "string") : [];
+  while (payloadSize({ ...next, also }) > budget && also.length > 0) also = also.slice(0, -1);
+  if (also.length) next["also"] = also;
+  else delete next["also"];
+  if (payloadSize(next) <= budget) return next;
+  const slots = next["slots"];
+  if (Array.isArray(slots) && slots.length > 1) {
+    next["slots"] = slots.slice(0, 1);
+  }
+  if (typeof next["hint"] === "string" && payloadSize(next) > budget) {
+    next["hint"] = "Place bound figmaNodeIds, then verify_frame.";
+  }
+  return next;
+}
+
 export function slotRecommendIntent(
   recipe: Recipe,
   slot: RecipeSlot,
@@ -400,7 +522,11 @@ function fillSlot(
 
   if (slot.defaultMasterId) {
     const node = resolveNode(index, slot.defaultMasterId);
-    const master = node ? asMaster(index, node) : undefined;
+    const resolved = node ? asMaster(index, node) : undefined;
+    const master =
+      resolved && isNameInferredMaster(resolved)
+        ? placeableMasterByName(index, resolved.name, workspace)
+        : resolved;
     if (!master) {
       return {
         ...base,

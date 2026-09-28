@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "resolve": {
-      "command": "node",
-      "args": ["dist-server/mcp.mjs"]
-    }
-  }
-}

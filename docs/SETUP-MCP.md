@@ -89,7 +89,7 @@ claude mcp add --transport http figma https://mcp.figma.com/mcp -s user
 
 Then in Claude Code run `/mcp` and log in to Figma.
 
-A project `.mcp.json` that lists Figma must set `"type": "http"`:
+Plugin installs read the server from `.claude-plugin/plugin.json`. If you write a Claude Code project config that lists Figma, set `"type": "http"`:
 
 ```json
 {

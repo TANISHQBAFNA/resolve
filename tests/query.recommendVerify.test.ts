@@ -458,3 +458,46 @@ describe("recommend hides private masters and keeps search as a term", () => {
     expect(result.cost.chars).toBeLessThanOrEqual(600);
   });
 });
+
+describe("card budgets with long variant labels", () => {
+  it("keeps recommend and a four-name verify_frame within 600 characters", () => {
+    const label = `Type=Primary, Note=${"x".repeat(180)}`;
+    const nodes: GraphNode[] = [
+      n("file:LIB", "FILE", "Long labels", { fileKey: "LIB" }),
+      n("node:set", "COMPONENT_SET", "Button", { figmaNodeId: "1:1", fileKey: "LIB" }),
+    ];
+    const ids = ["1:2", "1:3", "1:4", "1:5"];
+    for (const id of ids) {
+      nodes.push(
+        n(`node:${id}`, "VARIANT", label, {
+          componentSetId: "node:set",
+          figmaNodeId: id,
+          fileKey: "LIB",
+          variantProperties: { Type: "Primary", Note: "x".repeat(180) },
+        }),
+      );
+    }
+    const graph: DesignGraph = {
+      fileKey: "LIB",
+      fileName: "Long labels",
+      builtAt: FROZEN,
+      source: { kind: "mock", ingestedAt: FROZEN },
+      warnings: [],
+      nodes,
+      edges: [],
+    };
+    const index = indexGraph(graph);
+    const recommended = recommendMasters(index, "primary");
+    expect(recommended.candidates.length).toBeGreaterThan(0);
+    expect(recommended.cost.chars).toBeLessThanOrEqual(600);
+    expect(JSON.stringify(recommended).length).toBeGreaterThan(200);
+
+    const verified = verifyFrame(index, {
+      components: ids.map((id) => `node:${id}`),
+    });
+    expect(verified.pass).toBe(true);
+    expect(verified.approved).toBe(4);
+    expect(verified.cost.chars).toBeLessThanOrEqual(600);
+    expect(JSON.stringify(verified).length).toBeLessThanOrEqual(600);
+  });
+});

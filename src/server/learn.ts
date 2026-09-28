@@ -4,6 +4,7 @@ import {
   extractLearnOutline,
   graphFromMetadataXml,
   hashLearnPayload,
+  LEARN_PRODUCT_EMPTY,
   LEARN_ZERO_COMPONENTS,
   learnGaps,
   learnProgressLine,
@@ -164,7 +165,7 @@ export function learnLibrary(input: LearnInput): LearnResult {
   const totalCount = Math.max(outline.length, learnedCount);
   const next = remaining[0];
   const hasFullOutline = Boolean(input.outline?.length) || Boolean(checkpoint?.hasFullOutline && !versionMismatch);
-  const progress = learnProgressLine(learnedCount, totalCount, next);
+  const progress = learnProgressLine(learnedCount, totalCount, next, input.role);
 
   const mastersByUnit: Record<string, LearnUnitMaster[]> = { ...(checkpoint?.mastersByUnit ?? {}) };
   if (xml && !skippedDuplicate) {
@@ -221,14 +222,26 @@ export function learnLibrary(input: LearnInput): LearnResult {
 
   const gaps = learnGaps(graph, catalog != null);
   const realComponents = realLearnedComponentCount(graph, fileKey);
-  const zeroComponents = realComponents === 0;
-  const progressLine = zeroComponents ? LEARN_ZERO_COMPONENTS : progress;
-  const hint = zeroComponents
+  const productRole = input.role === "product" || input.role === "client";
+  const surfaceCount = graph.nodes.filter((node) => {
+    const key = (node.fileKey ?? graph.fileKey).trim();
+    if (key !== fileKey) return false;
+    return node.type === "FRAME" || node.type === "COMPONENT_INSTANCE" || node.type === "SECTION";
+  }).length;
+  const libraryMiss = !productRole && realComponents === 0;
+  const productMiss = productRole && realComponents === 0 && surfaceCount === 0;
+  const progressLine = libraryMiss ? LEARN_ZERO_COMPONENTS : productMiss ? LEARN_PRODUCT_EMPTY : progress;
+  const productHint = `${progress}. Usage is saved. Library masters stay the placeable ones. Next: recipe or recommend. Do not Read graph.json. Store ${storeInfo().path}`;
+  const hint = libraryMiss
     ? LEARN_ZERO_COMPONENTS
-    : gaps[0]?.hint ??
-      `${progress}. SOCK updated (${graph.nodes.length} nodes). Next: recipe or recommend. Do not Read graph.json. Store ${storeInfo().path}`;
+    : productMiss
+      ? LEARN_PRODUCT_EMPTY
+      : productRole
+        ? productHint
+        : gaps[0]?.hint ??
+          `${progress}. SOCK updated (${graph.nodes.length} nodes). Next: recipe or recommend. Do not Read graph.json. Store ${storeInfo().path}`;
   return {
-    learned: !zeroComponents,
+    learned: !libraryMiss && !productMiss,
     fileKey,
     nodes: graph.nodes.length,
     added,

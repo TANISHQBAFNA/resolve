@@ -17,8 +17,10 @@ import {
   listSoci,
   mergeBindRules,
   parseLibraryRules,
+  capRecipePayload,
   listRecipes,
   pathBetween,
+  rankRecipes,
   queryQuestion,
   recipeCard,
   recommendMasters,
@@ -742,6 +744,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       return componentUsageCard(index, asString(args["name"] ?? args["query"], "name"), {
         budgetChars: budget,
         sock: readSock(),
+        workspace: bind.workspace ?? readWorkspace(),
         ...(resolvedContext ? { context: resolvedContext } : {}),
       });
     }
@@ -831,6 +834,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         context: pack,
         bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
         sock: readSock(),
+        workspace: bind.workspace ?? readWorkspace(),
       });
       if (result.pass) {
         const masters: Array<{
@@ -937,12 +941,14 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
 
     case "list_recipes": {
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
-      return listRecipes(
-        loadRecipes(),
-        resolveGraph(graphId)?.index,
-        contextBindFromArgs(args),
-        readSock(),
-        loadBindRulesSafe(),
+      return capRecipePayload(
+        listRecipes(
+          loadRecipes(),
+          resolveGraph(graphId)?.index,
+          contextBindFromArgs(args),
+          readSock(),
+          loadBindRulesSafe(),
+        ),
       );
     }
 
@@ -952,27 +958,33 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const query = typeof rawQuery === "string" ? rawQuery.trim() : "";
       if (!query || query === "list") {
         const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
-        return listRecipes(
-          loadRecipes(),
-          resolveGraph(graphId)?.index,
-          contextBindFromArgs(args),
-          readSock(),
-          loadBindRulesSafe(),
+        return capRecipePayload(
+          listRecipes(
+            loadRecipes(),
+            resolveGraph(graphId)?.index,
+            contextBindFromArgs(args),
+            readSock(),
+            loadBindRulesSafe(),
+          ),
         );
       }
       const intent = typeof args["intent"] === "string" ? args["intent"].trim() : "";
       const extra = intent && intent !== query ? intent : undefined;
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
+      const recipes = loadRecipes();
+      const ranked = rankRecipes(recipes, query);
+      const card = recipeCard(
+        recipes,
+        ranked[0]?.id ?? query,
+        resolveGraph(graphId)?.index,
+        extra,
+        contextBindFromArgs(args),
+        readSock(),
+        loadBindRulesSafe(),
+      );
+      const also = ranked.slice(1).map((recipe) => recipe.title);
       return withPendingImprovements(
-        recipeCard(
-          loadRecipes(),
-          query,
-          resolveGraph(graphId)?.index,
-          extra,
-          contextBindFromArgs(args),
-          readSock(),
-          loadBindRulesSafe(),
-        ),
+        capRecipePayload(also.length ? { ...card, also } : card),
         readSock(),
       );
     }

@@ -8,10 +8,11 @@ import { placeReady } from "@/core/query/placeReady";
 import {
   applyPublishedCatalog,
   extractLearnOutline,
+  LEARN_PRODUCT_EMPTY,
   LEARN_ZERO_COMPONENTS,
   removedMastersByAbsence,
 } from "@/core/ingestion/learnLibrary";
-import { checkCousins, indexGraph, recommendMasters, verifyFrame } from "@/core/query";
+import { checkCousins, componentUsageCard, indexGraph, recommendMasters, verifyFrame } from "@/core/query";
 import { emptyGraph } from "@/core/model";
 
 /** Real-shaped Figma MCP get_metadata output (prose wrapper + XML). */
@@ -289,10 +290,10 @@ describe("learn_library from Figma MCP get_metadata", () => {
     expect(result.gaps[0]?.hint).toMatch(/search_design_system|get_libraries/);
   });
 
-  it("warns instead of success when metadata has no real components", () => {
+  it("warns instead of success when a library learn has no real components", () => {
     const result = learnLibrary({
-      fileKey: "PROD",
-      role: "product",
+      fileKey: "LIB",
+      role: "library",
       metadataXml: `
         <frame id="1:1" name="Checkout">
           <instance id="1:2" name="Fancy Pay Button" />
@@ -303,6 +304,37 @@ describe("learn_library from Figma MCP get_metadata", () => {
     expect(result.hint).toBe(LEARN_ZERO_COMPONENTS);
     expect(result.progress).toBe(LEARN_ZERO_COMPONENTS);
     expect(result.hint).not.toMatch(/Next: recipe or recommend/);
+  });
+
+  it("records a product learn when screens or usage were learned", () => {
+    const instances = learnLibrary({
+      fileKey: "PROD",
+      role: "product",
+      metadataXml: `
+        <frame id="1:1" name="Checkout">
+          <instance id="1:2" name="Fancy Pay Button" />
+        </frame>
+      `,
+    });
+    expect(instances.learned).toBe(true);
+    expect(instances.hint).not.toBe(LEARN_ZERO_COMPONENTS);
+    expect(instances.hint).not.toMatch(/library complete/);
+    expect(instances.progress).toMatch(/product screens recorded/);
+    expect(instances.hint).toMatch(/Usage is saved/);
+
+    const locals = learnLibrary({
+      fileKey: "PROD2",
+      role: "product",
+      metadataXml: `
+        <frame id="3:1" name="Checkout Review">
+          <component id="3:2" name="Price" />
+        </frame>
+      `,
+    });
+    expect(locals.learned).toBe(true);
+    expect(locals.progress).toBe("learned 1 of 1 pages; product screens recorded");
+    expect(locals.progress).not.toMatch(/library complete/);
+    expect(locals.hint).not.toBe(LEARN_PRODUCT_EMPTY);
   });
 
   it("does not approve product instance names, and does not flag same-name library masters as cousins", () => {
@@ -351,5 +383,79 @@ describe("learn_library from Figma MCP get_metadata", () => {
     const flagged = [...report.cousins, ...report.unsure].map((hit) => hit.placed.name);
     expect(flagged).not.toContain("Summary Card");
     expect(flagged).not.toContain("Price");
+  });
+
+  it("places the real library master, not an mcp-name guess, and passes a clashing checkout review", () => {
+    learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      metadataXml: `
+        <frame id="9:0" name="Components">
+          <component id="22:3" name="Price" />
+          <component id="22:4" name="Summary Card" />
+          <instance id="22:9" name="Price" />
+        </frame>
+      `,
+    });
+    learnLibrary({
+      fileKey: "PROD",
+      role: "product",
+      metadataXml: `
+        <frame id="4:1" name="Checkout Review">
+          <component id="4:2" name="Summary Card" />
+          <component id="4:3" name="Price" />
+          <instance id="4:4" name="Summary Card" />
+          <instance id="4:5" name="Price" />
+        </frame>
+        <frame id="4:9" name="Scratch">
+          <instance id="4:6" name="Fancy Pay Button" />
+        </frame>
+      `,
+    });
+    const loaded = loadGraph();
+    expect(loaded).toBeDefined();
+    const index = loaded!.index;
+    const workspace = readWorkspace();
+
+    const recommended = recommendMasters(index, "Price", { workspace });
+    expect(recommended.candidates.length).toBeGreaterThan(0);
+    expect(recommended.candidates[0]).toEqual(expect.objectContaining({ figmaNodeId: "22:3" }));
+    expect(JSON.stringify(recommended)).not.toContain("mcp-name:");
+
+    const fancy = recommendMasters(index, "fancy pay button", { workspace });
+    expect(JSON.stringify(fancy)).not.toContain("mcp-name:");
+    expect(fancy.candidates.every((candidate) => !candidate.name.toLowerCase().includes("fancy pay"))).toBe(
+      true,
+    );
+
+    const resolved = componentUsageCard(index, "Price", { workspace });
+    expect(resolved).toEqual(
+      expect.objectContaining({
+        found: true,
+        kind: "component",
+      }),
+    );
+    if (resolved.found && resolved.kind === "component") {
+      expect(resolved.component.figmaNodeId).toBe("22:3");
+      expect(resolved.component.figmaNodeId).not.toContain("mcp-name:");
+    }
+
+    const review = verifyFrame(index, {
+      frame: "Checkout Review",
+      components: ["Summary Card", "Price"],
+      workspace,
+    });
+    expect(review.pass).toBe(true);
+    expect(review.approved).toBeGreaterThanOrEqual(2);
+    expect(review.invents).toEqual([]);
+    const approved = (review.resolved ?? []).flatMap((row) => {
+      if (!row.id) return [];
+      const node = index.getNode(row.id);
+      return node ? [node] : [];
+    });
+    expect(approved.length).toBeGreaterThanOrEqual(2);
+    expect(approved.every((node) => node.fileKey === "LIB")).toBe(true);
+    expect(approved.some((node) => node.figmaNodeId === "22:3")).toBe(true);
+    expect(approved.some((node) => node.figmaNodeId === "22:4")).toBe(true);
   });
 });

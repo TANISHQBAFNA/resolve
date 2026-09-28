@@ -183,6 +183,9 @@ const LEARN_MASTER_TAGS = new Set([
 export const LEARN_ZERO_COMPONENTS =
   "Learned 0 components. Make sure you passed the LIBRARY file's metadata, not a product screen";
 
+export const LEARN_PRODUCT_EMPTY =
+  "Learned 0 product screens. Pass the product file's get_metadata, not an empty payload.";
+
 export function realLearnedComponentCount(graph: DesignGraph, fileKey?: string): number {
   const want = fileKey?.trim();
   return graph.nodes.filter((node) => {
@@ -327,9 +330,17 @@ export function remainingLearnUnits(outline: LearnUnit[], completed: LearnUnit[]
   return outline.filter((unit) => !done.has(unit.id));
 }
 
-export function learnProgressLine(learned: number, total: number, next?: LearnUnit): string {
+export function learnProgressLine(
+  learned: number,
+  total: number,
+  next?: LearnUnit,
+  role?: WorkspaceFileRole,
+): string {
   if (next) return `learned ${learned} of ${total} pages; next: ${next.name}`;
   if (total > 0 && learned >= total) {
+    if (role === "product" || role === "client") {
+      return `learned ${learned} of ${total} pages; ${role} screens recorded`;
+    }
     return `learned ${learned} of ${total} pages; library complete`;
   }
   return `learned ${learned} of ${total} pages; next: pass next get_metadata page/frame`;

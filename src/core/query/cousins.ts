@@ -1,5 +1,6 @@
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import {
+  isNameInferredMaster,
   resolveNode,
   withCost,
   type RecommendContext,
@@ -221,7 +222,10 @@ export function checkCousins(
       continue;
     }
     const placedName = master.name.trim().toLowerCase();
+    // Guessed instance names (`mcp-name:`) are not a second master. A real local
+    // copy with the same name is still a cousin of the library component.
     if (
+      isNameInferredMaster(master) &&
       placedName &&
       libraryMasters.some((candidate) => candidate.name.trim().toLowerCase() === placedName)
     ) {
