@@ -938,7 +938,7 @@ export function parseLibraryRules(raw: unknown): LibraryRules {
   return { allow: list(record["allow"]), deny: list(record["deny"]) };
 }
 
-const REFRESH_HINT = "If stale, learn_library changed frames. Do not Read graph.json.";
+const REFRESH_HINT = "If stale, learn_library. Do not Read graph.json.";
 
 function refreshHintFor(sock?: SockState, fileKey?: string): string {
   if (!sock) return REFRESH_HINT;
@@ -960,6 +960,8 @@ export interface RecommendCandidate {
   instances: number;
   whereUsed: Array<{ name: string; count: number }>;
   score: number;
+  /** Set when an unknown noun sits in front of the head. Ranking is unchanged. */
+  confidence?: "low";
   figmaNodeId?: string;
   nodeId?: string;
   fileKey?: string;
@@ -1059,9 +1061,11 @@ function deniedByRules(index: GraphIndex, node: GraphNode, rules?: LibraryRules)
 }
 
 /** Everyday words that mean the same control. Reasons live in src/data/synonyms.json. */
+const SYNONYM_GROUPS: (readonly string[])[] = [];
 const SYNONYM_OF = new Map<string, readonly string[]>();
 for (const group of synonymFile.groups) {
   const terms = group.terms.map((term) => term.toLowerCase()).filter((term) => !term.includes(" "));
+  if (terms.length) SYNONYM_GROUPS.push(terms);
   for (const term of terms) SYNONYM_OF.set(term, terms);
 }
 
@@ -1071,6 +1075,17 @@ for (const group of synonymFile.groups) {
  * Reasons live in src/data/ui-modifiers.json.
  */
 const UI_MODIFIER = new Set(modifierFile.words.map((word) => word.term.toLowerCase()));
+
+/**
+ * A word that only counts when it follows a component word or one of its synonyms.
+ * "window" after modal. "mark" after close. Not a free-floating modifier.
+ */
+const TRAILING_AFTER = new Map<string, ReadonlySet<string>>(
+  modifierFile.trailing.map((row) => [
+    row.term.toLowerCase(),
+    new Set(row.after.map((word) => word.toLowerCase())),
+  ]),
+);
 
 /** Slot words that pick a variant, not a different component family. */
 const SLOT_QUALIFIERS = new Set(["primary", "secondary", "tertiary", "danger", "ghost"]);
@@ -1117,10 +1132,36 @@ function intentNamesMaster(index: GraphIndex, askedTokens: string[]): boolean {
 
 const RETIRED_NAME_TOKENS = new Set(["legacy", "old", "deprecated", "retired"]);
 
-function synonymIn(token: string, names: Set<string>): boolean {
-  const group = SYNONYM_OF.get(token);
+function synonymIn(token: string, names: Set<string>, allowClip = false): boolean {
+  const group = termsFor(token, allowClip);
   if (!group) return false;
   return group.some((word) => word !== token && names.has(word));
+}
+
+const CLIP_GROUP = new Map<string, readonly string[] | undefined>();
+
+/**
+ * A short token that is a unique prefix of one synonym, with at least four
+ * letters left over. "pic" is picture. "head" is not, because it also starts header.
+ * Single-word asks do not clip. The caller passes allowClip only for a multi-word ask.
+ */
+function clippingGroup(token: string): readonly string[] | undefined {
+  if (CLIP_GROUP.has(token)) return CLIP_GROUP.get(token);
+  let found: readonly string[] | undefined;
+  if (token.length >= 3 && !SYNONYM_OF.has(token)) {
+    const hits: (readonly string[])[] = [];
+    for (const terms of SYNONYM_GROUPS) {
+      if (terms.some((term) => term.startsWith(token) && term.length > token.length)) hits.push(terms);
+    }
+    const only = hits[0];
+    if (hits.length === 1 && only?.some((term) => term.length >= token.length + 4)) found = only;
+  }
+  CLIP_GROUP.set(token, found);
+  return found;
+}
+
+function termsFor(token: string, allowClip: boolean): readonly string[] | undefined {
+  return SYNONYM_OF.get(token) ?? (allowClip ? clippingGroup(token) : undefined);
 }
 
 interface TokenHits {
@@ -1143,6 +1184,7 @@ const GENERIC_NAME_TOKENS = new Set([
   "row",
   "card",
   "message",
+  "input",
 ]);
 
 function collapsedName(text: string): string {
@@ -1158,9 +1200,9 @@ function inflectsName(query: string, nameToken: string): boolean {
   return rest === "s" || rest === "es" || rest === "ing" || rest === "ed";
 }
 
-function tokenMatchesName(query: string, nameToken: string): boolean {
+function tokenMatchesName(query: string, nameToken: string, allowClip = false): boolean {
   if (query === nameToken || inflectsName(query, nameToken)) return true;
-  return synonymIn(query, new Set([nameToken]));
+  return synonymIn(query, new Set([nameToken]), allowClip);
 }
 
 /** "x" means close only as the whole ask, or right beside icon/button. "x ray" does not. */
@@ -1231,29 +1273,54 @@ function contextWords(context?: RecommendContext): string[] {
   );
 }
 
+/** A UI modifier, a scene word, or a trailing UI noun such as "window" after modal. */
+function keepsCompany(token: string, previous: string | undefined, exempt: ReadonlySet<string>): boolean {
+  if (UI_MODIFIER.has(token) || exempt.has(token)) return true;
+  if (!previous) return false;
+  const after = TRAILING_AFTER.get(token);
+  if (!after) return false;
+  if (after.has(previous)) return true;
+  const group = SYNONYM_OF.get(previous);
+  return Boolean(group?.some((word) => after.has(word)));
+}
+
 /**
- * One component word plus ordinary words is not a component ask.
- * "cancel culture" is empty. "error alert" stays, because error is a status.
- * A scene word (screen name or caller context) is not junk, and it does not
- * erase a component word that happens to share that screen's name.
+ * One component word plus words that are not the head is not a component ask.
+ * The head is the last word, or a component word followed only by UI nouns.
+ * "cart badge" keeps Badge. "card game" is empty, because game is the head.
+ * "error alert" stays, because error is a status. A scene word is not junk.
+ * An unknown word in front of the head is a noun modifier, and the pick is low confidence.
  */
-function outOfDomainAsk(
+function askGate(
   ask: string,
   tokens: string[],
   nameSets: readonly Set<string>[],
   exempt: ReadonlySet<string>,
-): boolean {
-  if (phraseCoversAsk(ask)) return false;
+  allowClip: boolean,
+): { outOfDomain: boolean; lowConfidence: boolean } {
+  const open = { outOfDomain: false, lowConfidence: false };
+  if (phraseCoversAsk(ask)) return open;
   const content = tokens.filter((token) => !RETIRED_NAME_TOKENS.has(token));
-  if (content.length < 2) return false;
-  let matched = 0;
-  let junk = 0;
-  for (const token of content) {
-    const hit = nameSets.some((names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names));
-    if (hit) matched += 1;
-    else if (!UI_MODIFIER.has(token) && !exempt.has(token)) junk += 1;
+  if (content.length < 2) return open;
+  const hit = content.map((token) =>
+    nameSets.some(
+      (names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip),
+    ),
+  );
+  if (hit.filter(Boolean).length !== 1) return open;
+  const head = hit.lastIndexOf(true);
+  for (let i = head + 1; i < content.length; i += 1) {
+    const token = content[i];
+    if (!token || !keepsCompany(token, content[i - 1], exempt)) return { outOfDomain: true, lowConfidence: false };
   }
-  return matched === 1 && junk > 0;
+  let unknown = 0;
+  for (let i = 0; i < head; i += 1) {
+    const token = content[i];
+    if (!token || hit[i]) continue;
+    if (UI_MODIFIER.has(token) || exempt.has(token)) continue;
+    unknown += 1;
+  }
+  return { outOfDomain: false, lowConfidence: unknown > 0 };
 }
 
 /** Query is the master name with one letter missing. */
@@ -1286,19 +1353,76 @@ function wholeNameTypo(ask: string, name: string): boolean {
   return oneCharMissing(query, master) || adjacentSwap(query, master);
 }
 
+/** "button" and "cta"/"action" are the same generic control word. */
+function genericQuery(query: string): boolean {
+  if (GENERIC_NAME_TOKENS.has(query)) return true;
+  const group = SYNONYM_OF.get(query);
+  return Boolean(group?.some((word) => word !== query && GENERIC_NAME_TOKENS.has(word)));
+}
+
 /**
- * A multi-word master that only shares a generic token (bar, button, …)
- * drops out when the ask still has a specific word it does not cover.
+ * A master that only shares a generic token (bar, button, input, cta, …)
+ * drops out when another word names a different component, or when this
+ * master still has a specific word the ask did not say.
+ * "radio button" drops Button. "primary button" drops Pay CTA.
+ * "login field" keeps Text Field.
  */
-function genericOnlyMiss(name: string, queryTokens: string[]): boolean {
+function genericOnlyMiss(
+  name: string,
+  queryTokens: string[],
+  allowClip: boolean,
+  componentWord: (token: string) => boolean,
+): boolean {
   const nameTokens = tokensOf(name);
   if (!nameTokens.length || !queryTokens.length) return false;
-  const matched = nameTokens.filter((token) => queryTokens.some((query) => tokenMatchesName(query, token)));
+  const matched = nameTokens.filter((token) =>
+    queryTokens.some((query) => tokenMatchesName(query, token, allowClip)),
+  );
   if (!matched.length) return false;
+  // "cta" on Pay CTA is a real name token, even though cta is a synonym of button.
   if (matched.some((token) => !GENERIC_NAME_TOKENS.has(token))) return false;
-  return queryTokens.some((query) => {
-    if (GENERIC_NAME_TOKENS.has(query)) return false;
-    return !nameTokens.some((token) => tokenMatchesName(query, token));
+  const uncovered = queryTokens.filter((query) => {
+    if (genericQuery(query)) return false;
+    return !nameTokens.some((token) => tokenMatchesName(query, token, allowClip));
+  });
+  if (!uncovered.length) return false;
+  if (uncovered.some((query) => componentWord(query))) return true;
+  const unknown = uncovered.filter((query) => !UI_MODIFIER.has(query));
+  if (!unknown.length) return false;
+  return nameTokens.some(
+    (token) =>
+      !GENERIC_NAME_TOKENS.has(token) &&
+      !queryTokens.some((query) => tokenMatchesName(query, token, allowClip)),
+  );
+}
+
+/**
+ * "primary button" drops Pay CTA when a master is actually named primary.
+ * A library whose primary control is named Pay CTA keeps it, because primary
+ * is only a variant there. Two real component words ("button and row") both stay.
+ */
+function withoutGenericCousins<T extends { node: { name: string } }>(
+  entries: T[],
+  queryTokens: string[],
+  allowClip: boolean,
+): T[] {
+  const modifiers = queryTokens.filter((token) => UI_MODIFIER.has(token) && !GENERIC_NAME_TOKENS.has(token));
+  const covered = modifiers.filter((token) =>
+    entries.some((entry) => tokensOf(entry.node.name).some((name) => name === token || inflectsName(token, name))),
+  );
+  if (!covered.length) return entries;
+  return entries.filter((entry) => {
+    const names = tokensOf(entry.node.name);
+    const misses = covered.some((token) => !names.some((name) => name === token || inflectsName(token, name)));
+    if (!misses) return true;
+    return names.some((name) => {
+      if (GENERIC_NAME_TOKENS.has(name)) return false;
+      return queryTokens.some((query) => {
+        if (!(query === name || inflectsName(query, name) || tokenMatchesName(query, name, allowClip))) return false;
+        if (query === name || inflectsName(query, name)) return true;
+        return !genericQuery(query);
+      });
+    });
   });
 }
 
@@ -1310,7 +1434,7 @@ function nameTokenFor(token: string, names: Set<string>, used: Set<string>): str
   return undefined;
 }
 
-function tokenHits(nameHaystack: string, variantText: string, tokens: string[]): TokenHits {
+function tokenHits(nameHaystack: string, variantText: string, tokens: string[], allowClip: boolean): TokenHits {
   const names = new Set(tokensOf(nameHaystack));
   const variants = new Set(tokensOf(variantText));
   const used = new Set<string>();
@@ -1329,7 +1453,7 @@ function tokenHits(nameHaystack: string, variantText: string, tokens: string[]):
   }
   const still: string[] = [];
   for (const token of pending) {
-    const group = SYNONYM_OF.get(token);
+    const group = termsFor(token, allowClip);
     const hit = group?.find((word) => word !== token && names.has(word) && !used.has(word));
     if (hit) {
       synonym += 1;
@@ -1338,7 +1462,7 @@ function tokenHits(nameHaystack: string, variantText: string, tokens: string[]):
     } else still.push(token);
   }
   for (const token of still) {
-    const syn = SYNONYM_OF.get(token);
+    const syn = termsFor(token, allowClip);
     const hit = [...variants].find(
       (part) => !used.has(part) && (part === token || Boolean(syn?.includes(part) && part !== token)),
     );
@@ -1468,6 +1592,12 @@ export function recommendMasters(
   const workspace = options.workspace;
   const graphFileKey = index.graph.fileKey;
   const intentNeedle = intent.trim().toLowerCase();
+  const allowClip = askedTokens.length >= 2;
+  const publicNameSets = liveNameSets(index);
+  const componentWord = (token: string): boolean =>
+    publicNameSets.some(
+      (names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip),
+    );
 
   type Scored = {
     node: GraphNode;
@@ -1497,8 +1627,8 @@ export function recommendMasters(
             phraseNamesMatch(intentNeedle, set!.name))));
     const nameHaystack = `${node.name} ${set?.name ?? ""}`;
     const variantText = variantHaystack(node);
-    const hits = tokenHits(nameHaystack, variantText, tokens);
-    const extraHits = extraTokens.length ? tokenHits(nameHaystack, variantText, extraTokens) : undefined;
+    const hits = tokenHits(nameHaystack, variantText, tokens, allowClip);
+    const extraHits = extraTokens.length ? tokenHits(nameHaystack, variantText, extraTokens, allowClip) : undefined;
     // A screen-job slot names the family ("sign in" + primary-cta → buttons).
     // When the intent already names a master, that gate stays off.
     let lexical: number;
@@ -1515,7 +1645,7 @@ export function recommendMasters(
     } else {
       lexical = lexicalScore(hits, false);
       if (lexical === 0) return undefined;
-      if (genericOnlyMiss(node.name, tokens)) return undefined;
+      if (genericOnlyMiss(node.name, tokens, allowClip, componentWord)) return undefined;
       const nameTokens = tokensOf(node.name);
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
       if (nameTokens.length > 0 && matched === nameTokens.length) lexical += 25;
@@ -1688,13 +1818,14 @@ export function recommendMasters(
   }
 
   const domainExempt = new Set<string>([...contextWords(options.context), ...screenWords(index)]);
-  const outOfDomain = outOfDomainAsk(brief.role, askedTokens, liveNameSets(index), domainExempt);
-  if (outOfDomain) {
+  const gate = askGate(brief.role, askedTokens, publicNameSets, domainExempt, allowClip);
+  if (gate.outOfDomain) {
     scored.length = 0;
     retired.length = 0;
   }
+  const lowConfidence = gate.lowConfidence;
 
-  if (!blockedByPrivate && !outOfDomain && scored.length === 0 && intentNeedle) {
+  if (!blockedByPrivate && !gate.outOfDomain && scored.length === 0 && intentNeedle) {
     const winners: GraphNode[] = [];
     for (const node of index.getNodesByType(...MASTER_TYPES)) {
       if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
@@ -1794,6 +1925,8 @@ export function recommendMasters(
     );
   }
 
+  kept = withoutGenericCousins(kept, tokens, allowClip);
+
   const packJourney = packJourneyPhrase(options.context);
   const bindQuery = {
     intent,
@@ -1865,6 +1998,7 @@ export function recommendMasters(
       whereUsed: [],
       hint: full.deprecated ? "Deprecated — do not place." : "Place fileKey + nodeId.",
     };
+    if (lowConfidence) next.confidence = "low";
     delete next.slots;
     if (dropExtras) {
       delete next.set;
@@ -1916,6 +2050,12 @@ export function recommendMasters(
     payload = payloadOf();
   };
 
+  if (JSON.stringify(payload).length > budgetChars && candidates[0] && "confidence" in candidates[0]) {
+    const lead = { ...candidates[0] };
+    delete lead.confidence;
+    candidates = [lead, ...candidates.slice(1)];
+    payload = payloadOf();
+  }
   if (JSON.stringify(payload).length > budgetChars) {
     truncated = true;
     dropExtras = true;

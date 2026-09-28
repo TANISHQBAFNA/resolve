@@ -30,5 +30,17 @@
     { "term": "count", "reason": "Count is a quantity on a badge or a value." },
     { "term": "user", "reason": "User is the person a profile or an avatar represents." },
     { "term": "code", "reason": "Code is the value typed into a promo, coupon, or access field." }
+  ],
+  "trailing": [
+    {
+      "term": "window",
+      "after": ["modal", "dialog"],
+      "reason": "A window after a modal or a dialog is that surface."
+    },
+    {
+      "term": "mark",
+      "after": ["close", "icon"],
+      "reason": "A mark after close or icon is the symbol on that control."
+    }
   ]
 }

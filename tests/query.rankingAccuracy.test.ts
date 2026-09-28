@@ -154,6 +154,19 @@ describe("phrase match and typos", () => {
       "cancel culture",
       "image processing",
       "money order",
+      "card game",
+      "radio station",
+      "price of gold",
+      "badge of honor",
+      "chip shop",
+      "exit strategy",
+      "stepper motor",
+      "divider wall",
+      "switch off lights",
+      "link in bio",
+      "card window",
+      "pic",
+      "user head",
     ];
     for (const word of junk) {
       expect(recommendMasters(index, word).candidates, word).toEqual([]);
@@ -186,6 +199,36 @@ describe("phrase match and typos", () => {
     expect(["Coupon Field", "Promo Field"]).toContain(topName(index, "voucher").candidates[0]?.name);
     expect(topName(index, "sidebar item").candidates[0]?.name).toBe("Nav Item");
     expect(topName(index, "table row").candidates[0]?.name).toBe("List Row");
+  });
+
+  it("keeps a component that is the head noun, and marks the modifier as low confidence", () => {
+    const login = topName(index, "login field");
+    expect(login.candidates[0]?.name).toBe("Text Field");
+    expect(login.candidates[0] && "confidence" in login.candidates[0] && login.candidates[0].confidence).toBe("low");
+    expect(login.cost.chars).toBeLessThanOrEqual(600);
+    expect(topName(index, "billing address field").candidates[0]?.name).toBe("Text Field");
+    expect(topName(index, "cart badge").candidates[0]?.name).toBe("Badge");
+    expect(topName(index, "shipping alert").candidates[0]?.name).toBe("Alert");
+    expect(topName(index, "newsletter checkbox").candidates[0]?.name).toBe("Checkbox");
+    expect(topName(index, "delivery banner").candidates[0]?.name).toBe("Banner");
+    expect(topName(index, "wishlist chip").candidates[0]?.name).toBe("Chip");
+    expect(topName(index, "notifications switch").candidates[0]?.name).toBe("Switch");
+    const modal = topName(index, "modal window");
+    expect(modal.candidates[0]?.name).toBe("Modal");
+    expect(modal.candidates[0] && "confidence" in modal.candidates[0]).toBe(false);
+    expect(topName(index, "dialog window").candidates[0]?.name).toBe("Modal");
+    const avatar = topName(index, "user pic");
+    expect(avatar.candidates[0]?.name).toBe("Avatar");
+    expect(avatar.candidates[0] && "confidence" in avatar.candidates[0]).toBe(false);
+    const close = topName(index, "close mark");
+    expect(close.candidates[0]?.name).toBe("Icon Close");
+    expect(close.candidates[0] && "confidence" in close.candidates[0]).toBe(false);
+    const promo = topName(index, "promo input");
+    expect(promo.candidates[0]?.name).toBe("Promo Field");
+    expect(promo.candidates.map((row) => row.name)).not.toContain("Input");
+    const alert = topName(index, "error alert");
+    expect(alert.candidates[0]?.name).toBe("Alert");
+    expect(alert.candidates[0] && "confidence" in alert.candidates[0]).toBe(false);
   });
 });
 

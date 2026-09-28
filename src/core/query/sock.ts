@@ -600,7 +600,7 @@ export function isRemovedByAbsence(state: SockState | undefined, node: { id: str
 }
 
 export function staleRefreshHint(freshness?: FileFreshness): string {
-  if (!freshness?.stale) return "If stale, learn_library changed frames. Do not Read graph.json.";
+  if (!freshness?.stale) return "If stale, learn_library. Do not Read graph.json.";
   const refetch = (freshness.delta ?? []).filter((item) => item.action === "refetch");
   if (refetch.length) {
     const list = refetch.map((item) => `${item.name} (${item.id})`).join(", ");
