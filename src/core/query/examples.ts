@@ -1,11 +1,18 @@
 import type { GraphNode } from "@/core/model";
 import { COMPONENT_DEFINITION_TYPES } from "@/core/model";
-import { TEXT_UNCHECKED_REASON } from "@/core/ingestion/textStamps";
+import {
+  TEXT_DEFAULT_UNKNOWN,
+  TEXT_NO_FRAME,
+  TEXT_NO_LAYERS,
+  TEXT_UNCHECKED_REASON,
+} from "@/core/ingestion/textStamps";
 import type { GraphIndex } from "./GraphIndex";
 import type { SockState, UsageFact } from "./sock";
 import { nodeFileKey } from "./workspaceMerge";
 
-export { TEXT_UNCHECKED_REASON };
+export { TEXT_DEFAULT_UNKNOWN, TEXT_NO_FRAME, TEXT_NO_LAYERS, TEXT_UNCHECKED_REASON };
+
+export type TextChecked = true | false | "partial" | "n/a";
 
 /**
  * Real populated instances already in the graph.
@@ -104,12 +111,19 @@ interface Described {
   populated: boolean;
 }
 
+interface PeerScan {
+  ids: string[];
+  cursor: number;
+  done: boolean;
+  rows: Array<{ id: string; height: number }>;
+}
+
 interface ExampleCache {
   described: Map<string, Described>;
   masterText: Map<string, Set<string>>;
   masterParts: Map<string, Parts>;
   definition: Map<string, GraphNode>;
-  peerFixed: Map<string, Array<{ id: string; height: number }>>;
+  peerScan: Map<string, PeerScan>;
   examples: Map<string, ExampleLookup>;
 }
 
@@ -134,7 +148,7 @@ function createExampleCache(): ExampleCache {
     masterText: new Map(),
     masterParts: new Map(),
     definition: new Map(),
-    peerFixed: new Map(),
+    peerScan: new Map(),
     examples: new Map(),
   };
 }
@@ -757,24 +771,20 @@ function peersHug(described: Map<string, Described>, instanceId: string, mainId:
   return false;
 }
 
-function peerFixedRows(
-  index: GraphIndex,
-  mainId: string,
-  team: string[] | undefined,
-): Array<{ id: string; height: number }> {
-  const cached = active?.peerFixed.get(mainId);
+function peerScanFor(index: GraphIndex, mainId: string): PeerScan {
+  const cached = active?.peerScan.get(mainId);
   if (cached) return cached;
-  const rows: Array<{ id: string; height: number }> = [];
-  for (const other of index.getAllInstancesOf(mainId)) {
-    const described = describeCached(index, other, team);
-    if (!described.populated || described.parts.sizing !== "fixed") continue;
-    if (described.parts.height === undefined) continue;
-    rows.push({ id: other.id, height: described.parts.height });
-  }
-  active?.peerFixed.set(mainId, rows);
-  return rows;
+  const scan: PeerScan = {
+    ids: index.getAllInstancesOf(mainId).map((node) => node.id),
+    cursor: 0,
+    done: false,
+    rows: [],
+  };
+  active?.peerScan.set(mainId, scan);
+  return scan;
 }
 
+/** Stop at the first peer that shares this height. Later calls resume the scan. */
 function peersShareFixedHeight(
   index: GraphIndex,
   instance: GraphNode,
@@ -783,10 +793,22 @@ function peersShareFixedHeight(
 ): boolean {
   const main = index.getMainComponent(instance.id);
   if (!main) return false;
-  for (const row of peerFixedRows(index, main.id, team)) {
-    if (row.id === instance.id) continue;
-    if (Math.abs(row.height - used) <= 2) return true;
+  const scan = peerScanFor(index, main.id);
+  const shares = (height: number) =>
+    scan.rows.some((row) => row.id !== instance.id && Math.abs(row.height - height) <= 2);
+  if (shares(used)) return true;
+  while (!scan.done && scan.cursor < scan.ids.length) {
+    const id = scan.ids[scan.cursor];
+    scan.cursor += 1;
+    if (!id) continue;
+    const other = index.getNode(id);
+    if (!other) continue;
+    const described = describeCached(index, other, team);
+    if (!described.populated || described.parts.sizing !== "fixed" || described.parts.height === undefined) continue;
+    scan.rows.push({ id: other.id, height: described.parts.height });
+    if (other.id !== instance.id && Math.abs(described.parts.height - used) <= 2) return true;
   }
+  scan.done = true;
   return false;
 }
 
@@ -795,7 +817,7 @@ export function frameContentWarnings(
   frameId: string,
   team: string[] | undefined = undefined,
   scope?: { overlay?: ReadonlyMap<string, string>; cache?: ExampleCache },
-): { warnings: ContentWarning[]; blocking: boolean; textChecked: boolean; textReason?: string } {
+): { warnings: ContentWarning[]; blocking: boolean; textChecked: TextChecked; textReason?: string } {
   const cache = scope?.cache ?? active ?? createExampleCache();
   const overlay = scope?.overlay ?? activeOverlay;
   const leave = enter(cache, overlay);
@@ -804,6 +826,61 @@ export function frameContentWarnings(
   } finally {
     leave();
   }
+}
+
+/** Text layers under instances on this frame. Skips nested instances and definitions. */
+export function instanceTextLayers(index: GraphIndex, frameId: string): GraphNode[] {
+  const out: GraphNode[] = [];
+  const walk = (id: string) => {
+    for (const child of index.getChildren(id)) {
+      if (child.type === "COMPONENT_INSTANCE") continue;
+      if (child.type === "MAIN_COMPONENT" || child.type === "COMPONENT_SET" || child.type === "VARIANT") continue;
+      if (child.type === "TEXT_LAYER") out.push(child);
+      walk(child.id);
+    }
+  };
+  for (const instance of index.getNestedInstances(frameId)) walk(instance.id);
+  return out;
+}
+
+function storedText(node: GraphNode): string | undefined {
+  const meta = node.metadata?.["text"];
+  if (typeof meta === "string" && meta.trim()) return meta.trim();
+  return undefined;
+}
+
+function definitionHasUnreadText(index: GraphIndex, rootId: string): boolean {
+  let unread = false;
+  const walk = (id: string) => {
+    if (unread) return;
+    for (const child of index.getChildren(id)) {
+      if (child.type === "COMPONENT_INSTANCE") continue;
+      if (child.type === "TEXT_LAYER" && !storedText(child)) {
+        unread = true;
+        return;
+      }
+      walk(child.id);
+    }
+  };
+  walk(rootId);
+  return unread;
+}
+
+/** True when every text layer on the master (and its default variant) has stored characters. */
+function defaultsRead(index: GraphIndex, main: GraphNode): boolean {
+  const definition = definitionFor(index, main);
+  if (definitionHasUnreadText(index, definition.id)) return false;
+  const setId = definition.type === "COMPONENT_SET" ? definition.id : definition.componentSetId;
+  if (!setId) return true;
+  const variants = index.getVariantsOf(setId);
+  const named = variants.find(
+    (variant) =>
+      /default/i.test(variant.name) ||
+      Object.values(variant.variantProperties ?? {}).some((value) => /default/i.test(value)),
+  );
+  const fallback = named ?? variants[0];
+  if (fallback && definitionHasUnreadText(index, fallback.id)) return false;
+  return true;
 }
 
 function textCoverage(index: GraphIndex, instances: readonly GraphNode[]): { layers: number; missing: number } {
@@ -827,7 +904,7 @@ function frameContentWarningsInner(
   index: GraphIndex,
   frameId: string,
   team: string[] | undefined,
-): { warnings: ContentWarning[]; blocking: boolean; textChecked: boolean; textReason?: string } {
+): { warnings: ContentWarning[]; blocking: boolean; textChecked: TextChecked; textReason?: string } {
   const warnings: ContentWarning[] = [];
   const instances = index.getNestedInstances(frameId);
   const described = new Map<string, Described>();
@@ -891,11 +968,31 @@ function frameContentWarningsInner(
   }
 
   const coverage = textCoverage(index, instances);
-  const textChecked = coverage.layers > 0 && coverage.missing === 0;
+  const read = coverage.layers - coverage.missing;
+  let textChecked: TextChecked = true;
+  let textReason: string | undefined;
+  if (coverage.layers === 0) {
+    textChecked = "n/a";
+    textReason = TEXT_NO_LAYERS;
+  } else if (read === 0) {
+    textChecked = false;
+    textReason = TEXT_UNCHECKED_REASON;
+  } else if (coverage.missing > 0) {
+    textChecked = "partial";
+    textReason = `partial: ${read} of ${coverage.layers} text layers read`;
+  } else if (
+    instances.some((instance) => {
+      const main = index.getMainComponent(instance.id);
+      return Boolean(main && !defaultsRead(index, main));
+    })
+  ) {
+    textChecked = "partial";
+    textReason = TEXT_DEFAULT_UNKNOWN;
+  }
   return {
     warnings,
     blocking: warnings.some((warning) => warning.kind === "placeholder"),
     textChecked,
-    ...(textChecked ? {} : { textReason: TEXT_UNCHECKED_REASON }),
+    ...(textReason ? { textReason } : {}),
   };
 }

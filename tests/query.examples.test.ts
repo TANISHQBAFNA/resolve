@@ -15,10 +15,14 @@ import {
   recommendMasters,
   resetDescribeCalls,
   takeDescribeCalls,
+  TEXT_DEFAULT_UNKNOWN,
+  TEXT_NO_FRAME,
+  TEXT_NO_LAYERS,
   TEXT_UNCHECKED_REASON,
   verifyFrame,
   CLONE_INSTRUCTION,
 } from "@/core/query";
+import { TextInputError } from "@/core/ingestion/textStamps";
 import { emptySock, recordVerifiedUsage } from "@/core/query/sock";
 import { inventsInCard } from "@/core/query/scoreboard";
 
@@ -1220,6 +1224,180 @@ function fixedFarm(count: number) {
   }
   return graphOf(nodes, edges, "FARM");
 }
+
+describe("verify text is honest about what was read", () => {
+  const MASTER_ONLY = `
+<frame id="0:1" name="Kit" x="0" y="0" width="400" height="80">
+  <component id="9:1" name="Bene Dropdown" x="0" y="0" width="320" height="48">
+    <text id="9:2" name="Label" x="8" y="8" width="280" height="24" />
+  </component>
+</frame>
+<frame id="1:1" name="Payment" x="0" y="120" width="400" height="80">
+  <instance id="1:2" name="Bene Dropdown" x="8" y="8" width="320" height="48">
+    <text id="1:3" name="Label" x="8" y="8" width="280" height="24" />
+  </instance>
+</frame>
+`;
+
+  function mcpIndex(xml: string) {
+    return indexGraph(
+      buildGraph(
+        adaptFigmaMcpMetadata({
+          fileKey: "BENE",
+          fileName: "Bene",
+          metadataXml: xml,
+          ingestedAt: "2026-01-01T00:00:00.000Z",
+        }),
+        { builtAt: "2026-01-01T00:00:00.000Z" },
+      ),
+    );
+  }
+
+  it("does not claim textChecked when the instance was read but the default was not learned", () => {
+    const index = mcpIndex(MASTER_ONLY);
+    const card = verifyFrame(index, {
+      frame: "Payment",
+      designContext: `<p data-node-id="1:3">Request Bank Certificate</p>`,
+    });
+    expect(card.textChecked).toBe("partial");
+    expect(card.textReason).toBe(TEXT_DEFAULT_UNKNOWN);
+    expect((card.warnings ?? []).some((warning) => warning.kind === "leftover-text")).toBe(false);
+    expect(card.pass).toBe(true);
+  });
+
+  it("reports partial coverage when only some text layers were read", () => {
+    const xml = `
+<frame id="0:1" name="Kit" x="0" y="0" width="400" height="80">
+  <component id="9:1" name="Bene Dropdown" x="0" y="0" width="320" height="80">
+    <text id="9:2" name="Title" x="8" y="8" width="280" height="24" characters="Payee" />
+    <text id="9:4" name="Body" x="8" y="36" width="280" height="24" characters="Request Bank Certificate" />
+  </component>
+</frame>
+<frame id="1:1" name="Payment" x="0" y="120" width="400" height="80">
+  <instance id="1:2" name="Bene Dropdown" x="8" y="8" width="320" height="80">
+    <text id="1:3" name="Title" x="8" y="8" width="280" height="24" />
+    <text id="1:5" name="Body" x="8" y="36" width="280" height="24" />
+  </instance>
+</frame>`;
+    const index = mcpIndex(xml);
+    const card = verifyFrame(index, {
+      frame: "Payment",
+      texts: { "1:3": "Payee" },
+    });
+    expect(card.textChecked).toBe("partial");
+    expect(card.textReason).toBe("partial: 1 of 2 text layers read");
+  });
+
+  it("lets texts fill an empty layer and refuses to hide stored failures", () => {
+    const index = mcpIndex(`
+<frame id="0:1" name="Kit" x="0" y="0" width="400" height="80">
+  <component id="9:1" name="Bene Dropdown" x="0" y="0" width="320" height="48">
+    <text id="9:2" name="Label" x="8" y="8" width="280" height="24" characters="Request Bank Certificate" />
+  </component>
+</frame>
+<frame id="1:1" name="Payment" x="0" y="120" width="400" height="80">
+  <instance id="1:2" name="Bene Dropdown" x="8" y="8" width="320" height="48">
+    <text id="I1:10;9:2" name="Label" x="8" y="8" width="280" height="24" characters="Lorem ipsum dolor sit amet" />
+  </instance>
+</frame>`);
+    const hidden = verifyFrame(index, {
+      frame: "Payment",
+      texts: { "I1:10;9:2": "Real copy here now" },
+    });
+    expect(hidden.pass).toBe(false);
+    expect(hidden.warnings?.some((warning) => warning.kind === "placeholder")).toBe(true);
+    expect(hidden.textOverrides).toBeUndefined();
+
+    const listed = verifyFrame(index, {
+      frame: "Payment",
+      placeholders: ["Lorem ipsum dolor sit amet"],
+      texts: { "I1:10;9:2": "Real copy here now" },
+    });
+    expect(listed.warnings?.some((warning) => warning.kind === "placeholder")).toBe(true);
+
+    const replaced = verifyFrame(index, {
+      frame: "Payment",
+      designContext: `<p data-node-id="I1:10;9:2">Real copy here now</p>`,
+    });
+    expect((replaced.warnings ?? []).some((warning) => warning.kind === "placeholder")).toBe(false);
+    expect(replaced.textOverrides).toBe(1);
+    expect(replaced.textChecked).toBe(true);
+  });
+
+  it("does not let texts clear a stored team placeholder", () => {
+    const index = mcpIndex(`
+<frame id="0:1" name="Kit" x="0" y="0" width="400" height="80">
+  <component id="9:1" name="Bene Dropdown" x="0" y="0" width="320" height="48">
+    <text id="9:2" name="Label" x="8" y="8" width="280" height="24" characters="Request Bank Certificate" />
+  </component>
+</frame>
+<frame id="1:1" name="Payment" x="0" y="120" width="400" height="80">
+  <instance id="1:2" name="Bene Dropdown" x="8" y="8" width="320" height="48">
+    <text id="1:3" name="Label" x="8" y="8" width="280" height="24" characters="Request Bank Certificate" />
+  </instance>
+</frame>`);
+    const card = verifyFrame(index, {
+      frame: "Payment",
+      placeholders: ["Request Bank Certificate"],
+      texts: { "1:3": "Account paid in full" },
+    });
+    expect(card.pass).toBe(false);
+    expect(card.warnings?.some((warning) => warning.kind === "placeholder")).toBe(true);
+    expect(card.textOverrides).toBeUndefined();
+  });
+
+  it("does not let supplied text rewrite a component default outside the frame", () => {
+    const index = mcpIndex(BENE_MCP);
+    const before = verifyFrame(index, {
+      frame: "Payment",
+      designContext: BENE_DESIGN_CONTEXT,
+    });
+    expect(before.warnings?.some((warning) => warning.kind === "leftover-text")).toBe(true);
+    const rewritten = verifyFrame(index, {
+      frame: "Payment",
+      designContext: BENE_DESIGN_CONTEXT,
+      texts: { "9:2": "Account paid in full today" },
+    });
+    expect(rewritten.warnings?.some((warning) => warning.kind === "leftover-text")).toBe(true);
+    expect(rewritten.textOverrides).toBeUndefined();
+  });
+
+  it("ignores text aimed at a layer in another file", () => {
+    const index = mcpIndex(MASTER_ONLY);
+    const layer = index.allNodes.find((node) => node.figmaNodeId === "1:3");
+    expect(layer).toBeTruthy();
+    layer!.fileKey = "OTHER";
+    const card = verifyFrame(index, { frame: "Payment", texts: { "1:3": "Request Bank Certificate" } });
+    expect(card.textChecked).toBe(false);
+    expect(card.textReason).toBe(TEXT_UNCHECKED_REASON);
+  });
+
+  it("says n/a when the frame has no text layers and false when there is no frame", () => {
+    const index = mcpIndex(`
+<frame id="0:1" name="Kit" x="0" y="0" width="400" height="40">
+  <component id="9:1" name="Spacer" x="0" y="0" width="40" height="40" />
+</frame>
+<frame id="1:1" name="Payment" x="0" y="80" width="400" height="40">
+  <instance id="1:2" name="Spacer" x="0" y="0" width="40" height="40" />
+</frame>`);
+    const empty = verifyFrame(index, { frame: "Payment" });
+    expect(empty.textChecked).toBe("n/a");
+    expect(empty.textReason).toBe(TEXT_NO_LAYERS);
+    const list = verifyFrame(index, { components: ["Spacer"] });
+    expect(list.textChecked).toBe(false);
+    expect(list.textReason).toBe(TEXT_NO_FRAME);
+  });
+
+  it("rejects oversized texts maps", () => {
+    const index = mcpIndex(MASTER_ONLY);
+    const huge: Record<string, string> = {};
+    for (let i = 0; i < 2001; i += 1) huge[`1:${i}`] = "Pay now";
+    expect(() => verifyFrame(index, { frame: "Payment", texts: huge })).toThrow(TextInputError);
+    expect(() => verifyFrame(index, { frame: "Payment", texts: { "1:3": "x".repeat(2001) } })).toThrow(
+      /maximum is 2000/,
+    );
+  });
+});
 
 describe("example describe stays linear", () => {
   it("describes each instance once per request, including a second lookup", () => {

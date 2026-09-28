@@ -12,6 +12,31 @@ export interface TextStamp {
 }
 
 export const TEXT_UNCHECKED_REASON = "no text characters; fetch design context before verify";
+export const TEXT_DEFAULT_UNKNOWN = "default text unknown; pass design context to learn_library";
+export const TEXT_NO_FRAME = "no frame";
+export const TEXT_NO_LAYERS = "no text layers";
+export const TEXT_ENTRY_CAP = 2000;
+export const TEXT_CHAR_CAP = 2000;
+
+export class TextInputError extends Error {}
+
+/** Reject oversized agent text before it is applied. */
+export function assertVerifyTextInput(raw: unknown, label: string): void {
+  if (raw == null) return;
+  const stamps = textStampsFrom(raw);
+  if (stamps.length > TEXT_ENTRY_CAP) {
+    throw new TextInputError(
+      `${label} has ${stamps.length} text entries; the maximum is ${TEXT_ENTRY_CAP}.`,
+    );
+  }
+  for (const stamp of stamps) {
+    if (stamp.characters.length > TEXT_CHAR_CAP) {
+      throw new TextInputError(
+        `${label} text for ${stamp.nodeId} is ${stamp.characters.length} characters; the maximum is ${TEXT_CHAR_CAP}.`,
+      );
+    }
+  }
+}
 
 const ENTITIES: Record<string, string> = {
   "&amp;": "&",
@@ -164,6 +189,60 @@ export function textOverlay(nodes: readonly GraphNode[], stamps: readonly TextSt
     if (textIds.has(stamp.nodeId)) overlay.set(stamp.nodeId, characters);
   }
   return overlay;
+}
+
+function storedText(node: GraphNode): string | undefined {
+  const meta = node.metadata?.["text"];
+  if (typeof meta === "string" && meta.trim()) return meta.trim();
+  return undefined;
+}
+
+/**
+ * Design context may replace stored characters on the layers passed in.
+ * A texts map may only fill layers that have none. Callers pass text layers
+ * inside the verified frame, never component or variant layers.
+ */
+export function scopedOverlay(
+  layers: readonly GraphNode[],
+  designStamps: readonly TextStamp[],
+  fillStamps: readonly TextStamp[],
+): { overlay: Map<string, string>; textOverrides: number } {
+  const overlay = new Map<string, string>();
+  const byKey = new Map<string, GraphNode[]>();
+  const add = (key: string, layer: GraphNode) => {
+    const list = byKey.get(key);
+    if (list) list.push(layer);
+    else byKey.set(key, [layer]);
+  };
+  for (const layer of layers) {
+    if (layer.type !== "TEXT_LAYER") continue;
+    add(layer.id, layer);
+    if (layer.figmaNodeId) add(layer.figmaNodeId, layer);
+  }
+  const targets = (nodeId: string): GraphNode[] => byKey.get(nodeId) ?? [];
+  const overridden = new Set<string>();
+  let textOverrides = 0;
+  for (const stamp of designStamps) {
+    const characters = stamp.characters.trim();
+    if (!characters) continue;
+    for (const layer of targets(stamp.nodeId)) {
+      const stored = storedText(layer);
+      if (stored && stored !== characters && !overridden.has(layer.id)) {
+        overridden.add(layer.id);
+        textOverrides += 1;
+      }
+      overlay.set(layer.id, characters);
+    }
+  }
+  for (const stamp of fillStamps) {
+    const characters = stamp.characters.trim();
+    if (!characters) continue;
+    for (const layer of targets(stamp.nodeId)) {
+      if (storedText(layer) || overlay.has(layer.id)) continue;
+      overlay.set(layer.id, characters);
+    }
+  }
+  return { overlay, textOverrides };
 }
 
 /** Stamp master/default text onto text layers when learn was given real characters. */

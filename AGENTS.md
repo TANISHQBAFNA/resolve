@@ -43,12 +43,12 @@ npm run resolve -- cousins "Checkout Summary"   # when a library + product file 
 
 | Step | When | Tool |
 |------|------|------|
-| 1. Ingest | No graph, or a linked Figma file changed | `ingest '<url>'` (`--role library\|product\|client`). Each linked file as needed. |
+| 1. Ingest | No graph, or a linked Figma file changed | `ingest '<url>'` (`--role library\|product\|client`). Each linked file as needed. Pass `designContext` to `learn_library` so master default text is stored. |
 | 2. Context / recipe | Screen job matches a pack (checkout, sign-in, empty state, …). Optional `.graphify/context-packs.json` scopes product + journey + domain. Packs may name `files` and optional `client`. | `recipe list` then `recipe "<job>"` (optional `--pack` / `--product` / `--journey` / `--domain`) |
 | 3. Recommend | Slot is unbound / missing / deprecated. Prefers DS library masters when workspace has a library-role file. | `recommend "<nextRecommend>"` (optional `--pack` / `--product` / `--journey` / `--domain`). Card field `ex` is a real instance, or says no real example is known. |
 | 4. Example | After a pick | `get_example` / `resolve example` for the full config. Clone that instance and replace content. Do not start from the default variant. |
 | 5. Place | Drawing in Figma | returned `figmaNodeId`s **only** (cards also stamp `fileKey`). A different file needs the library published and `search_design_system` output passed as `libraries`; otherwise build inside the library file. |
-| 6. Verify | After the draw | Before verify, fetch the frame's design context so Resolve can read the text. Pass it to `verify_frame` (`designContext` or `texts`). `get_metadata` has no characters; `textChecked` is false until they arrive. Then leftover default copy warns and known placeholder text fails. Optional `--pack` / `--product` / `--journey` / `--domain`. |
+| 6. Verify | After the draw | Before verify, fetch the frame's design context so Resolve can read the text. Pass it to `verify_frame` as `designContext`. `textChecked` is true only when instance text and the learned default were both read. `texts` only fills empty layers in the frame. Optional `--pack` / `--product` / `--journey` / `--domain`. |
 | 7. Cousins | Multi-file workspace exists (library + product/client) | `cousins` / `check_cousins` on the product frame or `--job` |
 
 MCP: `list_recipes` → `recipe` → `recommend` → `get_example` → clone → fill → `verify_frame` → `check_cousins` when a library file is linked.

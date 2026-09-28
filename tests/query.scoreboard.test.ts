@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SourceDocumentSchema } from "@/core/ingestion/types";
 import { buildGraph } from "@/core/transform";
-import { indexGraph, recommendMasters } from "@/core/query";
+import { indexGraph, recommendMasters, verifyFrame } from "@/core/query";
 import {
   formatScoreTable,
   inventsInCard,
@@ -110,6 +110,25 @@ describe("scoreboard", () => {
     expect(inventsInCard({ found: false, why: "see node:not-real" }, index).some((row) => row.includes("node:not-real"))).toBe(
       true,
     );
+  });
+
+  it("keeps textChecked on every fixture frame and on a component list", () => {
+    const index = fixtureIndex();
+    const frames = index.allNodes.filter((node) => node.type === "FRAME");
+    expect(frames.length).toBeGreaterThan(0);
+    const over: string[] = [];
+    for (const frame of frames) {
+      const card = verifyFrame(index, { frame: frame.id });
+      expect(card.textChecked).not.toBeUndefined();
+      const size = JSON.stringify(card).length;
+      if (size > 600) over.push(frame.name);
+    }
+    // Three private invents already exceed 600 before the text field. Every other frame keeps textChecked inside the budget.
+    expect(over).toEqual(["Internal Scratch"]);
+    const list = verifyFrame(index, { components: ["Pay CTA"] });
+    expect(list.textChecked).toBe(false);
+    expect(list.textReason).toBe("no frame");
+    expect(JSON.stringify(list).length).toBeLessThanOrEqual(600);
   });
 
   it("scores the fixture golden set with invent rate 0 and writes a delta", () => {
