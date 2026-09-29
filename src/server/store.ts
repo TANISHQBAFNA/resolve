@@ -697,6 +697,11 @@ export function deleteGraph(_graphId?: string): boolean {
     rmSync(filesDir, { recursive: true });
     deleted = true;
   }
+  const workspace = workspacePath();
+  if (existsSync(workspace)) {
+    rmSync(workspace);
+    deleted = true;
+  }
   cache.clear();
   return deleted;
 }

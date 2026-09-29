@@ -2,6 +2,12 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { nodeVersionMessage, nodeVersionTooOld } from "./node-version.mjs";
+
+if (nodeVersionTooOld(process.version)) {
+  process.stderr.write(nodeVersionMessage(process.version));
+  process.exit(1);
+}
 
 const root = dirname(fileURLToPath(import.meta.url));
 const extra = process.argv.slice(2);

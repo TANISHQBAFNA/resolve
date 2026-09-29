@@ -85,10 +85,15 @@ describe("resolve-setup", () => {
     const rulePath = join(cwd, ".cursor/rules/resolve.mdc");
     writeFileSync(rulePath, "my rule, leave it\n");
     const planned = setup([], cwd);
-    expect(planned.status).toBe(0);
+    expect(planned.status).toBe(1);
     expect(planned.stdout).toContain(`skip ${rulePath}`);
+    expect(planned.stdout).toContain("The Cursor rule is NOT installed");
     expect(readFileSync(rulePath, "utf8")).toBe("my rule, leave it\n");
     expect(existsSync(join(cwd, ".claude/skills/resolve/SKILL.md"))).toBe(true);
+
+    const forced = setup(["--force"], cwd);
+    expect(forced.status).toBe(0);
+    expect(readFileSync(rulePath, "utf8")).toContain("resolve-setup:begin");
   });
 
   it("dry-run writes nothing", () => {
@@ -209,7 +214,8 @@ describe("resolve-setup", () => {
       files: string[];
       bin: Record<string, string>;
     };
-    expect(pkg.files).toEqual(expect.arrayContaining(["rules", "skills"]));
+    expect(pkg.files).toEqual(expect.arrayContaining(["rules", "skills/resolve"]));
+    expect(pkg.files).not.toContain("skills");
     expect(pkg.bin["resolve-setup"]).toBe("./bin/resolve-setup.mjs");
     expect(existsSync(join(root, "rules/resolve.mdc"))).toBe(true);
     expect(existsSync(join(root, "skills/resolve/SKILL.md"))).toBe(true);

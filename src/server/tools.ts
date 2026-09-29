@@ -39,6 +39,7 @@ import {
   withPendingImprovements,
   checkCousins,
   packForRecommend,
+  parseIngestRole,
   type GraphIndex,
   type GraphLevel,
   type Recipe,
@@ -696,26 +697,31 @@ export function callTool(name: string, rawArgs: unknown): unknown {
 function dispatchTool(name: string, args: Record<string, unknown>): unknown {
   switch (name) {
     case "learn_library": {
-      const fileKey = asString(args["fileKey"] ?? args["file_key"], "fileKey");
-      const roleRaw = typeof args["role"] === "string" ? args["role"].trim() : undefined;
-      const role =
-        roleRaw === "library" || roleRaw === "product" || roleRaw === "client" ? roleRaw : undefined;
-      return {
-        ...learnLibrary({
-          fileKey,
-          role,
-          fileName: typeof args["fileName"] === "string" ? args["fileName"] : undefined,
-          label: typeof args["label"] === "string" ? args["label"] : undefined,
-          metadataXml: typeof args["metadataXml"] === "string" ? args["metadataXml"] : undefined,
-          libraries: args["libraries"],
-          designContext: args["designContext"],
-          lastModified: typeof args["lastModified"] === "string" ? args["lastModified"] : undefined,
-          version: typeof args["version"] === "string" ? args["version"] : undefined,
-          resume: args["resume"] === true,
-          outline: parseLearnOutline(args["outline"]),
-        }),
-        store: storeInfo(),
-      };
+      try {
+        const fileKey = asString(args["fileKey"] ?? args["file_key"], "fileKey");
+        const roleRaw = typeof args["role"] === "string" ? args["role"] : undefined;
+        const role = roleRaw === undefined || roleRaw.trim() === "" ? undefined : parseIngestRole(roleRaw);
+        return {
+          ...learnLibrary({
+            fileKey,
+            role,
+            fileName: typeof args["fileName"] === "string" ? args["fileName"] : undefined,
+            label: typeof args["label"] === "string" ? args["label"] : undefined,
+            metadataXml: typeof args["metadataXml"] === "string" ? args["metadataXml"] : undefined,
+            libraries: args["libraries"],
+            designContext: args["designContext"],
+            lastModified: typeof args["lastModified"] === "string" ? args["lastModified"] : undefined,
+            version: typeof args["version"] === "string" ? args["version"] : undefined,
+            resume: args["resume"] === true,
+            outline: parseLearnOutline(args["outline"]),
+          }),
+          store: storeInfo(),
+        };
+      } catch (error) {
+        if (error instanceof ToolError) throw error;
+        if (error instanceof Error) throw new ToolError(error.message);
+        throw error;
+      }
     }
 
     case "list_soci":

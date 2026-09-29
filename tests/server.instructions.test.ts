@@ -57,4 +57,28 @@ describe("MCP instructions stay a short trigger", () => {
     const skill = readFileSync(join(root, "skills/resolve/SKILL.md"), "utf8");
     expect(readFileSync(join(root, ".cursor/skills/resolve/SKILL.md"), "utf8")).toBe(skill);
   });
+
+  it("rule, skill, CLAUDE block, and MCP instructions name the same path", () => {
+    const setup = readFileSync(join(root, "bin/resolve-setup.mjs"), "utf8");
+    const block = setup.slice(setup.indexOf("export const CLAUDE_BLOCK"), setup.indexOf("].join"));
+    const texts = [
+      readFileSync(join(root, "rules/resolve.mdc"), "utf8"),
+      readFileSync(join(root, "skills/resolve/SKILL.md"), "utf8"),
+      readFileSync(join(root, "AGENTS.md"), "utf8"),
+      readFileSync(join(root, "docs/AGENTS-RESOLVE-SECTION.md"), "utf8"),
+      block,
+      MCP_INSTRUCTIONS,
+    ];
+    for (const text of texts) {
+      expect(text).toContain("learn_library");
+      expect(text).toContain("recipe");
+      expect(text).toContain("recommend");
+      expect(text).toContain("get_example");
+      expect(text).toContain("verify_frame");
+      expect(text).toContain("check_cousins");
+      expect(text).not.toMatch(/npm run resolve/);
+      expect(text).not.toMatch(/Level-1/);
+      expect(text).not.toMatch(/caveman/i);
+    }
+  });
 });

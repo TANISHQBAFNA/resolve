@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import { SourceDocumentSchema } from "@/core/ingestion/types";
@@ -37,6 +37,7 @@ import {
   deltaAgainst,
   formatScoreTable,
   hashGoldenSet,
+  initGoldenCases,
   loadGoldenCases,
   scoreExitCode,
   scoreGraph,
@@ -148,8 +149,9 @@ function usage(): void {
       "",
       "  resolve list                 Show the stored graph",
       "  resolve reindex              Confirm graph.json loads",
-      "  resolve rm                   Delete graph.json",
+      "  resolve rm --yes             Delete the learned graph and the workspace file list",
       "  resolve score [--golden <path>] [--workspace <name>] [--json]",
+      "  resolve score --init [--out <file>]   Write a starter golden set from the learned library",
       "      Accuracy of recommend / resolve / recipe / verify against a golden set.",
       "      Expected masters are names, resolved to ids in the current graph. Never invents an id.",
       "      Prints a short table. Exits non-zero when invent rate is above 0 or a card exceeds its budget.",
@@ -357,10 +359,26 @@ export async function runCli(argv: string[]): Promise<void> {
         const trimmed = raw.trim();
         const forceXml = args.includes("--from-metadata");
         if (looksLikeMetadataXml(raw) || (forceXml && !trimmed.startsWith("{") && !trimmed.startsWith("["))) {
-          writeStored(graphFromMetadataXml(raw, args), args, target);
+          if (!flag(args, "file-key")) {
+            throw new Error("XML ingest needs --file-key <key>. The file key is the id in the Figma URL.");
+          }
+          try {
+            writeStored(graphFromMetadataXml(raw, args), args, target);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (/json|unexpected|parse|xml/i.test(message)) {
+              throw new Error("This file is not valid XML. Expected Figma get_metadata output.");
+            }
+            throw error;
+          }
           return;
         }
-        const payload = JSON.parse(raw);
+        let payload: unknown;
+        try {
+          payload = JSON.parse(raw) as unknown;
+        } catch {
+          throw new Error("This file is not valid JSON. Expected a Figma file export or a graph.");
+        }
         writeStored(toGraph(payload, args), args, target);
         return;
       }
@@ -610,19 +628,19 @@ export async function runCli(argv: string[]): Promise<void> {
       const texts = textsRaw ? parseTextsFlag(textsRaw) : undefined;
       const bind = bindFromFlags(args);
       const pack = packForRecommend(bind);
-      printJson(
-        verifyFrame(requireGraph(args).index, {
-          frame,
-          components,
-          rules: readLibraryRules(rulesPath),
-          context: pack,
-          bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
-          sock: readSock(),
-          placeholders: readPlaceholders(),
-          ...(designContext !== undefined ? { designContext } : {}),
-          ...(texts !== undefined ? { texts } : {}),
-        }),
-      );
+      const verified = verifyFrame(requireGraph(args).index, {
+        frame,
+        components,
+        rules: readLibraryRules(rulesPath),
+        context: pack,
+        bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
+        sock: readSock(),
+        placeholders: readPlaceholders(),
+        ...(designContext !== undefined ? { designContext } : {}),
+        ...(texts !== undefined ? { texts } : {}),
+      });
+      printJson(verified);
+      if (verified.pass === false) process.exitCode = 1;
       return;
     }
 
@@ -694,6 +712,15 @@ export async function runCli(argv: string[]): Promise<void> {
     }
 
     case "rm": {
+      if (args.includes("--help") || args.includes("-h")) {
+        process.stdout.write(
+          "Usage: resolve rm --yes\nDeletes the learned graph and the workspace file list. Recipes and bind rules stay.\n",
+        );
+        return;
+      }
+      if (!args.includes("--yes")) {
+        throw new Error("This deletes the learned library. Re-run with --yes to confirm. resolve rm --help explains it.");
+      }
       process.stdout.write(deleteGraph() ? `Deleted ${graphPath()}\n` : "No graph.json stored.\n");
       return;
     }
@@ -714,6 +741,15 @@ export async function runCli(argv: string[]): Promise<void> {
       const namedWorkspace = flag(args, "workspace");
       if (namedWorkspace) process.env["RESOLVE_WORKSPACE"] = scoreboardWorkspaceName({ RESOLVE_WORKSPACE: namedWorkspace });
       clearCache();
+      if (args.includes("--init")) {
+        const loaded = resolveGraph(flag(args, "id"));
+        if (!loaded) throw new Error(missingGraphMessage());
+        const out = flag(args, "out") ?? resolve("scoreboard/golden/from-library.json");
+        const cases = initGoldenCases(loaded.index);
+        writeFileSync(out, `${JSON.stringify({ version: 1, cases }, null, 2)}\n`);
+        process.stdout.write(`Wrote ${cases.length} cases to ${out}\n`);
+        return;
+      }
       const goldenPath = flag(args, "golden") ?? resolve("scoreboard/golden");
       if (!existsSync(goldenPath)) {
         throw new Error(`No golden set at ${goldenPath}. Pass --golden <path>.`);

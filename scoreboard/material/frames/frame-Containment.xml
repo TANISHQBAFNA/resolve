@@ -1,0 +1,19 @@
+<frame id="25:177" name="Containment" x="0" y="0" width="800" height="900">
+    <component-set id="21:149" name="Card" x="0" y="0" width="200" height="144">
+      <symbol id="21:151" name="Type=Elevated" x="0" y="0" width="200" height="48" />
+      <symbol id="21:153" name="Type=Filled" x="0" y="0" width="200" height="48" />
+      <symbol id="22:155" name="Type=Outlined" x="0" y="0" width="200" height="48" />
+    </component-set>
+    <component-set id="22:157" name="Dialog" x="0" y="0" width="200" height="96">
+      <symbol id="22:159" name="Type=Basic" x="0" y="0" width="200" height="48" />
+      <symbol id="22:161" name="Type=Full-screen" x="0" y="0" width="200" height="48" />
+    </component-set>
+    <component id="23:163" name="Divider" x="0" y="0" width="200" height="48" />
+    <component-set id="23:165" name="List item" x="0" y="0" width="200" height="144">
+      <symbol id="23:167" name="Lines=One" x="0" y="0" width="200" height="48" />
+      <symbol id="24:169" name="Lines=Two" x="0" y="0" width="200" height="48" />
+      <symbol id="24:171" name="Lines=Three" x="0" y="0" width="200" height="48" />
+    </component-set>
+    <component id="24:173" name="Bottom sheet" x="0" y="0" width="200" height="48" />
+    <component id="24:175" name="Side sheet" x="0" y="0" width="200" height="48" />
+  </frame>

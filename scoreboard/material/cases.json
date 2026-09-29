@@ -1,0 +1,81 @@
+{
+ "screens": [
+  {"id":"S1","title":"Login","brief":"Mobile login: app bar, email and password fields, primary Sign in button, Forgot password text button, Create account link.",
+   "slots":[
+    {"q":"top app bar","exp":["Top app bar"]},
+    {"q":"email input field","exp":["Text field"]},
+    {"q":"password input field","exp":["Text field"]},
+    {"q":"primary sign in button","exp":["Button"]},
+    {"q":"forgot password text button","exp":["Button"]},
+    {"q":"captcha challenge widget","exp":null},
+    {"q":"biometric fingerprint prompt","exp":null}]},
+  {"id":"S2","title":"Sign-up","brief":"Registration form: name, email, password fields, terms checkbox, filled Create account button, password strength meter.",
+   "slots":[
+    {"q":"name text field outlined","exp":["Text field"]},
+    {"q":"terms and conditions checkbox","exp":["Checkbox"]},
+    {"q":"create account filled button","exp":["Button"]},
+    {"q":"progress while submitting","exp":["Progress indicator"]},
+    {"q":"password strength meter","exp":null},
+    {"q":"phone number input with country code","exp":["Text field"],"note":"acceptable: Text field (no dedicated M3 component)"}]},
+  {"id":"S3","title":"Profile with edit","brief":"Profile screen: avatar, name, info rows, edit icon button, edit mode with outlined text fields and Save button, edit FAB.",
+   "slots":[
+    {"q":"profile header app bar","exp":["Top app bar"]},
+    {"q":"edit icon button","exp":["Icon button"]},
+    {"q":"info rows list item","exp":["List item"]},
+    {"q":"divider between rows","exp":["Divider"]},
+    {"q":"save button","exp":["Button"]},
+    {"q":"floating edit action button","exp":["FAB"]},
+    {"q":"user avatar","exp":null},
+    {"q":"image cropper","exp":null}]},
+  {"id":"S4","title":"List with search and filters","brief":"Search bar, filter chips row, two-line list items, sort menu, FAB to add.",
+   "slots":[
+    {"q":"search bar","exp":["Search bar"]},
+    {"q":"filter chips","exp":["Chip"]},
+    {"q":"two line list item","exp":["List item"]},
+    {"q":"sort dropdown menu","exp":["Menu"]},
+    {"q":"add floating action button","exp":["FAB"]},
+    {"q":"data table with sortable columns","exp":null},
+    {"q":"pagination control","exp":null}]},
+  {"id":"S5","title":"Settings with switches","brief":"Settings: top app bar, grouped list items with trailing switches, dividers, brightness slider, theme radio buttons.",
+   "slots":[
+    {"q":"top app bar","exp":["Top app bar"]},
+    {"q":"settings toggle switch","exp":["Switch"]},
+    {"q":"settings list item","exp":["List item"]},
+    {"q":"section divider","exp":["Divider"]},
+    {"q":"brightness slider","exp":["Slider"]},
+    {"q":"theme radio button","exp":["Radio button"]},
+    {"q":"color picker","exp":null}]},
+  {"id":"S6","title":"Bottom-nav home feed","brief":"Home feed: top app bar, cards, bottom navigation bar with badge, extended FAB, stories carousel.",
+   "slots":[
+    {"q":"bottom navigation bar","exp":["Navigation bar"]},
+    {"q":"feed card","exp":["Card"]},
+    {"q":"notification badge","exp":["Badge"]},
+    {"q":"extended fab compose","exp":["Extended FAB"]},
+    {"q":"top app bar","exp":["Top app bar"]},
+    {"q":"carousel","exp":null},
+    {"q":"pull to refresh","exp":null}]},
+  {"id":"S7","title":"Empty state / error state","brief":"Empty list with message + CTA; error with Snackbar and Retry button; loading spinner.",
+   "slots":[
+    {"q":"error snackbar","exp":["Snackbar"]},
+    {"q":"retry button","exp":["Button"]},
+    {"q":"loading spinner","exp":["Progress indicator"]},
+    {"q":"empty state message","exp":null,"note":"M3 has no empty-state component; honest answer is none/compose from Card+Button"},
+    {"q":"illustration","exp":null},
+    {"q":"banner","exp":null}]},
+  {"id":"S8","title":"Dialog / confirmation","brief":"Delete confirmation dialog with Cancel text button and Delete filled button; date-picker dialog; bottom sheet.",
+   "slots":[
+    {"q":"confirmation dialog","exp":["Dialog"]},
+    {"q":"cancel text button","exp":["Button"]},
+    {"q":"delete confirm button","exp":["Button"]},
+    {"q":"date picker","exp":["Date picker"]},
+    {"q":"bottom sheet","exp":["Bottom sheet"]},
+    {"q":"full-screen dialog","exp":["Dialog"]},
+    {"q":"coach mark tooltip tour","exp":null}]}
+ ],
+ "synonyms":[
+  {"q":"toggle","exp":["Switch"]},{"q":"modal","exp":["Dialog"]},{"q":"toast","exp":["Snackbar"]},{"q":"spinner","exp":["Progress indicator"]},
+  {"q":"tab bar","exp":["Tabs"]},{"q":"app bar","exp":["Top app bar"]},{"q":"nav bar","exp":["Navigation bar"]},{"q":"input","exp":["Text field"]},
+  {"q":"dropdown","exp":["Menu"]},{"q":"list row","exp":["List item"]},{"q":"snack bar","exp":["Snackbar"]},{"q":"text box","exp":["Text field"]},
+  {"q":"floating action button","exp":["FAB"]},{"q":"tag","exp":["Chip"]},{"q":"CTA","exp":["Button"]},{"q":"sidebar","exp":["Navigation drawer","Navigation rail","Side sheet"]},{"q":"checkbox","exp":["Checkbox"]},{"q":"switch","exp":["Switch"]}
+ ]
+}

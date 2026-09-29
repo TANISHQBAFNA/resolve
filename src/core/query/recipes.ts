@@ -230,7 +230,16 @@ function compactCardMaster(master: RecipeMaster) {
   return {
     id: master.id,
     name: master.name,
-    ...(master.figmaNodeId ? { figmaNodeId: master.figmaNodeId, nodeId: master.nodeId ?? master.figmaNodeId } : {}),
+    ...(master.figmaNodeId
+      ? {
+          figmaNodeId: master.figmaNodeId,
+          // nodeId repeats figmaNodeId on every filled slot. Keep one id so a
+          // filled recipe stays inside the published card size.
+          ...((master.nodeId ?? master.figmaNodeId) !== master.figmaNodeId
+            ? { nodeId: master.nodeId }
+            : {}),
+        }
+      : {}),
     ...(master.fileKey ? { fileKey: master.fileKey } : {}),
     ...(master.componentKey ? { componentKey: master.componentKey } : {}),
     status: master.status,
@@ -462,14 +471,15 @@ export function capRecipePayload(value: object, budget = RECIPE_RESPONSE_BUDGET)
 }
 
 export function slotRecommendIntent(
-  recipe: Recipe,
+  _recipe: Recipe,
   slot: RecipeSlot,
   extraIntent?: string,
   pack?: ContextPack,
 ): string {
-  return [extraIntent, pack ? contextPhrase(pack) : undefined, recipe.title, slot.role, ...slot.hints]
-    .filter(Boolean)
-    .join(" ");
+  const core = slot.hints.join(" ") || slot.role.replace(/-/g, " ");
+  // Context stays in front of the component words. Words after the head noun
+  // are treated as a different ask, so the component word stays at the end.
+  return [pack ? contextPhrase(pack) : undefined, extraIntent, core].filter(Boolean).join(" ");
 }
 
 function exampleQueryFor(

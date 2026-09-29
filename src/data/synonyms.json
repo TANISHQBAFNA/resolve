@@ -78,8 +78,36 @@
       "reason": "A sidebar item is a nav item."
     },
     {
-      "terms": ["list row", "table row"],
-      "reason": "A table row is a list row."
+      "terms": ["list row", "table row", "list item"],
+      "reason": "A table row or a list item is a list row."
+    },
+    {
+      "terms": ["spinner", "loading", "progress"],
+      "reason": "A spinner or a loading mark is progress."
+    },
+    {
+      "terms": ["fab", "floating", "floating action button"],
+      "reason": "A floating action button is an FAB."
+    },
+    {
+      "terms": ["dropdown", "drop down", "menu", "select"],
+      "reason": "A dropdown or a select is a menu."
+    },
+    {
+      "terms": ["tag", "chip"],
+      "reason": "A tag is a chip."
+    },
+    {
+      "terms": ["sidebar", "drawer", "rail"],
+      "reason": "A sidebar is a navigation drawer or a rail."
+    },
+    {
+      "terms": ["input", "text", "field", "textbox", "text box", "text field", "textfield"],
+      "reason": "An input or a text box is a text field."
+    },
+    {
+      "terms": ["app bar", "top app bar"],
+      "reason": "An app bar means the top app bar unless the ask says bottom."
     }
   ]
 }

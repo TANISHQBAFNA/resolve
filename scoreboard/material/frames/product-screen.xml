@@ -1,0 +1,9 @@
+<frame id="900:1" name="Login Screen" x="0" y="0" width="360" height="800">
+  <instance id="900:2" name="Top app bar" x="0" y="0" width="360" height="64" />
+  <instance id="900:3" name="Text field" x="16" y="100" width="328" height="56" />
+  <instance id="900:4" name="Text field" x="16" y="170" width="328" height="56" />
+  <instance id="900:5" name="Button" x="16" y="250" width="328" height="40" />
+  <instance id="900:6" name="Custom Fancy Button" x="16" y="300" width="328" height="40" />
+  <instance id="900:7" name="Primary CTA v2" x="16" y="350" width="328" height="40" />
+  <text id="900:8" name="Title" x="16" y="20" width="200" height="24" characters="Welcome back" />
+</frame>

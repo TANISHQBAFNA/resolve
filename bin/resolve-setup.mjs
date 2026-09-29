@@ -1,4 +1,11 @@
 #!/usr/bin/env node
+import { nodeVersionMessage, nodeVersionTooOld } from "./node-version.mjs";
+
+if (nodeVersionTooOld(process.version)) {
+  process.stderr.write(nodeVersionMessage(process.version));
+  process.exit(1);
+}
+
 /**
  * Install Resolve's always-on instructions for Cursor and Claude Code.
  * In a project: the Cursor rule, the Claude skill, and a marked CLAUDE.md block.
@@ -56,12 +63,15 @@ export function ownedFile(shipped) {
 }
 
 /** @returns {{ action: "create" | "update" | "unchanged" | "skip", text: string }} */
-export function installOwned(current, shipped) {
+export function installOwned(current, shipped, force = false) {
   const next = ownedFile(shipped);
   if (current == null) return { action: "create", text: next };
   const start = current.indexOf(BEGIN);
   const end = current.indexOf(END);
-  if (start === -1 || end === -1 || end < start) return { action: "skip", text: current };
+  if (start === -1 || end === -1 || end < start) {
+    if (force) return { action: "update", text: next };
+    return { action: "skip", text: current };
+  }
   const shippedStart = next.indexOf(BEGIN);
   const shippedEnd = next.lastIndexOf(END);
   const inner = next.slice(shippedStart + BEGIN.length, shippedEnd);
@@ -95,7 +105,7 @@ export function installClaude(current, block = CLAUDE_BLOCK) {
   return { action: text === current ? "unchanged" : "update", text };
 }
 
-export function runSetup({ cwd, home, global: isGlobal, dryRun, packageRoot: root = packageRoot }) {
+export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, packageRoot: root = packageRoot }) {
   const base = isGlobal ? home : cwd;
   const claudePath = isGlobal ? join(home, ".claude", "CLAUDE.md") : join(cwd, "CLAUDE.md");
   const ruleSrc = readFileSync(join(root, "rules", "resolve.mdc"), "utf8");
@@ -104,18 +114,31 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, packageRoot: roo
   // Cursor loads project rules only. Do not write a home-folder rule.
   if (!isGlobal) {
     const rulePath = join(cwd, ".cursor", "rules", "resolve.mdc");
-    planned.push({ path: rulePath, ...installOwned(readOrNull(rulePath), ruleSrc) });
+    planned.push({ path: rulePath, ...installOwned(readOrNull(rulePath), ruleSrc, force) });
   }
   const skillPath = join(base, ".claude", "skills", "resolve", "SKILL.md");
   planned.push(
-    { path: skillPath, ...installOwned(readOrNull(skillPath), skillSrc) },
+    { path: skillPath, ...installOwned(readOrNull(skillPath), skillSrc, force) },
     { path: claudePath, ...installClaude(readOrNull(claudePath)) },
   );
   if (!dryRun) {
     for (const item of planned) {
       if (item.action === "skip" || item.action === "unchanged") continue;
-      mkdirSync(dirname(item.path), { recursive: true });
-      writeFileSync(item.path, item.text);
+      try {
+        mkdirSync(dirname(item.path), { recursive: true });
+        writeFileSync(item.path, item.text);
+      } catch (error) {
+        const code = error && typeof error === "object" && "code" in error ? error.code : "";
+        if (code === "EACCES" || code === "EPERM" || code === "EROFS") {
+          const folder = dirname(item.path);
+          const friendly = new Error(
+            `Could not write in ${folder}. Resolve needs permission to create files there.`,
+          );
+          friendly.code = code;
+          throw friendly;
+        }
+        throw error;
+      }
     }
   }
   return planned;
@@ -124,18 +147,45 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, packageRoot: roo
 function main() {
   let dryRun = false;
   let isGlobal = false;
+  let force = false;
   for (const arg of process.argv.slice(2)) {
     if (arg === "--dry-run") dryRun = true;
     else if (arg === "--global") isGlobal = true;
-    else {
-      process.stderr.write(`Unknown argument ${arg}. Use --dry-run and --global.\n`);
+    else if (arg === "--force") force = true;
+    else if (arg === "--help" || arg === "-h") {
+      process.stdout.write(
+        "Usage: resolve-setup [--dry-run] [--global] [--force]\nInstalls the Cursor rule, the Claude skill, and a marked CLAUDE.md block.\n--force replaces a file that has no Resolve markers.\n",
+      );
+      return;
+    } else {
+      process.stderr.write(`Unknown argument ${arg}. Use --dry-run, --global, and --force.\n`);
       process.exit(1);
     }
   }
-  const planned = runSetup({ cwd: process.cwd(), home: homedir(), global: isGlobal, dryRun });
+  const cwd = process.cwd();
+  const home = homedir();
+  const target = isGlobal ? home : cwd;
+  process.stdout.write(`Installing into ${target}\n`);
+  process.stdout.write("Optional: add .graphify/synonyms.json to teach this library extra words.\n");
+  let planned;
+  try {
+    planned = runSetup({ cwd, home, global: isGlobal, dryRun, force });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`${message}\n`);
+    process.exit(1);
+  }
+  let ruleSkipped = false;
   for (const item of planned) {
     const note = item.note ?? (item.action === "skip" ? " (left existing file; no Resolve markers)" : "");
     process.stdout.write(`${item.action} ${item.path}${note}\n`);
+    if (item.action === "skip" && item.path.endsWith(`${join(".cursor", "rules", "resolve.mdc")}`)) ruleSkipped = true;
+  }
+  if (ruleSkipped) {
+    process.stdout.write(
+      "The Cursor rule is NOT installed. An existing file has no Resolve markers. Re-run with --force to replace it.\n",
+    );
+    process.exit(1);
   }
 }
 
