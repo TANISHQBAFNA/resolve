@@ -120,7 +120,7 @@ Same store for CLI and MCP: `~/.resolve/default` (or `RESOLVE_WORKSPACE=acme` â†
 
 **Primary â€” Figma MCP.** `get_metadata` on a library frame, then Resolve `learn_library` with that XML, the **file key**, and `role: "library"`. Optional: pass `search_design_system` / `get_libraries` as `libraries` so cards include the published component key. Without that key the card says **local-only**.
 
-`get_metadata` has layer names, not confirmed component ids. A renamed layer is not the component. Pass `get_design_context` as `designContext` (on learn and on verify) for exact ids: HTML `componentId` / `componentKey` / `data-component-id`, or JSON `"componentId"`. REST ingest with `FIGMA_ACCESS_TOKEN` also has exact ids. Do not put a token in the repo.
+`get_metadata` has layer names, not confirmed component ids. A renamed layer is not the component. Pass `get_design_context` as `designContext` (on learn and on verify) for exact ids: HTML `componentId` / `componentKey` / `data-component-id`, or JSON `"componentId"`. That `componentId` is a plain node id like `14:101`. Stamped `fileKey:nodeId` works with `--components`; the same form inside a design-context `componentId` is treated as a guess. REST ingest with `FIGMA_ACCESS_TOKEN` also has exact ids. Do not put a token in the repo.
 
 **Different file.** Placing a component into a different Figma file needs the library published, plus `search_design_system` output passed as `libraries`. Otherwise build inside the library file. A product screen (`role: "product"`, or any file that is not the library) does not become the approved master list.
 
