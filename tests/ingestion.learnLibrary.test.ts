@@ -488,7 +488,8 @@ describe("learn_library from Figma MCP get_metadata", () => {
       components: ["Summary Card", "Price"],
       workspace,
     });
-    expect(review.pass).toBe(true);
+    expect(review.pass).toBe(false);
+    expect(JSON.stringify(review)).toContain('"result":"name-only"');
     expect(review.approved).toBeGreaterThanOrEqual(2);
     expect(review.invents).toEqual([]);
     const approved = (review.resolved ?? []).flatMap((row) => {

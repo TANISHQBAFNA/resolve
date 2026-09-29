@@ -144,6 +144,54 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
   return planned;
 }
 
+function figmaConnected(cwd, home) {
+  if (process.env["FIGMA_ACCESS_TOKEN"]?.trim()) return true;
+  const files = [join(cwd, ".cursor", "mcp.json"), join(home, ".cursor", "mcp.json"), join(cwd, ".mcp.json")];
+  for (const file of files) {
+    if (!existsSync(file)) continue;
+    try {
+      if (readFileSync(file, "utf8").toLowerCase().includes("figma")) return true;
+    } catch {
+      // Unreadable config is not a connection.
+    }
+  }
+  return false;
+}
+
+function libraryLearned(cwd, home) {
+  const pinned = process.env["GRAPHIFY_HOME"]?.trim();
+  if (pinned && existsSync(join(pinned, "graph.json"))) return true;
+  let dir = cwd;
+  for (let hop = 0; hop < 6; hop += 1) {
+    if (existsSync(join(dir, ".graphify", "graph.json"))) return true;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return existsSync(join(home, ".resolve", "default", "graph.json"));
+}
+
+/** Plain status after install. Not an MCP tool. */
+export function doctorLines({ cwd, home, ruleInstalled }) {
+  const nodeOk = !nodeVersionTooOld(process.version);
+  const figma = figmaConnected(cwd, home);
+  const library = libraryLearned(cwd, home);
+  let next;
+  if (!nodeOk) next = "Install Node 22.12 or newer, then run resolve-setup again.";
+  else if (!ruleInstalled) next = "Re-run with --force to install the rule.";
+  else if (!figma) next = "Connect Figma in the design app.";
+  else if (!library) next = "Map the library: Figma get_metadata, then learn_library.";
+  else next = "Ask Resolve for the screen.";
+  return [
+    `Node ok? ${nodeOk ? "yes" : "no"}`,
+    `Figma connected? ${figma ? "yes" : "no"}`,
+    `Library learned? ${library ? "yes" : "no"}`,
+    `Rule installed? ${ruleInstalled ? "yes" : "no"}`,
+    "Words your team uses: .graphify/synonyms.json",
+    `Next: ${next}`,
+  ].join("\n");
+}
+
 function main() {
   let dryRun = false;
   let isGlobal = false;
@@ -166,7 +214,6 @@ function main() {
   const home = homedir();
   const target = isGlobal ? home : cwd;
   process.stdout.write(`Installing into ${target}\n`);
-  process.stdout.write("Optional: add .graphify/synonyms.json to teach this library extra words.\n");
   let planned;
   try {
     planned = runSetup({ cwd, home, global: isGlobal, dryRun, force });
@@ -181,6 +228,10 @@ function main() {
     process.stdout.write(`${item.action} ${item.path}${note}\n`);
     if (item.action === "skip" && item.path.endsWith(`${join(".cursor", "rules", "resolve.mdc")}`)) ruleSkipped = true;
   }
+  const ruleInstalled = isGlobal
+    ? planned.some((item) => item.path.endsWith(`${join("skills", "resolve", "SKILL.md")}`) && item.action !== "skip")
+    : !ruleSkipped;
+  process.stdout.write(`${doctorLines({ cwd, home, ruleInstalled })}\n`);
   if (ruleSkipped) {
     process.stdout.write(
       "The Cursor rule is NOT installed. An existing file has no Resolve markers. Re-run with --force to replace it.\n",

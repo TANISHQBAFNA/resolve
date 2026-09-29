@@ -33,6 +33,12 @@ describe("resolve-setup", () => {
     expect(first.status).toBe(0);
     expect(first.stdout).toContain("create");
     expect(first.stdout).toContain("update");
+    expect(first.stdout).toContain("Node ok? yes");
+    expect(first.stdout).toContain("Figma connected?");
+    expect(first.stdout).toContain("Library learned?");
+    expect(first.stdout).toContain("Rule installed? yes");
+    expect(first.stdout).toContain("Words your team uses: .graphify/synonyms.json");
+    expect(first.stdout).toContain("Next:");
 
     const rulePath = join(cwd, ".cursor/rules/resolve.mdc");
     const skillPath = join(cwd, ".claude/skills/resolve/SKILL.md");
@@ -88,6 +94,8 @@ describe("resolve-setup", () => {
     expect(planned.status).toBe(1);
     expect(planned.stdout).toContain(`skip ${rulePath}`);
     expect(planned.stdout).toContain("The Cursor rule is NOT installed");
+    expect(planned.stdout).toContain("Rule installed? no");
+    expect(planned.stdout).toContain("Next: Re-run with --force to install the rule.");
     expect(readFileSync(rulePath, "utf8")).toBe("my rule, leave it\n");
     expect(existsSync(join(cwd, ".claude/skills/resolve/SKILL.md"))).toBe(true);
 

@@ -70,7 +70,9 @@ describe("material-like library", () => {
 
   it("matches the 8 screens and the synonym probe without inventing", () => {
     let top = 0;
+    let top3 = 0;
     let topN = 0;
+    let falseEmpty = 0;
     let emptyOk = 0;
     let emptyN = 0;
     const ids = new Set(index.allNodes.map((node) => node.id));
@@ -80,13 +82,16 @@ describe("material-like library", () => {
         for (const row of result.candidates) {
           if ("id" in row && row.id) expect(ids.has(row.id), slot.q).toBe(true);
         }
-        const topName = family(result.candidates[0]?.name);
+        const names = result.candidates.slice(0, 3).map((row) => family(row.name));
+        const topName = names[0] ?? "";
         if (slot.exp === null) {
           emptyN += 1;
           if (result.candidates.length === 0) emptyOk += 1;
         } else {
           topN += 1;
           if (slot.exp.includes(topName)) top += 1;
+          if (slot.exp.some((exp) => names.includes(exp))) top3 += 1;
+          if (result.candidates.length === 0) falseEmpty += 1;
         }
       }
     }
@@ -96,9 +101,15 @@ describe("material-like library", () => {
       if (row.exp.includes(family(result.candidates[0]?.name))) syn += 1;
     }
     expect(top).toBeGreaterThanOrEqual(39);
+    expect(top3 / topN).toBeGreaterThanOrEqual(0.9);
     expect(topN).toBe(41);
+    expect(falseEmpty).toBe(0);
     expect(emptyOk).toBe(emptyN);
     expect(emptyN).toBe(14);
+    const primary = recommendMasters(index, "primary button");
+    const primaryTop = family(primary.candidates[0]?.name);
+    const primaryConfident = primary.match !== "weak match";
+    expect(primaryTop !== "Button" && primaryConfident).toBe(false);
     expect(syn).toBeGreaterThanOrEqual(16);
     expect(cases.synonyms).toHaveLength(18);
   });
@@ -164,8 +175,10 @@ describe("verify name and typos", () => {
     };
     const index = indexGraph(graph);
     const named = verifyFrame(index, { frame: "Login" });
-    expect(named.pass).toBe(true);
+    expect(named.pass).toBe(false);
+    expect(JSON.stringify(named)).toContain('"result":"name-only"');
     expect(named.nameOnly).toBe(true);
+    expect(JSON.stringify(named).toLowerCase()).not.toContain("verified");
 
     const wrong = verifyFrame(index, {
       frame: "Login",
@@ -178,6 +191,7 @@ describe("verify name and typos", () => {
       designContext: `<div data-node-id="2:2" componentId="9:9"></div>`,
     });
     expect(bound.pass).toBe(true);
+    expect(JSON.stringify(bound)).toContain('"result":"verified"');
     expect(bound.nameOnly).toBeUndefined();
   });
 

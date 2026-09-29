@@ -2369,11 +2369,6 @@ export function recommendMasters(
     if (hasGrounded || !variantWordOnly) return false;
     return entry.why.includes("variant");
   });
-  // "login field" is one pick. An extra noun is not a request for every
-  // cousin that shares the generic word (field → Input).
-  const unknownAsk = askedTokens.some((token) => !componentWord(token) && !modifierWord(token));
-  if (unknownAsk) kept = kept.slice(0, 1);
-
   const packJourney = packJourneyPhrase(options.context);
   const bindQuery = {
     intent,
@@ -2451,7 +2446,6 @@ export function recommendMasters(
       hint: full.deprecated ? "Deprecated — do not place." : "Place fileKey + nodeId.",
     };
     if (lowConfidence) next.confidence = "low";
-    if (entry.weak) next.weak = true;
     delete next.slots;
     if (dropExtras) {
       delete next.set;
@@ -2482,20 +2476,24 @@ export function recommendMasters(
   const applied = appliedRecommendContext(options.context);
   let contextEcho = applied ? { ...applied } : undefined;
   const echoBag: { hint?: string } = {};
+  const weakLead = Boolean(kept[0]?.weak);
   const payloadOf = () => {
     const base = {
       intent: echoIntent,
       candidates,
       truncated,
+      ...(weakLead ? { match: "weak match" } : {}),
       ...(contextEcho ? { context: contextEcho } : {}),
       hint:
         echoBag.hint ??
-        (candidates.length === 0
-          ? `No master matched. Do not invent. ${refreshHintFor(options.sock, graphFileKey)}`
-          : candidates.length > 1 &&
-              candidates.slice(1).some((row) => !("fileKey" in row && row.fileKey) || !("figmaNodeId" in row && row.figmaNodeId))
-            ? `Place fileKey+nodeId on the top hit. Resolve an alternate by id before placing it. ${refreshHintFor(options.sock, graphFileKey)}`
-            : `Place fileKey+nodeId. ${refreshHintFor(options.sock, graphFileKey)}`),
+        (weakLead
+          ? "Weak match. Do not Read graph.json."
+          : candidates.length === 0
+            ? `No master matched. Do not invent. ${refreshHintFor(options.sock, graphFileKey)}`
+            : candidates.length > 1 &&
+                candidates.slice(1).some((row) => !("fileKey" in row && row.fileKey) || !("figmaNodeId" in row && row.figmaNodeId))
+              ? `Place fileKey+nodeId on the top hit. Resolve an alternate by id before placing it. ${refreshHintFor(options.sock, graphFileKey)}`
+              : `Place fileKey+nodeId. ${refreshHintFor(options.sock, graphFileKey)}`),
     };
     const fitted = fitBindRuleWarnings(options.bindRules?.warnings, base, budgetChars);
     return { ...base, ...fitted };
@@ -2507,16 +2505,6 @@ export function recommendMasters(
     payload = payloadOf();
   };
 
-  if (
-    JSON.stringify(payload).length > budgetChars &&
-    candidates[0] &&
-    "weak" in candidates[0]
-  ) {
-    const lead = { ...candidates[0] };
-    delete lead.weak;
-    candidates = [lead, ...candidates.slice(1)];
-    payload = payloadOf();
-  }
   if (
     JSON.stringify(payload).length > budgetChars &&
     candidates[0] &&
@@ -2943,7 +2931,9 @@ export function verifyFrame(
       continue;
     }
     if (!preferred && master && isNameInferredMaster(master)) {
+      const before = approvedIds.size;
       considerMaster(master, given);
+      if (approvedIds.size > before) nameOnly = true;
       continue;
     }
     if (preferred) considerMaster(preferred, given);
@@ -2979,21 +2969,26 @@ export function verifyFrame(
     : undefined;
   const bindPass = !ruleFailure;
   const ok = pass && bindPass && !content.blocking;
+  const nameOnlyPass = ok && nameOnly;
+  const verified = ok && !nameOnly;
   const bindHint = ruleFailure
     ? `Fail — bind rule ${ruleFailure.rule}: ${ruleFailure.reason}.${
         ruleFailure.expected ? ` Place ${ruleFailure.expected.name} (${ruleFailure.expected.id}).` : ""
       }`
     : undefined;
   const pending = input.sock?.proposals.filter((row) => row.status === "pending").length ?? 0;
-  const hint = ok
-    ? `Only approved library masters. ${REFRESH_HINT}`
-    : content.blocking && pass && bindPass
-      ? `Fail — placeholder text left in a placed instance. ${REFRESH_HINT}`
-      : bindHint ??
-        `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`;
+  const hint = nameOnlyPass
+    ? `Name-only. Matched by layer name. No component id or key. ${REFRESH_HINT}`
+    : verified
+      ? `Verified. ${REFRESH_HINT}`
+      : content.blocking && pass && bindPass
+        ? `Fail — placeholder text left in a placed instance. ${REFRESH_HINT}`
+        : bindHint ??
+          `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`;
   const pendingHint = pending ? `pending improvements: ${pending}.` : undefined;
   const base = {
-    pass: ok,
+    pass: verified,
+    ...(nameOnlyPass ? { result: "name-only" as const } : verified ? { result: "verified" as const } : {}),
     ...(nameOnly ? { nameOnly: true as const } : {}),
     approved: approvedIds.size,
     resolved,

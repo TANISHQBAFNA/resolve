@@ -1145,7 +1145,8 @@ describe("verify reads Figma MCP text, not layer names", () => {
     expect(
       (silent.warnings ?? []).some((warning) => warning.kind === "leftover-text" || warning.kind === "placeholder"),
     ).toBe(false);
-    expect(silent.pass).toBe(true);
+    expect(silent.pass).toBe(false);
+    expect(JSON.stringify(silent)).toContain('"result":"name-only"');
 
     const caught = verifyFrame(index, { frame: "Payment", designContext: BENE_DESIGN_CONTEXT });
     expect(caught.textChecked).toBe(true);
@@ -1162,7 +1163,8 @@ describe("verify reads Figma MCP text, not layer names", () => {
     });
     expect(filled.textChecked).toBe(true);
     expect((filled.warnings ?? []).some((warning) => warning.kind === "leftover-text")).toBe(false);
-    expect(filled.pass).toBe(true);
+    expect(filled.pass).toBe(false);
+    expect(JSON.stringify(filled)).toContain('"result":"name-only"');
   });
 });
 
@@ -1262,7 +1264,8 @@ describe("verify text is honest about what was read", () => {
     expect(card.textChecked).toBe("partial");
     expect(card.textReason).toBe(TEXT_DEFAULT_UNKNOWN);
     expect((card.warnings ?? []).some((warning) => warning.kind === "leftover-text")).toBe(false);
-    expect(card.pass).toBe(true);
+    expect(card.pass).toBe(false);
+    expect(JSON.stringify(card)).toContain('"result":"name-only"');
   });
 
   it("reports partial coverage when only some text layers were read", () => {
