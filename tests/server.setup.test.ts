@@ -33,6 +33,12 @@ describe("resolve-setup", () => {
     expect(first.status).toBe(0);
     expect(first.stdout).toContain("create");
     expect(first.stdout).toContain("update");
+    expect(first.stdout).toContain("Node ok? yes");
+    expect(first.stdout).toContain("Figma connected?");
+    expect(first.stdout).toContain("Library learned?");
+    expect(first.stdout).toContain("Rule installed? yes");
+    expect(first.stdout).toContain("Words your team uses: .graphify/synonyms.json");
+    expect(first.stdout).toContain("Next:");
 
     const rulePath = join(cwd, ".cursor/rules/resolve.mdc");
     const skillPath = join(cwd, ".claude/skills/resolve/SKILL.md");
@@ -85,10 +91,17 @@ describe("resolve-setup", () => {
     const rulePath = join(cwd, ".cursor/rules/resolve.mdc");
     writeFileSync(rulePath, "my rule, leave it\n");
     const planned = setup([], cwd);
-    expect(planned.status).toBe(0);
+    expect(planned.status).toBe(1);
     expect(planned.stdout).toContain(`skip ${rulePath}`);
+    expect(planned.stdout).toContain("The Cursor rule is NOT installed");
+    expect(planned.stdout).toContain("Rule installed? no");
+    expect(planned.stdout).toContain("Next: Re-run with --force to install the rule.");
     expect(readFileSync(rulePath, "utf8")).toBe("my rule, leave it\n");
     expect(existsSync(join(cwd, ".claude/skills/resolve/SKILL.md"))).toBe(true);
+
+    const forced = setup(["--force"], cwd);
+    expect(forced.status).toBe(0);
+    expect(readFileSync(rulePath, "utf8")).toContain("resolve-setup:begin");
   });
 
   it("dry-run writes nothing", () => {
@@ -134,13 +147,30 @@ describe("resolve-setup", () => {
       const claudePath = join(cwd, "CLAUDE.md");
       writeFileSync(claudePath, original);
       const first = setup([], cwd);
-      expect(first.status).toBe(0);
+      expect(first.status).toBe(1);
       expect(first.stdout).toContain(`skip ${claudePath} (left CLAUDE.md; it has only one Resolve marker, so nothing was changed)`);
+      expect(first.stdout).toContain("The Resolve block is NOT installed");
+      expect(first.stdout).toContain("Rule installed? no");
+      expect(first.stdout).toContain("Node ok? yes");
+      expect(first.stdout).not.toContain("Rule installed? yes");
       expect(readFileSync(claudePath, "utf8")).toBe(original);
       const second = setup([], cwd);
-      expect(second.status).toBe(0);
+      expect(second.status).toBe(1);
+      expect(second.stdout).toContain("Rule installed? no");
       expect(readFileSync(claudePath, "utf8")).toBe(original);
     }
+  });
+
+  it("prints a friendly message and the doctor summary when CLAUDE.md is a folder", () => {
+    const cwd = tempDir("eisdir");
+    mkdirSync(join(cwd, "CLAUDE.md"), { recursive: true });
+    const result = setup([], cwd);
+    expect(result.status).toBe(1);
+    expect(`${result.stderr}\n${result.stdout}`).not.toMatch(/EISDIR/);
+    expect(result.stderr).toContain(`Could not write ${join(cwd, "CLAUDE.md")}`);
+    expect(result.stdout).toContain("Node ok? yes");
+    expect(result.stdout).toContain("Rule installed? no");
+    expect(result.stdout).toContain("Next:");
   });
 
   it("keeps CRLF line endings when adding the block to a CRLF CLAUDE.md", () => {
@@ -209,7 +239,8 @@ describe("resolve-setup", () => {
       files: string[];
       bin: Record<string, string>;
     };
-    expect(pkg.files).toEqual(expect.arrayContaining(["rules", "skills"]));
+    expect(pkg.files).toEqual(expect.arrayContaining(["rules", "skills/resolve"]));
+    expect(pkg.files).not.toContain("skills");
     expect(pkg.bin["resolve-setup"]).toBe("./bin/resolve-setup.mjs");
     expect(existsSync(join(root, "rules/resolve.mdc"))).toBe(true);
     expect(existsSync(join(root, "skills/resolve/SKILL.md"))).toBe(true);

@@ -293,7 +293,9 @@ describe("approve / reject proposal", () => {
     expect(rec.candidates.map((row) => row.name.toLowerCase())).not.toEqual(["input"]);
     expect(rec.candidates[0]?.name.toLowerCase()).toBe("avatar");
     const check = verifyFrame(demo, { components: ["Button"], bindRules: decided.rules });
-    expect(check.pass).toBe(true);
+    expect(check.pass).toBe(false);
+    expect(JSON.stringify(check)).toContain('"result":"nothing checked"');
+    expect(check.hint).not.toMatch(/verified/i);
     expect(check.ruleFailure).toBeUndefined();
   });
 

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { ToolError, TOOLS, callTool, listToolDefinitions } from "@/server/tools";
 import { clearCache, graphPath, loadGraph, readSock, storeRoot } from "@/server/store";
 import { saveGraph } from "@/server/store";
-import { graph } from "./fixture";
+import { graph, ids } from "./fixture";
 import { fillRecipe, starterRecipes } from "@/core/query";
 import { emptySock, recordVerifiedUsage } from "@/core/query/sock";
 import { indexGraph } from "@/core/query";
@@ -81,7 +81,7 @@ describe("MCP default surface + SOCK loop", () => {
 
   it("verify_frame pass records usage facts without a relearn", () => {
     saveGraph(graph);
-    const result = callTool("verify_frame", { components: ["Button"] }) as { pass: boolean };
+    const result = callTool("verify_frame", { components: [ids.buttonSet] }) as { pass: boolean };
     expect(result.pass).toBe(true);
     const sock = readSock();
     expect(sock.facts.some((fact) => fact.name === "Button")).toBe(true);
@@ -98,7 +98,7 @@ describe("MCP default surface + SOCK loop", () => {
       sock.facts.filter((fact) => fact.name === "Button" && fact.countsTowardThreshold !== false).map((fact) => fact.screenId),
     );
     expect(screens.size).toBe(0);
-    expect(sock.facts.filter((fact) => fact.name === "Button").length).toBeGreaterThan(0);
+    expect(sock.facts.filter((fact) => fact.name === "Button")).toEqual([]);
     expect(sock.proposals).toEqual([]);
   });
 

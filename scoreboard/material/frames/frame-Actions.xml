@@ -1,0 +1,21 @@
+<frame id="18:133" name="Actions" x="0" y="0" width="800" height="900">
+    <component-set id="14:101" name="Button" x="0" y="0" width="200" height="240">
+      <symbol id="14:103" name="Type=Filled" x="0" y="0" width="200" height="48" />
+      <symbol id="14:105" name="Type=Outlined" x="0" y="0" width="200" height="48" />
+      <symbol id="15:107" name="Type=Text" x="0" y="0" width="200" height="48" />
+      <symbol id="15:109" name="Type=Elevated" x="0" y="0" width="200" height="48" />
+      <symbol id="15:111" name="Type=Tonal" x="0" y="0" width="200" height="48" />
+    </component-set>
+    <component-set id="16:113" name="Icon button" x="0" y="0" width="200" height="144">
+      <symbol id="16:115" name="Type=Standard" x="0" y="0" width="200" height="48" />
+      <symbol id="16:117" name="Type=Filled" x="0" y="0" width="200" height="48" />
+      <symbol id="16:119" name="Type=Outlined" x="0" y="0" width="200" height="48" />
+    </component-set>
+    <component-set id="17:121" name="FAB" x="0" y="0" width="200" height="144">
+      <symbol id="17:123" name="Size=Small" x="0" y="0" width="200" height="48" />
+      <symbol id="17:125" name="Size=Regular" x="0" y="0" width="200" height="48" />
+      <symbol id="18:127" name="Size=Large" x="0" y="0" width="200" height="48" />
+    </component-set>
+    <component id="18:129" name="Extended FAB" x="0" y="0" width="200" height="48" />
+    <component id="18:131" name="Segmented button" x="0" y="0" width="200" height="48" />
+  </frame>

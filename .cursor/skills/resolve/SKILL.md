@@ -33,12 +33,4 @@ Placing into a different Figma file needs the library published and `libraries` 
 
 Simplest thing that works. Reuse an existing component before anything new. One check: `verify_frame`.
 
-## Caps
-
-| Level | When |
-|-------|------|
-| **Level-1** (default) | One component or a local edit |
-| **Level-2** | Only when the blast radius is large |
-| **Whole-file** | Only if the user asks |
-
-Stay at Level-1 unless the change clearly needs more. Full write-up, when this client can read MCP resources: `resolve://workflow`.
+Full write-up, when this client can read MCP resources: `resolve://workflow`.

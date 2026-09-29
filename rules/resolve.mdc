@@ -22,6 +22,4 @@ Resolve is read-only. Never invent a component, name, or node id. Never Read `.g
 
 **Design work.** Simplest thing that works. Reuse an existing component before anything new. One check: `verify_frame`.
 
-Caps: Level-1 by default (one component or a local edit). Level-2 only when the blast radius is large. Whole-file only if the user asks.
-
 Full workflow, when this client can read MCP resources: `resolve://workflow`.

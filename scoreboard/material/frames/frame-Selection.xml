@@ -1,0 +1,18 @@
+<frame id="33:233" name="Selection" x="0" y="0" width="800" height="900">
+    <component id="29:205" name="Checkbox" x="0" y="0" width="200" height="48" />
+    <component-set id="29:207" name="Chip" x="0" y="0" width="200" height="192">
+      <symbol id="29:209" name="Type=Assist" x="0" y="0" width="200" height="48" />
+      <symbol id="30:211" name="Type=Filter" x="0" y="0" width="200" height="48" />
+      <symbol id="30:213" name="Type=Input" x="0" y="0" width="200" height="48" />
+      <symbol id="30:215" name="Type=Suggestion" x="0" y="0" width="200" height="48" />
+    </component-set>
+    <component id="30:217" name="Radio button" x="0" y="0" width="200" height="48" />
+    <component id="31:219" name="Slider" x="0" y="0" width="200" height="48" />
+    <component-set id="31:221" name="Switch" x="0" y="0" width="200" height="96">
+      <symbol id="31:223" name="State=On" x="0" y="0" width="200" height="48" />
+      <symbol id="32:225" name="State=Off" x="0" y="0" width="200" height="48" />
+    </component-set>
+    <component id="32:227" name="Date picker" x="0" y="0" width="200" height="48" />
+    <component id="32:229" name="Time picker" x="0" y="0" width="200" height="48" />
+    <component id="32:231" name="Menu" x="0" y="0" width="200" height="48" />
+  </frame>

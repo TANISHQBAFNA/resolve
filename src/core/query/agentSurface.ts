@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { buildAiGraphContext, toMarkdownPrompt } from "@/core/ai";
 import {
   assertVerifyTextInput,
@@ -122,6 +125,10 @@ const STOPWORDS = new Set([
   "from",
   "between",
   "find",
+  "while",
+  "during",
+  "via",
+  "in",
 ]);
 
 const tokensOf = (text: string): string[] =>
@@ -1168,8 +1175,10 @@ export interface RecommendCandidate {
   instances?: number;
   whereUsed?: Array<{ name: string; count: number }>;
   score: number;
-  /** Set when an unknown noun sits in front of the head. Ranking is unchanged. */
+  /** Set when an unknown noun sits in front of the head, or the match is only a label. Ranking is unchanged. */
   confidence?: "low";
+  /** Set when the only words that matched are shared (button, bar, field, picker). */
+  weak?: true;
   figmaNodeId?: string;
   nodeId?: string;
   fileKey?: string;
@@ -1284,6 +1293,65 @@ for (const group of synonymFile.groups) {
   for (const term of terms) SYNONYM_OF.set(term, terms);
 }
 
+/** Label words that can sit beside a control. They match, and the card is partial. */
+const LABEL_FILLER = new Set(["sign", "terms", "submit", "submitting", "phone", "number", "country", "edit"]);
+
+/** Unasked position words. "app bar" is the top bar, not the bottom bar. */
+const DEMOTE_UNASKED = new Set(["bottom", "secondary", "right"]);
+
+interface SynonymGroup {
+  terms: string[];
+}
+
+let extraGroups: SynonymGroup[] = [];
+const extraSynonym = new Map<string, readonly string[]>();
+
+function allSynonymGroups(): readonly { terms: readonly string[] }[] {
+  return extraGroups.length ? [...synonymFile.groups, ...extraGroups] : synonymFile.groups;
+}
+
+function synonymOverlayFile(): string | undefined {
+  if (typeof process === "undefined" || !process.versions?.node) return undefined;
+  const pinned = process.env["GRAPHIFY_HOME"]?.trim();
+  if (pinned) return join(resolve(pinned), "synonyms.json");
+  let dir = process.cwd();
+  for (let hop = 0; hop < 6; hop += 1) {
+    const candidate = join(dir, ".graphify", "synonyms.json");
+    if (existsSync(candidate)) return candidate;
+    const parent = resolve(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+  const fallback = join(homedir(), ".resolve", "default", "synonyms.json");
+  return existsSync(fallback) ? fallback : undefined;
+}
+
+/** Per-library words. Missing or broken file changes nothing. */
+function loadSynonymOverlay(): void {
+  extraGroups = [];
+  extraSynonym.clear();
+  const path = synonymOverlayFile();
+  if (!path) return;
+  try {
+    const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
+    const record = raw && typeof raw === "object" ? (raw as { groups?: unknown }) : undefined;
+    const groups = Array.isArray(record?.groups) ? record.groups : Array.isArray(raw) ? raw : [];
+    for (const group of groups) {
+      if (!group || typeof group !== "object") continue;
+      const terms = (group as { terms?: unknown }).terms;
+      if (!Array.isArray(terms)) continue;
+      const cleaned = terms.map((term) => String(term).trim().toLowerCase()).filter(Boolean);
+      if (cleaned.length < 2) continue;
+      extraGroups.push({ terms: cleaned });
+      const singles = cleaned.filter((term) => !term.includes(" "));
+      for (const term of singles) extraSynonym.set(term, singles);
+    }
+  } catch {
+    extraGroups = [];
+    extraSynonym.clear();
+  }
+}
+
 /**
  * States, sizes, variants, roles, and common UI nouns.
  * A multi-word ask may keep one of these beside a real component word.
@@ -1376,7 +1444,7 @@ function clippingGroup(token: string): readonly string[] | undefined {
 }
 
 function termsFor(token: string, allowClip: boolean): readonly string[] | undefined {
-  return SYNONYM_OF.get(token) ?? (allowClip ? clippingGroup(token) : undefined);
+  return extraSynonym.get(token) ?? SYNONYM_OF.get(token) ?? (allowClip ? clippingGroup(token) : undefined);
 }
 
 interface TokenHits {
@@ -1384,6 +1452,27 @@ interface TokenHits {
   synonym: number;
   variant: number;
   covered: number;
+  /** Name or synonym hits that are not a shared word like button, bar, or field. */
+  specific: number;
+}
+
+/** Family name only. `Type=Primary` is a variant layer, not a component name. */
+function familyHaystack(node: GraphNode, set: GraphNode | undefined): string {
+  if (VARIANT_PROP_NAME.test(node.name)) return set?.name ?? "";
+  if (set && set.id !== node.id) return `${set.name} ${node.name}`;
+  return node.name;
+}
+
+/** Variant values only. Property names (State, Type, Size) are not words. */
+function variantValueText(node: GraphNode): string {
+  const props = node.variantProperties;
+  if (props && Object.keys(props).length) return Object.values(props).join(" ");
+  if (!VARIANT_PROP_NAME.test(node.name)) return "";
+  return node.name
+    .split(",")
+    .map((part) => part.split("=").slice(1).join("=").trim())
+    .filter(Boolean)
+    .join(" ");
 }
 
 /** Shared UI nouns. One of these alone must not steal a more specific ask. */
@@ -1400,6 +1489,7 @@ const GENERIC_NAME_TOKENS = new Set([
   "card",
   "message",
   "input",
+  "picker",
 ]);
 
 function collapsedName(text: string): string {
@@ -1437,7 +1527,7 @@ function phraseNamesMatch(ask: string, name: string): boolean {
   const collapsedAsk = collapsedName(ask);
   const collapsedMaster = collapsedName(name);
   if (!collapsedAsk || !collapsedMaster) return false;
-  return synonymFile.groups.some((group) => {
+  return allSynonymGroups().some((group) => {
     const asked = group.terms.some((term) => term.includes(" ") && collapsedName(term) === collapsedAsk);
     if (!asked) return false;
     return group.terms.some((term) => collapsedName(term) === collapsedMaster);
@@ -1446,15 +1536,63 @@ function phraseNamesMatch(ask: string, name: string): boolean {
 
 function phraseCoversAsk(ask: string): boolean {
   const collapsedAsk = collapsedName(ask);
-  return synonymFile.groups.some((group) =>
+  return allSynonymGroups().some((group) =>
     group.terms.some((term) => term.includes(" ") && collapsedName(term) === collapsedAsk),
   );
+}
+
+/** Ask contains a multi-word synonym, and the family name covers that phrase. */
+function phraseFamilyHit(ask: string, familyName: string): boolean {
+  const askTokens = new Set(tokensOf(ask));
+  if (askTokens.size < 2 || !familyName.trim()) return false;
+  const familyTokens = tokensOf(familyName);
+  const familyCollapsed = collapsedName(familyName);
+  return allSynonymGroups().some((group) => {
+    const said = group.terms.filter(
+      (term) => term.includes(" ") && tokensOf(term).every((token) => askTokens.has(token)),
+    );
+    if (!said.length) return false;
+    const familyTerm = group.terms.find((term) => {
+      if (collapsedName(term) === familyCollapsed) return true;
+      const parts = tokensOf(term);
+      return parts.length > 0 && parts.length === familyTokens.length && parts.every((token) => familyTokens.includes(token));
+    });
+    if (!familyTerm) return false;
+    const covered = new Set(tokensOf(familyTerm));
+    return said.some((term) => tokensOf(term).every((token) => covered.has(token)));
+  });
+}
+
+/**
+ * A short alias such as FAB for "floating action button".
+ * Big enough to beat a generic cousin (Button), small enough to lose to a
+ * family that is actually named with the phrase (Text Field, not Input).
+ */
+function phraseAliasBonus(ask: string, familyName: string): number {
+  const askTokens = new Set(tokensOf(ask));
+  if (askTokens.size < 2) return 0;
+  const familyTokens = tokensOf(familyName);
+  if (familyTokens.length !== 1) return 0;
+  const familyCollapsed = collapsedName(familyName);
+  for (const group of allSynonymGroups()) {
+    const said = group.terms.some(
+      (term) => term.includes(" ") && tokensOf(term).every((token) => askTokens.has(token)),
+    );
+    if (!said) continue;
+    const short = group.terms.some((term) => !term.includes(" ") && collapsedName(term) === familyCollapsed);
+    if (short) return 500;
+  }
+  return 0;
 }
 
 function liveNameSets(index: GraphIndex): Set<string>[] {
   const sets: Set<string>[] = [];
   for (const node of index.getNodesByType(...MASTER_TYPES)) {
     if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
+    // A guessed instance name is not a component. "Primary CTA v2" must not
+    // turn the variant word "primary" into a component.
+    if (isNameInferredMaster(node)) continue;
+    if (VARIANT_PROP_NAME.test(node.name)) continue;
     sets.push(new Set(tokensOf(node.name)));
   }
   return sets;
@@ -1489,8 +1627,13 @@ function contextWords(context?: RecommendContext): string[] {
 }
 
 /** A UI modifier, a scene word, or a trailing UI noun such as "window" after modal. */
+function modifierWord(token: string): boolean {
+  if (UI_MODIFIER.has(token) || LABEL_FILLER.has(token)) return true;
+  return inflectionStems(token).some((stem) => UI_MODIFIER.has(stem) || LABEL_FILLER.has(stem));
+}
+
 function keepsCompany(token: string, previous: string | undefined, exempt: ReadonlySet<string>): boolean {
-  if (UI_MODIFIER.has(token) || exempt.has(token)) return true;
+  if (modifierWord(token) || exempt.has(token)) return true;
   if (!previous) return false;
   const after = TRAILING_AFTER.get(token);
   if (!after) return false;
@@ -1532,7 +1675,7 @@ function askGate(
   for (let i = 0; i < head; i += 1) {
     const token = content[i];
     if (!token || hit[i]) continue;
-    if (UI_MODIFIER.has(token) || exempt.has(token)) continue;
+    if (modifierWord(token) || exempt.has(token)) continue;
     unknown += 1;
   }
   return { outOfDomain: false, lowConfidence: unknown > 0 };
@@ -1602,7 +1745,7 @@ function genericOnlyMiss(
   });
   if (!uncovered.length) return false;
   if (uncovered.some((query) => componentWord(query))) return true;
-  const unknown = uncovered.filter((query) => !UI_MODIFIER.has(query));
+  const unknown = uncovered.filter((query) => !modifierWord(query));
   if (!unknown.length) return false;
   return nameTokens.some(
     (token) =>
@@ -1616,18 +1759,20 @@ function genericOnlyMiss(
  * A library whose primary control is named Pay CTA keeps it, because primary
  * is only a variant there. Two real component words ("button and row") both stay.
  */
-function withoutGenericCousins<T extends { node: { name: string } }>(
+function withoutGenericCousins<T extends { node: { name: string }; setName?: string }>(
   entries: T[],
   queryTokens: string[],
   allowClip: boolean,
 ): T[] {
-  const modifiers = queryTokens.filter((token) => UI_MODIFIER.has(token) && !GENERIC_NAME_TOKENS.has(token));
+  const familyOf = (entry: T): string =>
+    VARIANT_PROP_NAME.test(entry.node.name) ? (entry.setName ?? "") : entry.node.name;
+  const modifiers = queryTokens.filter((token) => modifierWord(token) && !GENERIC_NAME_TOKENS.has(token));
   const covered = modifiers.filter((token) =>
-    entries.some((entry) => tokensOf(entry.node.name).some((name) => name === token || inflectsName(token, name))),
+    entries.some((entry) => tokensOf(familyOf(entry)).some((name) => name === token || inflectsName(token, name))),
   );
   if (!covered.length) return entries;
   return entries.filter((entry) => {
-    const names = tokensOf(entry.node.name);
+    const names = tokensOf(familyOf(entry));
     const misses = covered.some((token) => !names.some((name) => name === token || inflectsName(token, name)));
     if (!misses) return true;
     return names.some((name) => {
@@ -1657,12 +1802,14 @@ function tokenHits(nameHaystack: string, variantText: string, tokens: string[], 
   let synonym = 0;
   let variant = 0;
   let covered = 0;
+  let specific = 0;
   const pending: string[] = [];
   for (const token of tokens) {
     const hit = nameTokenFor(token, names, used);
     if (hit) {
       name += 1;
       covered += 1;
+      if (!GENERIC_NAME_TOKENS.has(hit)) specific += 1;
       used.add(hit);
     } else pending.push(token);
   }
@@ -1673,6 +1820,7 @@ function tokenHits(nameHaystack: string, variantText: string, tokens: string[], 
     if (hit) {
       synonym += 1;
       covered += 1;
+      if (!GENERIC_NAME_TOKENS.has(hit) && !genericQuery(token)) specific += 1;
       used.add(hit);
     } else still.push(token);
   }
@@ -1687,7 +1835,24 @@ function tokenHits(nameHaystack: string, variantText: string, tokens: string[], 
       used.add(hit);
     }
   }
-  return { name, synonym, variant, covered };
+  return { name, synonym, variant, covered, specific };
+}
+
+/** "header title" restates header. A second word for a name already matched still counts. */
+function repeatedSynonym(nameHaystack: string, tokens: string[], allowClip: boolean): number {
+  const names = new Set(tokensOf(nameHaystack));
+  const used = new Set<string>();
+  let extra = 0;
+  for (const token of tokens) {
+    const hit = nameTokenFor(token, names, used);
+    if (hit) {
+      used.add(hit);
+      continue;
+    }
+    const group = termsFor(token, allowClip);
+    if (group?.some((word) => word !== token && used.has(word))) extra += 1;
+  }
+  return extra;
 }
 
 /** Name / synonym / variant. One name token outranks any amount of context. */
@@ -1696,11 +1861,25 @@ function lexicalScore(hits: TokenHits, exactName: boolean): number {
   return hits.name * 100 + hits.synonym * 70 + hits.variant * 40;
 }
 
-/** "checkout summary with primary button" → scene + the component ask. */
-function splitBrief(intent: string): { role: string; scene: string } {
+/**
+ * "checkout summary with primary button" → scene + the component ask.
+ * "phone number input with country code" keeps the whole ask, because the
+ * words after "with" are not a component and the words before are.
+ */
+function splitBrief(
+  intent: string,
+  componentWord?: (token: string) => boolean,
+): { role: string; scene: string } {
   const parts = intent.split(/\s+with\s+/i);
   if (parts.length < 2) return { role: intent.trim(), scene: "" };
-  return { scene: (parts[0] ?? "").trim(), role: parts.slice(1).join(" ").trim() };
+  const scene = (parts[0] ?? "").trim();
+  const role = parts.slice(1).join(" ").trim();
+  if (componentWord) {
+    const roleHits = tokensOf(role).some(componentWord);
+    const sceneHits = tokensOf(scene).some(componentWord);
+    if (!roleHits && sceneHits) return { role: intent.trim(), scene: "" };
+  }
+  return { scene, role };
 }
 
 function replacedByName(node: GraphNode): string | undefined {
@@ -1779,13 +1958,20 @@ export function recommendMasters(
     placeholders?: string[];
   } = {},
 ) {
+  loadSynonymOverlay();
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
+  const echoIntent = intent.length > 200 ? `${intent.slice(0, 199)}…` : intent;
   const analog = similarUsage(index, intent);
   const analogById = new Map(analog.variants.map((variant) => [variant.id, variant]));
   const slotRaw = options.context?.journey?.step?.trim() ?? "";
   const slotTokens = tokensOf(slotRaw.replace(/-/g, " "));
   const slotRole = slotIsComponentRole(slotTokens);
-  const brief = splitBrief(intent);
+  const publicNameSets = liveNameSets(index);
+  const namesHit = (token: string) =>
+    publicNameSets.some(
+      (names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false),
+    );
+  const brief = splitBrief(intent, namesHit);
   const askedTokens = tokensOf(brief.role);
   if (xMeansClose(brief.role) && !askedTokens.includes("close")) askedTokens.push("close");
   // Exclusive family only when the slot is a component role and the intent is a
@@ -1810,7 +1996,6 @@ export function recommendMasters(
   const graphFileKey = index.graph.fileKey;
   const intentNeedle = intent.trim().toLowerCase();
   const allowClip = askedTokens.length >= 2;
-  const publicNameSets = liveNameSets(index);
   const componentWord = (token: string): boolean =>
     publicNameSets.some(
       (names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip),
@@ -1828,22 +2013,26 @@ export function recommendMasters(
     setName?: string;
     exactName: boolean;
     covered: number;
+    weak?: boolean;
   };
 
   const scoreNode = (node: GraphNode, set: GraphNode | undefined): Scored | undefined => {
     const collapsedAsk = collapsedName(intentNeedle);
-    const exactName =
+    const familyLabel = familyHaystack(node, set);
+    let exactName =
       Boolean(intentNeedle) &&
       (node.name.toLowerCase() === intentNeedle ||
         collapsedName(node.name) === collapsedAsk ||
         phraseNamesMatch(intentNeedle, node.name) ||
+        phraseNamesMatch(intentNeedle, familyLabel) ||
+        phraseFamilyHit(intentNeedle, familyLabel) ||
         (Boolean(set) &&
           node.type === "COMPONENT_SET" &&
           (set!.name.toLowerCase() === intentNeedle ||
             collapsedName(set!.name) === collapsedAsk ||
             phraseNamesMatch(intentNeedle, set!.name))));
-    const nameHaystack = `${node.name} ${set?.name ?? ""}`;
-    const variantText = variantHaystack(node);
+    const nameHaystack = familyLabel;
+    const variantText = variantValueText(node);
     const hits = tokenHits(nameHaystack, variantText, tokens, allowClip);
     const extraHits = extraTokens.length ? tokenHits(nameHaystack, variantText, extraTokens, allowClip) : undefined;
     // A screen-job slot names the family ("sign in" + primary-cta → buttons).
@@ -1861,11 +2050,16 @@ export function recommendMasters(
         (extraHits?.variant ?? 0) * 40;
     } else {
       lexical = lexicalScore(hits, false);
-      if (lexical === 0) return undefined;
-      if (genericOnlyMiss(node.name, tokens, allowClip, componentWord)) return undefined;
-      const nameTokens = tokensOf(node.name);
+      const aliasBonus = phraseAliasBonus(intentNeedle, familyLabel);
+      if (lexical === 0 && aliasBonus === 0) return undefined;
+      lexical += aliasBonus;
+      lexical += repeatedSynonym(familyLabel, tokens, allowClip) * 20;
+      if (genericOnlyMiss(familyLabel, tokens, allowClip, componentWord)) return undefined;
+      const nameTokens = tokensOf(familyLabel);
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
       if (nameTokens.length > 0 && matched === nameTokens.length) lexical += 25;
+      const asked = new Set([...tokens, ...extraTokens]);
+      if (nameTokens.some((token) => DEMOTE_UNASKED.has(token) && !asked.has(token))) lexical -= 15;
     }
 
     const analogHit = analogById.get(node.id);
@@ -1953,6 +2147,11 @@ export function recommendMasters(
       setName: set && set.id !== node.id ? set.name : undefined,
       exactName,
       covered: hits.covered + (extraHits?.covered ?? 0),
+      weak:
+        !exactName &&
+        hits.specific === 0 &&
+        (extraHits?.specific ?? 0) === 0 &&
+        hits.name + hits.synonym + (extraHits?.name ?? 0) + (extraHits?.synonym ?? 0) > 0,
     };
   };
 
@@ -2041,9 +2240,12 @@ export function recommendMasters(
     scored.length = 0;
     retired.length = 0;
   }
-  const lowConfidence = gate.lowConfidence;
+  const fillerPartial = askedTokens.some(
+    (token) => LABEL_FILLER.has(token) || inflectionStems(token).some((stem) => LABEL_FILLER.has(stem)),
+  );
+  const lowConfidence = gate.lowConfidence || fillerPartial;
 
-  if (!blockedByPrivate && !gate.outOfDomain && scored.length === 0 && intentNeedle) {
+  if (!blockedByPrivate && scored.length === 0 && intentNeedle) {
     const winners: GraphNode[] = [];
     for (const node of index.getNodesByType(...MASTER_TYPES)) {
       if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
@@ -2103,6 +2305,7 @@ export function recommendMasters(
   kept.sort(
     (a, b) =>
       Number(b.exactName) - Number(a.exactName) ||
+      (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
       b.score - a.score ||
       Number(a.deprecated) - Number(b.deprecated) ||
       a.node.name.localeCompare(b.node.name),
@@ -2138,6 +2341,7 @@ export function recommendMasters(
     kept.sort(
       (a, b) =>
         Number(b.exactName) - Number(a.exactName) ||
+        (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
         b.score - a.score ||
         Number(a.deprecated) - Number(b.deprecated) ||
         a.node.name.localeCompare(b.node.name),
@@ -2149,7 +2353,24 @@ export function recommendMasters(
     tokens,
     allowClip,
   );
-
+  // A variant value (Primary, Off, Filter) is not a component. Drop it when a
+  // real name, synonym, or typo already matched. A lone variant word ("primary")
+  // still returns that variant, because nothing else named the family.
+  const grounded = (entry: Scored): boolean =>
+    entry.exactName ||
+    Boolean(entry.whyOverride) ||
+    entry.why.includes("name") ||
+    entry.why.includes("synonym") ||
+    entry.why.includes("typo") ||
+    entry.why.includes("bind-rule");
+  const variantWordOnly =
+    askedTokens.length > 0 && askedTokens.every((token) => modifierWord(token));
+  const hasGrounded = kept.some(grounded);
+  kept = kept.filter((entry) => {
+    if (grounded(entry)) return true;
+    if (hasGrounded || !variantWordOnly) return false;
+    return entry.why.includes("variant");
+  });
   const packJourney = packJourneyPhrase(options.context);
   const bindQuery = {
     intent,
@@ -2257,20 +2478,24 @@ export function recommendMasters(
   const applied = appliedRecommendContext(options.context);
   let contextEcho = applied ? { ...applied } : undefined;
   const echoBag: { hint?: string } = {};
+  const weakLead = Boolean(kept[0]?.weak);
   const payloadOf = () => {
     const base = {
-      intent,
+      intent: echoIntent,
       candidates,
       truncated,
+      ...(weakLead ? { match: "weak match" } : {}),
       ...(contextEcho ? { context: contextEcho } : {}),
       hint:
         echoBag.hint ??
-        (candidates.length === 0
-          ? `No master matched. Do not invent. ${refreshHintFor(options.sock, graphFileKey)}`
-          : candidates.length > 1 &&
-              candidates.slice(1).some((row) => !("fileKey" in row && row.fileKey) || !("figmaNodeId" in row && row.figmaNodeId))
-            ? `Place fileKey+nodeId on the top hit. Resolve an alternate by id before placing it. ${refreshHintFor(options.sock, graphFileKey)}`
-            : `Place fileKey+nodeId. ${refreshHintFor(options.sock, graphFileKey)}`),
+        (weakLead
+          ? "Weak match. Do not Read graph.json."
+          : candidates.length === 0
+            ? `No master matched. Do not invent. ${refreshHintFor(options.sock, graphFileKey)}`
+            : candidates.length > 1 &&
+                candidates.slice(1).some((row) => !("fileKey" in row && row.fileKey) || !("figmaNodeId" in row && row.figmaNodeId))
+              ? `Place fileKey+nodeId on the top hit. Resolve an alternate by id before placing it. ${refreshHintFor(options.sock, graphFileKey)}`
+              : `Place fileKey+nodeId. ${refreshHintFor(options.sock, graphFileKey)}`),
     };
     const fitted = fitBindRuleWarnings(options.bindRules?.warnings, base, budgetChars);
     return { ...base, ...fitted };
@@ -2282,7 +2507,11 @@ export function recommendMasters(
     payload = payloadOf();
   };
 
-  if (JSON.stringify(payload).length > budgetChars && candidates[0] && "confidence" in candidates[0]) {
+  if (
+    JSON.stringify(payload).length > budgetChars &&
+    candidates[0] &&
+    "confidence" in candidates[0]
+  ) {
     const lead = { ...candidates[0] };
     delete lead.confidence;
     candidates = [lead, ...candidates.slice(1)];
@@ -2449,6 +2678,211 @@ export interface VerifyHit {
   didYouMean?: { name: string; id?: string; fileKey?: string };
 }
 
+function uniqueNameTypo(index: GraphIndex, ask: string): GraphNode | undefined {
+  const needle = ask.trim().toLowerCase();
+  if (!needle) return undefined;
+  const winners: GraphNode[] = [];
+  for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
+    if (isNameInferredMaster(node)) continue;
+    if (!wholeNameTypo(needle, node.name)) continue;
+    winners.push(node);
+  }
+  return winners.length === 1 ? winners[0] : undefined;
+}
+
+function contextText(raw: unknown): string {
+  if (typeof raw === "string") return raw;
+  if (raw == null) return "";
+  try {
+    return JSON.stringify(raw);
+  } catch {
+    return "";
+  }
+}
+
+/** Design context names a real component id or key, not only a layer name. */
+function contextCarriesMasterIds(raw: unknown): boolean {
+  return /componentId|componentKey|mainComponent|data-component-id|component-id/i.test(contextText(raw));
+}
+
+const ELEMENT_TAG = /<[^>]*>/g;
+const IDENTITY_ATTRS = ["componentid", "componentkey"];
+
+interface ElementBindings {
+  ids: Map<string, string>;
+  conflicted: Set<string>;
+}
+
+function elementNameAt(lower: string, lt: number): string {
+  let i = lt + 1;
+  if (lower[i] === "/") i += 1;
+  const start = i;
+  while (i < lower.length && /[a-z0-9]/.test(lower[i] ?? "")) i += 1;
+  return lower.slice(start, i);
+}
+
+function closeTagEnd(lower: string, from: number, name: string): number {
+  const needle = `</${name}`;
+  let i = from;
+  while (i < lower.length) {
+    const at = lower.indexOf(needle, i);
+    if (at === -1) return -1;
+    const after = at + needle.length;
+    const next = lower[after];
+    if (next === undefined || /[\s>/]/.test(next)) {
+      const gt = lower.indexOf(">", after);
+      return gt === -1 ? -1 : gt + 1;
+    }
+    i = after;
+  }
+  return -1;
+}
+
+/**
+ * Drop comments, script, style, and CDATA before tags are read.
+ * One indexOf walk. An opener with no closer drops the rest of the text.
+ */
+function stripSkippedRegions(text: string): string {
+  const lower = text.toLowerCase();
+  const kept: string[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const lt = lower.indexOf("<", i);
+    if (lt === -1) {
+      kept.push(text.slice(i));
+      break;
+    }
+    kept.push(text.slice(i, lt));
+    if (lower.startsWith("<!--", lt)) {
+      const end = lower.indexOf("-->", lt + 4);
+      i = end === -1 ? text.length : end + 3;
+      continue;
+    }
+    if (lower.startsWith("<![cdata[", lt)) {
+      const end = lower.indexOf("]]>", lt + 9);
+      i = end === -1 ? text.length : end + 3;
+      continue;
+    }
+    const name = elementNameAt(lower, lt);
+    if (name === "script" || name === "style") {
+      const openEnd = lower.indexOf(">", lt + 1);
+      if (openEnd === -1) {
+        i = text.length;
+        continue;
+      }
+      const close = closeTagEnd(lower, openEnd + 1, name);
+      i = close === -1 ? text.length : close;
+      continue;
+    }
+    const gt = lower.indexOf(">", lt + 1);
+    if (gt === -1) {
+      kept.push(text.slice(lt));
+      break;
+    }
+    kept.push(text.slice(lt, gt + 1));
+    i = gt + 1;
+  }
+  return kept.join("");
+}
+
+/** Attribute name to value. Quoted text is never scanned for other attributes. */
+function parseTagAttributes(tag: string): Map<string, string> {
+  const attrs = new Map<string, string>();
+  let i = tag.startsWith("<") ? 1 : 0;
+  if (tag[i] === "/") i += 1;
+  while (i < tag.length && !/\s/.test(tag[i] ?? "") && tag[i] !== ">" && tag[i] !== "/") i += 1;
+  while (i < tag.length) {
+    while (i < tag.length && /\s/.test(tag[i] ?? "")) i += 1;
+    if (i >= tag.length || tag[i] === ">" || tag[i] === "/") break;
+    const nameStart = i;
+    while (i < tag.length && /[^\s=/>]/.test(tag[i] ?? "")) i += 1;
+    const name = tag.slice(nameStart, i).toLowerCase();
+    if (!name) break;
+    while (i < tag.length && /\s/.test(tag[i] ?? "")) i += 1;
+    if (tag[i] !== "=") {
+      attrs.set(name, "");
+      continue;
+    }
+    i += 1;
+    while (i < tag.length && /\s/.test(tag[i] ?? "")) i += 1;
+    const quote = tag[i];
+    let value = "";
+    if (quote === '"' || quote === "'") {
+      i += 1;
+      const end = tag.indexOf(quote, i);
+      if (end === -1) {
+        value = tag.slice(i);
+        i = tag.length;
+      } else {
+        value = tag.slice(i, end);
+        i = end + 1;
+      }
+    } else {
+      const start = i;
+      while (i < tag.length && !/[\s/>]/.test(tag[i] ?? "")) i += 1;
+      value = tag.slice(start, i);
+    }
+    attrs.set(name, value);
+  }
+  return attrs;
+}
+
+function identityAttr(attrs: Map<string, string>): string | undefined {
+  for (const name of IDENTITY_ATTRS) {
+    const value = attrs.get(name);
+    if (value) return value;
+  }
+  return undefined;
+}
+
+/**
+ * Component id that sits on the same element as this node.
+ * A neighbour's id, a quoted attribute value, a comment, script, style, or CDATA block do not count.
+ * The same node id on two tags is a conflict and binds nothing.
+ */
+function elementComponentIds(raw: unknown): ElementBindings {
+  const text = stripSkippedRegions(contextText(raw));
+  const seen = new Map<string, number>();
+  const ids = new Map<string, string>();
+  for (const tag of text.match(ELEMENT_TAG) ?? []) {
+    const attrs = parseTagAttributes(tag);
+    const nodeId = attrs.get("data-node-id");
+    if (!nodeId) continue;
+    seen.set(nodeId, (seen.get(nodeId) ?? 0) + 1);
+    const componentId = identityAttr(attrs);
+    if (componentId && !ids.has(nodeId)) ids.set(nodeId, componentId);
+  }
+  const conflicted = new Set<string>();
+  for (const [nodeId, count] of seen) {
+    if (count < 2) continue;
+    conflicted.add(nodeId);
+    ids.delete(nodeId);
+  }
+  return { ids, conflicted };
+}
+
+function contextIdentityFor(bindings: ElementBindings, nodeId: string | undefined): string | undefined {
+  if (!nodeId || bindings.conflicted.has(nodeId)) return undefined;
+  return bindings.ids.get(nodeId);
+}
+
+function labelDiffers(layerName: string, masterName: string): boolean {
+  const norm = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+  const layer = norm(layerName);
+  const master = norm(masterName);
+  if (!layer || !master || layer === master) return false;
+  const family = master.split(" / ")[0] ?? master;
+  return layer !== family;
+}
+
+function suppliedIdentity(index: GraphIndex, given: string, node: GraphNode): boolean {
+  const trimmed = given.trim();
+  if (node.id === trimmed) return true;
+  if (matchesFigmaId(node, trimmed)) return true;
+  return matchesStampedId(node, trimmed, index.graph.fileKey);
+}
+
 /**
  * Thin post-draw check. Pass iff every placed component is an approved
  * (in-graph, not deprecated) master. Deterministic — no LLM.
@@ -2562,6 +2996,11 @@ export function verifyFrame(
   };
 
   let frameNode: GraphNode | undefined;
+  let nameOnly = false;
+  let idChecked = 0;
+  const renamed: Array<{ node: string; layerName: string; masterName: string }> = [];
+  const idsInContext = contextCarriesMasterIds(input.designContext);
+  const componentIds = elementComponentIds(input.designContext);
   const frameName = input.frame?.trim();
   if (frameName) {
     frameNode = resolveNode(index, frameName);
@@ -2584,7 +3023,38 @@ export function verifyFrame(
           );
           continue;
         }
+        if (isNameInferredMaster(main)) {
+          if (idsInContext) {
+            const boundId = contextIdentityFor(componentIds, instance.figmaNodeId);
+            const bound = boundId ? resolveNode(index, boundId) : undefined;
+            const boundMaster = bound ? asMaster(index, bound) : undefined;
+            if (!boundMaster || isNameInferredMaster(boundMaster)) {
+              pushUnique(
+                invents,
+                seenInvent,
+                stampHit(instance, { reason: "not-a-master", given: instance.name }),
+                `invent:${instance.id}`,
+              );
+              continue;
+            }
+            considerMaster(boundMaster, instance.name);
+            idChecked += 1;
+            if (labelDiffers(instance.name, boundMaster.name)) {
+              renamed.push({
+                node: instance.figmaNodeId ?? instance.id,
+                layerName: instance.name,
+                masterName: boundMaster.name,
+              });
+            }
+            continue;
+          }
+          const before = approvedIds.size;
+          considerMaster(main, main.name);
+          if (approvedIds.size > before) nameOnly = true;
+          continue;
+        }
         considerMaster(main, main.name);
+        idChecked += 1;
       }
     }
   }
@@ -2598,8 +3068,10 @@ export function verifyFrame(
       const near = searchNodes(index, given, { limit: 8 })
         .map((hit) => asMaster(index, hit.node))
         .find((node): node is GraphNode => Boolean(node));
-        if (near && !isNameInferredMaster(near)) {
-        const fileKey = fileOf(near);
+        const suggested =
+        near && !isNameInferredMaster(near) ? near : uniqueNameTypo(index, given);
+      if (suggested && !isNameInferredMaster(suggested)) {
+        const fileKey = fileOf(suggested);
         pushUnique(
           unresolved,
           seenUnresolved,
@@ -2608,8 +3080,8 @@ export function verifyFrame(
             given,
             reason: "not-exact",
             didYouMean: {
-              name: variantCardName(index, near),
-              id: near.id,
+              name: variantCardName(index, suggested),
+              id: suggested.id,
               ...(fileKey ? { fileKey } : {}),
             },
           },
@@ -2636,12 +3108,18 @@ export function verifyFrame(
       pushUnique(invents, seenInvent, stampHit(node, { reason: "not-a-master", given }), `invent:${node.id}`);
       continue;
     }
+    const identityNode = preferred ?? master ?? node;
+    const byIdentity = suppliedIdentity(index, given, identityNode);
     if (!preferred && master && isNameInferredMaster(master)) {
+      const before = approvedIds.size;
       considerMaster(master, given);
+      if (approvedIds.size > before) nameOnly = true;
+      else if (byIdentity) idChecked += 1;
       continue;
     }
     if (preferred) considerMaster(preferred, given);
     else if (master) considerMaster(master, given);
+    if (byIdentity) idChecked += 1;
   }
 
   const frameKey = frameNode ? fileOf(frameNode) : undefined;
@@ -2657,7 +3135,7 @@ export function verifyFrame(
   const content = frameNode
     ? frameContentWarnings(index, frameNode.id, input.placeholders, { overlay: applied?.overlay })
     : { warnings: [] as ContentWarning[], blocking: false, textChecked: false as const, textReason: TEXT_NO_FRAME };
-  const pass = invents.length === 0 && deprecatedHits.length === 0 && unresolved.length === 0;
+  const clean = invents.length === 0 && deprecatedHits.length === 0 && unresolved.length === 0;
   const placed: GraphNode[] = [...approvedIds]
     .map((id) => index.getNode(id))
     .filter((node): node is GraphNode => Boolean(node));
@@ -2672,22 +3150,40 @@ export function verifyFrame(
       })
     : undefined;
   const bindPass = !ruleFailure;
-  const ok = pass && bindPass && !content.blocking;
+  const ok = clean && bindPass && !content.blocking;
+  const nameOnlyPass = ok && nameOnly;
+  const verified = ok && idChecked > 0 && !nameOnly;
+  const unchecked = ok && idChecked === 0 && !nameOnly;
   const bindHint = ruleFailure
     ? `Fail — bind rule ${ruleFailure.rule}: ${ruleFailure.reason}.${
         ruleFailure.expected ? ` Place ${ruleFailure.expected.name} (${ruleFailure.expected.id}).` : ""
       }`
     : undefined;
   const pending = input.sock?.proposals.filter((row) => row.status === "pending").length ?? 0;
-  const hint = ok
-    ? `Only approved library masters. ${REFRESH_HINT}`
-    : content.blocking && pass && bindPass
-      ? `Fail — placeholder text left in a placed instance. ${REFRESH_HINT}`
-      : bindHint ??
-        `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`;
+  const hint = nameOnlyPass
+    ? `Name-only. Matched by layer name. No component id or key. ${REFRESH_HINT}`
+    : verified
+      ? renamed.length
+        ? `Verified. Label differs. ${REFRESH_HINT}`
+        : `Verified. ${REFRESH_HINT}`
+      : unchecked
+        ? "Nothing checked. No component id or key."
+        : content.blocking && clean && bindPass
+          ? `Fail — placeholder text left in a placed instance. ${REFRESH_HINT}`
+          : bindHint ??
+            `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`;
   const pendingHint = pending ? `pending improvements: ${pending}.` : undefined;
+  const fullHint = pendingHint ? `${hint} ${pendingHint}` : hint;
   const base = {
-    pass: ok,
+    pass: verified,
+    ...(nameOnlyPass
+      ? { result: "name-only" as const }
+      : verified
+        ? { result: "verified" as const }
+        : unchecked
+          ? { result: "nothing checked" as const }
+          : {}),
+    ...(nameOnly ? { nameOnly: true as const } : {}),
     approved: approvedIds.size,
     resolved,
     invents,
@@ -2701,15 +3197,44 @@ export function verifyFrame(
         }
       : undefined,
     builtAt: index.graph.builtAt,
-    hint: pendingHint ? `${hint} ${pendingHint}` : hint,
+    hint: fullHint,
     ...(pending ? { pendingImprovements: pending } : {}),
   };
-  const fitted = fitCardAfterCost(base, input.bindRules?.warnings, content.warnings, 600);
-  return stampTextCheck(fitted, {
+  const textMeta = {
     textChecked: content.textChecked,
     textReason: content.textReason,
     ...(applied && applied.textOverrides > 0 ? { textOverrides: applied.textOverrides } : {}),
-  });
+  };
+  const renamedCap = 5;
+  const renamedLimit = Math.min(renamedCap, renamed.length);
+  const publishRenamed = (shownCount: number) => {
+    const shown = renamed.slice(0, shownCount);
+    const hidden = renamed.length - shownCount;
+    const attempt = {
+      ...base,
+      ...(shown.length ? { renamed: shown } : {}),
+      ...(hidden > 0 ? { renamedNote: `+${hidden} more` } : {}),
+    };
+    return stampTextCheck(
+      fitCardAfterCost(structuredClone(attempt), input.bindRules?.warnings, content.warnings, 600),
+      textMeta,
+    );
+  };
+  const fitsRenamed = (
+    stamped: ReturnType<typeof publishRenamed>,
+    shown: Array<{ node: string; layerName: string; masterName: string }>,
+  ) =>
+    JSON.stringify(stamped).length <= 600 &&
+    stamped.hint === fullHint &&
+    JSON.stringify(stamped.renamed ?? []) === JSON.stringify(shown);
+  let published = publishRenamed(renamedLimit);
+  if (fitsRenamed(published, renamed.slice(0, renamedLimit))) return published;
+  for (let shownCount = renamedLimit - 1; shownCount >= 0; shownCount -= 1) {
+    const shown = renamed.slice(0, shownCount);
+    published = publishRenamed(shownCount);
+    if (fitsRenamed(published, shown) || shownCount === 0) break;
+  }
+  return published;
 }
 
 function repriced<T extends object>(value: T): Omit<T, "cost"> & { cost: AgentCost } {

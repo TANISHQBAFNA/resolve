@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { chdir } from "node:process";
 import { runCli } from "@/server/cli";
-import { clearCache, loadGraph } from "@/server/store";
+import { callTool } from "@/server/tools";
+import { clearCache, loadGraph, workspacePath } from "@/server/store";
 
 describe("resolve ingest --role", () => {
   const previousHome = process.env["GRAPHIFY_HOME"];
@@ -87,6 +89,128 @@ describe("resolve ingest --role", () => {
     );
     await expect(runCli(["verify", "Screen", "--texts", "{not json"])).rejects.toThrow(
       /--texts must be JSON/,
+    );
+  });
+
+  it("requires a file key for XML and says when JSON is not JSON", async () => {
+    const xmlPath = join(process.env["GRAPHIFY_HOME"]!, "bare.xml");
+    writeFileSync(xmlPath, `<frame id="1:1" name="Screen"></frame>\n`);
+    await expect(runCli(["ingest", xmlPath])).rejects.toThrow(/--file-key/);
+    const jsonPath = join(process.env["GRAPHIFY_HOME"]!, "bad.json");
+    writeFileSync(jsonPath, `{not json`);
+    await expect(runCli(["ingest", jsonPath])).rejects.toThrow(/not valid JSON/);
+  });
+
+  it("refuses rm without --yes, explains --help, and clears the workspace list", async () => {
+    const xmlPath = join(process.env["GRAPHIFY_HOME"]!, "lib.xml");
+    writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
+    await runCli(["ingest", xmlPath, "--file-key", "LIB", "--role", "library"]);
+    expect(existsSync(workspacePath())).toBe(true);
+    await expect(runCli(["rm"])).rejects.toThrow(/--yes/);
+    expect(loadGraph()).toBeDefined();
+    const chunks: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await runCli(["rm", "--help"]);
+    } finally {
+      process.stdout.write = write;
+    }
+    expect(chunks.join("")).toMatch(/--yes/);
+    expect(loadGraph()).toBeDefined();
+    await runCli(["rm", "--yes"]);
+    expect(loadGraph()).toBeUndefined();
+    expect(existsSync(workspacePath())).toBe(false);
+  });
+
+  it("exits non-zero when verify fails", async () => {
+    const xmlPath = join(process.env["GRAPHIFY_HOME"]!, "verify.xml");
+    writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
+    await runCli(["ingest", xmlPath, "--file-key", "LIB"]);
+    process.exitCode = undefined;
+    await runCli(["verify", "--components", "Not A Real Widget"]);
+    expect(process.exitCode).toBe(1);
+    process.exitCode = undefined;
+  });
+
+  it("does not call a named component verified when no id was checked", async () => {
+    const xmlPath = join(process.env["GRAPHIFY_HOME"]!, "named.xml");
+    writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
+    await runCli(["ingest", xmlPath, "--file-key", "LIB"]);
+    const chunks: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    process.exitCode = undefined;
+    try {
+      await runCli(["verify", "--components", "Button"]);
+    } finally {
+      process.stdout.write = write;
+    }
+    const text = chunks.join("");
+    expect(process.exitCode).toBe(1);
+    expect(text).toMatch(/"result":\s*"nothing checked"/);
+    expect(text.toLowerCase()).not.toContain("verified");
+    process.exitCode = undefined;
+  });
+
+  it("score --init writes masters, a synonym, and empty asks", async () => {
+    const xmlPath = join(process.env["GRAPHIFY_HOME"]!, "init.xml");
+    writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
+    await runCli(["ingest", xmlPath, "--file-key", "LIB"]);
+    const out = join(process.env["GRAPHIFY_HOME"]!, "golden.json");
+    await runCli(["score", "--init", "--out", out]);
+    const file = JSON.parse(readFileSync(out, "utf8")) as { cases: Array<{ intent: string; expect: string; expected?: string }> };
+    expect(file.cases.some((row) => row.intent === "Button" && row.expected === "Button")).toBe(true);
+    expect(file.cases.filter((row) => row.expect === "empty")).toHaveLength(3);
+  });
+
+  it("score --init creates a missing default folder", async () => {
+    const xmlPath = join(process.env["GRAPHIFY_HOME"]!, "init-default.xml");
+    writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
+    await runCli(["ingest", xmlPath, "--file-key", "LIB"]);
+    const cwd = mkdtempSync(join(tmpdir(), "resolve-score-init-"));
+    const previous = process.cwd();
+    chdir(cwd);
+    try {
+      await runCli(["score", "--init"]);
+    } finally {
+      chdir(previous);
+    }
+    const out = join(cwd, "scoreboard", "golden", "from-library.json");
+    expect(existsSync(out)).toBe(true);
+    expect(readFileSync(out, "utf8")).toContain("Button");
+  });
+
+  it("score --init explains when a parent of --out is a file", async () => {
+    const xmlPath = join(process.env["GRAPHIFY_HOME"]!, "init-blocked.xml");
+    writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
+    await runCli(["ingest", xmlPath, "--file-key", "LIB"]);
+    const cwd = mkdtempSync(join(tmpdir(), "resolve-score-blocked-"));
+    const blocker = join(cwd, "blocked");
+    writeFileSync(blocker, "not a folder");
+    const previous = process.cwd();
+    chdir(cwd);
+    let message = "";
+    try {
+      await runCli(["score", "--init", "--out", join(blocker, "golden.json")]);
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    } finally {
+      chdir(previous);
+    }
+    expect(message).toMatch(/Could not write/);
+    expect(message).not.toMatch(/EEXIST/);
+  });
+
+  it("learn_library rejects a bad role as a tool error", () => {
+    expect(() => callTool("learn_library", { fileKey: "LIB", role: "nope" })).toThrow(
+      /Unknown --role "nope"/,
     );
   });
 });

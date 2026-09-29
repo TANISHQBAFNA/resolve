@@ -1,0 +1,16 @@
+<frame id="28:203" name="Navigation" x="0" y="0" width="800" height="900">
+    <component-set id="25:179" name="Top app bar" x="0" y="0" width="200" height="192">
+      <symbol id="25:181" name="Type=Small" x="0" y="0" width="200" height="48" />
+      <symbol id="26:183" name="Type=Center-aligned" x="0" y="0" width="200" height="48" />
+      <symbol id="26:185" name="Type=Medium" x="0" y="0" width="200" height="48" />
+      <symbol id="26:187" name="Type=Large" x="0" y="0" width="200" height="48" />
+    </component-set>
+    <component id="26:189" name="Bottom app bar" x="0" y="0" width="200" height="48" />
+    <component id="27:191" name="Navigation bar" x="0" y="0" width="200" height="48" />
+    <component id="27:193" name="Navigation drawer" x="0" y="0" width="200" height="48" />
+    <component id="27:195" name="Navigation rail" x="0" y="0" width="200" height="48" />
+    <component-set id="28:197" name="Tabs" x="0" y="0" width="200" height="96">
+      <symbol id="28:199" name="Type=Primary" x="0" y="0" width="200" height="48" />
+      <symbol id="28:201" name="Type=Secondary" x="0" y="0" width="200" height="48" />
+    </component-set>
+  </frame>

@@ -207,7 +207,13 @@ describe("phrase match and typos", () => {
     const login = topName(index, "login field");
     expect(login.candidates[0]?.name).toBe("Text Field");
     expect(login.candidates[0] && "confidence" in login.candidates[0] && login.candidates[0].confidence).toBe("low");
+    expect(login.match).toBe("weak match");
+    expect(login.candidates.length).toBeGreaterThan(1);
+    expect(login.candidates.length).toBeLessThanOrEqual(3);
     expect(login.cost.chars).toBeLessThanOrEqual(600);
+    const primary = recommendMasters(index, "primary button");
+    const primaryWrong = !primary.candidates[0]?.name.startsWith("Button");
+    expect(primaryWrong && primary.match !== "weak match").toBe(false);
     expect(topName(index, "billing address field").candidates[0]?.name).toBe("Text Field");
     expect(topName(index, "cart badge").candidates[0]?.name).toBe("Badge");
     expect(topName(index, "shipping alert").candidates[0]?.name).toBe("Alert");

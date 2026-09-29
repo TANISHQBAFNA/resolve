@@ -4,8 +4,10 @@ import { basename, join } from "node:path";
 import { z } from "zod";
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
+import synonymFile from "@/data/synonyms.json";
 import {
   componentUsageCard,
+  isNameInferredMaster,
   isPrivateMasterName,
   recommendMasters,
   variantCardName,
@@ -1211,4 +1213,69 @@ export function formatScoreTable(report: ScoreReport, delta?: ScoreDelta): strin
     `Result: ${result}.`,
     compared,
   ].join("\n");
+}
+
+const EMPTY_PROBES = ["captcha widget", "hologram dial", "quantum gauge"];
+
+function slug(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "case";
+}
+
+function collapsed(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/** Other words in a synonym group that names this master, skipping names of other masters. */
+function synonymIntentsFor(name: string, masterNames: ReadonlySet<string>): string[] {
+  const target = collapsed(name);
+  const intents: string[] = [];
+  for (const group of synonymFile.groups) {
+    const named = group.terms.some((term) => collapsed(term) === target);
+    if (!named) continue;
+    for (const term of group.terms) {
+      const shown = term.trim();
+      if (!shown || collapsed(shown) === target) continue;
+      if (masterNames.has(shown.toLowerCase())) continue;
+      intents.push(shown);
+    }
+  }
+  return intents;
+}
+
+/** One case per public master, plus synonym asks, plus three asks that must stay empty. */
+export function initGoldenCases(index: GraphIndex): GoldenCase[] {
+  const masters = index.getNodesByType(...COMPONENT_DEFINITION_TYPES).filter((node) => {
+    if (node.type === "VARIANT") return false;
+    if (node.status === "deprecated") return false;
+    if (isPrivateMasterName(node.name) || isNameInferredMaster(node)) return false;
+    return Boolean(node.name.trim());
+  });
+  const masterNames = new Set(masters.map((node) => node.name.trim().toLowerCase()));
+  const cases: GoldenCase[] = [];
+  const seen = new Set<string>();
+  const push = (row: GoldenCase) => {
+    const key = `${row.expect}:${row.intent.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    cases.push(row);
+  };
+  for (const node of masters) {
+    const name = node.name.trim();
+    push({ id: `name-${slug(name)}`, intent: name, expected: name, expect: "master" });
+    for (const term of synonymIntentsFor(name, masterNames)) {
+      push({
+        id: `syn-${slug(name)}-${slug(term)}`,
+        intent: term,
+        expected: name,
+        expect: "master",
+      });
+    }
+  }
+  let empties = 0;
+  for (const probe of EMPTY_PROBES) {
+    if ([...masterNames].some((name) => name.includes(probe))) continue;
+    empties += 1;
+    push({ id: `empty-${empties}`, intent: probe, expect: "empty" });
+  }
+  return cases;
 }

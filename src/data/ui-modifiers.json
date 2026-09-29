@@ -26,10 +26,23 @@
     { "term": "on", "reason": "On is a switch state." },
     { "term": "off", "reason": "Off is a switch state." },
     { "term": "state", "reason": "State is a condition of a component, as in an empty state or an error state." },
+    { "term": "type", "reason": "Type is a variant property, as in Type=Primary." },
+    { "term": "size", "reason": "Size is a variant property." },
+    { "term": "style", "reason": "Style is a variant property." },
+    { "term": "variant", "reason": "Variant names which option of a component." },
     { "term": "total", "reason": "Total is a quantity on a value." },
     { "term": "count", "reason": "Count is a quantity on a badge or a value." },
     { "term": "user", "reason": "User is the person a profile or an avatar represents." },
-    { "term": "code", "reason": "Code is the value typed into a promo, coupon, or access field." }
+    { "term": "code", "reason": "Code is the value typed into a promo, coupon, or access field." },
+    { "term": "sign", "reason": "Sign is a label on a button, as in sign in." },
+    { "term": "terms", "reason": "Terms is the agreement next to a checkbox." },
+    { "term": "submit", "reason": "Submit is the action on a button or a progress mark." },
+    { "term": "submitting", "reason": "Submitting is the action on a progress mark." },
+    { "term": "phone", "reason": "Phone is the kind of value in a text field." },
+    { "term": "number", "reason": "Number is the kind of value in a text field." },
+    { "term": "country", "reason": "Country is a qualifier on a phone field." },
+    { "term": "edit", "reason": "Edit is the action on a button." },
+    { "term": "save", "reason": "Save is the action on a button." }
   ],
   "trailing": [
     {

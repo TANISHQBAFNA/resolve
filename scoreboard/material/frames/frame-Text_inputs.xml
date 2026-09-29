@@ -1,0 +1,8 @@
+<frame id="34:245" name="Text inputs" x="0" y="0" width="800" height="900">
+    <component-set id="33:235" name="Text field" x="0" y="0" width="200" height="96">
+      <symbol id="33:237" name="Type=Filled" x="0" y="0" width="200" height="48" />
+      <symbol id="34:239" name="Type=Outlined" x="0" y="0" width="200" height="48" />
+    </component-set>
+    <component id="34:241" name="Search bar" x="0" y="0" width="200" height="48" />
+    <component id="34:243" name="Search view" x="0" y="0" width="200" height="48" />
+  </frame>

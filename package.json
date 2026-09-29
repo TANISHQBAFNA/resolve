@@ -14,7 +14,7 @@
     "dist-server",
     "docs",
     "rules",
-    "skills",
+    "skills/resolve",
     "README.md",
     "AGENTS.md"
   ],

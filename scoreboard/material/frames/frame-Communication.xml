@@ -1,0 +1,9 @@
+<frame id="20:147" name="Communication" x="0" y="0" width="800" height="900">
+    <component id="19:135" name="Badge" x="0" y="0" width="200" height="48" />
+    <component-set id="19:137" name="Progress indicator" x="0" y="0" width="200" height="96">
+      <symbol id="19:139" name="Type=Linear" x="0" y="0" width="200" height="48" />
+      <symbol id="20:141" name="Type=Circular" x="0" y="0" width="200" height="48" />
+    </component-set>
+    <component id="20:143" name="Snackbar" x="0" y="0" width="200" height="48" />
+    <component id="20:145" name="Tooltip" x="0" y="0" width="200" height="48" />
+  </frame>
