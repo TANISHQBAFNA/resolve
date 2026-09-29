@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
  * Install Resolve's always-on instructions for Cursor and Claude Code.
- * Writes three files. Re-runs only change the marked Resolve block.
- * Does not read tokens or other secrets.
+ * In a project: the Cursor rule, the Claude skill, and a marked CLAUDE.md block.
+ * --global is Claude only (~/.claude skill and ~/.claude/CLAUDE.md). Cursor has no
+ * global rules folder; its rule stays in the project.
+ * Re-runs only change a complete marked block. Does not read tokens or other secrets.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const BEGIN = "<!-- resolve-setup:begin -->";
 export const END = "<!-- resolve-setup:end -->";
@@ -67,35 +69,48 @@ export function installOwned(current, shipped) {
   return { action: text === current ? "unchanged" : "update", text };
 }
 
-/** @returns {{ action: "create" | "update" | "unchanged", text: string }} */
+function useEnding(text, ending) {
+  return ending === "\n" ? text : text.replace(/\n/g, ending);
+}
+
+/** @returns {{ action: "create" | "update" | "unchanged" | "skip", text: string, note?: string }} */
 export function installClaude(current, block = CLAUDE_BLOCK) {
-  const owned = `${BEGIN}\n${block.trim()}\n${END}`;
+  const ending = current != null && current.includes("\r\n") ? "\r\n" : "\n";
+  const owned = useEnding(`${BEGIN}\n${block.trim()}\n${END}`, ending);
   if (current == null || current.trim() === "") return { action: "create", text: `${owned}\n` };
   const start = current.indexOf(BEGIN);
   const end = current.indexOf(END);
-  if (start === -1 || end === -1 || end < start) {
-    const sep = current.endsWith("\n\n") ? "" : current.endsWith("\n") ? "\n" : "\n\n";
-    return { action: "update", text: `${current}${sep}${owned}\n` };
+  if ((start === -1) !== (end === -1)) {
+    return {
+      action: "skip",
+      text: current,
+      note: " (left CLAUDE.md; it has only one Resolve marker, so nothing was changed)",
+    };
+  }
+  if (start === -1) {
+    const sep = current.endsWith(ending + ending) ? "" : current.endsWith(ending) ? ending : ending + ending;
+    return { action: "update", text: `${current}${sep}${owned}${ending}` };
   }
   const text = `${current.slice(0, start)}${owned}${current.slice(end + END.length)}`;
   return { action: text === current ? "unchanged" : "update", text };
 }
 
 export function runSetup({ cwd, home, global: isGlobal, dryRun, packageRoot: root = packageRoot }) {
-  const destRoot = isGlobal ? home : cwd;
+  const base = isGlobal ? home : cwd;
   const claudePath = isGlobal ? join(home, ".claude", "CLAUDE.md") : join(cwd, "CLAUDE.md");
-  const paths = {
-    rule: join(destRoot, ".cursor", "rules", "resolve.mdc"),
-    skill: join(destRoot, ".claude", "skills", "resolve", "SKILL.md"),
-    claude: claudePath,
-  };
   const ruleSrc = readFileSync(join(root, "rules", "resolve.mdc"), "utf8");
   const skillSrc = readFileSync(join(root, "skills", "resolve", "SKILL.md"), "utf8");
-  const planned = [
-    { path: paths.rule, ...installOwned(readOrNull(paths.rule), ruleSrc) },
-    { path: paths.skill, ...installOwned(readOrNull(paths.skill), skillSrc) },
-    { path: paths.claude, ...installClaude(readOrNull(paths.claude)) },
-  ];
+  const planned = [];
+  // Cursor loads project rules only. Do not write a home-folder rule.
+  if (!isGlobal) {
+    const rulePath = join(cwd, ".cursor", "rules", "resolve.mdc");
+    planned.push({ path: rulePath, ...installOwned(readOrNull(rulePath), ruleSrc) });
+  }
+  const skillPath = join(base, ".claude", "skills", "resolve", "SKILL.md");
+  planned.push(
+    { path: skillPath, ...installOwned(readOrNull(skillPath), skillSrc) },
+    { path: claudePath, ...installClaude(readOrNull(claudePath)) },
+  );
   if (!dryRun) {
     for (const item of planned) {
       if (item.action === "skip" || item.action === "unchanged") continue;
@@ -119,10 +134,20 @@ function main() {
   }
   const planned = runSetup({ cwd: process.cwd(), home: homedir(), global: isGlobal, dryRun });
   for (const item of planned) {
-    const note = item.action === "skip" ? " (left existing file; no Resolve markers)" : "";
+    const note = item.note ?? (item.action === "skip" ? " (left existing file; no Resolve markers)" : "");
     process.stdout.write(`${item.action} ${item.path}${note}\n`);
   }
 }
 
-const entry = process.argv[1];
-if (entry && import.meta.url === pathToFileURL(resolve(entry)).href) main();
+function isDirectRun() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    // npx and npm's .bin entries are symlinks. Compare the real file.
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) main();

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -107,20 +107,102 @@ describe("resolve-setup", () => {
     expect(bad.stderr).toContain("Unknown argument --nope");
   });
 
-  it("--global writes under the home folder and leaves the project alone", () => {
+  it("--global writes Claude files in the home folder and no Cursor rule", () => {
     const cwd = tempDir("proj");
     const home = tempDir("home");
     mkdirSync(cwd, { recursive: true });
     mkdirSync(home, { recursive: true });
     const planned = setup(["--global"], cwd, home);
     expect(planned.status).toBe(0);
-    expect(planned.stdout).toContain(`create ${join(home, ".cursor/rules/resolve.mdc")}`);
+    expect(planned.stdout).not.toContain(join(home, ".cursor"));
     expect(planned.stdout).toContain(`create ${join(home, ".claude/skills/resolve/SKILL.md")}`);
     expect(planned.stdout).toContain(`create ${join(home, ".claude/CLAUDE.md")}`);
     expect(existsSync(join(home, ".claude/CLAUDE.md"))).toBe(true);
+    expect(existsSync(join(home, ".claude/skills/resolve/SKILL.md"))).toBe(true);
+    expect(existsSync(join(home, ".cursor/rules/resolve.mdc"))).toBe(false);
     expect(existsSync(join(cwd, "CLAUDE.md"))).toBe(false);
     expect(existsSync(join(cwd, ".cursor/rules/resolve.mdc"))).toBe(false);
   });
+
+  it("leaves CLAUDE.md alone when exactly one Resolve marker is present", () => {
+    for (const original of [
+      `# Notes\n\n${BEGIN}\nKeep the text after the orphan marker.\n`,
+      `# Notes\n\nKeep this.\n${END}\n`,
+    ]) {
+      const cwd = tempDir("orphan");
+      mkdirSync(cwd, { recursive: true });
+      const claudePath = join(cwd, "CLAUDE.md");
+      writeFileSync(claudePath, original);
+      const first = setup([], cwd);
+      expect(first.status).toBe(0);
+      expect(first.stdout).toContain(`skip ${claudePath} (left CLAUDE.md; it has only one Resolve marker, so nothing was changed)`);
+      expect(readFileSync(claudePath, "utf8")).toBe(original);
+      const second = setup([], cwd);
+      expect(second.status).toBe(0);
+      expect(readFileSync(claudePath, "utf8")).toBe(original);
+    }
+  });
+
+  it("keeps CRLF line endings when adding the block to a CRLF CLAUDE.md", () => {
+    const cwd = tempDir("crlf");
+    mkdirSync(cwd, { recursive: true });
+    const claudePath = join(cwd, "CLAUDE.md");
+    writeFileSync(claudePath, "# Notes\r\n\r\nKeep this line.\r\n");
+    const first = setup([], cwd);
+    expect(first.status).toBe(0);
+    const claude = readFileSync(claudePath, "utf8");
+    expect(claude).toContain("Keep this line.");
+    expect(claude).toContain(BEGIN);
+    expect(claude.replace(/\r\n/g, "")).not.toContain("\n");
+    const second = setup([], cwd);
+    expect(second.stdout).toContain(`unchanged ${claudePath}`);
+    expect(readFileSync(claudePath, "utf8").replace(/\r\n/g, "")).not.toContain("\n");
+  });
+
+  it("writes files when started through a symlink and from a packed tarball", () => {
+    const cwd = tempDir("symlink");
+    mkdirSync(cwd, { recursive: true });
+    const link = join(cwd, "resolve-setup-link.mjs");
+    symlinkSync(bin, link);
+    const viaLink = spawnSync(process.execPath, [link], { cwd, encoding: "utf8" });
+    expect(viaLink.status).toBe(0);
+    expect(viaLink.stdout).toContain("create");
+    expect(existsSync(join(cwd, ".cursor/rules/resolve.mdc"))).toBe(true);
+    expect(readFileSync(join(cwd, "CLAUDE.md"), "utf8")).toContain(BEGIN);
+
+    const packDir = tempDir("pack");
+    mkdirSync(packDir, { recursive: true });
+    cpSync(join(root, "bin"), join(packDir, "bin"), { recursive: true });
+    cpSync(join(root, "rules"), join(packDir, "rules"), { recursive: true });
+    cpSync(join(root, "skills"), join(packDir, "skills"), { recursive: true });
+    writeFileSync(
+      join(packDir, "package.json"),
+      JSON.stringify({
+        name: "resolve-setup-fixture",
+        version: "0.0.0",
+        bin: { "resolve-setup": "./bin/resolve-setup.mjs" },
+        files: ["bin", "rules", "skills"],
+      }),
+    );
+    const packed = spawnSync("npm", ["pack", "--json"], { cwd: packDir, encoding: "utf8" });
+    expect(packed.status).toBe(0);
+    const listing = JSON.parse(packed.stdout.slice(packed.stdout.indexOf("["))) as Array<{ filename: string }>;
+    const tgz = join(packDir, listing[0]?.filename ?? "");
+    expect(existsSync(tgz)).toBe(true);
+
+    const installDir = tempDir("npx");
+    mkdirSync(installDir, { recursive: true });
+    const viaPack = spawnSync("npx", ["-y", "-p", tgz, "resolve-setup"], {
+      cwd: installDir,
+      encoding: "utf8",
+      timeout: 60_000,
+      env: { ...process.env, npm_config_cache: join(packDir, "npm-cache"), NO_UPDATE_NOTIFIER: "1" },
+    });
+    expect(viaPack.status, viaPack.stderr).toBe(0);
+    expect(existsSync(join(installDir, ".cursor/rules/resolve.mdc"))).toBe(true);
+    expect(existsSync(join(installDir, ".claude/skills/resolve/SKILL.md"))).toBe(true);
+    expect(readFileSync(join(installDir, "CLAUDE.md"), "utf8")).toContain("call Resolve before drawing");
+  }, 60_000);
 
   it("the published package includes the rule and the skill", () => {
     const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {

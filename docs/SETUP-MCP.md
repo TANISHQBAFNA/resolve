@@ -25,13 +25,13 @@ Learning a library needs **one** of:
 npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
 ```
 
-4. Once, so the agent calls Resolve on every design task (add `--global` to install into your home folder instead of this project):
+4. Once, in the project, so the agent calls Resolve on every design task:
 
 ```bash
 npx -y -p github:TANISHQBAFNA/resolve resolve-setup
 ```
 
-That writes `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, and a marked block in `CLAUDE.md`. A second run only edits inside those markers. Claude Desktop does not read rule files, skills, or `CLAUDE.md`. It only gets the MCP instructions.
+That writes `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, and a marked block in `CLAUDE.md` in this project. Cursor needs that project rule. It does not load a rule from your home folder. A second run only edits inside a complete pair of markers. `--global` is for Claude only (`~/.claude/skills/resolve/SKILL.md` and `~/.claude/CLAUDE.md`). Claude Desktop does not read rule files, skills, or `CLAUDE.md`. It only gets the MCP instructions.
 
 5. If Claude Desktop cannot start Resolve, use the full path from `which npx` as the `command` (keep the same `args`).
 
