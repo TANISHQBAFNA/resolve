@@ -187,6 +187,27 @@ describe("resolve ingest --role", () => {
     expect(readFileSync(out, "utf8")).toContain("Button");
   });
 
+  it("score --init explains when a parent of --out is a file", async () => {
+    const xmlPath = join(process.env["GRAPHIFY_HOME"]!, "init-blocked.xml");
+    writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
+    await runCli(["ingest", xmlPath, "--file-key", "LIB"]);
+    const cwd = mkdtempSync(join(tmpdir(), "resolve-score-blocked-"));
+    const blocker = join(cwd, "blocked");
+    writeFileSync(blocker, "not a folder");
+    const previous = process.cwd();
+    chdir(cwd);
+    let message = "";
+    try {
+      await runCli(["score", "--init", "--out", join(blocker, "golden.json")]);
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    } finally {
+      chdir(previous);
+    }
+    expect(message).toMatch(/Could not write/);
+    expect(message).not.toMatch(/EEXIST/);
+  });
+
   it("learn_library rejects a bad role as a tool error", () => {
     expect(() => callTool("learn_library", { fileKey: "LIB", role: "nope" })).toThrow(
       /Unknown --role "nope"/,

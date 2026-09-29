@@ -71,6 +71,48 @@ describe("verify means a real component id on that node", () => {
     expect(JSON.stringify(result)).toContain('"result":"verified"');
     expect(result.approved).toBe(2);
     expect(result.invents).toEqual([]);
+    expect(result.renamed).toBeUndefined();
+    expect(result.hint).not.toMatch(/label differs/i);
+  });
+
+  it("ignores a component id hidden in an attribute value, a data-name, or a comment", () => {
+    const contexts = [
+      `<div data-node-id="990:2" componentId="33:235"></div><div data-node-id="990:3" title="componentId='14:101'"></div>`,
+      `<div data-node-id="990:2" componentId="33:235"></div><div data-node-id="990:3" data-name="Button componentId='14:101'"></div>`,
+      `<div data-node-id="990:2" componentId="33:235"></div><!-- <div data-node-id="990:3" componentId='14:101'></div> --><div data-node-id="990:3"></div>`,
+    ];
+    for (const designContext of contexts) {
+      const result = card(designContext);
+      expect(result.pass).toBe(false);
+      expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
+      expect(result.invents.some((hit) => hit.name === "Button")).toBe(true);
+    }
+  });
+
+  it("does not verify a node id that appears on two tags, in either order", () => {
+    const realFirst = card(
+      `<div data-node-id="990:2" componentId="33:235"></div><div data-node-id="990:3" componentId="14:101"></div><div data-node-id="990:3" componentId="8:8"></div>`,
+    );
+    const emptyFirst = card(
+      `<div data-node-id="990:2" componentId="33:235"></div><div data-node-id="990:3"></div><div data-node-id="990:3" componentId="14:101"></div>`,
+    );
+    for (const result of [realFirst, emptyFirst]) {
+      expect(result.pass).toBe(false);
+      expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
+      expect(result.invents.some((hit) => hit.name === "Button")).toBe(true);
+    }
+  });
+
+  it("verifies a renamed layer by id and says the label differs", () => {
+    const result = card(
+      `<div data-node-id="990:2" componentId="33:235"></div><div data-node-id="990:3" componentId="33:235"></div>`,
+    );
+    expect(result.pass).toBe(true);
+    expect(JSON.stringify(result)).toContain('"result":"verified"');
+    expect(result.approved).toBe(1);
+    expect(result.renamed).toEqual([{ node: "990:3", layerName: "Button", masterName: "Text field" }]);
+    expect(result.hint).toMatch(/Label differs/);
+    expect(result.hint).not.toMatch(/matched by layer name/i);
   });
 
   it("does not verify an empty frame or a hand-drawn layer", () => {

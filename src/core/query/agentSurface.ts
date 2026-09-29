@@ -2707,31 +2707,105 @@ function contextCarriesMasterIds(raw: unknown): boolean {
 }
 
 const ELEMENT_TAG = /<[^>]*>/g;
-const NODE_ID_ATTR = /\bdata-node-id\s*=\s*["']([^"']+)["']/i;
-const COMPONENT_ATTR =
-  /\b(?:componentId|componentKey|mainComponent|data-component-id|component-id)\s*=\s*["']([^"']+)["']/i;
+const IDENTITY_ATTRS = ["componentid", "componentkey"];
+
+interface ElementBindings {
+  ids: Map<string, string>;
+  conflicted: Set<string>;
+}
+
+function stripHtmlComments(text: string): string {
+  return text.replace(/<!--[\s\S]*?-->/g, "");
+}
+
+/** Attribute name to value. Quoted text is never scanned for other attributes. */
+function parseTagAttributes(tag: string): Map<string, string> {
+  const attrs = new Map<string, string>();
+  let i = tag.startsWith("<") ? 1 : 0;
+  if (tag[i] === "/") i += 1;
+  while (i < tag.length && !/\s/.test(tag[i] ?? "") && tag[i] !== ">" && tag[i] !== "/") i += 1;
+  while (i < tag.length) {
+    while (i < tag.length && /\s/.test(tag[i] ?? "")) i += 1;
+    if (i >= tag.length || tag[i] === ">" || tag[i] === "/") break;
+    const nameStart = i;
+    while (i < tag.length && /[^\s=/>]/.test(tag[i] ?? "")) i += 1;
+    const name = tag.slice(nameStart, i).toLowerCase();
+    if (!name) break;
+    while (i < tag.length && /\s/.test(tag[i] ?? "")) i += 1;
+    if (tag[i] !== "=") {
+      attrs.set(name, "");
+      continue;
+    }
+    i += 1;
+    while (i < tag.length && /\s/.test(tag[i] ?? "")) i += 1;
+    const quote = tag[i];
+    let value = "";
+    if (quote === '"' || quote === "'") {
+      i += 1;
+      const end = tag.indexOf(quote, i);
+      if (end === -1) {
+        value = tag.slice(i);
+        i = tag.length;
+      } else {
+        value = tag.slice(i, end);
+        i = end + 1;
+      }
+    } else {
+      const start = i;
+      while (i < tag.length && !/[\s/>]/.test(tag[i] ?? "")) i += 1;
+      value = tag.slice(start, i);
+    }
+    attrs.set(name, value);
+  }
+  return attrs;
+}
+
+function identityAttr(attrs: Map<string, string>): string | undefined {
+  for (const name of IDENTITY_ATTRS) {
+    const value = attrs.get(name);
+    if (value) return value;
+  }
+  return undefined;
+}
 
 /**
  * Component id that sits on the same element as this node.
- * A neighbour's id does not count.
+ * A neighbour's id, a quoted attribute value, and an HTML comment do not count.
+ * The same node id on two tags is a conflict and binds nothing.
  */
-function elementComponentIds(raw: unknown): Map<string, string> {
-  const found = new Map<string, string>();
-  const text = contextText(raw);
+function elementComponentIds(raw: unknown): ElementBindings {
+  const text = stripHtmlComments(contextText(raw));
+  const seen = new Map<string, number>();
+  const ids = new Map<string, string>();
   for (const tag of text.match(ELEMENT_TAG) ?? []) {
-    const node = NODE_ID_ATTR.exec(tag);
-    const nodeId = node?.[1];
-    if (!nodeId || found.has(nodeId)) continue;
-    const component = COMPONENT_ATTR.exec(tag);
-    const componentId = component?.[1];
-    if (componentId) found.set(nodeId, componentId);
+    const attrs = parseTagAttributes(tag);
+    const nodeId = attrs.get("data-node-id");
+    if (!nodeId) continue;
+    seen.set(nodeId, (seen.get(nodeId) ?? 0) + 1);
+    const componentId = identityAttr(attrs);
+    if (componentId && !ids.has(nodeId)) ids.set(nodeId, componentId);
   }
-  return found;
+  const conflicted = new Set<string>();
+  for (const [nodeId, count] of seen) {
+    if (count < 2) continue;
+    conflicted.add(nodeId);
+    ids.delete(nodeId);
+  }
+  return { ids, conflicted };
 }
 
-function contextIdentityFor(bindings: Map<string, string>, nodeId: string | undefined): string | undefined {
-  if (!nodeId) return undefined;
-  return bindings.get(nodeId);
+function contextIdentityFor(bindings: ElementBindings, nodeId: string | undefined): string | undefined {
+  if (!nodeId || bindings.conflicted.has(nodeId)) return undefined;
+  return bindings.ids.get(nodeId);
+}
+
+function labelDiffers(layerName: string, masterName: string): boolean {
+  const norm = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+  const layer = norm(layerName);
+  const master = norm(masterName);
+  if (!layer || !master || layer === master) return false;
+  const family = master.split(" / ")[0] ?? master;
+  return layer !== family;
 }
 
 function suppliedIdentity(index: GraphIndex, given: string, node: GraphNode): boolean {
@@ -2856,6 +2930,7 @@ export function verifyFrame(
   let frameNode: GraphNode | undefined;
   let nameOnly = false;
   let idChecked = 0;
+  const renamed: Array<{ node: string; layerName: string; masterName: string }> = [];
   const idsInContext = contextCarriesMasterIds(input.designContext);
   const componentIds = elementComponentIds(input.designContext);
   const frameName = input.frame?.trim();
@@ -2896,6 +2971,13 @@ export function verifyFrame(
             }
             considerMaster(boundMaster, instance.name);
             idChecked += 1;
+            if (labelDiffers(instance.name, boundMaster.name)) {
+              renamed.push({
+                node: instance.figmaNodeId ?? instance.id,
+                layerName: instance.name,
+                masterName: boundMaster.name,
+              });
+            }
             continue;
           }
           const before = approvedIds.size;
@@ -3013,7 +3095,9 @@ export function verifyFrame(
   const hint = nameOnlyPass
     ? `Name-only. Matched by layer name. No component id or key. ${REFRESH_HINT}`
     : verified
-      ? `Verified. ${REFRESH_HINT}`
+      ? renamed.length
+        ? `Verified. Label differs. ${REFRESH_HINT}`
+        : `Verified. ${REFRESH_HINT}`
       : unchecked
         ? "Nothing checked. No component id or key."
         : content.blocking && clean && bindPass
@@ -3031,6 +3115,7 @@ export function verifyFrame(
           ? { result: "nothing checked" as const }
           : {}),
     ...(nameOnly ? { nameOnly: true as const } : {}),
+    ...(renamed.length ? { renamed } : {}),
     approved: approvedIds.size,
     resolved,
     invents,

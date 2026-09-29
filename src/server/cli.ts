@@ -752,7 +752,7 @@ export async function runCli(argv: string[]): Promise<void> {
           writeFileSync(out, body);
         } catch (error) {
           const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
-          if (code === "ENOENT" || code === "EISDIR" || code === "EACCES" || code === "EPERM" || code === "EROFS") {
+          if (code === "ENOENT" || code === "EEXIST" || code === "ENOTDIR" || code === "EISDIR" || code === "EACCES" || code === "EPERM" || code === "EROFS") {
             throw new Error(`Could not write ${out}. Create that folder, or pass --out <file>.`);
           }
           throw error;
