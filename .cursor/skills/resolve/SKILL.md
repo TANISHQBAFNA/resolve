@@ -1,71 +1,44 @@
 ---
 name: resolve
-description: Use Resolve before any Figma screen build or design-from-brief work in Cursor. Forced path: ingest each linked file → (optional context pack / recipe) → recommend unbound slots → get_example → clone that instance and fill → verify_frame → cousins when a multi-file workspace exists. Never Read graph.json. Never invent components.
+description: For ANY Figma design, screen, or component task, call Resolve before drawing. Check that Figma MCP is connected and a design system or screens are ingested; if either is missing, tell the user what is missing and how to add it. Map the file with learn_library, then recipe, recommend, get_example, verify_frame, and check_cousins when relevant. Never invent components.
 ---
 
 # Resolve
 
-**Figma rules. Agents resolve.** Never `Read` `graph.json`. Never invent components.
+For ANY Figma design, screen, or component task, call Resolve before drawing. Use the Resolve MCP tools below. Do not run a shell command for this path.
 
-## Forced path (do this, in order)
+Resolve is read-only. Never invent a component, name, or node id. Never Read `graph.json`.
 
-1. **Learn / ingest** — Figma MCP `get_metadata` → Resolve `learn_library` (fileKey + role=library). Optional `libraries` from `search_design_system`. Secondary: REST ingest with `FIGMA_ACCESS_TOKEN`. Big libraries: checkpointed multi-pass. Re-run when that file changed. Needs a paid Figma MCP seat (Dev/Full) or a token. View/free seats: low quota; resume.
-2. **Recipe** — if the screen job matches a pack (`recipe list` / `recipe "<job>"`). After ingest, slots bind to live `figmaNodeId`s. Overlay `.graphify/recipes.json` still wins. Optional `.graphify/context-packs.json` scopes product + journey + domain (slot fills + `nextRecommend`). Packs may name `files` and optional `client`. Optional `--pack` / `--product` / `--journey` / `--domain`.
-3. **Pick** — every unbound / missing / deprecated slot. Use that slot’s `nextRecommend` query. Prefers DS library masters when `.graphify/workspace.json` has a library-role file. Optional `--pack` / `--product` / `--journey` / `--domain` (or the active pack). The top pick has `ex`: a real instance node id, `fileKey:nodeId` when the example is in another file, or `none` plus a short reason. Call `get_example` for the others.
-4. **Example** — `get_example` / `resolve example "<name>"` for file key, screen, variant, structure, and sizing. Clone that instance and replace content. Do not start from the default variant. A missing example means ask the designer or open a screen that uses it.
-5. **Place** — Figma MCP (`use_figma` / `get_design_context`) on returned ids **only**. Cards stamp `fileKey` + `figmaNodeId` (ids collide across files). Placing into a different file needs the library published and `search_design_system` output passed as `libraries`; otherwise build inside the library file.
-6. **Verify** — before verify, fetch the frame's design context so Resolve can read the text. Pass that payload as `designContext`. Also pass design context to `learn_library` so the component default is stored; metadata alone leaves the default unknown and `textChecked` stays `partial`. `texts` only fills empty layers inside the frame. Then `verify_frame` on the new frame or placed names. Same optional `--pack` / `--product` / `--journey` / `--domain`. Lorem-ipsum filler fails. Leftover default copy warns, and fails only when that default is also on `.graphify/placeholders.json`. An oversized fixed height warns unless real examples use that same height.
-7. **Cousins** — when a library file and a product/client file are linked, `cousins` / `check_cousins` on the product frame or screen job. Unsure means stop. Do not invent a master.
-8. **Human taste** — stop. Do not over-generate.
+## Check first
 
-Prefer **resolve** over any `keyline` / `graphify` alias. `npm run keyline` is a deprecated alias this release.
+Resolve works best when both are true:
 
-CLI and MCP must share one store. Set `GRAPHIFY_HOME` to the `.graphify` folder, or run both from the same project root. After a CLI ingest the next MCP call reloads from disk — no restart. If a tool says “No graph stored,” it names the path it looked in. `list_graphs` / `get_health` include `store.path` and `store.builtAt`.
+1. Figma MCP is connected in this app (`get_metadata`, `use_figma`).
+2. A design system, library, or existing screens are already learned.
 
-`resolve "<name>"` is the “I know the name, give me the id” path. An exact master always comes back with ids, even with zero instances. A miss says so and tells you to `recommend`, not an empty list.
+If either is missing, stop. Tell the user in plain words what is missing and how to add it. Connect Figma next to Resolve, then map the file. Do not guess a component.
 
-## Commands (copy-paste)
+## Path
 
-```bash
-npm run build:server
-npm run resolve -- ingest '<url>' --role library --label "Shared DS"
-npm run resolve -- ingest '<product-url>' --role product --label "Storefront"
-npm run resolve -- workspace
-npm run resolve -- recipe list
-npm run resolve -- recipe "checkout summary"
-npm run resolve -- recommend "checkout with primary button and input"
-npm run resolve -- recommend "primary button" --pack storefront-checkout-summary
-npm run resolve -- recommend "primary button" --product Storefront --journey summary --domain checkout
-npm run resolve -- resolve "Main Card"            # I know the name — always returns id + fileKey + figmaNodeId
-npm run resolve -- example "Main Card"            # full config for the ex pointer
-npm run resolve -- where                          # store path + builtAt (same as MCP list_graphs.store)
-npm run resolve -- ingest screen.xml --from-metadata --file-key KEY --name "Library"
-npm run resolve -- verify "Checkout Summary"
-npm run resolve -- verify --components "Button,MadeUpCard"
-npm run resolve -- cousins "Checkout Summary" --job "checkout summary"
-```
+1. **Map the file first.** Figma `get_metadata`, then Resolve `learn_library` with that XML, `fileKey`, and `role` (`library` for the design system, `product` or `client` for screens). Pass `search_design_system` or `get_libraries` as `libraries` when you have them. Pass `designContext` so the component default text is stored. Re-run when that file changed.
+2. **recipe** when the screen job matches a pack.
+3. **recommend** for each unbound, missing, or deprecated slot. Place only the returned `figmaNodeId`s. Cards include `fileKey` because ids collide across files.
+4. **get_example** for the real instance (`ex` on the top pick; call `get_example` for the others). Clone that instance and replace the content. Do not start from the default variant. A known name goes to `resolve`. A miss points at `recommend`.
+5. **verify_frame** after the frame exists. Fetch that frame's design context first and pass it as `designContext`. `texts` only fills empty layers inside the frame.
+6. **check_cousins** when a library file and a product or client file are both linked. Unsure means stop.
 
-## Forbidden
+Placing into a different Figma file needs the library published and `libraries` from `search_design_system`. Otherwise build inside the library file.
 
-- Invent a component, name, or node id.
-- `Read` `.graphify/graph.json` or any `graph.json`. Cards are the source of truth.
-- Dump the graph / REST / whole-file metadata into context.
-- Call `get_design_context` on a FRAME or SECTION until recipe/recommend/resolve returned that id. Exception: before `verify_frame`, fetch the frame you just drew so Resolve can read the text.
-- Place a deprecated or missing master. Call `recommend` for a live one.
-- Guess a cousin. If `check_cousins` is unsure, say so.
+## Design work
 
-Optional allow/deny: `.graphify/library-rules.json` `{ "allow": ["Button"], "deny": ["Banner"] }`. Bind rules (require / forbid / prefer): `.graphify/bind-rules.json` — unknown ids fail validation, never guess. If missing, approved = in-graph MAIN_COMPONENT / VARIANT (or COMPONENT_SET) and not deprecated. Rules never auto-change; `approve_proposal` is advanced MCP / CLI `resolve approve`.
-
-Designers edit `src/data/recipes.json` or overlay `.graphify/recipes.json`. Product + journey + domain: `.graphify/context-packs.json`. Linked files: `.graphify/workspace.json` (see `docs/GUIDE.md`). Do not invent `defaultMasterId`s or Figma node ids in packs.
-
-Skill tools: `list_recipes`, `recipe` / `get_recipe`, `recommend`, `resolve`, `get_example`, `verify_frame`, `check_cousins`, `get_screen_inventory`, `check_frame` (analog shortcut).
+Simplest thing that works. Reuse an existing component before anything new. One check: `verify_frame`.
 
 ## Caps
 
 | Level | When |
 |-------|------|
-| **Level-1** (default) | Single component / local edit — recipe or recommend + example + clone + verify |
-| **Level-2** | Only when blast radius is large (shared masters, multi-screen impact) |
-| **Whole-file** | Only if the user explicitly asks |
+| **Level-1** (default) | One component or a local edit |
+| **Level-2** | Only when the blast radius is large |
+| **Whole-file** | Only if the user asks |
 
-Stay at Level-1 unless the change clearly needs broader scope.
+Stay at Level-1 unless the change clearly needs more. Full write-up, when this client can read MCP resources: `resolve://workflow`.

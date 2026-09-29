@@ -1,4 +1,5 @@
 import { createInterface } from "node:readline";
+import { MCP_INSTRUCTIONS, listResources, readResource } from "./instructions";
 import { listToolDefinitions, ToolError, callTool, encodeToolResult } from "./tools";
 
 /**
@@ -44,19 +45,9 @@ function handle(request: Request): void {
     case "initialize":
       reply(id, {
         protocolVersion: PROTOCOL_VERSION,
-        capabilities: { tools: { listChanged: false } },
+        capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
         serverInfo: SERVER_INFO,
-        instructions:
-          "Resolve is for AI tools (Cursor, Claude) with Figma MCP. Learning needs a paid Figma seat with MCP access (Dev or Full), or a Figma access token for REST ingest. " +
-          "View or free seats have a low read quota — learn a few frames, stop; SOCK saves progress and resumes next session. Big libraries: checkpointed multi-pass learn_library, not a whole-file dump. " +
-          "Forced path: learn_library (get_metadata XML + fileKey + role=library; pass search_design_system / get_libraries as libraries to stamp published keys; pass designContext so master default text is stored) → recipe if the screen job matches → recommend unbound slots → get_example (ex is on the top pick; call get_example for the others) → clone that instance and replace content; do not start from the default variant → before verify, fetch the frame's design context so Resolve can read the text → verify_frame with that designContext. " +
-          "Placing a component into a different Figma file needs the library published and search_design_system output passed as libraries; otherwise build inside the library file. " +
-          "On verify pass, SOCK records usage automatically. Rules never auto-change (SOCI proposals stay pending until a human approve_proposal / reject_proposal on the advanced surface with confirmedBy, or CLI resolve approve --who). " +
-          "The top pick includes a one-line why from SOCK facts, 'used N× in file', or 'not verified on a screen yet'. Bind rules in bind-rules.json require/forbid/prefer; verify names a missed rule and the correct master id. Team template strings live in placeholders.json. " +
-          "If freshness.stale, freshness.delta lists the exact pages/frames to re-fetch then learn_library. Removed masters are deprecated-by-absence and must not be recommended. " +
-          "resolve \"<name>\" is I-know-the-name-give-me-the-id. " +
-          "Do not invent components. Do not Read or dump graph.json. Do not hand-build capture JSON. " +
-          "Default tools: learn_library, recipe, recommend, resolve, get_example, verify_frame, check_cousins. Set RESOLVE_MCP_ADVANCED=1 for the rest.",
+        instructions: MCP_INSTRUCTIONS,
       });
       return;
 
@@ -67,6 +58,21 @@ function handle(request: Request): void {
     case "tools/list":
       reply(id, { tools: listToolDefinitions() });
       return;
+
+    case "resources/list":
+      reply(id, { resources: listResources() });
+      return;
+
+    case "resources/read": {
+      const uri = params && typeof params === "object" && "uri" in params ? String((params as { uri?: unknown }).uri ?? "") : "";
+      const resource = readResource(uri);
+      if (!resource) {
+        fail(id, -32002, `Unknown resource \`${uri}\`. Known: resolve://workflow.`);
+        return;
+      }
+      reply(id, resource);
+      return;
+    }
 
     case "tools/call": {
       const call = (params ?? {}) as { name?: string; arguments?: unknown };

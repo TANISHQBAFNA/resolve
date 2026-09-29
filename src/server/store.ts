@@ -167,8 +167,9 @@ export function missingGraphMessage(): string {
     ? `GRAPHIFY_HOME=${info.graphifyHome}`
     : "Default store is ~/.resolve/default (or RESOLVE_WORKSPACE). Set GRAPHIFY_HOME to pin a folder.";
   return (
-    `No library in SOCK. Looked in ${info.graph} (store ${info.path}). ${homeLine} ` +
-    "One step: call learn_library with Figma MCP get_metadata XML + fileKey + role=library. Then recipe / recommend. Do not Read graph.json."
+    `No design system or screens are ingested yet. Looked in ${info.graph} (store ${info.path}). ${homeLine} ` +
+    "Map the Figma file first: with Figma MCP connected, call learn_library with get_metadata XML + fileKey + role (library for the design system, product or client for screens). " +
+    "If Figma MCP is not connected, tell the user how to connect it in this app. Do not invent components. Do not Read graph.json."
   );
 }
 

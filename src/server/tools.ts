@@ -1073,7 +1073,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         store,
         hint: graphs.length
           ? "Call list_recipes or recipe \"<job>\", then recommend unbound slots, Figma on returned figmaNodeIds (fileKey + id), then verify_frame. Multi-file workspace: check_cousins on the product frame. Do not Read graph.json."
-          : `No library in SOCK. Looked in ${store.graph}. Call learn_library with get_metadata XML + fileKey + role=library.`,
+          : missingGraphMessage(),
       };
     }
 

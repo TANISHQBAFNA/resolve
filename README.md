@@ -52,6 +52,7 @@ How the repo set is built: [scoreboard](docs/SCOREBOARD.md).
 
 Newest first. Dates are IST (India Standard Time).
 
+- **Sep 29, 2026 — [PR #24](https://github.com/TANISHQBAFNA/resolve/pull/24).** Resolve turns on for design tasks without a reminder. MCP instructions are a short trigger (under 1,500 characters) so Claude Code's 2,048-character cut keeps the path: check that Figma is connected and a library or screens are learned, map the file with `learn_library`, then `recommend`, `get_example`, and `verify_frame`. `resolve-setup` writes the project Cursor rule, the Claude skill, and a marked `CLAUDE.md` block. Cursor needs that project rule. `--global` is Claude only. Claude Desktop only receives the MCP instructions. The longer workflow is the MCP resource `resolve://workflow`. 490 tests. Repo set stays 118/118 top-1, invent 0, leak 0.
 - **Sep 28, 2026 — [PR #22](https://github.com/TANISHQBAFNA/resolve/pull/22).** Live text in verify, example caching. `verify_frame` reads real text from the frame's design context. Pass design context to `learn_library` too, or the component default stays unknown and `textChecked` is `partial` (a Bene Dropdown can still say "Request Bank Certificate" with no leftover warning). `texts` only fills empty layers inside the frame. `textChecked` stays on the card. Layer names are not text. `npm run bench`: 73k-node recommend is 59–114 ms and `get_example` 42–65 ms (uncached baseline 763 ms and 571 ms); verify is 11–16 ms. The bench heavy file (40 components × 900 instances) recommends in 296–465 ms. On a reviewer's generated heavy 73k-node graph: recommend about 0.69 s (510 ms before #21, 3.6 s on #21); verify about 33 ms. Card maxima: recommend 592, verify 559, resolve 1019, recipe 1141. Repo set stays 118/118 top-1, invent 0, leak 0.
 - **Sep 28, 2026 — [PR #21](https://github.com/TANISHQBAFNA/resolve/pull/21).** Real example with every pick. The top recommend, resolve, and recipe pick points at a real populated instance (`ex`; `fileKey:nodeId` when that instance is in another file). Call `get_example` / `resolve example` for the full config and for the other hits. Clone that instance and replace the content. Do not start from the default variant. If none is known, the card says `ex: none` plus a short reason. The same populated shape on 3 verified screens becomes the preferred example, and only for that variant. `verify_frame` fails lorem-ipsum filler. Leftover default copy warns, and fails only when that default is also listed in `.graphify/placeholders.json`. An oversized fixed height warns unless real examples use the same height. Recommend and verify cards stay within 600 characters (max 592 and 522 on the fixture). Resolve and recipe stay within 2000 (max 1019 and 1141). Repo set stays 118/118 top-1, invent 0, leak 0.
 - **Sep 28, 2026 — [PR #18](https://github.com/TANISHQBAFNA/resolve/pull/18).** Fix library verify, Figma metadata, and Claude setup. Claude Desktop and Claude Code setup. `verify_frame` approves only real library masters. `check_cousins` fixes, including a team’s own copy of Price. More Figma metadata formats. A Node 22.12 check. Long “Set / Variant” names stay inside the card size limit.
@@ -77,13 +78,21 @@ Newest first. Dates are IST (India Standard Time).
 
 Needs Node 22.12 or newer (`node -v`). Full page, including Cursor: [SETUP-MCP.md](docs/SETUP-MCP.md).
 
-Turn on Figma in the same tool. Learning a library needs a paid Figma seat with MCP access (Dev or Full), or a Figma access token for command-line ingest. A view or free seat has a low read quota. Resolve saves progress and resumes.
+Turn on Figma in the same tool. Resolve works best when that Figma connection is active and there is a design system, library, or existing screens for it to learn from. If either is missing, the agent should say what is missing and how to add it, instead of inventing a component. Learning a library needs a paid Figma seat with MCP access (Dev or Full), or a Figma access token for command-line ingest. A view or free seat has a low read quota. Resolve saves progress and resumes.
 
 In Terminal, run this once and wait until you see `[resolve] MCP server ready`:
 
 ```bash
 npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
 ```
+
+Then, once, so the agent calls Resolve on every design task:
+
+```bash
+npx -y -p github:TANISHQBAFNA/resolve resolve-setup
+```
+
+That writes `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, and a marked block in `CLAUDE.md` in this project. Cursor reads that rule from the project. It does not load a rule from your home folder. Run it again any time. It only changes its own block and leaves the rest of your files alone. `--global` is for Claude only: it writes `~/.claude/skills/resolve/SKILL.md` and a marked block in `~/.claude/CLAUDE.md`. Claude Desktop does not read rule files, skills, or `CLAUDE.md`. It only gets the MCP instructions, which is why those stay short and say to call Resolve first.
 
 If Claude Desktop cannot start Resolve, set `command` to the full path from `which npx`.
 
