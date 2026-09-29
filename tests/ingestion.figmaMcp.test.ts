@@ -147,6 +147,23 @@ describe("MCP adapter", () => {
     expect(main?.name).toBe("Button");
   });
 
+  it("does not treat a sibling rectangle id as a master", () => {
+    const graph = buildGraph(
+      adaptFigmaMcpMetadata({
+        fileKey: "KEY",
+        fileName: "Local",
+        metadataXml: `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="3:3"/><rectangle id="3:3" name="Rect"/></frame>`,
+        ingestedAt: "2026-01-01T00:00:00.000Z",
+      }),
+    );
+    const instance = graph.nodes.find((node) => node.figmaNodeId === "3:2");
+    const main = graph.nodes.find((node) => node.id === instance?.mainComponentId);
+    expect(main?.type).not.toBe("LAYER");
+    expect(main?.name).not.toBe("Rect");
+    expect(main?.metadata?.["identity"]).toBe("inferred-from-name");
+    expect(main?.name).toBe("Button");
+  });
+
   it("splits the flattened token map into styles and variables", () => {
     expect(Object.values(doc.styles).map((style) => style.name)).toEqual(["Shadow/Card"]);
     expect(Object.values(doc.variables).map((variable) => variable.name)).toEqual(["color/bg"]);

@@ -331,3 +331,83 @@ describe("a name in an id slot is not a component id", () => {
     ).toBe(true);
   });
 });
+
+describe("a non-master node id is not a component id", () => {
+  function expectGuess(index: ReturnType<typeof graphs>, claimed: string) {
+    const result = verifyFrame(index, { frame: "F1" });
+    expectNameOnly(result);
+    expect(result.approved).toBe(0);
+    expect(JSON.stringify(result)).not.toContain('"result":"verified"');
+    const viaContext = verifyFrame(index, {
+      frame: "F1",
+      designContext: `<div data-node-id="3:2" componentId="${claimed}"></div>`,
+    });
+    expectNameOnly(viaContext);
+    expect(viaContext.pass).toBe(result.pass);
+    const instance = index.allNodes.find((node) => node.figmaNodeId === "3:2");
+    const main = instance ? index.getMainComponent(instance.id) : undefined;
+    expect(main?.metadata?.["identity"]).toBe("inferred-from-name");
+    expect(main?.name).toBe("Button");
+    expect(main?.figmaNodeId).not.toBe(claimed);
+  }
+
+  it("does not verify a sibling rectangle, text, instance, or the instance's own id", () => {
+    const cases = [
+      {
+        xml: `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="3:3"/><rectangle id="3:3" name="Rect"/></frame>`,
+        claimed: "3:3",
+      },
+      {
+        xml: `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="3:3"/><text id="3:3" name="Label" /></frame>`,
+        claimed: "3:3",
+      },
+      {
+        xml: `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="3:2"/></frame>`,
+        claimed: "3:2",
+      },
+      {
+        xml: `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="3:3"/><instance id="3:3" name="Text field" /></frame>`,
+        claimed: "3:3",
+      },
+    ];
+    for (const row of cases) {
+      expectGuess(graphs(row.xml), row.claimed);
+    }
+  });
+
+  it("does not verify the enclosing frame id, including with no library", () => {
+    const xml = `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="3:1"/></frame>`;
+    expectGuess(graphs(xml), "3:1");
+    const productOnly = indexGraph(
+      buildGraph(
+        adaptFigmaMcpMetadata({ fileKey: "APP", fileName: "App", metadataXml: xml }),
+      ),
+    );
+    expectNameOnly(verifyFrame(productOnly, { frame: "F1" }));
+    expect(verifyFrame(productOnly, { frame: "F1" }).approved).toBe(0);
+  });
+
+  it("still verifies a real component or symbol id, including a renamed layer", () => {
+    const real = graphs(`<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="14:101" /></frame>`);
+    const verified = verifyFrame(real, { frame: "F1" });
+    expect(verified.pass).toBe(true);
+    expect(JSON.stringify(verified)).toContain('"result":"verified"');
+    expect(
+      verifyFrame(real, { frame: "F1", designContext: `<div data-node-id="3:2" componentId="14:101"></div>` }).pass,
+    ).toBe(true);
+
+    const renamed = graphs(
+      `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="33:235" /></frame>`,
+    );
+    const viaXml = verifyFrame(renamed, { frame: "F1" });
+    expect(viaXml.pass).toBe(true);
+    expect(viaXml.labelDiffers).toBe(true);
+    expect(viaXml.renamed).toEqual([{ node: "3:2", layerName: "Button", masterName: "Text field" }]);
+    const viaContext = verifyFrame(renamed, {
+      frame: "F1",
+      designContext: `<div data-node-id="3:2" componentId="33:235"></div>`,
+    });
+    expect(viaContext.pass).toBe(true);
+    expect(viaContext.labelDiffers).toBe(true);
+  });
+});

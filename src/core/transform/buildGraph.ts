@@ -421,7 +421,8 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
   const ensureComponentNode = (componentFigmaId: string): GraphNode | undefined => {
     const graphId = makeNodeId(componentFigmaId);
     const existing = builder.nodes.get(graphId);
-    if (existing) return existing;
+    // A claimed id that lands on a rectangle, text, instance, or frame is not a master.
+    if (existing) return COMPONENT_DEF_TYPES.includes(existing.type) ? existing : undefined;
 
     const meta = doc.components[componentFigmaId];
     if (!meta) return undefined;
