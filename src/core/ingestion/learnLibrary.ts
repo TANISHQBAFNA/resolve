@@ -8,6 +8,7 @@ import {
   parseMetadataXml,
   realComponentIdFromAttrs,
 } from "./adapters/figmaMcp";
+import { settleInstanceBindings } from "./designContextIds";
 import type { WorkspaceFileRole } from "@/core/query/workspace";
 
 export interface LearnCatalogItem {
@@ -222,12 +223,7 @@ function collectNestedMasters(element: XmlLike): LearnUnitMaster[] {
     }
     if (node.tag.toLowerCase() === "instance") {
       const realId = realComponentIdFromAttrs(node.attrs);
-      if (realId) {
-        if (!seen.has(realId)) {
-          seen.add(realId);
-          out.push({ id: realId, name: realId, figmaNodeId: realId });
-        }
-      } else if (name && !out.some((row) => row.name === name)) {
+      if (!realId && name && !out.some((row) => row.name === name)) {
         const inferred = inferredComponentId(name);
         if (!seen.has(inferred)) {
           seen.add(inferred);
@@ -440,20 +436,22 @@ export function mergeDesignGraphs(base: DesignGraph, incoming: DesignGraph): Des
       warnings.push(warning);
     }
   }
-  return DesignGraphSchema.parse({
-    fileKey: incoming.fileKey || base.fileKey,
-    fileName: incoming.fileName || base.fileName,
-    builtAt: incoming.builtAt || new Date().toISOString(),
-    source: {
-      kind: incoming.source.kind,
-      ingestedAt: incoming.source.ingestedAt,
-      version: incoming.source.version ?? base.source.version,
-      lastModified: incoming.source.lastModified ?? base.source.lastModified,
-    },
-    nodes: [...nodes.values()],
-    edges: [...edges.values()],
-    warnings,
-  });
+  return settleInstanceBindings(
+    DesignGraphSchema.parse({
+      fileKey: incoming.fileKey || base.fileKey,
+      fileName: incoming.fileName || base.fileName,
+      builtAt: incoming.builtAt || new Date().toISOString(),
+      source: {
+        kind: incoming.source.kind,
+        ingestedAt: incoming.source.ingestedAt,
+        version: incoming.source.version ?? base.source.version,
+        lastModified: incoming.source.lastModified ?? base.source.lastModified,
+      },
+      nodes: [...nodes.values()],
+      edges: [...edges.values()],
+      warnings,
+    }),
+  );
 }
 
 export function graphFromMetadataXml(input: {

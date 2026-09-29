@@ -86,7 +86,19 @@ export function learnLibrary(input: LearnInput): LearnResult {
 
   const checkpoint = normalizeCheckpoint(loadLearnCheckpoint(fileKey), fileKey);
   const versionMismatch = checkpointVersionMismatch(checkpoint, input);
-  const hash = xml ? hashLearnPayload(xml) : undefined;
+  const contextBlob =
+    input.designContext == null
+      ? ""
+      : typeof input.designContext === "string"
+        ? input.designContext
+        : (() => {
+            try {
+              return JSON.stringify(input.designContext);
+            } catch {
+              return "";
+            }
+          })();
+  const hash = xml ? hashLearnPayload(contextBlob ? `${xml}\0${contextBlob}` : xml) : undefined;
   const resumed = Boolean(input.resume && checkpoint && !versionMismatch);
   const skippedDuplicate = Boolean(
     hash && !versionMismatch && checkpoint?.completedHashes.includes(hash),

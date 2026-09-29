@@ -54,7 +54,8 @@ describe("verify means a real component id on that node", () => {
     for (const result of [textFirst, buttonFirst]) {
       expect(result.pass).toBe(false);
       expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
-      expect(result.invents.some((hit) => hit.name === "Button")).toBe(true);
+      expect(result.guess).toBe("guess from layer name, not confirmed");
+      expect(JSON.stringify(result)).toContain('"result":"name-only"');
     }
   });
 

@@ -1,4 +1,12 @@
-import { COMPONENT_DEFINITION_TYPES, type DesignGraph, type GraphNode } from "@/core/model";
+import {
+  COMPONENT_DEFINITION_TYPES,
+  edgeId,
+  nodeId,
+  type DesignGraph,
+  type GraphEdge,
+  type GraphNode,
+} from "@/core/model";
+import { inferredComponentId } from "./adapters/figmaMcp";
 
 /**
  * Real component ids from Figma `get_design_context` (HTML attrs or JSON keys).
@@ -309,34 +317,212 @@ function masterForId(graph: DesignGraph, boundId: string): GraphNode | undefined
   for (const node of graph.nodes) {
     if (!COMPONENT_DEFINITION_TYPES.includes(node.type)) continue;
     if (isInferredMaster(node)) continue;
+    if (isUnbackedStub(node)) continue;
     if (needles.has(node.id) || (node.figmaNodeId && needles.has(node.figmaNodeId))) return node;
     if (typeof node.metadata?.["key"] === "string" && needles.has(node.metadata["key"])) return node;
   }
   return undefined;
 }
 
+function isUnbackedStub(node: GraphNode): boolean {
+  if (!COMPONENT_DEFINITION_TYPES.includes(node.type)) return false;
+  if (isInferredMaster(node)) return false;
+  if (!node.isRemote) return false;
+  const fig = node.figmaNodeId ?? "";
+  return Boolean(fig) && node.name === fig;
+}
+
+function claimedIdOf(instance: GraphNode, byId: Map<string, GraphNode>): string | undefined {
+  const unresolved = instance.metadata?.["unresolvedMainComponentId"];
+  if (typeof unresolved === "string" && unresolved.trim()) return unresolved.trim();
+  const main = instance.mainComponentId ? byId.get(instance.mainComponentId) : undefined;
+  if (main && isUnbackedStub(main) && main.figmaNodeId) return main.figmaNodeId;
+  return undefined;
+}
+
+function guessGraphId(instance: GraphNode): string {
+  const raw = inferredComponentId(instance.name);
+  const fileKey = instance.fileKey?.trim();
+  if (fileKey && instance.id.startsWith("node:") && instance.id.slice(5).startsWith(`${fileKey}:`)) {
+    return `node:${fileKey}:${raw}`;
+  }
+  return nodeId(raw);
+}
+
+function ensureGuessMaster(graph: DesignGraph, instance: GraphNode, byId: Map<string, GraphNode>): GraphNode {
+  const current = instance.mainComponentId ? byId.get(instance.mainComponentId) : undefined;
+  if (current && isInferredMaster(current)) return current;
+  const fileKey = instance.fileKey;
+  const existing = graph.nodes.find(
+    (node) =>
+      isInferredMaster(node) &&
+      node.name === instance.name &&
+      (!fileKey || !node.fileKey || node.fileKey === fileKey),
+  );
+  if (existing) return existing;
+  const node: GraphNode = {
+    id: guessGraphId(instance),
+    figmaNodeId: inferredComponentId(instance.name),
+    type: "MAIN_COMPONENT",
+    name: instance.name,
+    isMainComponent: true,
+    isRemote: false,
+    ...(fileKey ? { fileKey } : {}),
+    metadata: { identity: "inferred-from-name" },
+  };
+  const prior = byId.get(node.id);
+  if (prior) return prior;
+  graph.nodes.push(node);
+  byId.set(node.id, node);
+  return node;
+}
+
+function rewriteInstanceEdges(
+  graph: DesignGraph,
+  instanceId: string,
+  fromId: string | undefined,
+  toId: string,
+  inferred: boolean,
+): void {
+  if (fromId === toId) return;
+  let hasInstanceOf = false;
+  const next: GraphEdge[] = [];
+  for (const edge of graph.edges) {
+    if (edge.type === "INSTANCE_OF" && edge.source === instanceId) {
+      hasInstanceOf = true;
+      const rewritten: GraphEdge = {
+        id: edgeId("INSTANCE_OF", instanceId, toId),
+        source: instanceId,
+        target: toId,
+        type: "INSTANCE_OF",
+        label: edge.label ?? "instance of",
+      };
+      if (inferred) rewritten.confidence = "INFERRED";
+      next.push(rewritten);
+      continue;
+    }
+    if (edge.type === "USED_IN" && edge.target === instanceId && (!fromId || edge.source === fromId)) {
+      next.push({
+        ...edge,
+        id: edgeId("USED_IN", toId, instanceId),
+        source: toId,
+        target: instanceId,
+      });
+      continue;
+    }
+    next.push(edge);
+  }
+  if (!hasInstanceOf) {
+    const instanceOf: GraphEdge = {
+      id: edgeId("INSTANCE_OF", instanceId, toId),
+      source: instanceId,
+      target: toId,
+      type: "INSTANCE_OF",
+      label: "instance of",
+    };
+    if (inferred) instanceOf.confidence = "INFERRED";
+    next.push(instanceOf);
+    next.push({
+      id: edgeId("USED_IN", toId, instanceId),
+      source: toId,
+      target: instanceId,
+      type: "USED_IN",
+      label: "used in",
+    });
+  }
+  graph.edges = next;
+}
+
+function dropUnusedMasters(graph: DesignGraph): void {
+  const used = new Set<string>();
+  for (const edge of graph.edges) {
+    if (edge.type === "INSTANCE_OF") used.add(edge.target);
+    if (edge.type === "USED_IN") used.add(edge.source);
+  }
+  const drop = new Set(
+    graph.nodes
+      .filter((node) => (isInferredMaster(node) || isUnbackedStub(node)) && !used.has(node.id))
+      .map((node) => node.id),
+  );
+  if (!drop.size) return;
+  graph.nodes = graph.nodes.filter((node) => !drop.has(node.id));
+  graph.edges = graph.edges.filter((edge) => !drop.has(edge.source) && !drop.has(edge.target));
+}
+
+/**
+ * Bind claimed instance ids to real library/`<symbol>` masters. An id that
+ * matches nothing stays a name-only guess and does not mint a master.
+ */
+export function settleInstanceBindings(graph: DesignGraph): DesignGraph {
+  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+  for (const instance of graph.nodes) {
+    if (instance.type !== "COMPONENT_INSTANCE") continue;
+    const claimed = claimedIdOf(instance, byId);
+    if (!claimed) continue;
+    const master = masterForId(graph, claimed);
+    if (master) {
+      const previous = instance.mainComponentId;
+      instance.mainComponentId = master.id;
+      if (master.componentSetId) instance.componentSetId = master.componentSetId;
+      if (instance.metadata && "unresolvedMainComponentId" in instance.metadata) {
+        const next = { ...instance.metadata };
+        delete next["unresolvedMainComponentId"];
+        instance.metadata = next;
+      }
+      rewriteInstanceEdges(graph, instance.id, previous, master.id, false);
+      continue;
+    }
+    const current = instance.mainComponentId ? byId.get(instance.mainComponentId) : undefined;
+    const mcpGuess =
+      graph.source.kind === "figma-mcp" ||
+      (current != null && (isInferredMaster(current) || isUnbackedStub(current)));
+    if (!mcpGuess) continue;
+    const guess = ensureGuessMaster(graph, instance, byId);
+    const previous = instance.mainComponentId;
+    instance.mainComponentId = guess.id;
+    instance.metadata = { ...instance.metadata, unresolvedMainComponentId: claimed };
+    rewriteInstanceEdges(graph, instance.id, previous, guess.id, true);
+  }
+  dropUnusedMasters(graph);
+  return graph;
+}
+
 /** Stamp real component ids from design context onto name-guessed instances. */
 export function applyLearnedIdentity(graph: DesignGraph, raw: unknown): number {
   const bindings = elementComponentIds(raw);
-  if (!bindings.ids.size) return 0;
+  if (!bindings.ids.size) {
+    settleInstanceBindings(graph);
+    return 0;
+  }
   let updated = 0;
   for (const node of graph.nodes) {
     if (node.type !== "COMPONENT_INSTANCE") continue;
     const boundId = contextIdentityFor(bindings, node.figmaNodeId);
     if (!boundId) continue;
     const master = masterForId(graph, boundId);
-    if (!master) continue;
-    if (node.mainComponentId === master.id) continue;
+    if (!master) {
+      node.metadata = { ...node.metadata, unresolvedMainComponentId: boundId };
+      continue;
+    }
+    if (node.mainComponentId === master.id) {
+      if (node.metadata && "unresolvedMainComponentId" in node.metadata) {
+        const next = { ...node.metadata };
+        delete next["unresolvedMainComponentId"];
+        node.metadata = next;
+      }
+      continue;
+    }
     const previous = node.mainComponentId;
     node.mainComponentId = master.id;
     if (master.componentSetId) node.componentSetId = master.componentSetId;
-    for (const edge of graph.edges) {
-      if (edge.type === "INSTANCE_OF" && edge.source === node.id) edge.target = master.id;
-      if (edge.type === "USED_IN" && edge.target === node.id && previous && edge.source === previous) {
-        edge.source = master.id;
-      }
+    if (node.metadata && "unresolvedMainComponentId" in node.metadata) {
+      const next = { ...node.metadata };
+      delete next["unresolvedMainComponentId"];
+      node.metadata = next;
     }
+    rewriteInstanceEdges(graph, node.id, previous, master.id, false);
     updated += 1;
   }
+  settleInstanceBindings(graph);
   return updated;
 }

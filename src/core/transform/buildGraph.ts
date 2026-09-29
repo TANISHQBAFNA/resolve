@@ -24,6 +24,7 @@ import type {
 } from "@/core/ingestion/types";
 import { classifySourceNode, styleKindFromSlot } from "./classify";
 import { figmaFileUrl, figmaNodeUrl } from "./figmaUrl";
+import { settleInstanceBindings } from "@/core/ingestion/designContextIds";
 
 export interface BuildGraphOptions {
   /** See `ClassifyOptions.classifyAutoLayout`. */
@@ -653,7 +654,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
     if (!node.fileKey) node.fileKey = doc.fileKey;
   }
 
-  return {
+  return settleInstanceBindings({
     fileKey: doc.fileKey,
     fileName: doc.fileName,
     builtAt: options.builtAt ?? new Date().toISOString(),
@@ -666,5 +667,5 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
     nodes: [...builder.nodes.values()],
     edges: [...builder.edges.values()],
     warnings: builder.warnings,
-  };
+  });
 }

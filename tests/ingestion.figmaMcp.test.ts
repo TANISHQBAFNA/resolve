@@ -128,6 +128,25 @@ describe("MCP adapter", () => {
     expect(house?.componentId).toBe("88:1");
   });
 
+  it("does not mint a master from an instance id that is not in this payload", () => {
+    const adapted = adaptFigmaMcpMetadata({
+      fileKey: "KEY",
+      fileName: "Fake",
+      metadataXml: `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="8:8" /></frame>`,
+      ingestedAt: "2026-01-01T00:00:00.000Z",
+    });
+    expect(adapted.components["8:8"]).toBeUndefined();
+    expect(adapted.root.children?.[0]?.children?.[0]?.componentId).toBe("8:8");
+    const graph = buildGraph(adapted);
+    expect(graph.nodes.some((node) => node.figmaNodeId === "8:8" && node.type === "MAIN_COMPONENT")).toBe(
+      false,
+    );
+    const instance = graph.nodes.find((node) => node.figmaNodeId === "3:2");
+    const main = graph.nodes.find((node) => node.id === instance?.mainComponentId);
+    expect(main?.metadata?.["identity"]).toBe("inferred-from-name");
+    expect(main?.name).toBe("Button");
+  });
+
   it("splits the flattened token map into styles and variables", () => {
     expect(Object.values(doc.styles).map((style) => style.name)).toEqual(["Shadow/Card"]);
     expect(Object.values(doc.variables).map((variable) => variable.name)).toEqual(["color/bg"]);

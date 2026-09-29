@@ -38,7 +38,6 @@ import {
 import {
   examplePointer,
   exampleSentence,
-  EX_NONE,
   frameContentWarnings,
   getExample,
   instanceTextLayers,
@@ -524,7 +523,6 @@ export function exampleCard(
     return withCost({
       found: false as const,
       name,
-      ex: EX_NONE,
       exWhy: unknown,
       example: exampleSentence(unknown),
     });
@@ -535,7 +533,6 @@ export function exampleCard(
       found: false as const,
       name: variantCardName(index, node),
       id: node.id,
-      ex: EX_NONE,
       exWhy: lookup.reason,
       example: exampleSentence(lookup.reason),
     });
@@ -2906,7 +2903,20 @@ export function verifyFrame(
             const boundId = contextIdentityFor(componentIds, instance.figmaNodeId);
             const bound = boundId ? resolveNode(index, boundId) : undefined;
             const boundMaster = bound ? asMaster(index, bound) : undefined;
-            if (!boundMaster || isNameInferredMaster(boundMaster)) {
+            if (boundMaster && !isNameInferredMaster(boundMaster)) {
+              considerMaster(boundMaster, instance.name);
+              idChecked += 1;
+              const boundLabel = variantCardName(index, boundMaster);
+              if (labelDiffers(instance.name, boundLabel)) {
+                renamed.push({
+                  node: instance.figmaNodeId ?? instance.id,
+                  layerName: instance.name,
+                  masterName: boundLabel,
+                });
+              }
+              continue;
+            }
+            if (!boundId) {
               pushUnique(
                 invents,
                 seenInvent,
@@ -2915,17 +2925,6 @@ export function verifyFrame(
               );
               continue;
             }
-            considerMaster(boundMaster, instance.name);
-            idChecked += 1;
-            const boundLabel = variantCardName(index, boundMaster);
-            if (labelDiffers(instance.name, boundLabel)) {
-              renamed.push({
-                node: instance.figmaNodeId ?? instance.id,
-                layerName: instance.name,
-                masterName: boundLabel,
-              });
-            }
-            continue;
           }
           const before = approvedIds.size;
           considerMaster(main, main.name);
@@ -3129,7 +3128,8 @@ export function verifyFrame(
   ) =>
     JSON.stringify(stamped).length <= 600 &&
     stamped.hint === fullHint &&
-    JSON.stringify(stamped.renamed ?? []) === JSON.stringify(shown);
+    JSON.stringify(stamped.renamed ?? []) === JSON.stringify(shown) &&
+    (renamed.length <= shown.length || Boolean(stamped.renamedNote));
   let published = publishRenamed(renamedLimit, true);
   if (fitsRenamed(published, renamed.slice(0, renamedLimit))) return published;
   published = publishRenamed(renamedLimit, false);
@@ -3172,6 +3172,7 @@ function stampTextCheck<T extends { hint: string }>(
     unchecked?: { count?: number; names?: string[] };
     renamedNote?: string;
     labelDiffers?: true;
+    frame?: { name?: string };
   };
   delete seed.cost;
   let hint = seed.hint;
@@ -3212,15 +3213,27 @@ function stampTextCheck<T extends { hint: string }>(
     card = build();
     if (fits(card)) return card;
   }
+  const frame = seed.frame as { name?: string } | undefined;
+  while (!fits(card) && frame && typeof frame.name === "string" && frame.name.length > NAME_FLOOR) {
+    const overflow = JSON.stringify(card).length - budget;
+    const nextLen = Math.max(NAME_FLOOR, frame.name.length - Math.max(1, overflow + 1));
+    if (nextLen >= frame.name.length) break;
+    frame.name = `${frame.name.slice(0, nextLen - 1)}…`;
+    card = build();
+  }
+  if (fits(card)) return card;
   if (seed.renamedNote) {
     delete seed.renamedNote;
     card = build();
     if (fits(card)) return card;
   }
-  while (!fits(card) && hint.length > 12) {
+  const hintFloor = hint.includes(EXACT_COMPONENT_HINT)
+    ? Math.max(12, EXACT_COMPONENT_HINT.length)
+    : 12;
+  while (!fits(card) && hint.length > hintFloor) {
     const overflow = JSON.stringify(card).length - budget;
     const cut = Math.max(8, overflow + 1);
-    const nextLen = Math.max(12, hint.length - cut);
+    const nextLen = Math.max(hintFloor, hint.length - cut);
     if (nextLen >= hint.length) break;
     hint = `${hint.slice(0, nextLen - 1)}…`;
     card = build();
@@ -3331,9 +3344,14 @@ function shrinkNameFields(
       continue;
     }
     const hinted = payload as { hint?: string };
-    if (typeof hinted.hint === "string" && hinted.hint.length > 48) {
-      hinted.hint = `${hinted.hint.slice(0, 47)}…`;
-      continue;
+    if (typeof hinted.hint === "string") {
+      const floor = hinted.hint.includes(EXACT_COMPONENT_HINT)
+        ? EXACT_COMPONENT_HINT.length
+        : 48;
+      if (hinted.hint.length > floor) {
+        hinted.hint = `${hinted.hint.slice(0, floor - 1)}…`;
+        continue;
+      }
     }
     if (!deepNames) {
       deepNames = true;

@@ -3,6 +3,7 @@ import { adaptFigmaMcpMetadata } from "@/core/ingestion/adapters/figmaMcp";
 import { mergeDesignGraphs } from "@/core/ingestion/learnLibrary";
 import { buildGraph } from "@/core/transform/buildGraph";
 import { checkCousins, indexGraph, verifyFrame } from "@/core/query";
+import { mergeWorkspaceGraphs } from "@/core/query/workspaceMerge";
 import type { WorkspaceManifest } from "@/core/query/workspace";
 
 const libraryXml = `<frame id="1:1" name="Kit">
@@ -27,6 +28,31 @@ function graphs(productXml: string) {
     adaptFigmaMcpMetadata({ fileKey: "APP", fileName: "App", metadataXml: productXml }),
   );
   return indexGraph(mergeDesignGraphs(library, product));
+}
+
+function workspaceIndex(productXml: string) {
+  const library = buildGraph(
+    adaptFigmaMcpMetadata({ fileKey: "LIB", fileName: "Library", metadataXml: libraryXml }),
+  );
+  const product = buildGraph(
+    adaptFigmaMcpMetadata({ fileKey: "APP", fileName: "App", metadataXml: productXml }),
+  );
+  return indexGraph(
+    mergeWorkspaceGraphs(
+      [
+        { graph: library, role: "library" },
+        { graph: product, role: "product" },
+      ],
+      workspace,
+    ),
+  );
+}
+
+function expectNameOnly(result: ReturnType<typeof verifyFrame>) {
+  expect(result.pass).toBe(false);
+  expect(JSON.stringify(result)).toContain('"result":"name-only"');
+  expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
+  expect(result.guess).toBe("guess from layer name, not confirmed");
 }
 
 describe("layer name is a label, not the component", () => {
@@ -100,5 +126,68 @@ describe("layer name is a label, not the component", () => {
     expect(result.pass).toBe(true);
     expect(result.renamed).toEqual([{ node: "2:2", layerName: "Button", masterName: "Text field" }]);
     expect(JSON.stringify(result)).not.toMatch(/"name":"Button"/);
+  });
+});
+
+describe("an id that is not in any library stays a guess", () => {
+  const fakeXml = `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="8:8" /></frame>`;
+  const lookalikeXml = `<frame id="3:1" name="F1"><instance id="3:2" name="Text field" componentId="8:8" /></frame>`;
+  const nameOnlyXml = `<frame id="3:1" name="F1"><instance id="3:2" name="Button" /></frame>`;
+  const fakeJson = `{"nodes":[{"data-node-id":"3:2","componentId":"8:8"}]}`;
+  const fakeDataAttr = `<div data-node-id="3:2" data-component-id="8:8"></div>`;
+  const fakeHtml = `<div data-node-id="3:2" componentId="8:8"></div>`;
+
+  it("does not verify a fake XML componentId, including a layer named like a master", () => {
+    for (const xml of [fakeXml, lookalikeXml, `<frame id="3:1" name="F1"><instance id="3:2" name="Button" data-component-id="8:8" /></frame>`]) {
+      const index = graphs(xml);
+      expectNameOnly(verifyFrame(index, { frame: "F1" }));
+      const instance = index.allNodes.find((node) => node.figmaNodeId === "3:2");
+      const main = instance ? index.getMainComponent(instance.id) : undefined;
+      expect(main?.name).not.toBe("8:8");
+      expect(main?.metadata?.["identity"]).toBe("inferred-from-name");
+      expect(index.allNodes.some((node) => node.figmaNodeId === "8:8")).toBe(false);
+    }
+  });
+
+  it("gives the same name-only answer via JSON, data-component-id, and --design-context", () => {
+    const xmlIndex = graphs(fakeXml);
+    const xmlCard = verifyFrame(xmlIndex, { frame: "F1" });
+    expectNameOnly(xmlCard);
+
+    const named = graphs(nameOnlyXml);
+    for (const designContext of [fakeHtml, fakeDataAttr, fakeJson]) {
+      const viaContext = verifyFrame(named, { frame: "F1", designContext });
+      expectNameOnly(viaContext);
+      expect(viaContext.pass).toBe(xmlCard.pass);
+    }
+  });
+
+  it("still verifies a real id and reports cousins as worth checking for a fake id", () => {
+    const real = graphs(`<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="14:101" /></frame>`);
+    const verified = verifyFrame(real, { frame: "F1" });
+    expect(verified.pass).toBe(true);
+    expect(JSON.stringify(verified)).toContain('"result":"verified"');
+    expect(verified.guess).toBeUndefined();
+
+    const fake = workspaceIndex(fakeXml);
+    expectNameOnly(verifyFrame(fake, { frame: "F1" }));
+    const cousins = checkCousins(fake, { frame: "F1", workspace });
+    expect(cousins.cousins).toEqual([]);
+    expect(JSON.stringify(cousins)).not.toContain('"confidence":"cousin"');
+    expect(cousins.unsure.some((hit) => hit.why.includes("worth checking"))).toBe(true);
+  });
+
+  it("keeps the token hint when the frame name is long", () => {
+    const frameName = `Home ${"Nav".repeat(59)}`;
+    expect(frameName.length).toBeGreaterThan(170);
+    const index = graphs(
+      `<frame id="3:1" name="${frameName}"><instance id="3:2" name="Button" /><text id="3:3" name="Button" /></frame>`,
+    );
+    const result = verifyFrame(index, { frame: frameName });
+    expectNameOnly(result);
+    expect(result.hint).toMatch(/Figma access token|design-context/i);
+    expect(result.hint.length).toBeGreaterThan(40);
+    expect(JSON.stringify(result)).not.toMatch(/\.\.\.t\.\.\./);
+    expect(JSON.stringify(result).length).toBeLessThanOrEqual(600);
   });
 });

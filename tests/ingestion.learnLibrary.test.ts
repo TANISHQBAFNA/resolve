@@ -524,4 +524,32 @@ describe("learn_library from Figma MCP get_metadata", () => {
     expect(text?.name).toBe("Label");
     expect(text?.metadata?.["text"]).toBe("Request Bank Certificate");
   });
+
+  it("does not skip the same XML when a design-context arrives, and upgrades a cross-file guess", () => {
+    learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      metadataXml: `<frame id="1:1" name="Kit"><component id="14:101" name="Button" /></frame>`,
+    });
+    const productXml = `<frame id="3:1" name="F1"><instance id="3:2" name="Button" /></frame>`;
+    learnLibrary({ fileKey: "APP", role: "product", metadataXml: productXml });
+    const named = verifyFrame(loadGraph()!.index, { frame: "F1" });
+    expect(named.pass).toBe(false);
+    expect(JSON.stringify(named)).toContain('"result":"name-only"');
+
+    const again = learnLibrary({
+      fileKey: "APP",
+      role: "product",
+      metadataXml: productXml,
+      designContext: `<div data-node-id="3:2" componentId="14:101"></div>`,
+    });
+    expect(again.skippedDuplicate).toBe(false);
+    const index = loadGraph()!.index;
+    const verified = verifyFrame(index, { frame: "F1" });
+    expect(verified.pass).toBe(true);
+    expect(JSON.stringify(verified)).toContain('"result":"verified"');
+    expect(JSON.stringify(index.graph.nodes.map((node) => node.figmaNodeId)).toLowerCase()).not.toContain(
+      "mcp-name:",
+    );
+  });
 });

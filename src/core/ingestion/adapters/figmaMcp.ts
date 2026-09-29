@@ -19,11 +19,13 @@ import type {
  * What MCP metadata does NOT give us, and how each gap is handled:
  *
  * 1. **No `componentId` on instances in typical `get_metadata`.** The layer
- *    name is only a label. When the XML carries a real `componentId` or
- *    `componentKey` (same names REST and `get_design_context` already use),
- *    that id wins and identity is `"id"`. Otherwise instances are grouped by
- *    layer name, tagged `identity: "inferred-from-name"`, and never treated as
- *    a confirmed master. Re-ingest via REST, the plugin, or pass
+ *    name is only a label. When the XML carries a `componentId`, `componentKey`,
+ *    or `data-component-id`, that value is a claim, not a master. It is trusted
+ *    only after it resolves to a real library/`<symbol>` master already in the
+ *    graph. An id that matches nothing stays a name-only guess — we do not mint
+ *    a master named after the raw id. Otherwise instances are grouped by layer
+ *    name, tagged `identity: "inferred-from-name"`, and never treated as a
+ *    confirmed master. Re-ingest via REST, the plugin, or pass
  *    `get_design_context` so exact ids replace the guess.
  * 2. **No per-node variable bindings.** `get_variable_defs` returns the tokens
  *    used somewhere in the queried subtree, keyed by name, with no ids, no
@@ -213,8 +215,9 @@ export const inferredComponentId = (name: string): string => `mcp-name:${name}`;
 
 /** Real ids we already accept from REST / design-context. Do not invent names. */
 export function realComponentIdFromAttrs(attrs: Record<string, string>): string | undefined {
-  for (const key of ["componentId", "componentid", "componentKey", "componentkey"]) {
-    const value = attrs[key]?.trim();
+  const lower = new Map(Object.entries(attrs).map(([key, value]) => [key.toLowerCase(), value]));
+  for (const key of ["componentid", "componentkey", "data-component-id", "component-id"]) {
+    const value = lower.get(key)?.trim();
     if (value) return value;
   }
   return undefined;
@@ -285,7 +288,8 @@ function toSourceNode(
     const realId = realComponentIdFromAttrs(element.attrs);
     if (realId) {
       node.componentId = realId;
-      rememberComponent(components, realId, realId, "id");
+      // Claim only. A master node is created when this payload already defines
+      // that COMPONENT/SYMBOL, or later when a library master matches the id.
     } else {
       const componentId = inferredComponentId(name);
       node.componentId = componentId;

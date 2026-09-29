@@ -286,7 +286,7 @@ describe("real example with every pick", () => {
     const missingCard = exampleCard(index, "Quiet Toggle");
     expect(missingCard.found).toBe(false);
     if (!missingCard.found) {
-      expect(missingCard.ex).toBe("none");
+      expect("ex" in missingCard).toBe(false);
       expect(missingCard.example).toBe(NO_EXAMPLE);
     }
     expect(inventsInCard(none, index)).toEqual([]);
