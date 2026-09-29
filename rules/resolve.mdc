@@ -1,28 +1,27 @@
 ---
-description: Resolve before any Figma tools or design-from-brief work. Never Read graph.json. Never invent components.
+description: For ANY Figma design, screen, or component task, call Resolve before drawing. Check Figma MCP is connected and a library or screens are ingested. Never invent components.
 alwaysApply: true
 ---
 
-# Resolve — forced path
+# Resolve
 
-Before any Figma screen build, `use_figma`, `get_design_context`, or design-from-brief work, do this in order:
+For ANY Figma design, screen, or component task, call Resolve before any Figma draw (`use_figma`, `get_design_context` on a new frame, or a design from a brief).
 
-1. Prefer **resolve** over keyline / graphify aliases.
-2. Ingest each linked file (`--role library|product|client`). Refresh if that file changed.
-3. If the screen job matches a pack: `npm run resolve -- recipe list` then `recipe "<job>"`. Optional `.graphify/context-packs.json` scopes product + journey + domain. Optional `--pack` / `--product` / `--journey` / `--domain`.
-4. Unbound slots: `npm run resolve -- recommend "<intent>"` (optional `--pack` / `--product` / `--journey` / `--domain`). Place returned `figmaNodeId`s only (cards stamp `fileKey`).
-5. After drawing: `npm run resolve -- verify "<frame>"` (or `--components a,b`; same optional `--pack` / `--product` / `--journey` / `--domain`).
-6. Multi-file workspace: `npm run resolve -- cousins "<frame>"` (`check_cousins`). Unsure means do not invent.
+**Check first.** Resolve works best when the Figma MCP connection is active and a design system, library, or existing screens are learned. Look for Figma tools (`get_metadata`, `use_figma`). If those tools are missing, or nothing is ingested, stop. Tell the user in plain words what is missing and how to add it (connect Figma in this app, then map the file). Do not guess. Do not invent components.
 
-**Never** invent components. **Never** Read `.graphify/graph.json` or dump the graph.
+**Path (Resolve MCP tools, not shell commands):**
 
-Caps: Level-1 default; Level-2 only for blast radius; whole-file only if asked.
+1. Map the Figma file first. `get_metadata`, then `learn_library` (fileKey; `role` `library` for the design system, `product` or `client` for screens). Re-run when that file changed.
+2. `recipe` when the screen job matches a pack.
+3. `recommend` for each unbound, missing, or deprecated slot. Place returned `figmaNodeId`s only (cards stamp `fileKey`).
+4. `get_example`, then clone that instance and replace the content. Do not start from the default variant.
+5. `verify_frame` after the frame exists. Fetch that frame's design context first and pass it as `designContext`.
+6. `check_cousins` when a library file and a product or client file are both linked. Unsure means stop.
 
-```bash
-npm run build:server
-npm run resolve -- ingest '<url>' --role library
-npm run resolve -- recipe "checkout summary"
-npm run resolve -- recommend "checkout with primary button"
-npm run resolve -- verify "Checkout"
-npm run resolve -- cousins "Checkout"
-```
+Resolve is read-only. Never invent a component, name, or node id. Never Read `.graphify/graph.json`.
+
+**Design work.** Simplest thing that works. Reuse an existing component before anything new. One check: `verify_frame`.
+
+Caps: Level-1 by default (one component or a local edit). Level-2 only when the blast radius is large. Whole-file only if the user asks.
+
+Full workflow, when this client can read MCP resources: `resolve://workflow`.

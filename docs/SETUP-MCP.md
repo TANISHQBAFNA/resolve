@@ -4,6 +4,10 @@
 
 Resolve is for AI tools (Cursor, Claude). Turn on Figma’s connector and Resolve’s connector in the same tool.
 
+Resolve works best when the Figma connection is active and there is a design system, library, or existing screens for it to learn from. If either is missing, the agent should tell you in plain words what is missing and how to add it. It should not invent a component.
+
+Claude Code cuts each MCP server’s instructions at 2,048 characters. Resolve keeps that text under 1,500 so the “call Resolve first” trigger survives. The longer workflow is an MCP resource, `resolve://workflow`.
+
 Learning a library needs **one** of:
 
 - a **paid Figma seat with MCP access** (Dev or Full), or
@@ -21,7 +25,15 @@ Learning a library needs **one** of:
 npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
 ```
 
-4. If Claude Desktop cannot start Resolve, use the full path from `which npx` as the `command` (keep the same `args`).
+4. Once, so the agent calls Resolve on every design task (add `--global` to install into your home folder instead of this project):
+
+```bash
+npx -y -p github:TANISHQBAFNA/resolve resolve-setup
+```
+
+That writes `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, and a marked block in `CLAUDE.md`. A second run only edits inside those markers. Claude Desktop does not read rule files, skills, or `CLAUDE.md`. It only gets the MCP instructions.
+
+5. If Claude Desktop cannot start Resolve, use the full path from `which npx` as the `command` (keep the same `args`).
 
 ## One config line
 
