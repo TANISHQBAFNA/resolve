@@ -2714,8 +2714,76 @@ interface ElementBindings {
   conflicted: Set<string>;
 }
 
-function stripHtmlComments(text: string): string {
-  return text.replace(/<!--[\s\S]*?-->/g, "");
+function elementNameAt(lower: string, lt: number): string {
+  let i = lt + 1;
+  if (lower[i] === "/") i += 1;
+  const start = i;
+  while (i < lower.length && /[a-z0-9]/.test(lower[i] ?? "")) i += 1;
+  return lower.slice(start, i);
+}
+
+function closeTagEnd(lower: string, from: number, name: string): number {
+  const needle = `</${name}`;
+  let i = from;
+  while (i < lower.length) {
+    const at = lower.indexOf(needle, i);
+    if (at === -1) return -1;
+    const after = at + needle.length;
+    const next = lower[after];
+    if (next === undefined || /[\s>/]/.test(next)) {
+      const gt = lower.indexOf(">", after);
+      return gt === -1 ? -1 : gt + 1;
+    }
+    i = after;
+  }
+  return -1;
+}
+
+/**
+ * Drop comments, script, style, and CDATA before tags are read.
+ * One indexOf walk. An opener with no closer drops the rest of the text.
+ */
+function stripSkippedRegions(text: string): string {
+  const lower = text.toLowerCase();
+  const kept: string[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const lt = lower.indexOf("<", i);
+    if (lt === -1) {
+      kept.push(text.slice(i));
+      break;
+    }
+    kept.push(text.slice(i, lt));
+    if (lower.startsWith("<!--", lt)) {
+      const end = lower.indexOf("-->", lt + 4);
+      i = end === -1 ? text.length : end + 3;
+      continue;
+    }
+    if (lower.startsWith("<![cdata[", lt)) {
+      const end = lower.indexOf("]]>", lt + 9);
+      i = end === -1 ? text.length : end + 3;
+      continue;
+    }
+    const name = elementNameAt(lower, lt);
+    if (name === "script" || name === "style") {
+      const openEnd = lower.indexOf(">", lt + 1);
+      if (openEnd === -1) {
+        i = text.length;
+        continue;
+      }
+      const close = closeTagEnd(lower, openEnd + 1, name);
+      i = close === -1 ? text.length : close;
+      continue;
+    }
+    const gt = lower.indexOf(">", lt + 1);
+    if (gt === -1) {
+      kept.push(text.slice(lt));
+      break;
+    }
+    kept.push(text.slice(lt, gt + 1));
+    i = gt + 1;
+  }
+  return kept.join("");
 }
 
 /** Attribute name to value. Quoted text is never scanned for other attributes. */
@@ -2770,11 +2838,11 @@ function identityAttr(attrs: Map<string, string>): string | undefined {
 
 /**
  * Component id that sits on the same element as this node.
- * A neighbour's id, a quoted attribute value, and an HTML comment do not count.
+ * A neighbour's id, a quoted attribute value, a comment, script, style, or CDATA block do not count.
  * The same node id on two tags is a conflict and binds nothing.
  */
 function elementComponentIds(raw: unknown): ElementBindings {
-  const text = stripHtmlComments(contextText(raw));
+  const text = stripSkippedRegions(contextText(raw));
   const seen = new Map<string, number>();
   const ids = new Map<string, string>();
   for (const tag of text.match(ELEMENT_TAG) ?? []) {
@@ -3105,6 +3173,7 @@ export function verifyFrame(
           : bindHint ??
             `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`;
   const pendingHint = pending ? `pending improvements: ${pending}.` : undefined;
+  const fullHint = pendingHint ? `${hint} ${pendingHint}` : hint;
   const base = {
     pass: verified,
     ...(nameOnlyPass
@@ -3115,7 +3184,6 @@ export function verifyFrame(
           ? { result: "nothing checked" as const }
           : {}),
     ...(nameOnly ? { nameOnly: true as const } : {}),
-    ...(renamed.length ? { renamed } : {}),
     approved: approvedIds.size,
     resolved,
     invents,
@@ -3129,15 +3197,44 @@ export function verifyFrame(
         }
       : undefined,
     builtAt: index.graph.builtAt,
-    hint: pendingHint ? `${hint} ${pendingHint}` : hint,
+    hint: fullHint,
     ...(pending ? { pendingImprovements: pending } : {}),
   };
-  const fitted = fitCardAfterCost(base, input.bindRules?.warnings, content.warnings, 600);
-  return stampTextCheck(fitted, {
+  const textMeta = {
     textChecked: content.textChecked,
     textReason: content.textReason,
     ...(applied && applied.textOverrides > 0 ? { textOverrides: applied.textOverrides } : {}),
-  });
+  };
+  const renamedCap = 5;
+  const renamedLimit = Math.min(renamedCap, renamed.length);
+  const publishRenamed = (shownCount: number) => {
+    const shown = renamed.slice(0, shownCount);
+    const hidden = renamed.length - shownCount;
+    const attempt = {
+      ...base,
+      ...(shown.length ? { renamed: shown } : {}),
+      ...(hidden > 0 ? { renamedNote: `+${hidden} more` } : {}),
+    };
+    return stampTextCheck(
+      fitCardAfterCost(structuredClone(attempt), input.bindRules?.warnings, content.warnings, 600),
+      textMeta,
+    );
+  };
+  const fitsRenamed = (
+    stamped: ReturnType<typeof publishRenamed>,
+    shown: Array<{ node: string; layerName: string; masterName: string }>,
+  ) =>
+    JSON.stringify(stamped).length <= 600 &&
+    stamped.hint === fullHint &&
+    JSON.stringify(stamped.renamed ?? []) === JSON.stringify(shown);
+  let published = publishRenamed(renamedLimit);
+  if (fitsRenamed(published, renamed.slice(0, renamedLimit))) return published;
+  for (let shownCount = renamedLimit - 1; shownCount >= 0; shownCount -= 1) {
+    const shown = renamed.slice(0, shownCount);
+    published = publishRenamed(shownCount);
+    if (fitsRenamed(published, shown) || shownCount === 0) break;
+  }
+  return published;
 }
 
 function repriced<T extends object>(value: T): Omit<T, "cost"> & { cost: AgentCost } {

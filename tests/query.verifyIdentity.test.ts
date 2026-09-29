@@ -103,6 +103,49 @@ describe("verify means a real component id on that node", () => {
     }
   });
 
+  it("ignores a component id inside script, style, CDATA, or an open comment", () => {
+    const real = `<div data-node-id="990:2" componentId="33:235"></div>`;
+    const hidden = `<div data-node-id="990:3" componentId="14:101"></div>`;
+    const contexts = [
+      `${real}<script>${hidden}</script>`,
+      `${real}<style>${hidden}</style>`,
+      `${real}<![CDATA[${hidden}]]>`,
+      `${real}<script>${hidden}`,
+      `${real}<!-- ${hidden}`,
+    ];
+    for (const designContext of contexts) {
+      const result = card(designContext);
+      expect(result.pass).toBe(false);
+      expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
+      expect(result.invents.some((hit) => hit.name === "Button")).toBe(true);
+    }
+  });
+
+  it("still verifies a real id outside those blocks, in each attribute form", () => {
+    const contexts = [
+      `<script><div data-node-id="1:9" componentId="8:8"></div></script><div data-node-id="990:2" componentId="33:235"></div><div data-node-id="990:3" componentId='14:101'></div>`,
+      `<style><div data-node-id="1:9" componentId="8:8"></div></style><div data-node-id="990:2" componentKey="33:235"></div><div data-node-id="990:3" componentId=14:101></div>`,
+      `<![CDATA[<div data-node-id="1:9" componentId="8:8"></div>]]><div data-node-id="990:2" componentKey='33:235'></div><div data-node-id="990:3" componentId="14:101"></div>`,
+    ];
+    for (const designContext of contexts) {
+      const result = card(designContext);
+      expect(result.pass).toBe(true);
+      expect(JSON.stringify(result)).toContain('"result":"verified"');
+      expect(result.approved).toBe(2);
+      expect(result.invents).toEqual([]);
+    }
+  });
+
+  it("strips a long unterminated comment without a quadratic scan", () => {
+    const designContext = "<!--".repeat(50_000);
+    expect(designContext.length).toBe(200_000);
+    const started = performance.now();
+    const result = card(designContext);
+    expect(performance.now() - started).toBeLessThan(300);
+    expect(result.pass).toBe(false);
+    expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
+  });
+
   it("verifies a renamed layer by id and says the label differs", () => {
     const result = card(
       `<div data-node-id="990:2" componentId="33:235"></div><div data-node-id="990:3" componentId="33:235"></div>`,
@@ -111,6 +154,49 @@ describe("verify means a real component id on that node", () => {
     expect(JSON.stringify(result)).toContain('"result":"verified"');
     expect(result.approved).toBe(1);
     expect(result.renamed).toEqual([{ node: "990:3", layerName: "Button", masterName: "Text field" }]);
+    expect(result.hint).toMatch(/Label differs/);
+    expect(result.hint).not.toMatch(/matched by layer name/i);
+    expect(result.renamedNote).toBeUndefined();
+  });
+
+  it("caps a long renamed list at five and counts the rest", () => {
+    const count = 7;
+    const instances = Array.from({ length: count }, (_, n) => {
+      return `<instance id="8:${n + 1}" name="Layer ${n + 1}" />`;
+    }).join("");
+    const library = buildGraph(
+      adaptFigmaMcpMetadata({
+        fileKey: "LIB",
+        fileName: "Library",
+        metadataXml: `<frame id="1:1" name="Kit"><component id="33:235" name="Text field" /></frame>`,
+      }),
+    );
+    const product = buildGraph(
+      adaptFigmaMcpMetadata({
+        fileKey: "APP",
+        fileName: "App",
+        metadataXml: `<frame id="2:1" name="Many">${instances}</frame>`,
+      }),
+    );
+    const tags = Array.from({ length: count }, (_, n) => {
+      return `<div data-node-id="8:${n + 1}" componentId="33:235"></div>`;
+    }).join("");
+    const result = verifyFrame(indexGraph(mergeDesignGraphs(library, product)), {
+      frame: "Many",
+      designContext: tags,
+    });
+    expect(result.pass).toBe(true);
+    expect(JSON.stringify(result)).toContain('"result":"verified"');
+    const shown = result.renamed ?? [];
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.length).toBeLessThanOrEqual(5);
+    const hiddenMatch = /^\+(\d+) more$/.exec(result.renamedNote ?? "");
+    expect(hiddenMatch).not.toBeNull();
+    expect(shown.length + Number(hiddenMatch?.[1])).toBe(count);
+    expect(JSON.stringify(result).length).toBeLessThanOrEqual(600);
+    for (const row of shown) {
+      expect(row.layerName).not.toBe(row.masterName);
+    }
     expect(result.hint).toMatch(/Label differs/);
     expect(result.hint).not.toMatch(/matched by layer name/i);
   });
