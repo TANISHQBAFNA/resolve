@@ -79,6 +79,7 @@ function stamp(node: GraphNode, fallback?: string) {
     type: node.type,
     ...(node.figmaNodeId ? { figmaNodeId: node.figmaNodeId } : {}),
     ...(fileKey ? { fileKey } : {}),
+    ...(isNameInferredMaster(node) ? { guess: "guess from layer name, not confirmed" as const } : {}),
   };
 }
 
@@ -280,7 +281,11 @@ export function checkCousins(
       placedName &&
       libraryMasters.some((candidate) => candidate.name.trim().toLowerCase() === placedName)
     ) {
-      ok += 1;
+      unsure.push({
+        placed: stamp(subject, fallback),
+        why: "worth checking — guessed from layer name, not confirmed",
+        confidence: "unsure",
+      });
       continue;
     }
 

@@ -81,7 +81,7 @@ export type ExampleLookup =
   | { found: false; reason: ExampleReason };
 
 export interface ExamplePointer {
-  ex: string;
+  ex?: string;
   exFileKey?: string;
   exWhy?: ExampleReason;
   exNote?: "other product";
@@ -672,7 +672,7 @@ export function examplePointer(
   detail: "id" | "screen" = "id",
 ): ExamplePointer {
   const lookup = getExample(index, master, query);
-  if (!lookup.found) return { ex: EX_NONE, exWhy: lookup.reason };
+  if (!lookup.found) return {};
   const pickFile = fileKeyOf(index, master, query);
   const file = lookup.example.fileKey;
   const cross = Boolean(file && pickFile && file !== pickFile);

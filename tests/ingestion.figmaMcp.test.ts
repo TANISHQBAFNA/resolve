@@ -101,6 +101,33 @@ describe("MCP adapter", () => {
     expect(Object.keys(doc.components).sort()).toEqual(["mcp-name:Button", "mcp-name:Card"]);
   });
 
+  it("trusts a real componentId over the layer name", () => {
+    const adapted = adaptFigmaMcpMetadata({
+      fileKey: "KEY",
+      fileName: "Ids",
+      metadataXml: `<frame id="1:1" name="Kit">
+        <component id="88:1" name="buildings-88-smart-home" />
+        <instance id="2:1" name="Icon" componentId="88:1" />
+        <instance id="2:2" name="House" componentId="88:1" />
+        <instance id="2:3" name="Button" />
+      </frame>`,
+      ingestedAt: "2026-01-01T00:00:00.000Z",
+    });
+    expect(adapted.components["88:1"]).toEqual({
+      id: "88:1",
+      name: "buildings-88-smart-home",
+      identity: "id",
+    });
+    expect(adapted.components[inferredComponentId("Icon")]).toBeUndefined();
+    expect(adapted.components[inferredComponentId("Button")]?.identity).toBe("inferred-from-name");
+    const icon = adapted.root.children?.[0]?.children?.[1];
+    const house = adapted.root.children?.[0]?.children?.[2];
+    expect(icon?.name).toBe("Icon");
+    expect(icon?.componentId).toBe("88:1");
+    expect(house?.name).toBe("House");
+    expect(house?.componentId).toBe("88:1");
+  });
+
   it("splits the flattened token map into styles and variables", () => {
     expect(Object.values(doc.styles).map((style) => style.name)).toEqual(["Shadow/Card"]);
     expect(Object.values(doc.variables).map((variable) => variable.name)).toEqual(["color/bg"]);

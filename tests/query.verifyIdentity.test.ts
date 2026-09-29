@@ -18,6 +18,10 @@ const productXml = `<frame id="990:1" name="Spoof4">
 </frame>
 <frame id="990:20" name="Drawn">
   <rectangle id="990:21" name="Button" x="0" y="0" width="80" height="32" />
+</frame>
+<frame id="990:30" name="Mixed">
+  <instance id="990:31" name="Text field" />
+  <rectangle id="990:32" name="Button" x="0" y="0" width="80" height="32" />
 </frame>`;
 
 function spoofIndex() {
@@ -154,6 +158,7 @@ describe("verify means a real component id on that node", () => {
     expect(JSON.stringify(result)).toContain('"result":"verified"');
     expect(result.approved).toBe(1);
     expect(result.renamed).toEqual([{ node: "990:3", layerName: "Button", masterName: "Text field" }]);
+    expect(result.labelDiffers).toBe(true);
     expect(result.hint).toMatch(/Label differs/);
     expect(result.hint).not.toMatch(/matched by layer name/i);
     expect(result.renamedNote).toBeUndefined();
@@ -208,6 +213,44 @@ describe("verify means a real component id on that node", () => {
       expect(result.approved, frame).toBe(0);
       expect(JSON.stringify(result)).toContain('"result":"nothing checked"');
       expect(result.hint.toLowerCase()).not.toContain("verified");
+    }
+  });
+
+  it("lists a hand-drawn look-alike as unchecked next to a verified instance", () => {
+    const result = verifyFrame(index, {
+      frame: "Mixed",
+      designContext: `<div data-node-id="990:31" componentId="33:235"></div>`,
+    });
+    expect(result.pass).toBe(true);
+    expect(JSON.stringify(result)).toContain('"result":"verified"');
+    expect(result.unchecked).toEqual({ count: 1, names: ["Button"] });
+    expect(result.hint).toMatch(/unchecked look-alike \(Button\)/);
+    expect(JSON.stringify(result).length).toBeLessThanOrEqual(600);
+  });
+
+  it("accepts data-component-id and quoted-key JSON, and ignores spoofs", () => {
+    const ok = [
+      `<div data-node-id="990:2" data-component-id="33:235"></div><div data-node-id="990:3" data-component-id="14:101"></div>`,
+      `{"nodes":[{"data-node-id":"990:2","componentId":"33:235"},{"data-node-id":"990:3","componentId":"14:101"}]}`,
+      `<div data-node-id="990:2" componentId="33:235"></div>{"data-node-id":"990:3","componentId":"14:101"}`,
+    ];
+    for (const designContext of ok) {
+      const result = card(designContext);
+      expect(result.pass, designContext).toBe(true);
+      expect(result.approved, designContext).toBe(2);
+    }
+    const spoofed = [
+      `<div data-node-id="990:2" componentId="33:235"></div><div data-node-id="990:3" title='"componentId": "14:101"'></div>`,
+      `<div data-node-id="990:2" componentId="33:235"></div><!-- {"data-node-id":"990:3","componentId":"14:101"} --><div data-node-id="990:3"></div>`,
+      `<div data-node-id="990:2" componentId="33:235"></div><script>{"data-node-id":"990:3","componentId":"14:101"}</script><div data-node-id="990:3"></div>`,
+      `<div data-node-id="990:2" componentId="33:235"></div><style>{"data-node-id":"990:3","componentId":"14:101"}</style><div data-node-id="990:3"></div>`,
+      `<div data-node-id="990:2" componentId="33:235"></div><![CDATA[{"data-node-id":"990:3","componentId":"14:101"}]]><div data-node-id="990:3"></div>`,
+    ];
+    for (const designContext of spoofed) {
+      const result = card(designContext);
+      expect(result.pass, designContext).toBe(false);
+      expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
+      expect(result.invents.some((hit) => hit.name === "Button")).toBe(true);
     }
   });
 

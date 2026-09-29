@@ -75,7 +75,7 @@ the adapter layer. Running in-document closes gaps the other two sources have:
 
 | | REST | MCP `get_metadata` | Plugin |
 |---|---|---|---|
-| Instance → main component | exact | inferred from name | **exact** |
+| Instance → main component | exact | layer name only (guess) | **exact** |
 | Variables | Enterprise endpoint | names only | **`figma.variables`, no plan gate** |
 | Prototype interactions | one per node | none | **every reaction** |
 | Dev-mode annotations | inconsistent | none | **`node.annotations`** |
@@ -149,7 +149,7 @@ MCP and CLI must read the same store. `GRAPHIFY_HOME` wins. Else Resolve walks u
 
 | Gap | Handling |
 |---|---|
-| No `componentId` on instances | Identity inferred from instance name, every such component tagged `identity: "inferred-from-name"` and reported as an `INFERRED_COMPONENT_IDENTITY` warning. Re-ingesting over REST replaces it with exact ids. |
+| No `componentId` on instances | Layer name is only a label. Identity is tagged `identity: "inferred-from-name"` and cards say **guess from layer name, not confirmed**. Never counted as verified, never a confirmed wrong-cousin. Re-ingest via REST (`FIGMA_ACCESS_TOKEN`), the plugin, or pass `get_design_context` (real `componentId` / `componentKey` / `data-component-id`, or JSON `"componentId"`) for exact ids. If `get_metadata` XML happens to include `componentId` or `componentKey`, those names are accepted; other attribute names are unconfirmed. |
 | No per-node variable bindings | `get_variable_defs` returns subtree-wide tokens keyed by name. They attach to the queried root rather than being invented onto children. |
 | No file or page context | The graph roots at the queried node. Page/section context arrives with a REST or plugin ingest. |
 | No prototype data | `PROTOTYPES_TO` needs REST or the plugin API. |

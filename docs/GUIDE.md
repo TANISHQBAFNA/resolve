@@ -65,7 +65,7 @@ For clone flags, tokens, and the optional browser map, see [For developers](../R
 
 **Verify.** After the draft, Resolve checks the frame. It flags pieces that were invented, pieces marked retired in the library, and pieces it cannot match. It does **not** say the layout is beautiful. That is still you.
 
-**Figma component id.** The address of that master in a file (`figmaNodeId`). Across files those ids can repeat, so every card also stamps the **file key**. Agents place that exact component in that file. They must not make up an id.
+**Figma component id.** The address of that master in a file (`figmaNodeId`). Across files those ids can repeat, so every card also stamps the **file key**. Agents place that exact component in that file. They must not make up an id. A Figma **layer name** is only a label. Someone can rename an instance; the real component is the master’s id and name. `get_metadata` usually has only the layer name — Resolve marks that as a guess. Exact ids come from REST (`FIGMA_ACCESS_TOKEN`), the plugin, or `get_design_context`.
 
 **Workspace.** The list of Figma files Resolve knows about for this project — usually one shared design-system library plus the product (and maybe client) files that use it. You edit `.graphify/workspace.json`, or ingest with `--role library` / `--role product` / `--role client` and Resolve writes it.
 
@@ -180,7 +180,7 @@ To apply the same product and step as recommend (including a pack’s deny list)
 npm run resolve -- verify "Checkout Summary" --product Storefront --journey summary --domain checkout
 ```
 
-**You get:** Pass or fail. Invented names (like `MadeUpCard`) fail. Retired masters fail. Pieces Resolve cannot match fail. Lorem-ipsum filler fails. Copy that still matches the master default is a warning, and it fails only when that default is also on the placeholder list. A fixed height clearly larger than the content is a warning, unless real examples of that component use the same fixed height. A near name (`Header` vs `.Header`) is **not** approved — you get an unresolved row with a “did you mean” suggestion. Names that start with `.` or `_` (Figma’s private / unpublished parts) fail rather than pass. The card echoes each name you gave and what it resolved to. You then judge taste in Figma.
+**You get:** Pass or fail. A pass means each checked instance was bound by its own component id or key — not by the layer name. A layer named `Icon` that is really `buildings-88-smart-home` still passes, and the card lists the rename (`labelDiffers`, plus `renamed`). Metadata-only instances are a **guess from layer name, not confirmed** (`name-only`); they never count as verified. A hand-drawn rectangle named like a component is listed as **unchecked** so Verified cannot cover it. Invented names fail. Retired masters fail. Lorem-ipsum filler fails. Copy that still matches the master default is a warning, and it fails only when that default is also on the placeholder list.
 
 Team template strings are not built in. Put them in `.graphify/placeholders.json`:
 
@@ -199,7 +199,7 @@ npm run resolve -- cousins "Checkout Summary"
 npm run resolve -- cousins "Checkout Summary" --job "checkout summary" --pack storefront-checkout-summary
 ```
 
-**You get:** A short card. `cousins` are placed pieces that match a role or a weak name but are not the library master. `unsure` means Resolve will not guess. An empty cousin list with `ok` placements means the draft used the shared DS. It still does not judge taste.
+**You get:** A short card. `cousins` are confirmed lookalikes (real ids). A layer-name guess is **worth checking**, not a confirmed cousin. `unsure` means Resolve will not guess. An empty cousin list with `ok` placements means the draft used the shared DS. It still does not judge taste.
 
 ### 7. You review
 

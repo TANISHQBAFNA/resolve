@@ -380,10 +380,12 @@ describe("learn_library from Figma MCP get_metadata", () => {
       workspace: readWorkspace(),
     });
     expect(report.checked).toBe(true);
-    expect(report.ok).toBeGreaterThanOrEqual(2);
-    const flagged = [...report.cousins, ...report.unsure].map((hit) => hit.placed.name);
-    expect(flagged).not.toContain("Summary Card");
-    expect(flagged).not.toContain("Price");
+    expect(report.cousins).toEqual([]);
+    expect(report.ok).toBe(0);
+    expect(report.unsure.some((hit) => hit.placed.name === "Summary Card" && hit.why.includes("worth checking"))).toBe(
+      true,
+    );
+    expect(report.unsure.some((hit) => hit.placed.name === "Price" && hit.why.includes("worth checking"))).toBe(true);
   });
 
   it("flags Cart Page instances when the product file also has local Price and Summary Card masters", () => {

@@ -6,6 +6,7 @@ import {
   inferredComponentId,
   isMetadataComponentSet,
   parseMetadataXml,
+  realComponentIdFromAttrs,
 } from "./adapters/figmaMcp";
 import type { WorkspaceFileRole } from "@/core/query/workspace";
 
@@ -219,11 +220,19 @@ function collectNestedMasters(element: XmlLike): LearnUnitMaster[] {
       seen.add(id);
       out.push({ id, name: name || id, figmaNodeId: id });
     }
-    if (node.tag.toLowerCase() === "instance" && name && !out.some((row) => row.name === name)) {
-      const inferred = inferredComponentId(name);
-      if (!seen.has(inferred)) {
-        seen.add(inferred);
-        out.push({ id: inferred, name, figmaNodeId: inferred });
+    if (node.tag.toLowerCase() === "instance") {
+      const realId = realComponentIdFromAttrs(node.attrs);
+      if (realId) {
+        if (!seen.has(realId)) {
+          seen.add(realId);
+          out.push({ id: realId, name: realId, figmaNodeId: realId });
+        }
+      } else if (name && !out.some((row) => row.name === name)) {
+        const inferred = inferredComponentId(name);
+        if (!seen.has(inferred)) {
+          seen.add(inferred);
+          out.push({ id: inferred, name, figmaNodeId: inferred });
+        }
       }
     }
     for (const child of node.children) walk(child);
@@ -384,6 +393,31 @@ export function markRemovedByAbsence(graph: DesignGraph, missing: LearnUnitMaste
   return marked;
 }
 
+function identityIsInferred(node: GraphNode): boolean {
+  if (node.metadata?.["identity"] === "inferred-from-name") return true;
+  return `${node.id} ${node.figmaNodeId ?? ""}`.includes("mcp-name:");
+}
+
+function mergeGraphNode(prev: GraphNode, incoming: GraphNode): GraphNode {
+  const prevGuess = identityIsInferred(prev);
+  const nextGuess = identityIsInferred(incoming);
+  if (!prevGuess && nextGuess) {
+    return { ...incoming, ...prev, metadata: { ...incoming.metadata, ...prev.metadata }, name: prev.name };
+  }
+  if (prevGuess && !nextGuess) {
+    return { ...prev, ...incoming, metadata: { ...prev.metadata, ...incoming.metadata } };
+  }
+  const merged = { ...prev, ...incoming, metadata: { ...prev.metadata, ...incoming.metadata } };
+  if (
+    !prevGuess &&
+    incoming.name === incoming.figmaNodeId &&
+    prev.name !== prev.figmaNodeId
+  ) {
+    merged.name = prev.name;
+  }
+  return merged;
+}
+
 function nodeMergeKey(node: GraphNode): string {
   return node.figmaNodeId ? `${node.type}:${node.figmaNodeId}` : node.id;
 }
@@ -394,7 +428,7 @@ export function mergeDesignGraphs(base: DesignGraph, incoming: DesignGraph): Des
   for (const node of incoming.nodes) {
     const key = nodeMergeKey(node);
     const prev = nodes.get(key);
-    nodes.set(key, prev ? { ...prev, ...node, metadata: { ...prev.metadata, ...node.metadata } } : node);
+    nodes.set(key, prev ? mergeGraphNode(prev, node) : node);
   }
   const edges = new Map<string, DesignGraph["edges"][number]>();
   for (const edge of [...base.edges, ...incoming.edges]) {

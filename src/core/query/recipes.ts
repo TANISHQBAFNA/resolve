@@ -66,7 +66,7 @@ export interface RecipeMaster {
   deprecated: boolean;
   hint?: string;
   why?: string;
-  /** Top pick. Node id, `file:nodeId` or `file:nodeId@screen` when the example file differs, or `none`. */
+  /** Top pick. Node id, `file:nodeId` or `file:nodeId@screen` when the example file differs. Omitted when none. */
   ex?: string;
   exFileKey?: string;
   exWhy?: ExampleReason;

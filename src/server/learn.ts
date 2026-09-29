@@ -1,5 +1,6 @@
 import type { DesignGraph } from "@/core/model";
 import { applyLearnedText } from "@/core/ingestion/textStamps";
+import { applyLearnedIdentity } from "@/core/ingestion/designContextIds";
 import {
   applyPublishedCatalog,
   extractLearnOutline,
@@ -135,7 +136,10 @@ export function learnLibrary(input: LearnInput): LearnResult {
   }
 
   if (catalog != null) applyPublishedCatalog(graph, catalog);
-  if (input.designContext != null) applyLearnedText(graph, input.designContext);
+  if (input.designContext != null) {
+    applyLearnedText(graph, input.designContext);
+    applyLearnedIdentity(graph, input.designContext);
+  }
 
   const removed: RemovedMaster[] = [];
   if (xml && !skippedDuplicate && Object.keys(incomingByUnit).length) {

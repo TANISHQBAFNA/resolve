@@ -358,6 +358,8 @@ const FREE_TEXT_KEYS = new Set([
   "summary",
   "evidence",
   "label",
+  "guess",
+  "exWhy",
 ]);
 
 const COMPONENT_NAME_PARENTS = new Set(["component", "master", "candidates", "components", "didYouMean"]);

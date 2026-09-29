@@ -197,6 +197,7 @@ export function doctorLines({ cwd, home, ruleInstalled, blocked }) {
     `Library learned? ${library ? "yes" : "no"}`,
     `Rule installed? ${ruleInstalled ? "yes" : "no"}`,
     "Words your team uses: .graphify/synonyms.json",
+    "Exact component ids: Figma access token (FIGMA_ACCESS_TOKEN) or get_design_context. Never store a token in the repo.",
     `Next: ${next}`,
   ].join("\n");
 }
@@ -205,23 +206,43 @@ function main() {
   let dryRun = false;
   let isGlobal = false;
   let force = false;
+  let yes = false;
   for (const arg of process.argv.slice(2)) {
     if (arg === "--dry-run") dryRun = true;
     else if (arg === "--global") isGlobal = true;
     else if (arg === "--force") force = true;
+    else if (arg === "--yes" || arg === "-y") yes = true;
     else if (arg === "--help" || arg === "-h") {
       process.stdout.write(
-        "Usage: resolve-setup [--dry-run] [--global] [--force]\nInstalls the Cursor rule, the Claude skill, and a marked CLAUDE.md block.\n--force replaces a file that has no Resolve markers.\n",
+        "Usage: resolve-setup [--dry-run] [--global] [--yes] [--force]\nInstalls the Cursor rule, the Claude skill, and a marked CLAUDE.md block.\n--global writes into the home folder (~/.claude). It prints the paths and exits unless you pass --yes.\n--force replaces a file that has no Resolve markers.\n",
       );
       return;
     } else {
-      process.stderr.write(`Unknown argument ${arg}. Use --dry-run, --global, and --force.\n`);
+      process.stderr.write(`Unknown argument ${arg}. Use --dry-run, --global, --yes, and --force.\n`);
       process.exit(1);
     }
   }
   const cwd = process.cwd();
   const home = homedir();
   const target = isGlobal ? home : cwd;
+  if (isGlobal && !dryRun && !yes) {
+    process.stdout.write(
+      `This writes into the home folder (${home}), not this project.\nPaths:\n`,
+    );
+    let planned;
+    try {
+      planned = runSetup({ cwd, home, global: true, dryRun: true, force });
+    } catch (error) {
+      const raw = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`${raw}\n`);
+      process.exit(1);
+    }
+    for (const item of planned) {
+      process.stdout.write(`  ${item.action} ${item.path}\n`);
+    }
+    process.stdout.write("Re-run with --global --yes to confirm.\n");
+    process.exit(1);
+  }
   process.stdout.write(`Installing into ${target}\n`);
   let planned;
   try {

@@ -18,13 +18,13 @@ import type {
  *
  * What MCP metadata does NOT give us, and how each gap is handled:
  *
- * 1. **No `componentId` on instances.** Instance identity is inferred from the
- *    instance name (in Figma an instance is named after its main component
- *    unless someone renames it). Every component created this way is tagged
- *    `identity: "inferred-from-name"` and reported as a graph warning, so the
- *    inference is never mistaken for source data. Re-ingesting the same file
- *    over REST or the plugin API replaces it with real ids and the tag
- *    disappears.
+ * 1. **No `componentId` on instances in typical `get_metadata`.** The layer
+ *    name is only a label. When the XML carries a real `componentId` or
+ *    `componentKey` (same names REST and `get_design_context` already use),
+ *    that id wins and identity is `"id"`. Otherwise instances are grouped by
+ *    layer name, tagged `identity: "inferred-from-name"`, and never treated as
+ *    a confirmed master. Re-ingest via REST, the plugin, or pass
+ *    `get_design_context` so exact ids replace the guess.
  * 2. **No per-node variable bindings.** `get_variable_defs` returns the tokens
  *    used somewhere in the queried subtree, keyed by name, with no ids, no
  *    collection and no consumer. They are attached to the queried root node
@@ -211,6 +211,33 @@ export function isMetadataComponentSet(element: MetadataElement): boolean {
 /** Synthetic component id for a name-inferred main component. */
 export const inferredComponentId = (name: string): string => `mcp-name:${name}`;
 
+/** Real ids we already accept from REST / design-context. Do not invent names. */
+export function realComponentIdFromAttrs(attrs: Record<string, string>): string | undefined {
+  for (const key of ["componentId", "componentid", "componentKey", "componentkey"]) {
+    const value = attrs[key]?.trim();
+    if (value) return value;
+  }
+  return undefined;
+}
+
+function rememberComponent(
+  components: Record<string, SourceComponentMeta>,
+  id: string,
+  name: string,
+  identity: SourceComponentMeta["identity"],
+): void {
+  const prev = components[id];
+  if (!prev) {
+    components[id] = { id, name, identity };
+    return;
+  }
+  if (prev.identity === "inferred-from-name" && identity === "id") {
+    components[id] = { ...prev, id, name: name === id ? prev.name : name, identity: "id" };
+    return;
+  }
+  if (prev.name === prev.id && name !== id) prev.name = name;
+}
+
 function toSourceNode(
   element: XmlElement,
   components: Record<string, SourceComponentMeta>,
@@ -250,15 +277,25 @@ function toSourceNode(
   const minWidth = Number(element.attrs["minWidth"]);
   if (Number.isFinite(minWidth) && element.attrs["minWidth"]) node.minWidth = minWidth;
 
+  if (type === "COMPONENT") {
+    rememberComponent(components, id, name, "id");
+  }
+
   if (type === "INSTANCE") {
-    const componentId = inferredComponentId(name);
-    node.componentId = componentId;
-    if (!components[componentId]) {
-      components[componentId] = {
-        id: componentId,
-        name,
-        identity: "inferred-from-name",
-      };
+    const realId = realComponentIdFromAttrs(element.attrs);
+    if (realId) {
+      node.componentId = realId;
+      rememberComponent(components, realId, realId, "id");
+    } else {
+      const componentId = inferredComponentId(name);
+      node.componentId = componentId;
+      if (!components[componentId]) {
+        components[componentId] = {
+          id: componentId,
+          name,
+          identity: "inferred-from-name",
+        };
+      }
     }
   }
 

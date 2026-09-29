@@ -526,7 +526,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
   if (inferredComponents.length) {
     builder.warn({
       code: "INFERRED_COMPONENT_IDENTITY",
-      message: `${inferredComponents.length} component identities were inferred from instance names because this source does not expose componentId. Re-ingest via the REST or plugin API for exact links.`,
+      message: `${inferredComponents.length} component identities were inferred from instance layer names because this source does not expose componentId. Layer names are labels, not masters. Re-ingest via REST, the plugin, or pass get_design_context for exact links.`,
       detail: { count: inferredComponents.length, sourceKind: doc.source.kind },
     });
   }

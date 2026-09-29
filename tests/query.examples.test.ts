@@ -278,8 +278,8 @@ describe("real example with every pick", () => {
 
     const none = recommendMasters(index, "quiet toggle");
     const noneLead = none.candidates[0];
-    expect(noneLead && "ex" in noneLead && noneLead.ex).toBe("none");
-    expect(noneLead && "exWhy" in noneLead && noneLead.exWhy).toBe("not on any screen");
+    expect(noneLead && !("ex" in (noneLead ?? {}))).toBe(true);
+    expect(noneLead && "exWhy" in noneLead).toBe(false);
     expect(none.cost.chars).toBeLessThanOrEqual(600);
     const missing = getExample(index, index.getNode(ids.quiet)!);
     expect(missing).toEqual({ found: false, reason: "not on any screen" });
@@ -632,8 +632,8 @@ describe("example pointer review fixes", () => {
     const picked = recommendMasters(index, "Button / Type=Primary");
     const lead = picked.candidates.find((row) => row.id === primary) ?? picked.candidates[0];
     expect(lead?.id).toBe(primary);
-    expect(lead && "ex" in lead && lead.ex).toBe("none");
-    expect(lead && "exWhy" in lead && lead.exWhy).toBe("not on any screen");
+    expect(lead && !("ex" in (lead ?? {}))).toBe(true);
+    expect(lead && "exWhy" in lead).toBe(false);
 
     const dangerExample = getExample(index, index.getNode(danger)!);
     expect(dangerExample.found).toBe(true);

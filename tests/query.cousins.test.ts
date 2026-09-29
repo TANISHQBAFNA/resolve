@@ -226,7 +226,11 @@ describe("wrong-cousin report", () => {
     });
     expect(report.cousins.map((hit) => hit.placed.name)).not.toContain("Summary Card");
     expect(report.cousins.map((hit) => hit.placed.name)).not.toContain("Price");
-    expect(report.ok).toBeGreaterThan(0);
+    expect(report.ok).toBe(0);
+    expect(report.unsure.length).toBeGreaterThan(0);
+    expect(report.unsure.every((hit) => hit.why.includes("worth checking"))).toBe(true);
+    expect(JSON.stringify(report)).toContain("guess from layer name, not confirmed");
+    expect(JSON.stringify(report.cousins)).not.toContain("mcp-name:");
   });
 
   it("still flags a real local copy that shares a library master's name", () => {

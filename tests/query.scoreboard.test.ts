@@ -277,7 +277,7 @@ describe("scoreboard", () => {
   it("keeps the main top-pick fields plus ex on golden and regression recommends", () => {
     const index = fixtureIndex();
     const rows = [...loadGoldenCases(goldenDir), ...loadGoldenCases(regressionDir)];
-    const required = ["published", "publishState", "deprecated", "score", "instances", "ex", "whereUsed"] as const;
+    const required = ["published", "publishState", "deprecated", "score", "instances", "whereUsed"] as const;
     for (const row of rows) {
       const screenJob = [row.journey, row.screenType].filter(Boolean).join(" ");
       const context =
@@ -295,7 +295,8 @@ describe("scoreboard", () => {
       if (!lead) continue;
       for (const field of required) expect(lead, `${row.id} ${field}`).toHaveProperty(field);
       if ("ex" in lead) {
-        expect(lead.ex === "none" || !String(lead.ex).includes(" ")).toBe(true);
+        expect(lead.ex).not.toBe("none");
+        expect(lead.ex === undefined || !String(lead.ex).includes(" ")).toBe(true);
         expect(String(lead.ex).length).toBeLessThan(40);
       }
       if ("score" in lead) expect(typeof lead.score).toBe("number");

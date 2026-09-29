@@ -38,6 +38,8 @@ describe("resolve-setup", () => {
     expect(first.stdout).toContain("Library learned?");
     expect(first.stdout).toContain("Rule installed? yes");
     expect(first.stdout).toContain("Words your team uses: .graphify/synonyms.json");
+    expect(first.stdout).toContain("Exact component ids:");
+    expect(first.stdout).toContain("FIGMA_ACCESS_TOKEN");
     expect(first.stdout).toContain("Next:");
 
     const rulePath = join(cwd, ".cursor/rules/resolve.mdc");
@@ -126,10 +128,19 @@ describe("resolve-setup", () => {
     mkdirSync(cwd, { recursive: true });
     mkdirSync(home, { recursive: true });
     const planned = setup(["--global"], cwd, home);
-    expect(planned.status).toBe(0);
-    expect(planned.stdout).not.toContain(join(home, ".cursor"));
-    expect(planned.stdout).toContain(`create ${join(home, ".claude/skills/resolve/SKILL.md")}`);
-    expect(planned.stdout).toContain(`create ${join(home, ".claude/CLAUDE.md")}`);
+    expect(planned.status).toBe(1);
+    expect(planned.stdout).toContain("home folder");
+    expect(planned.stdout).toContain("--global --yes");
+    expect(planned.stdout).toContain(join(home, ".claude/skills/resolve/SKILL.md"));
+    expect(planned.stdout).toContain(join(home, ".claude/CLAUDE.md"));
+    expect(existsSync(join(home, ".claude/CLAUDE.md"))).toBe(false);
+    expect(existsSync(join(home, ".claude/skills/resolve/SKILL.md"))).toBe(false);
+
+    const confirmed = setup(["--global", "--yes"], cwd, home);
+    expect(confirmed.status).toBe(0);
+    expect(confirmed.stdout).not.toContain(join(home, ".cursor"));
+    expect(confirmed.stdout).toContain(`create ${join(home, ".claude/skills/resolve/SKILL.md")}`);
+    expect(confirmed.stdout).toContain(`create ${join(home, ".claude/CLAUDE.md")}`);
     expect(existsSync(join(home, ".claude/CLAUDE.md"))).toBe(true);
     expect(existsSync(join(home, ".claude/skills/resolve/SKILL.md"))).toBe(true);
     expect(existsSync(join(home, ".cursor/rules/resolve.mdc"))).toBe(false);
