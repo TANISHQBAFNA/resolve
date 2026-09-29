@@ -2916,19 +2916,10 @@ export function verifyFrame(
               }
               continue;
             }
-            if (!boundId) {
-              pushUnique(
-                invents,
-                seenInvent,
-                stampHit(instance, { reason: "not-a-master", given: instance.name }),
-                `invent:${instance.id}`,
-              );
-              continue;
-            }
+            // Claimed id missing, spoofed, or not a real master: stay a guess.
           }
-          const before = approvedIds.size;
           considerMaster(main, main.name);
-          if (approvedIds.size > before) nameOnly = true;
+          nameOnly = true;
           continue;
         }
         const masterLabel = variantCardName(index, main);

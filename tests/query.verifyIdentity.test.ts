@@ -41,6 +41,14 @@ function card(designContext?: string) {
   });
 }
 
+function expectUnboundGuess(result: ReturnType<typeof verifyFrame>) {
+  expect(result.pass).toBe(false);
+  expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
+  expect(JSON.stringify(result)).toContain('"result":"name-only"');
+  expect(result.guess).toBe("guess from layer name, not confirmed");
+  expect(result.invents.some((hit) => hit.name === "Button")).toBe(false);
+}
+
 describe("verify means a real component id on that node", () => {
   const index = spoofIndex();
 
@@ -52,10 +60,7 @@ describe("verify means a real component id on that node", () => {
       `<div data-node-id="990:3" componentId="8:8"></div><div data-node-id="990:2" componentId="33:235"></div>`,
     );
     for (const result of [textFirst, buttonFirst]) {
-      expect(result.pass).toBe(false);
-      expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
-      expect(result.guess).toBe("guess from layer name, not confirmed");
-      expect(JSON.stringify(result)).toContain('"result":"name-only"');
+      expectUnboundGuess(result);
     }
   });
 
@@ -63,9 +68,7 @@ describe("verify means a real component id on that node", () => {
     const result = card(
       `<div data-node-id="990:2" componentId="14:101"></div><div data-node-id="990:3"></div>`,
     );
-    expect(result.pass).toBe(false);
-    expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
-    expect(result.invents.some((hit) => hit.name === "Button")).toBe(true);
+    expectUnboundGuess(result);
   });
 
   it("verifies when each node carries its own library id", () => {
@@ -87,10 +90,7 @@ describe("verify means a real component id on that node", () => {
       `<div data-node-id="990:2" componentId="33:235"></div><!-- <div data-node-id="990:3" componentId='14:101'></div> --><div data-node-id="990:3"></div>`,
     ];
     for (const designContext of contexts) {
-      const result = card(designContext);
-      expect(result.pass).toBe(false);
-      expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
-      expect(result.invents.some((hit) => hit.name === "Button")).toBe(true);
+      expectUnboundGuess(card(designContext));
     }
   });
 
@@ -102,9 +102,7 @@ describe("verify means a real component id on that node", () => {
       `<div data-node-id="990:2" componentId="33:235"></div><div data-node-id="990:3"></div><div data-node-id="990:3" componentId="14:101"></div>`,
     );
     for (const result of [realFirst, emptyFirst]) {
-      expect(result.pass).toBe(false);
-      expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
-      expect(result.invents.some((hit) => hit.name === "Button")).toBe(true);
+      expectUnboundGuess(result);
     }
   });
 
@@ -119,10 +117,7 @@ describe("verify means a real component id on that node", () => {
       `${real}<!-- ${hidden}`,
     ];
     for (const designContext of contexts) {
-      const result = card(designContext);
-      expect(result.pass).toBe(false);
-      expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
-      expect(result.invents.some((hit) => hit.name === "Button")).toBe(true);
+      expectUnboundGuess(card(designContext));
     }
   });
 
@@ -248,10 +243,7 @@ describe("verify means a real component id on that node", () => {
       `<div data-node-id="990:2" componentId="33:235"></div><![CDATA[{"data-node-id":"990:3","componentId":"14:101"}]]><div data-node-id="990:3"></div>`,
     ];
     for (const designContext of spoofed) {
-      const result = card(designContext);
-      expect(result.pass, designContext).toBe(false);
-      expect(JSON.stringify(result).toLowerCase()).not.toContain("verified");
-      expect(result.invents.some((hit) => hit.name === "Button")).toBe(true);
+      expectUnboundGuess(card(designContext));
     }
   });
 
