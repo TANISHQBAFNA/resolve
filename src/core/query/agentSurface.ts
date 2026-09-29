@@ -1589,7 +1589,9 @@ function liveNameSets(index: GraphIndex): Set<string>[] {
   const sets: Set<string>[] = [];
   for (const node of index.getNodesByType(...MASTER_TYPES)) {
     if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
-    // `Type=Primary` is a variant layer. Its words are not a component name.
+    // A guessed instance name is not a component. "Primary CTA v2" must not
+    // turn the variant word "primary" into a component.
+    if (isNameInferredMaster(node)) continue;
     if (VARIANT_PROP_NAME.test(node.name)) continue;
     sets.push(new Set(tokensOf(node.name)));
   }

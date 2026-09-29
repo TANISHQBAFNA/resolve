@@ -147,13 +147,30 @@ describe("resolve-setup", () => {
       const claudePath = join(cwd, "CLAUDE.md");
       writeFileSync(claudePath, original);
       const first = setup([], cwd);
-      expect(first.status).toBe(0);
+      expect(first.status).toBe(1);
       expect(first.stdout).toContain(`skip ${claudePath} (left CLAUDE.md; it has only one Resolve marker, so nothing was changed)`);
+      expect(first.stdout).toContain("The Resolve block is NOT installed");
+      expect(first.stdout).toContain("Rule installed? no");
+      expect(first.stdout).toContain("Node ok? yes");
+      expect(first.stdout).not.toContain("Rule installed? yes");
       expect(readFileSync(claudePath, "utf8")).toBe(original);
       const second = setup([], cwd);
-      expect(second.status).toBe(0);
+      expect(second.status).toBe(1);
+      expect(second.stdout).toContain("Rule installed? no");
       expect(readFileSync(claudePath, "utf8")).toBe(original);
     }
+  });
+
+  it("prints a friendly message and the doctor summary when CLAUDE.md is a folder", () => {
+    const cwd = tempDir("eisdir");
+    mkdirSync(join(cwd, "CLAUDE.md"), { recursive: true });
+    const result = setup([], cwd);
+    expect(result.status).toBe(1);
+    expect(`${result.stderr}\n${result.stdout}`).not.toMatch(/EISDIR/);
+    expect(result.stderr).toContain(`Could not write ${join(cwd, "CLAUDE.md")}`);
+    expect(result.stdout).toContain("Node ok? yes");
+    expect(result.stdout).toContain("Rule installed? no");
+    expect(result.stdout).toContain("Next:");
   });
 
   it("keeps CRLF line endings when adding the block to a CRLF CLAUDE.md", () => {

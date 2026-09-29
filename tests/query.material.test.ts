@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import synonymFile from "@/data/synonyms.json";
 import { adaptFigmaMcpMetadata } from "@/core/ingestion/adapters/figmaMcp";
+import { mergeDesignGraphs } from "@/core/ingestion/learnLibrary";
 import { buildGraph } from "@/core/transform/buildGraph";
 import {
   indexGraph,
@@ -17,22 +18,34 @@ import type { DesignGraph, GraphEdge, GraphNode, NodeType } from "@/core/model";
 
 const root = join(fileURLToPath(new URL("..", import.meta.url)), "scoreboard", "material");
 
-function materialIndex() {
+function materialGraph() {
   const dir = join(root, "frames");
   const files = readdirSync(dir).filter((name) => name.startsWith("frame-") && name.endsWith(".xml"));
-  const captures = files.map((name) => ({
-    nodeId: name,
-    metadataXml: readFileSync(join(dir, name), "utf8"),
-  }));
-  return indexGraph(
-    buildGraph(
-      adaptFigmaMcpMetadata({
-        fileKey: "M3",
-        fileName: "Material",
-        captures,
-      }),
-    ),
+  return buildGraph(
+    adaptFigmaMcpMetadata({
+      fileKey: "M3",
+      fileName: "Material",
+      captures: files.map((name) => ({
+        nodeId: name,
+        metadataXml: readFileSync(join(dir, name), "utf8"),
+      })),
+    }),
   );
+}
+
+function materialIndex() {
+  return indexGraph(materialGraph());
+}
+
+function materialWithProduct() {
+  const product = buildGraph(
+    adaptFigmaMcpMetadata({
+      fileKey: "M3APP",
+      fileName: "App",
+      metadataXml: readFileSync(join(root, "frames", "product-screen.xml"), "utf8"),
+    }),
+  );
+  return indexGraph(mergeDesignGraphs(materialGraph(), product));
 }
 
 function family(name: string | undefined): string {
@@ -56,65 +69,70 @@ function related(familyName: string, hints: string[]): boolean {
   return false;
 }
 
-describe("material-like library", () => {
-  const index = materialIndex();
+function scoreMaterial(index: ReturnType<typeof materialIndex>, label: string) {
   const cases = JSON.parse(readFileSync(join(root, "cases.json"), "utf8")) as {
     screens: Array<{ slots: Array<{ q: string; exp: string[] | null }> }>;
     synonyms: Array<{ q: string; exp: string[] }>;
   };
-  const families = [
-    ...new Set(
-      index.getNodesByType("COMPONENT_SET", "MAIN_COMPONENT").map((node) => node.name),
-    ),
-  ];
-
-  it("matches the 8 screens and the synonym probe without inventing", () => {
-    let top = 0;
-    let top3 = 0;
-    let topN = 0;
-    let falseEmpty = 0;
-    let emptyOk = 0;
-    let emptyN = 0;
-    const ids = new Set(index.allNodes.map((node) => node.id));
-    for (const screen of cases.screens) {
-      for (const slot of screen.slots) {
-        const result = recommendMasters(index, slot.q);
-        for (const row of result.candidates) {
-          if ("id" in row && row.id) expect(ids.has(row.id), slot.q).toBe(true);
-        }
-        const names = result.candidates.slice(0, 3).map((row) => family(row.name));
-        const topName = names[0] ?? "";
-        if (slot.exp === null) {
-          emptyN += 1;
-          if (result.candidates.length === 0) emptyOk += 1;
-        } else {
-          topN += 1;
-          if (slot.exp.includes(topName)) top += 1;
-          if (slot.exp.some((exp) => names.includes(exp))) top3 += 1;
-          if (result.candidates.length === 0) falseEmpty += 1;
-        }
+  let top = 0;
+  let top3 = 0;
+  let topN = 0;
+  let falseEmpty = 0;
+  let emptyOk = 0;
+  let emptyN = 0;
+  const ids = new Set(index.allNodes.map((node) => node.id));
+  for (const screen of cases.screens) {
+    for (const slot of screen.slots) {
+      const result = recommendMasters(index, slot.q);
+      for (const row of result.candidates) {
+        if ("id" in row && row.id) expect(ids.has(row.id), `${label} ${slot.q}`).toBe(true);
+      }
+      const names = result.candidates.slice(0, 3).map((row) => family(row.name));
+      const topName = names[0] ?? "";
+      if (slot.exp === null) {
+        emptyN += 1;
+        if (result.candidates.length === 0) emptyOk += 1;
+      } else {
+        topN += 1;
+        if (slot.exp.includes(topName)) top += 1;
+        if (slot.exp.some((exp) => names.includes(exp))) top3 += 1;
+        if (result.candidates.length === 0) falseEmpty += 1;
       }
     }
-    let syn = 0;
-    for (const row of cases.synonyms) {
-      const result = recommendMasters(index, row.q);
-      if (row.exp.includes(family(result.candidates[0]?.name))) syn += 1;
-    }
-    expect(top).toBeGreaterThanOrEqual(39);
-    expect(top3 / topN).toBeGreaterThanOrEqual(0.9);
-    expect(topN).toBe(41);
-    expect(falseEmpty).toBe(0);
-    expect(emptyOk).toBe(emptyN);
-    expect(emptyN).toBe(14);
-    const primary = recommendMasters(index, "primary button");
-    const primaryTop = family(primary.candidates[0]?.name);
-    const primaryConfident = primary.match !== "weak match";
-    expect(primaryTop !== "Button" && primaryConfident).toBe(false);
-    expect(syn).toBeGreaterThanOrEqual(16);
-    expect(cases.synonyms).toHaveLength(18);
+  }
+  let syn = 0;
+  for (const row of cases.synonyms) {
+    const result = recommendMasters(index, row.q);
+    if (row.exp.includes(family(result.candidates[0]?.name))) syn += 1;
+  }
+  expect(top, label).toBe(41);
+  expect(top3, label).toBe(41);
+  expect(topN).toBe(41);
+  expect(falseEmpty, label).toBe(0);
+  expect(emptyOk, label).toBe(14);
+  expect(emptyN).toBe(14);
+  expect(syn, label).toBe(18);
+  for (const query of ["primary button", "primary sign in button"]) {
+    const card = recommendMasters(index, query);
+    expect(family(card.candidates[0]?.name), `${label} ${query}`).toBe("Button");
+    expect(card.match, `${label} ${query}`).toBe("weak match");
+    expect(card.candidates.length, `${label} ${query}`).toBeGreaterThan(0);
+    expect(card.candidates.length, `${label} ${query}`).toBeLessThanOrEqual(3);
+    expect(card.candidates.some((row) => family(row.name) === "Tabs"), `${label} ${query}`).toBe(false);
+  }
+}
+
+describe("material-like library", () => {
+  it("scores the library alone and the library plus a product screen", () => {
+    scoreMaterial(materialIndex(), "library");
+    scoreMaterial(materialWithProduct(), "library+product");
   });
 
   it("gives every starter recipe a nextRecommend that is right or honestly empty", () => {
+    const index = materialIndex();
+    const families = [
+      ...new Set(index.getNodesByType("COMPONENT_SET", "MAIN_COMPONENT").map((node) => node.name)),
+    ];
     for (const recipe of starterRecipes()) {
       for (const slot of recipe.slots) {
         const query = slotRecommendIntent(recipe, slot);

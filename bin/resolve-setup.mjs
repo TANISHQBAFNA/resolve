@@ -13,7 +13,7 @@ if (nodeVersionTooOld(process.version)) {
  * global rules folder; its rule stays in the project.
  * Re-runs only change a complete marked block. Does not read tokens or other secrets.
  */
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,9 +35,26 @@ export const CLAUDE_BLOCK = [
   "",
 ].join("\n");
 
+function writeError(target, error) {
+  const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+  if (code === "EACCES" || code === "EPERM" || code === "EROFS") {
+    return new Error(`Could not write in ${dirname(target)}. Resolve needs permission to create files there.`);
+  }
+  return new Error(`Could not write ${target}. Resolve could not create that file.`);
+}
+
 function readOrNull(path) {
   if (!existsSync(path)) return null;
-  return readFileSync(path, "utf8");
+  try {
+    if (statSync(path).isDirectory()) {
+      const error = new Error("path is a folder");
+      error.code = "EISDIR";
+      throw error;
+    }
+    return readFileSync(path, "utf8");
+  } catch (error) {
+    throw writeError(path, error);
+  }
 }
 
 function splitFrontmatter(text) {
@@ -128,16 +145,7 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
         mkdirSync(dirname(item.path), { recursive: true });
         writeFileSync(item.path, item.text);
       } catch (error) {
-        const code = error && typeof error === "object" && "code" in error ? error.code : "";
-        if (code === "EACCES" || code === "EPERM" || code === "EROFS") {
-          const folder = dirname(item.path);
-          const friendly = new Error(
-            `Could not write in ${folder}. Resolve needs permission to create files there.`,
-          );
-          friendly.code = code;
-          throw friendly;
-        }
-        throw error;
+        throw writeError(item.path, error);
       }
     }
   }
@@ -172,12 +180,13 @@ function libraryLearned(cwd, home) {
 }
 
 /** Plain status after install. Not an MCP tool. */
-export function doctorLines({ cwd, home, ruleInstalled }) {
+export function doctorLines({ cwd, home, ruleInstalled, blocked }) {
   const nodeOk = !nodeVersionTooOld(process.version);
   const figma = figmaConnected(cwd, home);
   const library = libraryLearned(cwd, home);
   let next;
   if (!nodeOk) next = "Install Node 22.12 or newer, then run resolve-setup again.";
+  else if (!ruleInstalled && blocked === "claude") next = "Fix the Resolve markers in CLAUDE.md, then run resolve-setup again.";
   else if (!ruleInstalled) next = "Re-run with --force to install the rule.";
   else if (!figma) next = "Connect Figma in the design app.";
   else if (!library) next = "Map the library: Figma get_metadata, then learn_library.";
@@ -218,26 +227,39 @@ function main() {
   try {
     planned = runSetup({ cwd, home, global: isGlobal, dryRun, force });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const raw = error instanceof Error ? error.message : String(error);
+    const message = raw.includes("EISDIR")
+      ? "Could not write the setup files. A path is a folder, or the write failed."
+      : raw;
     process.stderr.write(`${message}\n`);
+    process.stdout.write(`${doctorLines({ cwd, home, ruleInstalled: false })}\n`);
     process.exit(1);
   }
   let ruleSkipped = false;
+  let claudeSkipped = false;
   for (const item of planned) {
     const note = item.note ?? (item.action === "skip" ? " (left existing file; no Resolve markers)" : "");
     process.stdout.write(`${item.action} ${item.path}${note}\n`);
     if (item.action === "skip" && item.path.endsWith(`${join(".cursor", "rules", "resolve.mdc")}`)) ruleSkipped = true;
+    if (item.action === "skip" && item.path.endsWith(`${join("CLAUDE.md")}`)) claudeSkipped = true;
   }
-  const ruleInstalled = isGlobal
-    ? planned.some((item) => item.path.endsWith(`${join("skills", "resolve", "SKILL.md")}`) && item.action !== "skip")
-    : !ruleSkipped;
-  process.stdout.write(`${doctorLines({ cwd, home, ruleInstalled })}\n`);
+  const skillInstalled = planned.some(
+    (item) => item.path.endsWith(`${join("skills", "resolve", "SKILL.md")}`) && item.action !== "skip",
+  );
+  const ruleInstalled = (isGlobal ? skillInstalled : !ruleSkipped) && !claudeSkipped;
+  const blocked = claudeSkipped ? "claude" : undefined;
+  process.stdout.write(`${doctorLines({ cwd, home, ruleInstalled, blocked })}\n`);
+  if (claudeSkipped) {
+    process.stdout.write(
+      "The Resolve block is NOT installed. CLAUDE.md has only one Resolve marker, so nothing was changed.\n",
+    );
+  }
   if (ruleSkipped) {
     process.stdout.write(
       "The Cursor rule is NOT installed. An existing file has no Resolve markers. Re-run with --force to replace it.\n",
     );
-    process.exit(1);
   }
+  if (ruleSkipped || claudeSkipped) process.exit(1);
 }
 
 function isDirectRun() {
