@@ -12,6 +12,7 @@ import {
   contextCarriesMasterIds,
   contextIdentityFor,
   elementComponentIds,
+  masterByIdOrKey,
 } from "@/core/ingestion/designContextIds";
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import { computeAnalytics, computeComponentUsage, type GraphAnalytics } from "./analytics";
@@ -2901,7 +2902,7 @@ export function verifyFrame(
         if (isNameInferredMaster(main)) {
           if (idsInContext) {
             const boundId = contextIdentityFor(componentIds, instance.figmaNodeId);
-            const bound = boundId ? resolveNode(index, boundId) : undefined;
+            const bound = boundId ? masterByIdOrKey(index.graph, boundId) : undefined;
             const boundMaster = bound ? asMaster(index, bound) : undefined;
             if (boundMaster && !isNameInferredMaster(boundMaster)) {
               considerMaster(boundMaster, instance.name);
@@ -2916,9 +2917,8 @@ export function verifyFrame(
               }
               continue;
             }
-            // Claimed id missing, spoofed, or not a real master: stay a guess.
+            // Claimed id missing, spoofed, name-in-slot, or not a real master: stay a guess.
           }
-          considerMaster(main, main.name);
           nameOnly = true;
           continue;
         }

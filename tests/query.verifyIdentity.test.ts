@@ -61,6 +61,7 @@ describe("verify means a real component id on that node", () => {
     );
     for (const result of [textFirst, buttonFirst]) {
       expectUnboundGuess(result);
+      expect(result.approved).toBe(1);
     }
   });
 

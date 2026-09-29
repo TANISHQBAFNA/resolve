@@ -191,3 +191,143 @@ describe("an id that is not in any library stays a guess", () => {
     expect(JSON.stringify(result).length).toBeLessThanOrEqual(600);
   });
 });
+
+describe("a name in an id slot is not a component id", () => {
+  const nameOnly = `<frame id="3:1" name="F1"><instance id="3:2" name="Button" /></frame>`;
+  const xmlNamed = `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="Button" /></frame>`;
+  const xmlWrongName = `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="Text field" /></frame>`;
+  const xmlKeyNamed = `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentKey="Button" /></frame>`;
+  const xmlDataNamed = `<frame id="3:1" name="F1"><instance id="3:2" name="Button" data-component-id="Button" /></frame>`;
+
+  const namedContexts = [
+    `<div data-node-id="3:2" componentId="Button"></div>`,
+    `<div data-node-id="3:2" componentId="button"></div>`,
+    `<div data-node-id="3:2" componentId="Text field"></div>`,
+    `<div data-node-id="3:2" componentKey="Button"></div>`,
+    `<div data-node-id="3:2" data-component-id="Button"></div>`,
+    `{"nodes":[{"data-node-id":"3:2","componentId":"Button"}]}`,
+    `{"nodes":[{"data-node-id":"3:2","componentKey":"Button"}]}`,
+  ];
+
+  it("does not verify a master name placed in componentId, including XML ingest", () => {
+    for (const xml of [xmlNamed, xmlWrongName, xmlKeyNamed, xmlDataNamed]) {
+      const index = graphs(xml);
+      const result = verifyFrame(index, { frame: "F1" });
+      expectNameOnly(result);
+      expect(result.approved).toBe(0);
+      const instance = index.allNodes.find((node) => node.figmaNodeId === "3:2");
+      const main = instance ? index.getMainComponent(instance.id) : undefined;
+      expect(main?.metadata?.["identity"]).toBe("inferred-from-name");
+      expect(main?.name).toBe("Button");
+    }
+  });
+
+  it("does not verify a name in JSON, data-component-id, componentKey, or lowercase", () => {
+    const index = graphs(nameOnly);
+    for (const designContext of namedContexts) {
+      const result = verifyFrame(index, { frame: "F1", designContext });
+      expectNameOnly(result);
+      expect(result.approved, designContext).toBe(0);
+      expect(result.labelDiffers, designContext).toBeUndefined();
+    }
+  });
+
+  it("does not verify a variant card name used as an id", () => {
+    const library = buildGraph(
+      adaptFigmaMcpMetadata({
+        fileKey: "LIB",
+        fileName: "Library",
+        metadataXml: `<frame id="1:1" name="Kit">
+          <frame id="40:1" name="Chip">
+            <component id="40:2" name="Style=Primary" />
+          </frame>
+        </frame>`,
+      }),
+    );
+    const product = buildGraph(
+      adaptFigmaMcpMetadata({
+        fileKey: "APP",
+        fileName: "App",
+        metadataXml: `<frame id="3:1" name="F1"><instance id="3:2" name="Chip" /></frame>`,
+      }),
+    );
+    const index = indexGraph(mergeDesignGraphs(library, product));
+    const variantName = index.allNodes.find((node) => node.figmaNodeId === "40:2");
+    expect(variantName?.name).toMatch(/Primary/);
+    const named = verifyFrame(index, {
+      frame: "F1",
+      designContext: `<div data-node-id="3:2" componentId="Chip / Style=Primary"></div>`,
+    });
+    expectNameOnly(named);
+    const xmlNamedVariant = indexGraph(
+      mergeDesignGraphs(
+        library,
+        buildGraph(
+          adaptFigmaMcpMetadata({
+            fileKey: "APP",
+            fileName: "App",
+            metadataXml: `<frame id="3:1" name="F1"><instance id="3:2" name="Chip" componentId="Chip / Style=Primary" /></frame>`,
+          }),
+        ),
+      ),
+    );
+    expectNameOnly(verifyFrame(xmlNamedVariant, { frame: "F1" }));
+    const real = verifyFrame(index, {
+      frame: "F1",
+      designContext: `<div data-node-id="3:2" componentId="40:2"></div>`,
+    });
+    expect(real.pass).toBe(true);
+    expect(JSON.stringify(real)).toContain('"result":"verified"');
+  });
+
+  it("still verifies a real node id and a real published key", () => {
+    const index = graphs(nameOnly);
+    const button = index.allNodes.find((node) => node.figmaNodeId === "14:101");
+    expect(button).toBeTruthy();
+    button!.metadata = { ...button!.metadata, key: "pub-btn-key" };
+
+    const byId = verifyFrame(index, {
+      frame: "F1",
+      designContext: `<div data-node-id="3:2" componentId="14:101"></div>`,
+    });
+    expect(byId.pass).toBe(true);
+    expect(JSON.stringify(byId)).toContain('"result":"verified"');
+    expect(byId.guess).toBeUndefined();
+
+    const byKey = verifyFrame(index, {
+      frame: "F1",
+      designContext: `<div data-node-id="3:2" componentKey="pub-btn-key"></div>`,
+    });
+    expect(byKey.pass).toBe(true);
+    expect(JSON.stringify(byKey)).toContain('"result":"verified"');
+
+    const xmlReal = graphs(
+      `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="14:101" /></frame>`,
+    );
+    const xmlCard = verifyFrame(xmlReal, { frame: "F1" });
+    expect(xmlCard.pass).toBe(true);
+    expect(verifyFrame(xmlReal, { frame: "F1", designContext: `<div data-node-id="3:2" componentId="14:101"></div>` }).pass).toBe(
+      true,
+    );
+  });
+
+  it("still verifies a renamed layer bound by a real id, with labelDiffers", () => {
+    const index = graphs(`<frame id="3:1" name="F1"><instance id="3:2" name="Button" /></frame>`);
+    const result = verifyFrame(index, {
+      frame: "F1",
+      designContext: `<div data-node-id="3:2" componentId="33:235"></div>`,
+    });
+    expect(result.pass).toBe(true);
+    expect(result.labelDiffers).toBe(true);
+    expect(result.renamed).toEqual([{ node: "3:2", layerName: "Button", masterName: "Text field" }]);
+    const xml = graphs(
+      `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="33:235" /></frame>`,
+    );
+    const viaXml = verifyFrame(xml, { frame: "F1" });
+    expect(viaXml.pass).toBe(true);
+    expect(viaXml.labelDiffers).toBe(true);
+    expect(
+      verifyFrame(xml, { frame: "F1", designContext: `<div data-node-id="3:2" componentId="33:235"></div>` }).pass,
+    ).toBe(true);
+  });
+});

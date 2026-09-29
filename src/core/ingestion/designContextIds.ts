@@ -312,14 +312,21 @@ function isInferredMaster(node: GraphNode): boolean {
   return `${node.id} ${node.figmaNodeId ?? ""}`.includes("mcp-name:");
 }
 
-function masterForId(graph: DesignGraph, boundId: string): GraphNode | undefined {
-  const needles = new Set(idVariants(boundId));
+/**
+ * Bind a claimed componentId/componentKey only to a master's node id or
+ * published key. Never to a name, lowercase name, or variant label.
+ */
+export function masterByIdOrKey(graph: DesignGraph, boundId: string): GraphNode | undefined {
+  const claimed = boundId.trim();
+  if (!claimed) return undefined;
+  const needles = new Set(idVariants(claimed));
   for (const node of graph.nodes) {
     if (!COMPONENT_DEFINITION_TYPES.includes(node.type)) continue;
     if (isInferredMaster(node)) continue;
     if (isUnbackedStub(node)) continue;
     if (needles.has(node.id) || (node.figmaNodeId && needles.has(node.figmaNodeId))) return node;
-    if (typeof node.metadata?.["key"] === "string" && needles.has(node.metadata["key"])) return node;
+    const key = typeof node.metadata?.["key"] === "string" ? node.metadata["key"].trim() : "";
+    if (key && key === claimed) return node;
   }
   return undefined;
 }
@@ -459,7 +466,7 @@ export function settleInstanceBindings(graph: DesignGraph): DesignGraph {
     if (instance.type !== "COMPONENT_INSTANCE") continue;
     const claimed = claimedIdOf(instance, byId);
     if (!claimed) continue;
-    const master = masterForId(graph, claimed);
+    const master = masterByIdOrKey(graph, claimed);
     if (master) {
       const previous = instance.mainComponentId;
       instance.mainComponentId = master.id;
@@ -499,7 +506,7 @@ export function applyLearnedIdentity(graph: DesignGraph, raw: unknown): number {
     if (node.type !== "COMPONENT_INSTANCE") continue;
     const boundId = contextIdentityFor(bindings, node.figmaNodeId);
     if (!boundId) continue;
-    const master = masterForId(graph, boundId);
+    const master = masterByIdOrKey(graph, boundId);
     if (!master) {
       node.metadata = { ...node.metadata, unresolvedMainComponentId: boundId };
       continue;

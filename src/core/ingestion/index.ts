@@ -32,5 +32,6 @@ export {
   contextCarriesMasterIds,
   contextIdentityFor,
   elementComponentIds,
+  masterByIdOrKey,
   settleInstanceBindings,
 } from "./designContextIds";
