@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import { SourceDocumentSchema } from "@/core/ingestion/types";
 import { adaptFigmaRestFile } from "@/core/ingestion/adapters/figmaRest";
@@ -746,7 +746,17 @@ export async function runCli(argv: string[]): Promise<void> {
         if (!loaded) throw new Error(missingGraphMessage());
         const out = flag(args, "out") ?? resolve("scoreboard/golden/from-library.json");
         const cases = initGoldenCases(loaded.index);
-        writeFileSync(out, `${JSON.stringify({ version: 1, cases }, null, 2)}\n`);
+        const body = `${JSON.stringify({ version: 1, cases }, null, 2)}\n`;
+        try {
+          mkdirSync(dirname(out), { recursive: true });
+          writeFileSync(out, body);
+        } catch (error) {
+          const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+          if (code === "ENOENT" || code === "EISDIR" || code === "EACCES" || code === "EPERM" || code === "EROFS") {
+            throw new Error(`Could not write ${out}. Create that folder, or pass --out <file>.`);
+          }
+          throw error;
+        }
         process.stdout.write(`Wrote ${cases.length} cases to ${out}\n`);
         return;
       }

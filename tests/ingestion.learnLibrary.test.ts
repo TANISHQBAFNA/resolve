@@ -368,7 +368,8 @@ describe("learn_library from Figma MCP get_metadata", () => {
     expect(fake.invents.some((hit) => hit.name === "Fancy Pay Button")).toBe(true);
 
     const card = verifyFrame(index, { components: ["Summary Card", "Price"] });
-    expect(card.pass).toBe(true);
+    expect(card.pass).toBe(false);
+    expect(JSON.stringify(card)).toContain('"result":"nothing checked"');
     expect(card.invents).toEqual([]);
     expect(card.resolved?.map((row) => row.id).every((id) => !String(id).includes("mcp-name:"))).toBe(
       true,

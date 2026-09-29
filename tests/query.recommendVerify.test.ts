@@ -378,7 +378,9 @@ describe("verify exact names — no fuzzy approve (Material invent)", () => {
   it("approves an exact name and echoes given, name, id, fileKey", () => {
     const { index, ids: lab } = materialLab();
     const result = verifyFrame(index, { components: ["App header"] });
-    expect(result.pass).toBe(true);
+    expect(result.pass).toBe(false);
+    expect(JSON.stringify(result)).toContain('"result":"nothing checked"');
+    expect(result.hint).not.toMatch(/verified/i);
     expect(result.approved).toBe(1);
     expect(result.resolved).toEqual([
       expect.objectContaining({

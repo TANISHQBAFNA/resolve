@@ -2706,17 +2706,39 @@ function contextCarriesMasterIds(raw: unknown): boolean {
   return /componentId|componentKey|mainComponent|data-component-id|component-id/i.test(contextText(raw));
 }
 
-function contextIdentityFor(raw: unknown, nodeId: string | undefined): string | undefined {
-  if (!nodeId) return undefined;
+const ELEMENT_TAG = /<[^>]*>/g;
+const NODE_ID_ATTR = /\bdata-node-id\s*=\s*["']([^"']+)["']/i;
+const COMPONENT_ATTR =
+  /\b(?:componentId|componentKey|mainComponent|data-component-id|component-id)\s*=\s*["']([^"']+)["']/i;
+
+/**
+ * Component id that sits on the same element as this node.
+ * A neighbour's id does not count.
+ */
+function elementComponentIds(raw: unknown): Map<string, string> {
+  const found = new Map<string, string>();
   const text = contextText(raw);
-  const escaped = nodeId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const after = new RegExp(`${escaped}[\\s\\S]{0,500}`, "i").exec(text)?.[0] ?? "";
-  const before = new RegExp(`[\\s\\S]{0,500}${escaped}`, "i").exec(text)?.[0] ?? "";
-  const blob = `${before}\n${after}`;
-  const match = /(?:componentId|componentKey|mainComponent|data-component-id|component-id)\s*[=:]\s*["']?([^"'\s,}]+)/i.exec(
-    blob,
-  );
-  return match?.[1];
+  for (const tag of text.match(ELEMENT_TAG) ?? []) {
+    const node = NODE_ID_ATTR.exec(tag);
+    const nodeId = node?.[1];
+    if (!nodeId || found.has(nodeId)) continue;
+    const component = COMPONENT_ATTR.exec(tag);
+    const componentId = component?.[1];
+    if (componentId) found.set(nodeId, componentId);
+  }
+  return found;
+}
+
+function contextIdentityFor(bindings: Map<string, string>, nodeId: string | undefined): string | undefined {
+  if (!nodeId) return undefined;
+  return bindings.get(nodeId);
+}
+
+function suppliedIdentity(index: GraphIndex, given: string, node: GraphNode): boolean {
+  const trimmed = given.trim();
+  if (node.id === trimmed) return true;
+  if (matchesFigmaId(node, trimmed)) return true;
+  return matchesStampedId(node, trimmed, index.graph.fileKey);
 }
 
 /**
@@ -2833,7 +2855,9 @@ export function verifyFrame(
 
   let frameNode: GraphNode | undefined;
   let nameOnly = false;
+  let idChecked = 0;
   const idsInContext = contextCarriesMasterIds(input.designContext);
+  const componentIds = elementComponentIds(input.designContext);
   const frameName = input.frame?.trim();
   if (frameName) {
     frameNode = resolveNode(index, frameName);
@@ -2858,7 +2882,7 @@ export function verifyFrame(
         }
         if (isNameInferredMaster(main)) {
           if (idsInContext) {
-            const boundId = contextIdentityFor(input.designContext, instance.figmaNodeId);
+            const boundId = contextIdentityFor(componentIds, instance.figmaNodeId);
             const bound = boundId ? resolveNode(index, boundId) : undefined;
             const boundMaster = bound ? asMaster(index, bound) : undefined;
             if (!boundMaster || isNameInferredMaster(boundMaster)) {
@@ -2871,6 +2895,7 @@ export function verifyFrame(
               continue;
             }
             considerMaster(boundMaster, instance.name);
+            idChecked += 1;
             continue;
           }
           const before = approvedIds.size;
@@ -2879,6 +2904,7 @@ export function verifyFrame(
           continue;
         }
         considerMaster(main, main.name);
+        idChecked += 1;
       }
     }
   }
@@ -2932,14 +2958,18 @@ export function verifyFrame(
       pushUnique(invents, seenInvent, stampHit(node, { reason: "not-a-master", given }), `invent:${node.id}`);
       continue;
     }
+    const identityNode = preferred ?? master ?? node;
+    const byIdentity = suppliedIdentity(index, given, identityNode);
     if (!preferred && master && isNameInferredMaster(master)) {
       const before = approvedIds.size;
       considerMaster(master, given);
       if (approvedIds.size > before) nameOnly = true;
+      else if (byIdentity) idChecked += 1;
       continue;
     }
     if (preferred) considerMaster(preferred, given);
     else if (master) considerMaster(master, given);
+    if (byIdentity) idChecked += 1;
   }
 
   const frameKey = frameNode ? fileOf(frameNode) : undefined;
@@ -2955,7 +2985,7 @@ export function verifyFrame(
   const content = frameNode
     ? frameContentWarnings(index, frameNode.id, input.placeholders, { overlay: applied?.overlay })
     : { warnings: [] as ContentWarning[], blocking: false, textChecked: false as const, textReason: TEXT_NO_FRAME };
-  const pass = invents.length === 0 && deprecatedHits.length === 0 && unresolved.length === 0;
+  const clean = invents.length === 0 && deprecatedHits.length === 0 && unresolved.length === 0;
   const placed: GraphNode[] = [...approvedIds]
     .map((id) => index.getNode(id))
     .filter((node): node is GraphNode => Boolean(node));
@@ -2970,9 +3000,10 @@ export function verifyFrame(
       })
     : undefined;
   const bindPass = !ruleFailure;
-  const ok = pass && bindPass && !content.blocking;
+  const ok = clean && bindPass && !content.blocking;
   const nameOnlyPass = ok && nameOnly;
-  const verified = ok && !nameOnly;
+  const verified = ok && idChecked > 0 && !nameOnly;
+  const unchecked = ok && idChecked === 0 && !nameOnly;
   const bindHint = ruleFailure
     ? `Fail — bind rule ${ruleFailure.rule}: ${ruleFailure.reason}.${
         ruleFailure.expected ? ` Place ${ruleFailure.expected.name} (${ruleFailure.expected.id}).` : ""
@@ -2983,14 +3014,22 @@ export function verifyFrame(
     ? `Name-only. Matched by layer name. No component id or key. ${REFRESH_HINT}`
     : verified
       ? `Verified. ${REFRESH_HINT}`
-      : content.blocking && pass && bindPass
-        ? `Fail — placeholder text left in a placed instance. ${REFRESH_HINT}`
-        : bindHint ??
-          `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`;
+      : unchecked
+        ? "Nothing checked. No component id or key."
+        : content.blocking && clean && bindPass
+          ? `Fail — placeholder text left in a placed instance. ${REFRESH_HINT}`
+          : bindHint ??
+            `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`;
   const pendingHint = pending ? `pending improvements: ${pending}.` : undefined;
   const base = {
     pass: verified,
-    ...(nameOnlyPass ? { result: "name-only" as const } : verified ? { result: "verified" as const } : {}),
+    ...(nameOnlyPass
+      ? { result: "name-only" as const }
+      : verified
+        ? { result: "verified" as const }
+        : unchecked
+          ? { result: "nothing checked" as const }
+          : {}),
     ...(nameOnly ? { nameOnly: true as const } : {}),
     approved: approvedIds.size,
     resolved,

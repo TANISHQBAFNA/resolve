@@ -96,12 +96,6 @@ Designers add screen packs in JSON — see [`docs/RECIPES.md`](RECIPES.md). Over
 
 **Do not** `Read` `.graphify/graph.json`. Resolve cards are the cheap path.
 
-## Caps
-
-- Stay at **Level-1** by default
-- **Level-2** only when blast radius is large
-- Whole-file edits only if you explicitly ask
-
 ## Cursor wiring
 
 - Skill: `skills/resolve/SKILL.md`

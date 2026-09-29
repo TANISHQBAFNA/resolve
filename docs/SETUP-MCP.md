@@ -19,11 +19,7 @@ Learning a library needs **one** of:
 
 1. `node -v` must be **22.12 or newer**. If it is older, install the current LTS from [nodejs.org](https://nodejs.org).
 2. `git --version`. On a Mac, that command installs the command line tools if they are missing.
-3. In Terminal, run this once and wait until you see `[resolve] MCP server ready`:
-
-```bash
-npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
-```
+3. Do not start the server in a terminal, and do not wait for a ready line. The design app starts Resolve. You do not leave a terminal running.
 
 4. Once, in the project, so the agent calls Resolve on every design task:
 
