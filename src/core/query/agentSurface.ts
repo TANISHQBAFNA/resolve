@@ -8,6 +8,12 @@ import {
   TEXT_NO_FRAME,
   textStampsFrom,
 } from "@/core/ingestion/textStamps";
+import {
+  contextCarriesMasterIds,
+  contextIdentityFor,
+  elementComponentIds,
+  masterByIdOrKey,
+} from "@/core/ingestion/designContextIds";
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import { computeAnalytics, computeComponentUsage, type GraphAnalytics } from "./analytics";
 import { detectCommunitiesForIndex } from "./communities";
@@ -33,7 +39,6 @@ import {
 import {
   examplePointer,
   exampleSentence,
-  EX_NONE,
   frameContentWarnings,
   getExample,
   instanceTextLayers,
@@ -211,14 +216,17 @@ export function screenInventory(index: GraphIndex, nodeId: string) {
     .map((entry) => ({
       ...briefNode(entry.component),
       count: entry.count,
-      identity: entry.component.metadata?.["identity"],
     }));
 
+  const guessed = [...tally.values()].some((entry) => isNameInferredMaster(entry.component));
   return {
     screen: briefNode(node),
     components,
     unresolvedInstances: unresolved,
-    hint: "Each component listed once; count is how many times it is placed. Write from this list. Do not call Figma get_design_context on this FRAME.",
+    ...(guessed ? { guess: LAYER_NAME_GUESS } : {}),
+    hint: guessed
+      ? `${LAYER_NAME_GUESS}. ${EXACT_COMPONENT_HINT}. Write from this list. Do not call Figma get_design_context on this FRAME.`
+      : "Each component listed once; count is how many times it is placed. Write from this list. Do not call Figma get_design_context on this FRAME.",
   };
 }
 
@@ -325,12 +333,13 @@ export function usageCardForComponent(
     riskScore: usage.riskScore,
     pages,
     hint: inferred
-      ? "Instance name guess. Not a placeable master. Call recommend for a library component."
+      ? `${LAYER_NAME_GUESS}. ${EXACT_COMPONENT_HINT}. Call recommend for a library component.`
       : usage.instanceCount === 0
         ? "Master is in the graph with this id even with zero instances. Place this figmaNodeId. Usage is additive."
         : "Instance this figmaNodeId in Figma. Do not get_design_context on a parent FRAME.",
   };
   if (inferred) {
+    Object.assign(base.component, { guess: LAYER_NAME_GUESS });
     delete base.component.figmaNodeId;
     const component = base.component as { id?: string };
     if (component.id?.includes("mcp-name:")) delete component.id;
@@ -515,7 +524,6 @@ export function exampleCard(
     return withCost({
       found: false as const,
       name,
-      ex: EX_NONE,
       exWhy: unknown,
       example: exampleSentence(unknown),
     });
@@ -526,7 +534,6 @@ export function exampleCard(
       found: false as const,
       name: variantCardName(index, node),
       id: node.id,
-      ex: EX_NONE,
       exWhy: lookup.reason,
       example: exampleSentence(lookup.reason),
     });
@@ -668,6 +675,11 @@ export function isNameInferredMaster(node: GraphNode): boolean {
   return id.includes("mcp-name:");
 }
 
+/** Explicit card marker. Guessed identity is never a confirmed component. */
+export const LAYER_NAME_GUESS = "guess from layer name, not confirmed";
+export const EXACT_COMPONENT_HINT =
+  "Add a Figma access token (or use the design-context read) to get exact components";
+
 function realMastersNamed(index: GraphIndex, name: string): GraphNode[] {
   const needle = name.trim().toLowerCase();
   if (!needle) return [];
@@ -714,6 +726,16 @@ function placeableNode(
 }
 
 const VARIANT_PROP_NAME = /^[^,=]+=[^,=]+(?:,\s*[^,=]+=[^,=]+)*$/;
+
+/** Family name only. `Button Primary` and `Button / Style=Primary` are the Button family. A variant named `Primary` keeps that name. */
+function familyNameOf(name: string, setName?: string): string {
+  if (VARIANT_PROP_NAME.test(name)) return setName ?? "";
+  const set = setName?.trim();
+  if (!set) return name;
+  if (name === set) return name;
+  if (name.startsWith(`${set} / `) || name.startsWith(`${set} `)) return set;
+  return name;
+}
 
 function variantLabel(node: GraphNode): string {
   const name = node.name.trim();
@@ -1189,7 +1211,7 @@ export interface RecommendCandidate {
   set?: string;
   status?: GraphNode["status"];
   slots?: string[];
-  /** Top pick only. Node id, `fileKey:nodeId` when the example file differs, or `none`. */
+  /** Top pick only. Node id, or `fileKey:nodeId` when the example file differs. Omitted when none. */
   ex?: string;
   exFileKey?: string;
   exWhy?: ExampleReason;
@@ -1593,6 +1615,11 @@ function liveNameSets(index: GraphIndex): Set<string>[] {
     // turn the variant word "primary" into a component.
     if (isNameInferredMaster(node)) continue;
     if (VARIANT_PROP_NAME.test(node.name)) continue;
+    if (node.componentSetId) {
+      const set = index.getNode(node.componentSetId);
+      sets.push(new Set(tokensOf(set?.name || familyNameOf(node.name, set?.name))));
+      continue;
+    }
     sets.push(new Set(tokensOf(node.name)));
   }
   return sets;
@@ -1764,8 +1791,7 @@ function withoutGenericCousins<T extends { node: { name: string }; setName?: str
   queryTokens: string[],
   allowClip: boolean,
 ): T[] {
-  const familyOf = (entry: T): string =>
-    VARIANT_PROP_NAME.test(entry.node.name) ? (entry.setName ?? "") : entry.node.name;
+  const familyOf = (entry: T): string => familyNameOf(entry.node.name, entry.setName);
   const modifiers = queryTokens.filter((token) => modifierWord(token) && !GENERIC_NAME_TOKENS.has(token));
   const covered = modifiers.filter((token) =>
     entries.some((entry) => tokensOf(familyOf(entry)).some((name) => name === token || inflectsName(token, name))),
@@ -2691,182 +2717,6 @@ function uniqueNameTypo(index: GraphIndex, ask: string): GraphNode | undefined {
   return winners.length === 1 ? winners[0] : undefined;
 }
 
-function contextText(raw: unknown): string {
-  if (typeof raw === "string") return raw;
-  if (raw == null) return "";
-  try {
-    return JSON.stringify(raw);
-  } catch {
-    return "";
-  }
-}
-
-/** Design context names a real component id or key, not only a layer name. */
-function contextCarriesMasterIds(raw: unknown): boolean {
-  return /componentId|componentKey|mainComponent|data-component-id|component-id/i.test(contextText(raw));
-}
-
-const ELEMENT_TAG = /<[^>]*>/g;
-const IDENTITY_ATTRS = ["componentid", "componentkey"];
-
-interface ElementBindings {
-  ids: Map<string, string>;
-  conflicted: Set<string>;
-}
-
-function elementNameAt(lower: string, lt: number): string {
-  let i = lt + 1;
-  if (lower[i] === "/") i += 1;
-  const start = i;
-  while (i < lower.length && /[a-z0-9]/.test(lower[i] ?? "")) i += 1;
-  return lower.slice(start, i);
-}
-
-function closeTagEnd(lower: string, from: number, name: string): number {
-  const needle = `</${name}`;
-  let i = from;
-  while (i < lower.length) {
-    const at = lower.indexOf(needle, i);
-    if (at === -1) return -1;
-    const after = at + needle.length;
-    const next = lower[after];
-    if (next === undefined || /[\s>/]/.test(next)) {
-      const gt = lower.indexOf(">", after);
-      return gt === -1 ? -1 : gt + 1;
-    }
-    i = after;
-  }
-  return -1;
-}
-
-/**
- * Drop comments, script, style, and CDATA before tags are read.
- * One indexOf walk. An opener with no closer drops the rest of the text.
- */
-function stripSkippedRegions(text: string): string {
-  const lower = text.toLowerCase();
-  const kept: string[] = [];
-  let i = 0;
-  while (i < text.length) {
-    const lt = lower.indexOf("<", i);
-    if (lt === -1) {
-      kept.push(text.slice(i));
-      break;
-    }
-    kept.push(text.slice(i, lt));
-    if (lower.startsWith("<!--", lt)) {
-      const end = lower.indexOf("-->", lt + 4);
-      i = end === -1 ? text.length : end + 3;
-      continue;
-    }
-    if (lower.startsWith("<![cdata[", lt)) {
-      const end = lower.indexOf("]]>", lt + 9);
-      i = end === -1 ? text.length : end + 3;
-      continue;
-    }
-    const name = elementNameAt(lower, lt);
-    if (name === "script" || name === "style") {
-      const openEnd = lower.indexOf(">", lt + 1);
-      if (openEnd === -1) {
-        i = text.length;
-        continue;
-      }
-      const close = closeTagEnd(lower, openEnd + 1, name);
-      i = close === -1 ? text.length : close;
-      continue;
-    }
-    const gt = lower.indexOf(">", lt + 1);
-    if (gt === -1) {
-      kept.push(text.slice(lt));
-      break;
-    }
-    kept.push(text.slice(lt, gt + 1));
-    i = gt + 1;
-  }
-  return kept.join("");
-}
-
-/** Attribute name to value. Quoted text is never scanned for other attributes. */
-function parseTagAttributes(tag: string): Map<string, string> {
-  const attrs = new Map<string, string>();
-  let i = tag.startsWith("<") ? 1 : 0;
-  if (tag[i] === "/") i += 1;
-  while (i < tag.length && !/\s/.test(tag[i] ?? "") && tag[i] !== ">" && tag[i] !== "/") i += 1;
-  while (i < tag.length) {
-    while (i < tag.length && /\s/.test(tag[i] ?? "")) i += 1;
-    if (i >= tag.length || tag[i] === ">" || tag[i] === "/") break;
-    const nameStart = i;
-    while (i < tag.length && /[^\s=/>]/.test(tag[i] ?? "")) i += 1;
-    const name = tag.slice(nameStart, i).toLowerCase();
-    if (!name) break;
-    while (i < tag.length && /\s/.test(tag[i] ?? "")) i += 1;
-    if (tag[i] !== "=") {
-      attrs.set(name, "");
-      continue;
-    }
-    i += 1;
-    while (i < tag.length && /\s/.test(tag[i] ?? "")) i += 1;
-    const quote = tag[i];
-    let value = "";
-    if (quote === '"' || quote === "'") {
-      i += 1;
-      const end = tag.indexOf(quote, i);
-      if (end === -1) {
-        value = tag.slice(i);
-        i = tag.length;
-      } else {
-        value = tag.slice(i, end);
-        i = end + 1;
-      }
-    } else {
-      const start = i;
-      while (i < tag.length && !/[\s/>]/.test(tag[i] ?? "")) i += 1;
-      value = tag.slice(start, i);
-    }
-    attrs.set(name, value);
-  }
-  return attrs;
-}
-
-function identityAttr(attrs: Map<string, string>): string | undefined {
-  for (const name of IDENTITY_ATTRS) {
-    const value = attrs.get(name);
-    if (value) return value;
-  }
-  return undefined;
-}
-
-/**
- * Component id that sits on the same element as this node.
- * A neighbour's id, a quoted attribute value, a comment, script, style, or CDATA block do not count.
- * The same node id on two tags is a conflict and binds nothing.
- */
-function elementComponentIds(raw: unknown): ElementBindings {
-  const text = stripSkippedRegions(contextText(raw));
-  const seen = new Map<string, number>();
-  const ids = new Map<string, string>();
-  for (const tag of text.match(ELEMENT_TAG) ?? []) {
-    const attrs = parseTagAttributes(tag);
-    const nodeId = attrs.get("data-node-id");
-    if (!nodeId) continue;
-    seen.set(nodeId, (seen.get(nodeId) ?? 0) + 1);
-    const componentId = identityAttr(attrs);
-    if (componentId && !ids.has(nodeId)) ids.set(nodeId, componentId);
-  }
-  const conflicted = new Set<string>();
-  for (const [nodeId, count] of seen) {
-    if (count < 2) continue;
-    conflicted.add(nodeId);
-    ids.delete(nodeId);
-  }
-  return { ids, conflicted };
-}
-
-function contextIdentityFor(bindings: ElementBindings, nodeId: string | undefined): string | undefined {
-  if (!nodeId || bindings.conflicted.has(nodeId)) return undefined;
-  return bindings.ids.get(nodeId);
-}
-
 function labelDiffers(layerName: string, masterName: string): boolean {
   const norm = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
   const layer = norm(layerName);
@@ -2881,6 +2731,32 @@ function suppliedIdentity(index: GraphIndex, given: string, node: GraphNode): bo
   if (node.id === trimmed) return true;
   if (matchesFigmaId(node, trimmed)) return true;
   return matchesStampedId(node, trimmed, index.graph.fileKey);
+}
+
+const LOOKALIKE_TYPES = new Set(["LAYER", "TEXT_LAYER", "MEDIA_LAYER"]);
+
+function lookalikeLayers(index: GraphIndex, frame: GraphNode): string[] {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const node of index.getDescendants(frame.id)) {
+    if (!LOOKALIKE_TYPES.has(node.type)) continue;
+    if (index.getAncestors(node.id).some((ancestor) => ancestor.type === "COMPONENT_INSTANCE")) continue;
+    const name = node.name.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    if (!realMastersNamed(index, name).length) continue;
+    seen.add(key);
+    names.push(name);
+  }
+  return names;
+}
+
+function uncheckedLine(count: number, names: string[]): string {
+  if (!count) return "";
+  const shown = names.slice(0, 2);
+  const label = count === 1 ? "1 unchecked look-alike" : `${count} unchecked look-alikes`;
+  return shown.length ? `${label} (${shown.join(", ")}).` : `${label}.`;
 }
 
 /**
@@ -3026,35 +2902,36 @@ export function verifyFrame(
         if (isNameInferredMaster(main)) {
           if (idsInContext) {
             const boundId = contextIdentityFor(componentIds, instance.figmaNodeId);
-            const bound = boundId ? resolveNode(index, boundId) : undefined;
+            const bound = boundId ? masterByIdOrKey(index.graph, boundId) : undefined;
             const boundMaster = bound ? asMaster(index, bound) : undefined;
-            if (!boundMaster || isNameInferredMaster(boundMaster)) {
-              pushUnique(
-                invents,
-                seenInvent,
-                stampHit(instance, { reason: "not-a-master", given: instance.name }),
-                `invent:${instance.id}`,
-              );
+            if (boundMaster && !isNameInferredMaster(boundMaster)) {
+              considerMaster(boundMaster, instance.name);
+              idChecked += 1;
+              const boundLabel = variantCardName(index, boundMaster);
+              if (labelDiffers(instance.name, boundLabel)) {
+                renamed.push({
+                  node: instance.figmaNodeId ?? instance.id,
+                  layerName: instance.name,
+                  masterName: boundLabel,
+                });
+              }
               continue;
             }
-            considerMaster(boundMaster, instance.name);
-            idChecked += 1;
-            if (labelDiffers(instance.name, boundMaster.name)) {
-              renamed.push({
-                node: instance.figmaNodeId ?? instance.id,
-                layerName: instance.name,
-                masterName: boundMaster.name,
-              });
-            }
-            continue;
+            // Claimed id missing, spoofed, name-in-slot, or not a real master: stay a guess.
           }
-          const before = approvedIds.size;
-          considerMaster(main, main.name);
-          if (approvedIds.size > before) nameOnly = true;
+          nameOnly = true;
           continue;
         }
+        const masterLabel = variantCardName(index, main);
         considerMaster(main, main.name);
         idChecked += 1;
+        if (labelDiffers(instance.name, masterLabel)) {
+          renamed.push({
+            node: instance.figmaNodeId ?? instance.id,
+            layerName: instance.name,
+            masterName: masterLabel,
+          });
+        }
       }
     }
   }
@@ -3153,7 +3030,10 @@ export function verifyFrame(
   const ok = clean && bindPass && !content.blocking;
   const nameOnlyPass = ok && nameOnly;
   const verified = ok && idChecked > 0 && !nameOnly;
-  const unchecked = ok && idChecked === 0 && !nameOnly;
+  const nothingChecked = ok && idChecked === 0 && !nameOnly;
+  const lookalikes = frameNode ? lookalikeLayers(index, frameNode) : [];
+  const uncheckedNames = lookalikes.slice(0, 2);
+  const lookalikeNote = uncheckedLine(lookalikes.length, uncheckedNames);
   const bindHint = ruleFailure
     ? `Fail — bind rule ${ruleFailure.rule}: ${ruleFailure.reason}.${
         ruleFailure.expected ? ` Place ${ruleFailure.expected.name} (${ruleFailure.expected.id}).` : ""
@@ -3161,13 +3041,17 @@ export function verifyFrame(
     : undefined;
   const pending = input.sock?.proposals.filter((row) => row.status === "pending").length ?? 0;
   const hint = nameOnlyPass
-    ? `Name-only. Matched by layer name. No component id or key. ${REFRESH_HINT}`
+    ? EXACT_COMPONENT_HINT
     : verified
-      ? renamed.length
-        ? `Verified. Label differs. ${REFRESH_HINT}`
-        : `Verified. ${REFRESH_HINT}`
-      : unchecked
-        ? "Nothing checked. No component id or key."
+      ? [
+          renamed.length ? "Verified. Label differs." : "Verified.",
+          lookalikeNote,
+          REFRESH_HINT,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : nothingChecked
+        ? ["Nothing checked.", lookalikeNote, "No component id or key."].filter(Boolean).join(" ")
         : content.blocking && clean && bindPass
           ? `Fail — placeholder text left in a placed instance. ${REFRESH_HINT}`
           : bindHint ??
@@ -3180,10 +3064,11 @@ export function verifyFrame(
       ? { result: "name-only" as const }
       : verified
         ? { result: "verified" as const }
-        : unchecked
+        : nothingChecked
           ? { result: "nothing checked" as const }
           : {}),
-    ...(nameOnly ? { nameOnly: true as const } : {}),
+    ...(nameOnly ? { nameOnly: true as const, guess: LAYER_NAME_GUESS } : {}),
+    ...(renamed.length ? { labelDiffers: true as const } : {}),
     approved: approvedIds.size,
     resolved,
     invents,
@@ -3207,13 +3092,21 @@ export function verifyFrame(
   };
   const renamedCap = 5;
   const renamedLimit = Math.min(renamedCap, renamed.length);
-  const publishRenamed = (shownCount: number) => {
+  const publishRenamed = (shownCount: number, showLookalikeNames: boolean) => {
     const shown = renamed.slice(0, shownCount);
     const hidden = renamed.length - shownCount;
     const attempt = {
       ...base,
       ...(shown.length ? { renamed: shown } : {}),
-      ...(hidden > 0 ? { renamedNote: `+${hidden} more` } : {}),
+      ...(shown.length && hidden > 0 ? { renamedNote: `+${hidden} more` } : {}),
+      ...(lookalikes.length
+        ? {
+            unchecked: {
+              count: lookalikes.length,
+              ...(showLookalikeNames && uncheckedNames.length ? { names: uncheckedNames } : {}),
+            },
+          }
+        : {}),
     };
     return stampTextCheck(
       fitCardAfterCost(structuredClone(attempt), input.bindRules?.warnings, content.warnings, 600),
@@ -3226,12 +3119,15 @@ export function verifyFrame(
   ) =>
     JSON.stringify(stamped).length <= 600 &&
     stamped.hint === fullHint &&
-    JSON.stringify(stamped.renamed ?? []) === JSON.stringify(shown);
-  let published = publishRenamed(renamedLimit);
+    JSON.stringify(stamped.renamed ?? []) === JSON.stringify(shown) &&
+    (renamed.length <= shown.length || Boolean(stamped.renamedNote));
+  let published = publishRenamed(renamedLimit, true);
+  if (fitsRenamed(published, renamed.slice(0, renamedLimit))) return published;
+  published = publishRenamed(renamedLimit, false);
   if (fitsRenamed(published, renamed.slice(0, renamedLimit))) return published;
   for (let shownCount = renamedLimit - 1; shownCount >= 0; shownCount -= 1) {
     const shown = renamed.slice(0, shownCount);
-    published = publishRenamed(shownCount);
+    published = publishRenamed(shownCount, false);
     if (fitsRenamed(published, shown) || shownCount === 0) break;
   }
   return published;
@@ -3264,6 +3160,10 @@ function stampTextCheck<T extends { hint: string }>(
     textReason?: string;
     textOverrides?: number;
     textChecked?: TextChecked;
+    unchecked?: { count?: number; names?: string[] };
+    renamedNote?: string;
+    labelDiffers?: true;
+    frame?: { name?: string };
   };
   delete seed.cost;
   let hint = seed.hint;
@@ -3295,24 +3195,52 @@ function stampTextCheck<T extends { hint: string }>(
   keepReason = false;
   card = build();
   if (fits(card)) return card;
-  while (!fits(card) && hint.length > 12) {
+  keepOverrides = false;
+  card = build();
+  if (fits(card)) return card;
+  const unchecked = seed.unchecked;
+  if (unchecked?.names?.length) {
+    seed.unchecked = { count: unchecked.count };
+    card = build();
+    if (fits(card)) return card;
+  }
+  const frame = seed.frame as { name?: string } | undefined;
+  while (!fits(card) && frame && typeof frame.name === "string" && frame.name.length > NAME_FLOOR) {
+    const overflow = JSON.stringify(card).length - budget;
+    const nextLen = Math.max(NAME_FLOOR, frame.name.length - Math.max(1, overflow + 1));
+    if (nextLen >= frame.name.length) break;
+    frame.name = `${frame.name.slice(0, nextLen - 1)}…`;
+    card = build();
+  }
+  if (fits(card)) return card;
+  if (seed.renamedNote) {
+    delete seed.renamedNote;
+    card = build();
+    if (fits(card)) return card;
+  }
+  const hintFloor = hint.includes(EXACT_COMPONENT_HINT)
+    ? Math.max(12, EXACT_COMPONENT_HINT.length)
+    : 12;
+  while (!fits(card) && hint.length > hintFloor) {
     const overflow = JSON.stringify(card).length - budget;
     const cut = Math.max(8, overflow + 1);
-    const nextLen = Math.max(12, hint.length - cut);
+    const nextLen = Math.max(hintFloor, hint.length - cut);
     if (nextLen >= hint.length) break;
     hint = `${hint.slice(0, nextLen - 1)}…`;
     card = build();
   }
   if (fits(card)) return card;
+  if (seed.labelDiffers) {
+    delete seed.labelDiffers;
+    card = build();
+    if (fits(card)) return card;
+  }
   while (!fits(card) && warnings && warnings.length > 0) {
     warnings.pop();
     extra += 1;
     warningNote = WARNING_OVERFLOW(extra);
     card = build();
   }
-  if (fits(card)) return card;
-  keepOverrides = false;
-  card = build();
   if (fits(card)) return card;
   const bare = { ...card } as Record<string, unknown>;
   delete bare["cost"];
@@ -3407,9 +3335,14 @@ function shrinkNameFields(
       continue;
     }
     const hinted = payload as { hint?: string };
-    if (typeof hinted.hint === "string" && hinted.hint.length > 48) {
-      hinted.hint = `${hinted.hint.slice(0, 47)}…`;
-      continue;
+    if (typeof hinted.hint === "string") {
+      const floor = hinted.hint.includes(EXACT_COMPONENT_HINT)
+        ? EXACT_COMPONENT_HINT.length
+        : 48;
+      if (hinted.hint.length > floor) {
+        hinted.hint = `${hinted.hint.slice(0, floor - 1)}…`;
+        continue;
+      }
     }
     if (!deepNames) {
       deepNames = true;

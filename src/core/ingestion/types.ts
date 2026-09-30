@@ -143,9 +143,8 @@ export const SourceComponentMetaSchema = z.object({
   documentationLinks: z.array(SourceLinkSchema).optional(),
   /**
    * How this component's identity was established. `"id"` (the default) means
-   * the source gave us a real `componentId`. `"inferred-from-name"` means the
-   * source could not, and instances were grouped by name instead — useful, but
-   * never to be mistaken for source data.
+   * the source gave us a real `componentId`. `"inferred-from-name"` means only
+   * the instance layer name was available — a label, never a confirmed master.
    */
   identity: z.enum(["id", "inferred-from-name"]).optional(),
 });

@@ -56,6 +56,21 @@ describe("recommend name match beats screen usage", () => {
     expect(topName(index, "search box").candidates[0]?.name).toBe("Search Field");
   });
 
+  it("does not return a lone Primary button for primary card or primary text field", () => {
+    const primaryCard = topName(index, "primary card");
+    expect(primaryCard.candidates.length === 1 && primaryCard.candidates[0]?.name === "Button / Style=Primary").toBe(
+      false,
+    );
+    const primaryField = topName(index, "primary text field");
+    expect(primaryField.candidates.length === 1 && primaryField.candidates[0]?.name === "Button / Style=Primary").toBe(
+      false,
+    );
+    const calendar = recommendMasters(index, "calendar picker");
+    const lead = calendar.candidates[0];
+    if (!lead) return;
+    expect(calendar.match === "weak match" || ("confidence" in lead && lead.confidence === "low")).toBe(true);
+  });
+
   it("uses screen context only to separate name-relevant cousins", () => {
     const filter = topName(index, "filter", { screenType: "catalog", journey: "browse", slot: "filter" });
     const filterName = filter.candidates[0]?.name;

@@ -101,6 +101,69 @@ describe("MCP adapter", () => {
     expect(Object.keys(doc.components).sort()).toEqual(["mcp-name:Button", "mcp-name:Card"]);
   });
 
+  it("trusts a real componentId over the layer name", () => {
+    const adapted = adaptFigmaMcpMetadata({
+      fileKey: "KEY",
+      fileName: "Ids",
+      metadataXml: `<frame id="1:1" name="Kit">
+        <component id="88:1" name="buildings-88-smart-home" />
+        <instance id="2:1" name="Icon" componentId="88:1" />
+        <instance id="2:2" name="House" componentId="88:1" />
+        <instance id="2:3" name="Button" />
+      </frame>`,
+      ingestedAt: "2026-01-01T00:00:00.000Z",
+    });
+    expect(adapted.components["88:1"]).toEqual({
+      id: "88:1",
+      name: "buildings-88-smart-home",
+      identity: "id",
+    });
+    expect(adapted.components[inferredComponentId("Icon")]).toBeUndefined();
+    expect(adapted.components[inferredComponentId("Button")]?.identity).toBe("inferred-from-name");
+    const icon = adapted.root.children?.[0]?.children?.[1];
+    const house = adapted.root.children?.[0]?.children?.[2];
+    expect(icon?.name).toBe("Icon");
+    expect(icon?.componentId).toBe("88:1");
+    expect(house?.name).toBe("House");
+    expect(house?.componentId).toBe("88:1");
+  });
+
+  it("does not mint a master from an instance id that is not in this payload", () => {
+    const adapted = adaptFigmaMcpMetadata({
+      fileKey: "KEY",
+      fileName: "Fake",
+      metadataXml: `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="8:8" /></frame>`,
+      ingestedAt: "2026-01-01T00:00:00.000Z",
+    });
+    expect(adapted.components["8:8"]).toBeUndefined();
+    expect(adapted.root.children?.[0]?.children?.[0]?.componentId).toBe("8:8");
+    const graph = buildGraph(adapted);
+    expect(graph.nodes.some((node) => node.figmaNodeId === "8:8" && node.type === "MAIN_COMPONENT")).toBe(
+      false,
+    );
+    const instance = graph.nodes.find((node) => node.figmaNodeId === "3:2");
+    const main = graph.nodes.find((node) => node.id === instance?.mainComponentId);
+    expect(main?.metadata?.["identity"]).toBe("inferred-from-name");
+    expect(main?.name).toBe("Button");
+  });
+
+  it("does not treat a sibling rectangle id as a master", () => {
+    const graph = buildGraph(
+      adaptFigmaMcpMetadata({
+        fileKey: "KEY",
+        fileName: "Local",
+        metadataXml: `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="3:3"/><rectangle id="3:3" name="Rect"/></frame>`,
+        ingestedAt: "2026-01-01T00:00:00.000Z",
+      }),
+    );
+    const instance = graph.nodes.find((node) => node.figmaNodeId === "3:2");
+    const main = graph.nodes.find((node) => node.id === instance?.mainComponentId);
+    expect(main?.type).not.toBe("LAYER");
+    expect(main?.name).not.toBe("Rect");
+    expect(main?.metadata?.["identity"]).toBe("inferred-from-name");
+    expect(main?.name).toBe("Button");
+  });
+
   it("splits the flattened token map into styles and variables", () => {
     expect(Object.values(doc.styles).map((style) => style.name)).toEqual(["Shadow/Card"]);
     expect(Object.values(doc.variables).map((variable) => variable.name)).toEqual(["color/bg"]);

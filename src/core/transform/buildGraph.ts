@@ -24,6 +24,7 @@ import type {
 } from "@/core/ingestion/types";
 import { classifySourceNode, styleKindFromSlot } from "./classify";
 import { figmaFileUrl, figmaNodeUrl } from "./figmaUrl";
+import { settleInstanceBindings } from "@/core/ingestion/designContextIds";
 
 export interface BuildGraphOptions {
   /** See `ClassifyOptions.classifyAutoLayout`. */
@@ -420,7 +421,8 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
   const ensureComponentNode = (componentFigmaId: string): GraphNode | undefined => {
     const graphId = makeNodeId(componentFigmaId);
     const existing = builder.nodes.get(graphId);
-    if (existing) return existing;
+    // A claimed id that lands on a rectangle, text, instance, or frame is not a master.
+    if (existing) return COMPONENT_DEF_TYPES.includes(existing.type) ? existing : undefined;
 
     const meta = doc.components[componentFigmaId];
     if (!meta) return undefined;
@@ -526,7 +528,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
   if (inferredComponents.length) {
     builder.warn({
       code: "INFERRED_COMPONENT_IDENTITY",
-      message: `${inferredComponents.length} component identities were inferred from instance names because this source does not expose componentId. Re-ingest via the REST or plugin API for exact links.`,
+      message: `${inferredComponents.length} component identities were inferred from instance layer names because this source does not expose componentId. Layer names are labels, not masters. Re-ingest via REST, the plugin, or pass get_design_context for exact links.`,
       detail: { count: inferredComponents.length, sourceKind: doc.source.kind },
     });
   }
@@ -653,7 +655,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
     if (!node.fileKey) node.fileKey = doc.fileKey;
   }
 
-  return {
+  return settleInstanceBindings({
     fileKey: doc.fileKey,
     fileName: doc.fileName,
     builtAt: options.builtAt ?? new Date().toISOString(),
@@ -666,5 +668,5 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
     nodes: [...builder.nodes.values()],
     edges: [...builder.edges.values()],
     warnings: builder.warnings,
-  };
+  });
 }

@@ -6,6 +6,7 @@ import {
   type GraphNode,
 } from "@/core/model";
 import { UNKNOWN_LIBRARY_ID } from "@/core/ingestion";
+import { settleInstanceBindings } from "@/core/ingestion/designContextIds";
 import { libraryFiles, type WorkspaceFileRole, type WorkspaceManifest } from "./workspace";
 
 const MASTER_TYPES = new Set<string>(COMPONENT_DEFINITION_TYPES);
@@ -228,7 +229,7 @@ export function relinkRemoteLibraries(graph: DesignGraph, workspace: WorkspaceMa
     return !unknown;
   });
 
-  return { ...graph, nodes: kept, edges };
+  return settleInstanceBindings({ ...graph, nodes: kept, edges });
 }
 
 export interface WorkspaceGraphInput {

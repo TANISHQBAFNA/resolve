@@ -196,6 +196,7 @@ describe("verify name and typos", () => {
     expect(named.pass).toBe(false);
     expect(JSON.stringify(named)).toContain('"result":"name-only"');
     expect(named.nameOnly).toBe(true);
+    expect(named.guess).toBe("guess from layer name, not confirmed");
     expect(JSON.stringify(named).toLowerCase()).not.toContain("verified");
 
     const wrong = verifyFrame(index, {

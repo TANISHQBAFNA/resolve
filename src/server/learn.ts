@@ -1,5 +1,6 @@
 import type { DesignGraph } from "@/core/model";
 import { applyLearnedText } from "@/core/ingestion/textStamps";
+import { applyLearnedIdentity } from "@/core/ingestion/designContextIds";
 import {
   applyPublishedCatalog,
   extractLearnOutline,
@@ -85,7 +86,19 @@ export function learnLibrary(input: LearnInput): LearnResult {
 
   const checkpoint = normalizeCheckpoint(loadLearnCheckpoint(fileKey), fileKey);
   const versionMismatch = checkpointVersionMismatch(checkpoint, input);
-  const hash = xml ? hashLearnPayload(xml) : undefined;
+  const contextBlob =
+    input.designContext == null
+      ? ""
+      : typeof input.designContext === "string"
+        ? input.designContext
+        : (() => {
+            try {
+              return JSON.stringify(input.designContext);
+            } catch {
+              return "";
+            }
+          })();
+  const hash = xml ? hashLearnPayload(contextBlob ? `${xml}\0${contextBlob}` : xml) : undefined;
   const resumed = Boolean(input.resume && checkpoint && !versionMismatch);
   const skippedDuplicate = Boolean(
     hash && !versionMismatch && checkpoint?.completedHashes.includes(hash),
@@ -135,7 +148,10 @@ export function learnLibrary(input: LearnInput): LearnResult {
   }
 
   if (catalog != null) applyPublishedCatalog(graph, catalog);
-  if (input.designContext != null) applyLearnedText(graph, input.designContext);
+  if (input.designContext != null) {
+    applyLearnedText(graph, input.designContext);
+    applyLearnedIdentity(graph, input.designContext);
+  }
 
   const removed: RemovedMaster[] = [];
   if (xml && !skippedDuplicate && Object.keys(incomingByUnit).length) {

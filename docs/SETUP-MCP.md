@@ -27,7 +27,7 @@ Learning a library needs **one** of:
 npx -y -p github:TANISHQBAFNA/resolve resolve-setup
 ```
 
-That writes `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, and a marked block in `CLAUDE.md` in this project. Cursor needs that project rule. It does not load a rule from your home folder. A second run only edits inside a complete pair of markers. `--global` is for Claude only (`~/.claude/skills/resolve/SKILL.md` and `~/.claude/CLAUDE.md`). Claude Desktop does not read rule files, skills, or `CLAUDE.md`. It only gets the MCP instructions.
+That writes `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, and a marked block in `CLAUDE.md` in this project. Cursor needs that project rule. It does not load a rule from your home folder. A second run only edits inside a complete pair of markers. `--global` is for Claude only (`~/.claude/skills/resolve/SKILL.md` and `~/.claude/CLAUDE.md`). It prints those home-folder paths and exits unless you pass `--yes`. Claude Desktop does not read rule files, skills, or `CLAUDE.md`. It only gets the MCP instructions.
 
 5. If Claude Desktop cannot start Resolve, use the full path from `which npx` as the `command` (keep the same `args`).
 
@@ -120,9 +120,11 @@ Same store for CLI and MCP: `~/.resolve/default` (or `RESOLVE_WORKSPACE=acme` �
 
 **Primary — Figma MCP.** `get_metadata` on a library frame, then Resolve `learn_library` with that XML, the **file key**, and `role: "library"`. Optional: pass `search_design_system` / `get_libraries` as `libraries` so cards include the published component key. Without that key the card says **local-only**.
 
+`get_metadata` has layer names, not confirmed component ids. A renamed layer is not the component. Pass `get_design_context` as `designContext` (on learn and on verify) for exact ids: HTML `componentId` / `componentKey` / `data-component-id`, or JSON `"componentId"`. That `componentId` is a plain node id like `14:101`. Stamped `fileKey:nodeId` works with `--components`; the same form inside a design-context `componentId` is treated as a guess. REST ingest with `FIGMA_ACCESS_TOKEN` also has exact ids. Do not put a token in the repo.
+
 **Different file.** Placing a component into a different Figma file needs the library published, plus `search_design_system` output passed as `libraries`. Otherwise build inside the library file. A product screen (`role: "product"`, or any file that is not the library) does not become the approved master list.
 
-**Secondary — REST token.** `npm run resolve -- ingest '<figma-url>' --role library` with `FIGMA_ACCESS_TOKEN`.
+**Secondary — REST token.** `npm run resolve -- ingest '<figma-url>' --role library` with `FIGMA_ACCESS_TOKEN`. Never store that token in the repo.
 
 **Big libraries.** Do not dump the whole file. Call `learn_library` on a few frames, stop, come back later. The card says `learned X of Y pages; next: …`. Checkpoints survive across sessions. A view/free seat with a low quota uses the same resume path. When a file is stale, `freshness.delta` lists the exact pages/frames to re-fetch.
 

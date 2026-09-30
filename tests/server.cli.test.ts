@@ -208,6 +208,35 @@ describe("resolve ingest --role", () => {
     expect(message).not.toMatch(/EEXIST/);
   });
 
+  it("does not verify a fake componentId from get_metadata", async () => {
+    const lib = join(process.env["GRAPHIFY_HOME"]!, "lib.xml");
+    const product = join(process.env["GRAPHIFY_HOME"]!, "product.xml");
+    writeFileSync(lib, `<frame id="1:1" name="Kit"><component id="14:101" name="Button" /></frame>\n`);
+    writeFileSync(
+      product,
+      `<frame id="3:1" name="F1"><instance id="3:2" name="Button" componentId="8:8"/></frame>\n`,
+    );
+    await runCli(["learn", "--file-key", "LIB", "--role", "library", "--from-metadata", lib]);
+    await runCli(["learn", "--file-key", "APP", "--role", "product", "--from-metadata", product]);
+    const chunks: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    process.exitCode = undefined;
+    try {
+      await runCli(["verify", "F1"]);
+    } finally {
+      process.stdout.write = write;
+    }
+    const card = JSON.parse(chunks.join("")) as { pass?: boolean; result?: string };
+    expect(card.pass).toBe(false);
+    expect(JSON.stringify(card).toLowerCase()).not.toContain("verified");
+    expect(process.exitCode).toBe(1);
+    process.exitCode = undefined;
+  });
+
   it("learn_library rejects a bad role as a tool error", () => {
     expect(() => callTool("learn_library", { fileKey: "LIB", role: "nope" })).toThrow(
       /Unknown --role "nope"/,

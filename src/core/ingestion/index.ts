@@ -24,5 +24,14 @@ export {
   inferredComponentId,
   isMetadataComponentSet,
   isVariantStyleName,
+  realComponentIdFromAttrs,
   MCP_COLLECTION_ID,
 } from "./adapters/figmaMcp";
+export {
+  applyLearnedIdentity,
+  contextCarriesMasterIds,
+  contextIdentityFor,
+  elementComponentIds,
+  masterByIdOrKey,
+  settleInstanceBindings,
+} from "./designContextIds";

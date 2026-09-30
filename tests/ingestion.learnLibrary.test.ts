@@ -380,10 +380,12 @@ describe("learn_library from Figma MCP get_metadata", () => {
       workspace: readWorkspace(),
     });
     expect(report.checked).toBe(true);
-    expect(report.ok).toBeGreaterThanOrEqual(2);
-    const flagged = [...report.cousins, ...report.unsure].map((hit) => hit.placed.name);
-    expect(flagged).not.toContain("Summary Card");
-    expect(flagged).not.toContain("Price");
+    expect(report.cousins).toEqual([]);
+    expect(report.ok).toBe(0);
+    expect(report.unsure.some((hit) => hit.placed.name === "Summary Card" && hit.why.includes("worth checking"))).toBe(
+      true,
+    );
+    expect(report.unsure.some((hit) => hit.placed.name === "Price" && hit.why.includes("worth checking"))).toBe(true);
   });
 
   it("flags Cart Page instances when the product file also has local Price and Summary Card masters", () => {
@@ -521,5 +523,33 @@ describe("learn_library from Figma MCP get_metadata", () => {
     const text = loadGraph()?.graph.nodes.find((node) => node.figmaNodeId === "9:2");
     expect(text?.name).toBe("Label");
     expect(text?.metadata?.["text"]).toBe("Request Bank Certificate");
+  });
+
+  it("does not skip the same XML when a design-context arrives, and upgrades a cross-file guess", () => {
+    learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      metadataXml: `<frame id="1:1" name="Kit"><component id="14:101" name="Button" /></frame>`,
+    });
+    const productXml = `<frame id="3:1" name="F1"><instance id="3:2" name="Button" /></frame>`;
+    learnLibrary({ fileKey: "APP", role: "product", metadataXml: productXml });
+    const named = verifyFrame(loadGraph()!.index, { frame: "F1" });
+    expect(named.pass).toBe(false);
+    expect(JSON.stringify(named)).toContain('"result":"name-only"');
+
+    const again = learnLibrary({
+      fileKey: "APP",
+      role: "product",
+      metadataXml: productXml,
+      designContext: `<div data-node-id="3:2" componentId="14:101"></div>`,
+    });
+    expect(again.skippedDuplicate).toBe(false);
+    const index = loadGraph()!.index;
+    const verified = verifyFrame(index, { frame: "F1" });
+    expect(verified.pass).toBe(true);
+    expect(JSON.stringify(verified)).toContain('"result":"verified"');
+    expect(JSON.stringify(index.graph.nodes.map((node) => node.figmaNodeId)).toLowerCase()).not.toContain(
+      "mcp-name:",
+    );
   });
 });
