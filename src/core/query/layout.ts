@@ -189,6 +189,58 @@ export function deriveLayout(
   };
 }
 
+/** A set of siblings and the width of the parent they sit in. */
+export interface SiblingGroup {
+  children: Rect[];
+  containerWidth: number;
+}
+
+/**
+ * A screen holds many sibling groups — a toolbar, a field grid, a footer. Only
+ * one of them is the grid worth recording, so derive each and keep the spec
+ * backed by the most children. Ties go to the wider container, which is the
+ * outer grid rather than something nested inside it.
+ */
+export function bestLayout(
+  groups: SiblingGroup[],
+  tokens: DimensionToken[],
+  options: Omit<DeriveLayoutOptions, "containerWidth"> = {},
+): LayoutSpec | undefined {
+  let best: LayoutSpec | undefined;
+  let bestWidth = 0;
+  for (const group of groups) {
+    const spec = deriveLayout(group.children, tokens, {
+      ...options,
+      containerWidth: group.containerWidth,
+    });
+    if (!spec) continue;
+    const better =
+      !best ||
+      spec.sampleSize > best.sampleSize ||
+      (spec.sampleSize === best.sampleSize && group.containerWidth > bestWidth);
+    if (better) {
+      best = spec;
+      bestWidth = group.containerWidth;
+    }
+  }
+  return best;
+}
+
+/**
+ * Two grids agree when the parts a designer chose match. Column width is
+ * derived, so it is deliberately excluded — the same convention at a different
+ * viewport is still the same convention.
+ */
+export function sameLayout(a: LayoutSpec, b: LayoutSpec): boolean {
+  return (
+    a.columns === b.columns &&
+    a.gutter.px === b.gutter.px &&
+    a.marginLeft.px === b.marginLeft.px &&
+    a.marginRight.px === b.marginRight.px &&
+    (a.rowGap?.px ?? null) === (b.rowGap?.px ?? null)
+  );
+}
+
 /**
  * Column width is a consequence of viewport, margins and gutter — not a chosen
  * number. This recomputes it so a stored spec survives a viewport change.

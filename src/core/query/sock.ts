@@ -5,6 +5,8 @@
  * Usage facts write themselves. Rules never do.
  */
 
+import type { LayoutSpec } from "./layout";
+
 export const DEFAULT_USAGE_THRESHOLD = 3;
 
 export type UsageConfidence = "low" | "strong";
@@ -12,6 +14,7 @@ export type SociStatus = "pending" | "approved" | "rejected";
 export type SociProposalType =
   | "require-rule"
   | "recipe-update"
+  | "layout-update"
   | "variant-candidate"
   | "deprecation-candidate"
   | "wrong-cousin";
@@ -97,6 +100,18 @@ export interface SociSuggestedRecipe {
   required?: boolean;
 }
 
+/**
+ * A grid derived from verified frames. `layout` is the full spec so the
+ * reviewer sees the numbers and their tokens before approving, not just a
+ * recipe id. Never authored by hand — see detectLayoutUpdates.
+ */
+export interface SociSuggestedLayout {
+  recipeId: string;
+  layout: LayoutSpec;
+  /** Frames that agreed on this grid. */
+  frames: string[];
+}
+
 export interface SociSuggestedVariant {
   masterId: string;
   masterName: string;
@@ -139,6 +154,7 @@ export interface SociProposal {
   confidence?: UsageConfidence;
   suggestedRule?: SociSuggestedRule;
   suggestedRecipe?: SociSuggestedRecipe;
+  suggestedLayout?: SociSuggestedLayout;
   suggestedVariant?: SociSuggestedVariant;
   suggestedDeprecation?: SociSuggestedDeprecation;
   namingFix?: string;

@@ -3,6 +3,15 @@ import type { GraphIndex } from "./GraphIndex";
 import type { Recipe } from "./recipes";
 import { matchRecipe } from "./recipes";
 import {
+  bestLayout,
+  layoutSummary,
+  offScale,
+  sameLayout,
+  type DimensionToken,
+  type LayoutSpec,
+  type SiblingGroup,
+} from "./layout";
+import {
   inferSlot,
   isRemovedByAbsence,
   patternsOf,
@@ -14,6 +23,8 @@ import {
   type SociProposalType,
   type SociScope,
   type SociSuggestedDeprecation,
+  DEFAULT_USAGE_THRESHOLD,
+  type SociSuggestedLayout,
   type SociSuggestedRecipe,
   type SociSuggestedVariant,
   type SockState,
@@ -37,6 +48,7 @@ import { nodeFileKey } from "./workspaceMerge";
 export const SOCI_PROPOSAL_TYPES = [
   "require-rule",
   "recipe-update",
+  "layout-update",
   "variant-candidate",
   "deprecation-candidate",
   "wrong-cousin",
@@ -45,6 +57,7 @@ export const SOCI_PROPOSAL_TYPES = [
 export const SOCI_TYPE_LABELS: Record<SociProposalType, string> = {
   "require-rule": "Require rules",
   "recipe-update": "Recipe updates",
+  "layout-update": "Layout updates",
   "variant-candidate": "Variant candidates",
   "deprecation-candidate": "Deprecation candidates",
   "wrong-cousin": "Wrong-cousin hotspots",
@@ -85,6 +98,7 @@ export interface SociDraft {
   confidence: "low" | "strong";
   suggestedRule?: SociProposal["suggestedRule"];
   suggestedRecipe?: SociSuggestedRecipe;
+  suggestedLayout?: SociSuggestedLayout;
   suggestedVariant?: SociSuggestedVariant;
   suggestedDeprecation?: SociSuggestedDeprecation;
   namingFix?: string;
@@ -228,6 +242,7 @@ function upsertDraft(state: SockState, draft: SociDraft, now: string): SockState
       updatedAt: now,
       ...(draft.suggestedRule ? { suggestedRule: draft.suggestedRule } : {}),
       ...(draft.suggestedRecipe ? { suggestedRecipe: draft.suggestedRecipe } : {}),
+      ...(draft.suggestedLayout ? { suggestedLayout: draft.suggestedLayout } : {}),
       ...(draft.suggestedVariant ? { suggestedVariant: draft.suggestedVariant } : {}),
       ...(draft.suggestedDeprecation ? { suggestedDeprecation: draft.suggestedDeprecation } : {}),
       ...(draft.namingFix ? { namingFix: draft.namingFix } : {}),
@@ -250,6 +265,7 @@ function upsertDraft(state: SockState, draft: SociDraft, now: string): SockState
     ...(draft.scope ? { scope: draft.scope } : {}),
     ...(draft.suggestedRule ? { suggestedRule: draft.suggestedRule } : {}),
     ...(draft.suggestedRecipe ? { suggestedRecipe: draft.suggestedRecipe } : {}),
+      ...(draft.suggestedLayout ? { suggestedLayout: draft.suggestedLayout } : {}),
     ...(draft.suggestedVariant ? { suggestedVariant: draft.suggestedVariant } : {}),
     ...(draft.suggestedDeprecation ? { suggestedDeprecation: draft.suggestedDeprecation } : {}),
     ...(draft.namingFix ? { namingFix: draft.namingFix } : {}),
@@ -260,6 +276,7 @@ function upsertDraft(state: SockState, draft: SociDraft, now: string): SockState
 const TYPE_RANK: Record<SociProposalType, number> = {
   "wrong-cousin": 0,
   "recipe-update": 1,
+  "layout-update": 1,
   "require-rule": 2,
   "deprecation-candidate": 3,
   "variant-candidate": 4,
@@ -408,6 +425,136 @@ function detectRecipeUpdates(
 }
 
 /** Masters of instances directly on the frame. Descendants inside an instance are not included. */
+/**
+ * Spacing and radius variables from the graph, when the file was ingested with
+ * them. Absent on a metadata-only ingest, in which case the deriver still runs
+ * and simply reports pixels — a grid with no token names is still a grid.
+ */
+export function dimensionTokensFrom(index?: GraphIndex): DimensionToken[] {
+  if (!index) return [];
+  const tokens: DimensionToken[] = [];
+  for (const node of index.graph.nodes) {
+    if (node.type !== "VARIABLE") continue;
+    if (!/^(spacing|radius)\//i.test(node.name)) continue;
+    const raw = (node as { value?: unknown }).value;
+    const value = typeof raw === "number" ? raw : Number.NaN;
+    if (Number.isFinite(value)) tokens.push({ name: node.name, value });
+  }
+  return tokens;
+}
+
+/** Sibling groups under a frame, keyed by the parent they share. */
+function siblingGroupsUnder(index: GraphIndex, frameId: string): SiblingGroup[] {
+  const byParent = new Map<string, GraphNode[]>();
+  for (const node of instanceNodesUnder(index, frameId)) {
+    if (!node.parentId || !node.bounds) continue;
+    const list = byParent.get(node.parentId) ?? [];
+    list.push(node);
+    byParent.set(node.parentId, list);
+  }
+  const groups: SiblingGroup[] = [];
+  for (const [parentId, children] of byParent) {
+    const parent = index.getNode(parentId);
+    const containerWidth = parent?.bounds?.width;
+    if (!containerWidth) continue;
+    groups.push({
+      containerWidth,
+      children: children.map((c) => ({
+        x: c.bounds!.x,
+        y: c.bounds!.y,
+        width: c.bounds!.width,
+        height: c.bounds!.height,
+      })),
+    });
+  }
+  return groups;
+}
+
+/**
+ * Learn the grid from frames that already passed verification.
+ *
+ * A passing frame is a composition the team endorsed — every component on it is
+ * a live library master. That is exactly the screen worth copying a convention
+ * from, and the geometry is already in the graph.
+ *
+ * One frame is an anecdote. A draft only reaches `strong` once separate frames
+ * agree on the same grid, reusing the threshold SOCK already applies to usage.
+ */
+function detectLayoutUpdates(
+  state: SockState,
+  recipes: Recipe[],
+  index?: GraphIndex,
+  threshold = DEFAULT_USAGE_THRESHOLD,
+): SociDraft[] {
+  if (!index || !recipes.length) return [];
+  const tokens = dimensionTokensFrom(index);
+  // recipe id -> frame id -> the grid that frame shows
+  const perRecipe = new Map<string, Map<string, LayoutSpec>>();
+  const factByFrame = new Map<string, UsageFact>();
+  for (const fact of countedFacts(state)) {
+    if (!fact.frameId) continue;
+    const recipe = recipeForScreen(recipes, fact);
+    if (!recipe) continue;
+    const seen = perRecipe.get(recipe.id) ?? new Map<string, LayoutSpec>();
+    if (!seen.has(fact.frameId)) {
+      const spec = bestLayout(siblingGroupsUnder(index, fact.frameId), tokens);
+      if (spec) {
+        seen.set(fact.frameId, spec);
+        factByFrame.set(fact.frameId, fact);
+      }
+    }
+    perRecipe.set(recipe.id, seen);
+  }
+
+  const drafts: SociDraft[] = [];
+  for (const [recipeId, byFrame] of perRecipe) {
+    if (byFrame.size === 0) continue;
+    const recipe = recipes.find((r) => r.id === recipeId);
+    if (!recipe) continue;
+    // Group frames by the grid they show, then take the largest agreement.
+    const clusters: Array<{ spec: LayoutSpec; frames: string[] }> = [];
+    for (const [frameId, spec] of byFrame) {
+      const hit = clusters.find((c) => sameLayout(c.spec, spec));
+      if (hit) hit.frames.push(frameId);
+      else clusters.push({ spec, frames: [frameId] });
+    }
+    clusters.sort((a, b) => b.frames.length - a.frames.length);
+    const winner = clusters[0];
+    if (!winner) continue;
+    // Nothing to say when the recipe already records this grid.
+    if (recipe.layout && sameLayout(recipe.layout, winner.spec)) continue;
+    const confidence: "low" | "strong" = winner.frames.length >= threshold ? "strong" : "low";
+    const layout: LayoutSpec = {
+      ...winner.spec,
+      evidence: {
+        frames: winner.frames.slice(0, SOCI_EVIDENCE_CAP),
+        confidence: confidence === "strong" ? "strong" : "weak",
+      },
+    };
+    const facts = winner.frames
+      .map((frameId) => factByFrame.get(frameId))
+      .filter((fact): fact is UsageFact => Boolean(fact));
+    const verb = recipe.layout ? "differs from" : "is missing from";
+    drafts.push({
+      type: "layout-update",
+      fingerprint: `${recipeId}::layout`,
+      scope: { recipeId },
+      summary: `${winner.frames.length} verified ${
+        winner.frames.length === 1 ? "frame" : "frames"
+      } use ${layoutSummary(winner.spec)} — that grid ${verb} the "${recipe.title}" recipe.`,
+      evidence: evidenceFromFacts(facts, offScale(winner.spec)[0]),
+      confidence,
+      suggestedLayout: { recipeId, layout, frames: winner.frames },
+    });
+  }
+  return drafts;
+}
+
+/** Apply a human-approved grid. Never derives, only stores what was reviewed. */
+export function applyRecipeLayoutChange(recipe: Recipe, change: SociSuggestedLayout): Recipe {
+  return { ...recipe, layout: change.layout };
+}
+
 export function topLevelMasterIds(index: GraphIndex, frameId: string): string[] {
   const ids: string[] = [];
   const seen = new Set<string>();
@@ -755,6 +902,7 @@ export function advanceSoci(state: SockState, options: AdvanceSociOptions = {}):
   const recipeScan = detectRecipeUpdates(next, options.recipes ?? []);
   const drafts: SociDraft[] = [
     ...recipeScan.drafts,
+    ...detectLayoutUpdates(next, options.recipes ?? [], options.index),
     ...detectVariantCandidates(next),
     ...detectDeprecations(next, options.index),
     ...detectWrongCousins(next, options.workspace),
@@ -961,6 +1109,49 @@ export function applySociDecision(
         );
       }
       const updated = applyRecipeSlotChange(current, change);
+      const overlay = overlayWithRecipe(options.overlay ?? [], updated);
+      const nextSock = markProposal(sock, proposalId, action, note);
+      return {
+        sock: nextSock,
+        rules,
+        audit: {
+          who,
+          when,
+          proposalId,
+          action,
+          before: rules.rules,
+          after: rules.rules,
+          recipeBefore: current,
+          recipeAfter: updated,
+        },
+        recipeOverlay: overlay,
+        writesRules: false,
+        writesRecipes: true,
+      };
+    }
+    case "layout-update": {
+      if (action === "reject") {
+        const nextSock = markProposal(sock, proposalId, action, note);
+        return {
+          sock: nextSock,
+          rules,
+          audit: { who, when, proposalId, action, before: rules.rules, after: rules.rules },
+          writesRules: false,
+          writesRecipes: false,
+        };
+      }
+      const change = proposal.suggestedLayout;
+      if (!change) {
+        throw new BindRuleError(`Proposal "${proposalId}" has no layout change. Write recipes.json by hand.`);
+      }
+      const recipes = options.recipes ?? [];
+      const current = recipes.find((recipe) => recipe.id === change.recipeId);
+      if (!current) {
+        throw new BindRuleError(
+          `Proposal "${proposalId}" recipe "${change.recipeId}" is not in the pack. Never inventing a recipe.`,
+        );
+      }
+      const updated = applyRecipeLayoutChange(current, change);
       const overlay = overlayWithRecipe(options.overlay ?? [], updated);
       const nextSock = markProposal(sock, proposalId, action, note);
       return {
