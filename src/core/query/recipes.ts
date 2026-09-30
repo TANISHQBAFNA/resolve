@@ -14,6 +14,7 @@ import {
 } from "./agentSurface";
 import { computeComponentUsage } from "./analytics";
 import { examplePointer, type ExampleQuery, type ExampleReason } from "./examples";
+import { layoutSummary, type LayoutSpec } from "./layout";
 import { placeReady } from "./placeReady";
 import { usageAllowsRecipeFill, type SockState } from "./sock";
 import { whyLineForMaster, mergeBindRules, type BindRulesFile } from "./bindRules";
@@ -46,6 +47,13 @@ export interface Recipe {
   slots: RecipeSlot[];
   notes?: string;
   contextPackId?: string;
+  /**
+   * How the slots are arranged, in spacing tokens. Absent on the starter
+   * recipes, which are product-agnostic — a grid is a decision one team made
+   * for one product, so it is only ever learned from their own verified
+   * frames, never shipped as a default.
+   */
+  layout?: LayoutSpec;
 }
 
 export type RecipeSlotStatus = "bound" | "filled" | "missing" | "deprecated" | "unbound";
@@ -97,12 +105,36 @@ const SlotSchema = z.object({
   defaultMasterId: z.string().optional(),
 });
 
+const SnappedLengthSchema = z.object({
+  px: z.number(),
+  token: z.string().optional(),
+  nearest: z.string().optional(),
+  off: z.number().optional(),
+});
+
+const LayoutSchema = z.object({
+  columns: z.number().int().min(1),
+  columnWidth: z.number(),
+  gutter: SnappedLengthSchema,
+  marginLeft: SnappedLengthSchema,
+  marginRight: SnappedLengthSchema,
+  rowGap: SnappedLengthSchema.optional(),
+  sampleSize: z.number().int().min(0),
+  evidence: z
+    .object({
+      frames: z.array(z.string()),
+      confidence: z.enum(["weak", "strong"]),
+    })
+    .optional(),
+});
+
 const RecipeSchema = z.object({
   id: z.string().trim().min(1),
   title: z.string().trim().min(1),
   intentAliases: z.array(z.string()).optional(),
   notes: z.string().optional(),
   contextPackId: z.string().trim().min(1).optional(),
+  layout: LayoutSchema.optional(),
   slots: z.array(SlotSchema).min(1),
 });
 
@@ -160,6 +192,7 @@ function parseOne(raw: unknown): Recipe[] {
       intentAliases: (data.intentAliases ?? []).map((alias) => alias.trim()).filter(Boolean),
       notes: data.notes,
       contextPackId: data.contextPackId,
+      ...(data.layout ? { layout: data.layout } : {}),
       slots: data.slots.map((slot) => ({
         role: slot.role,
         required: slot.required ?? true,
@@ -197,6 +230,7 @@ export function serializeRecipeFile(recipes: Recipe[]): {
     intentAliases: string[];
     notes?: string;
     contextPackId?: string;
+    layout?: LayoutSpec;
     slots: Array<{ role: string; required: boolean; hints: string[]; defaultMasterId?: string }>;
   }>;
 } {
@@ -208,6 +242,7 @@ export function serializeRecipeFile(recipes: Recipe[]): {
       intentAliases: recipe.intentAliases,
       ...(recipe.notes ? { notes: recipe.notes } : {}),
       ...(recipe.contextPackId ? { contextPackId: recipe.contextPackId } : {}),
+      ...(recipe.layout ? { layout: recipe.layout } : {}),
       slots: recipe.slots.map((slot) => ({
         role: slot.role,
         required: slot.required,
@@ -744,6 +779,14 @@ export function recipeCard(
     found: true as const,
     query,
     recipe: { id: filled.recipe.id, title: filled.recipe.title },
+    ...(recipe.layout
+      ? {
+          layout: layoutSummary(recipe.layout),
+          ...(recipe.layout.evidence?.confidence === "weak"
+            ? { layoutWhy: "seen on one frame only — not yet a convention" }
+            : {}),
+        }
+      : {}),
     slots: filled.slots.map(compactCardSlot),
     ...(filled.context ? { context: filled.context } : {}),
     hint: "Place bound figmaNodeIds, then verify_frame. Do not Read graph.json.",
