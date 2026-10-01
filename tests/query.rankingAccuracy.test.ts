@@ -48,7 +48,7 @@ describe("recommend name match beats screen usage", () => {
   const index = fixtureIndex();
 
   it("ranks everyday asks by name, not by a busier neighbor", () => {
-    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button / Style=Primary");
+    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button");
     expect(topName(index, "page header").candidates[0]?.name).toBe("Header Bar");
     expect(topName(index, "user avatar").candidates[0]?.name).toBe("Avatar");
     expect(topName(index, "price label").candidates[0]?.name).toBe("Price");
@@ -58,11 +58,11 @@ describe("recommend name match beats screen usage", () => {
 
   it("does not return a lone Primary button for primary card or primary text field", () => {
     const primaryCard = topName(index, "primary card");
-    expect(primaryCard.candidates.length === 1 && primaryCard.candidates[0]?.name === "Button / Style=Primary").toBe(
+    expect(primaryCard.candidates.length === 1 && primaryCard.candidates[0]?.name === "Button").toBe(
       false,
     );
     const primaryField = topName(index, "primary text field");
-    expect(primaryField.candidates.length === 1 && primaryField.candidates[0]?.name === "Button / Style=Primary").toBe(
+    expect(primaryField.candidates.length === 1 && primaryField.candidates[0]?.name === "Button").toBe(
       false,
     );
     const calendar = recommendMasters(index, "calendar picker");
@@ -93,7 +93,7 @@ describe("recommend name match beats screen usage", () => {
       topName(index, "checkout summary", { screenType: "checkout", journey: "payment", slot: "primary-cta" }).candidates[0]?.name,
     ).toBe("Pay CTA");
     expect(topName(index, "sign in", { slot: "primary-cta" }).candidates[0]?.name).toBe(
-      "Button / Style=Primary",
+      "Button",
     );
   });
 
@@ -126,7 +126,7 @@ describe("phrase match and typos", () => {
     expect(topName(index, "navigation item").candidates[0]?.name).toBe("Nav Item");
     expect(topName(index, "check box").candidates[0]?.name).toBe("Checkbox");
     expect(topName(index, "page header").candidates[0]?.name).toBe("Header Bar");
-    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button / Style=Primary");
+    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button");
     const mainAction = topName(index, "main action button").candidates[0]?.name;
     expect(mainAction).toBeTruthy();
     expect(mainAction).not.toBe("Pay CTA");
@@ -205,7 +205,7 @@ describe("phrase match and typos", () => {
     expect(topName(index, "close button").candidates[0]?.name).toBe("Icon Close");
     expect(topName(index, "toast message").candidates[0]?.name).toBe("Toast");
     expect(topName(index, "total price").candidates[0]?.name).toBe("Price");
-    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button / Style=Primary");
+    expect(topName(index, "primary button").candidates[0]?.name).toBe("Button");
     expect(topName(index, "on off switch").candidates[0]?.name).toBe("Switch");
     expect(topName(index, "headshot").candidates[0]?.name).toBe("Avatar");
     expect(topName(index, "masthead").candidates[0]?.name).toBe("Header Bar");
@@ -227,8 +227,8 @@ describe("phrase match and typos", () => {
     expect(login.candidates.length).toBeLessThanOrEqual(3);
     expect(login.cost.chars).toBeLessThanOrEqual(600);
     const primary = recommendMasters(index, "primary button");
-    const primaryWrong = !primary.candidates[0]?.name.startsWith("Button");
-    expect(primaryWrong && primary.match !== "weak match").toBe(false);
+    expect(primary.candidates[0]?.name).toBe("Button");
+    expect(primary.match).not.toBe("weak match");
     expect(topName(index, "billing address field").candidates[0]?.name).toBe("Text Field");
     expect(topName(index, "cart badge").candidates[0]?.name).toBe("Badge");
     expect(topName(index, "shipping alert").candidates[0]?.name).toBe("Alert");

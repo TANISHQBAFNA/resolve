@@ -32,7 +32,7 @@ Cases live in `scoreboard/golden/*.json`. Each file is a list:
 | --- | --- |
 | `intent` | What the agent asked, in ordinary words. |
 | `screenType`, `journey`, `slot` | Optional scope. Same idea as a screen, a step, and a slot on that screen. |
-| `expected` | The master that should come back, **by name**. Resolve looks that name up in the current graph and uses the id it finds. If the name is missing, the run stops. It does not invent an id. |
+| `expected` | The master that should come back, **by name**. Resolve looks that name up in the current graph and uses the id it finds. If two masters share the name, the populated local set wins (an empty stub does not). If the name is missing, the run stops. It does not invent an id. |
 | `accept` | Other masters that are also fine. |
 | `mustNot` | Cousins that must not be the top pick. Example: Pay CTA vs Save CTA, Tag vs Chip. |
 | `expect` | `master` (the default when `expected` is set) or `empty`. |
@@ -85,7 +85,9 @@ Flags:
 - `--workspace <name>` — which `~/.resolve/<name>` folder holds the run history. `.`, `..`, and slashes are rejected, so a name cannot write outside that folder. The graph still comes from the active store (`GRAPHIFY_HOME`, or `~/.resolve/<name>` when that is the store).
 - `--json` — print the run as JSON instead of the table. The JSON includes every miss. The table stays short.
 
-Each run is saved to `~/.resolve/<name>/scoreboard/<timestamp>.json`. The change since last time is shown only when the previous run used the same golden set and the same workspace. A first run, or a run against a different set, has a null delta — not zeros. The trend on Overview and Rules uses that same pair of checks. A workspace name of `.`, `..`, or a path returns HTTP 400 from `/api/scoreboard`.
+Each run is saved under `GRAPHIFY_HOME/scoreboard/` when that folder is set, otherwise `~/.resolve/<name>/scoreboard/<timestamp>.json`. The change since last time is shown only when the previous run used the same golden set and the same workspace. A first run, or a run against a different set, has a null delta — not zeros. The trend on Overview and Rules uses that same pair of checks. A workspace name of `.`, `..`, or a path returns HTTP 400 from `/api/scoreboard`.
+
+`resolve score --init` writes one case per public master plus synonym asks. Names that still have two populated masters are skipped (printed), so the golden file does not contain duplicate case ids. The default file is `GRAPHIFY_HOME/scoreboard/golden/from-library.json` (the store folder), not a path inside the Resolve checkout. Pass `--out <file>` to put it somewhere else.
 
 The process exits with an error if the invent rate is above 0 or a card is over its size budget. Other numbers are reported. They do not, by themselves, fail the run.
 

@@ -98,6 +98,14 @@ describe("agent tools", () => {
     }
   });
 
+  it("recipe intent picks the matching pack, same as query", () => {
+    const byQuery = callTool("recipe", { query: "sign-in" }) as { recipe?: { id: string } };
+    const byIntent = callTool("recipe", { intent: "sign-in" }) as { recipe?: { id: string } };
+    expect(byQuery.recipe?.id).toBe("sign-in");
+    expect(byIntent.recipe?.id).toBe("sign-in");
+    expect(JSON.stringify(byIntent).length).toBeLessThanOrEqual(2000);
+  });
+
   it("list_recipes binds live masters when a graph is stored", () => {
     saveGraph(graph);
     const listed = callTool("list_recipes", {}) as { recipes?: unknown; recipe?: { id: string }; also?: string[] };

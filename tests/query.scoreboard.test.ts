@@ -267,6 +267,9 @@ describe("scoreboard", () => {
     expect(() => scoreboardHistoryDir("foo/bar", { HOME: home })).toThrow(/not allowed/);
     expect(() => scoreboardWorkspaceName({ RESOLVE_WORKSPACE: ".." })).toThrow(/not allowed/);
     expect(scoreboardHistoryDir("fixture", { HOME: home })).toBe(join(home, ".resolve", "fixture", "scoreboard"));
+    expect(scoreboardHistoryDir("fixture", { HOME: home, GRAPHIFY_HOME: join(home, "pinned") })).toBe(
+      join(home, "pinned", "scoreboard"),
+    );
   });
 
   it("resolve score --workspace .. does not leave ~/.resolve", async () => {

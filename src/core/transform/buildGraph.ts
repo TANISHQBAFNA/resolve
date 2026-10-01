@@ -17,6 +17,7 @@ import {
   makeId,
 } from "@/core/model";
 import type {
+  SourceComponentMeta,
   SourceDocument,
   SourceLink,
   SourceNode,
@@ -73,6 +74,24 @@ interface PendingLink {
 }
 
 const COMPONENT_DEF_TYPES: readonly NodeType[] = ["COMPONENT_SET", "MAIN_COMPONENT", "VARIANT"];
+
+function remoteSourceFields(meta: SourceComponentMeta): Record<string, unknown> {
+  return {
+    ...(meta.sourceFileKey ? { sourceFileKey: meta.sourceFileKey } : {}),
+    ...(meta.sourceFileName ? { sourceFileName: meta.sourceFileName } : {}),
+    ...(meta.sourcePageName ? { sourcePageName: meta.sourcePageName } : {}),
+  };
+}
+
+function applyRemoteSource(node: GraphNode, meta: SourceComponentMeta): void {
+  const source = remoteSourceFields(meta);
+  if (Object.keys(source).length) {
+    node.metadata = { ...node.metadata, ...source };
+  }
+  if (meta.sourceFileKey && (meta.remote || node.isRemote)) {
+    node.fileKey = meta.sourceFileKey;
+  }
+}
 
 class GraphBuilder {
   readonly nodes = new Map<string, GraphNode>();
@@ -439,10 +458,16 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
       // A component we cannot see the internals of is "remote" in the sense
       // that matters here: its definition lives outside this payload.
       isRemote: !inferred,
-      metadata: { key: meta.key, remote: !inferred, identity: meta.identity ?? "id" },
+      metadata: {
+        key: meta.key,
+        remote: !inferred,
+        identity: meta.identity ?? "id",
+        ...remoteSourceFields(meta),
+      },
     };
     if (meta.description) node.description = meta.description;
     builder.addNode(node);
+    applyRemoteSource(node, meta);
     const libGraphId = linkToLibrary(graphId, meta.libraryId);
     if (libGraphId) node.libraryId = libGraphId;
 
@@ -456,9 +481,10 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
           type: "COMPONENT_SET",
           name: setMeta.name,
           isRemote: true,
-          metadata: { key: setMeta.key, remote: true },
+          metadata: { key: setMeta.key, remote: true, ...remoteSourceFields(setMeta) },
         };
         builder.addNode(setNode);
+        applyRemoteSource(setNode, setMeta);
         const setLibGraphId = linkToLibrary(setGraphId, setMeta.libraryId);
         if (setLibGraphId) setNode.libraryId = setLibGraphId;
       }
@@ -476,7 +502,8 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
     if (!node) continue;
     if (!node.description && meta.description) node.description = meta.description;
     if (meta.remote) node.isRemote = true;
-    node.metadata = { ...node.metadata, key: meta.key };
+    node.metadata = { ...node.metadata, key: meta.key, ...remoteSourceFields(meta) };
+    applyRemoteSource(node, meta);
     const libGraphId = linkToLibrary(node.id, meta.libraryId);
     if (libGraphId) node.libraryId = libGraphId;
     for (const link of meta.documentationLinks ?? []) {
@@ -634,6 +661,10 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
 
   for (const node of builder.nodes.values()) applyGovernance(node);
   for (const node of builder.nodes.values()) {
+    if (node.componentSetId) {
+      const set = builder.nodes.get(node.componentSetId);
+      if (set) inheritGovernance(node, set);
+    }
     if (!node.mainComponentId) continue;
     const main = builder.nodes.get(node.mainComponentId);
     if (main) inheritGovernance(node, main);
@@ -664,6 +695,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
       ingestedAt: doc.source.ingestedAt,
       version: doc.source.version,
       lastModified: doc.source.lastModified,
+      ...(doc.source.remoteSourceLookup ? { remoteSourceLookup: doc.source.remoteSourceLookup } : {}),
     },
     nodes: [...builder.nodes.values()],
     edges: [...builder.edges.values()],

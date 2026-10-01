@@ -1,4 +1,4 @@
-import type { IngestionSource, SourceDocument } from "../types";
+import type { IngestionSource, SourceComponentMeta, SourceDocument } from "../types";
 import { parseFigmaTarget } from "../figmaFileKey";
 import {
   collectTopLevelScreens,
@@ -27,9 +27,17 @@ export const FIGMA_API_ORIGIN = "https://api.figma.com";
 export const DEFAULT_MAX_RETRY_AFTER_MS = 30_000;
 export const DEFAULT_BACKOFF_MS = 1_000;
 export const DEFAULT_MAX_RATE_LIMIT_RETRIES = 5;
+export const DEFAULT_MAX_SERVER_ERROR_RETRIES = 3;
+export const DEFAULT_MAX_ATTEMPTS = 4;
+export const DEFAULT_SERVER_ERROR_BACKOFF_MS = 2_000;
+export const RETRYABLE_SERVER_STATUSES = new Set([500, 502, 503, 504]);
 
 export function exponentialBackoffMs(attempt: number, capMs = DEFAULT_MAX_RETRY_AFTER_MS): number {
   return Math.min(capMs, DEFAULT_BACKOFF_MS * 2 ** Math.max(0, attempt));
+}
+
+function serverBackoffMs(attempt: number): number {
+  return Math.min(12_000, DEFAULT_SERVER_ERROR_BACKOFF_MS * 2 ** Math.max(0, attempt));
 }
 
 export function parseRetryAfterMs(header: string | null, now = Date.now()): number | undefined {
@@ -173,7 +181,9 @@ async function getJson(
   retry?: RetryPolicy,
 ): Promise<unknown> {
   let headerlessAttempts = 0;
+  let tries = 0;
   for (;;) {
+    tries += 1;
     let res: Response;
     try {
       res = await figmaGet(origin, path, token, signal);
@@ -188,9 +198,11 @@ async function getJson(
       const waitMs = headerWait ?? exponentialBackoffMs(headerlessAttempts, maxWait);
       if (headerWait === undefined) {
         headerlessAttempts += 1;
-        if (headerlessAttempts > maxHeaderless) {
+        if (headerlessAttempts > maxHeaderless || tries >= DEFAULT_MAX_ATTEMPTS) {
           throw new Error(`${httpFailureKind(429)} for ${fileKey}: ${detail}`);
         }
+      } else if (tries >= DEFAULT_MAX_ATTEMPTS) {
+        throw new Error(`${httpFailureKind(429)} for ${fileKey}: ${detail}`);
       }
       const secs = Math.round(waitMs / 1000);
       if (waitMs > maxWait) {
@@ -198,6 +210,11 @@ async function getJson(
           `${httpFailureKind(429)} for ${fileKey}: Retry-After ${secs}s (too long to wait). Re-run ingest to resume completed sections. ${detail}`,
         );
       }
+      await (retry?.sleep ?? defaultSleep)(waitMs);
+      continue;
+    }
+    if (RETRYABLE_SERVER_STATUSES.has(res.status) && tries < DEFAULT_MAX_ATTEMPTS) {
+      const waitMs = serverBackoffMs(tries - 1);
       await (retry?.sleep ?? defaultSleep)(waitMs);
       continue;
     }
@@ -209,6 +226,30 @@ async function getJson(
     } catch {
       throw new Error(`Figma file ${fileKey}: malformed JSON response.`);
     }
+  }
+}
+
+/** 403/404 (and exhausted 5xx) return undefined. Never throws on those. */
+async function getJsonSoft(
+  origin: string,
+  path: string,
+  token: string,
+  fileKey: string,
+  signal?: AbortSignal,
+  retry?: RetryPolicy,
+): Promise<unknown> {
+  try {
+    return await getJson(origin, path, token, fileKey, signal, retry);
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    if (
+      /authorization failed|not found|request failed \(40[134]\)/i.test(message) ||
+      /request failed \(50[0-4]\)/i.test(message) ||
+      /network error|timed out/i.test(message)
+    ) {
+      return undefined;
+    }
+    return undefined;
   }
 }
 
@@ -240,6 +281,196 @@ function adaptFile(fileKey: string, file: unknown, variables: unknown): SourceDo
   }
 }
 
+interface RemoteSourceHit {
+  fileKey: string;
+  fileName?: string;
+  pageName?: string;
+}
+
+function metaRecord(value: unknown): Record<string, unknown> {
+  const rec = asRecord(value);
+  const nested = rec["meta"];
+  return nested && typeof nested === "object" ? asRecord(nested) : rec;
+}
+
+function sourceFromPublished(raw: unknown): RemoteSourceHit | undefined {
+  const rec = asRecord(raw);
+  const fileKey = asString(rec["file_key"]) ?? asString(rec["fileKey"]);
+  if (!fileKey) return undefined;
+  const frame = asRecord(rec["containing_frame"] ?? rec["containingFrame"]);
+  const pageName =
+    asString(frame["pageName"]) ??
+    asString(frame["page_name"]) ??
+    asString(frame["name"]);
+  const fileName = asString(rec["file_name"]) ?? asString(rec["fileName"]);
+  return {
+    fileKey,
+    ...(fileName ? { fileName } : {}),
+    ...(pageName ? { pageName } : {}),
+  };
+}
+
+function publishedKeyOf(raw: unknown): string | undefined {
+  return asString(asRecord(raw)["key"]);
+}
+
+function stampRemoteMeta(meta: SourceComponentMeta, hit: RemoteSourceHit): void {
+  meta.sourceFileKey = hit.fileKey;
+  if (hit.fileName) meta.sourceFileName = hit.fileName;
+  if (hit.pageName) meta.sourcePageName = hit.pageName;
+  meta.libraryId = hit.fileKey;
+}
+
+function restampRemoteLibraries(doc: SourceDocument): void {
+  const remotes = [...Object.values(doc.components), ...Object.values(doc.componentSets)].filter(
+    (meta) => meta.remote,
+  );
+  for (const meta of remotes) {
+    if (!meta.sourceFileKey) continue;
+    const id = meta.sourceFileKey;
+    meta.libraryId = id;
+    const existing = doc.libraries[id];
+    doc.libraries[id] = {
+      id,
+      name: meta.sourceFileName ?? existing?.name ?? id,
+      fileKey: id,
+    };
+  }
+}
+
+export async function enrichRemoteComponentSources(
+  doc: SourceDocument,
+  options: {
+    origin: string;
+    token: string;
+    signal?: AbortSignal;
+    retry?: RetryPolicy;
+  },
+): Promise<SourceDocument> {
+  const remotes = [...Object.values(doc.components), ...Object.values(doc.componentSets)].filter(
+    (meta) => meta.remote && meta.key,
+  );
+  if (!remotes.length) {
+    doc.source.remoteSourceLookup = "skipped";
+    return doc;
+  }
+
+  const cache = new Map<string, RemoteSourceHit>();
+  const fileNames = new Map<string, string>();
+  const batchedFiles = new Set<string>();
+  let attempted = false;
+  let hitCount = 0;
+
+  const remember = (key: string | undefined, hit: RemoteSourceHit | undefined) => {
+    if (!key || !hit) return;
+    hitCount += 1;
+    const named = fileNames.get(hit.fileKey);
+    const next = named && !hit.fileName ? { ...hit, fileName: named } : hit;
+    if (next.fileName) fileNames.set(next.fileKey, next.fileName);
+    cache.set(key, next);
+  };
+
+  const ingestPublishedList = (body: unknown) => {
+    const meta = metaRecord(body);
+    const list = [
+      ...asArray(meta["components"]),
+      ...asArray(meta["component_sets"]),
+      ...asArray(meta["componentSets"]),
+    ];
+    for (const row of list) {
+      remember(publishedKeyOf(row), sourceFromPublished(row));
+    }
+    const one = sourceFromPublished(meta);
+    if (one) remember(publishedKeyOf(meta) ?? asString(meta["key"]), one);
+  };
+
+  const batchFile = async (sourceFileKey: string) => {
+    if (batchedFiles.has(sourceFileKey)) return;
+    batchedFiles.add(sourceFileKey);
+    attempted = true;
+    const comps = await getJsonSoft(
+      options.origin,
+      `/v1/files/${sourceFileKey}/components`,
+      options.token,
+      sourceFileKey,
+      options.signal,
+      options.retry,
+    );
+    if (comps) ingestPublishedList(comps);
+    const sets = await getJsonSoft(
+      options.origin,
+      `/v1/files/${sourceFileKey}/component_sets`,
+      options.token,
+      sourceFileKey,
+      options.signal,
+      options.retry,
+    );
+    if (sets) ingestPublishedList(sets);
+    if (!fileNames.has(sourceFileKey)) {
+      const file = await getJsonSoft(
+        options.origin,
+        `/v1/files/${sourceFileKey}?depth=1`,
+        options.token,
+        sourceFileKey,
+        options.signal,
+        options.retry,
+      );
+      const name = asString(asRecord(file)["name"]);
+      if (name) fileNames.set(sourceFileKey, name);
+    }
+  };
+
+  for (const remote of remotes) {
+    const key = remote.key!;
+    if (cache.has(key)) continue;
+    attempted = true;
+    const path = doc.componentSets[remote.id] ? `/v1/component_sets/${key}` : `/v1/components/${key}`;
+    const body = await getJsonSoft(
+      options.origin,
+      path,
+      options.token,
+      key,
+      options.signal,
+      options.retry,
+    );
+    if (!body) continue;
+    ingestPublishedList(body);
+    const hit = cache.get(key) ?? sourceFromPublished(metaRecord(body));
+    if (hit) {
+      remember(key, hit);
+      await batchFile(hit.fileKey);
+    }
+  }
+
+  for (const remote of remotes) {
+    const hit = remote.key ? cache.get(remote.key) : undefined;
+    if (!hit) continue;
+    if (!hit.fileName && fileNames.has(hit.fileKey)) hit.fileName = fileNames.get(hit.fileKey);
+    stampRemoteMeta(remote, hit);
+  }
+  restampRemoteLibraries(doc);
+  doc.source.remoteSourceLookup = hitCount > 0 ? "ok" : attempted ? "failed" : "skipped";
+  return doc;
+}
+
+async function adaptAndEnrich(
+  origin: string,
+  fileKey: string,
+  token: string,
+  file: unknown,
+  variables: unknown,
+  signal: AbortSignal | undefined,
+  retry?: RetryPolicy,
+): Promise<SourceDocument> {
+  const doc = adaptFile(fileKey, file, variables);
+  try {
+    return await enrichRemoteComponentSources(doc, { origin, token, signal, retry });
+  } catch {
+    doc.source.remoteSourceLookup = "failed";
+    return doc;
+  }
+}
+
 async function fetchFullFile(
   origin: string,
   fileKey: string,
@@ -249,7 +480,7 @@ async function fetchFullFile(
   retry?: RetryPolicy,
 ): Promise<SourceDocument> {
   const file = await getJson(origin, `/v1/files/${fileKey}`, token, fileKey, signal, retry);
-  return adaptFile(fileKey, file, variables);
+  return adaptAndEnrich(origin, fileKey, token, file, variables, signal, retry);
 }
 
 async function fetchNodesFile(
@@ -319,7 +550,7 @@ export async function fetchFigmaRestDocument(
       total: 1,
       name: target.nodeIds.join(", "),
     });
-    return adaptFile(fileKey, file, variables);
+    return adaptAndEnrich(origin, fileKey, token, file, variables, options.signal, retry);
   }
 
   options.onProgress?.({ phase: "outline", done: 0, total: 1, name: fileKey });
@@ -413,8 +644,10 @@ export async function fetchFigmaRestDocument(
 
   options.checkpoint?.clear(fileKey);
   const variables = await variablesPromise;
-  return adaptFile(
+  return adaptAndEnrich(
+    origin,
     fileKey,
+    token,
     {
       name: asString(outline["name"]) ?? "Figma file",
       lastModified: outline["lastModified"],
@@ -431,6 +664,8 @@ export async function fetchFigmaRestDocument(
       styles,
     },
     variables,
+    options.signal,
+    retry,
   );
 }
 

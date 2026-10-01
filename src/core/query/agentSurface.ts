@@ -14,7 +14,7 @@ import {
   elementComponentIds,
   masterByIdOrKey,
 } from "@/core/ingestion/designContextIds";
-import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
+import { COMPONENT_DEFINITION_TYPES, descriptionIsRetired, type GraphNode } from "@/core/model";
 import { computeAnalytics, computeComponentUsage, type GraphAnalytics } from "./analytics";
 import { detectCommunitiesForIndex } from "./communities";
 import type { GraphIndex } from "./GraphIndex";
@@ -406,14 +406,10 @@ function pickResolveTarget(
 
   const reals = realMastersNamed(index, trimmed);
   if (reals.length >= 1) {
-    const chosen =
-      reals.length === 1
-        ? reals[0]!
-        : placeableMasterByName(index, trimmed, workspace) ??
-          [...reals].sort((a, b) => a.id.localeCompare(b.id))[0]!;
+    const chosen = preferNamedMaster(index, reals, workspace, trimmed) ?? reals[0]!;
     const card = variantCardName(index, chosen);
     const exactCase = chosen.name === trimmed || card === trimmed;
-    if (!exactCase && chosen.status === "deprecated" && !isPrivateMaster(index, chosen)) {
+    if (!exactCase && isRetired(index, chosen) && !isPrivateMaster(index, chosen)) {
       return liveReplacement(index, chosen) ?? chosen;
     }
     return chosen;
@@ -431,7 +427,7 @@ function pickResolveTarget(
     const master = asResolvedNode(index, ciExact);
     if (master.type === "FRAME" || master.type === "SECTION") return master;
     if (!isPrivateMaster(index, master)) {
-      if (master.status === "deprecated") return liveReplacement(index, master) ?? master;
+      if (isRetired(index, master)) return liveReplacement(index, master) ?? master;
       return master;
     }
   }
@@ -463,6 +459,8 @@ export function componentUsageCard(
     placeholders?: string[];
   } = {},
 ) {
+  const libraryWarnings = iconLibraryWarnings(index, options.workspace);
+  emitIconLibraryWarningsOnce(libraryWarnings);
   const node = pickResolveTarget(index, name, options.context, options.workspace);
   if (!node) {
     return withCost({
@@ -482,14 +480,35 @@ export function componentUsageCard(
   const card = usageCardForComponent(index, node, options);
   const { cost, ...body } = card;
   void cost;
-  const replacement =
-    node.status === "deprecated" ? liveReplacement(index, node) : undefined;
+  const retired = isRetired(index, node);
+  const replacement = retired ? liveReplacement(index, node) : undefined;
   const place = replacement ? placeReady(replacement, index.graph.fileKey) : undefined;
+  const clashes = otherNamedMasters(
+    index,
+    realMastersNamed(index, node.name),
+    node,
+  ).filter((other) => other.type === node.type || other.type === "COMPONENT_SET" || node.type === "COMPONENT_SET");
+  const noteParts = [
+    sameNameNote(index, realMastersNamed(index, node.name), node),
+    substitutionNote(index, name, node),
+  ].filter((part): part is string => Boolean(part));
   const withReplacement = {
     found: true as const,
     kind: "component" as const,
     ...body,
-    ...(node.status === "deprecated" ? { deprecated: true as const } : {}),
+    ...(retired ? { deprecated: true as const } : {}),
+    ...(clashes.length
+      ? {
+          also: clashes.slice(0, 3).map((other) => ({
+            id: other.id,
+            name: variantCardName(index, other),
+            ...(nodeFileKey(other, index.graph.fileKey)
+              ? { fileKey: nodeFileKey(other, index.graph.fileKey) }
+              : {}),
+          })),
+        }
+      : {}),
+    ...(noteParts.length ? { note: noteParts.join(" ") } : {}),
     ...(replacement && place
       ? {
           replacement: {
@@ -694,10 +713,138 @@ function realMastersNamed(index: GraphIndex, name: string): GraphNode[] {
   return hits;
 }
 
+/** Variants in a set, else direct children. Empty stub scores 0. */
+export function masterPopulation(index: GraphIndex, node: GraphNode): number {
+  if (node.type === "COMPONENT_SET") {
+    const variants = index.getVariantsOf(node.id).length;
+    if (variants) return variants;
+  }
+  return index.getChildren(node.id).length;
+}
+
+function askedStyleHits(index: GraphIndex, node: GraphNode, ask?: string): number {
+  if (!ask?.trim()) return 0;
+  const nameTokens = new Set(tokensOf(node.name));
+  const asked = tokensOf(ask).filter(
+    (token) => !nameTokens.has(token) && !GENERIC_NAME_TOKENS.has(token),
+  );
+  if (!asked.length) return 0;
+  const variants = node.type === "COMPONENT_SET" ? index.getVariantsOf(node.id) : [];
+  const rows = variants.length ? variants : [node];
+  let hits = 0;
+  for (const row of rows) {
+    const blob = new Set(
+      tokensOf(
+        [
+          row.name,
+          ...Object.keys(row.variantProperties ?? {}),
+          ...Object.values(row.variantProperties ?? {}),
+        ].join(" "),
+      ),
+    );
+    if (asked.some((token) => blob.has(token))) hits += 1;
+  }
+  return hits;
+}
+
+function isEmptyNameStub(index: GraphIndex, node: GraphNode): boolean {
+  if (node.type === "COMPONENT_SET") return masterPopulation(index, node) === 0;
+  return Boolean(node.isRemote) && masterPopulation(index, node) === 0;
+}
+
+/** Empty, or a remote with fewer variants than the winner — not a cousin to list. */
+function isWeakerNameStub(index: GraphIndex, node: GraphNode, picked: GraphNode): boolean {
+  if (isEmptyNameStub(index, node)) return true;
+  if (!node.isRemote) return false;
+  return masterPopulation(index, node) < masterPopulation(index, picked);
+}
+
+/**
+ * Same-name masters: asked-style variant hits, then more variants, then usage.
+ * Populated local set beats a thin external stub. Library-role file breaks remaining ties.
+ */
+export function preferNamedMaster(
+  index: GraphIndex,
+  hits: readonly GraphNode[],
+  workspace?: WorkspaceManifest,
+  ask?: string,
+): GraphNode | undefined {
+  if (!hits.length) return undefined;
+  if (hits.length === 1) return hits[0];
+  const graphFileKey = index.graph.fileKey;
+  const ranked = [...hits].sort((a, b) => {
+    const aStyle = askedStyleHits(index, a, ask);
+    const bStyle = askedStyleHits(index, b, ask);
+    if (bStyle !== aStyle) return bStyle - aStyle;
+    const aPop = masterPopulation(index, a);
+    const bPop = masterPopulation(index, b);
+    const aFilled = aPop > 0 ? 1 : 0;
+    const bFilled = bPop > 0 ? 1 : 0;
+    if (bFilled !== aFilled) return bFilled - aFilled;
+    if (bPop !== aPop) return bPop - aPop;
+    const aUse = computeComponentUsage(index, a).instanceCount;
+    const bUse = computeComponentUsage(index, b).instanceCount;
+    if (bUse !== aUse) return bUse - aUse;
+    const aLocal = a.isRemote ? 0 : 1;
+    const bLocal = b.isRemote ? 0 : 1;
+    if (bLocal !== aLocal) return bLocal - aLocal;
+    const aLib = isLibraryFileKey(workspace, nodeFileKey(a, graphFileKey)) ? 1 : 0;
+    const bLib = isLibraryFileKey(workspace, nodeFileKey(b, graphFileKey)) ? 1 : 0;
+    if (bLib !== aLib) return bLib - aLib;
+    const aSet = a.type === "COMPONENT_SET" ? 1 : 0;
+    const bSet = b.type === "COMPONENT_SET" ? 1 : 0;
+    if (bSet !== aSet) return bSet - aSet;
+    return a.id.localeCompare(b.id);
+  });
+  return ranked[0];
+}
+
+/** Other populated masters that still share the name after stub-prefer. */
+export function otherNamedMasters(
+  index: GraphIndex,
+  hits: readonly GraphNode[],
+  picked: GraphNode,
+): GraphNode[] {
+  return hits.filter((node) => node.id !== picked.id && !isWeakerNameStub(index, node, picked));
+}
+
+function sameNameNote(
+  index: GraphIndex,
+  hits: readonly GraphNode[],
+  picked: GraphNode,
+): string | undefined {
+  const stubs = hits.filter((node) => node.id !== picked.id && isWeakerNameStub(index, node, picked));
+  const others = otherNamedMasters(index, hits, picked);
+  const populatedPick = !isEmptyNameStub(index, picked) && stubs.length > 0;
+  if (others.length && populatedPick) {
+    return `Same name as ${others.length} other master${others.length === 1 ? "" : "s"}. Picked the populated local set.`;
+  }
+  if (populatedPick) return "Picked the populated local set.";
+  if (others.length) {
+    return `Same name as ${others.length} other master${others.length === 1 ? "" : "s"}.`;
+  }
+  return undefined;
+}
+
+function substitutionNote(index: GraphIndex, ask: string, picked?: GraphNode): string | undefined {
+  const trimmed = ask.trim();
+  if (!trimmed) return undefined;
+  const collapsed = collapsedName(trimmed);
+  for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    if (!isPrivateMasterName(node.name)) continue;
+    const same =
+      collapsedName(node.name) === collapsed || node.name.toLowerCase() === trimmed.toLowerCase();
+    if (!same) continue;
+    if (picked && node.id === picked.id) continue;
+    if (!picked || isPrivateMasterName(picked.name)) continue;
+    return `substituted "${node.name}" → "${variantCardName(index, picked)}"`;
+  }
+  return undefined;
+}
+
 /**
  * Real master for a name. Never an `mcp-name:` guess.
- * When several real masters share the name, the library-role file wins.
- * A clash with no library-role master returns undefined (do not guess).
+ * When several real masters share the name, the populated local set wins.
  */
 export function placeableMasterByName(
   index: GraphIndex,
@@ -705,14 +852,7 @@ export function placeableMasterByName(
   workspace?: WorkspaceManifest,
 ): GraphNode | undefined {
   const hits = realMastersNamed(index, name);
-  if (hits.length === 0) return undefined;
-  if (hits.length === 1) return hits[0];
-  const library = hits.filter((node) =>
-    isLibraryFileKey(workspace, nodeFileKey(node, index.graph.fileKey)),
-  );
-  if (!library.length) return undefined;
-  library.sort((a, b) => a.id.localeCompare(b.id));
-  return library[0];
+  return preferNamedMaster(index, hits, workspace, name);
 }
 
 /** Id lookup: a guessed main redirects to the real master of that name, or nothing. */
@@ -726,6 +866,17 @@ function placeableNode(
 }
 
 const VARIANT_PROP_NAME = /^[^,=]+=[^,=]+(?:,\s*[^,=]+=[^,=]+)*$/;
+
+/** Property row (`Style=Primary`) or `{Set} Primary` — not a named cousin like Pay CTA. */
+function isSetModifierVariant(node: GraphNode, set?: GraphNode): boolean {
+  if (VARIANT_PROP_NAME.test(node.name)) return true;
+  const setName = set?.name.trim();
+  if (!setName) return false;
+  const name = node.name.trim();
+  if (!name.toLowerCase().startsWith(`${setName.toLowerCase()} `)) return false;
+  const rest = tokensOf(name.slice(setName.length));
+  return rest.length > 0 && rest.every((token) => modifierWord(token));
+}
 
 /** Family name only. `Button Primary` and `Button / Style=Primary` are the Button family. A variant named `Primary` keeps that name. */
 function familyNameOf(name: string, setName?: string): string {
@@ -1078,8 +1229,14 @@ export function explainNode(index: GraphIndex, nameOrId: string, task?: string) 
  */
 export function checkFrame(index: GraphIndex, intent: string) {
   const analog = similarUsage(index, intent);
-  const avoid = analog.variants.filter((variant) => index.getNode(variant.id)?.status === "deprecated");
-  const use = analog.variants.find((variant) => index.getNode(variant.id)?.status !== "deprecated");
+  const avoid = analog.variants.filter((variant) => {
+    const node = index.getNode(variant.id);
+    return node ? isRetired(index, node) : false;
+  });
+  const use = analog.variants.find((variant) => {
+    const node = index.getNode(variant.id);
+    return node ? !isRetired(index, node) : true;
+  });
   const useNode = use ? index.getNode(use.id) : undefined;
   const useLabel = useNode ? variantCardName(index, useNode) : use?.name;
   return withCost({
@@ -1208,6 +1365,8 @@ export interface RecommendCandidate {
   published?: boolean;
   publishState?: "published" | "local-only";
   variantProperties?: Record<string, string>;
+  /** Compact set settings, e.g. `3 variants · Style, Size`. */
+  settings?: string;
   set?: string;
   status?: GraphNode["status"];
   slots?: string[];
@@ -1332,20 +1491,25 @@ function allSynonymGroups(): readonly { terms: readonly string[] }[] {
   return extraGroups.length ? [...synonymFile.groups, ...extraGroups] : synonymFile.groups;
 }
 
-function synonymOverlayFile(): string | undefined {
+/** Team overlay next to synonyms.json. GRAPHIFY_HOME, else nearest `.graphify/`, else ~/.resolve/default. */
+function overlayFile(name: string): string | undefined {
   if (typeof process === "undefined" || !process.versions?.node) return undefined;
   const pinned = process.env["GRAPHIFY_HOME"]?.trim();
-  if (pinned) return join(resolve(pinned), "synonyms.json");
+  if (pinned) return join(resolve(pinned), name);
   let dir = process.cwd();
   for (let hop = 0; hop < 6; hop += 1) {
-    const candidate = join(dir, ".graphify", "synonyms.json");
+    const candidate = join(dir, ".graphify", name);
     if (existsSync(candidate)) return candidate;
     const parent = resolve(dir, "..");
     if (parent === dir) break;
     dir = parent;
   }
-  const fallback = join(homedir(), ".resolve", "default", "synonyms.json");
+  const fallback = join(homedir(), ".resolve", "default", name);
   return existsSync(fallback) ? fallback : undefined;
+}
+
+function synonymOverlayFile(): string | undefined {
+  return overlayFile("synonyms.json");
 }
 
 /** Per-library words. Missing or broken file changes nothing. */
@@ -1372,6 +1536,218 @@ function loadSynonymOverlay(): void {
     extraGroups = [];
     extraSynonym.clear();
   }
+}
+
+function foldLibName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+interface IconLibraryEntry {
+  raw: string;
+  name?: string;
+  fileKey?: string;
+  page?: string;
+}
+
+/** Team icon-library entries. Empty = name heuristic. Re-read every recommend. */
+let iconLibraryEntries: IconLibraryEntry[] = [];
+let iconLibraryIgnored = new Set<string>();
+
+function parseIconLibraryItem(item: unknown): IconLibraryEntry | undefined {
+  if (typeof item === "string") {
+    const folded = foldLibName(item);
+    return folded ? { raw: item.trim(), name: folded, fileKey: folded, page: folded } : undefined;
+  }
+  if (!item || typeof item !== "object" || Array.isArray(item)) return undefined;
+  const rec = item as { name?: unknown; fileKey?: unknown; page?: unknown };
+  const name = typeof rec.name === "string" ? foldLibName(rec.name) : "";
+  const fileKey = typeof rec.fileKey === "string" ? foldLibName(rec.fileKey) : "";
+  const page = typeof rec.page === "string" ? foldLibName(rec.page) : "";
+  if (!name && !fileKey && !page) return undefined;
+  const raw = name || fileKey || page;
+  return {
+    raw,
+    ...(name ? { name } : {}),
+    ...(fileKey ? { fileKey } : {}),
+    ...(page ? { page } : {}),
+  };
+}
+
+function loadIconLibraries(): void {
+  iconLibraryEntries = [];
+  iconLibraryIgnored = new Set();
+  const path = overlayFile("icon-libraries.json");
+  if (!path) return;
+  try {
+    const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
+    const list = Array.isArray(raw)
+      ? raw
+      : raw && typeof raw === "object"
+        ? (raw as { libraries?: unknown }).libraries
+        : undefined;
+    if (!Array.isArray(list)) return;
+    for (const item of list) {
+      const entry = parseIconLibraryItem(item);
+      if (entry) iconLibraryEntries.push(entry);
+    }
+  } catch {
+    iconLibraryEntries = [];
+  }
+}
+
+function metaText(node: GraphNode, key: string): string | undefined {
+  const value = node.metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function nodeIconAnchors(
+  index: GraphIndex,
+  node: GraphNode,
+  workspace?: WorkspaceManifest,
+): { names: string[]; keys: string[]; pages: string[] } {
+  const names: string[] = [];
+  const keys: string[] = [];
+  const pages: string[] = [];
+  const pushName = (value?: string) => {
+    if (value) names.push(foldLibName(value));
+  };
+  const pushKey = (value?: string) => {
+    if (value) keys.push(foldLibName(value));
+  };
+  const pushPage = (value?: string) => {
+    if (value) pages.push(foldLibName(value));
+  };
+  pushKey(metaText(node, "sourceFileKey"));
+  pushName(metaText(node, "sourceFileName"));
+  pushPage(metaText(node, "sourcePageName"));
+  const key = node.fileKey?.trim();
+  if (key) {
+    pushKey(key);
+    for (const file of index.getNodesByType("FILE")) {
+      if (file.fileKey === key || file.id === `file:${key}`) pushName(file.name);
+    }
+    if (workspace) {
+      for (const file of workspace.files) {
+        if (file.key === key) {
+          pushKey(file.key);
+          if (file.label) pushName(file.label);
+        }
+      }
+    }
+  }
+  const page = node.pageId ? index.getNode(node.pageId) : undefined;
+  if (page && (page.type === "PAGE" || page.type === "SECTION")) pushPage(page.name);
+  for (const ancestor of index.getAncestors(node.id)) {
+    if (ancestor.type === "PAGE" || ancestor.type === "SECTION") pushPage(ancestor.name);
+  }
+  return { names, keys, pages };
+}
+
+function entryHitsAnchors(
+  entry: IconLibraryEntry,
+  anchors: { names: string[]; keys: string[]; pages: string[] },
+): boolean {
+  if (entry.fileKey && anchors.keys.includes(entry.fileKey)) return true;
+  if (entry.name && anchors.names.includes(entry.name)) return true;
+  if (entry.page && anchors.pages.includes(entry.page)) return true;
+  return false;
+}
+
+function mainLibraryAnchors(
+  index: GraphIndex,
+  workspace?: WorkspaceManifest,
+): { names: string[]; keys: string[] } {
+  const names: string[] = [];
+  const keys: string[] = [];
+  const primary = index.graph.fileKey;
+  if (primary) keys.push(foldLibName(primary));
+  if (index.graph.fileName) names.push(foldLibName(index.graph.fileName));
+  for (const file of index.getNodesByType("FILE")) {
+    if (!primary || file.fileKey === primary || file.id === `file:${primary}`) {
+      names.push(foldLibName(file.name));
+      if (file.fileKey) keys.push(foldLibName(file.fileKey));
+    }
+  }
+  if (workspace && primary) {
+    for (const file of workspace.files) {
+      if (file.key === primary) {
+        keys.push(foldLibName(file.key));
+        if (file.label) names.push(foldLibName(file.label));
+      }
+    }
+  }
+  return { names, keys };
+}
+
+function entryHitsMainLibrary(entry: IconLibraryEntry, main: { names: string[]; keys: string[] }): boolean {
+  if (entry.fileKey && main.keys.includes(entry.fileKey)) return true;
+  if (entry.name && main.names.includes(entry.name)) return true;
+  return false;
+}
+
+function fromIconLibrary(
+  index: GraphIndex,
+  node: GraphNode,
+  workspace?: WorkspaceManifest,
+): boolean {
+  if (!iconLibraryEntries.length) return false;
+  const main = mainLibraryAnchors(index, workspace);
+  const anchors = nodeIconAnchors(index, node, workspace);
+  return iconLibraryEntries.some((entry) => {
+    if (iconLibraryIgnored.has(entry.raw)) return false;
+    if (entryHitsMainLibrary(entry, main)) return false;
+    return entryHitsAnchors(entry, anchors);
+  });
+}
+
+function remotesMissingSource(index: GraphIndex): boolean {
+  for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    if (!node.isRemote) continue;
+    if (metaText(node, "sourceFileKey") || metaText(node, "sourceFileName") || metaText(node, "sourcePageName")) {
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
+function skipUnmatchedIconWarning(index: GraphIndex): boolean {
+  if (index.graph.source.remoteSourceLookup === "failed") return true;
+  return remotesMissingSource(index);
+}
+
+let emittedIconLibraryWarningKey = "";
+
+function emitIconLibraryWarningsOnce(lines: readonly string[]): void {
+  if (!lines.length) return;
+  const key = lines.join("\n");
+  if (key === emittedIconLibraryWarningKey) return;
+  emittedIconLibraryWarningKey = key;
+  for (const line of lines) process.stderr.write(`${line}\n`);
+}
+
+/** One line per unmatched or ignored icon-library entry. Empty when nothing is configured. */
+export function iconLibraryWarnings(
+  index: GraphIndex,
+  workspace?: WorkspaceManifest,
+): string[] {
+  loadIconLibraries();
+  if (!iconLibraryEntries.length) return [];
+  const main = mainLibraryAnchors(index, workspace);
+  const masters = index.getNodesByType(...MASTER_TYPES);
+  const lines: string[] = [];
+  iconLibraryIgnored = new Set();
+  const skipUnmatched = skipUnmatchedIconWarning(index);
+  for (const entry of iconLibraryEntries) {
+    if (entryHitsMainLibrary(entry, main)) {
+      iconLibraryIgnored.add(entry.raw);
+      lines.push(`icon library "${entry.raw}" matches the main library; ignored`);
+      continue;
+    }
+    const hit = masters.some((node) => entryHitsAnchors(entry, nodeIconAnchors(index, node, workspace)));
+    if (!hit && !skipUnmatched) lines.push(`icon library "${entry.raw}" matched no components`);
+  }
+  return lines;
 }
 
 /**
@@ -1428,7 +1804,7 @@ function slotIsComponentRole(slotTokens: string[]): boolean {
 function intentNamesMaster(index: GraphIndex, askedTokens: string[]): boolean {
   if (!askedTokens.length) return false;
   for (const node of index.getNodesByType(...MASTER_TYPES)) {
-    if (node.status === "deprecated" || isPrivateMasterName(node.name)) continue;
+    if (isRetired(index, node) || isPrivateMasterName(node.name)) continue;
     const names = new Set(tokensOf(node.name));
     if (askedTokens.some((token) => names.has(token))) return true;
   }
@@ -1516,6 +1892,27 @@ const GENERIC_NAME_TOKENS = new Set([
 
 function collapsedName(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/** Set name equals the ask, or the set name is a whole-word/phrase inside the ask. */
+function setCoversAsk(ask: string, setName: string): boolean {
+  const askFold = ask.trim().toLowerCase();
+  const nameFold = setName.trim().toLowerCase();
+  if (!askFold || !nameFold) return false;
+  if (askFold === nameFold || collapsedName(askFold) === collapsedName(nameFold)) return true;
+  const nameTokens = tokensOf(nameFold);
+  const askTokens = tokensOf(askFold);
+  return nameTokens.length > 0 && nameTokens.every((token) => askTokens.includes(token));
+}
+
+/** Query names this node, not merely its family. */
+function namesThisNode(ask: string, node: GraphNode, index: GraphIndex): boolean {
+  const needle = ask.trim().toLowerCase();
+  if (!needle) return false;
+  if (node.name.toLowerCase() === needle) return true;
+  if (collapsedName(node.name) === collapsedName(needle)) return true;
+  if (phraseNamesMatch(needle, node.name)) return true;
+  return variantCardName(index, node).toLowerCase() === needle;
 }
 
 /** Plural s/es or -ing/-ed, either way. "tablet" is not an inflection of "tab". */
@@ -1610,7 +2007,7 @@ function phraseAliasBonus(ask: string, familyName: string): number {
 function liveNameSets(index: GraphIndex): Set<string>[] {
   const sets: Set<string>[] = [];
   for (const node of index.getNodesByType(...MASTER_TYPES)) {
-    if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
+    if (isRetired(index, node) || isPrivateMaster(index, node)) continue;
     // A guessed instance name is not a component. "Primary CTA v2" must not
     // turn the variant word "primary" into a component.
     if (isNameInferredMaster(node)) continue;
@@ -1887,8 +2284,19 @@ function lexicalScore(hits: TokenHits, exactName: boolean): number {
   return hits.name * 100 + hits.synonym * 70 + hits.variant * 40;
 }
 
+function iconOnlyTail(role: string): boolean {
+  const tokens = role
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token && token !== "a" && token !== "an" && token !== "the");
+  return (
+    tokens.length > 0 && tokens.every((token) => token === "icon" || token === "glyph" || token === "symbol")
+  );
+}
+
 /**
  * "checkout summary with primary button" → scene + the component ask.
+ * "field with icon" keeps the field — icon is a modifier, not the role.
  * "phone number input with country code" keeps the whole ask, because the
  * words after "with" are not a component and the words before are.
  */
@@ -1900,6 +2308,7 @@ function splitBrief(
   if (parts.length < 2) return { role: intent.trim(), scene: "" };
   const scene = (parts[0] ?? "").trim();
   const role = parts.slice(1).join(" ").trim();
+  if (scene && iconOnlyTail(role)) return { role: scene, scene: "" };
   if (componentWord) {
     const roleHits = tokensOf(role).some(componentWord);
     const sceneHits = tokensOf(scene).some(componentWord);
@@ -1925,6 +2334,109 @@ function isPrivateMaster(index: GraphIndex, node: GraphNode): boolean {
   return Boolean(set && isPrivateMasterName(set.name));
 }
 
+const ICON_CODE_NAME = /^[a-z][a-z0-9]*-\d{2,}-[a-z]/i;
+const ICON_WORD = /^(?:icon|glyph|symbol)(?:\b|[-_\s])|(?:^|[-_\s])(?:icon|glyph|symbol)$/i;
+
+function asksIcon(tokens: string[], rawAsk?: string): boolean {
+  const parts = (rawAsk ?? tokens.join(" "))
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  const iconAt = parts.findIndex(
+    (token) => token === "icon" || token === "glyph" || token === "symbol",
+  );
+  if (iconAt < 0) return false;
+  const before = parts[iconAt - 1];
+  if (before === "with" || before === "and" || before === "plus") return false;
+  const after = parts.slice(iconAt + 1);
+  if (after.some((token) => GENERIC_NAME_TOKENS.has(token) && token !== "icon")) return false;
+  return true;
+}
+
+function internalPartName(name: string): boolean {
+  const trimmed = name.trim();
+  if (isPrivateMasterName(trimmed)) return true;
+  return trimmed.toLowerCase().startsWith("base/");
+}
+
+function isInternalPart(index: GraphIndex, node: GraphNode): boolean {
+  if (internalPartName(node.name)) return true;
+  const set = setOf(index, node);
+  return Boolean(set && internalPartName(set.name));
+}
+
+function masterNames(node: GraphNode, set?: GraphNode): string[] {
+  return [node.name, set?.name].filter((value): value is string => Boolean(value));
+}
+
+function codedIconName(name: string): boolean {
+  return ICON_CODE_NAME.test(name.trim());
+}
+
+function iconWordName(name: string): boolean {
+  return ICON_WORD.test(name.trim().toLowerCase().replace(/[_/]+/g, " "));
+}
+
+/** Name heuristic, plus any master from a team-listed icon library. */
+function looksLikeIcon(
+  index: GraphIndex,
+  node: GraphNode,
+  set: GraphNode | undefined,
+  workspace?: WorkspaceManifest,
+): boolean {
+  if (fromIconLibrary(index, node, workspace)) return true;
+  return masterNames(node, set).some((name) => codedIconName(name) || iconWordName(name));
+}
+
+function distinctiveIconName(name: string): boolean {
+  const trimmed = name.trim();
+  if (codedIconName(trimmed) || iconWordName(trimmed)) return true;
+  if (/[-/]/.test(trimmed)) return true;
+  return tokensOf(trimmed).length >= 2;
+}
+
+/** Listed icon library always, unless the ask is for an icon or an exact distinctive name. Else M1 name heuristic. */
+function shouldDemoteIcon(
+  index: GraphIndex,
+  node: GraphNode,
+  set: GraphNode | undefined,
+  tokens: string[],
+  askedExact: boolean,
+  workspace?: WorkspaceManifest,
+  rawAsk?: string,
+): boolean {
+  if (asksIcon(tokens, rawAsk)) return false;
+  const names = masterNames(node, set);
+  const distinctive = names.some((name) => distinctiveIconName(name));
+  if (fromIconLibrary(index, node, workspace)) {
+    if (askedExact && distinctive) return false;
+    return true;
+  }
+  if (askedExact) return false;
+  if (names.some((name) => codedIconName(name))) return true;
+  if (!names.some((name) => iconWordName(name))) return false;
+  const extra = tokensOf(names.join(" ")).filter(
+    (token) => token !== "icon" && token !== "glyph" && token !== "symbol",
+  );
+  return !extra.some((token) => tokens.includes(token));
+}
+
+function nameLooksRetired(name: string): boolean {
+  return /\[deprecated\]|\bdeprecated\b|\blegacy\b/i.test(name);
+}
+
+/** Set tag, name/description lead phrases, and parent-set inheritance. */
+function isRetired(index: GraphIndex, node: GraphNode): boolean {
+  if (node.status === "deprecated") return true;
+  if (nameLooksRetired(node.name) || descriptionIsRetired(node.description)) return true;
+  const set = setOf(index, node);
+  if (set && set.id !== node.id) {
+    if (set.status === "deprecated") return true;
+    if (nameLooksRetired(set.name) || descriptionIsRetired(set.description)) return true;
+  }
+  return false;
+}
+
 /**
  * Live master a deprecated name should hand back.
  * Explicit replacedBy wins. Otherwise the closest live name that still carries
@@ -1933,7 +2445,7 @@ function isPrivateMaster(index: GraphIndex, node: GraphNode): boolean {
 function liveReplacement(index: GraphIndex, node: GraphNode): GraphNode | undefined {
   const live = index.getNodesByType(...MASTER_TYPES).filter((candidate) => {
     if (candidate.id === node.id) return false;
-    if (candidate.status === "deprecated") return false;
+    if (isRetired(index, candidate)) return false;
     if (isPrivateMaster(index, candidate)) return false;
     if (isNameInferredMaster(candidate)) return false;
     return true;
@@ -1952,7 +2464,11 @@ function liveReplacement(index: GraphIndex, node: GraphNode): GraphNode | undefi
     )[0];
     if (picked) return picked;
   }
-  const wanted = tokensOf(node.name).filter((token) => !RETIRED_NAME_TOKENS.has(token));
+  const wantedSource =
+    VARIANT_PROP_NAME.test(node.name) || tokensOf(node.name).every((token) => RETIRED_NAME_TOKENS.has(token))
+      ? (setOf(index, node) ?? node)
+      : node;
+  const wanted = tokensOf(wantedSource.name).filter((token) => !RETIRED_NAME_TOKENS.has(token));
   if (!wanted.length) return undefined;
   const cousins = live.filter((candidate) => {
     const have = new Set(tokensOf(candidate.name));
@@ -2019,6 +2535,8 @@ export function recommendMasters(
   const ctx = contextTokenGroups(options.context);
   const packRules = options.context?.libraryRules;
   const workspace = options.workspace;
+  const libraryWarnings = iconLibraryWarnings(index, workspace);
+  emitIconLibraryWarningsOnce(libraryWarnings);
   const graphFileKey = index.graph.fileKey;
   const intentNeedle = intent.trim().toLowerCase();
   const allowClip = askedTokens.length >= 2;
@@ -2115,7 +2633,7 @@ export function recommendMasters(
       }
     }
     const libraryHit = isLibraryFileKey(workspace, nodeFileKey(node, graphFileKey));
-    const deprecated = node.status === "deprecated";
+    const deprecated = isRetired(index, node);
     const instances = computeComponentUsage(index, node).instanceCount;
     const stale = instances === 0;
     const why: string[] = [];
@@ -2161,6 +2679,18 @@ export function recommendMasters(
     context = Math.max(0, Math.min(context, 999));
     let score = lexical * 1000 + context;
     if (deprecated) score -= 1_000_000;
+    const iconLike = looksLikeIcon(index, node, set, workspace);
+    const internal = isInternalPart(index, node);
+    const askedExact =
+      Boolean(intentNeedle) &&
+      (node.name.toLowerCase() === intentNeedle ||
+        (set && set.name.toLowerCase() === intentNeedle) ||
+        collapsedName(node.name) === collapsedAsk);
+    const nameHasIcon =
+      tokensOf(node.name).includes("icon") || tokensOf(set?.name ?? "").includes("icon");
+    if (shouldDemoteIcon(index, node, set, tokens, askedExact, workspace, intent)) score -= 500_000;
+    if (asksIcon(tokens, intent) && !iconLike && !nameHasIcon && !askedExact) score -= 500_000;
+    if (internal && !tokens.includes("base") && !askedExact) score -= 500_000;
 
     return {
       node,
@@ -2175,6 +2705,7 @@ export function recommendMasters(
       covered: hits.covered + (extraHits?.covered ?? 0),
       weak:
         !exactName &&
+        !setCoversAsk(intentNeedle, set?.name ?? node.name) &&
         hits.specific === 0 &&
         (extraHits?.specific ?? 0) === 0 &&
         hits.name + hits.synonym + (extraHits?.name ?? 0) + (extraHits?.synonym ?? 0) > 0,
@@ -2239,7 +2770,7 @@ export function recommendMasters(
       existing.score += 500_000;
     } else {
       const node = index.getNode(redirect.id);
-      if (node && node.status !== "deprecated" && !isPrivateMaster(index, node)) {
+      if (node && !isRetired(index, node) && !isPrivateMaster(index, node)) {
         const set = setOf(index, node);
         const injected = scoreNode(node, set) ?? {
           node,
@@ -2274,7 +2805,7 @@ export function recommendMasters(
   if (!blockedByPrivate && scored.length === 0 && intentNeedle) {
     const winners: GraphNode[] = [];
     for (const node of index.getNodesByType(...MASTER_TYPES)) {
-      if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
+      if (isRetired(index, node) || isPrivateMaster(index, node)) continue;
       if (isNameInferredMaster(node)) continue;
       if (deniedByRules(index, node, packRules)) continue;
       if (node.metadata?.["removedByAbsence"] === true) continue;
@@ -2356,7 +2887,7 @@ export function recommendMasters(
           lexical: 1_000,
           why: ["bind-rule"],
           analog: false,
-          deprecated: node.status === "deprecated",
+          deprecated: isRetired(index, node),
           instances: computeComponentUsage(index, node).instanceCount,
           setName: set && set.id !== node.id ? set.name : undefined,
           exactName: false,
@@ -2397,6 +2928,110 @@ export function recommendMasters(
     if (hasGrounded || !variantWordOnly) return false;
     return entry.why.includes("variant");
   });
+
+  const familyKeyOf = (entry: Scored): string => setOf(index, entry.node)?.id ?? entry.node.id;
+  const asFamilyRow = (entry: Scored): Scored => {
+    const set = setOf(index, entry.node);
+    if (!set || set.id === entry.node.id) return entry;
+    const covers = setCoversAsk(intentNeedle, set.name);
+    const propertyOnly = isSetModifierVariant(entry.node, set);
+    if (namesThisNode(intentNeedle, entry.node, index) || !propertyOnly) {
+      return {
+        ...entry,
+        weak: covers ? false : entry.weak,
+      };
+    }
+    if (entry.analog && !covers) {
+      return {
+        ...entry,
+        weak: covers ? false : entry.weak,
+      };
+    }
+    return {
+      ...entry,
+      node: set,
+      setName: undefined,
+      instances: computeComponentUsage(index, set).instanceCount,
+      deprecated: isRetired(index, set),
+      exactName: entry.exactName || covers,
+      weak: covers ? false : entry.weak,
+    };
+  };
+  const collapsed: Scored[] = [];
+  const seenFamily = new Set<string>();
+  for (const entry of kept) {
+    const key = familyKeyOf(entry);
+    if (seenFamily.has(key)) continue;
+    seenFamily.add(key);
+    collapsed.push(asFamilyRow(entry));
+  }
+  kept = collapsed.filter((entry) => {
+    const namesakes = realMastersNamed(index, entry.node.name);
+    const preferred = preferNamedMaster(index, namesakes, workspace, intent);
+    if (!preferred || preferred.id === entry.node.id) return true;
+    return !isWeakerNameStub(index, entry.node, preferred);
+  });
+  if (kept.length > 1) {
+    const leadName = kept[0]!.node.name;
+    const same = kept.filter((entry) => entry.node.name === leadName);
+    if (same.length > 1) {
+      const preferred = preferNamedMaster(
+        index,
+        same.map((entry) => entry.node),
+        workspace,
+        intent,
+      );
+      const chosen = preferred ? same.find((entry) => entry.node.id === preferred.id) : undefined;
+      if (chosen) kept = [chosen, ...kept.filter((entry) => entry.node.id !== preferred!.id)];
+    }
+  }
+
+  const askedBase = askedTokens.includes("base") || intentNeedle.startsWith("base/");
+  const askedIcon = asksIcon(askedTokens, intent);
+  const demotedPart = (entry: Scored): boolean => {
+    const set = setOf(index, entry.node);
+    const askedExact =
+      entry.node.name.toLowerCase() === intentNeedle ||
+      Boolean(set && set.name.toLowerCase() === intentNeedle);
+    if (fromIconLibrary(index, entry.node, workspace) && !askedIcon) {
+      if (askedExact && distinctiveIconName(entry.node.name)) return false;
+      if (askedExact && set && distinctiveIconName(set.name)) return false;
+      return true;
+    }
+    if (namesThisNode(intentNeedle, entry.node, index)) return false;
+    if (set && namesThisNode(intentNeedle, set, index)) return false;
+    if (isInternalPart(index, entry.node) && !askedBase && !askedExact) return true;
+    return shouldDemoteIcon(index, entry.node, set, askedTokens, askedExact, workspace, intent);
+  };
+  if (kept.some((entry) => !demotedPart(entry))) {
+    kept = kept.filter((entry) => !demotedPart(entry));
+  }
+
+  const familyCardName = (entry: Scored): string => {
+    if (entry.node.type !== "VARIANT") return variantCardName(index, entry.node);
+    const set = setOf(index, entry.node);
+    if (!isSetModifierVariant(entry.node, set)) return variantCardName(index, entry.node);
+    if (namesThisNode(intentNeedle, entry.node, index)) return variantCardName(index, entry.node);
+    return set?.name ?? variantCardName(index, entry.node);
+  };
+
+  const settingsOf = (node: GraphNode): string | undefined => {
+    const set = node.type === "COMPONENT_SET" ? node : node.componentSetId ? index.getNode(node.componentSetId) : undefined;
+    const variants = set ? index.getVariantsOf(set.id) : [];
+    if (!variants.length) return undefined;
+    const props: string[] = [];
+    const seen = new Set<string>();
+    for (const variant of variants) {
+      for (const key of Object.keys(variant.variantProperties ?? {})) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+        props.push(key);
+      }
+    }
+    const names = props.slice(0, 4).join(", ");
+    return names ? `${variants.length} variants · ${names}` : `${variants.length} variants`;
+  };
+
   const packJourney = packJourneyPhrase(options.context);
   const bindQuery = {
     intent,
@@ -2435,10 +3070,11 @@ export function recommendMasters(
       });
     return {
       id: entry.node.id,
-      name: variantCardName(index, entry.node),
+      name: familyCardName(entry),
       type: entry.node.type,
       ...place,
       variantProperties: entry.node.variantProperties,
+      ...(settingsOf(entry.node) ? { settings: settingsOf(entry.node) } : {}),
       set: entry.setName,
       status: entry.node.status,
       deprecated: entry.deprecated,
@@ -2477,8 +3113,11 @@ export function recommendMasters(
     delete next.slots;
     if (dropExtras) {
       delete next.set;
+      delete next.settings;
     }
-    if (dropVariant) delete next.variantProperties;
+    if (dropVariant) {
+      delete next.variantProperties;
+    }
     return next;
   };
 
@@ -2487,7 +3126,7 @@ export function recommendMasters(
     const why = entry.whyOverride ?? toCandidate(entry, false, 0).why;
     return {
       id: entry.node.id,
-      name: variantCardName(index, entry.node),
+      name: familyCardName(entry),
       why: shortReason(why),
       ...(place.fileKey ? { fileKey: place.fileKey } : {}),
       ...(place.figmaNodeId ? { figmaNodeId: place.figmaNodeId } : {}),
@@ -2504,13 +3143,25 @@ export function recommendMasters(
   const applied = appliedRecommendContext(options.context);
   let contextEcho = applied ? { ...applied } : undefined;
   const echoBag: { hint?: string } = {};
-  const weakLead = Boolean(kept[0]?.weak);
+  const leadNode = kept[0]?.node;
+  const leadSetName = leadNode
+    ? setOf(index, leadNode)?.name ?? leadNode.name
+    : "";
+  const weakLead =
+    Boolean(kept[0]?.weak) &&
+    !(kept[0]?.exactName) &&
+    !(leadSetName && setCoversAsk(intentNeedle, leadSetName));
+  const leadClashes = leadNode ? realMastersNamed(index, leadNode.name) : [];
+  const clashNote = leadNode ? sameNameNote(index, leadClashes, leadNode) : undefined;
+  const subNote = substitutionNote(index, intent, leadNode);
+  const extraNote = [clashNote, subNote].filter(Boolean).join(" ") || undefined;
   const payloadOf = () => {
     const base = {
       intent: echoIntent,
       candidates,
       truncated,
       ...(weakLead ? { match: "weak match" } : {}),
+      ...(extraNote ? { note: extraNote } : {}),
       ...(contextEcho ? { context: contextEcho } : {}),
       hint:
         echoBag.hint ??
@@ -2709,7 +3360,7 @@ function uniqueNameTypo(index: GraphIndex, ask: string): GraphNode | undefined {
   if (!needle) return undefined;
   const winners: GraphNode[] = [];
   for (const node of index.getNodesByType(...MASTER_TYPES)) {
-    if (node.status === "deprecated" || isPrivateMaster(index, node)) continue;
+    if (isRetired(index, node) || isPrivateMaster(index, node)) continue;
     if (isNameInferredMaster(node)) continue;
     if (!wholeNameTypo(needle, node.name)) continue;
     winners.push(node);
@@ -2864,7 +3515,7 @@ export function verifyFrame(
       pushUnique(invents, seenInvent, stampHit(master, { reason: "denied" }), `denied:${master.id}`);
       return;
     }
-    if (master.status === "deprecated") {
+    if (isRetired(index, master)) {
       pushUnique(deprecatedHits, seenDeprecated, stampHit(master, { status: "deprecated" }), master.id);
       return;
     }
@@ -2970,6 +3621,19 @@ export function verifyFrame(
       continue;
     }
     const master = asMaster(index, node);
+    const givenIsIdentity = suppliedIdentity(index, given, master ?? node);
+    if (givenIsIdentity && master && !isNameInferredMaster(master)) {
+      const fileKey = fileOf(master);
+      resolved.push({
+        given,
+        name: variantCardName(index, master),
+        id: master.id,
+        ...(fileKey ? { fileKey } : {}),
+      });
+      considerMaster(master, given);
+      idChecked += 1;
+      continue;
+    }
     const preferred =
       placeableMasterByName(index, given, input.workspace) ??
       (master ? placeableMasterByName(index, master.name, input.workspace) : undefined);
@@ -3031,6 +3695,9 @@ export function verifyFrame(
   const nameOnlyPass = ok && nameOnly;
   const verified = ok && idChecked > 0 && !nameOnly;
   const nothingChecked = ok && idChecked === 0 && !nameOnly;
+  const librarySubject =
+    Boolean(frameNode) &&
+    (isMasterType(frameNode!.type) || frameNode!.type === "PAGE" || frameNode!.type === "SECTION");
   const lookalikes = frameNode ? lookalikeLayers(index, frameNode) : [];
   const uncheckedNames = lookalikes.slice(0, 2);
   const lookalikeNote = uncheckedLine(lookalikes.length, uncheckedNames);
@@ -3051,7 +3718,9 @@ export function verifyFrame(
           .filter(Boolean)
           .join(" ")
       : nothingChecked
-        ? ["Nothing checked.", lookalikeNote, "No component id or key."].filter(Boolean).join(" ")
+        ? librarySubject
+          ? "This is a library node, not a product screen. Run verify on a product frame."
+          : ["Nothing checked.", lookalikeNote, "No component id or key."].filter(Boolean).join(" ")
         : content.blocking && clean && bindPass
           ? `Fail — placeholder text left in a placed instance. ${REFRESH_HINT}`
           : bindHint ??

@@ -91,6 +91,7 @@ describe("store", () => {
     const loaded = loadGraph();
     expect(loaded?.graph.nodes.every((node) => node.fileKey === graph.fileKey)).toBe(true);
     expect(listGraphs()[0]?.role).toBe("library");
+    expect(existsSync(graphPath())).toBe(true);
   });
 
   it("refuses to silently change an existing file role", () => {

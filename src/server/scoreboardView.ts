@@ -1,6 +1,6 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { deltaAgainst, type ScoreDelta, type ScoreReport } from "@/core/query/scoreboard";
 import { resolveWorkspaceName } from "./store";
 
@@ -47,6 +47,8 @@ export function scoreboardWorkspaceName(env: NodeJS.ProcessEnv = process.env): s
 
 export function scoreboardHistoryDir(workspace: string, env: NodeJS.ProcessEnv = process.env): string {
   const name = resolveWorkspaceName(workspace);
+  const explicit = env["GRAPHIFY_HOME"]?.trim() || env["RESOLVE_HOME"]?.trim();
+  if (explicit) return join(resolve(explicit), "scoreboard");
   return join(homeDir(env), ".resolve", name, "scoreboard");
 }
 

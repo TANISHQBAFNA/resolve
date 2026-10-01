@@ -398,7 +398,7 @@ export const TOOLS: ToolDefinition[] = [
         },
         intent: {
           type: "string",
-          description: "Optional extra brief mixed into unbound-slot ranking (same path as recommend).",
+          description: "Recipe id, title, or intent. Same as query when query is omitted. Extra brief mixed into unbound-slot ranking when both are set.",
         },
         pack: { type: "string", description: "Context pack id. Else pack bound via recipeIds / contextPackId / active." },
         product: { type: "string" },
@@ -1034,7 +1034,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
 
     case "recipe":
     case "get_recipe": {
-      const rawQuery = args["query"] ?? args["name"] ?? args["recipe"];
+      const rawQuery = args["query"] ?? args["name"] ?? args["recipe"] ?? args["intent"];
       const query = typeof rawQuery === "string" ? rawQuery.trim() : "";
       if (!query || query === "list") {
         const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;

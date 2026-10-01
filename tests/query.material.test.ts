@@ -115,7 +115,7 @@ function scoreMaterial(index: ReturnType<typeof materialIndex>, label: string) {
   for (const query of ["primary button", "primary sign in button"]) {
     const card = recommendMasters(index, query);
     expect(family(card.candidates[0]?.name), `${label} ${query}`).toBe("Button");
-    expect(card.match, `${label} ${query}`).toBe("weak match");
+    expect(card.match, `${label} ${query}`).not.toBe("weak match");
     expect(card.candidates.length, `${label} ${query}`).toBeGreaterThan(0);
     expect(card.candidates.length, `${label} ${query}`).toBeLessThanOrEqual(3);
     expect(card.candidates.some((row) => family(row.name) === "Tabs"), `${label} ${query}`).toBe(false);

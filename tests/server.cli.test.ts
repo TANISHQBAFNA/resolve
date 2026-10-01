@@ -182,9 +182,10 @@ describe("resolve ingest --role", () => {
     } finally {
       chdir(previous);
     }
-    const out = join(cwd, "scoreboard", "golden", "from-library.json");
+    const out = join(process.env["GRAPHIFY_HOME"]!, "scoreboard", "golden", "from-library.json");
     expect(existsSync(out)).toBe(true);
     expect(readFileSync(out, "utf8")).toContain("Button");
+    expect(existsSync(join(cwd, "scoreboard", "golden", "from-library.json"))).toBe(false);
   });
 
   it("score --init explains when a parent of --out is a file", async () => {
