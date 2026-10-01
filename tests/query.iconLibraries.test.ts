@@ -98,6 +98,14 @@ function twoLibraryIndex() {
       isMainComponent: true,
     }),
     n("node:icon-search-v", "LAYER", "glass", { parentId: iconSearch, pageId: iconPage, fileKey: "ICONS" }),
+    n("node:icon-coded", "MAIN_COMPONENT", "glyph-24-search", {
+      parentId: iconPage,
+      pageId: iconPage,
+      fileKey: "ICONS",
+      figmaNodeId: "9:4",
+      isMainComponent: true,
+    }),
+    n("node:icon-coded-v", "LAYER", "shape", { parentId: "node:icon-coded", pageId: iconPage, fileKey: "ICONS" }),
   ];
   const edges: GraphEdge[] = [
     e("CONTAINS", lib, libPage),
@@ -116,6 +124,8 @@ function twoLibraryIndex() {
     e("VARIANT_OF", iconToggleOn, iconToggle),
     e("CONTAINS", iconPage, iconSearch),
     e("CONTAINS", iconSearch, "node:icon-search-v"),
+    e("CONTAINS", iconPage, "node:icon-coded"),
+    e("CONTAINS", "node:icon-coded", "node:icon-coded-v"),
   ];
   const graph: DesignGraph = {
     fileKey: "LIB",
@@ -254,6 +264,15 @@ describe("team icon-libraries.json", () => {
     expect(recommendMasters(index, "search icon", { workspace }).candidates[0]?.id).toBe("node:icon-search");
   });
 
+  it("returns the exact coded icon name from a listed library", () => {
+    writeLibraries(home, ["Acme Icons"]);
+    expect(topName(index, "glyph-24-search")).toBe("glyph-24-search");
+    expect(recommendMasters(index, "glyph-24-search", { workspace }).candidates[0]?.id).toBe(
+      "node:icon-coded",
+    );
+    expect(topName(index, "search")).toBe("Search field");
+  });
+
   it("with no config, name heuristic is unchanged and Search is not treated as an icon", () => {
     expect(topName(index, "search")).toBe("Search");
     expect(topName(index, "toggle")).toBe("Toggle");
@@ -287,21 +306,26 @@ describe("team icon-libraries.json", () => {
     expect(recommendMasters(index, "toggle", { workspace }).candidates[0]?.id).toBe("node:toggle");
   });
 
-  it("warns when an entry matches no components", () => {
+  it("warns when an entry matches no components, once, off the card", () => {
     writeLibraries(home, ["Ghost Glyphs"]);
     const recommended = recommendMasters(index, "toggle", { workspace });
-    expect(recommended.warnings).toContain('icon library "Ghost Glyphs" matched no components');
+    expect(recommended).not.toHaveProperty("warnings");
+    expect(JSON.stringify(recommended)).not.toContain("matched no components");
     const resolved = componentUsageCard(index, "Toggle", { workspace });
-    expect(resolved.warnings).toContain('icon library "Ghost Glyphs" matched no components');
+    expect(resolved).not.toHaveProperty("warnings");
     expect(iconLibraryWarnings(index, workspace)).toContain(
       'icon library "Ghost Glyphs" matched no components',
     );
+    expect(recommended.cost.chars).toBeLessThanOrEqual(600);
   });
 
   it("warns and ignores an entry that matches the main library", () => {
     writeLibraries(home, ["Library"]);
     const recommended = recommendMasters(index, "toggle", { workspace });
-    expect(recommended.warnings).toContain('icon library "Library" matches the main library; ignored');
+    expect(recommended).not.toHaveProperty("warnings");
+    expect(iconLibraryWarnings(index, workspace)).toContain(
+      'icon library "Library" matches the main library; ignored',
+    );
     expect(topName(index, "search field")).toBe("Search field");
     expect(recommendMasters(index, "search field", { workspace }).candidates[0]?.id).toBe(
       "node:search-field",
@@ -339,5 +363,155 @@ describe("icon-libraries page match on remote stubs", () => {
     expect(recommendMasters(index, "toggle", { workspace: localWorkspace }).candidates[0]?.id).toBe(
       "node:toggle",
     );
+  });
+});
+
+function lookupStubIndex(stamped: boolean) {
+  const lib = "file:LIB";
+  const libPage = "node:lib-page";
+  const searchField = "node:search-field";
+  const searchFieldVar = "node:search-field-v";
+  const toggle = "node:toggle";
+  const toggleOn = "node:toggle-on";
+  const stubSearch = "node:stub-search";
+  const stubToggle = "node:stub-toggle";
+  const source = stamped
+    ? {
+        sourceFileKey: "ICONS",
+        sourceFileName: "Acme Icons",
+        sourcePageName: "Glyphs",
+      }
+    : {};
+  const stubFileKey = stamped ? "ICONS" : "LIB";
+  const nodes: GraphNode[] = [
+    n(lib, "FILE", "Library", { fileKey: "LIB" }),
+    n(libPage, "PAGE", "Controls", { parentId: lib, pageId: libPage, fileKey: "LIB" }),
+    n(toggle, "COMPONENT_SET", "Toggle", {
+      parentId: libPage,
+      pageId: libPage,
+      fileKey: "LIB",
+      figmaNodeId: "1:1",
+    }),
+    n(toggleOn, "VARIANT", "State=On", {
+      parentId: toggle,
+      pageId: libPage,
+      componentSetId: toggle,
+      fileKey: "LIB",
+      figmaNodeId: "1:2",
+      variantProperties: { State: "On" },
+    }),
+    n("node:toggle-label", "TEXT_LAYER", "On", { parentId: toggleOn, pageId: libPage, fileKey: "LIB" }),
+    n(searchField, "COMPONENT_SET", "Search field", {
+      parentId: libPage,
+      pageId: libPage,
+      fileKey: "LIB",
+      figmaNodeId: "2:1",
+    }),
+    n(searchFieldVar, "VARIANT", "State=Default", {
+      parentId: searchField,
+      pageId: libPage,
+      componentSetId: searchField,
+      fileKey: "LIB",
+      figmaNodeId: "2:2",
+      variantProperties: { State: "Default" },
+    }),
+    n("node:search-field-t", "TEXT_LAYER", "Search", {
+      parentId: searchFieldVar,
+      pageId: libPage,
+      fileKey: "LIB",
+    }),
+    n(stubSearch, "MAIN_COMPONENT", "Search", {
+      parentId: libPage,
+      pageId: libPage,
+      fileKey: stubFileKey,
+      isRemote: true,
+      isMainComponent: true,
+      figmaNodeId: "9:1",
+      metadata: { remote: true, ...source },
+    }),
+    n(stubToggle, "COMPONENT_SET", "Toggle", {
+      parentId: libPage,
+      pageId: libPage,
+      fileKey: stubFileKey,
+      isRemote: true,
+      figmaNodeId: "9:2",
+      metadata: { remote: true, ...source },
+    }),
+  ];
+  const edges: GraphEdge[] = [
+    e("CONTAINS", lib, libPage),
+    e("CONTAINS", libPage, toggle),
+    e("CONTAINS", toggle, toggleOn),
+    e("CONTAINS", toggleOn, "node:toggle-label"),
+    e("VARIANT_OF", toggleOn, toggle),
+    e("CONTAINS", libPage, searchField),
+    e("CONTAINS", searchField, searchFieldVar),
+    e("CONTAINS", searchFieldVar, "node:search-field-t"),
+    e("VARIANT_OF", searchFieldVar, searchField),
+    e("CONTAINS", libPage, stubSearch),
+    e("CONTAINS", libPage, stubToggle),
+  ];
+  return indexGraph({
+    fileKey: "LIB",
+    fileName: "Library",
+    builtAt: FROZEN,
+    source: {
+      kind: "mock",
+      ingestedAt: FROZEN,
+      remoteSourceLookup: stamped ? "ok" : "failed",
+    },
+    warnings: [],
+    nodes,
+    edges,
+  });
+}
+
+describe("icon-libraries match on lookup-stamped remote stubs", () => {
+  const previousHome = process.env["GRAPHIFY_HOME"];
+  let home: string;
+  const localWorkspace: WorkspaceManifest = {
+    version: 1,
+    files: [{ key: "LIB", role: "library", label: "Library" }],
+  };
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), "resolve-icon-lookup-"));
+    process.env["GRAPHIFY_HOME"] = home;
+  });
+
+  afterEach(() => {
+    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
+    else process.env["GRAPHIFY_HOME"] = previousHome;
+  });
+
+  it("matches stubs whose source file and page come only from REST lookup", () => {
+    const index = lookupStubIndex(true);
+    const expectField = (libraries: unknown[]) => {
+      writeLibraries(home, libraries);
+      const search = recommendMasters(index, "search", { workspace: localWorkspace });
+      expect(search.candidates[0]?.id).toBe("node:search-field");
+      const icon = recommendMasters(index, "search icon", { workspace: localWorkspace });
+      expect(icon.candidates[0]?.id).toBe("node:stub-search");
+      expect(recommendMasters(index, "toggle", { workspace: localWorkspace }).candidates[0]?.id).toBe(
+        "node:toggle",
+      );
+    };
+    expectField([{ name: "Acme Icons" }]);
+    expectField([{ fileKey: "ICONS" }]);
+    expectField([{ page: "Glyphs" }]);
+  });
+
+  it("degrades to host-file matching when lookup failed and does not print unmatched", () => {
+    const index = lookupStubIndex(false);
+    writeLibraries(home, [{ name: "Acme Icons" }]);
+    expect(iconLibraryWarnings(index, localWorkspace)).not.toContain(
+      'icon library "acme icons" matched no components',
+    );
+    expect(
+      iconLibraryWarnings(index, localWorkspace).some((line) => /matched no components/.test(line)),
+    ).toBe(false);
+    const recommended = recommendMasters(index, "toggle", { workspace: localWorkspace });
+    expect(JSON.stringify(recommended)).not.toContain("matched no components");
+    expect(recommended.candidates[0]?.id).toBe("node:toggle");
   });
 });

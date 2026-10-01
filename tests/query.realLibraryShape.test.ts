@@ -43,7 +43,8 @@ const ids = {
   page: "node:page",
 };
 
-function realLibraryShape() {
+function realLibraryShape(options: { textField?: boolean } = {}) {
+  const includeTextField = options.textField !== false;
   const file = "file:LIB";
   const page = ids.page;
   const button = ids.button;
@@ -119,6 +120,22 @@ function realLibraryShape() {
       fileKey: "APP",
       figmaNodeId: "99:1",
       isRemote: true,
+    }),
+    n("node:button-stub-thin", "COMPONENT_SET", "Button", {
+      parentId: page,
+      pageId: page,
+      fileKey: "APP",
+      figmaNodeId: "99:2",
+      isRemote: true,
+    }),
+    n("node:button-stub-thin-g", "VARIANT", "Style=Ghost", {
+      parentId: "node:button-stub-thin",
+      pageId: page,
+      componentSetId: "node:button-stub-thin",
+      fileKey: "APP",
+      figmaNodeId: "99:3",
+      isRemote: true,
+      variantProperties: { Style: "Ghost" },
     }),
     n(table, "COMPONENT_SET", "Table", { parentId: page, pageId: page, fileKey: "LIB", figmaNodeId: "11:1" }),
     n(tableDefault, "VARIANT", "Type=Default", {
@@ -204,7 +221,7 @@ function realLibraryShape() {
       isMainComponent: true,
     }),
     n("node:icon-search-v", "LAYER", "shape", { parentId: searchIcon, pageId: page, fileKey: "LIB" }),
-    n(baseMenu, "COMPONENT_SET", "base/menu-button", {
+    n(baseMenu, "COMPONENT_SET", "base/nav-chip", {
       parentId: page,
       pageId: page,
       fileKey: "LIB",
@@ -241,21 +258,25 @@ function realLibraryShape() {
       figmaNodeId: "31:1",
       isMainComponent: true,
     }),
-    n("node:text-field", "COMPONENT_SET", "Text field", {
-      parentId: page,
-      pageId: page,
-      fileKey: "LIB",
-      figmaNodeId: "32:1",
-    }),
-    n("node:text-field-v", "VARIANT", "State=Default", {
-      parentId: "node:text-field",
-      pageId: page,
-      componentSetId: "node:text-field",
-      fileKey: "LIB",
-      figmaNodeId: "32:2",
-      variantProperties: { State: "Default" },
-    }),
-    n("node:steps", "COMPONENT_SET", "Steps lines", {
+    ...(includeTextField
+      ? [
+          n("node:text-field", "COMPONENT_SET", "Text field", {
+            parentId: page,
+            pageId: page,
+            fileKey: "LIB",
+            figmaNodeId: "32:1",
+          }),
+          n("node:text-field-v", "VARIANT", "State=Default", {
+            parentId: "node:text-field",
+            pageId: page,
+            componentSetId: "node:text-field",
+            fileKey: "LIB",
+            figmaNodeId: "32:2",
+            variantProperties: { State: "Default" },
+          }),
+        ]
+      : []),
+    n("node:steps", "COMPONENT_SET", "Track dots", {
       parentId: page,
       pageId: page,
       fileKey: "LIB",
@@ -269,7 +290,7 @@ function realLibraryShape() {
       figmaNodeId: "33:2",
       variantProperties: { State: "Default" },
     }),
-    n("node:steps-private", "COMPONENT_SET", ".steps-lines", {
+    n("node:steps-private", "COMPONENT_SET", ".track-dots", {
       parentId: page,
       pageId: page,
       fileKey: "LIB",
@@ -298,6 +319,9 @@ function realLibraryShape() {
     e("VARIANT_OF", small, button),
     e("VARIANT_OF", "node:button-g", button),
     e("CONTAINS", page, stub),
+    e("CONTAINS", page, "node:button-stub-thin"),
+    e("CONTAINS", "node:button-stub-thin", "node:button-stub-thin-g"),
+    e("VARIANT_OF", "node:button-stub-thin-g", "node:button-stub-thin"),
     e("CONTAINS", page, table),
     e("CONTAINS", table, tableDefault),
     e("CONTAINS", table, tableDense),
@@ -327,9 +351,13 @@ function realLibraryShape() {
     e("CONTAINS", oldBanner, oldBannerVar),
     e("VARIANT_OF", oldBannerVar, oldBanner),
     e("CONTAINS", page, banner),
-    e("CONTAINS", page, "node:text-field"),
-    e("CONTAINS", "node:text-field", "node:text-field-v"),
-    e("VARIANT_OF", "node:text-field-v", "node:text-field"),
+    ...(includeTextField
+      ? [
+          e("CONTAINS", page, "node:text-field"),
+          e("CONTAINS", "node:text-field", "node:text-field-v"),
+          e("VARIANT_OF", "node:text-field-v", "node:text-field"),
+        ]
+      : []),
     e("CONTAINS", page, "node:steps"),
     e("CONTAINS", "node:steps", "node:steps-v"),
     e("VARIANT_OF", "node:steps-v", "node:steps"),
@@ -395,13 +423,13 @@ describe("real-library shape", () => {
     expect(recommendMasters(index, "search bar").candidates[0]?.name).toBe("Search field");
     expect(recommendMasters(index, "select box").candidates[0]?.name).toBe("Dropdown");
     expect(recommendMasters(index, "select box").candidates.map((row) => row.name)).not.toContain(
-      "base/menu-button",
+      "base/nav-chip",
     );
     expect(recommendMasters(index, "search icon").candidates[0]?.name).toBe("glyph-24-search");
-    const exactBase = componentUsageCard(index, "base/menu-button");
+    const exactBase = componentUsageCard(index, "base/nav-chip");
     expect(exactBase.found).toBe(true);
     if (!exactBase.found || exactBase.kind !== "component") return;
-    expect(exactBase.component.name).toBe("base/menu-button");
+    expect(exactBase.component.name).toBe("base/nav-chip");
   });
 
   it("retired set variants are not recommended and fail verify", () => {
@@ -450,7 +478,7 @@ describe("real-library shape", () => {
     ).not.toThrow();
   });
 
-  it("icon button and ghost button pick the populated Button, not the empty stub", () => {
+  it("icon button and ghost button pick the populated Button over empty and thin stubs", () => {
     for (const ask of ["icon button", "ghost button"]) {
       const recommended = recommendMasters(index, ask, { workspace });
       expect(recommended.candidates[0]?.id, ask).toBe(ids.button);
@@ -460,6 +488,18 @@ describe("real-library shape", () => {
       if (!resolved.found || resolved.kind !== "component") return;
       expect(resolved.component.id, ask).toBe(ids.button);
     }
+    expect(
+      preferNamedMaster(
+        index,
+        [
+          index.getNode("node:button-stub-thin")!,
+          index.getNode(ids.stub)!,
+          index.getNode(ids.button)!,
+        ],
+        workspace,
+        "ghost button",
+      )?.id,
+    ).toBe(ids.button);
   });
 
   it("resolve and recommend pick the same master on same-name sets", () => {
@@ -468,6 +508,11 @@ describe("real-library shape", () => {
     expect(resolved.found).toBe(true);
     if (!resolved.found || resolved.kind !== "component") return;
     expect(recommended.candidates[0]?.id).toBe(resolved.component.id);
+    const ghostResolved = componentUsageCard(index, "Button", { workspace });
+    const ghostRecommended = recommendMasters(index, "ghost button", { workspace });
+    expect(ghostResolved.found).toBe(true);
+    if (!ghostResolved.found || ghostResolved.kind !== "component") return;
+    expect(ghostRecommended.candidates[0]?.id).toBe(ghostResolved.component.id);
     const tagResolved = componentUsageCard(index, "Tag", { workspace });
     const tagRecommended = recommendMasters(index, "Tag", { workspace });
     expect(tagResolved.found).toBe(true);
@@ -475,21 +520,40 @@ describe("real-library shape", () => {
     expect(tagRecommended.candidates[0]?.id).toBe(tagResolved.component.id);
   });
 
-  it("field with icon is not a bare icon", () => {
-    const recommended = recommendMasters(index, "field with icon", { workspace });
-    expect(recommended.candidates[0]?.name).not.toMatch(/glyph-\d+-/i);
-    expect(recommended.candidates[0]?.name).toMatch(/field/i);
+  it("with-icon asks rank the host, not a base/ part or bare icon", () => {
+    const expectHost = (graph: ReturnType<typeof realLibraryShape>, ask: string, host: RegExp) => {
+      const top = recommendMasters(graph, ask, { workspace }).candidates[0];
+      expect(top?.name, ask).toMatch(host);
+      expect(top?.name, ask).not.toMatch(/^base\//);
+      expect(top?.name, ask).not.toMatch(/^glyph-/);
+      expect(top?.name, ask).not.toMatch(/^\./);
+    };
+    const withField = realLibraryShape();
+    expectHost(withField, "field with icon", /field/i);
+    expectHost(withField, "button with icon", /^Button$/);
+    expectHost(withField, "tag with icon", /^Tag$/);
+    expect(recommendMasters(withField, "field with icon", { workspace }).candidates[0]?.name).toBe(
+      "Text field",
+    );
+    const withoutField = realLibraryShape({ textField: false });
+    expect(withoutField.getNode("node:text-field")).toBeUndefined();
+    expectHost(withoutField, "field with icon", /field/i);
+    expect(recommendMasters(withoutField, "field with icon", { workspace }).candidates[0]?.name).toBe(
+      "Search field",
+    );
+    expectHost(withoutField, "button with icon", /^Button$/);
+    expectHost(withoutField, "tag with icon", /^Tag$/);
   });
 
-  it("prints a substitution note for a .steps-lines private name", () => {
-    const recommended = recommendMasters(index, "steps-lines", { workspace });
-    expect(recommended.candidates[0]?.name).toBe("Steps lines");
-    expect(recommended.note).toMatch(/substituted "\.steps-lines"/i);
-    const resolved = componentUsageCard(index, "steps-lines", { workspace });
+  it("prints a substitution note for a .track-dots private name", () => {
+    const recommended = recommendMasters(index, "track-dots", { workspace });
+    expect(recommended.candidates[0]?.name).toBe("Track dots");
+    expect(recommended.note).toMatch(/substituted "\.track-dots"/i);
+    const resolved = componentUsageCard(index, "track-dots", { workspace });
     expect(resolved.found).toBe(true);
     if (!resolved.found || resolved.kind !== "component") return;
-    expect(resolved.component.name).toBe("Steps lines");
-    expect(resolved.note).toMatch(/substituted "\.steps-lines"/i);
+    expect(resolved.component.name).toBe("Track dots");
+    expect(resolved.note).toMatch(/substituted "\.track-dots"/i);
   });
 
   it("verify on a library page says this is not a screen", () => {

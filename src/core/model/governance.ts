@@ -22,15 +22,17 @@ function asStatus(value: string): DesignStatus | undefined {
 }
 
 const RETIRE_WORD =
-  /(?:do not use|no longer used|replaced by|deprecated|retired|legacy|obsolete)/i;
+  /(?:do not use|no longer used|no longer supported|replaced by|deprecated|retired|legacy|obsolete)/i;
 const RETIRE_PHRASE = new RegExp(`\\b${RETIRE_WORD.source}\\b`, "gi");
-const COPULA_RETIRE = /\bis\s+(deprecated|retired|obsolete|legacy)\b/i;
+const COPULA_RETIRE = /\bthis\s+(?:component|set|variant|avatar|one)\s+is\s+(deprecated|retired|obsolete|legacy)\b/i;
 const SCOPE_AFTER_DO_NOT_USE =
-  /^(?:(?:this|the|a|an)\s+)?(?:inside|outside|in|for|on|with|when|within)\b/i;
+  /^(?:(?:this|the|a|an)\s+)?(?:inside|outside|in|for|on|with|without|when|within|gradients?)\b/i;
 const TITLE_AFTER = /^(?:users?|data|warning|browsers?)\b/i;
+const LEGACY_AFTER = /^(?:component|style|version|pattern|control|set|master)\b/i;
 const STATUS_AFTER = /^(?:in|from|as|to|do|control|component|set|master|favour|favor)\b/i;
 const NEGATION_BEFORE = /^(?:no|not|without)$/i;
 const NEGATION_AFTER = /^(?:but|back)$/i;
+const CLAUSE_BREAK = /[,.;!?\n]/;
 
 function peelRetireDecor(text: string): string {
   let rest = text.replace(/\r/g, "");
@@ -89,6 +91,24 @@ function clauseStarts(text: string): number[] {
   return starts;
 }
 
+function clauseSpan(text: string, index: number): { start: number; end: number } {
+  let start = 0;
+  for (let i = index - 1; i >= 0; i -= 1) {
+    if (CLAUSE_BREAK.test(text[i]!)) {
+      start = i + 1;
+      break;
+    }
+  }
+  let end = text.length;
+  for (let i = index; i < text.length; i += 1) {
+    if (CLAUSE_BREAK.test(text[i]!)) {
+      end = i;
+      break;
+    }
+  }
+  return { start, end };
+}
+
 function threeWords(text: string): string[] {
   return text
     .trim()
@@ -98,8 +118,9 @@ function threeWords(text: string): string[] {
 }
 
 function negatedNear(text: string, start: number, end: number): boolean {
-  const before = threeWords(text.slice(0, start)).slice(-3);
-  const after = threeWords(text.slice(end)).slice(0, 3);
+  const span = clauseSpan(text, start);
+  const before = threeWords(text.slice(span.start, start)).slice(-3);
+  const after = threeWords(text.slice(end, span.end)).slice(0, 3);
   if (before.some((word) => NEGATION_BEFORE.test(word))) return true;
   if (after.some((word) => NEGATION_AFTER.test(word))) return true;
   return false;
@@ -141,8 +162,9 @@ export function descriptionIsRetired(description?: string): boolean {
     if (!starts.has(at) && at !== 0) continue;
     if (negatedNear(lead, at, at + hit[0]!.length)) continue;
     if (phrase === "do not use" && doNotUseScoped(after)) continue;
+    if (phrase === "legacy" && !LEGACY_AFTER.test(after.trim())) continue;
     if (
-      (phrase === "retired" || phrase === "obsolete" || phrase === "legacy") &&
+      (phrase === "retired" || phrase === "obsolete") &&
       adjectiveTitle(after)
     ) {
       continue;

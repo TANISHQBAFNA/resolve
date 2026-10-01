@@ -366,7 +366,7 @@ These are the rules you should expect every agent to obey. If it breaks them, st
 
 Optional allow / deny for the whole library: `.graphify/library-rules.json` with `{ "allow": ["Button"], "deny": ["Banner"] }`. If that file is missing, “approved” means: it is in the ingested library, and it is not retired.
 
-If icons live in their own Figma library (or on a page of stubs), list them in `.graphify/icon-libraries.json` by file name, file key, or page name (`{ "libraries": ["Acme Icons", { "page": "Acme Icons Page" }] }`). Those masters come back only when the ask is for an icon. An unmatched name prints a warning; a name that matches the main library is ignored.
+If icons live in their own Figma library (or on a page of stubs), list them in `.graphify/icon-libraries.json` by file name, file key, or page name (`{ "libraries": ["Acme Icons", { "fileKey": "ICONS" }, { "page": "Acme Icons Page" }] }`). Remote masters in another file need ingest with `FIGMA_ACCESS_TOKEN` so Resolve can look up the published component and stamp that source file/page on the stub; without that, the list cannot match those stubs. Those masters come back when the ask is for an icon, or for that icon’s exact distinctive name. An unmatched name prints once on stderr (skipped if the lookup could not run); a name that matches the main library is ignored.
 
 **Bind rules** (require this master for this slot, forbid deprecated, prefer library A over B) live in `.graphify/bind-rules.json`. How to write one and how to approve a suggestion: [Bind rules and proposals](BIND-RULES.md). Usage can also suggest recipe slot changes, official variants, deprecation reviews, and wrong-cousin fixes — you still approve each one: [SOCI](SOCI.md).
 

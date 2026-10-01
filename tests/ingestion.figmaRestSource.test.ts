@@ -5,6 +5,7 @@ import {
   memoryCheckpointStore,
   parseRetryAfterMs,
 } from "@/core/ingestion/adapters/figmaRestSource";
+import { buildGraph } from "@/core/transform";
 
 const FILE_KEY = "DEMOFILEKEY0000000001";
 
@@ -559,7 +560,7 @@ describe("fetchFigmaRestDocument", () => {
     expect(slept).toEqual([1000]);
   });
 
-  it("retries HTTP 5xx twice with short backoff", async () => {
+  it("retries HTTP 500/502/503/504 four times with ~2s exponential backoff", async () => {
     let hits = 0;
     vi.stubGlobal(
       "fetch",
@@ -568,7 +569,7 @@ describe("fetchFigmaRestDocument", () => {
         if (url.includes("/variables/")) return new Response("{}", { status: 404 });
         if (url.endsWith(`/v1/files/${FILE_KEY}`)) {
           hits += 1;
-          if (hits < 3) {
+          if (hits < 4) {
             return new Response(JSON.stringify({ err: "upstream" }), { status: 503 });
           }
           return new Response(JSON.stringify(restFile), { status: 200 });
@@ -585,9 +586,36 @@ describe("fetchFigmaRestDocument", () => {
         slept.push(ms);
       },
     });
-    expect(hits).toBe(3);
-    expect(slept).toEqual([200, 400]);
+    expect(hits).toBe(4);
+    expect(slept).toEqual([2000, 4000, 8000]);
+    expect(slept.reduce((sum, ms) => sum + ms, 0)).toBeLessThanOrEqual(20_000);
     expect(doc.fileName).toBe("Live File");
+  });
+
+  it("does not retry HTTP 501", async () => {
+    let hits = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.includes("/variables/")) return new Response("{}", { status: 404 });
+        hits += 1;
+        return new Response(JSON.stringify({ err: "not implemented" }), { status: 501 });
+      }),
+    );
+    const slept: number[] = [];
+    await expect(
+      fetchFigmaRestDocument(FILE_KEY, {
+        token: "figd_test",
+        origin: "https://api.figma.com",
+        scope: "file",
+        sleep: async (ms) => {
+          slept.push(ms);
+        },
+      }),
+    ).rejects.toThrow(/request failed \(501\)/);
+    expect(hits).toBe(1);
+    expect(slept).toEqual([]);
   });
 
   it("discards an ingest checkpoint when the file version changed", async () => {
@@ -658,6 +686,134 @@ describe("fetchFigmaRestDocument", () => {
     const nodeCalls = fetchMock.mock.calls.filter((call) => String(call[0]).includes("/nodes?"));
     expect(nodeCalls.filter((call) => String(call[0]).includes(encodeURIComponent("1:1"))).length).toBe(1);
     expect(nodeCalls.filter((call) => String(call[0]).includes(encodeURIComponent("1:9"))).length).toBe(1);
+  });
+
+  const ICON_FILE_KEY = "ICONFILEKEY0000000001";
+  const ICON_PUBLISHED_KEY = "icon-pub-key-aaa";
+  const remoteIconFile = {
+    name: "Host Library",
+    version: "1",
+    lastModified: "2026-01-01T00:00:00Z",
+    document: {
+      id: "0:0",
+      name: "Document",
+      type: "DOCUMENT",
+      children: [
+        {
+          id: "1:0",
+          name: "Page 1",
+          type: "CANVAS",
+          children: [
+            {
+              id: "1:1",
+              name: "Screen",
+              type: "FRAME",
+              children: [{ id: "1:2", name: "glyph-24-search", type: "INSTANCE", componentId: "9:1" }],
+            },
+          ],
+        },
+      ],
+    },
+    components: {
+      "9:1": { name: "glyph-24-search", key: ICON_PUBLISHED_KEY, remote: true },
+    },
+    componentSets: {},
+    styles: {},
+  };
+
+  it("looks up remote component source file and page and stamps the stub", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.includes("/variables/")) return new Response("{}", { status: 404 });
+        if (url.endsWith(`/v1/files/${FILE_KEY}`)) {
+          return new Response(JSON.stringify(remoteIconFile), { status: 200 });
+        }
+        if (url.endsWith(`/v1/components/${ICON_PUBLISHED_KEY}`)) {
+          return new Response(
+            JSON.stringify({
+              meta: {
+                key: ICON_PUBLISHED_KEY,
+                file_key: ICON_FILE_KEY,
+                file_name: "Acme Icons",
+                containing_frame: { pageName: "Glyphs", name: "Search" },
+              },
+            }),
+            { status: 200 },
+          );
+        }
+        if (url.endsWith(`/v1/files/${ICON_FILE_KEY}/components`)) {
+          return new Response(
+            JSON.stringify({
+              meta: {
+                components: [
+                  {
+                    key: ICON_PUBLISHED_KEY,
+                    file_key: ICON_FILE_KEY,
+                    file_name: "Acme Icons",
+                    containing_frame: { pageName: "Glyphs", name: "Search" },
+                  },
+                ],
+              },
+            }),
+            { status: 200 },
+          );
+        }
+        if (url.endsWith(`/v1/files/${ICON_FILE_KEY}/component_sets`)) {
+          return new Response(JSON.stringify({ meta: { component_sets: [] } }), { status: 200 });
+        }
+        if (url.endsWith(`/v1/files/${ICON_FILE_KEY}?depth=1`)) {
+          return new Response(JSON.stringify({ name: "Acme Icons" }), { status: 200 });
+        }
+        throw new Error(`unexpected ${url}`);
+      }),
+    );
+    const doc = await fetchFigmaRestDocument(FILE_KEY, {
+      token: "figd_test",
+      origin: "https://api.figma.com",
+      scope: "file",
+    });
+    expect(doc.source.remoteSourceLookup).toBe("ok");
+    expect(doc.components["9:1"]?.sourceFileKey).toBe(ICON_FILE_KEY);
+    expect(doc.components["9:1"]?.sourceFileName).toBe("Acme Icons");
+    expect(doc.components["9:1"]?.sourcePageName).toBe("Glyphs");
+    const graph = buildGraph(doc);
+    const stub = graph.nodes.find((node) => node.figmaNodeId === "9:1");
+    expect(stub?.metadata?.["sourceFileKey"]).toBe(ICON_FILE_KEY);
+    expect(stub?.metadata?.["sourceFileName"]).toBe("Acme Icons");
+    expect(stub?.metadata?.["sourcePageName"]).toBe("Glyphs");
+    expect(stub?.fileKey).toBe(ICON_FILE_KEY);
+    expect(graph.source.remoteSourceLookup).toBe("ok");
+  });
+
+  it("leaves remote source unknown on 403 and still finishes ingest", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.includes("/variables/")) return new Response("{}", { status: 404 });
+        if (url.endsWith(`/v1/files/${FILE_KEY}`)) {
+          return new Response(JSON.stringify(remoteIconFile), { status: 200 });
+        }
+        if (url.includes(`/v1/components/${ICON_PUBLISHED_KEY}`)) {
+          return new Response(JSON.stringify({ err: "Forbidden" }), { status: 403 });
+        }
+        throw new Error(`unexpected ${url}`);
+      }),
+    );
+    const doc = await fetchFigmaRestDocument(FILE_KEY, {
+      token: "figd_test",
+      origin: "https://api.figma.com",
+      scope: "file",
+    });
+    expect(doc.source.remoteSourceLookup).toBe("failed");
+    expect(doc.components["9:1"]?.sourceFileKey).toBeUndefined();
+    expect(doc.fileName).toBe("Host Library");
+    const graph = buildGraph(doc);
+    const stub = graph.nodes.find((node) => node.figmaNodeId === "9:1");
+    expect(stub?.metadata?.["sourceFileKey"]).toBeUndefined();
+    expect(graph.source.remoteSourceLookup).toBe("failed");
   });
 });
 

@@ -406,7 +406,7 @@ function pickResolveTarget(
 
   const reals = realMastersNamed(index, trimmed);
   if (reals.length >= 1) {
-    const chosen = preferNamedMaster(index, reals, workspace) ?? reals[0]!;
+    const chosen = preferNamedMaster(index, reals, workspace, trimmed) ?? reals[0]!;
     const card = variantCardName(index, chosen);
     const exactCase = chosen.name === trimmed || card === trimmed;
     if (!exactCase && isRetired(index, chosen) && !isPrivateMaster(index, chosen)) {
@@ -460,13 +460,13 @@ export function componentUsageCard(
   } = {},
 ) {
   const libraryWarnings = iconLibraryWarnings(index, options.workspace);
+  emitIconLibraryWarningsOnce(libraryWarnings);
   const node = pickResolveTarget(index, name, options.context, options.workspace);
   if (!node) {
     return withCost({
       found: false as const,
       name,
       hint: `Nothing named "${name}" in this graph. Call recommend "<intent>" if you know the job, not the name.`,
-      ...(libraryWarnings.length ? { warnings: libraryWarnings } : {}),
     });
   }
   if (node.type === "FRAME" || node.type === "SECTION") {
@@ -475,7 +475,6 @@ export function componentUsageCard(
       found: true as const,
       kind: "screen" as const,
       ...inventory,
-      ...(libraryWarnings.length ? { warnings: libraryWarnings } : {}),
     });
   }
   const card = usageCardForComponent(index, node, options);
@@ -510,7 +509,6 @@ export function componentUsageCard(
         }
       : {}),
     ...(noteParts.length ? { note: noteParts.join(" ") } : {}),
-    ...(libraryWarnings.length ? { warnings: libraryWarnings } : {}),
     ...(replacement && place
       ? {
           replacement: {
@@ -724,30 +722,69 @@ export function masterPopulation(index: GraphIndex, node: GraphNode): number {
   return index.getChildren(node.id).length;
 }
 
+function askedStyleHits(index: GraphIndex, node: GraphNode, ask?: string): number {
+  if (!ask?.trim()) return 0;
+  const nameTokens = new Set(tokensOf(node.name));
+  const asked = tokensOf(ask).filter(
+    (token) => !nameTokens.has(token) && !GENERIC_NAME_TOKENS.has(token),
+  );
+  if (!asked.length) return 0;
+  const variants = node.type === "COMPONENT_SET" ? index.getVariantsOf(node.id) : [];
+  const rows = variants.length ? variants : [node];
+  let hits = 0;
+  for (const row of rows) {
+    const blob = new Set(
+      tokensOf(
+        [
+          row.name,
+          ...Object.keys(row.variantProperties ?? {}),
+          ...Object.values(row.variantProperties ?? {}),
+        ].join(" "),
+      ),
+    );
+    if (asked.some((token) => blob.has(token))) hits += 1;
+  }
+  return hits;
+}
+
 function isEmptyNameStub(index: GraphIndex, node: GraphNode): boolean {
   if (node.type === "COMPONENT_SET") return masterPopulation(index, node) === 0;
   return Boolean(node.isRemote) && masterPopulation(index, node) === 0;
 }
 
+/** Empty, or a remote with fewer variants than the winner — not a cousin to list. */
+function isWeakerNameStub(index: GraphIndex, node: GraphNode, picked: GraphNode): boolean {
+  if (isEmptyNameStub(index, node)) return true;
+  if (!node.isRemote) return false;
+  return masterPopulation(index, node) < masterPopulation(index, picked);
+}
+
 /**
- * Same-name masters: populated local set beats an empty external stub.
- * Library-role file breaks remaining ties. Never pick 0 children over a filled set.
+ * Same-name masters: asked-style variant hits, then more variants, then usage.
+ * Populated local set beats a thin external stub. Library-role file breaks remaining ties.
  */
 export function preferNamedMaster(
   index: GraphIndex,
   hits: readonly GraphNode[],
   workspace?: WorkspaceManifest,
+  ask?: string,
 ): GraphNode | undefined {
   if (!hits.length) return undefined;
   if (hits.length === 1) return hits[0];
   const graphFileKey = index.graph.fileKey;
   const ranked = [...hits].sort((a, b) => {
+    const aStyle = askedStyleHits(index, a, ask);
+    const bStyle = askedStyleHits(index, b, ask);
+    if (bStyle !== aStyle) return bStyle - aStyle;
     const aPop = masterPopulation(index, a);
     const bPop = masterPopulation(index, b);
     const aFilled = aPop > 0 ? 1 : 0;
     const bFilled = bPop > 0 ? 1 : 0;
     if (bFilled !== aFilled) return bFilled - aFilled;
     if (bPop !== aPop) return bPop - aPop;
+    const aUse = computeComponentUsage(index, a).instanceCount;
+    const bUse = computeComponentUsage(index, b).instanceCount;
+    if (bUse !== aUse) return bUse - aUse;
     const aLocal = a.isRemote ? 0 : 1;
     const bLocal = b.isRemote ? 0 : 1;
     if (bLocal !== aLocal) return bLocal - aLocal;
@@ -768,7 +805,7 @@ export function otherNamedMasters(
   hits: readonly GraphNode[],
   picked: GraphNode,
 ): GraphNode[] {
-  return hits.filter((node) => node.id !== picked.id && !isEmptyNameStub(index, node));
+  return hits.filter((node) => node.id !== picked.id && !isWeakerNameStub(index, node, picked));
 }
 
 function sameNameNote(
@@ -776,7 +813,7 @@ function sameNameNote(
   hits: readonly GraphNode[],
   picked: GraphNode,
 ): string | undefined {
-  const stubs = hits.filter((node) => node.id !== picked.id && isEmptyNameStub(index, node));
+  const stubs = hits.filter((node) => node.id !== picked.id && isWeakerNameStub(index, node, picked));
   const others = otherNamedMasters(index, hits, picked);
   const populatedPick = !isEmptyNameStub(index, picked) && stubs.length > 0;
   if (others.length && populatedPick) {
@@ -815,7 +852,7 @@ export function placeableMasterByName(
   workspace?: WorkspaceManifest,
 ): GraphNode | undefined {
   const hits = realMastersNamed(index, name);
-  return preferNamedMaster(index, hits, workspace);
+  return preferNamedMaster(index, hits, workspace, name);
 }
 
 /** Id lookup: a guessed main redirects to the real master of that name, or nothing. */
@@ -1558,6 +1595,11 @@ function loadIconLibraries(): void {
   }
 }
 
+function metaText(node: GraphNode, key: string): string | undefined {
+  const value = node.metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 function nodeIconAnchors(
   index: GraphIndex,
   node: GraphNode,
@@ -1566,25 +1608,37 @@ function nodeIconAnchors(
   const names: string[] = [];
   const keys: string[] = [];
   const pages: string[] = [];
+  const pushName = (value?: string) => {
+    if (value) names.push(foldLibName(value));
+  };
+  const pushKey = (value?: string) => {
+    if (value) keys.push(foldLibName(value));
+  };
+  const pushPage = (value?: string) => {
+    if (value) pages.push(foldLibName(value));
+  };
+  pushKey(metaText(node, "sourceFileKey"));
+  pushName(metaText(node, "sourceFileName"));
+  pushPage(metaText(node, "sourcePageName"));
   const key = node.fileKey?.trim();
   if (key) {
-    keys.push(foldLibName(key));
+    pushKey(key);
     for (const file of index.getNodesByType("FILE")) {
-      if (file.fileKey === key || file.id === `file:${key}`) names.push(foldLibName(file.name));
+      if (file.fileKey === key || file.id === `file:${key}`) pushName(file.name);
     }
     if (workspace) {
       for (const file of workspace.files) {
         if (file.key === key) {
-          keys.push(foldLibName(file.key));
-          if (file.label) names.push(foldLibName(file.label));
+          pushKey(file.key);
+          if (file.label) pushName(file.label);
         }
       }
     }
   }
   const page = node.pageId ? index.getNode(node.pageId) : undefined;
-  if (page && (page.type === "PAGE" || page.type === "SECTION")) pages.push(foldLibName(page.name));
+  if (page && (page.type === "PAGE" || page.type === "SECTION")) pushPage(page.name);
   for (const ancestor of index.getAncestors(node.id)) {
-    if (ancestor.type === "PAGE" || ancestor.type === "SECTION") pages.push(foldLibName(ancestor.name));
+    if (ancestor.type === "PAGE" || ancestor.type === "SECTION") pushPage(ancestor.name);
   }
   return { names, keys, pages };
 }
@@ -1646,6 +1700,32 @@ function fromIconLibrary(
   });
 }
 
+function remotesMissingSource(index: GraphIndex): boolean {
+  for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    if (!node.isRemote) continue;
+    if (metaText(node, "sourceFileKey") || metaText(node, "sourceFileName") || metaText(node, "sourcePageName")) {
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
+function skipUnmatchedIconWarning(index: GraphIndex): boolean {
+  if (index.graph.source.remoteSourceLookup === "failed") return true;
+  return remotesMissingSource(index);
+}
+
+let emittedIconLibraryWarningKey = "";
+
+function emitIconLibraryWarningsOnce(lines: readonly string[]): void {
+  if (!lines.length) return;
+  const key = lines.join("\n");
+  if (key === emittedIconLibraryWarningKey) return;
+  emittedIconLibraryWarningKey = key;
+  for (const line of lines) process.stderr.write(`${line}\n`);
+}
+
 /** One line per unmatched or ignored icon-library entry. Empty when nothing is configured. */
 export function iconLibraryWarnings(
   index: GraphIndex,
@@ -1657,6 +1737,7 @@ export function iconLibraryWarnings(
   const masters = index.getNodesByType(...MASTER_TYPES);
   const lines: string[] = [];
   iconLibraryIgnored = new Set();
+  const skipUnmatched = skipUnmatchedIconWarning(index);
   for (const entry of iconLibraryEntries) {
     if (entryHitsMainLibrary(entry, main)) {
       iconLibraryIgnored.add(entry.raw);
@@ -1664,7 +1745,7 @@ export function iconLibraryWarnings(
       continue;
     }
     const hit = masters.some((node) => entryHitsAnchors(entry, nodeIconAnchors(index, node, workspace)));
-    if (!hit) lines.push(`icon library "${entry.raw}" matched no components`);
+    if (!hit && !skipUnmatched) lines.push(`icon library "${entry.raw}" matched no components`);
   }
   return lines;
 }
@@ -2203,8 +2284,19 @@ function lexicalScore(hits: TokenHits, exactName: boolean): number {
   return hits.name * 100 + hits.synonym * 70 + hits.variant * 40;
 }
 
+function iconOnlyTail(role: string): boolean {
+  const tokens = role
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token && token !== "a" && token !== "an" && token !== "the");
+  return (
+    tokens.length > 0 && tokens.every((token) => token === "icon" || token === "glyph" || token === "symbol")
+  );
+}
+
 /**
  * "checkout summary with primary button" → scene + the component ask.
+ * "field with icon" keeps the field — icon is a modifier, not the role.
  * "phone number input with country code" keeps the whole ask, because the
  * words after "with" are not a component and the words before are.
  */
@@ -2216,6 +2308,7 @@ function splitBrief(
   if (parts.length < 2) return { role: intent.trim(), scene: "" };
   const scene = (parts[0] ?? "").trim();
   const role = parts.slice(1).join(" ").trim();
+  if (scene && iconOnlyTail(role)) return { role: scene, scene: "" };
   if (componentWord) {
     const roleHits = tokensOf(role).some(componentWord);
     const sceneHits = tokensOf(scene).some(componentWord);
@@ -2295,7 +2388,14 @@ function looksLikeIcon(
   return masterNames(node, set).some((name) => codedIconName(name) || iconWordName(name));
 }
 
-/** Listed icon library always, unless the ask is for an icon. Else M1 name heuristic. */
+function distinctiveIconName(name: string): boolean {
+  const trimmed = name.trim();
+  if (codedIconName(trimmed) || iconWordName(trimmed)) return true;
+  if (/[-/]/.test(trimmed)) return true;
+  return tokensOf(trimmed).length >= 2;
+}
+
+/** Listed icon library always, unless the ask is for an icon or an exact distinctive name. Else M1 name heuristic. */
 function shouldDemoteIcon(
   index: GraphIndex,
   node: GraphNode,
@@ -2306,9 +2406,13 @@ function shouldDemoteIcon(
   rawAsk?: string,
 ): boolean {
   if (asksIcon(tokens, rawAsk)) return false;
-  if (fromIconLibrary(index, node, workspace)) return true;
-  if (askedExact) return false;
   const names = masterNames(node, set);
+  const distinctive = names.some((name) => distinctiveIconName(name));
+  if (fromIconLibrary(index, node, workspace)) {
+    if (askedExact && distinctive) return false;
+    return true;
+  }
+  if (askedExact) return false;
   if (names.some((name) => codedIconName(name))) return true;
   if (!names.some((name) => iconWordName(name))) return false;
   const extra = tokensOf(names.join(" ")).filter(
@@ -2432,6 +2536,7 @@ export function recommendMasters(
   const packRules = options.context?.libraryRules;
   const workspace = options.workspace;
   const libraryWarnings = iconLibraryWarnings(index, workspace);
+  emitIconLibraryWarningsOnce(libraryWarnings);
   const graphFileKey = index.graph.fileKey;
   const intentNeedle = intent.trim().toLowerCase();
   const allowClip = askedTokens.length >= 2;
@@ -2861,9 +2966,10 @@ export function recommendMasters(
     collapsed.push(asFamilyRow(entry));
   }
   kept = collapsed.filter((entry) => {
-    if (!isEmptyNameStub(index, entry.node)) return true;
     const namesakes = realMastersNamed(index, entry.node.name);
-    return !namesakes.some((node) => node.id !== entry.node.id && !isEmptyNameStub(index, node));
+    const preferred = preferNamedMaster(index, namesakes, workspace, intent);
+    if (!preferred || preferred.id === entry.node.id) return true;
+    return !isWeakerNameStub(index, entry.node, preferred);
   });
   if (kept.length > 1) {
     const leadName = kept[0]!.node.name;
@@ -2873,6 +2979,7 @@ export function recommendMasters(
         index,
         same.map((entry) => entry.node),
         workspace,
+        intent,
       );
       const chosen = preferred ? same.find((entry) => entry.node.id === preferred.id) : undefined;
       if (chosen) kept = [chosen, ...kept.filter((entry) => entry.node.id !== preferred!.id)];
@@ -2883,12 +2990,16 @@ export function recommendMasters(
   const askedIcon = asksIcon(askedTokens, intent);
   const demotedPart = (entry: Scored): boolean => {
     const set = setOf(index, entry.node);
-    if (fromIconLibrary(index, entry.node, workspace) && !askedIcon) return true;
-    if (namesThisNode(intentNeedle, entry.node, index)) return false;
-    if (set && namesThisNode(intentNeedle, set, index)) return false;
     const askedExact =
       entry.node.name.toLowerCase() === intentNeedle ||
       Boolean(set && set.name.toLowerCase() === intentNeedle);
+    if (fromIconLibrary(index, entry.node, workspace) && !askedIcon) {
+      if (askedExact && distinctiveIconName(entry.node.name)) return false;
+      if (askedExact && set && distinctiveIconName(set.name)) return false;
+      return true;
+    }
+    if (namesThisNode(intentNeedle, entry.node, index)) return false;
+    if (set && namesThisNode(intentNeedle, set, index)) return false;
     if (isInternalPart(index, entry.node) && !askedBase && !askedExact) return true;
     return shouldDemoteIcon(index, entry.node, set, askedTokens, askedExact, workspace, intent);
   };
@@ -3051,7 +3162,6 @@ export function recommendMasters(
       truncated,
       ...(weakLead ? { match: "weak match" } : {}),
       ...(extraNote ? { note: extraNote } : {}),
-      ...(libraryWarnings.length ? { warnings: libraryWarnings } : {}),
       ...(contextEcho ? { context: contextEcho } : {}),
       hint:
         echoBag.hint ??

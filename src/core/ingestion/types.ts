@@ -147,6 +147,10 @@ export const SourceComponentMetaSchema = z.object({
    * the instance layer name was available — a label, never a confirmed master.
    */
   identity: z.enum(["id", "inferred-from-name"]).optional(),
+  /** Published-library file this remote actually lives in (REST lookup). */
+  sourceFileKey: z.string().optional(),
+  sourceFileName: z.string().optional(),
+  sourcePageName: z.string().optional(),
 });
 export type SourceComponentMeta = z.infer<typeof SourceComponentMetaSchema>;
 
@@ -221,6 +225,11 @@ export const SourceDocumentSchema = z.object({
     lastModified: z.string().optional(),
     /** True when the source deliberately stopped walking (depth/size cap). */
     truncated: z.boolean().optional(),
+    /**
+     * Remote component source lookup (GET /v1/components/:key).
+     * `skipped` = nothing to look up. `failed` = 403/404/network, stubs stay unknown.
+     */
+    remoteSourceLookup: z.enum(["ok", "failed", "skipped"]).optional(),
   }),
 });
 export type SourceDocument = z.infer<typeof SourceDocumentSchema>;

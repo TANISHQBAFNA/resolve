@@ -74,12 +74,36 @@ describe("parseGovernance", () => {
       "Do not use inside tables",
       "Do not use outside profile cards",
       "Do not use for errors",
+      "Do not use without a label",
+      "Do not use when nested",
+      "Do not use within cards",
+      "Do not use on mobile",
+      "Do not use with icons",
+      "Do not use gradients",
       "Retired users, shown in admin table",
       "Obsolete data warning banner",
+      "The old design is retired. This one is current.",
+      "Legacy",
+      "Legacy users still see this",
     ];
     for (const blob of live) {
       expect(descriptionIsRetired(blob), blob).toBe(false);
       expect(parseGovernance("Live", blob).status, blob).toBeUndefined();
+    }
+  });
+
+  it("retires clause-local notes that a comma would previously hide", () => {
+    const retired = [
+      "No longer supported, do not use",
+      "Not for production, retired",
+      "Legacy component",
+      "Legacy style",
+      "Legacy version",
+      "Legacy pattern",
+    ];
+    for (const blob of retired) {
+      expect(descriptionIsRetired(blob), blob).toBe(true);
+      expect(parseGovernance("Old", blob).status, blob).toBe("deprecated");
     }
   });
 

@@ -90,6 +90,8 @@ export const DesignGraphSchema = z.object({
     ingestedAt: z.string(),
     version: z.string().optional(),
     lastModified: z.string().optional(),
+    /** Remote-stub source lookup. `failed` = 403/404/network; matching by the other file may not work. */
+    remoteSourceLookup: z.enum(["ok", "failed", "skipped"]).optional(),
   }),
   nodes: z.array(GraphNodeSchema),
   edges: z.array(GraphEdgeSchema),
