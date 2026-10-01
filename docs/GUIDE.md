@@ -366,6 +366,8 @@ These are the rules you should expect every agent to obey. If it breaks them, st
 
 Optional allow / deny for the whole library: `.graphify/library-rules.json` with `{ "allow": ["Button"], "deny": ["Banner"] }`. If that file is missing, “approved” means: it is in the ingested library, and it is not retired.
 
+If icons live in their own Figma library (or on a page of stubs), list them in `.graphify/icon-libraries.json` by file name, file key, or page name (`{ "libraries": ["Acme Icons", { "page": "Acme Icons Page" }] }`). Those masters come back only when the ask is for an icon. An unmatched name prints a warning; a name that matches the main library is ignored.
+
 **Bind rules** (require this master for this slot, forbid deprecated, prefer library A over B) live in `.graphify/bind-rules.json`. How to write one and how to approve a suggestion: [Bind rules and proposals](BIND-RULES.md). Usage can also suggest recipe slot changes, official variants, deprecation reviews, and wrong-cousin fixes — you still approve each one: [SOCI](SOCI.md).
 
 ---
