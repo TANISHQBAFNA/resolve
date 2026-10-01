@@ -1412,20 +1412,25 @@ function allSynonymGroups(): readonly { terms: readonly string[] }[] {
   return extraGroups.length ? [...synonymFile.groups, ...extraGroups] : synonymFile.groups;
 }
 
-function synonymOverlayFile(): string | undefined {
+/** Team overlay next to synonyms.json. GRAPHIFY_HOME, else nearest `.graphify/`, else ~/.resolve/default. */
+function overlayFile(name: string): string | undefined {
   if (typeof process === "undefined" || !process.versions?.node) return undefined;
   const pinned = process.env["GRAPHIFY_HOME"]?.trim();
-  if (pinned) return join(resolve(pinned), "synonyms.json");
+  if (pinned) return join(resolve(pinned), name);
   let dir = process.cwd();
   for (let hop = 0; hop < 6; hop += 1) {
-    const candidate = join(dir, ".graphify", "synonyms.json");
+    const candidate = join(dir, ".graphify", name);
     if (existsSync(candidate)) return candidate;
     const parent = resolve(dir, "..");
     if (parent === dir) break;
     dir = parent;
   }
-  const fallback = join(homedir(), ".resolve", "default", "synonyms.json");
+  const fallback = join(homedir(), ".resolve", "default", name);
   return existsSync(fallback) ? fallback : undefined;
+}
+
+function synonymOverlayFile(): string | undefined {
+  return overlayFile("synonyms.json");
 }
 
 /** Per-library words. Missing or broken file changes nothing. */
@@ -1452,6 +1457,58 @@ function loadSynonymOverlay(): void {
     extraGroups = [];
     extraSynonym.clear();
   }
+}
+
+function foldLibName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** Figma library names this team treats as icon-only. Empty = name heuristic. Re-read every recommend. */
+let iconLibraryNames: string[] = [];
+
+function loadIconLibraries(): void {
+  iconLibraryNames = [];
+  const path = overlayFile("icon-libraries.json");
+  if (!path) return;
+  try {
+    const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
+    const list =
+      raw && typeof raw === "object" && !Array.isArray(raw)
+        ? (raw as { libraries?: unknown }).libraries
+        : undefined;
+    if (!Array.isArray(list)) return;
+    for (const item of list) {
+      if (typeof item !== "string") continue;
+      const folded = foldLibName(item);
+      if (folded) iconLibraryNames.push(folded);
+    }
+  } catch {
+    iconLibraryNames = [];
+  }
+}
+
+function fileNamesOf(index: GraphIndex, node: GraphNode, workspace?: WorkspaceManifest): string[] {
+  const key = nodeFileKey(node, index.graph.fileKey);
+  if (!key) return [];
+  const names: string[] = [];
+  for (const file of index.getNodesByType("FILE")) {
+    if (file.fileKey === key || file.id === `file:${key}`) names.push(file.name);
+  }
+  if (workspace) {
+    for (const file of workspace.files) {
+      if (file.key === key && file.label) names.push(file.label);
+    }
+  }
+  return names;
+}
+
+function fromIconLibrary(
+  index: GraphIndex,
+  node: GraphNode,
+  workspace?: WorkspaceManifest,
+): boolean {
+  if (!iconLibraryNames.length) return false;
+  return fileNamesOf(index, node, workspace).some((name) => iconLibraryNames.includes(foldLibName(name)));
 }
 
 /**
@@ -2057,19 +2114,29 @@ function iconWordName(name: string): boolean {
   return ICON_WORD.test(name.trim().toLowerCase().replace(/[_/]+/g, " "));
 }
 
-/** Name looks like an icon. Vector-only children are not enough — a Toggle is still a Toggle. */
-function looksLikeIcon(_index: GraphIndex, node: GraphNode, set?: GraphNode): boolean {
+/** Name heuristic, plus any master from a team-listed icon library. */
+function looksLikeIcon(
+  index: GraphIndex,
+  node: GraphNode,
+  set: GraphNode | undefined,
+  workspace?: WorkspaceManifest,
+): boolean {
+  if (fromIconLibrary(index, node, workspace)) return true;
   return masterNames(node, set).some((name) => codedIconName(name) || iconWordName(name));
 }
 
-/** Coded `word-NNN-word` always. `Icon Close` stays when the ask hits Close. */
+/** Listed icon library always, unless the ask is for an icon. Else M1 name heuristic. */
 function shouldDemoteIcon(
+  index: GraphIndex,
   node: GraphNode,
   set: GraphNode | undefined,
   tokens: string[],
   askedExact: boolean,
+  workspace?: WorkspaceManifest,
 ): boolean {
-  if (askedExact || asksIcon(tokens)) return false;
+  if (asksIcon(tokens)) return false;
+  if (fromIconLibrary(index, node, workspace)) return true;
+  if (askedExact) return false;
   const names = masterNames(node, set);
   if (names.some((name) => codedIconName(name))) return true;
   if (!names.some((name) => iconWordName(name))) return false;
@@ -2159,6 +2226,7 @@ export function recommendMasters(
   } = {},
 ) {
   loadSynonymOverlay();
+  loadIconLibraries();
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
   const echoIntent = intent.length > 200 ? `${intent.slice(0, 199)}…` : intent;
   const analog = similarUsage(index, intent);
@@ -2335,7 +2403,7 @@ export function recommendMasters(
     context = Math.max(0, Math.min(context, 999));
     let score = lexical * 1000 + context;
     if (deprecated) score -= 1_000_000;
-    const iconLike = looksLikeIcon(index, node, set);
+    const iconLike = looksLikeIcon(index, node, set, workspace);
     const internal = isInternalPart(index, node);
     const askedExact =
       Boolean(intentNeedle) &&
@@ -2344,7 +2412,7 @@ export function recommendMasters(
         collapsedName(node.name) === collapsedAsk);
     const nameHasIcon =
       tokensOf(node.name).includes("icon") || tokensOf(set?.name ?? "").includes("icon");
-    if (shouldDemoteIcon(node, set, tokens, askedExact)) score -= 500_000;
+    if (shouldDemoteIcon(index, node, set, tokens, askedExact, workspace)) score -= 500_000;
     if (asksIcon(tokens) && !iconLike && !nameHasIcon && !askedExact) score -= 500_000;
     if (internal && !tokens.includes("base") && !askedExact) score -= 500_000;
 
@@ -2628,15 +2696,17 @@ export function recommendMasters(
   });
 
   const askedBase = askedTokens.includes("base") || intentNeedle.startsWith("base/");
+  const askedIcon = asksIcon(askedTokens);
   const demotedPart = (entry: Scored): boolean => {
     const set = setOf(index, entry.node);
+    if (fromIconLibrary(index, entry.node, workspace) && !askedIcon) return true;
     if (namesThisNode(intentNeedle, entry.node, index)) return false;
     if (set && namesThisNode(intentNeedle, set, index)) return false;
     const askedExact =
       entry.node.name.toLowerCase() === intentNeedle ||
       Boolean(set && set.name.toLowerCase() === intentNeedle);
     if (isInternalPart(index, entry.node) && !askedBase && !askedExact) return true;
-    return shouldDemoteIcon(entry.node, set, askedTokens, askedExact);
+    return shouldDemoteIcon(index, entry.node, set, askedTokens, askedExact, workspace);
   };
   if (kept.some((entry) => !demotedPart(entry))) {
     kept = kept.filter((entry) => !demotedPart(entry));

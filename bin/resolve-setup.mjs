@@ -196,7 +196,7 @@ export function doctorLines({ cwd, home, ruleInstalled, blocked }) {
     `Figma connected? ${figma ? "yes" : "no"}`,
     `Library learned? ${library ? "yes" : "no"}`,
     `Rule installed? ${ruleInstalled ? "yes" : "no"}`,
-    "Words your team uses: .graphify/synonyms.json",
+    "Words your team uses: .graphify/synonyms.json · icon libraries: .graphify/icon-libraries.json",
     "Exact component ids: Figma access token (FIGMA_ACCESS_TOKEN) or get_design_context. Never store a token in the repo.",
     `Next: ${next}`,
   ].join("\n");
