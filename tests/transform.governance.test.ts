@@ -18,6 +18,12 @@ describe("parseGovernance", () => {
   it("does not treat 'not yet adopted' as deprecated", () => {
     expect(parseGovernance("Banner", "Inline message. Not yet adopted.").status).toBeUndefined();
   });
+
+  it("treats do not use, retired, and legacy in the description as deprecated", () => {
+    expect(parseGovernance("Banner", "do not use this banner").status).toBe("deprecated");
+    expect(parseGovernance("Alert", "retired in favour of Toast").status).toBe("deprecated");
+    expect(parseGovernance("Chip", "legacy control").status).toBe("deprecated");
+  });
 });
 
 describe("graph governance", () => {

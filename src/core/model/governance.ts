@@ -59,7 +59,12 @@ export function parseGovernance(name: string, description?: string): Governance 
     if (/\[deprecated\]|\bdeprecated\b/i.test(name)) {
       governance.status = "deprecated";
       governance.statusSource = "name";
-    } else if (/\bdeprecated\b/i.test(blob) || /\blegacy\b/i.test(name)) {
+    } else if (
+      /\bdeprecated\b/i.test(blob) ||
+      /\bretired\b/i.test(`${name} ${blob}`) ||
+      /\blegacy\b/i.test(`${name} ${blob}`) ||
+      /\bdo not use\b/i.test(blob)
+    ) {
       governance.status = "deprecated";
       governance.statusSource = "keyword";
     } else if (/\bexperimental\b/i.test(`${name} ${blob}`)) {

@@ -634,6 +634,10 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
 
   for (const node of builder.nodes.values()) applyGovernance(node);
   for (const node of builder.nodes.values()) {
+    if (node.componentSetId) {
+      const set = builder.nodes.get(node.componentSetId);
+      if (set) inheritGovernance(node, set);
+    }
     if (!node.mainComponentId) continue;
     const main = builder.nodes.get(node.mainComponentId);
     if (main) inheritGovernance(node, main);

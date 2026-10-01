@@ -9,6 +9,8 @@ import {
   componentUsageCard,
   isNameInferredMaster,
   isPrivateMasterName,
+  otherNamedMasters,
+  preferNamedMaster,
   recommendMasters,
   variantCardName,
   verifyFrame,
@@ -270,7 +272,7 @@ function normalizeRole(value: string): string {
   return value.trim().toLowerCase().replace(/[_\s]+/g, "-");
 }
 
-/** Exact master name → one node. Missing or ambiguous throws. Never invents an id. */
+/** Exact master name → one node. Missing throws. Same-name stubs yield the populated set. */
 export function resolveMasterByName(index: GraphIndex, name: string): GraphNode {
   const needle = name.trim().toLowerCase();
   const hits = index
@@ -281,17 +283,13 @@ export function resolveMasterByName(index: GraphIndex, name: string): GraphNode 
       `No master named "${name}" in this graph. Scoreboard will not invent an id. Ingest the library the golden set was written for.`,
     );
   }
-  const rank = (node: GraphNode) =>
-    node.type === "COMPONENT_SET" ? 3 : node.type === "MAIN_COMPONENT" ? 2 : 1;
-  hits.sort((a, b) => rank(b) - rank(a) || a.id.localeCompare(b.id));
-  const top = hits[0]!;
-  const tied = hits.filter((node) => node.id !== top.id && rank(node) === rank(top) && node.type === top.type);
-  if (tied.length) {
+  const picked = preferNamedMaster(index, hits);
+  if (!picked) {
     throw new Error(
-      `More than one master is named "${name}" (${[top, ...tied].map((node) => node.id).join(", ")}). Scoreboard will not guess.`,
+      `No master named "${name}" in this graph. Scoreboard will not invent an id. Ingest the library the golden set was written for.`,
     );
   }
-  return top;
+  return picked;
 }
 
 function vocabOf(index: GraphIndex): GraphVocab {
@@ -634,13 +632,7 @@ function nameLikeMaster(index: GraphIndex, intent: string): GraphNode | undefine
     .getNodesByType(...COMPONENT_DEFINITION_TYPES)
     .filter((node) => node.name.toLowerCase() === needle);
   if (!hits.length) return undefined;
-  const rank = (node: GraphNode) =>
-    node.type === "COMPONENT_SET" ? 3 : node.type === "MAIN_COMPONENT" ? 2 : 1;
-  hits.sort((a, b) => rank(b) - rank(a) || a.id.localeCompare(b.id));
-  const top = hits[0]!;
-  const tied = hits.filter((node) => node.id !== top.id && rank(node) === rank(top) && node.type === top.type);
-  if (tied.length) return undefined;
-  return top;
+  return preferNamedMaster(index, hits);
 }
 
 function expectationFor(tool: ScoreTool, row: BoundCase, index: GraphIndex): ToolExpectation {
@@ -720,7 +712,18 @@ function grade(
   }
   const top = picks[0];
   const acceptable = acceptableIds(spec);
-  const inTop = (limit: number) => picks.slice(0, limit).some((pick) => pick.id && acceptable.has(pick.id));
+  const pickHits = (pick: ScorePick): boolean => {
+    if (pick.id && acceptable.has(pick.id)) return true;
+    const node = pick.id ? index.getNode(pick.id) : undefined;
+    if (!node) return false;
+    if (spec.expectedNode && sameFamily(spec.expectedNode, node)) return true;
+    for (const id of spec.acceptIds) {
+      const accept = index.getNode(id);
+      if (accept && sameFamily(accept, node)) return true;
+    }
+    return false;
+  };
+  const inTop = (limit: number) => picks.slice(0, limit).some(pickHits);
   const masterCase = spec.expect === "master";
   const acceptedTop = Boolean(spec.expect === "empty" && top?.id && spec.acceptIds.has(top.id));
   const wrongCousin = Boolean(
@@ -1245,14 +1248,32 @@ function synonymIntentsFor(name: string, masterNames: ReadonlySet<string>): stri
 }
 
 /** One case per public master, plus synonym asks, plus three asks that must stay empty. */
-export function initGoldenCases(index: GraphIndex): GoldenCase[] {
+export function initGoldenCases(index: GraphIndex, skipped?: string[]): GoldenCase[] {
   const masters = index.getNodesByType(...COMPONENT_DEFINITION_TYPES).filter((node) => {
     if (node.type === "VARIANT") return false;
     if (node.status === "deprecated") return false;
     if (isPrivateMasterName(node.name) || isNameInferredMaster(node)) return false;
     return Boolean(node.name.trim());
   });
-  const masterNames = new Set(masters.map((node) => node.name.trim().toLowerCase()));
+  const byName = new Map<string, GraphNode[]>();
+  for (const node of masters) {
+    const key = node.name.trim().toLowerCase();
+    const list = byName.get(key) ?? [];
+    list.push(node);
+    byName.set(key, list);
+  }
+  const unique: GraphNode[] = [];
+  for (const group of byName.values()) {
+    const picked = preferNamedMaster(index, group);
+    if (!picked) continue;
+    const others = otherNamedMasters(index, group, picked);
+    if (others.length) {
+      skipped?.push(picked.name.trim());
+      continue;
+    }
+    unique.push(picked);
+  }
+  const masterNames = new Set(unique.map((node) => node.name.trim().toLowerCase()));
   const cases: GoldenCase[] = [];
   const seen = new Set<string>();
   const push = (row: GoldenCase) => {
@@ -1261,7 +1282,7 @@ export function initGoldenCases(index: GraphIndex): GoldenCase[] {
     seen.add(key);
     cases.push(row);
   };
-  for (const node of masters) {
+  for (const node of unique) {
     const name = node.name.trim();
     push({ id: `name-${slug(name)}`, intent: name, expected: name, expect: "master" });
     for (const term of synonymIntentsFor(name, masterNames)) {

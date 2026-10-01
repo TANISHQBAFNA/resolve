@@ -140,7 +140,7 @@ npm run resolve -- recommend "primary button" --product Storefront --journey sum
 
 `recipe` and `verify` take the same extras, so ranking and the after-draw check follow the same product and step.
 
-**You get:** A short ranked list. Each row has a one-line **why** built from real usage facts (how many verified screens, confidence, stale/retired, your pack, a bind rule). If Resolve has not verified the master on a screen yet, the line is `not verified on a screen yet`. If the file has instances but no verified screen, it is `used N× in file`. Resolve will not invent a verified-screen count. Live, used masters rise. Retired ones sink. Bind rules can require one master for a slot, forbid retired ones, or prefer the shared library. Product, journey, and domain words sit **on top of** name matching.
+**You get:** A short ranked list of up to three **distinct component sets**. The card names the set (Button, not `Size=Small`) and a compact settings line (`3 variants · Style, Size`). Each row has a one-line **why** built from real usage facts (how many verified screens, confidence, stale/retired, your pack, a bind rule). If Resolve has not verified the master on a screen yet, the line is `not verified on a screen yet`. If the file has instances but no verified screen, it is `used N× in file`. Resolve will not invent a verified-screen count. Live, used masters rise. Retired ones sink — variants of a retired set are retired too. Icon-like names and `base/` building blocks stay below a real component unless you ask for an icon or that exact name. Two sets can share a name: the filled local one wins over an empty stub; the card notes it when two filled sets still clash. “weak match” means a partial or inferred hit, not a correct “text field” or “primary button”. Bind rules can require one master for a slot, forbid retired ones, or prefer the shared library. Product, journey, and domain words sit **on top of** name matching.
 
 The **top pick** also has `ex`: a real populated instance already in the library (`fileKey:nodeId` when that instance is in another file), or `none` plus a short reason. Call `get_example` for the other hits. Open the full config before drawing:
 
@@ -392,6 +392,8 @@ Be honest with yourself and with agents:
 
 **Picks feel stale after a library change.** Re-run ingest. That is the refresh path. There is no silent live sync.
 
+**Verify says this is a library node, not a product screen.** You pointed it at a component set, a library page, or a section. That is not a failure of the library. Run verify on the product frame you drew.
+
 **Verify says something was invented.** The agent placed a name that is not a library master (or not in this ingest). Run recommend again and place the returned id.
 
 **Verify says not-exact / did you mean.** The name was close but not an exact master name or id. Do not treat that as approved. Use the suggestion only after you confirm it, or pass the stamped `fileKey:nodeId`.
@@ -406,7 +408,7 @@ Be honest with yourself and with agents:
 
 **“No graph stored.”** The error names the folder it looked in. Ingest first, into that same folder. Set `GRAPHIFY_HOME` so the command line and the AI connection share one store (otherwise they can look in different working directories). Recipe list can run with no library (slots stay open); recommend and verify cannot. `list_graphs` / `workspace` / `resolve where` print the path and `builtAt`.
 
-**I know the component name, I just need the id.** `resolve "Main Card"` (CLI or MCP). An exact master always comes back with its id even if nothing uses it yet. If the name is not in the library, the card says so and tells you to `recommend` the job — not an empty list.
+**I know the component name, I just need the id.** `resolve "Main Card"` (CLI or MCP). An exact master always comes back with its id even if nothing uses it yet. If two masters share that name, you get the populated local set, not an empty stub from another file. If the name is not in the library, the card says so and tells you to `recommend` the job — not an empty list.
 
 Resolve is case-sensitive for deprecated and private masters. The exact-case name (`Legacy Banner`, `_Private Note`) returns that master. A different casing (`legacy banner`) returns the live replacement. A private `_` or `.` master stays hidden until the name is typed in that exact case.
 

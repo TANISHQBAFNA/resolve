@@ -154,8 +154,9 @@ function usage(): void {
       "  resolve score --init [--out <file>]   Write a starter golden set from the learned library",
       "      Accuracy of recommend / resolve / recipe / verify against a golden set.",
       "      Expected masters are names, resolved to ids in the current graph. Never invents an id.",
+      "      --init skips names that still have two populated masters and prints them.",
       "      Prints a short table. Exits non-zero when invent rate is above 0 or a card exceeds its budget.",
-      "      Saves the run to ~/.resolve/<workspace>/scoreboard/<timestamp>.json and shows the change since the previous run.",
+      "      Saves the run to GRAPHIFY_HOME/scoreboard when set, else ~/.resolve/<workspace>/scoreboard.",
       "      Default golden path: scoreboard/golden. Default workspace name: default (or RESOLVE_WORKSPACE).",
       "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
       "",
@@ -504,6 +505,7 @@ export async function runCli(argv: string[]): Promise<void> {
           budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
           sock: readSock(),
           placeholders: readPlaceholders(),
+          workspace: bind.workspace ?? readWorkspace(),
           ...((pack || screenType)
             ? { context: { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) } }
             : {}),
@@ -635,6 +637,7 @@ export async function runCli(argv: string[]): Promise<void> {
         context: pack,
         bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
         sock: readSock(),
+        workspace: bind.workspace ?? readWorkspace(),
         placeholders: readPlaceholders(),
         ...(designContext !== undefined ? { designContext } : {}),
         ...(texts !== undefined ? { texts } : {}),
@@ -745,7 +748,8 @@ export async function runCli(argv: string[]): Promise<void> {
         const loaded = resolveGraph(flag(args, "id"));
         if (!loaded) throw new Error(missingGraphMessage());
         const out = flag(args, "out") ?? resolve("scoreboard/golden/from-library.json");
-        const cases = initGoldenCases(loaded.index);
+        const skipped: string[] = [];
+        const cases = initGoldenCases(loaded.index, skipped);
         const body = `${JSON.stringify({ version: 1, cases }, null, 2)}\n`;
         try {
           mkdirSync(dirname(out), { recursive: true });
@@ -757,6 +761,7 @@ export async function runCli(argv: string[]): Promise<void> {
           }
           throw error;
         }
+        if (skipped.length) process.stdout.write(`Skipped ambiguous names: ${skipped.join(", ")}\n`);
         process.stdout.write(`Wrote ${cases.length} cases to ${out}\n`);
         return;
       }
