@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import { SourceDocumentSchema } from "@/core/ingestion/types";
 import { adaptFigmaRestFile } from "@/core/ingestion/adapters/figmaRest";
@@ -63,6 +63,7 @@ import {
   saveIngestedFile,
   fsIngestCheckpointStore,
   storeInfo,
+  storeRoot,
   workspacePath,
 } from "./store";
 import { learnLibrary } from "./learn";
@@ -155,6 +156,7 @@ function usage(): void {
       "      Accuracy of recommend / resolve / recipe / verify against a golden set.",
       "      Expected masters are names, resolved to ids in the current graph. Never invents an id.",
       "      --init skips names that still have two populated masters and prints them.",
+      "      Default --out is GRAPHIFY_HOME/scoreboard/golden/from-library.json (the store folder), never the Resolve checkout.",
       "      Prints a short table. Exits non-zero when invent rate is above 0 or a card exceeds its budget.",
       "      Saves the run to GRAPHIFY_HOME/scoreboard when set, else ~/.resolve/<workspace>/scoreboard.",
       "      Default golden path: scoreboard/golden. Default workspace name: default (or RESOLVE_WORKSPACE).",
@@ -747,7 +749,7 @@ export async function runCli(argv: string[]): Promise<void> {
       if (args.includes("--init")) {
         const loaded = resolveGraph(flag(args, "id"));
         if (!loaded) throw new Error(missingGraphMessage());
-        const out = flag(args, "out") ?? resolve("scoreboard/golden/from-library.json");
+        const out = flag(args, "out") ?? join(storeRoot(), "scoreboard", "golden", "from-library.json");
         const skipped: string[] = [];
         const cases = initGoldenCases(loaded.index, skipped);
         const body = `${JSON.stringify({ version: 1, cases }, null, 2)}\n`;

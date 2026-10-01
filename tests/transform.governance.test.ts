@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseGovernance } from "@/core/model";
+import { parseGovernance, descriptionIsRetired } from "@/core/model";
 import { graph, ids, index, node } from "./fixture";
 
 describe("parseGovernance", () => {
@@ -15,6 +15,15 @@ describe("parseGovernance", () => {
     expect(parseGovernance("Alert [deprecated]").statusSource).toBe("name");
   });
 
+  it("still treats a Legacy name as deprecated", () => {
+    expect(parseGovernance("Legacy Banner").status).toBe("deprecated");
+    expect(parseGovernance("Legacy Banner").statusSource).toBe("keyword");
+  });
+
+  it("does not retire a name that only says retired", () => {
+    expect(parseGovernance("Retired Notice").status).toBeUndefined();
+  });
+
   it("does not treat 'not yet adopted' as deprecated", () => {
     expect(parseGovernance("Banner", "Inline message. Not yet adopted.").status).toBeUndefined();
   });
@@ -23,6 +32,24 @@ describe("parseGovernance", () => {
     expect(parseGovernance("Banner", "do not use this banner").status).toBe("deprecated");
     expect(parseGovernance("Alert", "retired in favour of Toast").status).toBe("deprecated");
     expect(parseGovernance("Chip", "legacy control").status).toBe("deprecated");
+    expect(parseGovernance("Tag", "obsolete in v2").status).toBe("deprecated");
+    expect(parseGovernance("Hint", "no longer used").status).toBe("deprecated");
+    expect(parseGovernance("Old", "replaced by Banner").status).toBe("deprecated");
+    expect(parseGovernance("Note", "[!] deprecated").status).toBe("deprecated");
+    expect(parseGovernance("Mark", ": retired").status).toBe("deprecated");
+  });
+
+  it("does not retire from a mid-sentence or negated description", () => {
+    const falsePositives = [
+      "no legacy support needed",
+      "Supports legacy browsers",
+      "Please do not use outside marketing",
+      "retired from the old system but is back",
+    ];
+    for (const blob of falsePositives) {
+      expect(descriptionIsRetired(blob), blob).toBe(false);
+      expect(parseGovernance("Live", blob).status, blob).toBeUndefined();
+    }
   });
 });
 

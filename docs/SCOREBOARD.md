@@ -87,7 +87,7 @@ Flags:
 
 Each run is saved under `GRAPHIFY_HOME/scoreboard/` when that folder is set, otherwise `~/.resolve/<name>/scoreboard/<timestamp>.json`. The change since last time is shown only when the previous run used the same golden set and the same workspace. A first run, or a run against a different set, has a null delta — not zeros. The trend on Overview and Rules uses that same pair of checks. A workspace name of `.`, `..`, or a path returns HTTP 400 from `/api/scoreboard`.
 
-`resolve score --init` writes one case per public master plus synonym asks. Names that still have two populated masters are skipped (printed), so the golden file does not contain duplicate case ids.
+`resolve score --init` writes one case per public master plus synonym asks. Names that still have two populated masters are skipped (printed), so the golden file does not contain duplicate case ids. The default file is `GRAPHIFY_HOME/scoreboard/golden/from-library.json` (the store folder), not a path inside the Resolve checkout. Pass `--out <file>` to put it somewhere else.
 
 The process exits with an error if the invent rate is above 0 or a card is over its size budget. Other numbers are reported. They do not, by themselves, fail the run.
 

@@ -763,8 +763,7 @@ export function saveIngestedFile(
     workspace,
   );
   cache.clear();
-  const id = options.graphId ?? graphIdFor(merged.fileKey, merged.fileName);
-  return { ...summarise(id, merged), role, label: next.label };
+  return { ...saveGraph(merged, options.graphId), role, label: next.label };
 }
 
 /** No sidecar index. Kept so CLI `reindex` still runs. */

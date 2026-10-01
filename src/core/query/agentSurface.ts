@@ -14,7 +14,7 @@ import {
   elementComponentIds,
   masterByIdOrKey,
 } from "@/core/ingestion/designContextIds";
-import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
+import { COMPONENT_DEFINITION_TYPES, descriptionIsRetired, type GraphNode } from "@/core/model";
 import { computeAnalytics, computeComponentUsage, type GraphAnalytics } from "./analytics";
 import { detectCommunitiesForIndex } from "./communities";
 import type { GraphIndex } from "./GraphIndex";
@@ -2027,8 +2027,7 @@ function isPrivateMaster(index: GraphIndex, node: GraphNode): boolean {
 }
 
 const ICON_CODE_NAME = /^[a-z][a-z0-9]*-\d{2,}-[a-z]/i;
-const SIZE_ONLY_NAME = /^(?:\d{1,3}(?:px)?)$/i;
-const VECTOR_CHILD_TYPES = new Set(["LAYER", "MEDIA_LAYER"]);
+const ICON_WORD = /^(?:icon|glyph|symbol)(?:\b|[-_\s])|(?:^|[-_\s])(?:icon|glyph|symbol)$/i;
 
 function asksIcon(tokens: string[]): boolean {
   return tokens.some((token) => token === "icon" || token === "glyph" || token === "symbol");
@@ -2046,42 +2045,52 @@ function isInternalPart(index: GraphIndex, node: GraphNode): boolean {
   return Boolean(set && internalPartName(set.name));
 }
 
-function childrenAreOnlyVectors(index: GraphIndex, node: GraphNode): boolean {
-  const kids = index.getChildren(node.id);
-  if (!kids.length) return false;
-  return kids.every((child) => VECTOR_CHILD_TYPES.has(child.type));
+function masterNames(node: GraphNode, set?: GraphNode): string[] {
+  return [node.name, set?.name].filter((value): value is string => Boolean(value));
 }
 
-function looksLikeIcon(index: GraphIndex, node: GraphNode, set?: GraphNode): boolean {
-  const names = [node.name, set?.name].filter((value): value is string => Boolean(value));
-  if (names.some((name) => ICON_CODE_NAME.test(name.trim()) || SIZE_ONLY_NAME.test(name.trim()))) {
-    return true;
-  }
-  if (node.type === "COMPONENT_SET") {
-    const variants = index.getVariantsOf(node.id);
-    if (variants.length && variants.every((variant) => childrenAreOnlyVectors(index, variant))) return true;
-  }
-  return childrenAreOnlyVectors(index, node);
+function codedIconName(name: string): boolean {
+  return ICON_CODE_NAME.test(name.trim());
 }
 
-function retiredFromText(name: string, description?: string): boolean {
-  const blob = `${name} ${description ?? ""}`;
-  return (
-    /\bdeprecated\b/i.test(blob) ||
-    /\bretired\b/i.test(blob) ||
-    /\blegacy\b/i.test(blob) ||
-    /\bdo not use\b/i.test(description ?? "")
+function iconWordName(name: string): boolean {
+  return ICON_WORD.test(name.trim().toLowerCase().replace(/[_/]+/g, " "));
+}
+
+/** Name looks like an icon. Vector-only children are not enough — a Toggle is still a Toggle. */
+function looksLikeIcon(_index: GraphIndex, node: GraphNode, set?: GraphNode): boolean {
+  return masterNames(node, set).some((name) => codedIconName(name) || iconWordName(name));
+}
+
+/** Coded `word-NNN-word` always. `Icon Close` stays when the ask hits Close. */
+function shouldDemoteIcon(
+  node: GraphNode,
+  set: GraphNode | undefined,
+  tokens: string[],
+  askedExact: boolean,
+): boolean {
+  if (askedExact || asksIcon(tokens)) return false;
+  const names = masterNames(node, set);
+  if (names.some((name) => codedIconName(name))) return true;
+  if (!names.some((name) => iconWordName(name))) return false;
+  const extra = tokensOf(names.join(" ")).filter(
+    (token) => token !== "icon" && token !== "glyph" && token !== "symbol",
   );
+  return !extra.some((token) => tokens.includes(token));
 }
 
-/** Set tag, name/description phrases, and parent-set inheritance. */
+function nameLooksRetired(name: string): boolean {
+  return /\[deprecated\]|\bdeprecated\b|\blegacy\b/i.test(name);
+}
+
+/** Set tag, name/description lead phrases, and parent-set inheritance. */
 function isRetired(index: GraphIndex, node: GraphNode): boolean {
   if (node.status === "deprecated") return true;
-  if (retiredFromText(node.name, node.description)) return true;
+  if (nameLooksRetired(node.name) || descriptionIsRetired(node.description)) return true;
   const set = setOf(index, node);
   if (set && set.id !== node.id) {
     if (set.status === "deprecated") return true;
-    if (retiredFromText(set.name, set.description)) return true;
+    if (nameLooksRetired(set.name) || descriptionIsRetired(set.description)) return true;
   }
   return false;
 }
@@ -2335,7 +2344,7 @@ export function recommendMasters(
         collapsedName(node.name) === collapsedAsk);
     const nameHasIcon =
       tokensOf(node.name).includes("icon") || tokensOf(set?.name ?? "").includes("icon");
-    if (iconLike && !asksIcon(tokens) && !askedExact) score -= 500_000;
+    if (shouldDemoteIcon(node, set, tokens, askedExact)) score -= 500_000;
     if (asksIcon(tokens) && !iconLike && !nameHasIcon && !askedExact) score -= 500_000;
     if (internal && !tokens.includes("base") && !askedExact) score -= 500_000;
 
@@ -2618,15 +2627,16 @@ export function recommendMasters(
     return !namesakes.some((node) => node.id !== entry.node.id && !isEmptyNameStub(index, node));
   });
 
-  const askedIcon = asksIcon(askedTokens);
   const askedBase = askedTokens.includes("base") || intentNeedle.startsWith("base/");
   const demotedPart = (entry: Scored): boolean => {
     const set = setOf(index, entry.node);
     if (namesThisNode(intentNeedle, entry.node, index)) return false;
     if (set && namesThisNode(intentNeedle, set, index)) return false;
-    if (looksLikeIcon(index, entry.node, set) && askedIcon) return false;
-    if (isInternalPart(index, entry.node) && askedBase) return false;
-    return looksLikeIcon(index, entry.node, set) || isInternalPart(index, entry.node);
+    const askedExact =
+      entry.node.name.toLowerCase() === intentNeedle ||
+      Boolean(set && set.name.toLowerCase() === intentNeedle);
+    if (isInternalPart(index, entry.node) && !askedBase && !askedExact) return true;
+    return shouldDemoteIcon(entry.node, set, askedTokens, askedExact);
   };
   if (kept.some((entry) => !demotedPart(entry))) {
     kept = kept.filter((entry) => !demotedPart(entry));

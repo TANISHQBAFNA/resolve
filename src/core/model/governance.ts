@@ -21,6 +21,52 @@ function asStatus(value: string): DesignStatus | undefined {
   return STATUS_SET.has(normalised) ? (normalised as DesignStatus) : undefined;
 }
 
+const RETIRE_LEAD =
+  /^(?:deprecated|retired|legacy|do not use|obsolete|no longer used|replaced by)\b/i;
+const RETIRE_NEGATION = /\bno\b|\bnot needed\b|\bwithout\b|\bbut\b|\bback\b|\bsupports\b/i;
+
+function peelRetireDecor(text: string): string {
+  let rest = text.trim();
+  for (let step = 0; step < 8; step += 1) {
+    const bracket = rest.match(/^\[([^\]]*)\]\s*/u);
+    if (bracket) {
+      const inner = bracket[1]!.trim();
+      rest = RETIRE_LEAD.test(inner)
+        ? `${inner} ${rest.slice(bracket[0].length)}`.trim()
+        : rest.slice(bracket[0].length).trim();
+      continue;
+    }
+    const emoji = rest.match(/^[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F\u200D]+\s*/u);
+    if (emoji) {
+      rest = rest.slice(emoji[0].length).trim();
+      continue;
+    }
+    const colon = rest.match(/^:+\s*/);
+    if (colon) {
+      rest = rest.slice(colon[0].length).trim();
+      continue;
+    }
+    break;
+  }
+  return rest;
+}
+
+/**
+ * Description marks a set retired only when it *starts* with a retire phrase
+ * (after trim, and optional leading bracket / emoji / colon). A negation in
+ * the same sentence ("but", "supports", "no", …) cancels it.
+ */
+export function descriptionIsRetired(description?: string): boolean {
+  if (!description) return false;
+  const lead = peelRetireDecor(description);
+  const hit = lead.match(RETIRE_LEAD);
+  if (!hit) return false;
+  const sentenceEnd = lead.search(/[.!?]/);
+  const sentence = sentenceEnd === -1 ? lead : lead.slice(0, sentenceEnd);
+  const after = sentence.slice(hit[0].length);
+  return !RETIRE_NEGATION.test(after);
+}
+
 /**
  * Read governance from Figma text. Front-matter wins:
  *
@@ -59,12 +105,10 @@ export function parseGovernance(name: string, description?: string): Governance 
     if (/\[deprecated\]|\bdeprecated\b/i.test(name)) {
       governance.status = "deprecated";
       governance.statusSource = "name";
-    } else if (
-      /\bdeprecated\b/i.test(blob) ||
-      /\bretired\b/i.test(`${name} ${blob}`) ||
-      /\blegacy\b/i.test(`${name} ${blob}`) ||
-      /\bdo not use\b/i.test(blob)
-    ) {
+    } else if (/\blegacy\b/i.test(name)) {
+      governance.status = "deprecated";
+      governance.statusSource = "keyword";
+    } else if (descriptionIsRetired(blob)) {
       governance.status = "deprecated";
       governance.statusSource = "keyword";
     } else if (/\bexperimental\b/i.test(`${name} ${blob}`)) {

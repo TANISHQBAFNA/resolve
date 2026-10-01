@@ -402,3 +402,186 @@ describe("real-library shape", () => {
     expect(result.hint).toMatch(/product frame/i);
   });
 });
+
+function vectorControlIndex() {
+  const file = "file:LIB";
+  const page = "node:page";
+  const toggle = "node:toggle";
+  const on = "node:toggle-on";
+  const off = "node:toggle-off";
+  const box = "node:toggle-box";
+  const boxVar = "node:toggle-box-v";
+  const loading = "node:loading";
+  const radio = "node:radio";
+  const radioIcon = "node:radio-icon";
+  const nodes: GraphNode[] = [
+    n(file, "FILE", "Library", { fileKey: "LIB" }),
+    n(page, "PAGE", "Controls", { parentId: file, pageId: page, fileKey: "LIB" }),
+    n(toggle, "COMPONENT_SET", "Toggle", { parentId: page, pageId: page, fileKey: "LIB", figmaNodeId: "1:1" }),
+    n(on, "VARIANT", "State=On", {
+      parentId: toggle,
+      pageId: page,
+      componentSetId: toggle,
+      fileKey: "LIB",
+      figmaNodeId: "1:2",
+      variantProperties: { State: "On" },
+    }),
+    n("node:toggle-on-v", "LAYER", "knob", { parentId: on, pageId: page, fileKey: "LIB" }),
+    n(off, "VARIANT", "State=Off", {
+      parentId: toggle,
+      pageId: page,
+      componentSetId: toggle,
+      fileKey: "LIB",
+      figmaNodeId: "1:3",
+      variantProperties: { State: "Off" },
+    }),
+    n("node:toggle-off-v", "LAYER", "track", { parentId: off, pageId: page, fileKey: "LIB" }),
+    n(box, "COMPONENT_SET", "Toggle container", {
+      parentId: page,
+      pageId: page,
+      fileKey: "LIB",
+      figmaNodeId: "2:1",
+    }),
+    n(boxVar, "VARIANT", "State=Default", {
+      parentId: box,
+      pageId: page,
+      componentSetId: box,
+      fileKey: "LIB",
+      figmaNodeId: "2:2",
+      variantProperties: { State: "Default" },
+    }),
+    n("node:toggle-box-t", "TEXT_LAYER", "Label", { parentId: boxVar, pageId: page, fileKey: "LIB" }),
+    n(loading, "MAIN_COMPONENT", "Loading", {
+      parentId: page,
+      pageId: page,
+      fileKey: "LIB",
+      figmaNodeId: "3:1",
+      isMainComponent: true,
+    }),
+    n("node:loading-v", "LAYER", "arc", { parentId: loading, pageId: page, fileKey: "LIB" }),
+    n(radio, "MAIN_COMPONENT", "Radio", {
+      parentId: page,
+      pageId: page,
+      fileKey: "LIB",
+      figmaNodeId: "4:1",
+      isMainComponent: true,
+    }),
+    n("node:radio-v", "LAYER", "dot", { parentId: radio, pageId: page, fileKey: "LIB" }),
+    n(radioIcon, "MAIN_COMPONENT", "system-12-radio", {
+      parentId: page,
+      pageId: page,
+      fileKey: "LIB",
+      figmaNodeId: "5:1",
+      isMainComponent: true,
+    }),
+    n("node:radio-icon-v", "LAYER", "glyph", { parentId: radioIcon, pageId: page, fileKey: "LIB" }),
+  ];
+  const edges: GraphEdge[] = [
+    e("CONTAINS", file, page),
+    e("CONTAINS", page, toggle),
+    e("CONTAINS", toggle, on),
+    e("CONTAINS", on, "node:toggle-on-v"),
+    e("VARIANT_OF", on, toggle),
+    e("CONTAINS", toggle, off),
+    e("CONTAINS", off, "node:toggle-off-v"),
+    e("VARIANT_OF", off, toggle),
+    e("CONTAINS", page, box),
+    e("CONTAINS", box, boxVar),
+    e("CONTAINS", boxVar, "node:toggle-box-t"),
+    e("VARIANT_OF", boxVar, box),
+    e("CONTAINS", page, loading),
+    e("CONTAINS", loading, "node:loading-v"),
+    e("CONTAINS", page, radio),
+    e("CONTAINS", radio, "node:radio-v"),
+    e("CONTAINS", page, radioIcon),
+    e("CONTAINS", radioIcon, "node:radio-icon-v"),
+  ];
+  return indexGraph({
+    fileKey: "LIB",
+    fileName: "Library",
+    builtAt: FROZEN,
+    source: { kind: "mock", ingestedAt: FROZEN },
+    warnings: [],
+    nodes,
+    edges,
+  });
+}
+
+describe("vector-only controls are not icons", () => {
+  const index = vectorControlIndex();
+
+  it("ranks Toggle over Toggle container for switch asks", () => {
+    for (const ask of ["switch", "toggle switch", "on off switch"]) {
+      expect(recommendMasters(index, ask).candidates[0]?.name, ask).toBe("Toggle");
+    }
+  });
+
+  it("still finds vector-only Loading and Radio", () => {
+    expect(recommendMasters(index, "loading").candidates[0]?.name).toBe("Loading");
+    expect(recommendMasters(index, "radio").candidates[0]?.name).toBe("Radio");
+  });
+
+  it("still demotes a coded icon name unless the ask says icon", () => {
+    expect(recommendMasters(index, "radio").candidates[0]?.name).not.toBe("system-12-radio");
+    expect(recommendMasters(index, "radio icon").candidates[0]?.name).toBe("system-12-radio");
+  });
+});
+
+function notedLiveIndex() {
+  const file = "file:LIB";
+  const page = "node:page";
+  const rows: Array<{ id: string; name: string; description: string }> = [
+    { id: "node:a", name: "Alpha", description: "no legacy support needed" },
+    { id: "node:b", name: "Bravo", description: "Supports legacy browsers" },
+    { id: "node:c", name: "Charlie", description: "Please do not use outside marketing" },
+    { id: "node:d", name: "Delta", description: "retired from the old system but is back" },
+    { id: "node:e", name: "Old Echo", description: "do not use" },
+    { id: "node:f", name: "Echo", description: "Live notice" },
+  ];
+  const nodes: GraphNode[] = [
+    n(file, "FILE", "Library", { fileKey: "LIB" }),
+    n(page, "PAGE", "Notes", { parentId: file, pageId: page, fileKey: "LIB" }),
+    ...rows.map((row) =>
+      n(row.id, "MAIN_COMPONENT", row.name, {
+        parentId: page,
+        pageId: page,
+        fileKey: "LIB",
+        isMainComponent: true,
+        description: row.description,
+      }),
+    ),
+  ];
+  const edges: GraphEdge[] = [
+    e("CONTAINS", file, page),
+    ...rows.map((row) => e("CONTAINS", page, row.id)),
+  ];
+  return indexGraph({
+    fileKey: "LIB",
+    fileName: "Library",
+    builtAt: FROZEN,
+    source: { kind: "mock", ingestedAt: FROZEN },
+    warnings: [],
+    nodes,
+    edges,
+  });
+}
+
+describe("description retire false positives stay live", () => {
+  const index = notedLiveIndex();
+
+  it("does not retire sets whose notes mention legacy or do not use mid-sentence", () => {
+    for (const name of ["Alpha", "Bravo", "Charlie", "Delta"]) {
+      const card = recommendMasters(index, name);
+      expect(card.candidates[0]?.name, name).toBe(name);
+      expect(card.candidates[0] && "deprecated" in card.candidates[0] && card.candidates[0].deprecated).toBe(
+        false,
+      );
+    }
+  });
+
+  it("still retires a description that starts with do not use", () => {
+    const card = recommendMasters(index, "Old Echo");
+    expect(card.candidates[0]?.name).toBe("Echo");
+    expect(card.candidates.some((row) => row.name === "Old Echo")).toBe(false);
+  });
+});
