@@ -459,12 +459,14 @@ export function componentUsageCard(
     placeholders?: string[];
   } = {},
 ) {
+  const libraryWarnings = iconLibraryWarnings(index, options.workspace);
   const node = pickResolveTarget(index, name, options.context, options.workspace);
   if (!node) {
     return withCost({
       found: false as const,
       name,
       hint: `Nothing named "${name}" in this graph. Call recommend "<intent>" if you know the job, not the name.`,
+      ...(libraryWarnings.length ? { warnings: libraryWarnings } : {}),
     });
   }
   if (node.type === "FRAME" || node.type === "SECTION") {
@@ -473,6 +475,7 @@ export function componentUsageCard(
       found: true as const,
       kind: "screen" as const,
       ...inventory,
+      ...(libraryWarnings.length ? { warnings: libraryWarnings } : {}),
     });
   }
   const card = usageCardForComponent(index, node, options);
@@ -486,6 +489,10 @@ export function componentUsageCard(
     realMastersNamed(index, node.name),
     node,
   ).filter((other) => other.type === node.type || other.type === "COMPONENT_SET" || node.type === "COMPONENT_SET");
+  const noteParts = [
+    sameNameNote(index, realMastersNamed(index, node.name), node),
+    substitutionNote(index, name, node),
+  ].filter((part): part is string => Boolean(part));
   const withReplacement = {
     found: true as const,
     kind: "component" as const,
@@ -500,9 +507,10 @@ export function componentUsageCard(
               ? { fileKey: nodeFileKey(other, index.graph.fileKey) }
               : {}),
           })),
-          note: `Same name as ${clashes.length} other master${clashes.length === 1 ? "" : "s"}. Picked the populated local set.`,
         }
       : {}),
+    ...(noteParts.length ? { note: noteParts.join(" ") } : {}),
+    ...(libraryWarnings.length ? { warnings: libraryWarnings } : {}),
     ...(replacement && place
       ? {
           replacement: {
@@ -761,6 +769,40 @@ export function otherNamedMasters(
   picked: GraphNode,
 ): GraphNode[] {
   return hits.filter((node) => node.id !== picked.id && !isEmptyNameStub(index, node));
+}
+
+function sameNameNote(
+  index: GraphIndex,
+  hits: readonly GraphNode[],
+  picked: GraphNode,
+): string | undefined {
+  const stubs = hits.filter((node) => node.id !== picked.id && isEmptyNameStub(index, node));
+  const others = otherNamedMasters(index, hits, picked);
+  const populatedPick = !isEmptyNameStub(index, picked) && stubs.length > 0;
+  if (others.length && populatedPick) {
+    return `Same name as ${others.length} other master${others.length === 1 ? "" : "s"}. Picked the populated local set.`;
+  }
+  if (populatedPick) return "Picked the populated local set.";
+  if (others.length) {
+    return `Same name as ${others.length} other master${others.length === 1 ? "" : "s"}.`;
+  }
+  return undefined;
+}
+
+function substitutionNote(index: GraphIndex, ask: string, picked?: GraphNode): string | undefined {
+  const trimmed = ask.trim();
+  if (!trimmed) return undefined;
+  const collapsed = collapsedName(trimmed);
+  for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    if (!isPrivateMasterName(node.name)) continue;
+    const same =
+      collapsedName(node.name) === collapsed || node.name.toLowerCase() === trimmed.toLowerCase();
+    if (!same) continue;
+    if (picked && node.id === picked.id) continue;
+    if (!picked || isPrivateMasterName(picked.name)) continue;
+    return `substituted "${node.name}" → "${variantCardName(index, picked)}"`;
+  }
+  return undefined;
 }
 
 /**
@@ -1463,43 +1505,130 @@ function foldLibName(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-/** Figma library names this team treats as icon-only. Empty = name heuristic. Re-read every recommend. */
-let iconLibraryNames: string[] = [];
+interface IconLibraryEntry {
+  raw: string;
+  name?: string;
+  fileKey?: string;
+  page?: string;
+}
+
+/** Team icon-library entries. Empty = name heuristic. Re-read every recommend. */
+let iconLibraryEntries: IconLibraryEntry[] = [];
+let iconLibraryIgnored = new Set<string>();
+
+function parseIconLibraryItem(item: unknown): IconLibraryEntry | undefined {
+  if (typeof item === "string") {
+    const folded = foldLibName(item);
+    return folded ? { raw: item.trim(), name: folded, fileKey: folded, page: folded } : undefined;
+  }
+  if (!item || typeof item !== "object" || Array.isArray(item)) return undefined;
+  const rec = item as { name?: unknown; fileKey?: unknown; page?: unknown };
+  const name = typeof rec.name === "string" ? foldLibName(rec.name) : "";
+  const fileKey = typeof rec.fileKey === "string" ? foldLibName(rec.fileKey) : "";
+  const page = typeof rec.page === "string" ? foldLibName(rec.page) : "";
+  if (!name && !fileKey && !page) return undefined;
+  const raw = name || fileKey || page;
+  return {
+    raw,
+    ...(name ? { name } : {}),
+    ...(fileKey ? { fileKey } : {}),
+    ...(page ? { page } : {}),
+  };
+}
 
 function loadIconLibraries(): void {
-  iconLibraryNames = [];
+  iconLibraryEntries = [];
+  iconLibraryIgnored = new Set();
   const path = overlayFile("icon-libraries.json");
   if (!path) return;
   try {
     const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
-    const list =
-      raw && typeof raw === "object" && !Array.isArray(raw)
+    const list = Array.isArray(raw)
+      ? raw
+      : raw && typeof raw === "object"
         ? (raw as { libraries?: unknown }).libraries
         : undefined;
     if (!Array.isArray(list)) return;
     for (const item of list) {
-      if (typeof item !== "string") continue;
-      const folded = foldLibName(item);
-      if (folded) iconLibraryNames.push(folded);
+      const entry = parseIconLibraryItem(item);
+      if (entry) iconLibraryEntries.push(entry);
     }
   } catch {
-    iconLibraryNames = [];
+    iconLibraryEntries = [];
   }
 }
 
-function fileNamesOf(index: GraphIndex, node: GraphNode, workspace?: WorkspaceManifest): string[] {
-  const key = nodeFileKey(node, index.graph.fileKey);
-  if (!key) return [];
+function nodeIconAnchors(
+  index: GraphIndex,
+  node: GraphNode,
+  workspace?: WorkspaceManifest,
+): { names: string[]; keys: string[]; pages: string[] } {
   const names: string[] = [];
-  for (const file of index.getNodesByType("FILE")) {
-    if (file.fileKey === key || file.id === `file:${key}`) names.push(file.name);
-  }
-  if (workspace) {
-    for (const file of workspace.files) {
-      if (file.key === key && file.label) names.push(file.label);
+  const keys: string[] = [];
+  const pages: string[] = [];
+  const key = node.fileKey?.trim();
+  if (key) {
+    keys.push(foldLibName(key));
+    for (const file of index.getNodesByType("FILE")) {
+      if (file.fileKey === key || file.id === `file:${key}`) names.push(foldLibName(file.name));
+    }
+    if (workspace) {
+      for (const file of workspace.files) {
+        if (file.key === key) {
+          keys.push(foldLibName(file.key));
+          if (file.label) names.push(foldLibName(file.label));
+        }
+      }
     }
   }
-  return names;
+  const page = node.pageId ? index.getNode(node.pageId) : undefined;
+  if (page && (page.type === "PAGE" || page.type === "SECTION")) pages.push(foldLibName(page.name));
+  for (const ancestor of index.getAncestors(node.id)) {
+    if (ancestor.type === "PAGE" || ancestor.type === "SECTION") pages.push(foldLibName(ancestor.name));
+  }
+  return { names, keys, pages };
+}
+
+function entryHitsAnchors(
+  entry: IconLibraryEntry,
+  anchors: { names: string[]; keys: string[]; pages: string[] },
+): boolean {
+  if (entry.fileKey && anchors.keys.includes(entry.fileKey)) return true;
+  if (entry.name && anchors.names.includes(entry.name)) return true;
+  if (entry.page && anchors.pages.includes(entry.page)) return true;
+  return false;
+}
+
+function mainLibraryAnchors(
+  index: GraphIndex,
+  workspace?: WorkspaceManifest,
+): { names: string[]; keys: string[] } {
+  const names: string[] = [];
+  const keys: string[] = [];
+  const primary = index.graph.fileKey;
+  if (primary) keys.push(foldLibName(primary));
+  if (index.graph.fileName) names.push(foldLibName(index.graph.fileName));
+  for (const file of index.getNodesByType("FILE")) {
+    if (!primary || file.fileKey === primary || file.id === `file:${primary}`) {
+      names.push(foldLibName(file.name));
+      if (file.fileKey) keys.push(foldLibName(file.fileKey));
+    }
+  }
+  if (workspace && primary) {
+    for (const file of workspace.files) {
+      if (file.key === primary) {
+        keys.push(foldLibName(file.key));
+        if (file.label) names.push(foldLibName(file.label));
+      }
+    }
+  }
+  return { names, keys };
+}
+
+function entryHitsMainLibrary(entry: IconLibraryEntry, main: { names: string[]; keys: string[] }): boolean {
+  if (entry.fileKey && main.keys.includes(entry.fileKey)) return true;
+  if (entry.name && main.names.includes(entry.name)) return true;
+  return false;
 }
 
 function fromIconLibrary(
@@ -1507,8 +1636,37 @@ function fromIconLibrary(
   node: GraphNode,
   workspace?: WorkspaceManifest,
 ): boolean {
-  if (!iconLibraryNames.length) return false;
-  return fileNamesOf(index, node, workspace).some((name) => iconLibraryNames.includes(foldLibName(name)));
+  if (!iconLibraryEntries.length) return false;
+  const main = mainLibraryAnchors(index, workspace);
+  const anchors = nodeIconAnchors(index, node, workspace);
+  return iconLibraryEntries.some((entry) => {
+    if (iconLibraryIgnored.has(entry.raw)) return false;
+    if (entryHitsMainLibrary(entry, main)) return false;
+    return entryHitsAnchors(entry, anchors);
+  });
+}
+
+/** One line per unmatched or ignored icon-library entry. Empty when nothing is configured. */
+export function iconLibraryWarnings(
+  index: GraphIndex,
+  workspace?: WorkspaceManifest,
+): string[] {
+  loadIconLibraries();
+  if (!iconLibraryEntries.length) return [];
+  const main = mainLibraryAnchors(index, workspace);
+  const masters = index.getNodesByType(...MASTER_TYPES);
+  const lines: string[] = [];
+  iconLibraryIgnored = new Set();
+  for (const entry of iconLibraryEntries) {
+    if (entryHitsMainLibrary(entry, main)) {
+      iconLibraryIgnored.add(entry.raw);
+      lines.push(`icon library "${entry.raw}" matches the main library; ignored`);
+      continue;
+    }
+    const hit = masters.some((node) => entryHitsAnchors(entry, nodeIconAnchors(index, node, workspace)));
+    if (!hit) lines.push(`icon library "${entry.raw}" matched no components`);
+  }
+  return lines;
 }
 
 /**
@@ -2086,8 +2244,20 @@ function isPrivateMaster(index: GraphIndex, node: GraphNode): boolean {
 const ICON_CODE_NAME = /^[a-z][a-z0-9]*-\d{2,}-[a-z]/i;
 const ICON_WORD = /^(?:icon|glyph|symbol)(?:\b|[-_\s])|(?:^|[-_\s])(?:icon|glyph|symbol)$/i;
 
-function asksIcon(tokens: string[]): boolean {
-  return tokens.some((token) => token === "icon" || token === "glyph" || token === "symbol");
+function asksIcon(tokens: string[], rawAsk?: string): boolean {
+  const parts = (rawAsk ?? tokens.join(" "))
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  const iconAt = parts.findIndex(
+    (token) => token === "icon" || token === "glyph" || token === "symbol",
+  );
+  if (iconAt < 0) return false;
+  const before = parts[iconAt - 1];
+  if (before === "with" || before === "and" || before === "plus") return false;
+  const after = parts.slice(iconAt + 1);
+  if (after.some((token) => GENERIC_NAME_TOKENS.has(token) && token !== "icon")) return false;
+  return true;
 }
 
 function internalPartName(name: string): boolean {
@@ -2133,8 +2303,9 @@ function shouldDemoteIcon(
   tokens: string[],
   askedExact: boolean,
   workspace?: WorkspaceManifest,
+  rawAsk?: string,
 ): boolean {
-  if (asksIcon(tokens)) return false;
+  if (asksIcon(tokens, rawAsk)) return false;
   if (fromIconLibrary(index, node, workspace)) return true;
   if (askedExact) return false;
   const names = masterNames(node, set);
@@ -2226,7 +2397,6 @@ export function recommendMasters(
   } = {},
 ) {
   loadSynonymOverlay();
-  loadIconLibraries();
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
   const echoIntent = intent.length > 200 ? `${intent.slice(0, 199)}…` : intent;
   const analog = similarUsage(index, intent);
@@ -2261,6 +2431,7 @@ export function recommendMasters(
   const ctx = contextTokenGroups(options.context);
   const packRules = options.context?.libraryRules;
   const workspace = options.workspace;
+  const libraryWarnings = iconLibraryWarnings(index, workspace);
   const graphFileKey = index.graph.fileKey;
   const intentNeedle = intent.trim().toLowerCase();
   const allowClip = askedTokens.length >= 2;
@@ -2412,8 +2583,8 @@ export function recommendMasters(
         collapsedName(node.name) === collapsedAsk);
     const nameHasIcon =
       tokensOf(node.name).includes("icon") || tokensOf(set?.name ?? "").includes("icon");
-    if (shouldDemoteIcon(index, node, set, tokens, askedExact, workspace)) score -= 500_000;
-    if (asksIcon(tokens) && !iconLike && !nameHasIcon && !askedExact) score -= 500_000;
+    if (shouldDemoteIcon(index, node, set, tokens, askedExact, workspace, intent)) score -= 500_000;
+    if (asksIcon(tokens, intent) && !iconLike && !nameHasIcon && !askedExact) score -= 500_000;
     if (internal && !tokens.includes("base") && !askedExact) score -= 500_000;
 
     return {
@@ -2694,9 +2865,22 @@ export function recommendMasters(
     const namesakes = realMastersNamed(index, entry.node.name);
     return !namesakes.some((node) => node.id !== entry.node.id && !isEmptyNameStub(index, node));
   });
+  if (kept.length > 1) {
+    const leadName = kept[0]!.node.name;
+    const same = kept.filter((entry) => entry.node.name === leadName);
+    if (same.length > 1) {
+      const preferred = preferNamedMaster(
+        index,
+        same.map((entry) => entry.node),
+        workspace,
+      );
+      const chosen = preferred ? same.find((entry) => entry.node.id === preferred.id) : undefined;
+      if (chosen) kept = [chosen, ...kept.filter((entry) => entry.node.id !== preferred!.id)];
+    }
+  }
 
   const askedBase = askedTokens.includes("base") || intentNeedle.startsWith("base/");
-  const askedIcon = asksIcon(askedTokens);
+  const askedIcon = asksIcon(askedTokens, intent);
   const demotedPart = (entry: Scored): boolean => {
     const set = setOf(index, entry.node);
     if (fromIconLibrary(index, entry.node, workspace) && !askedIcon) return true;
@@ -2706,7 +2890,7 @@ export function recommendMasters(
       entry.node.name.toLowerCase() === intentNeedle ||
       Boolean(set && set.name.toLowerCase() === intentNeedle);
     if (isInternalPart(index, entry.node) && !askedBase && !askedExact) return true;
-    return shouldDemoteIcon(index, entry.node, set, askedTokens, askedExact, workspace);
+    return shouldDemoteIcon(index, entry.node, set, askedTokens, askedExact, workspace, intent);
   };
   if (kept.some((entry) => !demotedPart(entry))) {
     kept = kept.filter((entry) => !demotedPart(entry));
@@ -2856,19 +3040,18 @@ export function recommendMasters(
     Boolean(kept[0]?.weak) &&
     !(kept[0]?.exactName) &&
     !(leadSetName && setCoversAsk(intentNeedle, leadSetName));
-  const leadClashes = leadNode
-    ? otherNamedMasters(index, realMastersNamed(index, leadNode.name), leadNode)
-    : [];
-  const clashNote = leadClashes.length
-    ? `Same name as ${leadClashes.length} other master${leadClashes.length === 1 ? "" : "s"}. Picked the populated local set.`
-    : undefined;
+  const leadClashes = leadNode ? realMastersNamed(index, leadNode.name) : [];
+  const clashNote = leadNode ? sameNameNote(index, leadClashes, leadNode) : undefined;
+  const subNote = substitutionNote(index, intent, leadNode);
+  const extraNote = [clashNote, subNote].filter(Boolean).join(" ") || undefined;
   const payloadOf = () => {
     const base = {
       intent: echoIntent,
       candidates,
       truncated,
       ...(weakLead ? { match: "weak match" } : {}),
-      ...(clashNote ? { note: clashNote } : {}),
+      ...(extraNote ? { note: extraNote } : {}),
+      ...(libraryWarnings.length ? { warnings: libraryWarnings } : {}),
       ...(contextEcho ? { context: contextEcho } : {}),
       hint:
         echoBag.hint ??

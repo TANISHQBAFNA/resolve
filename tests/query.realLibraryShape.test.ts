@@ -105,6 +105,14 @@ function realLibraryShape() {
       figmaNodeId: "10:4",
       variantProperties: { Style: "Primary", Size: "Small" },
     }),
+    n("node:button-g", "VARIANT", "Style=Ghost, Size=Medium", {
+      parentId: button,
+      pageId: page,
+      componentSetId: button,
+      fileKey: "LIB",
+      figmaNodeId: "10:5",
+      variantProperties: { Style: "Ghost", Size: "Medium" },
+    }),
     n(stub, "COMPONENT_SET", "Button", {
       parentId: page,
       pageId: page,
@@ -180,7 +188,7 @@ function realLibraryShape() {
       figmaNodeId: "15:2",
       variantProperties: { Size: "L" },
     }),
-    n(tableIcon, "MAIN_COMPONENT", "database-28-table", {
+    n(tableIcon, "MAIN_COMPONENT", "glyph-12-table", {
       parentId: page,
       pageId: page,
       fileKey: "LIB",
@@ -188,7 +196,7 @@ function realLibraryShape() {
       isMainComponent: true,
     }),
     n("node:icon-table-v", "LAYER", "shape", { parentId: tableIcon, pageId: page, fileKey: "LIB" }),
-    n(searchIcon, "MAIN_COMPONENT", "system-550-search", {
+    n(searchIcon, "MAIN_COMPONENT", "glyph-24-search", {
       parentId: page,
       pageId: page,
       fileKey: "LIB",
@@ -233,6 +241,40 @@ function realLibraryShape() {
       figmaNodeId: "31:1",
       isMainComponent: true,
     }),
+    n("node:text-field", "COMPONENT_SET", "Text field", {
+      parentId: page,
+      pageId: page,
+      fileKey: "LIB",
+      figmaNodeId: "32:1",
+    }),
+    n("node:text-field-v", "VARIANT", "State=Default", {
+      parentId: "node:text-field",
+      pageId: page,
+      componentSetId: "node:text-field",
+      fileKey: "LIB",
+      figmaNodeId: "32:2",
+      variantProperties: { State: "Default" },
+    }),
+    n("node:steps", "COMPONENT_SET", "Steps lines", {
+      parentId: page,
+      pageId: page,
+      fileKey: "LIB",
+      figmaNodeId: "33:1",
+    }),
+    n("node:steps-v", "VARIANT", "State=Default", {
+      parentId: "node:steps",
+      pageId: page,
+      componentSetId: "node:steps",
+      fileKey: "LIB",
+      figmaNodeId: "33:2",
+      variantProperties: { State: "Default" },
+    }),
+    n("node:steps-private", "COMPONENT_SET", ".steps-lines", {
+      parentId: page,
+      pageId: page,
+      fileKey: "LIB",
+      figmaNodeId: "33:3",
+    }),
     n(screen, "FRAME", "Home", { parentId: page, pageId: page, fileKey: "APP", figmaNodeId: "40:1" }),
     n(inst, "COMPONENT_INSTANCE", "Button", {
       parentId: screen,
@@ -250,9 +292,11 @@ function realLibraryShape() {
     e("CONTAINS", button, primary),
     e("CONTAINS", button, secondary),
     e("CONTAINS", button, small),
+    e("CONTAINS", button, "node:button-g"),
     e("VARIANT_OF", primary, button),
     e("VARIANT_OF", secondary, button),
     e("VARIANT_OF", small, button),
+    e("VARIANT_OF", "node:button-g", button),
     e("CONTAINS", page, stub),
     e("CONTAINS", page, table),
     e("CONTAINS", table, tableDefault),
@@ -283,6 +327,13 @@ function realLibraryShape() {
     e("CONTAINS", oldBanner, oldBannerVar),
     e("VARIANT_OF", oldBannerVar, oldBanner),
     e("CONTAINS", page, banner),
+    e("CONTAINS", page, "node:text-field"),
+    e("CONTAINS", "node:text-field", "node:text-field-v"),
+    e("VARIANT_OF", "node:text-field-v", "node:text-field"),
+    e("CONTAINS", page, "node:steps"),
+    e("CONTAINS", "node:steps", "node:steps-v"),
+    e("VARIANT_OF", "node:steps-v", "node:steps"),
+    e("CONTAINS", page, "node:steps-private"),
     e("CONTAINS", page, screen),
     e("CONTAINS", screen, inst),
     e("INSTANCE_OF", inst, primary),
@@ -311,9 +362,12 @@ describe("real-library shape", () => {
     if (!resolved.found || resolved.kind !== "component") return;
     expect(resolved.component.id).toBe(ids.button);
     expect(resolved.instances).toBe(1);
-    expect(resolved.note).toBeUndefined();
+    expect(resolved.note).toMatch(/populated local set/i);
+    expect(resolved.note).not.toMatch(/same name as/i);
     const recommended = recommendMasters(index, "Button", { workspace });
     expect(recommended.candidates[0]?.id).toBe(ids.button);
+    expect(recommended.note).toMatch(/populated local set/i);
+    expect(recommended.note).not.toMatch(/same name as/i);
     expect(preferNamedMaster(index, [index.getNode(ids.stub)!, index.getNode(ids.button)!])?.id).toBe(
       ids.button,
     );
@@ -321,7 +375,9 @@ describe("real-library shape", () => {
     expect(tag.found).toBe(true);
     if (!tag.found || tag.kind !== "component") return;
     expect(tag.note).toMatch(/same name/i);
+    expect(tag.note).not.toMatch(/populated local set/i);
     expect(recommendMasters(index, "Tag", { workspace }).note).toMatch(/same name/i);
+    expect(recommendMasters(index, "Tag", { workspace }).note).not.toMatch(/populated local set/i);
   });
 
   it("verify of a real master id stays on that master when a stub shares the name", () => {
@@ -341,7 +397,7 @@ describe("real-library shape", () => {
     expect(recommendMasters(index, "select box").candidates.map((row) => row.name)).not.toContain(
       "base/menu-button",
     );
-    expect(recommendMasters(index, "search icon").candidates[0]?.name).toBe("system-550-search");
+    expect(recommendMasters(index, "search icon").candidates[0]?.name).toBe("glyph-24-search");
     const exactBase = componentUsageCard(index, "base/menu-button");
     expect(exactBase.found).toBe(true);
     if (!exactBase.found || exactBase.kind !== "component") return;
@@ -392,6 +448,48 @@ describe("real-library shape", () => {
         workspace,
       }),
     ).not.toThrow();
+  });
+
+  it("icon button and ghost button pick the populated Button, not the empty stub", () => {
+    for (const ask of ["icon button", "ghost button"]) {
+      const recommended = recommendMasters(index, ask, { workspace });
+      expect(recommended.candidates[0]?.id, ask).toBe(ids.button);
+      expect(recommended.candidates[0]?.name, ask).toBe("Button");
+      const resolved = componentUsageCard(index, "Button", { workspace });
+      expect(resolved.found).toBe(true);
+      if (!resolved.found || resolved.kind !== "component") return;
+      expect(resolved.component.id, ask).toBe(ids.button);
+    }
+  });
+
+  it("resolve and recommend pick the same master on same-name sets", () => {
+    const resolved = componentUsageCard(index, "Button", { workspace });
+    const recommended = recommendMasters(index, "Button", { workspace });
+    expect(resolved.found).toBe(true);
+    if (!resolved.found || resolved.kind !== "component") return;
+    expect(recommended.candidates[0]?.id).toBe(resolved.component.id);
+    const tagResolved = componentUsageCard(index, "Tag", { workspace });
+    const tagRecommended = recommendMasters(index, "Tag", { workspace });
+    expect(tagResolved.found).toBe(true);
+    if (!tagResolved.found || tagResolved.kind !== "component") return;
+    expect(tagRecommended.candidates[0]?.id).toBe(tagResolved.component.id);
+  });
+
+  it("field with icon is not a bare icon", () => {
+    const recommended = recommendMasters(index, "field with icon", { workspace });
+    expect(recommended.candidates[0]?.name).not.toMatch(/glyph-\d+-/i);
+    expect(recommended.candidates[0]?.name).toMatch(/field/i);
+  });
+
+  it("prints a substitution note for a .steps-lines private name", () => {
+    const recommended = recommendMasters(index, "steps-lines", { workspace });
+    expect(recommended.candidates[0]?.name).toBe("Steps lines");
+    expect(recommended.note).toMatch(/substituted "\.steps-lines"/i);
+    const resolved = componentUsageCard(index, "steps-lines", { workspace });
+    expect(resolved.found).toBe(true);
+    if (!resolved.found || resolved.kind !== "component") return;
+    expect(resolved.component.name).toBe("Steps lines");
+    expect(resolved.note).toMatch(/substituted "\.steps-lines"/i);
   });
 
   it("verify on a library page says this is not a screen", () => {
@@ -467,7 +565,7 @@ function vectorControlIndex() {
       isMainComponent: true,
     }),
     n("node:radio-v", "LAYER", "dot", { parentId: radio, pageId: page, fileKey: "LIB" }),
-    n(radioIcon, "MAIN_COMPONENT", "system-12-radio", {
+    n(radioIcon, "MAIN_COMPONENT", "glyph-16-radio", {
       parentId: page,
       pageId: page,
       fileKey: "LIB",
@@ -522,21 +620,39 @@ describe("vector-only controls are not icons", () => {
   });
 
   it("still demotes a coded icon name unless the ask says icon", () => {
-    expect(recommendMasters(index, "radio").candidates[0]?.name).not.toBe("system-12-radio");
-    expect(recommendMasters(index, "radio icon").candidates[0]?.name).toBe("system-12-radio");
+    expect(recommendMasters(index, "radio").candidates[0]?.name).not.toBe("glyph-16-radio");
+    expect(recommendMasters(index, "radio icon").candidates[0]?.name).toBe("glyph-16-radio");
   });
 });
 
 function notedLiveIndex() {
   const file = "file:LIB";
   const page = "node:page";
-  const rows: Array<{ id: string; name: string; description: string }> = [
-    { id: "node:a", name: "Alpha", description: "no legacy support needed" },
-    { id: "node:b", name: "Bravo", description: "Supports legacy browsers" },
-    { id: "node:c", name: "Charlie", description: "Please do not use outside marketing" },
-    { id: "node:d", name: "Delta", description: "retired from the old system but is back" },
-    { id: "node:e", name: "Old Echo", description: "do not use" },
-    { id: "node:f", name: "Echo", description: "Live notice" },
+  const rows: Array<{ id: string; name: string; description: string; live: boolean }> = [
+    { id: "node:a", name: "Alpha", description: "no legacy support needed", live: true },
+    { id: "node:b", name: "Bravo", description: "Supports legacy browsers", live: true },
+    { id: "node:c", name: "Charlie", description: "Please do not use outside marketing", live: true },
+    { id: "node:d", name: "Delta", description: "Do not use inside tables", live: true },
+    { id: "node:e", name: "Old Echo", description: "do not use", live: false },
+    { id: "node:f", name: "Echo", description: "Live notice", live: true },
+    { id: "node:g", name: "Golf", description: "Do not use outside profile cards", live: true },
+    { id: "node:h", name: "Hotel", description: "Do not use for errors", live: true },
+    { id: "node:i", name: "India", description: "Retired users, shown in admin table", live: true },
+    { id: "node:j", name: "Juliett", description: "Obsolete data warning banner", live: true },
+    { id: "node:k", name: "Old Kilo", description: "**Deprecated**", live: false },
+    { id: "node:l", name: "Kilo", description: "Current kilo", live: true },
+    { id: "node:m", name: "Old Mike", description: "Use Kilo. Deprecated.", live: false },
+    { id: "node:n", name: "Mike", description: "Current mike", live: true },
+    { id: "node:o", name: "Old Oscar", description: "This component is deprecated, use tab-bar instead", live: false },
+  ];
+  const extraLive = [
+    n("node:p", "MAIN_COMPONENT", "Oscar", {
+      parentId: page,
+      pageId: page,
+      fileKey: "LIB",
+      isMainComponent: true,
+      description: "Current oscar",
+    }),
   ];
   const nodes: GraphNode[] = [
     n(file, "FILE", "Library", { fileKey: "LIB" }),
@@ -550,32 +666,42 @@ function notedLiveIndex() {
         description: row.description,
       }),
     ),
+    ...extraLive,
   ];
   const edges: GraphEdge[] = [
     e("CONTAINS", file, page),
     ...rows.map((row) => e("CONTAINS", page, row.id)),
+    e("CONTAINS", page, "node:p"),
   ];
-  return indexGraph({
-    fileKey: "LIB",
-    fileName: "Library",
-    builtAt: FROZEN,
-    source: { kind: "mock", ingestedAt: FROZEN },
-    warnings: [],
-    nodes,
-    edges,
-  });
+  return {
+    index: indexGraph({
+      fileKey: "LIB",
+      fileName: "Library",
+      builtAt: FROZEN,
+      source: { kind: "mock", ingestedAt: FROZEN },
+      warnings: [],
+      nodes,
+      edges,
+    }),
+    rows,
+  };
 }
 
 describe("description retire false positives stay live", () => {
-  const index = notedLiveIndex();
+  const { index, rows } = notedLiveIndex();
 
-  it("does not retire sets whose notes mention legacy or do not use mid-sentence", () => {
-    for (const name of ["Alpha", "Bravo", "Charlie", "Delta"]) {
-      const card = recommendMasters(index, name);
-      expect(card.candidates[0]?.name, name).toBe(name);
-      expect(card.candidates[0] && "deprecated" in card.candidates[0] && card.candidates[0].deprecated).toBe(
-        false,
-      );
+  it("15-set fixture keeps live notes and retires clause notes 15/15", () => {
+    expect(rows).toHaveLength(15);
+    for (const row of rows) {
+      const card = recommendMasters(index, row.name);
+      if (row.live) {
+        expect(card.candidates[0]?.name, row.name).toBe(row.name);
+        expect(card.candidates[0] && "deprecated" in card.candidates[0] && card.candidates[0].deprecated).toBe(
+          false,
+        );
+      } else {
+        expect(card.candidates.some((hit) => hit.name === row.name), row.name).toBe(false);
+      }
     }
   });
 

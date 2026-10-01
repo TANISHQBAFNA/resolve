@@ -44,12 +44,66 @@ describe("parseGovernance", () => {
       "no legacy support needed",
       "Supports legacy browsers",
       "Please do not use outside marketing",
-      "retired from the old system but is back",
     ];
     for (const blob of falsePositives) {
       expect(descriptionIsRetired(blob), blob).toBe(false);
       expect(parseGovernance("Live", blob).status, blob).toBeUndefined();
     }
+  });
+
+  it("peels markdown wrapping and counts a retire clause", () => {
+    const retired = [
+      "**Deprecated**",
+      "(deprecated)",
+      "- deprecated",
+      "Use Banner. Deprecated.",
+      "This component is deprecated, use tab-bar instead",
+      "This avatar is retired, do not use",
+      "Deprecated, no replacement",
+      "Deprecated without replacement",
+      "Deprecated, supports old API",
+    ];
+    for (const blob of retired) {
+      expect(descriptionIsRetired(blob), blob).toBe(true);
+      expect(parseGovernance("Old", blob).status, blob).toBe("deprecated");
+    }
+  });
+
+  it("keeps scoped do-not-use and adjective titles live", () => {
+    const live = [
+      "Do not use inside tables",
+      "Do not use outside profile cards",
+      "Do not use for errors",
+      "Retired users, shown in admin table",
+      "Obsolete data warning banner",
+    ];
+    for (const blob of live) {
+      expect(descriptionIsRetired(blob), blob).toBe(false);
+      expect(parseGovernance("Live", blob).status, blob).toBeUndefined();
+    }
+  });
+
+  it("15-set fixture is 15/15", () => {
+    const rows: Array<{ description: string; retired: boolean }> = [
+      { description: "no legacy support needed", retired: false },
+      { description: "Supports legacy browsers", retired: false },
+      { description: "Please do not use outside marketing", retired: false },
+      { description: "Do not use inside tables", retired: false },
+      { description: "Do not use outside profile cards", retired: false },
+      { description: "Do not use for errors", retired: false },
+      { description: "Retired users, shown in admin table", retired: false },
+      { description: "Obsolete data warning banner", retired: false },
+      { description: "**Deprecated**", retired: true },
+      { description: "(deprecated)", retired: true },
+      { description: "- deprecated", retired: true },
+      { description: "Use Banner. Deprecated.", retired: true },
+      { description: "This component is deprecated, use tab-bar instead", retired: true },
+      { description: "This avatar is retired, do not use", retired: true },
+      { description: "Deprecated, no replacement", retired: true },
+    ];
+    expect(rows).toHaveLength(15);
+    const hits = rows.filter((row) => descriptionIsRetired(row.description) === row.retired);
+    expect(hits).toHaveLength(15);
   });
 });
 

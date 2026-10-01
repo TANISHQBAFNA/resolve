@@ -559,6 +559,37 @@ describe("fetchFigmaRestDocument", () => {
     expect(slept).toEqual([1000]);
   });
 
+  it("retries HTTP 5xx twice with short backoff", async () => {
+    let hits = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.includes("/variables/")) return new Response("{}", { status: 404 });
+        if (url.endsWith(`/v1/files/${FILE_KEY}`)) {
+          hits += 1;
+          if (hits < 3) {
+            return new Response(JSON.stringify({ err: "upstream" }), { status: 503 });
+          }
+          return new Response(JSON.stringify(restFile), { status: 200 });
+        }
+        throw new Error(`unexpected ${url}`);
+      }),
+    );
+    const slept: number[] = [];
+    const doc = await fetchFigmaRestDocument(FILE_KEY, {
+      token: "figd_test",
+      origin: "https://api.figma.com",
+      scope: "file",
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+    expect(hits).toBe(3);
+    expect(slept).toEqual([200, 400]);
+    expect(doc.fileName).toBe("Live File");
+  });
+
   it("discards an ingest checkpoint when the file version changed", async () => {
     const outline = (version: string) => ({
       name: "Live File",

@@ -136,11 +136,11 @@ Each client’s store folder (`GRAPHIFY_HOME`, or the nearest `.graphify/`) hold
 
 `.graphify/synonyms.json` — extra words for this team.
 
-`.graphify/icon-libraries.json` — Figma **library names** to treat as icon-only (case-insensitive, extra spaces ignored). Masters from a listed library come back only when the ask is for an icon, and never outrank a real control. With no list, Resolve falls back to the name heuristic (`word-NNN-word`, or a name that starts or ends with icon/glyph/symbol).
+`.graphify/icon-libraries.json` — Figma libraries to treat as icon-only. Each entry matches **file name, file key, or page/section name** (case-insensitive, extra spaces ignored). Entries may be a string or `{"name"|"fileKey"|"page": ...}`. Remote icon stubs often carry no library file name, so a page name such as `Acme Icons Page` still matches. Masters from a listed library come back only when the ask is for an icon, and never outrank a real control. An entry that matches nothing prints `icon library "X" matched no components` on recommend/resolve and in the ingest summary. An entry that matches the main library is ignored (it would demote real components) and prints `icon library "X" matches the main library; ignored`. With no list, Resolve falls back to the name heuristic (`word-NNN-word`, or a name that starts or ends with icon/glyph/symbol).
 
 ```json
 {
-  "libraries": ["Acme Icons"]
+  "libraries": ["Acme Icons", { "fileKey": "ICONS" }, { "page": "Acme Icons Page" }]
 }
 ```
 

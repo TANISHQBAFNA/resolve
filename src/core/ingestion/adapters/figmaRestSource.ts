@@ -27,6 +27,8 @@ export const FIGMA_API_ORIGIN = "https://api.figma.com";
 export const DEFAULT_MAX_RETRY_AFTER_MS = 30_000;
 export const DEFAULT_BACKOFF_MS = 1_000;
 export const DEFAULT_MAX_RATE_LIMIT_RETRIES = 5;
+export const DEFAULT_MAX_SERVER_ERROR_RETRIES = 2;
+export const DEFAULT_SERVER_ERROR_BACKOFF_MS = 200;
 
 export function exponentialBackoffMs(attempt: number, capMs = DEFAULT_MAX_RETRY_AFTER_MS): number {
   return Math.min(capMs, DEFAULT_BACKOFF_MS * 2 ** Math.max(0, attempt));
@@ -173,6 +175,7 @@ async function getJson(
   retry?: RetryPolicy,
 ): Promise<unknown> {
   let headerlessAttempts = 0;
+  let serverErrorAttempts = 0;
   for (;;) {
     let res: Response;
     try {
@@ -198,6 +201,12 @@ async function getJson(
           `${httpFailureKind(429)} for ${fileKey}: Retry-After ${secs}s (too long to wait). Re-run ingest to resume completed sections. ${detail}`,
         );
       }
+      await (retry?.sleep ?? defaultSleep)(waitMs);
+      continue;
+    }
+    if (res.status >= 500 && res.status < 600 && serverErrorAttempts < DEFAULT_MAX_SERVER_ERROR_RETRIES) {
+      serverErrorAttempts += 1;
+      const waitMs = DEFAULT_SERVER_ERROR_BACKOFF_MS * 2 ** (serverErrorAttempts - 1);
       await (retry?.sleep ?? defaultSleep)(waitMs);
       continue;
     }
