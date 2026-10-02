@@ -3491,22 +3491,24 @@ export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
 
 /**
  * Show every retired part used (up to 3, then "+N more") inside 600 characters. Lower-value text goes first:
- * timestamp, renamed list, look-alikes, warnings, text reason, hint after its first sentence, frame detail,
- * hit detail, echoed names. The fail reasons stay. If even one row cannot fit, say how to list them.
+ * timestamp, renamed list, look-alikes, warnings, text reason, frame detail, hint after its first sentence,
+ * hit detail, echoed names, then detail on invents and unresolved. The fail reasons stay. If even one row cannot fit, say how to list them.
  */
 function withRetiredRows<T extends object>(card: T, rows: string[]): T {
-  type Loose = Record<string, unknown> & { deprecated?: Array<Record<string, unknown>>; frame?: Record<string, unknown> };
+  type Hits = Array<Record<string, unknown>>;
+  type Loose = Record<string, unknown> & { deprecated?: Hits; invents?: Hits; unresolved?: Hits; frame?: Record<string, unknown> };
   const trims: Array<(c: Loose) => void> = [
     (c) => void delete c["builtAt"],
     (c) => (delete c["renamed"], delete c["renamedNote"]),
     (c) => void delete c["unchecked"],
     (c) => (delete c["warnings"], delete c["warningNote"]),
     (c) => void delete c["textReason"],
-    (c) => (c["hint"] = String(c["hint"]).split(/(?<=\.) /)[0]),
     (c) => c.frame && (c.frame = { name: c.frame["name"] }),
+    (c) => (c["hint"] = String(c["hint"]).split(/(?<=\.) /)[0]),
     (c) => c.deprecated && (c.deprecated = c.deprecated.map(({ name, id }) => ({ name, id }))),
     (c) => c.deprecated && (c.deprecated = c.deprecated.map(({ name }) => ({ name }))),
     (c) => void delete c["resolved"],
+    (c) => (c.invents = c.invents?.map(({ name }) => ({ name })), c.unresolved = c.unresolved?.map(({ name }) => ({ name }))),
   ];
   const fit = (retired: string | string[]) => {
     const c: Loose = structuredClone({ ...card, retired }) as Loose;

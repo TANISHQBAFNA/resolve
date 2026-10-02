@@ -448,6 +448,10 @@ describe("code-map.json", () => {
       expect((four.retired as string[])[3]).toBe("+1 more");
       expect(four.hint).toMatch(/^Fail/);
       expect(JSON.stringify(four).length).toBeLessThanOrEqual(600);
+      const crowded = verifyFrame(idx, { components: ["Old Button", "Tabs", "Chip", "Pager", "Ghost One", "Ghost Two", "Ghost Three"] }) as Verify & { invents: unknown[] };
+      expect(crowded.invents).toHaveLength(3);
+      expect(crowded.retired).toHaveLength(4);
+      expect(JSON.stringify(crowded).length).toBeLessThanOrEqual(600);
       const long = (n: string) => n.padEnd(300, "x");
       const big = indexGraph(graphOf([{ id: "1:1", name: "Button" }, ...["a", "b", "c"].map((n, i) => ({ id: `${i + 2}:1`, name: long(n), status: "deprecated" as const }))]));
       put({ entries: [entry("1:1"), ...["a", "b", "c"].map((_, i) => old(`${i + 2}:1`, "Gone", "Button"))] });
