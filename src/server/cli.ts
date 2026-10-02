@@ -34,6 +34,10 @@ import {
   verifyFrame,
   WORKSPACE_FILE_ROLES,
   type WorkspaceFileRole,
+  loadCodeMap,
+  NO_CODE_MAP_HINT,
+  reportCodeMap,
+  formatCodeMapReport,
 } from "@/core/query";
 import {
   deltaAgainst,
@@ -135,6 +139,11 @@ function usage(): void {
       "      Bind rules: .graphify/bind-rules.json (require / forbid / prefer). A miss names the rule and the correct master id.",
       "      Optional .graphify/library-rules.json { allow, deny }. Else in-graph + not deprecated = approved.",
       "      Same pack flags as recommend. Wrong-cousin drift: resolve cousins.",
+      "  resolve code-map [--json]     Team map of Figma masters → code components (.graphify/code-map.json)",
+      "      Counts mapped / unmapped / ambiguous, lists first names, and map entries that match nothing (stale).",
+      "      Keyed by file key + component id. Name fallback only when that name is unique. Never guesses.",
+      "      namingRule same-name maps a PascalCase name listed in codeComponents. Missing/empty/malformed = no map.",
+      "      No map: one-line hint. --json for the same counts.",
       "  resolve rules                  List human-authored bind rules",
       "  resolve soci                   List pending SOCI proposals (never auto-applied)",
       "  resolve approve <proposal-id> --who <name>   Approve: bind-rules, recipe overlay, or a recorded decision",
@@ -590,6 +599,20 @@ export async function runCli(argv: string[]): Promise<void> {
           workspace: bind.workspace ?? readWorkspace(),
         }),
       );
+      return;
+    }
+
+    case "code-map": {
+      const map = loadCodeMap();
+      if (!map) {
+        if (args.includes("--json")) printJson({ configured: false, hint: NO_CODE_MAP_HINT });
+        else process.stdout.write(`${NO_CODE_MAP_HINT}\n`);
+        return;
+      }
+      const loaded = requireGraph(args);
+      const report = reportCodeMap(loaded.index, map);
+      if (args.includes("--json")) printJson(report);
+      else process.stdout.write(`${formatCodeMapReport(report)}\n`);
       return;
     }
 

@@ -1,6 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
 import { buildAiGraphContext, toMarkdownPrompt } from "@/core/ai";
 import {
   assertVerifyTextInput,
@@ -22,6 +20,8 @@ import { searchNodes } from "./search";
 import { extractSubgraph, levelForNode } from "./subgraph";
 import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
+import { overlayFile } from "./overlayFile";
+import { recommendCodeHint } from "./codeMap";
 import { placeReady } from "./placeReady";
 import synonymFile from "@/data/synonyms.json";
 import modifierFile from "@/data/ui-modifiers.json";
@@ -1489,23 +1489,6 @@ const extraSynonym = new Map<string, readonly string[]>();
 
 function allSynonymGroups(): readonly { terms: readonly string[] }[] {
   return extraGroups.length ? [...synonymFile.groups, ...extraGroups] : synonymFile.groups;
-}
-
-/** Team overlay next to synonyms.json. GRAPHIFY_HOME, else nearest `.graphify/`, else ~/.resolve/default. */
-function overlayFile(name: string): string | undefined {
-  if (typeof process === "undefined" || !process.versions?.node) return undefined;
-  const pinned = process.env["GRAPHIFY_HOME"]?.trim();
-  if (pinned) return join(resolve(pinned), name);
-  let dir = process.cwd();
-  for (let hop = 0; hop < 6; hop += 1) {
-    const candidate = join(dir, ".graphify", name);
-    if (existsSync(candidate)) return candidate;
-    const parent = resolve(dir, "..");
-    if (parent === dir) break;
-    dir = parent;
-  }
-  const fallback = join(homedir(), ".resolve", "default", name);
-  return existsSync(fallback) ? fallback : undefined;
 }
 
 function synonymOverlayFile(): string | undefined {
@@ -3263,7 +3246,14 @@ export function recommendMasters(
     if (JSON.stringify(payload).length > budgetChars) shrinkNameFields(payload, budgetChars);
   }
 
-  return withCost(payload);
+  const codeLine = recommendCodeHint(index, candidates[0]?.id);
+  const extra: { code?: string } = {};
+  if (codeLine) {
+    const withCode = { ...payload, code: codeLine };
+    if (JSON.stringify(withCode).length <= budgetChars) extra.code = codeLine;
+  }
+
+  return withCost({ ...payload, ...extra });
 }
 
 const ECHO_KEYS = ["journey", "product", "domain", "id", "client"] as const;

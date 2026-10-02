@@ -43,7 +43,7 @@ import type { LearnCheckpoint } from "@/core/ingestion/learnLibrary";
  *   .graphify/graph.json
  *
  * Optional designer files next to it: library-rules.json, bind-rules.json, recipes.json,
- * context-packs.json, workspace.json, synonyms.json, icon-libraries.json. Per-file graphs live in files/.
+ * context-packs.json, workspace.json, synonyms.json, icon-libraries.json, code-map.json. Per-file graphs live in files/.
  * Agents call recipe / recommend / resolve / cousins — they do not Read the graph file.
  */
 
