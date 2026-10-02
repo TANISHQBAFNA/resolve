@@ -16,5 +16,4 @@ export * from "./sock";
 export * from "./bindRules";
 export * from "./soci";
 export * from "./examples";
-export * from "./codeMap";
-export * from "./overlayFile";
+export { formatCodeMapReport } from "./codeMap";

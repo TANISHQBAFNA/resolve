@@ -1,344 +1,237 @@
 import { existsSync, readFileSync } from "node:fs";
-import type { CodeTwin, GraphNode } from "@/core/model";
+import type { GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import { overlayFile } from "./overlayFile";
 import { nodeFileKey } from "./workspaceMerge";
 
-export const CODE_MAP_FILE = "code-map.json";
 export const NO_CODE_MAP_HINT = "No code map. Add .graphify/code-map.json next to synonyms.json.";
+const ENTRY_KEYS = ["fileKey", "id", "name", "code", "status", "replacedBy"];
+const CODE_KEYS = ["import", "component"];
+const FROM = /\bfrom\s+(['"])([^'"\s\p{Cc}]{1,120})\1\s*;?$/u;
 
-export interface CodeMapEntry {
-  fileKey: string;
-  id?: string;
+/** What the host (agentSurface) knows about a master. Kept as hooks so this file has no cycle. */
+export interface Hooks {
+  retired(node: GraphNode): boolean;
+  real(node: GraphNode): boolean;
+}
+export interface Twin {
+  line: string;
+  retired: boolean;
+  replacedBy?: string;
+}
+export interface Item {
   name?: string;
-  code: CodeTwin;
-}
-
-export interface LoadedCodeMap {
-  entries: CodeMapEntry[];
-  namingRule?: "same-name";
-  codeComponents: string[];
-}
-
-export interface StaleMapEntry {
-  fileKey: string;
+  fileKey?: string;
   id?: string;
-  name?: string;
+  entry?: number;
+  reason?: string;
 }
-
 export interface CodeMapReport {
   configured: boolean;
-  mapped: number;
-  unmapped: number;
-  ambiguous: number;
-  stale: number;
-  unmappedNames: string[];
-  ambiguousNames: string[];
-  staleEntries: StaleMapEntry[];
-  hint?: string;
+  hint: string | null;
+  counts: Record<"masters" | "mapped" | "retired" | "unmapped" | "ambiguous" | "conflict" | "stale" | "ignored", number>;
+  unmapped: Item[];
+  ambiguous: Item[];
+  conflicts: Item[];
+  stale: Item[];
+  ignored: Item[];
+}
+export interface CodeView {
+  twin(node: GraphNode): Twin | undefined;
+  report: CodeMapReport;
 }
 
-const CATALOG_TYPES = new Set(["COMPONENT_SET", "MAIN_COMPONENT"]);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+interface Row {
+  n: number;
+  fileKey: string;
+  id?: string;
+  name?: string;
+  line: string;
+  status?: string;
+  replacedBy?: string;
 }
 
-function isCatalog(node: GraphNode): boolean {
-  return CATALOG_TYPES.has(node.type);
-}
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+const clean = (s: string) => s.replace(/\p{Cc}|[\u2028\u2029]/gu, " ").trim();
 
-export function catalogMasters(index: GraphIndex): GraphNode[] {
-  return index.graph.nodes.filter(isCatalog);
-}
-
-function figmaIdOf(node: GraphNode): string {
-  if (node.figmaNodeId?.trim()) return node.figmaNodeId.trim();
-  return node.id.startsWith("node:") ? node.id.slice("node:".length) : node.id;
-}
-
-function fileOf(node: GraphNode, graphFileKey: string): string {
-  return (nodeFileKey(node, graphFileKey) ?? graphFileKey).trim();
-}
-
-function idsMatch(node: GraphNode, rawId: string): boolean {
-  const want = rawId.trim();
-  if (!want) return false;
-  if (figmaIdOf(node) === want) return true;
-  if (node.id === want || node.id === `node:${want}`) return true;
-  return node.id.endsWith(`:${want}`);
-}
-
-function parseTwin(raw: unknown): CodeTwin | undefined {
-  if (!isRecord(raw)) return undefined;
-  const imp = typeof raw["import"] === "string" ? raw["import"].trim() : "";
-  const component = typeof raw["component"] === "string" ? raw["component"].trim() : "";
-  if (!imp || !component) return undefined;
-  const twin: CodeTwin = { import: imp, component };
-  const props = parseProps(raw["props"]);
-  if (props) twin.props = props;
-  if (typeof raw["source"] === "string" && raw["source"].trim()) twin.source = raw["source"].trim();
-  return twin;
-}
-
-function parseProps(raw: unknown): CodeTwin["props"] {
-  if (!isRecord(raw)) return undefined;
-  const out: NonNullable<CodeTwin["props"]> = {};
-  for (const [prop, mapping] of Object.entries(raw)) {
-    if (!isRecord(mapping)) continue;
-    const inner: Record<string, string> = {};
-    for (const [from, to] of Object.entries(mapping)) {
-      if (typeof to === "string") inner[from] = to;
-    }
-    if (Object.keys(inner).length) out[prop] = inner;
-  }
-  return Object.keys(out).length ? out : undefined;
-}
-
-function parseEntry(raw: unknown): CodeMapEntry | undefined {
-  if (!isRecord(raw)) return undefined;
-  const code = parseTwin(raw["code"]);
-  if (!code) return undefined;
-  const fileKey = typeof raw["fileKey"] === "string" ? raw["fileKey"].trim() : "";
-  const id = typeof raw["id"] === "string" ? raw["id"].trim() : "";
-  const name = typeof raw["name"] === "string" ? raw["name"].trim() : "";
-  if (!fileKey && !id && !name) return undefined;
+function parseRow(raw: unknown, n: number): Row {
+  if (!isRecord(raw)) throw "not an object";
+  const bad = Object.keys(raw).find((k) => !ENTRY_KEYS.includes(k));
+  if (bad) throw `unsupported field '${clean(bad).slice(0, 30)}'`;
+  const text = (o: Record<string, unknown>, k: string) => {
+    if (o[k] === undefined) return undefined;
+    if (typeof o[k] !== "string") throw `'${k}' must be text`;
+    return (o[k] as string).trim() || undefined;
+  };
+  const code = raw["code"];
+  if (!isRecord(code)) throw "missing code";
+  const badCode = Object.keys(code).find((k) => !CODE_KEYS.includes(k));
+  if (badCode) throw `unsupported field 'code.${clean(badCode).slice(0, 30)}'`;
+  const component = text(code, "component");
+  if (!component) throw "missing component";
+  if (!/^[A-Za-z_$][\w$.]{0,59}$/.test(component)) throw "component must be a plain name like Button";
+  const module = text(code, "import")?.match(FROM)?.[2];
+  if (!module) throw "import needs from '<module>'";
+  const [fileKey = "", id, name, status, replacedBy] = [
+    text(raw, "fileKey"),
+    text(raw, "id"),
+    text(raw, "name"),
+    text(raw, "status"),
+    text(raw, "replacedBy"),
+  ];
+  if (status && status !== "current" && status !== "retired") throw "status must be current or retired";
+  if (id && !fileKey) throw "id needs fileKey";
+  if (!id && !name) throw "needs fileKey + id, or name";
   return {
+    n,
     fileKey,
     ...(id ? { id } : {}),
     ...(name ? { name } : {}),
-    code,
+    line: `${component} from '${module}'`,
+    ...(status ? { status } : {}),
+    ...(replacedBy ? { replacedBy: clean(replacedBy).slice(0, 60) } : {}),
   };
 }
 
-let lastMalformedPath = "";
+let warned = "";
 
-function emitMalformed(path: string): void {
-  if (lastMalformedPath === path) return;
-  lastMalformedPath = path;
-  process.stderr.write("code-map.json is malformed; ignored\n");
-}
-
-/** Missing / empty / malformed = undefined (no map). Malformed prints one stderr line. */
-export function loadCodeMap(): LoadedCodeMap | undefined {
-  const path = overlayFile(CODE_MAP_FILE);
+/** Missing, empty, BOM-only = no map, quietly. Not JSON = no map plus one stderr line. */
+function load(): { rows: Row[]; ignored: Item[] } | undefined {
+  const path = overlayFile("code-map.json");
   if (!path || !existsSync(path)) {
-    lastMalformedPath = "";
+    warned = "";
     return undefined;
   }
   let raw: unknown;
   try {
-    raw = JSON.parse(readFileSync(path, "utf8"));
+    const text = readFileSync(path, "utf8").replace(/^\uFEFF/, "").trim();
+    if (!text) return undefined;
+    raw = JSON.parse(text);
   } catch {
-    emitMalformed(path);
+    raw = undefined;
+  }
+  const list = isRecord(raw) ? (raw["entries"] ?? []) : undefined;
+  if (!Array.isArray(list)) {
+    if (warned !== path) process.stderr.write("code-map.json is malformed; ignored\n");
+    warned = path;
     return undefined;
   }
-  if (!isRecord(raw)) {
-    emitMalformed(path);
-    return undefined;
-  }
-  const entries: CodeMapEntry[] = [];
-  if (raw["entries"] != null) {
-    if (!Array.isArray(raw["entries"])) {
-      emitMalformed(path);
-      return undefined;
+  warned = "";
+  const rows: Row[] = [];
+  const ignored: Item[] = Object.keys(raw as object)
+    .filter((k) => k !== "entries")
+    .map((k) => ({ reason: `unsupported field '${clean(k).slice(0, 30)}'${k === "namingRule" ? " (planned)" : ""}` }));
+  list.forEach((item, i) => {
+    try {
+      rows.push(parseRow(item, i + 1));
+    } catch (reason) {
+      ignored.push({ entry: i + 1, reason: String(reason) });
     }
-    for (const item of raw["entries"]) {
-      const entry = parseEntry(item);
-      if (entry) entries.push(entry);
-    }
-  }
-  lastMalformedPath = "";
-  const codeComponents = Array.isArray(raw["codeComponents"])
-    ? raw["codeComponents"]
-        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-        .map((item) => item.trim())
-    : [];
-  const namingRule = raw["namingRule"] === "same-name" ? ("same-name" as const) : undefined;
-  if (!entries.length && !(namingRule && codeComponents.length)) return undefined;
-  return {
-    entries,
-    ...(namingRule ? { namingRule } : {}),
-    codeComponents,
-  };
+  });
+  return { rows, ignored };
 }
 
-export function pascalCaseName(name: string): string {
-  return name
-    .replace(/[^A-Za-z0-9]+/g, " ")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join("");
-}
+function resolveRows(index: GraphIndex, rows: Row[], ignored: Item[], hooks: Hooks): CodeView {
+  const fk = (n: GraphNode) => nodeFileKey(n, index.graph.fileKey) ?? "";
+  const fid = (n: GraphNode) => n.figmaNodeId ?? n.id;
+  const masters = index.graph.nodes.filter(
+    (n) => (n.type === "COMPONENT_SET" || n.type === "MAIN_COMPONENT") && !n.componentSetId && !n.isRemote && hooks.real(n),
+  );
+  const byId = new Map(masters.map((n) => [`${fk(n)}\n${fid(n)}`, n]));
+  const byName = new Map<string, GraphNode[]>();
+  for (const n of masters) byName.set(n.name, [...(byName.get(n.name) ?? []), n]);
 
-interface ResolvedMap {
-  byId: Map<string, CodeTwin>;
-  ambiguousIds: Set<string>;
-  stale: StaleMapEntry[];
-}
-
-function nodeKey(node: GraphNode): string {
-  return node.id;
-}
-
-function resolveEntries(index: GraphIndex, map: LoadedCodeMap): ResolvedMap {
-  const catalog = catalogMasters(index);
-  const graphFileKey = index.graph.fileKey;
-  const byId = new Map<string, CodeTwin>();
-  const ambiguousIds = new Set<string>();
-  const stale: StaleMapEntry[] = [];
-
-  const inFile = (node: GraphNode, fileKey: string) =>
-    !fileKey || fileOf(node, graphFileKey) === fileKey;
-
-  for (const entry of map.entries) {
-    let hits: GraphNode[] = [];
-    if (entry.fileKey && entry.id) {
-      hits = catalog.filter((node) => inFile(node, entry.fileKey) && idsMatch(node, entry.id!));
-    } else if (entry.name) {
-      const named = catalog.filter(
-        (node) => inFile(node, entry.fileKey) && node.name === entry.name,
-      );
-      if (named.length === 1) hits = named;
-      else if (named.length > 1) {
-        for (const node of named) ambiguousIds.add(nodeKey(node));
-        continue;
-      }
-    }
-    if (hits.length === 1) {
-      const id = nodeKey(hits[0]!);
-      if (!byId.has(id) && !ambiguousIds.has(id)) byId.set(id, entry.code);
-      continue;
-    }
-    if (hits.length > 1) {
-      for (const node of hits) ambiguousIds.add(nodeKey(node));
-      continue;
-    }
-    stale.push({
-      fileKey: entry.fileKey,
-      ...(entry.id ? { id: entry.id } : {}),
-      ...(entry.name ? { name: entry.name } : {}),
-    });
+  const claims = new Map<GraphNode, Row[]>();
+  const ambiguous = new Set<string>();
+  const conflict = new Map<string, string>();
+  const stale: Item[] = [];
+  const claim = (n: GraphNode, row: Row) => claims.set(n, [...(claims.get(n) ?? []), row]);
+  for (const row of rows) {
+    const where = { fileKey: row.fileKey, id: row.id, name: row.name, entry: row.n };
+    const named = (byName.get(row.name ?? "") ?? []).filter((n) => !row.fileKey || fk(n) === row.fileKey);
+    if (row.id) {
+      const hit = byId.get(`${row.fileKey}\n${row.id}`);
+      if (!hit) stale.push({ ...where, reason: "no such component" });
+      else if (row.name && hit.name !== row.name && named.length) conflict.set(hit.id, "id and name point to different components");
+      else claim(hit, row);
+    } else if (named.length === 1) claim(named[0]!, row);
+    else if (named.length) named.forEach((n) => ambiguous.add(n.id));
+    else stale.push({ ...where, reason: "no component with that name" });
   }
 
-  if (map.namingRule === "same-name" && map.codeComponents.length) {
-    const listed = new Set(map.codeComponents);
-    const buckets = new Map<string, GraphNode[]>();
-    for (const node of catalog) {
-      if (byId.has(nodeKey(node)) || ambiguousIds.has(nodeKey(node))) continue;
-      const pascal = pascalCaseName(node.name);
-      if (!listed.has(pascal)) continue;
-      const bucket = buckets.get(pascal);
-      if (bucket) bucket.push(node);
-      else buckets.set(pascal, [node]);
-    }
-    for (const [pascal, nodes] of buckets) {
-      if (nodes.length === 1) {
-        const node = nodes[0]!;
-        byId.set(nodeKey(node), {
-          import: `import { ${pascal} }`,
-          component: pascal,
-        });
-      } else {
-        for (const node of nodes) ambiguousIds.add(nodeKey(node));
-      }
-    }
+  const twins = new Map<string, Twin>();
+  for (const [node, list] of claims) {
+    if (conflict.has(node.id)) continue;
+    const opts = list.map((r) => ({ r, retired: r.status ? r.status === "retired" : hooks.retired(node) }));
+    const distinct = [...new Map(opts.map((o) => [`${o.r.line}|${o.retired}|${o.r.replacedBy}`, o])).values()];
+    const current = distinct.filter((o) => !o.retired);
+    const pick = distinct.length === 1 ? distinct[0] : current.length === 1 ? current[0] : undefined;
+    if (!pick) conflict.set(node.id, "entries disagree and none is the only current one");
+    else twins.set(node.id, { line: pick.r.line, retired: pick.retired, ...(pick.r.replacedBy ? { replacedBy: pick.r.replacedBy } : {}) });
   }
+  const twin = (node: GraphNode) => twins.get(node.id) ?? (node.componentSetId ? twins.get(node.componentSetId) : undefined);
 
-  return { byId, ambiguousIds, stale };
-}
-
-/** Overlay lookup. Never mutates the graph. Empty when no map or no match. */
-export function codeTwinFor(index: GraphIndex, node: GraphNode): CodeTwin | undefined {
-  const map = loadCodeMap();
-  if (!map) return undefined;
-  const resolved = resolveEntries(index, map);
-  const direct = resolved.byId.get(node.id);
-  if (direct) return direct;
-  if (node.componentSetId) return resolved.byId.get(node.componentSetId);
-  return undefined;
-}
-
-/** Stamp `code` on a copy when the map hits. Original node is untouched. */
-export function attachCodeTwin(index: GraphIndex, node: GraphNode): GraphNode {
-  const twin = codeTwinFor(index, node);
-  return twin ? { ...node, code: twin } : node;
-}
-
-export function codeHintLine(twin: CodeTwin): string | undefined {
-  const from = twin.import.match(/\bfrom\s+['"]([^'"]+)['"]/);
-  if (!from?.[1]) return undefined;
-  return `${twin.component} from '${from[1]}'`;
-}
-
-export function recommendCodeHint(index: GraphIndex, nodeId: string | undefined): string | undefined {
-  if (!nodeId) return undefined;
-  const node = index.getNode(nodeId);
-  if (!node) return undefined;
-  const twin = codeTwinFor(index, node);
-  return twin ? codeHintLine(twin) : undefined;
-}
-
-export function reportCodeMap(index: GraphIndex, map = loadCodeMap()): CodeMapReport {
-  if (!map) {
-    return {
-      configured: false,
-      mapped: 0,
-      unmapped: 0,
-      ambiguous: 0,
-      stale: 0,
-      unmappedNames: [],
-      ambiguousNames: [],
-      staleEntries: [],
-      hint: NO_CODE_MAP_HINT,
-    };
+  const report = emptyReport(null, ignored);
+  report.configured = true;
+  report.counts.masters = masters.length;
+  report.counts.stale = stale.length;
+  report.stale = stale;
+  for (const n of masters) {
+    const item = { name: n.name, fileKey: fk(n), id: fid(n) };
+    const t = twins.get(n.id);
+    if (conflict.has(n.id)) report.conflicts.push({ ...item, reason: conflict.get(n.id) });
+    else if (t) report.counts[t.retired ? "retired" : "mapped"] += 1;
+    else if (ambiguous.has(n.id)) report.ambiguous.push({ ...item, reason: "name is not unique" });
+    else report.unmapped.push(item);
   }
-  const catalog = catalogMasters(index);
-  const resolved = resolveEntries(index, map);
-  const unmappedNames: string[] = [];
-  const ambiguousNames: string[] = [];
-  let mapped = 0;
-  for (const node of catalog) {
-    if (resolved.ambiguousIds.has(node.id)) {
-      ambiguousNames.push(node.name);
-      continue;
-    }
-    if (resolved.byId.has(node.id)) {
-      mapped += 1;
-      continue;
-    }
-    unmappedNames.push(node.name);
-  }
-  return {
-    configured: true,
-    mapped,
-    unmapped: unmappedNames.length,
-    ambiguous: ambiguousNames.length,
-    stale: resolved.stale.length,
-    unmappedNames,
-    ambiguousNames,
-    staleEntries: resolved.stale,
-  };
+  report.counts.unmapped = report.unmapped.length;
+  report.counts.ambiguous = report.ambiguous.length;
+  report.counts.conflict = report.conflicts.length;
+  return { twin, report };
+}
+
+function emptyReport(hint: string | null, ignored: Item[]): CodeMapReport {
+  const counts = { masters: 0, mapped: 0, retired: 0, unmapped: 0, ambiguous: 0, conflict: 0, stale: 0, ignored: ignored.length };
+  return { configured: false, hint, counts, unmapped: [], ambiguous: [], conflicts: [], stale: [], ignored };
+}
+
+/** Undefined when there is no usable map. Reads the file fresh every call. */
+export function codeView(index: GraphIndex, hooks: Hooks): CodeView | undefined {
+  const loaded = load();
+  return loaded?.rows.length ? resolveRows(index, loaded.rows, loaded.ignored, hooks) : undefined;
+}
+
+/** The graph is only loaded when the map has something to match against it. */
+export function codeMapReport(getIndex: () => GraphIndex, hooksFor: (index: GraphIndex) => Hooks): CodeMapReport {
+  const loaded = load();
+  if (!loaded) return emptyReport(NO_CODE_MAP_HINT, []);
+  if (!loaded.rows.length) return emptyReport("code-map.json has no usable entries.", loaded.ignored);
+  const index = getIndex();
+  return resolveRows(index, loaded.rows, loaded.ignored, hooksFor(index)).report;
 }
 
 export function formatCodeMapReport(report: CodeMapReport, first = 8): string {
-  if (!report.configured) return report.hint ?? NO_CODE_MAP_HINT;
-  const lines = [
-    `Code map: ${report.mapped} mapped, ${report.unmapped} unmapped, ${report.ambiguous} ambiguous, ${report.stale} stale`,
-  ];
-  if (report.unmappedNames.length) {
-    lines.push(`Unmapped: ${report.unmappedNames.slice(0, first).join(", ")}`);
-  }
-  if (report.ambiguousNames.length) {
-    lines.push(`Ambiguous: ${report.ambiguousNames.slice(0, first).join(", ")}`);
-  }
-  if (report.staleEntries.length) {
-    const labels = report.staleEntries
-      .slice(0, first)
-      .map((entry) => entry.name || entry.id || entry.fileKey);
-    lines.push(`Stale: ${labels.join(", ")}`);
-  }
-  return lines.join("\n");
+  const c = report.counts;
+  const label = (i: Item) => {
+    const name = clean(i.name ?? i.id ?? "");
+    const where = [i.fileKey, i.id && i.name ? i.id : ""].filter(Boolean).join(" ");
+    return [i.entry ? `entry ${i.entry}` : "", name, where ? `[${clean(where)}]` : "", i.reason ? `- ${i.reason}` : ""]
+      .filter(Boolean)
+      .join(" ");
+  };
+  const section = (title: string, items: Item[]) =>
+    items.length
+      ? [`${title}: ${items.slice(0, first).map(label).join("; ")}${items.length > first ? ` (+${items.length - first} more)` : ""}`]
+      : [];
+  return [
+    report.configured
+      ? `Code map: ${c.masters} components: ${c.mapped} mapped, ${c.retired} retired (kept mapped), ${c.unmapped} unmapped, ${c.ambiguous} ambiguous, ${c.conflict} conflict. ${c.stale} stale, ${c.ignored} ignored entries.`
+      : report.hint,
+    ...section("Unmapped", report.unmapped),
+    ...section("Ambiguous", report.ambiguous),
+    ...section("Conflict", report.conflicts),
+    ...section("Stale", report.stale),
+    ...section("Ignored", report.ignored),
+  ].join("\n");
 }

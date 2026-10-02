@@ -21,7 +21,7 @@ import { extractSubgraph, levelForNode } from "./subgraph";
 import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
 import { overlayFile } from "./overlayFile";
-import { recommendCodeHint } from "./codeMap";
+import { codeMapReport, codeView, type Hooks, type Twin } from "./codeMap";
 import { placeReady } from "./placeReady";
 import synonymFile from "@/data/synonyms.json";
 import modifierFile from "@/data/ui-modifiers.json";
@@ -480,8 +480,9 @@ export function componentUsageCard(
   const card = usageCardForComponent(index, node, options);
   const { cost, ...body } = card;
   void cost;
-  const retired = isRetired(index, node);
-  const replacement = retired ? liveReplacement(index, node) : undefined;
+  const twin = codeMapView(index)?.twin(node);
+  const retired = isRetired(index, node) || Boolean(twin?.retired);
+  const replacement = retired ? replacementFor(index, node, twin) : undefined;
   const place = replacement ? placeReady(replacement, index.graph.fileKey) : undefined;
   const clashes = otherNamedMasters(
     index,
@@ -521,9 +522,13 @@ export function componentUsageCard(
       : {}),
   };
   const budget = options.budgetChars ?? USAGE_CARD_BUDGET;
-  if (JSON.stringify(withCost(withReplacement)).length <= budget) return withCost(withReplacement);
-  const trimmed = { ...withReplacement, byScreen: [] as typeof body.byScreen };
-  return withCost(trimmed);
+  const fitted =
+    JSON.stringify(withCost(withReplacement)).length <= budget
+      ? withReplacement
+      : { ...withReplacement, byScreen: [] as typeof body.byScreen };
+  // The code line is for a live part only; a retired part's mapping is read through verify.
+  const coded = twin && !retired ? { ...fitted, code: twin.line } : undefined;
+  return withCost(coded && JSON.stringify(withCost(coded)).length <= budget ? coded : fitted);
 }
 
 /** Full config for the real instance behind a pick's `ex` pointer. */
@@ -2420,19 +2425,41 @@ function isRetired(index: GraphIndex, node: GraphNode): boolean {
   return false;
 }
 
+function liveMasters(index: GraphIndex, except: GraphNode): GraphNode[] {
+  return index.getNodesByType(...MASTER_TYPES).filter((candidate) => {
+    if (candidate.id === except.id) return false;
+    if (isRetired(index, candidate)) return false;
+    if (isPrivateMaster(index, candidate)) return false;
+    if (isNameInferredMaster(candidate)) return false;
+    return true;
+  });
+}
+
+/** A code-map `replacedBy` (name or id) names one live master, or nothing. Never a guess. */
+function replacementFor(index: GraphIndex, node: GraphNode, twin?: Twin): GraphNode | undefined {
+  if (!twin?.replacedBy) return liveReplacement(index, node);
+  const want = twin.replacedBy.toLowerCase();
+  const named = liveMasters(index, node).filter(
+    (live) => live.name.toLowerCase() === want || live.id === twin.replacedBy || live.figmaNodeId === twin.replacedBy,
+  );
+  return named.length === 1 ? named[0] : undefined;
+}
+
+/** Hooks for the code map: its retired view and its idea of a real (non-base, non-variant) component. */
+const codeHooks = (index: GraphIndex): Hooks => ({
+  retired: (node) => isRetired(index, node),
+  real: (node) => !isPrivateMaster(index, node) && !isNameInferredMaster(node) && !VARIANT_PROP_NAME.test(node.name),
+});
+export const codeMapView = (index: GraphIndex) => codeView(index, codeHooks(index));
+export const codeMapCard = (getIndex: () => GraphIndex) => codeMapReport(getIndex, codeHooks);
+
 /**
  * Live master a deprecated name should hand back.
  * Explicit replacedBy wins. Otherwise the closest live name that still carries
  * the specific tokens (Legacy Banner → Banner, Old Price → Price).
  */
 function liveReplacement(index: GraphIndex, node: GraphNode): GraphNode | undefined {
-  const live = index.getNodesByType(...MASTER_TYPES).filter((candidate) => {
-    if (candidate.id === node.id) return false;
-    if (isRetired(index, candidate)) return false;
-    if (isPrivateMaster(index, candidate)) return false;
-    if (isNameInferredMaster(candidate)) return false;
-    return true;
-  });
+  const live = liveMasters(index, node);
   const explicit = replacedByName(node);
   if (explicit) {
     const needle = explicit.toLowerCase();
@@ -2990,6 +3017,21 @@ export function recommendMasters(
     kept = kept.filter((entry) => !demotedPart(entry));
   }
 
+  // Code map: a retired part stays mapped but is never offered for a new screen.
+  const view = codeMapView(index);
+  let retiredNote: string | undefined;
+  if (view) {
+    const gone = kept.filter((entry) => view.twin(entry.node)?.retired);
+    kept = kept.filter((entry) => !gone.includes(entry));
+    const best = [...gone, ...retired.filter((entry) => view.twin(entry.node)?.retired)].sort(
+      (a, b) => Number(b.exactName) - Number(a.exactName) || b.covered - a.covered,
+    )[0];
+    if (best && (best.exactName || best.covered > Math.max(0, ...kept.map((entry) => entry.covered)))) {
+      const use = replacementFor(index, best.node, view.twin(best.node));
+      retiredNote = `${setOf(index, best.node)?.name ?? best.node.name} is retired${use ? `, use ${use.name}` : ""}.`;
+    }
+  }
+
   const familyCardName = (entry: Scored): string => {
     if (entry.node.type !== "VARIANT") return variantCardName(index, entry.node);
     const set = setOf(index, entry.node);
@@ -3246,12 +3288,14 @@ export function recommendMasters(
     if (JSON.stringify(payload).length > budgetChars) shrinkNameFields(payload, budgetChars);
   }
 
-  const codeLine = recommendCodeHint(index, candidates[0]?.id);
-  const extra: { code?: string } = {};
-  if (codeLine) {
-    const withCode = { ...payload, code: codeLine };
-    if (JSON.stringify(withCode).length <= budgetChars) extra.code = codeLine;
-  }
+  const lead = kept[0];
+  const leadTwin = lead && !weakLead && !lead.deprecated ? view?.twin(lead.node) : undefined;
+  const extra: { retired?: string; code?: string } = {};
+  const append = (key: "retired" | "code", value?: string) => {
+    if (value && JSON.stringify({ ...payload, ...extra, [key]: value }).length <= budgetChars) extra[key] = value;
+  };
+  append("retired", retiredNote);
+  append("code", leadTwin && !leadTwin.retired ? leadTwin.line : undefined);
 
   return withCost({ ...payload, ...extra });
 }
@@ -3404,23 +3448,41 @@ function uncheckedLine(count: number, names: string[]): string {
  * Thin post-draw check. Pass iff every placed component is an approved
  * (in-graph, not deprecated) master. Deterministic — no LLM.
  */
-export function verifyFrame(
-  index: GraphIndex,
-  input: {
-    frame?: string;
-    components?: string[];
-    rules?: LibraryRules;
-    context?: RecommendContext;
-    bindRules?: BindRulesFile;
-    sock?: SockState;
-    workspace?: WorkspaceManifest;
-    placeholders?: string[];
-    /** Figma get_design_context, or get_metadata that includes characters. */
-    designContext?: unknown;
-    /** Agent-passed text: `{ nodeId, characters }` list, id→string map, or `{ texts }`. */
-    texts?: unknown;
-  } = {},
-) {
+export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
+  const used: GraphNode[] = [];
+  const card = verifyFrameCard(index, input, used);
+  const view = codeMapView(index);
+  const rows = [...new Set(used)].flatMap((node) => {
+    const twin = view?.twin(node);
+    if (!twin?.retired) return [];
+    const use = replacementFor(index, node, twin);
+    return [{ name: setOf(index, node)?.name ?? node.name, code: twin.line, ...(use ? { replacedBy: use.name } : {}) }];
+  });
+  // Cut detail before dropping the flag: full rows, rows without the code line, names only.
+  const shapes = [rows, rows.map(({ name, replacedBy }) => ({ name, replacedBy })), rows.map((row) => row.name)];
+  for (const retired of rows.length ? shapes : []) {
+    const next = repriced({ ...card, retired });
+    if (JSON.stringify(next).length <= 600) return next;
+  }
+  return card;
+}
+
+type VerifyInput = {
+  frame?: string;
+  components?: string[];
+  rules?: LibraryRules;
+  context?: RecommendContext;
+  bindRules?: BindRulesFile;
+  sock?: SockState;
+  workspace?: WorkspaceManifest;
+  placeholders?: string[];
+  /** Figma get_design_context, or get_metadata that includes characters. */
+  designContext?: unknown;
+  /** Agent-passed text: `{ nodeId, characters }` list, id→string map, or `{ texts }`. */
+  texts?: unknown;
+};
+
+function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[]) {
   assertVerifyTextInput(input.designContext, "designContext");
   assertVerifyTextInput(input.texts, "texts");
   const invents: VerifyHit[] = [];
@@ -3670,6 +3732,10 @@ export function verifyFrame(
   const placed: GraphNode[] = [...approvedIds]
     .map((id) => index.getNode(id))
     .filter((node): node is GraphNode => Boolean(node));
+  used.push(
+    ...placed,
+    ...deprecatedHits.flatMap((hit) => (hit.id ? [index.getNode(hit.id)] : [])).filter((node): node is GraphNode => Boolean(node)),
+  );
   const ruleFailure = input.bindRules?.rules.length
     ? verifyBindRules(index, input.bindRules, placed, {
         domain: input.context?.domain,

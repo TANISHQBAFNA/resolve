@@ -10,16 +10,6 @@ export const BoundsSchema = z.object({
 });
 export type Bounds = z.infer<typeof BoundsSchema>;
 
-/** Team-owned code twin. Empty unless `.graphify/code-map.json` maps this master. */
-export const CodeTwinSchema = z.object({
-  import: z.string().min(1),
-  component: z.string().min(1),
-  /** Figma variant value → code prop value, keyed by prop name. */
-  props: z.record(z.record(z.string())).optional(),
-  source: z.string().optional(),
-});
-export type CodeTwin = z.infer<typeof CodeTwinSchema>;
-
 export const GraphNodeSchema = z.object({
   /** Internal, namespaced id — unique across node ids, style ids, variable ids. */
   id: z.string().min(1),
@@ -56,9 +46,6 @@ export const GraphNodeSchema = z.object({
   status: z.enum(["draft", "approved", "deprecated", "experimental"]).optional(),
   owner: z.string().optional(),
   platforms: z.array(z.string()).optional(),
-
-  /** Code twin from the team map. Absent = unmapped. Never guessed. */
-  code: CodeTwinSchema.optional(),
 
   metadata: z.record(z.unknown()).optional(),
 });
