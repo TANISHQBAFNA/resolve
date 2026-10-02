@@ -348,6 +348,14 @@ describe("code-map.json", () => {
       map();
       expect(verifyFrame(idx, { components: ["Chip"] })).not.toHaveProperty("retired");
     });
+
+    it("verify on a frame recognises a used retired master and shows its mapping", () => {
+      const tc = (id: string, component: string, extra: object = {}) => ({ fileKey: "TESTKEY", id, code: code(component), ...extra });
+      put({ entries: [tc("30:10", "Button", { status: "retired", replacedBy: "Input" }), tc("30:20", "Input")] });
+      const card = verifyFrame(demo, { frame: "Create account" }) as { pass: boolean; retired?: unknown };
+      expect(card.retired).toEqual([{ name: "Button", code: "Button from '@acme/ui'", replacedBy: "Input" }]);
+      expect(JSON.stringify(card).length).toBeLessThanOrEqual(600);
+    });
   });
 
   it("report: stable JSON keys with and without a map; counts add up", async () => {
