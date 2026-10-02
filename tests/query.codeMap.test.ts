@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -325,7 +325,9 @@ describe("code-map.json", () => {
       put({ entries: [entry("3:3", "Chip", { status: "retired", replacedBy: "Pager" }), entry("4:4", "Pager")] });
       const idx = retiredLib();
       expect(recommendMasters(idx, "chip").candidates.map((c) => c.name)).not.toContain("Chip");
-      expect(recommendMasters(idx, "chip").retired).toBe("Chip is retired, use Pager.");
+      const only = recommendMasters(idx, "chip");
+      expect(only.candidates).toEqual([]);
+      expect(only.hint).toBe("Only match is retired: Chip. Use Pager.");
       map();
       const variant = idx.graph.nodes.find((n) => n.name === "Old Button Primary")!;
       expect(codeMapView(idx)?.twin(variant)).toMatchObject({ retired: true, line: "OldButton from '@acme/ui'" });
@@ -337,13 +339,13 @@ describe("code-map.json", () => {
       const card = componentUsageCard(idx, "Old Button") as { deprecated?: boolean; code?: string; replacement?: { name: string } };
       expect(card).toMatchObject({ deprecated: true, replacement: { name: "Button" } });
       expect(card.code).toBeUndefined();
-      type Retired = { retired?: Array<{ name: string; code?: string; replacedBy?: string }> };
-      // Already listed under `deprecated`, so the card is near full: detail is cut before the flag is.
+      type Retired = { pass: boolean; hint: string; retired?: string[] };
       const old = verifyFrame(idx, { components: ["Old Button"] }) as Retired;
-      expect(old.retired?.[0]).toMatchObject({ name: "Old Button", replacedBy: "Button" });
+      expect(old.retired).toEqual(["retired Old Button -> use Button (code: OldButton from '@acme/ui')"]);
+      expect(old.pass).toBe(false);
       put({ entries: [entry("1:1"), entry("3:3", "Chip", { status: "retired", replacedBy: "Button" })] });
       const chip = verifyFrame(idx, { components: ["Chip"] }) as Retired;
-      expect(chip.retired).toEqual([{ name: "Chip", code: "Chip from '@acme/ui'", replacedBy: "Button" }]);
+      expect(chip.retired).toEqual(["retired Chip -> use Button (code: Chip from '@acme/ui')"]);
       expect(JSON.stringify(chip).length).toBeLessThanOrEqual(600);
       map();
       expect(verifyFrame(idx, { components: ["Chip"] })).not.toHaveProperty("retired");
@@ -353,8 +355,119 @@ describe("code-map.json", () => {
       const tc = (id: string, component: string, extra: object = {}) => ({ fileKey: "TESTKEY", id, code: code(component), ...extra });
       put({ entries: [tc("30:10", "Button", { status: "retired", replacedBy: "Input" }), tc("30:20", "Input")] });
       const card = verifyFrame(demo, { frame: "Create account" }) as { pass: boolean; retired?: unknown };
-      expect(card.retired).toEqual([{ name: "Button", code: "Button from '@acme/ui'", replacedBy: "Input" }]);
+      expect(card.retired).toEqual(["retired Button -> use Input (code: Button from '@acme/ui')"]);
       expect(JSON.stringify(card).length).toBeLessThanOrEqual(600);
+    });
+  });
+
+  describe("retired parts: replacement chain, library-retired, clash, verify", () => {
+    const rl = () =>
+      indexGraph(
+        graphOf([
+          { id: "1:1", name: "Button" },
+          { id: "2:2", name: "Old Button", status: "deprecated" },
+          { id: "3:3", name: "Tabs" },
+          { id: "4:4", name: "Tab" },
+          { id: "5:5", name: "Chip" },
+          { id: "6:6", name: "Pager" },
+          { id: "7:7", name: "Legacy Menu", status: "deprecated" },
+        ]),
+      );
+    const old = (id: string, component: string, replacedBy?: string) =>
+      entry(id, component, { status: "retired", ...(replacedBy ? { replacedBy } : {}) });
+    type Verify = { pass: boolean; hint: string; deprecated: Array<{ name: string }>; retired?: string[] | string };
+    const row = (idx: ReturnType<typeof rl>, name: string) => (verifyFrame(idx, { components: [name] }) as Verify).retired;
+    const use = (idx: ReturnType<typeof rl>, name: string) =>
+      (componentUsageCard(idx, name) as { replacement?: { name: string } }).replacement?.name;
+
+    it("follows a retired replacement to the current part (max 3 hops, cycle-safe) or says none", () => {
+      const idx = rl();
+      put({ entries: [entry("1:1"), old("3:3", "Tabs", "Tab"), old("4:4", "Tab", "Chip"), old("5:5", "Chip", "Pager"), entry("6:6", "Pager")] });
+      expect(use(idx, "Tabs")).toBe("Pager");
+      expect(row(idx, "Tabs")).toEqual(["retired Tabs -> use Pager (code: Tabs from '@acme/ui')"]);
+      put({ entries: [old("3:3", "Tabs", "Tab"), old("4:4", "Tab", "Chip"), old("5:5", "Chip", "Pager"), old("6:6", "Pager", "Button"), entry("1:1")] });
+      expect(use(idx, "Tabs")).toBeUndefined();
+      expect(use(idx, "Chip")).toBe("Button");
+      expect(row(idx, "Tabs")).toEqual(["retired Tabs -> no current replacement (code: Tabs from '@acme/ui')"]);
+      expect(recommendMasters(idx, "tabs").hint).toBe("Only match is retired: Tabs. Use none.");
+      put({ entries: [old("3:3", "Tabs", "Tab"), old("4:4", "Tab", "Tabs")] });
+      expect(use(idx, "Tabs")).toBeUndefined();
+      for (const replacedBy of ["Chip", "Nothing"]) {
+        put({ entries: [old("5:5", "Chip", replacedBy)] });
+        expect(use(idx, "Chip")).toBeUndefined();
+        expect(report(idx).replacements.map((r) => r.name)).toEqual(["Chip"]);
+      }
+      expect(formatCodeMapReport(report(idx))).toContain("Bad replacedBy: Chip [LIB 5:5] - replacedBy 'Nothing' does not lead to a current part");
+    });
+
+    it("a library-retired part with no entry is not offered once a map exists; no map is unchanged", () => {
+      const idx = rl();
+      const before = recommendMasters(idx, "legacy menu");
+      expect(before.candidates.map((c) => c.name)).toEqual(["Legacy Menu"]);
+      put({ entries: [entry("1:1")] });
+      const after = recommendMasters(idx, "legacy menu");
+      expect(after.candidates).toEqual([]);
+      expect(after.hint).toBe("Only match is retired: Legacy Menu. Use none.");
+      expect(JSON.stringify(after)).not.toContain("No master matched");
+      expect(report(idx).retired.map((r) => r.name)).toEqual(["Old Button", "Legacy Menu"]);
+    });
+
+    it("an old and a current entry for one part: current wins, and the clash is reported once", () => {
+      const idx = rl();
+      put({ entries: [entry("1:1", "Button"), old("1:1", "OldButton")] });
+      const spy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+      try {
+        expect(lineFor(idx, "Button")).toBe("Button from '@acme/ui'");
+        const r = report(idx);
+        report(idx);
+        expect(r.conflicts).toMatchObject([{ name: "Button", reason: "retired and current entries; the current one is used" }]);
+        expect(r.counts).toMatchObject({ conflict: 1, mapped: 0 });
+        expect(spy.mock.calls.filter(([m]) => String(m).includes("retired and a current entry"))).toHaveLength(1);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it("verify treats a map-retired part like a library-retired one: it fails and is flagged", () => {
+      const idx = rl();
+      put({ entries: [entry("1:1"), old("5:5", "Chip", "Button"), entry("2:2", "OldButton")] });
+      const chip = verifyFrame(idx, { components: ["Chip"] }) as Verify;
+      const lib = verifyFrame(idx, { components: ["Old Button"] }) as Verify;
+      expect([chip.pass, lib.pass]).toEqual([false, false]);
+      expect(chip.deprecated.map((d) => d.name)).toEqual(["Chip"]);
+      expect(lib.deprecated.map((d) => d.name)).toEqual(["Old Button"]);
+      expect(chip.hint).toMatch(/^Fail/);
+      expect(chip.retired).toEqual(["retired Chip -> use Button (code: Chip from '@acme/ui')"]);
+    });
+
+    it("verify keeps every retired fact in 600: three rows then '+N more', else a pointer to --retired", () => {
+      const idx = rl();
+      put({ entries: [entry("1:1"), old("2:2", "OldButton", "Button"), old("3:3", "Tabs", "Button"), old("5:5", "Chip", "Button"), old("6:6", "Pager", "Button")] });
+      const four = verifyFrame(idx, { components: ["Old Button", "Tabs", "Chip", "Pager"] }) as Verify;
+      expect(four.retired).toHaveLength(4);
+      expect((four.retired as string[])[3]).toBe("+1 more");
+      expect(four.hint).toMatch(/^Fail/);
+      expect(JSON.stringify(four).length).toBeLessThanOrEqual(600);
+      const long = (n: string) => n.padEnd(300, "x");
+      const big = indexGraph(graphOf([{ id: "1:1", name: "Button" }, ...["a", "b", "c"].map((n, i) => ({ id: `${i + 2}:1`, name: long(n), status: "deprecated" as const }))]));
+      put({ entries: [entry("1:1"), ...["a", "b", "c"].map((_, i) => old(`${i + 2}:1`, "Gone", "Button"))] });
+      const many = verifyFrame(big, { components: ["a", "b", "c"].map(long) }) as Verify;
+      expect(many.retired).toBe("+3 retired, run `resolve code-map --retired` for the list");
+      expect(many.hint).toMatch(/^Fail/);
+      expect(many.deprecated).toHaveLength(3);
+      expect(JSON.stringify(many).length).toBeLessThanOrEqual(600);
+    });
+
+    it("code-map --retired lists each retired part with its code and replacement", async () => {
+      put({ entries: [entry("1:1"), old("2:2", "OldButton", "Button"), old("3:3", "Tabs", "Nothing")] });
+      saveGraph(rl().graph);
+      expect((await cli(["code-map", "--retired"])).out.trim().split("\n")).toEqual([
+        "Retired: 3",
+        "Old Button [LIB 2:2] -> use Button (code: OldButton from '@acme/ui')",
+        "Tabs [LIB 3:3] -> no current replacement (code: Tabs from '@acme/ui')",
+        "Legacy Menu [LIB 7:7] -> no current replacement",
+      ]);
+      expect(JSON.parse((await cli(["code-map", "--json"])).out).retired[0]).toEqual({ name: "Old Button", fileKey: "LIB", id: "2:2", use: "Button", code: "OldButton from '@acme/ui'" });
     });
   });
 

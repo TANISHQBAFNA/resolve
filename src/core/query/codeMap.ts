@@ -13,6 +13,8 @@ const FROM = /\bfrom\s+(['"])([^'"\s\p{Cc}]{1,120})\1\s*;?$/u;
 export interface Hooks {
   retired(node: GraphNode): boolean;
   real(node: GraphNode): boolean;
+  /** Name of the current part that replaces a retired one, following replacedBy up to 3 hops. */
+  use(node: GraphNode, twinOf: (node: GraphNode) => Twin | undefined): string | undefined;
 }
 export interface Twin {
   line: string;
@@ -25,6 +27,8 @@ export interface Item {
   id?: string;
   entry?: number;
   reason?: string;
+  use?: string | null;
+  code?: string | null;
 }
 export interface CodeMapReport {
   configured: boolean;
@@ -33,11 +37,15 @@ export interface CodeMapReport {
   unmapped: Item[];
   ambiguous: Item[];
   conflicts: Item[];
+  retired: Item[];
   stale: Item[];
+  replacements: Item[];
   ignored: Item[];
 }
 export interface CodeView {
   twin(node: GraphNode): Twin | undefined;
+  /** Retired by the library or by the map. */
+  retired(node: GraphNode): boolean;
   report: CodeMapReport;
 }
 
@@ -95,9 +103,10 @@ function parseRow(raw: unknown, n: number): Row {
 }
 
 let warned = "";
+const warnedClash = new Set<string>();
 
 /** Missing, empty, BOM-only = no map, quietly. Not JSON = no map plus one stderr line. */
-function load(): { rows: Row[]; ignored: Item[] } | undefined {
+function load(): { rows: Row[]; ignored: Item[]; path: string } | undefined {
   const path = overlayFile("code-map.json");
   if (!path || !existsSync(path)) {
     warned = "";
@@ -129,10 +138,10 @@ function load(): { rows: Row[]; ignored: Item[] } | undefined {
       ignored.push({ entry: i + 1, reason: String(reason) });
     }
   });
-  return { rows, ignored };
+  return { rows, ignored, path };
 }
 
-function resolveRows(index: GraphIndex, rows: Row[], ignored: Item[], hooks: Hooks): CodeView {
+function resolveRows(index: GraphIndex, { rows, ignored, path }: { rows: Row[]; ignored: Item[]; path: string }, hooks: Hooks): CodeView {
   const fk = (n: GraphNode) => nodeFileKey(n, index.graph.fileKey) ?? "";
   const fid = (n: GraphNode) => n.figmaNodeId ?? n.id;
   const masters = index.graph.nodes.filter(
@@ -145,6 +154,7 @@ function resolveRows(index: GraphIndex, rows: Row[], ignored: Item[], hooks: Hoo
   const claims = new Map<GraphNode, Row[]>();
   const ambiguous = new Set<string>();
   const conflict = new Map<string, string>();
+  const clash = new Set<string>();
   const stale: Item[] = [];
   const claim = (n: GraphNode, row: Row) => claims.set(n, [...(claims.get(n) ?? []), row]);
   for (const row of rows) {
@@ -168,9 +178,13 @@ function resolveRows(index: GraphIndex, rows: Row[], ignored: Item[], hooks: Hoo
     const current = distinct.filter((o) => !o.retired);
     const pick = distinct.length === 1 ? distinct[0] : current.length === 1 ? current[0] : undefined;
     if (!pick) conflict.set(node.id, "entries disagree and none is the only current one");
-    else twins.set(node.id, { line: pick.r.line, retired: pick.retired, ...(pick.r.replacedBy ? { replacedBy: pick.r.replacedBy } : {}) });
+    else {
+      twins.set(node.id, { line: pick.r.line, retired: pick.retired, ...(pick.r.replacedBy ? { replacedBy: pick.r.replacedBy } : {}) });
+      if (distinct.length > 1) clash.add(node.id);
+    }
   }
   const twin = (node: GraphNode) => twins.get(node.id) ?? (node.componentSetId ? twins.get(node.componentSetId) : undefined);
+  const retired = (node: GraphNode) => hooks.retired(node) || Boolean(twin(node)?.retired);
 
   const report = emptyReport(null, ignored);
   report.configured = true;
@@ -180,7 +194,13 @@ function resolveRows(index: GraphIndex, rows: Row[], ignored: Item[], hooks: Hoo
   for (const n of masters) {
     const item = { name: n.name, fileKey: fk(n), id: fid(n) };
     const t = twins.get(n.id);
+    if (retired(n)) {
+      const use = hooks.use(n, twin);
+      report.retired.push({ ...item, use: use ?? null, code: t?.line ?? null });
+      if (t?.replacedBy && !use) report.replacements.push({ ...item, reason: `replacedBy '${t.replacedBy}' does not lead to a current part` });
+    }
     if (conflict.has(n.id)) report.conflicts.push({ ...item, reason: conflict.get(n.id) });
+    else if (clash.has(n.id)) report.conflicts.push({ ...item, reason: "retired and current entries; the current one is used" });
     else if (t) report.counts[t.retired ? "retired" : "mapped"] += 1;
     else if (ambiguous.has(n.id)) report.ambiguous.push({ ...item, reason: "name is not unique" });
     else report.unmapped.push(item);
@@ -188,18 +208,23 @@ function resolveRows(index: GraphIndex, rows: Row[], ignored: Item[], hooks: Hoo
   report.counts.unmapped = report.unmapped.length;
   report.counts.ambiguous = report.ambiguous.length;
   report.counts.conflict = report.conflicts.length;
-  return { twin, report };
+  const said = `${path}\n${clash.size}`;
+  if (clash.size && !warnedClash.has(said)) {
+    warnedClash.add(said);
+    process.stderr.write(`code-map.json: ${clash.size} component(s) have a retired and a current entry; using the current one\n`);
+  }
+  return { twin, retired, report };
 }
 
 function emptyReport(hint: string | null, ignored: Item[]): CodeMapReport {
   const counts = { masters: 0, mapped: 0, retired: 0, unmapped: 0, ambiguous: 0, conflict: 0, stale: 0, ignored: ignored.length };
-  return { configured: false, hint, counts, unmapped: [], ambiguous: [], conflicts: [], stale: [], ignored };
+  return { configured: false, hint, counts, unmapped: [], ambiguous: [], conflicts: [], retired: [], stale: [], replacements: [], ignored };
 }
 
 /** Undefined when there is no usable map. Reads the file fresh every call. */
 export function codeView(index: GraphIndex, hooks: Hooks): CodeView | undefined {
   const loaded = load();
-  return loaded?.rows.length ? resolveRows(index, loaded.rows, loaded.ignored, hooks) : undefined;
+  return loaded?.rows.length ? resolveRows(index, loaded, hooks) : undefined;
 }
 
 /** The graph is only loaded when the map has something to match against it. */
@@ -208,15 +233,16 @@ export function codeMapReport(getIndex: () => GraphIndex, hooksFor: (index: Grap
   if (!loaded) return emptyReport(NO_CODE_MAP_HINT, []);
   if (!loaded.rows.length) return emptyReport("code-map.json has no usable entries.", loaded.ignored);
   const index = getIndex();
-  return resolveRows(index, loaded.rows, loaded.ignored, hooksFor(index)).report;
+  return resolveRows(index, loaded, hooksFor(index)).report;
 }
 
-export function formatCodeMapReport(report: CodeMapReport, first = 8): string {
+export function formatCodeMapReport(report: CodeMapReport, retiredOnly = false, first = 8): string {
   const c = report.counts;
   const label = (i: Item) => {
     const name = clean(i.name ?? i.id ?? "");
     const where = [i.fileKey, i.id && i.name ? i.id : ""].filter(Boolean).join(" ");
-    return [i.entry ? `entry ${i.entry}` : "", name, where ? `[${clean(where)}]` : "", i.reason ? `- ${i.reason}` : ""]
+    const use = i.use === undefined ? "" : `-> ${i.use ? `use ${clean(i.use)}` : "no current replacement"}${i.code ? ` (code: ${i.code})` : ""}`;
+    return [i.entry ? `entry ${i.entry}` : "", name, where ? `[${clean(where)}]` : "", use, i.reason ? `- ${i.reason}` : ""]
       .filter(Boolean)
       .join(" ");
   };
@@ -224,6 +250,7 @@ export function formatCodeMapReport(report: CodeMapReport, first = 8): string {
     items.length
       ? [`${title}: ${items.slice(0, first).map(label).join("; ")}${items.length > first ? ` (+${items.length - first} more)` : ""}`]
       : [];
+  if (retiredOnly && report.configured) return report.retired.length ? [`Retired: ${report.retired.length}`, ...report.retired.map(label)].join("\n") : "No retired parts.";
   return [
     report.configured
       ? `Code map: ${c.masters} components: ${c.mapped} mapped, ${c.retired} retired (kept mapped), ${c.unmapped} unmapped, ${c.ambiguous} ambiguous, ${c.conflict} conflict. ${c.stale} stale, ${c.ignored} ignored entries.`
@@ -231,6 +258,8 @@ export function formatCodeMapReport(report: CodeMapReport, first = 8): string {
     ...section("Unmapped", report.unmapped),
     ...section("Ambiguous", report.ambiguous),
     ...section("Conflict", report.conflicts),
+    ...section("Retired", report.retired),
+    ...section("Bad replacedBy", report.replacements),
     ...section("Stale", report.stale),
     ...section("Ignored", report.ignored),
   ].join("\n");
