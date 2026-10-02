@@ -21,7 +21,7 @@ import { extractSubgraph, levelForNode } from "./subgraph";
 import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
 import { overlayFile } from "./overlayFile";
-import { codeMapReport, codeView, type Hooks, type Twin } from "./codeMap";
+import { codeMapReport, codeView, useText, type Hooks, type Twin } from "./codeMap";
 import { placeReady } from "./placeReady";
 import synonymFile from "@/data/synonyms.json";
 import modifierFile from "@/data/ui-modifiers.json";
@@ -2441,35 +2441,57 @@ function liveMasters(index: GraphIndex, except: GraphNode, skip?: (node: GraphNo
  * else the library's own guess. A retired replacement is followed (max 3 hops, cycle-safe).
  * Never a retired part: no current part means nothing.
  */
-function replacementFor(index: GraphIndex, node: GraphNode, twinOf: (n: GraphNode) => Twin | undefined = () => undefined): GraphNode | undefined {
+function replacementFor(index: GraphIndex, node: GraphNode, twinOf?: (n: GraphNode) => Twin | undefined): GraphNode | undefined {
+  return replacementOf(index, node, twinOf)?.node;
+}
+
+/** The chain walk behind replacementFor; `guess` is true when any hop was the library's name guess, not a named replacedBy. */
+function replacementOf(index: GraphIndex, node: GraphNode, twinOf: (n: GraphNode) => Twin | undefined = () => undefined): { node: GraphNode; guess: boolean } | undefined {
   const old = (n: GraphNode) => isRetired(index, n) || Boolean(twinOf(n)?.retired);
   const seen = new Set<string>();
   let at = node;
+  let guess = false;
   for (let hop = 0; hop < 3; hop += 1) {
     seen.add(at.id);
     const ask = twinOf(at)?.replacedBy;
-    const next = ask ? masterNamed(index, ask, old) : liveReplacement(index, at, old);
+    const next = ask ? lookup(index, ask, old).node : liveReplacement(index, at, old);
     if (!next || seen.has(next.id)) return undefined;
-    if (!old(next)) return next;
+    const named = replacedByName(at);
+    if (!ask && !(named && (next.name.toLowerCase() === named.toLowerCase() || next.id === named))) guess = true;
+    if (!old(next)) return { node: next, guess };
     at = next;
   }
   return undefined;
 }
 
-function masterNamed(index: GraphIndex, ask: string, old: (n: GraphNode) => boolean): GraphNode | undefined {
+/**
+ * A replacedBy names a current library set or standalone component (name, node id or Figma id).
+ * Variants and empty remote stubs never count; a real set beats a remote stub of the same name.
+ */
+function lookup(index: GraphIndex, ask: string, old: (n: GraphNode) => boolean): { node?: GraphNode; why?: string } {
   const want = ask.toLowerCase();
   const hits = index
     .getNodesByType(...MASTER_TYPES)
     .filter((n) => !isPrivateMaster(index, n) && !isNameInferredMaster(n) && (n.name.toLowerCase() === want || n.id === ask || n.figmaNodeId === ask));
-  const live = hits.filter((n) => !old(n));
-  return hits.length === 1 ? hits[0] : live.length === 1 ? live[0] : undefined;
+  const variants = hits.filter((n) => n.type === "VARIANT" || n.componentSetId);
+  const stubs = hits.filter((n) => n.isRemote && masterPopulation(index, n) === 0);
+  const ok = hits.filter((n) => !variants.includes(n) && !stubs.includes(n));
+  const live = ok.filter((n) => !old(n));
+  const local = live.filter((n) => !n.isRemote);
+  const node = ok.length === 1 ? ok[0] : live.length === 1 ? live[0] : local.length === 1 ? local[0] : undefined;
+  if (node) return { node };
+  return { why: ok.length ? "is not unique" : variants.length ? "is a variant" : stubs.length ? "is a remote stub" : "matches no component" };
 }
 
 /** Hooks for the code map: its retired view and its idea of a real (non-base, non-variant) component. */
 const codeHooks = (index: GraphIndex): Hooks => ({
   retired: (node) => isRetired(index, node),
   real: (node) => !isPrivateMaster(index, node) && !isNameInferredMaster(node) && !VARIANT_PROP_NAME.test(node.name),
-  use: (node, twinOf) => replacementFor(index, node, twinOf)?.name,
+  use: (node, twinOf) => {
+    const found = replacementOf(index, node, twinOf);
+    return found && { name: found.node.name, guess: found.guess };
+  },
+  why: (ask) => lookup(index, ask, (n) => isRetired(index, n)).why,
 });
 export const codeMapView = (index: GraphIndex) => codeView(index, codeHooks(index));
 export const codeMapCard = (getIndex: () => GraphIndex) => codeMapReport(getIndex, codeHooks);
@@ -3041,16 +3063,17 @@ export function recommendMasters(
   // Code map: a retired part (library or map) stays mapped but is never offered for a new screen.
   const view = codeMapView(index);
   let retiredNote: string | undefined;
-  let onlyRetired: { name: string; use?: string } | undefined;
+  let onlyRetired: { name: string; use?: string; guess?: boolean } | undefined;
   if (view) {
     const gone = kept.filter((entry) => view.retired(entry.node));
     kept = kept.filter((entry) => !gone.includes(entry));
     const best = [...gone, ...retired].sort((a, b) => Number(b.exactName) - Number(a.exactName) || b.covered - a.covered)[0];
     if (best && (best.exactName || best.covered > Math.max(0, ...kept.map((entry) => entry.covered)))) {
       const name = setOf(index, best.node)?.name ?? best.node.name;
-      const use = replacementFor(index, best.node, view.twin)?.name;
-      retiredNote = `${name} is retired${use ? `, use ${use}` : ""}.`;
-      if (!kept.length) onlyRetired = { name, use };
+      const found = replacementOf(index, best.node, view.twin);
+      const use = found?.node.name;
+      retiredNote = `${name} is retired${use ? `, ${useText(use, found.guess)}` : ""}.`;
+      if (!kept.length) onlyRetired = { name, use, guess: found?.guess };
     }
   }
 
@@ -3316,7 +3339,7 @@ export function recommendMasters(
   const append = (key: "retired" | "code", value?: string) => {
     if (value && JSON.stringify({ ...payload, ...extra, [key]: value }).length <= budgetChars) extra[key] = value;
   };
-  const only = onlyRetired ? { ...payload, hint: `Only match is retired: ${onlyRetired.name}. Use ${onlyRetired.use ?? "none"}.` } : undefined;
+  const only = onlyRetired ? { ...payload, hint: `Only match is retired: ${onlyRetired.name}. ${onlyRetired.guess ? "Closest current part (guess): " : "Use "}${onlyRetired.use ?? "none"}.` } : undefined;
   const said = only && JSON.stringify(only).length <= budgetChars;
   if (!said) append("retired", retiredNote);
   append("code", leadTwin && !leadTwin.retired ? leadTwin.line : undefined);
@@ -3482,9 +3505,9 @@ export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
     const name = setOf(index, node)?.name ?? node.name;
     if (!view.retired(node) || names.has(name)) return [];
     names.add(name);
-    const use = replacementFor(index, node, view.twin);
+    const use = replacementOf(index, node, view.twin);
     const twin = view.twin(node);
-    return [`retired ${name} -> ${use ? `use ${use.name}` : "no current replacement"}${twin ? ` (code: ${twin.line})` : ""}`];
+    return [`retired ${name} -> ${useText(use?.node.name, use?.guess)}${twin ? ` (code: ${twin.line})` : ""}`];
   });
   return rows.length ? withRetiredRows(card, rows) : card;
 }
@@ -3492,7 +3515,7 @@ export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
 /**
  * Show every retired part used (up to 3, then "+N more") inside 600 characters. Lower-value text goes first:
  * timestamp, renamed list, look-alikes, warnings, text reason, frame detail, hint after its first sentence,
- * hit detail, echoed names, then detail on invents and unresolved. The fail reasons stay. If even one row cannot fit, say how to list them.
+ * hit detail, echoed names, then detail on invents and unresolved. The fail reasons stay. If even one row cannot fit, say how to list them. That pointer is the floor: it stays even when the failing parts alone push the card past 600.
  */
 function withRetiredRows<T extends object>(card: T, rows: string[]): T {
   type Hits = Array<Record<string, unknown>>;
@@ -3519,10 +3542,11 @@ function withRetiredRows<T extends object>(card: T, rows: string[]): T {
     }
   };
   for (let k = Math.min(rows.length, 3); k >= 1; k -= 1) {
-    const fitted = fit([...rows.slice(0, k), ...(rows.length > k ? [`+${rows.length - k} more`] : [])]);
+    const fitted = fit([...rows.slice(0, k), ...(rows.length > k ? [`+${rows.length - k} more, run \`resolve code-map --retired\` for the list`] : [])]);
     if (fitted) return fitted;
   }
-  return fit(`+${rows.length} retired, run \`resolve code-map --retired\` for the list`) ?? card;
+  const pointer = `+${rows.length} retired, run \`resolve code-map --retired\` for the list`;
+  return fit(pointer) ?? (repriced({ ...card, retired: pointer }) as unknown as T);
 }
 
 type VerifyInput = {

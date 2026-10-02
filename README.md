@@ -34,6 +34,10 @@ Every example in this file is made up. "Acme" is a pretend company, the "Payment
 - **Ingest** (or **learn**): read a Figma file into the store.
 - **Retired:** a component the team no longer wants on new screens. Old screens may still use it. See [Retired and old components](#retired-and-old-components).
 - **Code twin:** the code component that matches a Figma master, for example `Button from '@acme/ui'`. The team says which; Resolve never guesses.
+- **Card:** a short answer Resolve gives to one question. It is a small block of JSON, kept short so an AI tool can read it quickly.
+- **Frame:** a screen (or a section of one) drawn in Figma, for example "Send money".
+- **Graph:** the map of your library that `ingest` builds from the Figma file. It is a file in the store (`graph.json`). Every answer comes from it, so Resolve never needs to open Figma to answer.
+- **Stub:** an empty placeholder for a component that lives in another Figma file. It has a name but no variants and no details here. Resolve ignores a stub when a real component has the same name.
 - **Bind rule:** a human-written rule such as "on the pay step, use this Button".
 - **SOCI** (System of Connected Intelligence): the part of Resolve that watches which components pass the check on real screens and *suggests* a rule or recipe. It never applies a suggestion; a person approves or rejects it. **SOCK** (System of Connected Knowledge) is the learned facts about your library that those suggestions come from.
 
@@ -128,7 +132,14 @@ The first file you ingest is the library by default. Later files default to `pro
 
 ## Every command
 
-In a checkout of this repo, run commands as `npm run resolve -- <command>`. The installed package exposes the same command line as `resolve-figma`. The examples use a pretend Acme library with a "Button" set, a "Text field" set, "Payee picker", "Avatar", "Payment method row", and a retired "Old Button", plus screens such as "Send money". The code map and output shown are real output from that made-up library (a few long fields are cut, and it says so).
+In a checkout of this repo, run commands as `npm run resolve -- <command>`. The installed package exposes the same command line as `resolve-figma`. The examples use a pretend Acme library with a "Button" set, a "Text field" set, "Payee picker", "Avatar", "Payment method row", and a retired "Old Button", plus screens such as "Send money". To follow along, use the made-up library in this repo, [`docs/examples/acme-ui.json`](docs/examples/acme-ui.json). Its "Send money" screen (a frame) holds one Payee picker, one Button and one Old Button, which is retired (its description says `status: deprecated` and `replacedBy: Button`):
+
+```bash
+export GRAPHIFY_HOME=$(mktemp -d)        # a throwaway store
+npm run resolve -- ingest docs/examples/acme-ui.json --role library --file-key ACMEUI --name "Acme UI"
+```
+
+Then put the code map shown in [`code-map.json`](#graphifycode-mapjson--figma-to-code-twins) below into `$GRAPHIFY_HOME/code-map.json`. The code map and output shown are real output from that made-up library (a few long fields are cut, and it says so).
 
 | Command | What it does |
 | --- | --- |
@@ -191,7 +202,7 @@ npm run resolve -- recommend "payee picker"
       "nodeId": "30:30",
       "figmaNodeId": "30:30",
       "fileKey": "ACMEUI",
-      "componentKey": "card-key",
+      "componentKey": "payee-picker-key",
       "published": true,
       "publishState": "published",
       "deprecated": false,
@@ -207,8 +218,8 @@ npm run resolve -- recommend "payee picker"
   "hint": "Place fileKey+nodeId. If stale, learn_library. Do not Read graph.json.",
   "code": "PayeePicker from '@acme/payments'",
   "cost": {
-    "chars": 512,
-    "approxTokens": 128
+    "chars": 520,
+    "approxTokens": 130
   }
 }
 ```
@@ -242,7 +253,7 @@ Checks a frame, or a list of component names/ids, after drawing. `pass` is true 
 
 Card size: a check that finds a problem aims for 600 characters (the largest in the repo's test set is 559). A check that passes many components, or a frame with many warnings, can be longer (about 760 characters for five components). That is how it behaved before the code map and it has not changed.
 
-Retired parts used in the frame: **a retired part fails the check**, whether the library marks it retired or your code map does. With a code map, the card also shows, for each retired part (up to three, then `+N more`), what it maps to and what to use instead. In the Acme library the "Send money" screen uses the retired "Old Button". Real output:
+Retired parts used in the frame: **a retired part fails the check**, whether the library marks it retired or your code map does. With a code map, the card also shows, for each retired part (up to three, then `+N more`), what it maps to and what to use instead. In the Acme library the "Send money" frame (see [Every command](#every-command) for how to load it) holds a Payee picker, a Button and the retired "Old Button". Real output:
 
 ```json
 {
@@ -279,7 +290,7 @@ Retired parts used in the frame: **a retired part fails the check**, whether the
 }
 ```
 
-The retired line is never dropped to make room. If it does not fit, Resolve first removes lower-value text (the timestamp, the renamed-layers list, look-alike names, warnings, detail on the frame, then everything in the hint after its first sentence, then detail on the failing parts). The reason for the failure always stays. If even one retired line cannot fit, the card says `+N retired, run \`resolve code-map --retired\` for the list`. With no code map, none of this happens and the card is exactly what it was before.
+A retired part is never left out of the answer. If the card is crowded, Resolve first removes lower-value text (the timestamp, the renamed-layers list, look-alike names, warnings, detail on the frame, then everything in the hint after its first sentence, then detail on the failing parts), and shows at most three retired lines then `+N more, run \`resolve code-map --retired\` for the list`. The reason for the failure always stays. If even one line does not fit, the card says `+N retired, run \`resolve code-map --retired\` for the list`. That short pointer is the floor: it is always there. A card with very many failures (for example about 17 invented names) is longer than 600 characters whatever the retired part does; that is how `verify` already behaved before the code map, and the pointer is added to it unchanged. With no code map, none of this happens and the card is exactly what it was before.
 
 Pass `--design-context <file>` (Figma `get_design_context` for the frame) so Resolve can read real text, and `--texts '<json>'` (the JSON itself, for example `'{"1:3":"Pay now"}'`, not a file name) to fill empty layers.
 
@@ -423,7 +434,7 @@ The rules, in plain words:
 - **Which component.** `fileKey` plus `id` (the exact Figma node id) is the key. A whole-id match is required: `1:1` never matches `11:1`. `name` works instead only when that name is unique in the file, and the letters must match exactly. Two components with the same name are `ambiguous` and get no code line, whatever order the file lists them in. An explicit `id` entry for one of them still works.
 - **Variants.** A variant (for example `Button / Primary`) uses the code twin of its set.
 - **`code`.** `component` must be a plain name like `Button`. `import` must end with `from '<module>'`. Anything else is ignored with a reason (Resolve rejects a bad value rather than quietly changing it).
-- **`status`** is `current` or `retired`. If you leave it out, Resolve uses the library's own flag (see the next section). `replacedBy` is optional: the Figma name or id of the part to use instead. If that part is itself retired, Resolve follows its `replacedBy` (at most 3 steps, never in a circle) to a current part. If it finds none (unknown name, two parts with that name, the part itself, a circle, or a chain that is too long) it says "no current replacement" and `code-map` lists the entry under `Bad replacedBy`. Resolve never points at a retired part.
+- **`status`** is `current` or `retired`. If you leave it out, Resolve uses the library's own flag (see the next section). `replacedBy` is optional: the Figma name or id of the part to use instead. It must be a current component or set in the library. A variant (for example `size=small`) or a stub (an empty placeholder from another file) is refused, and `code-map` says so under `Bad replacedBy` (`replacedBy is a variant`, `replacedBy is a remote stub`). If a real set and a stub share the name, the real set is used. If that part is itself retired, Resolve follows its `replacedBy` (at most 3 steps, never in a circle) to a current part. If it finds none (unknown name, a variant or stub, two real parts with that name, the part itself, a circle, or a chain that is too long) it says "no current replacement" and `code-map` lists the entry under `Bad replacedBy`. Resolve never points at a retired part.
 - **Two entries for one component** are not settled by file order. If one says current and the other says retired, the current one wins, and the clash is still reported: the part is listed under `conflicts` ("retired and current entries; the current one is used") and one line is printed on stderr (once per run). If both say the same thing, they merge. If they disagree otherwise, the component is a `conflict` and shows no code line.
 - **Unknown fields.** Any field that is not in the shape above makes that entry ignored, with the reason shown (for example `unsupported field 'key'`). `props`, `source` and `key` are not supported. A top-level `namingRule` ("auto-map a PascalCase name") is planned and not built yet; it is ignored and reported as such.
 - **A missing, empty, or byte-order-mark-only file** is simply "no map", with no message. A file that is not valid JSON prints one line on stderr (`code-map.json is malformed; ignored`).
@@ -457,7 +468,7 @@ What Resolve does, exactly. It depends on whether you have a code map:
 | `resolve` | Answers an exact retired name flagged `deprecated: true`, with the replacement. | Same, plus map-retired parts. It is an answer to "I know the name", not a recommendation, so it still answers; it prints no code line for a retired part. |
 | `verify` | A retired part fails the check (listed under `deprecated`). | The same, for library-retired and map-retired parts alike (a map-retired part is not a pass-with-warning). Each retired part also gets a line: `retired Old Button -> use Button (code: OldButton from '@acme/ui-legacy')`. |
 
-- A retired part's replacement is a *current* part, found through `replacedBy` (followed up to 3 steps) or, without it, the library's own name guess. If there is none the line says `no current replacement`. Resolve never points at a retired part.
+- A retired part's replacement is a *current* part, found through `replacedBy` (followed up to 3 steps) or, without it, the library's own name guess. A guess is never shown as a firm answer: it reads `closest current part (guess): Button`. If there is none the line says `no current replacement`. Resolve never points at a retired part.
 - Recipes skip a map-retired part and take the live one.
 - `resolve code-map --retired` lists every retired part, with code and replacement. `example` and `cousins` do not use the map.
 
@@ -469,7 +480,7 @@ What Resolve does, exactly. It depends on whether you have a code map:
 - **A pass means something.** `verify` says "Verified" only when at least one placed piece was checked by its own component id or key. A layer-name match is "name-only" and a bare list or an empty frame is "nothing checked". Neither is a pass. A layer renamed on the canvas still verifies by id, and the card says the label differs.
 - **Retired parts and private parts.** Private parts (names starting with `_` or `.`) come back only when you ask for that exact name. Retired parts are never *recommended* once you have a code map. Without a code map Resolve behaves as it always did: asking for a retired name returns the live replacement, and a retired part with no replacement can still come back flagged `deprecated`. Exact rules are in [Retired and old components](#retired-and-old-components).
 - **Only people change rules.** Bind rules, recipes, synonyms and code maps change when a person edits them or approves a proposal.
-- **Small cards.** `recommend` stays within 600 characters, `resolve` within 2,000 and `recipe` within 2,000. `verify` aims for 600 when it finds a problem; a check that passes many components can be longer (about 760 for five). The largest seen on the repo's test set: recommend 600, verify 559, resolve 978, recipe 964. A verify card that shows retired parts stays within 600 too.
+- **Small cards.** `recommend` stays within 600 characters, `resolve` within 2,000 and `recipe` within 2,000. `verify` aims for 600 when it finds a problem; a check that passes many components can be longer (about 760 for five). The largest seen on the repo's test set: recommend 600, verify 559, resolve 978, recipe 964. A verify card that shows retired parts stays within 600 unless the failures alone are longer (about 17 invented names); then the card is as long as it was before the code map, plus the short pointer to `resolve code-map --retired`.
 - **No token in the repo.** Never store a Figma token in files.
 
 Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
@@ -479,7 +490,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 | Repo golden set (top-1) | 118/118, invent 0, leak 0 |
 | Phrase set (regression) | 96/96 |
 | 8-screen Material-like library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
-| Tests | 608 passing |
+| Tests | 612 passing |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
@@ -503,7 +514,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit). PR #28 is still a draft.
 
-- **Oct 2, 2026 — [PR #28](https://github.com/TANISHQBAFNA/resolve/pull/28) (draft).** Map Figma components to team-owned code twins; retired parts stay mapped but are never recommended. 608 tests.
+- **Oct 2, 2026 — [PR #28](https://github.com/TANISHQBAFNA/resolve/pull/28) (draft).** Map Figma components to team-owned code twins; retired parts stay mapped but are never recommended. 612 tests.
 - **Oct 1, 2026 — [PR #27](https://github.com/TANISHQBAFNA/resolve/pull/27).** Prefer filled sets over same-name stubs; icon libraries file; stricter retire rules. 582 tests.
 - **Sep 30, 2026 — [PR #26](https://github.com/TANISHQBAFNA/resolve/pull/26).** Treat layer names as labels, not component identity. 541 tests.
 - **Sep 29, 2026 — [PR #25](https://github.com/TANISHQBAFNA/resolve/pull/25).** "Primary button" returns Button; ordinary words find the right part; honest "weak match". 517 tests.

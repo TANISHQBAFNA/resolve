@@ -13,9 +13,14 @@ const FROM = /\bfrom\s+(['"])([^'"\s\p{Cc}]{1,120})\1\s*;?$/u;
 export interface Hooks {
   retired(node: GraphNode): boolean;
   real(node: GraphNode): boolean;
-  /** Name of the current part that replaces a retired one, following replacedBy up to 3 hops. */
-  use(node: GraphNode, twinOf: (node: GraphNode) => Twin | undefined): string | undefined;
+  /** The current part that replaces a retired one (replacedBy followed up to 3 hops); `guess` when only the library's name guess found it. */
+  use(node: GraphNode, twinOf: (node: GraphNode) => Twin | undefined): { name: string; guess: boolean } | undefined;
+  /** Why a replacedBy cannot be used: "is a variant", "is a remote stub", "is not unique", "matches no component", or undefined when it is fine. */
+  why(ask: string): string | undefined;
 }
+/** How a replacement reads on a card, in the report and in the notes. */
+export const useText = (name?: string | null, guess?: boolean) =>
+  name ? (guess ? `closest current part (guess): ${name}` : `use ${name}`) : "no current replacement";
 export interface Twin {
   line: string;
   retired: boolean;
@@ -28,6 +33,7 @@ export interface Item {
   entry?: number;
   reason?: string;
   use?: string | null;
+  guess?: true;
   code?: string | null;
 }
 export interface CodeMapReport {
@@ -196,8 +202,9 @@ function resolveRows(index: GraphIndex, { rows, ignored, path }: { rows: Row[]; 
     const t = twins.get(n.id);
     if (retired(n)) {
       const use = hooks.use(n, twin);
-      report.retired.push({ ...item, use: use ?? null, code: t?.line ?? null });
-      if (t?.replacedBy && !use) report.replacements.push({ ...item, reason: `replacedBy '${t.replacedBy}' does not lead to a current part` });
+      report.retired.push({ ...item, use: use?.name ?? null, ...(use?.guess ? { guess: true as const } : {}), code: t?.line ?? null });
+      const bad = t?.replacedBy && !use ? hooks.why(t.replacedBy) : undefined;
+      if (t?.replacedBy && !use) report.replacements.push({ ...item, reason: bad ? `replacedBy ${bad}: '${t.replacedBy}'` : `replacedBy '${t.replacedBy}' leads to no current part` });
     }
     if (conflict.has(n.id)) report.conflicts.push({ ...item, reason: conflict.get(n.id) });
     else if (clash.has(n.id)) report.conflicts.push({ ...item, reason: "retired and current entries; the current one is used" });
@@ -241,7 +248,7 @@ export function formatCodeMapReport(report: CodeMapReport, retiredOnly = false, 
   const label = (i: Item) => {
     const name = clean(i.name ?? i.id ?? "");
     const where = [i.fileKey, i.id && i.name ? i.id : ""].filter(Boolean).join(" ");
-    const use = i.use === undefined ? "" : `-> ${i.use ? `use ${clean(i.use)}` : "no current replacement"}${i.code ? ` (code: ${i.code})` : ""}`;
+    const use = i.use === undefined ? "" : `-> ${useText(i.use && clean(i.use), i.guess)}${i.code ? ` (code: ${i.code})` : ""}`;
     return [i.entry ? `entry ${i.entry}` : "", name, where ? `[${clean(where)}]` : "", use, i.reason ? `- ${i.reason}` : ""]
       .filter(Boolean)
       .join(" ");

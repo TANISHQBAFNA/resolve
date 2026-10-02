@@ -133,5 +133,6 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    setupFiles: ["tests/noAmbientStore.ts"],
   },
 });
