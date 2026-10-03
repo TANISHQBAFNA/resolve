@@ -5,10 +5,10 @@ You are an AI agent (Claude Code, Cursor or Codex). A user asked you to install 
 ## Rules (read first)
 
 1. **Project first.** Do everything inside the user's current project folder. Do not touch user-level settings without asking: `~/.claude.json`, `~/.claude/`, `~/.cursor/`, `~/.codex/`. If a step needs one of those, ask the user and wait for a yes. A `claude mcp add ... -s user` command or a `codex mcp add` command writes there, so it needs a yes.
-2. **Never print secrets.** Never print a token, and never print or paste the contents of `~/.claude.json`, `~/.cursor/mcp.json` or `~/.codex/config.toml`. To check for something in them, search for a word and answer yes or no.
+2. **Never print secrets.** Never print a token, and never print or paste the contents of `~/.claude.json`, `~/.cursor/mcp.json` or `~/.codex/config.toml`. To check for something in them, search for a word and answer yes or no. **Never run `claude mcp list` (or `codex mcp list`).** They print the command, arguments and settings of every MCP server the user has, and those can hold secrets. Ask about one server by name instead: `claude mcp get <name>` (or `codex mcp get <name>`).
 3. **Safe to repeat.** Check before you add. If something is already there, leave it and say so. Never remove or replace a server the user already has. Never overwrite a file that is not valid JSON; tell the user instead.
 4. **Report what changed.** At the end, list every file you created or changed and every command you ran (see step 6).
-5. **Do not make the user do your work.** The user should only have to sign in to Figma and paste a Figma file link (step 5).
+5. **Do not make the user do your work.** The user should only have to restart the tool, sign in to Figma and paste a Figma file link (step 5).
 
 ## Step 0. Check Node
 
@@ -36,15 +36,16 @@ Do the part for the tool you are running in. If you cannot tell, do the one that
 
 ### Claude Code
 
-1. Resolve is already in the project's `.mcp.json` from step 1. Run `claude mcp list`. Expect a `resolve:` line. `Pending approval (run claude to approve)` is normal: the user approves a project server the first time they start `claude`. Tell them in step 5.
-2. Figma. In the `claude mcp list` output, look for a `figma:` line. If there is one, skip this. If there is not, add Figma to the project (project scope needs no ask):
+1. Resolve is already in the project's `.mcp.json` from step 1. Run `claude mcp get resolve`. Expect `resolve:` with `Scope: Project config (shared via .mcp.json)`. `Status: ⏸ Pending approval (run claude to approve)` is normal: the user approves a project server the first time they start `claude`. Tell them in step 5.
+2. Figma. Run `claude mcp get figma`. If it prints `figma:` with a `Scope` and a `Status`, skip this. If it answers `No MCP server named "figma"`, Figma is not there yet. Add it to the project (project scope needs no ask):
 
    ```bash
    claude mcp add --transport http figma https://mcp.figma.com/mcp -s project
    ```
 
    Expect `Added HTTP MCP server figma ... to project config`. (`-s user` would make it available in all projects, but it writes `~/.claude.json`, so only do that if the user says yes.)
-3. Run `claude mcp list` again. Expect both `resolve:` and `figma:` lines, each with `Pending approval (run claude to approve)`. The user approves them and signs in to Figma in step 5. (Checked: a figma server added at project scope shows `Pending approval`, not `Needs authentication`, until it is approved.)
+3. Run `claude mcp get figma` again. Expect `figma:` with `Scope: Project config (shared via .mcp.json)` and `Status: ⏸ Pending approval (run claude to approve)`. The user approves it and signs in to Figma in step 5. (Checked: a figma server added at project scope shows `Pending approval`, not `Needs authentication`, until it is approved.)
+4. A Claude Code session that is already running does not see the new `.mcp.json`. Tell the user to quit and start `claude` again in the project (step 5).
 
 ### Cursor
 
@@ -73,12 +74,12 @@ Everything in this part follows OpenAI's Codex documentation and has not been ru
    ```
 
    If the user prefers the user file, or the project is not trusted, ask first, then run `codex mcp add resolve -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp`.
-3. Figma: check `codex mcp list` for a `figma` entry. If missing, ask the user, then run `codex mcp add figma --url https://mcp.figma.com/mcp` (this writes the user file).
-4. Run `codex mcp list` and expect `resolve` (and `figma`) in the list.
+3. Figma: run `codex mcp get figma` to see if it is set up. (`codex mcp get` exists in Codex's source code; it has not been run here. If `codex mcp --help` does not show `get`, do not list servers: just say so to the user.) If it is missing, ask the user, then run `codex mcp add figma --url https://mcp.figma.com/mcp` (this writes the user file).
+4. Run `codex mcp get resolve` to confirm the Resolve entry.
 
 ## Step 3. Verify
 
-Run `npx -y -p github:TANISHQBAFNA/resolve resolve-setup` again. Expect `unchanged` lines and a checklist where `Node ok?` and `Rule installed?` say `yes`. `Figma connected?` should say `yes` once Figma is added. (For Claude Code and Cursor it looks at the project files and at the Figma list in `~/.claude.json`, read-only. For Codex it cannot see the Figma entry, so it may say `no`; trust `codex mcp list`.) `Library learned?` says `no` until step 5 is done.
+Run `npx -y -p github:TANISHQBAFNA/resolve resolve-setup` again. Expect `unchanged` lines and a checklist where `Node ok?` and `Rule installed?` say `yes`. `Figma connected?` should say `yes` once Figma is added. (For Claude Code and Cursor it looks at the project files and at the Figma list in `~/.claude.json`, read-only. For Codex it cannot see the Figma entry, so it may say `no`; trust `codex mcp get figma`.) `Library learned?` says `no` until step 5 is done.
 
 ## Step 4. If something fails
 
@@ -89,8 +90,9 @@ Run `npx -y -p github:TANISHQBAFNA/resolve resolve-setup` again. Expect `unchang
 
 Say this in plain words:
 
-1. **Sign in to Figma.** Claude Code: start `claude`, say yes to the project's `resolve` server, type `/mcp`, choose figma and log in. Cursor: reload the window, open Settings, MCP, and sign in to Figma. Codex: run `codex mcp login figma` if it asks.
-2. **Paste a Figma file link** into this chat, for example: "Learn my Figma design system from this link: (the link)". You then call `get_metadata` and `learn_library`. Learning needs a Dev or Full Figma seat; a View or free seat has a small read allowance, and Resolve saves its progress.
+1. **Restart the tool.** A session that is already running does not see the new settings files. Claude Code: quit and start `claude` again in the project. Cursor: reload the window (Command Palette, "Developer: Reload Window"). Codex: start a new session.
+2. **Sign in to Figma.** Claude Code: start `claude`, say yes to the project's `resolve` server, type `/mcp`, choose figma and log in. Cursor: reload the window, open Settings, MCP, and sign in to Figma. Codex: run `codex mcp login figma` if it asks.
+3. **Paste a Figma file link** into this chat, for example: "Learn my Figma design system from this link: (the link)". You then call `get_metadata` and `learn_library`. Learning needs a Dev or Full Figma seat; a View or free seat has a small read allowance, and Resolve saves its progress.
 
 After the library is learned, running `resolve-setup` again shows `Library learned? yes`.
 

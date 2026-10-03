@@ -64,7 +64,7 @@ Checked on a test machine: every command in `INSTALL-FOR-AI.md` was run exactly 
 
 ### Step 2. Teach it your library
 
-1. Sign in to Figma when the tool asks (Claude Code: type `/mcp`, choose figma, log in. Cursor: reload the window, then **Settings → MCP** and sign in).
+1. Restart the tool so it sees the new settings (Claude Code: quit and start `claude` again in the project. Cursor: reload the window). Then sign in to Figma when it asks (Claude Code: type `/mcp`, choose figma, log in. Cursor: **Settings → MCP** and sign in).
 2. In the chat, write: "Learn my Figma design system from this link: (paste the Figma file link)".
 3. The tool reads the file through Figma and hands it to Resolve (behind the scenes it calls a Resolve tool named `learn_library`). Big libraries can take a few minutes. The exact words in the chat differ from tool to tool.
 4. **What you should see:** the tool says it has learned the library and roughly how many components it found. To double-check, ask the tool to run the setup check again (`resolve-setup`): `Library learned?` now says `yes`, `Figma connected?` says `yes`, and the last line reads `Next: Ask Resolve for the screen.` (Checked on a test machine with the made-up Acme file and a Figma server in the project settings. The Figma part of this step was not run, because it needs a Figma account.)
@@ -102,10 +102,10 @@ npx -y -p github:TANISHQBAFNA/resolve resolve-setup
    ```
 
    **What you should see:** `Added HTTP MCP server figma ... to user config`.
-2. Run `claude mcp list` in your project. **What you should see:** `figma: ... ! Needs authentication` and `resolve: ... ⏸ Pending approval (run `claude` to approve)`. Claude Code asks you to approve a project's settings file the first time, and Figma needs a login. Both are expected.
+2. Run `claude mcp get resolve` in your project. **What you should see:** `resolve:` with `Scope: Project config (shared via .mcp.json)` and `Status: ⏸ Pending approval (run `claude` to approve)`. Claude Code asks you to approve a project's settings file the first time. Then run `claude mcp get figma`: it shows the Figma server with its status (it needs a login). Both are expected.
 3. Start `claude`. Say yes when it asks about the project's `resolve` server. Then type `/mcp`, choose **figma** and log in to Figma in the browser window that opens. **What you should see:** both servers show as connected.
 
-Checked on a test machine with Claude Code 2.1: the `claude mcp add` line and `claude mcp list` gave the lines above. Not run: the approval question and the Figma login (they need a live Claude session and a Figma account).
+Checked on a test machine with Claude Code 2.1: the `claude mcp add` line and `claude mcp get` gave the lines above. Not run: the approval question and the Figma login (they need a live Claude session and a Figma account).
 
 **Cursor**
 
@@ -148,7 +148,7 @@ Using the Claude desktop app instead? See [Setup in detail](#setup-in-detail).
 claude mcp add resolve -s user -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
 ```
 
-**What you should see:** `Added stdio MCP server resolve ... to user config`, and later `resolve: ... ✔ Connected` in `claude mcp list`.
+**What you should see:** `Added stdio MCP server resolve ... to user config`, and later `claude mcp get resolve` shows `Status: ✔ Connected`.
 
 **Cursor, one project.** Create a folder called `.cursor` in your project's top folder, and inside it a file called `mcp.json` with this inside:
 
@@ -169,7 +169,7 @@ If the file already has other servers, add only the `"resolve": { ... }` part ne
 
 ## Two asks to try
 
-These use the made-up Acme library. Type them into your AI tool once Step 3 is done.
+These use the made-up Acme library. Type them into your AI tool once Step 2 is done.
 
 1. **"Which component should I use for a payee picker on the Send money screen?"** Resolve answers with the Acme "Payee picker": where it lives in Figma, and a real example to copy. If your engineers filed a code map, it also names the code component (`PayeePicker from '@acme/payments'`). Your tool then places that component, instead of drawing one.
 2. **"Check the Send money screen."** Resolve answers that the check failed, because the screen uses the retired "Old Button". It says what to use instead (Button) and what the code is (`OldButton from '@acme/ui-legacy'`).
@@ -236,7 +236,7 @@ Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.gra
 
 The plain steps for Claude Code, Cursor and Codex are near the top of this file. This section adds the options.
 
-**AI install guide.** [`INSTALL-FOR-AI.md`](INSTALL-FOR-AI.md) is the ordered checklist an AI agent follows (Claude Code, Cursor, Codex). It says: run `resolve-setup`, add the Resolve and Figma servers at project scope, verify with `claude mcp list` or `resolve-setup`, ask before touching home-folder settings, never print tokens, report what changed. Its Codex part is not verified.
+**AI install guide.** [`INSTALL-FOR-AI.md`](INSTALL-FOR-AI.md) is the ordered checklist an AI agent follows (Claude Code, Cursor, Codex). It says: run `resolve-setup`, add the Resolve and Figma servers at project scope, verify with `claude mcp get <name>` or `resolve-setup`, ask before touching home-folder settings, never print tokens, report what changed. Its Codex part is not verified.
 
 **Project files (`resolve-setup`).** It writes `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, a marked block in `CLAUDE.md`, and adds the `resolve` server (`npx -y -p github:TANISHQBAFNA/resolve resolve-mcp`) to `.cursor/mcp.json` and `.mcp.json`. Run it again any time; it only changes its own block and its own server entry. In the two JSON files it keeps every other key and server, keeps your indentation, and leaves the file alone (with a message) if it is not valid JSON or does not have the usual `mcpServers` object. A different existing `resolve` entry (for example one that points at a local build) is also left alone. `--dry-run` shows what it would do. `--global` writes to `~/.claude` instead (Claude only), writes no MCP file, and does nothing until you add `--yes`. `--force` replaces a file that has no Resolve markers, and replaces only the `resolve` entry in an MCP file. It never writes `~/.claude.json`, `~/.cursor` or `~/.codex`. It reads `~/.claude.json` read-only, only to see whether a Figma server is listed (for `Figma connected?`); it never prints that file.
 
@@ -644,7 +644,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 - SOCI does not compare journeys across products yet.
 - Linking several design systems into one is a later step.
 - Large-library speed is measured only on generated test graphs (`npm run bench`).
-- Not run for this README: anything that needs a Figma account (reading a live Figma link, the published-icon lookup, the Figma login), Codex, the Cursor app and the Claude desktop app. The `npx` install from GitHub, `claude mcp add`, `claude mcp list` and `resolve-setup` were run on a test machine.
+- Not run for this README: anything that needs a Figma account (reading a live Figma link, the published-icon lookup, the Figma login), Codex, the Cursor app and the Claude desktop app. The `npx` install from GitHub, `claude mcp add`, `claude mcp get` and `resolve-setup` were run on a test machine.
 
 ### Version history
 

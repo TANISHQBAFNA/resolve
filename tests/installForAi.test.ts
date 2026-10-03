@@ -25,7 +25,8 @@ describe("INSTALL-FOR-AI.md", () => {
     expect(order.every((n) => n >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(guide).toContain("npx -y -p github:TANISHQBAFNA/resolve resolve-setup");
-    expect(guide).toContain("claude mcp list");
+    expect(guide).toContain("claude mcp get resolve");
+    expect(guide).toContain("claude mcp get figma");
     expect(guide).toContain("claude mcp add --transport http figma https://mcp.figma.com/mcp -s project");
     expect(guide).toContain("### Claude Code");
     expect(guide).toContain("### Cursor");
@@ -41,6 +42,13 @@ describe("INSTALL-FOR-AI.md", () => {
     expect(guide).toMatch(/Safe to repeat/);
     expect(guide).toMatch(/Report what changed/);
     expect(guide).not.toMatch(/figd_|FIGMA_ACCESS_TOKEN=\S/);
+    // "mcp list" prints every server's arguments (secrets). It may appear only in the "never run" rule.
+    const listLines = guide.split("\n").filter((line) => line.includes("mcp list"));
+    expect(listLines).toHaveLength(1);
+    expect(listLines[0]).toMatch(/Never run/);
+    expect(guide).toMatch(/restart|reload/i);
+    expect(read("README.md")).not.toContain("mcp list");
+    expect(read("README.md")).not.toContain("Step 3");
   });
 
   it("only names commands, files and bin names that exist", () => {
