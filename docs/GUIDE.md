@@ -180,7 +180,7 @@ To apply the same product and step as recommend (including a pack’s deny list)
 npm run resolve -- verify "Checkout Summary" --product Storefront --journey summary --domain checkout
 ```
 
-**You get:** Pass or fail. A pass means each checked instance was bound by its own component id or key — not by the layer name. A layer named `Icon` that is really `buildings-88-smart-home` still passes, and the card lists the rename (`labelDiffers`, plus `renamed`). Metadata-only instances are a **guess from layer name, not confirmed** (`name-only`); they never count as verified. A hand-drawn rectangle named like a component is listed as **unchecked** so Verified cannot cover it. Invented names fail. Retired masters fail. Lorem-ipsum filler fails. Copy that still matches the master default is a warning, and it fails only when that default is also on the placeholder list.
+**You get:** Pass or fail. A pass means each checked instance was bound by its own component id or key — not by the layer name. A layer named `Icon` that is really `send-24-arrow` still passes, and the card lists the rename (`labelDiffers`, plus `renamed`). Metadata-only instances are a **guess from layer name, not confirmed** (`name-only`); they never count as verified. A hand-drawn rectangle named like a component is listed as **unchecked** so Verified cannot cover it. Invented names fail. Retired masters fail. Lorem-ipsum filler fails. Copy that still matches the master default is a warning, and it fails only when that default is also on the placeholder list.
 
 Team template strings are not built in. Put them in `.graphify/placeholders.json`:
 

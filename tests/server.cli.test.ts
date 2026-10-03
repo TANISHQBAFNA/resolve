@@ -48,6 +48,7 @@ describe("resolve ingest --role", () => {
     expect(help).toMatch(/low API|low-tier|safer/i);
     expect(help).toMatch(/--force-role/);
     expect(help).toMatch(/--from-metadata|get_metadata/i);
+    expect(help).toMatch(/code-map/);
   });
 
   it("ingests raw Figma get_metadata XML without a REST token", async () => {
