@@ -512,9 +512,9 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 ## Version history
 
-Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit). PR #28 is still a draft.
+Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
-- **Oct 2, 2026 — [PR #28](https://github.com/TANISHQBAFNA/resolve/pull/28) (draft).** Map Figma components to team-owned code twins; retired parts stay mapped but are never recommended. 612 tests.
+- **Oct 3, 2026 — [PR #28](https://github.com/TANISHQBAFNA/resolve/pull/28).** Map Figma components to team-owned code twins; retired parts stay mapped but are never recommended. 612 tests.
 - **Oct 1, 2026 — [PR #27](https://github.com/TANISHQBAFNA/resolve/pull/27).** Prefer filled sets over same-name stubs; icon libraries file; stricter retire rules. 582 tests.
 - **Sep 30, 2026 — [PR #26](https://github.com/TANISHQBAFNA/resolve/pull/26).** Treat layer names as labels, not component identity. 541 tests.
 - **Sep 29, 2026 — [PR #25](https://github.com/TANISHQBAFNA/resolve/pull/25).** "Primary button" returns Button; ordinary words find the right part; honest "weak match". 517 tests.
