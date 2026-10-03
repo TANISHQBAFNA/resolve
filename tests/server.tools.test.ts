@@ -7,19 +7,19 @@ import { clearCache, graphPath, saveGraph, storeRoot } from "@/server/store";
 import { graph } from "./fixture";
 
 describe("agent tools", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
   const previousAdvanced = process.env["RESOLVE_MCP_ADVANCED"];
 
   beforeEach(() => {
-    process.env["GRAPHIFY_HOME"] = mkdtempSync(join(tmpdir(), "resolve-tools-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-tools-"));
     process.env["RESOLVE_MCP_ADVANCED"] = "1";
     clearCache();
   });
 
   afterEach(() => {
     clearCache();
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
     if (previousAdvanced === undefined) delete process.env["RESOLVE_MCP_ADVANCED"];
     else process.env["RESOLVE_MCP_ADVANCED"] = previousAdvanced;
   });
@@ -123,7 +123,7 @@ describe("agent tools", () => {
 
   it("recipe list binds an active context pack without inventing ids", () => {
     writeFileSync(
-      join(process.env["GRAPHIFY_HOME"]!, "context-packs.json"),
+      join(process.env["RESOLVE_HOME"]!, "context-packs.json"),
       JSON.stringify({
         active: "storefront-checkout-summary",
         packs: [

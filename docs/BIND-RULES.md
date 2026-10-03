@@ -8,7 +8,7 @@ This is the short designer page. Agents read the cards. You own the file.
 
 ## Write a rule
 
-1. Copy [`src/data/bind-rules.example.json`](../src/data/bind-rules.example.json) into the **active store** as `bind-rules.json`. That is `~/.resolve/<workspace>/bind-rules.json` in plug-and-play, or repo `.graphify/bind-rules.json` when a local `.graphify` store is present (`resolve where` prints the folder).
+1. Copy [`src/data/bind-rules.example.json`](../src/data/bind-rules.example.json) into the **active store** as `bind-rules.json`. That is `~/.resolve/<workspace>/bind-rules.json` in plug-and-play, or repo `.resolve/bind-rules.json` when a local `.resolve` store is present (`resolve where` prints the folder).
 2. Keep the three shapes. Delete the ones you do not need.
 3. Save. CLI and MCP reload the file on the next recommend or verify. No restart.
 
@@ -44,13 +44,13 @@ Recommend drops those masters. Verify fails if one was placed.
 { "prefer": "Shared DS", "over": "Storefront" }
 ```
 
-Names are the **labels or file keys** in `.graphify/workspace.json`. Recommend ranks Shared DS above Storefront. Verify does not fail on prefer — ranking only.
+Names are the **labels or file keys** in `.resolve/workspace.json`. Recommend ranks Shared DS above Storefront. Verify does not fail on prefer — ranking only.
 
 You can also write `{ "prefer": "Shared DS over Storefront" }`.
 
 ### Optional: rules for one context pack
 
-In `.graphify/context-packs.json`, add `bindRules` on a pack with the same `{ "rules": [ ... ] }` shape. Those rules apply when that pack is active, on top of the workspace file.
+In `.resolve/context-packs.json`, add `bindRules` on a pack with the same `{ "rules": [ ... ] }` shape. Those rules apply when that pack is active, on top of the workspace file.
 
 ---
 
@@ -112,4 +112,4 @@ In the browser map, open the **Rules** tab. It lists live rules, pending proposa
 
 - Not a way to invent a Figma id.
 - Not auto-governance. A proposal is a suggestion until you approve it.
-- Not the old `{ allow, deny }` file. That still works as `.graphify/library-rules.json` for a simple name list.
+- Not the old `{ allow, deny }` file. That still works as `.resolve/library-rules.json` for a simple name list.

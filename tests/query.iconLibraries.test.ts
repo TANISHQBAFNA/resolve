@@ -237,18 +237,18 @@ function topName(index: ReturnType<typeof twoLibraryIndex>, ask: string): string
 }
 
 describe("team icon-libraries.json", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
   let home: string;
   const index = twoLibraryIndex();
 
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), "resolve-icon-libs-"));
-    process.env["GRAPHIFY_HOME"] = home;
+    process.env["RESOLVE_HOME"] = home;
   });
 
   afterEach(() => {
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
   });
 
   it("marks a listed library as icons so toggle stays the real control", () => {
@@ -283,7 +283,7 @@ describe("team icon-libraries.json", () => {
     writeLibraries(home, ["Acme Icons"]);
     writeLibraries(other, ["Other Glyphs"]);
     expect(topName(index, "search")).toBe("Search field");
-    process.env["GRAPHIFY_HOME"] = other;
+    process.env["RESOLVE_HOME"] = other;
     expect(topName(index, "search")).toBe("Search");
   });
 
@@ -334,7 +334,7 @@ describe("team icon-libraries.json", () => {
 });
 
 describe("icon-libraries page match on remote stubs", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
   let home: string;
   const index = stubPageIndex();
   const localWorkspace: WorkspaceManifest = {
@@ -344,12 +344,12 @@ describe("icon-libraries page match on remote stubs", () => {
 
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), "resolve-icon-page-"));
-    process.env["GRAPHIFY_HOME"] = home;
+    process.env["RESOLVE_HOME"] = home;
   });
 
   afterEach(() => {
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
   });
 
   it("matches stub icons under a page named Acme Icons Page", () => {
@@ -467,7 +467,7 @@ function lookupStubIndex(stamped: boolean) {
 }
 
 describe("icon-libraries match on lookup-stamped remote stubs", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
   let home: string;
   const localWorkspace: WorkspaceManifest = {
     version: 1,
@@ -476,12 +476,12 @@ describe("icon-libraries match on lookup-stamped remote stubs", () => {
 
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), "resolve-icon-lookup-"));
-    process.env["GRAPHIFY_HOME"] = home;
+    process.env["RESOLVE_HOME"] = home;
   });
 
   afterEach(() => {
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
   });
 
   it("matches stubs whose source file and page come only from REST lookup", () => {

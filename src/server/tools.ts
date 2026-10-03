@@ -145,7 +145,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "recommend",
     description:
-      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.graphify/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (SOCK facts, 'used N× in file', or 'not verified on a screen yet') and, when a real populated instance is known, ex: that node id or 'fileKey:nodeId' when it lives in another file. No example is omitted (no 'ex: none'). Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Optional product/journey/domain context pack. Returns figmaNodeId. Cap 600 chars. Forced path: learn_library → optional recipe → recommend → get_example → clone → fill → verify_frame. Do not invent components. Do not Read graph.json.",
+      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.resolve/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (SOCK facts, 'used N× in file', or 'not verified on a screen yet') and, when a real populated instance is known, ex: that node id or 'fileKey:nodeId' when it lives in another file. No example is omitted (no 'ex: none'). Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Optional product/journey/domain context pack. Returns figmaNodeId. Cap 600 chars. Forced path: learn_library → optional recipe → recommend → get_example → clone → fill → verify_frame. Do not invent components. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -156,7 +156,7 @@ export const TOOLS: ToolDefinition[] = [
         },
         pack: {
           type: "string",
-          description: "Context pack id from .graphify/context-packs.json. Else the file's active pack.",
+          description: "Context pack id from .resolve/context-packs.json. Else the file's active pack.",
         },
         product: { type: "string", description: "Product id or name. Scopes ranking when a pack matches, else inline." },
         journey: { type: "string", description: "Journey step / screen job. Scopes ranking on top of name/intent." },
@@ -171,7 +171,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "check_cousins",
     description:
-      "Wrong-cousin report for a product/client frame or placed names. Same role or weak name as a shared DS library master, but a different master family / file. Needs a library-role file in .graphify/workspace.json. Unsure rows refuse to guess. Never invents a master. Do not Read graph.json.",
+      "Wrong-cousin report for a product/client frame or placed names. Same role or weak name as a shared DS library master, but a different master family / file. Needs a library-role file in .resolve/workspace.json. Unsure rows refuse to guess. Never invents a master. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -207,7 +207,7 @@ export const TOOLS: ToolDefinition[] = [
         name: { type: "string", description: 'Component or frame name, e.g. "Main Card" or "Portfolio"' },
         pack: {
           type: "string",
-          description: "Context pack id from .graphify/context-packs.json. Else the file's active pack.",
+          description: "Context pack id from .resolve/context-packs.json. Else the file's active pack.",
         },
         product: { type: "string", description: "Product id or name. Scopes ranking when a pack matches, else inline." },
         journey: { type: "string", description: "Journey step / screen job. Breaks ties between cousins." },
@@ -316,7 +316,7 @@ export const TOOLS: ToolDefinition[] = [
         rulesFile: {
           type: "string",
           description:
-            "Optional JSON { allow, deny }. If omitted, uses .graphify/library-rules.json when that file exists; otherwise in-graph + not deprecated = approved.",
+            "Optional JSON { allow, deny }. If omitted, uses .resolve/library-rules.json when that file exists; otherwise in-graph + not deprecated = approved.",
         },
         allow: { type: "array", items: { type: "string" }, description: "Inline allow list (names or ids)." },
         deny: { type: "array", items: { type: "string" }, description: "Inline deny list (names or ids)." },
@@ -372,7 +372,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "list_recipes",
     description:
-      "List screen recipes (composition packs). When a graph is ingested, slots bind to live masters (fill or suggest figmaNodeIds from recommend). Overlay .graphify/recipes.json still wins. Matching product+journey+domain context packs (.graphify/context-packs.json) scope slot fills and nextRecommend. Optional pack / product / journey / domain. Unbound slots include the next recommend query. Never invents node ids. Next: recipe \"<id or intent>\". Do not Read graph.json.",
+      "List screen recipes (composition packs). When a graph is ingested, slots bind to live masters (fill or suggest figmaNodeIds from recommend). Overlay .resolve/recipes.json still wins. Matching product+journey+domain context packs (.resolve/context-packs.json) scope slot fills and nextRecommend. Optional pack / product / journey / domain. Unbound slots include the next recommend query. Never invents node ids. Next: recipe \"<id or intent>\". Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -387,7 +387,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "recipe",
     description:
-      "Get a screen recipe by id, title, or intent. After ingest, slots resolve against live masters (overlay .graphify/recipes.json still wins). Matching product+journey+domain context pack scopes slot fills and nextRecommend. Optional pack / product / journey / domain. Unbound slots include the next recommend query. Never invents node ids. After placing: verify_frame. Do not Read graph.json.",
+      "Get a screen recipe by id, title, or intent. After ingest, slots resolve against live masters (overlay .resolve/recipes.json still wins). Matching product+journey+domain context pack scopes slot fills and nextRecommend. Optional pack / product / journey / domain. Unbound slots include the next recommend query. Never invents node ids. After placing: verify_frame. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -435,7 +435,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "list_graphs",
     description:
-      "List stored graphs and the store this server is reading (path, graph.json, builtAt). GRAPHIFY_HOME wins; else the nearest .graphify walking up from cwd. Call this to confirm MCP and CLI share one folder.",
+      "List stored graphs and the store this server is reading (path, graph.json, builtAt). RESOLVE_HOME wins; else the nearest .resolve walking up from cwd. Call this to confirm MCP and CLI share one folder.",
     inputSchema: { type: "object", properties: {} },
   },
   {

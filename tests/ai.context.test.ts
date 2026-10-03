@@ -97,7 +97,7 @@ describe("AI serialisation", () => {
     expect(payload).not.toMatch(/figd_/);
     expect(payload).not.toContain("FIGMA_ACCESS_TOKEN");
     expect(payload).not.toContain("X-Figma-Token");
-    expect(payload).not.toContain("figma-graphify.pat");
+    expect(payload).not.toContain("figma-resolve.pat");
     expect(payload).not.toContain("sessionStorage");
   });
 

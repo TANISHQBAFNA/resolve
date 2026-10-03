@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { IngestCheckpointStore, ScreensCheckpoint } from "@/core/ingestion/adapters/figmaRestSource";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
+import { pinnedHome, STORE_DIRS } from "@/core/query/overlayFile";
 import {
   assertIngestRoleChange,
   defaultIngestRole,
@@ -40,7 +41,7 @@ import type { LearnCheckpoint } from "@/core/ingestion/learnLibrary";
 /**
  * Durable graph store. One file:
  *
- *   .graphify/graph.json
+ *   .resolve/graph.json
  *
  * Optional designer files next to it: library-rules.json, bind-rules.json, recipes.json,
  * context-packs.json, workspace.json, synonyms.json, icon-libraries.json, code-map.json. Per-file graphs live in files/.
@@ -71,15 +72,15 @@ export interface StoreInfo {
   path: string;
   graph: string;
   workspace: string;
-  graphifyHome?: string;
+  resolveHome?: string;
   builtAt?: string;
 }
 
 /**
- * GRAPHIFY_HOME / RESOLVE_HOME win. Else walk up from cwd (then INIT_CWD)
- * looking for `.graphify/graph.json` or `workspace.json`. Last resort: one
+ * RESOLVE_HOME wins (its old name still works). Else walk up from cwd (then INIT_CWD)
+ * looking for `.resolve/graph.json` or `workspace.json` (the old folder name is read too). Last resort: one
  * global store at `~/.resolve/<workspace>` so CLI and MCP share a folder
- * across projects without a clone-local `.graphify`.
+ * across projects without a clone-local `.resolve`.
  */
 /** Folder name under `~/.resolve/`. Rejects `.`, `..`, and separators. */
 export function resolveWorkspaceName(raw: string | undefined): string {
@@ -116,7 +117,7 @@ export function discoverStoreRoot(
     RESOLVE_WORKSPACE?: string;
   } = {},
 ): string {
-  const explicit = env.GRAPHIFY_HOME?.trim() || env.RESOLVE_HOME?.trim();
+  const explicit = pinnedHome(env);
   if (explicit) return resolve(explicit);
   const starts = [cwd, env.INIT_CWD].filter((value): value is string => Boolean(value?.trim()));
   const seen = new Set<string>();
@@ -124,9 +125,11 @@ export function discoverStoreRoot(
     let dir = resolve(start);
     while (!seen.has(dir)) {
       seen.add(dir);
-      const candidate = join(dir, ".graphify");
-      if (existsSync(join(candidate, "graph.json")) || existsSync(join(candidate, "workspace.json"))) {
-        return candidate;
+      for (const folder of STORE_DIRS) {
+        const candidate = join(dir, folder);
+        if (existsSync(join(candidate, "graph.json")) || existsSync(join(candidate, "workspace.json"))) {
+          return candidate;
+        }
       }
       const parent = resolve(dir, "..");
       if (parent === dir) break;
@@ -141,7 +144,7 @@ export function storeRoot(): string {
 }
 
 export function storeInfo(): StoreInfo {
-  const home = process.env["GRAPHIFY_HOME"]?.trim();
+  const home = pinnedHome();
   let builtAt: string | undefined;
   const path = graphPath();
   if (existsSync(path)) {
@@ -156,16 +159,16 @@ export function storeInfo(): StoreInfo {
     path: storeRoot(),
     graph: path,
     workspace: workspacePath(),
-    ...(home ? { graphifyHome: home } : {}),
+    ...(home ? { resolveHome: home } : {}),
     ...(builtAt ? { builtAt } : {}),
   };
 }
 
 export function missingGraphMessage(): string {
   const info = storeInfo();
-  const homeLine = info.graphifyHome
-    ? `GRAPHIFY_HOME=${info.graphifyHome}`
-    : "Default store is ~/.resolve/default (or RESOLVE_WORKSPACE). Set GRAPHIFY_HOME to pin a folder.";
+  const homeLine = info.resolveHome
+    ? `RESOLVE_HOME=${info.resolveHome}`
+    : "Default store is ~/.resolve/default (or RESOLVE_WORKSPACE). Set RESOLVE_HOME to pin a folder.";
   return (
     `No design system or screens are ingested yet. Looked in ${info.graph} (store ${info.path}). ${homeLine} ` +
     "Map the Figma file first: with Figma MCP connected, call learn_library with get_metadata XML + fileKey + role (library for the design system, product or client for screens). " +

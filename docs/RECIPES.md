@@ -18,7 +18,7 @@ The rest of this page is the JSON shape if you are adding or replacing a recipe.
 
 | You | You do |
 |-----|--------|
-| **Designer** | Add or edit recipes in JSON. Optionally bind a slot to a master that already exists after ingest. Drop a product + journey pack in `.graphify/context-packs.json` and bind it with `recipeIds`. |
+| **Designer** | Add or edit recipes in JSON. Optionally bind a slot to a master that already exists after ingest. Drop a product + journey pack in `.resolve/context-packs.json` and bind it with `recipeIds`. |
 | **Agent** | `list_recipes` → `recipe "checkout summary"` → pick any open slot → open the real example (`get_example`; `ex` is on the top pick) → clone → fill → `verify_frame`. Never dump the stored library map. |
 
 Recipes do **not** create components. Never invent a Figma component id.
@@ -35,7 +35,7 @@ When a library map exists, **list** and **get** match each slot against live mas
 | **deprecated** | That master is marked retired. The card includes `nextRecommend` for a live stand-in. |
 | **unbound** | No live match. The card includes `nextRecommend`. Call `recommend` with that query. |
 
-Your file **`.graphify/recipes.json` still wins** over the starter pack (same `id` replaces). Binding never writes invented ids into your overlay.
+Your file **`.resolve/recipes.json` still wins** over the starter pack (same `id` replaces). Binding never writes invented ids into your overlay.
 
 A matching **context pack** (product + journey) is mixed into slot fills and `nextRecommend` so ranking is for *this* product and *this* step, not a generic name match. See [Context packs](#context-packs) or the [guide](GUIDE.md).
 
@@ -46,13 +46,13 @@ You can list recipes with no library map yet. Slots stay `unbound` and each one 
 | File | Role |
 |------|------|
 | [`src/data/recipes.json`](../src/data/recipes.json) | Starter pack shipped with Resolve (8 common screens). |
-| `.graphify/recipes.json` | Your overlay. Same shape. Matching `id` replaces a starter recipe; new ids append. |
-| [`.graphify/context-packs.json`](#context-packs) | Product + journey context. Bind to recipes via `recipeIds` or `contextPackId`. |
-| [`src/data/context-packs.example.json`](../src/data/context-packs.example.json) | Copy-paste template. Not loaded until you drop it in `.graphify/`. |
+| `.resolve/recipes.json` | Your overlay. Same shape. Matching `id` replaces a starter recipe; new ids append. |
+| [`.resolve/context-packs.json`](#context-packs) | Product + journey context. Bind to recipes via `recipeIds` or `contextPackId`. |
+| [`src/data/context-packs.example.json`](../src/data/context-packs.example.json) | Copy-paste template. Not loaded until you drop it in `.resolve/`. |
 
 ## Add a recipe
 
-1. Copy `src/data/recipes.json` to `.graphify/recipes.json`, or create a small overlay that only contains the recipes you are adding.
+1. Copy `src/data/recipes.json` to `.resolve/recipes.json`, or create a small overlay that only contains the recipes you are adding.
 2. Append an object:
 
 ```json
@@ -85,7 +85,7 @@ Optional: bind a context pack from the recipe side with `"contextPackId": "store
 
 Designers that share one Figma library across products add a **product + journey** pack so `recipe` / `recommend` pick masters for *this* product and *this* step — not a generic name match.
 
-Copy [`src/data/context-packs.example.json`](../src/data/context-packs.example.json) to `.graphify/context-packs.json` (or write a smaller file). Human-editable. **Never add Figma component ids.** Line-by-line meaning: [designer guide](GUIDE.md#how-to-write-a-context-pack).
+Copy [`src/data/context-packs.example.json`](../src/data/context-packs.example.json) to `.resolve/context-packs.json` (or write a smaller file). Human-editable. **Never add Figma component ids.** Line-by-line meaning: [designer guide](GUIDE.md#how-to-write-a-context-pack).
 
 ```json
 {
@@ -106,13 +106,13 @@ Copy [`src/data/context-packs.example.json`](../src/data/context-packs.example.j
 }
 ```
 
-`product` and `journey` also accept a string (`"Storefront"`, `"summary"`). `libraryRules` is the same `{ allow, deny }` shape as `.graphify/library-rules.json`.
+`product` and `journey` also accept a string (`"Storefront"`, `"summary"`). `libraryRules` is the same `{ allow, deny }` shape as `.resolve/library-rules.json`.
 
 **Bind order** (first hit wins): `--pack` / MCP `pack` → recipe `contextPackId` → pack `recipeIds` → `--product` / `--journey` / `--domain` → file `active` (if that pack lists this recipe, or lists none).
 
 `recommend` uses the same pack (or the active pack, or inline product/journey flags) **on top of** existing ranking: name/intent, variants, where-used, live over stale, retired last. Empty match still means do not invent.
 
-`verify_frame` stays invent / retired / unmatched. Pack `libraryRules` can deny a master. Wrong-cousin drift (same role, different family than the shared DS) is `resolve cousins` / `check_cousins` when `.graphify/workspace.json` has a library-role file.
+`verify_frame` stays invent / retired / unmatched. Pack `libraryRules` can deny a master. Wrong-cousin drift (same role, different family than the shared DS) is `resolve cousins` / `check_cousins` when `.resolve/workspace.json` has a library-role file.
 
 Optional pack fields: `files` (product/client file keys or labels from the workspace) and `client` (same shape as `product`, when product ≠ client). Same pack schema — not a second model. Recommend still prefers library-role masters.
 

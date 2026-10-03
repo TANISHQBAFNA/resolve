@@ -37,7 +37,7 @@ describe("resolve-setup", () => {
     expect(first.stdout).toContain("Figma connected?");
     expect(first.stdout).toContain("Library learned?");
     expect(first.stdout).toContain("Rule installed? yes");
-    expect(first.stdout).toContain("Words your team uses: .graphify/synonyms.json · icon libraries: .graphify/icon-libraries.json");
+    expect(first.stdout).toContain("Words your team uses: .resolve/synonyms.json · icon libraries: .resolve/icon-libraries.json");
     expect(first.stdout).toContain("Exact component ids:");
     expect(first.stdout).toContain("FIGMA_ACCESS_TOKEN");
     expect(first.stdout).toContain("Next:");

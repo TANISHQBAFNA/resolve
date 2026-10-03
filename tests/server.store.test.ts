@@ -24,19 +24,19 @@ import {
 } from "@/server/store";
 
 describe("store", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "figma-graphify-store-"));
-    process.env["GRAPHIFY_HOME"] = dir;
+    dir = mkdtempSync(join(tmpdir(), "figma-resolve-store-"));
+    process.env["RESOLVE_HOME"] = dir;
     clearCache();
   });
 
   afterEach(() => {
     clearCache();
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
   });
 
   it("saveGraph writes only graph.json and deletes report sidecars", () => {
@@ -131,7 +131,7 @@ describe("store", () => {
     const message = missingGraphMessage();
     expect(message).toContain(graphPath());
     expect(message).toContain(storeRoot());
-    expect(message).toMatch(/learn_library|GRAPHIFY_HOME/i);
+    expect(message).toMatch(/learn_library|RESOLVE_HOME/i);
   });
 
   it("storeInfo reports the path the server is reading", () => {
@@ -144,18 +144,18 @@ describe("store", () => {
     expect(storeInfo().builtAt).toBe(graph.builtAt);
   });
 
-  it("discoverStoreRoot walks up to a parent .graphify and honors GRAPHIFY_HOME", () => {
+  it("discoverStoreRoot walks up to a parent .resolve and honors RESOLVE_HOME", () => {
     const root = mkdtempSync(join(tmpdir(), "resolve-discover-"));
     const nested = join(root, "apps", "agent");
-    mkdirSync(join(root, ".graphify"), { recursive: true });
+    mkdirSync(join(root, ".resolve"), { recursive: true });
     mkdirSync(nested, { recursive: true });
-    writeFileSync(join(root, ".graphify", "graph.json"), "{}\n");
+    writeFileSync(join(root, ".resolve", "graph.json"), "{}\n");
 
-    expect(discoverStoreRoot(nested, {})).toBe(join(root, ".graphify"));
-    expect(discoverStoreRoot(nested, { GRAPHIFY_HOME: dir })).toBe(dir);
+    expect(discoverStoreRoot(nested, {})).toBe(join(root, ".resolve"));
+    expect(discoverStoreRoot(nested, { RESOLVE_HOME: dir })).toBe(dir);
   });
 
-  it("defaults to ~/.resolve/<workspace> when no local .graphify exists", () => {
+  it("defaults to ~/.resolve/<workspace> when no local .resolve exists", () => {
     const empty = mkdtempSync(join(tmpdir(), "resolve-empty-cwd-"));
     expect(discoverStoreRoot(empty, { HOME: "/tmp/fake-home", RESOLVE_WORKSPACE: "acme" })).toBe(
       join("/tmp/fake-home", ".resolve", "acme"),

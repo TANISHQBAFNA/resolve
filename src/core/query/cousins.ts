@@ -152,7 +152,7 @@ export function checkCousins(
       cousins: [] as CousinHit[],
       unsure: [] as CousinHit[],
       ok: 0,
-      hint: "No library-role file in this workspace. Add the shared DS to .graphify/workspace.json and ingest it. Do not guess cousins. Do not Read graph.json.",
+      hint: "No library-role file in this workspace. Add the shared DS to .resolve/workspace.json and ingest it. Do not guess cousins. Do not Read graph.json.",
     });
   }
   if (!index) {

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "howToAdd": "Copy this file to .graphify/workspace.json. Add one row per Figma file. role is library (the shared design system), product, or client. key is the Figma file key from the URL. label is a name you choose. Never add Figma component ids. Ingest each file after you list it (or ingest first — Resolve writes this file for you).",
+  "howToAdd": "Copy this file to .resolve/workspace.json. Add one row per Figma file. role is library (the shared design system), product, or client. key is the Figma file key from the URL. label is a name you choose. Never add Figma component ids. Ingest each file after you list it (or ingest first — Resolve writes this file for you).",
   "files": [
     {
       "role": "library",

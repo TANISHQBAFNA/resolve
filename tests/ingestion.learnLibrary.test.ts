@@ -34,17 +34,17 @@ const DIVIDER_XML = `
 `;
 
 describe("learn_library from Figma MCP get_metadata", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
 
   beforeEach(() => {
-    process.env["GRAPHIFY_HOME"] = mkdtempSync(join(tmpdir(), "resolve-learn-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-learn-"));
     clearCache();
   });
 
   afterEach(() => {
     clearCache();
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
   });
 
   it("learns masters incrementally across two passes", () => {

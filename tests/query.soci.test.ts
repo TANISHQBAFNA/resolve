@@ -289,17 +289,17 @@ describe("SOCI v1 proposal types", () => {
 });
 
 describe("SOCI approve / reject", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
 
   beforeEach(() => {
-    process.env["GRAPHIFY_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-"));
     clearCache();
   });
 
   afterEach(() => {
     clearCache();
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
   });
 
   it("approve of a recipe update writes the overlay atomically and audits", () => {
@@ -335,7 +335,7 @@ describe("SOCI approve / reject", () => {
     );
     expect(header?.defaultMasterId).toBe("node:stepper");
     commitProposalDecision(decided);
-    const overlayPath = join(process.env["GRAPHIFY_HOME"]!, "recipes.json");
+    const overlayPath = join(process.env["RESOLVE_HOME"]!, "recipes.json");
     expect(existsSync(overlayPath)).toBe(true);
     const written = JSON.parse(readFileSync(overlayPath, "utf8")) as {
       recipes: Array<{ id: string; slots: Array<{ role: string; defaultMasterId?: string }> }>;
@@ -345,10 +345,10 @@ describe("SOCI approve / reject", () => {
         .find((recipe) => recipe.id === "checkout-summary")
         ?.slots.find((slot) => slot.role === "header")?.defaultMasterId,
     ).toBe("node:stepper");
-    expect(existsSync(join(process.env["GRAPHIFY_HOME"]!, "bind-rules.json"))).toBe(false);
-    const audit = readFileSync(join(process.env["GRAPHIFY_HOME"]!, "bind-rules.audit.jsonl"), "utf8");
+    expect(existsSync(join(process.env["RESOLVE_HOME"]!, "bind-rules.json"))).toBe(false);
+    const audit = readFileSync(join(process.env["RESOLVE_HOME"]!, "bind-rules.audit.jsonl"), "utf8");
     expect(audit).toMatch(/tanishk/);
-    const saved = JSON.parse(readFileSync(join(process.env["GRAPHIFY_HOME"]!, "sock.json"), "utf8")) as {
+    const saved = JSON.parse(readFileSync(join(process.env["RESOLVE_HOME"]!, "sock.json"), "utf8")) as {
       proposals: Array<{ id: string; status: string }>;
     };
     expect(saved.proposals.find((row) => row.id === proposal!.id)?.status).toBe("approved");
@@ -381,8 +381,8 @@ describe("SOCI approve / reject", () => {
     expect(variantDecision.writesRecipes).toBe(false);
     expect(variantDecision.rules.rules).toEqual(rulesBefore.rules);
     commitProposalDecision(variantDecision);
-    expect(existsSync(join(process.env["GRAPHIFY_HOME"]!, "recipes.json"))).toBe(false);
-    const afterVariant = JSON.parse(readFileSync(join(process.env["GRAPHIFY_HOME"]!, "sock.json"), "utf8")) as {
+    expect(existsSync(join(process.env["RESOLVE_HOME"]!, "recipes.json"))).toBe(false);
+    const afterVariant = JSON.parse(readFileSync(join(process.env["RESOLVE_HOME"]!, "sock.json"), "utf8")) as {
       proposals: Array<{ id: string; status: string; type?: string }>;
     };
     sock = { ...sock, proposals: afterVariant.proposals } as typeof sock;
@@ -391,8 +391,8 @@ describe("SOCI approve / reject", () => {
     });
     expect(depDecision.writesRules).toBe(false);
     commitProposalDecision(depDecision);
-    expect(existsSync(join(process.env["GRAPHIFY_HOME"]!, "recipes.json"))).toBe(false);
-    const bindPath = join(process.env["GRAPHIFY_HOME"]!, "bind-rules.json");
+    expect(existsSync(join(process.env["RESOLVE_HOME"]!, "recipes.json"))).toBe(false);
+    const bindPath = join(process.env["RESOLVE_HOME"]!, "bind-rules.json");
     if (existsSync(bindPath)) {
       const onDisk = JSON.parse(readFileSync(bindPath, "utf8")) as { rules: unknown[] };
       expect(onDisk.rules).toEqual([]);
@@ -516,17 +516,17 @@ function scorePrefer(
 }
 
 describe("scoped wrong-cousin prefer", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
 
   beforeEach(() => {
-    process.env["GRAPHIFY_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-scope-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-scope-"));
     clearCache();
   });
 
   afterEach(() => {
     clearCache();
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
   });
 
   it("approves a scoped prefer and does not move the rest of the file", () => {
@@ -561,7 +561,7 @@ describe("scoped wrong-cousin prefer", () => {
       { index: payMasters(), workspace: preferWorkspace },
     );
     commitProposalDecision(decided);
-    const onDisk = JSON.parse(readFileSync(join(process.env["GRAPHIFY_HOME"]!, "bind-rules.json"), "utf8")) as {
+    const onDisk = JSON.parse(readFileSync(join(process.env["RESOLVE_HOME"]!, "bind-rules.json"), "utf8")) as {
       rules: Array<{ masterId?: string; overMasterId?: string; screenType?: string; prefer: string; over: string }>;
     };
     expect(onDisk.rules[0]).toMatchObject({
@@ -617,7 +617,7 @@ describe("scoped wrong-cousin prefer", () => {
     });
     expect(decided.writesRules).toBe(false);
     commitProposalDecision(decided);
-    expect(existsSync(join(process.env["GRAPHIFY_HOME"]!, "bind-rules.json"))).toBe(false);
+    expect(existsSync(join(process.env["RESOLVE_HOME"]!, "bind-rules.json"))).toBe(false);
   });
 });
 
@@ -834,17 +834,17 @@ function checkoutFrameGraph(cardOn: number): DesignGraph {
 }
 
 describe("frame slot does not leak onto nested instances", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
 
   beforeEach(() => {
-    process.env["GRAPHIFY_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-slot-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-slot-"));
     clearCache();
   });
 
   afterEach(() => {
     clearCache();
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
   });
 
   it("verify_frame slot header proposes at most one master and skips a tie", () => {
@@ -877,18 +877,18 @@ describe("frame slot does not leak onto nested instances", () => {
 });
 
 describe("malformed sock.json", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
 
   beforeEach(() => {
-    process.env["GRAPHIFY_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-sock-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-sock-"));
     clearCache();
     saveGraph(fixtureGraph);
   });
 
   afterEach(() => {
     clearCache();
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
   });
 
   it("verify, recipe, and governance survive proposals that are not a clean array", () => {

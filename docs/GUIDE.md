@@ -67,7 +67,7 @@ For clone flags, tokens, and the optional browser map, see [For developers](../R
 
 **Figma component id.** The address of that master in a file (`figmaNodeId`). Across files those ids can repeat, so every card also stamps the **file key**. Agents place that exact component in that file. They must not make up an id. A Figma **layer name** is only a label. Someone can rename an instance; the real component is the master’s id and name. `get_metadata` usually has only the layer name — Resolve marks that as a guess. Exact ids come from REST (`FIGMA_ACCESS_TOKEN`), the plugin, or `get_design_context`.
 
-**Workspace.** The list of Figma files Resolve knows about for this project — usually one shared design-system library plus the product (and maybe client) files that use it. You edit `.graphify/workspace.json`, or ingest with `--role library` / `--role product` / `--role client` and Resolve writes it.
+**Workspace.** The list of Figma files Resolve knows about for this project — usually one shared design-system library plus the product (and maybe client) files that use it. You edit `.resolve/workspace.json`, or ingest with `--role library` / `--role product` / `--role client` and Resolve writes it.
 
 **Wrong cousin.** Same job or a similar name, but not the library master the shared DS expects. Example: a product file used a one-off button instead of the library Primary. Resolve reports that. It does not invent a replacement master.
 
@@ -182,7 +182,7 @@ npm run resolve -- verify "Checkout Summary" --product Storefront --journey summ
 
 **You get:** Pass or fail. A pass means each checked instance was bound by its own component id or key — not by the layer name. A layer named `Icon` that is really `send-24-arrow` still passes, and the card lists the rename (`labelDiffers`, plus `renamed`). Metadata-only instances are a **guess from layer name, not confirmed** (`name-only`); they never count as verified. A hand-drawn rectangle named like a component is listed as **unchecked** so Verified cannot cover it. Invented names fail. Retired masters fail. Lorem-ipsum filler fails. Copy that still matches the master default is a warning, and it fails only when that default is also on the placeholder list.
 
-Team template strings are not built in. Put them in `.graphify/placeholders.json`:
+Team template strings are not built in. Put them in `.resolve/placeholders.json`:
 
 ```json
 { "placeholders": ["Your template sentence"] }
@@ -235,7 +235,7 @@ Use this when **one Figma library serves more than one product**, or when a gene
 
 ### Copy the example
 
-1. Copy [`src/data/context-packs.example.json`](../src/data/context-packs.example.json) to **`.graphify/context-packs.json`**.
+1. Copy [`src/data/context-packs.example.json`](../src/data/context-packs.example.json) to **`.resolve/context-packs.json`**.
 2. Edit that new file. Leave the example in `src/data/` as a template — Resolve does **not** load the example until you copy it.
 3. **Never add Figma component ids** to a context pack. Recommend fills those after ingest.
 
@@ -280,9 +280,9 @@ A filled-in file looks like this:
 
 **`recipeIds`.** Which screen packs this context applies to. Use the recipe **id**, not the title: `checkout-summary`, not `"Checkout Summary"`. This is the usual way to bind a pack. One file can list several recipes if they share the same product and journey.
 
-**`libraryRules` (optional).** A small allow / deny list of **component names**. `"deny": ["Banner"]` means “do not pick Banner for this pack.” Same idea as the optional `.graphify/library-rules.json` file.
+**`libraryRules` (optional).** A small allow / deny list of **component names**. `"deny": ["Banner"]` means “do not pick Banner for this pack.” Same idea as the optional `.resolve/library-rules.json` file.
 
-**`files` (optional).** Which product or client file(s) this pack applies to. Use the **file key** or the **label** from `.graphify/workspace.json` (`Storefront`). This does not invent masters. Recommend still prefers the shared DS library when a library-role file is linked.
+**`files` (optional).** Which product or client file(s) this pack applies to. Use the **file key** or the **label** from `.resolve/workspace.json` (`Storefront`). This does not invent masters. Recommend still prefers the shared DS library when a library-role file is linked.
 
 **`client` (optional).** When the product name and the client name are not the same. Same shape as `product` — `{ "id": "northwind", "name": "Northwind" }` or a string `"Northwind"`. Same pack, not a second model.
 
@@ -305,7 +305,7 @@ First ingest with no `--role` is treated as the library. Later ingests default t
 
 ### Option B — write the list yourself
 
-1. Copy [`src/data/workspace.example.json`](../src/data/workspace.example.json) to **`.graphify/workspace.json`**.
+1. Copy [`src/data/workspace.example.json`](../src/data/workspace.example.json) to **`.resolve/workspace.json`**.
 2. Put one object per file: `role` (`library` | `product` | `client`), `key` (the Figma file key in the URL), optional `url` and `label`.
 3. Ingest each file. Resolve stores that file’s knowledge and keeps the list.
 
@@ -331,7 +331,7 @@ A filled-in file looks like this:
 }
 ```
 
-Never add Figma component ids here. Never `Read` `.graphify/graph.json` — cards already stamp `fileKey` and `figmaNodeId`.
+Never add Figma component ids here. Never `Read` `.resolve/graph.json` — cards already stamp `fileKey` and `figmaNodeId`.
 
 ---
 
@@ -347,7 +347,7 @@ Resolve needs to know *which pack goes with which screen job*. First match wins:
 
 Recommend uses the same pack (or the active pack, or the product / journey / domain flags) **on top of** its usual ranking: name, variants, where it is already used, live over stale, retired last.
 
-You can add or replace screen packs in `.graphify/recipes.json`. Matching `id` replaces a starter. Leave the stored Figma id off a slot unless that master is already in the ingested library. Details and a copy-paste recipe live in [Screen recipes](RECIPES.md).
+You can add or replace screen packs in `.resolve/recipes.json`. Matching `id` replaces a starter. Leave the stored Figma id off a slot unless that master is already in the ingested library. Details and a copy-paste recipe live in [Screen recipes](RECIPES.md).
 
 ---
 
@@ -364,11 +364,11 @@ These are the rules you should expect every agent to obey. If it breaks them, st
 7. **Cousin-check a multi-file workspace.** If a library file and a product/client file are linked, run `cousins` / `check_cousins`. Unsure means stop, not guess.
 8. **You still own taste.** Spacing, copy, and whether the screen feels right stay human.
 
-Optional allow / deny for the whole library: `.graphify/library-rules.json` with `{ "allow": ["Button"], "deny": ["Banner"] }`. If that file is missing, “approved” means: it is in the ingested library, and it is not retired.
+Optional allow / deny for the whole library: `.resolve/library-rules.json` with `{ "allow": ["Button"], "deny": ["Banner"] }`. If that file is missing, “approved” means: it is in the ingested library, and it is not retired.
 
-If icons live in their own Figma library (or on a page of stubs), list them in `.graphify/icon-libraries.json` by file name, file key, or page name (`{ "libraries": ["Acme Icons", { "fileKey": "ICONS" }, { "page": "Acme Icons Page" }] }`). Remote masters in another file need ingest with `FIGMA_ACCESS_TOKEN` so Resolve can look up the published component and stamp that source file/page on the stub; without that, the list cannot match those stubs. Those masters come back when the ask is for an icon, or for that icon’s exact distinctive name. An unmatched name prints once on stderr (skipped if the lookup could not run); a name that matches the main library is ignored.
+If icons live in their own Figma library (or on a page of stubs), list them in `.resolve/icon-libraries.json` by file name, file key, or page name (`{ "libraries": ["Acme Icons", { "fileKey": "ICONS" }, { "page": "Acme Icons Page" }] }`). Remote masters in another file need ingest with `FIGMA_ACCESS_TOKEN` so Resolve can look up the published component and stamp that source file/page on the stub; without that, the list cannot match those stubs. Those masters come back when the ask is for an icon, or for that icon’s exact distinctive name. An unmatched name prints once on stderr (skipped if the lookup could not run); a name that matches the main library is ignored.
 
-**Bind rules** (require this master for this slot, forbid deprecated, prefer library A over B) live in `.graphify/bind-rules.json`. How to write one and how to approve a suggestion: [Bind rules and proposals](BIND-RULES.md). Usage can also suggest recipe slot changes, official variants, deprecation reviews, and wrong-cousin fixes — you still approve each one: [SOCI](SOCI.md).
+**Bind rules** (require this master for this slot, forbid deprecated, prefer library A over B) live in `.resolve/bind-rules.json`. How to write one and how to approve a suggestion: [Bind rules and proposals](BIND-RULES.md). Usage can also suggest recipe slot changes, official variants, deprecation reviews, and wrong-cousin fixes — you still approve each one: [SOCI](SOCI.md).
 
 ---
 
@@ -386,9 +386,9 @@ Be honest with yourself and with agents:
 
 **Recommend comes back empty.** The library was not ingested, the words do not match any master, or the live matches are all retired. Re-ingest. Use names from your library (“Primary button”, not “CTA widget”). Do not invent a fallback.
 
-**The context pack does not seem to apply.** The file must live at `.graphify/context-packs.json` — the example under `src/data/` is only a template. `recipeIds` must be the recipe id (`checkout-summary`). Set `active`, or pass `--pack`, or pass the product, journey step, and domain. Then run `recipe "checkout summary"` again and look for the product and journey on the card.
+**The context pack does not seem to apply.** The file must live at `.resolve/context-packs.json` — the example under `src/data/` is only a template. `recipeIds` must be the recipe id (`checkout-summary`). Set `active`, or pass `--pack`, or pass the product, journey step, and domain. Then run `recipe "checkout summary"` again and look for the product and journey on the card.
 
-**Cousin check says no library file.** `.graphify/workspace.json` needs a file with `"role": "library"`, and that file must be ingested. Product-only workspaces cannot guess the shared DS.
+**Cousin check says no library file.** `.resolve/workspace.json` needs a file with `"role": "library"`, and that file must be ingested. Product-only workspaces cannot guess the shared DS.
 
 **Cousin check is unsure.** The name was too weak, or two library masters tied. Do not invent a master. Rename in Figma, re-ingest, or pass a tighter `--job` / pack.
 
@@ -408,7 +408,7 @@ Be honest with yourself and with agents:
 
 **The library is huge / quota ran out.** Do not start over. Call `learn_library` on the next frames in a later session. Checkpoints survive.
 
-**“No graph stored.”** The error names the folder it looked in. Ingest first, into that same folder. Set `GRAPHIFY_HOME` so the command line and the AI connection share one store (otherwise they can look in different working directories). Recipe list can run with no library (slots stay open); recommend and verify cannot. `list_graphs` / `workspace` / `resolve where` print the path and `builtAt`.
+**“No graph stored.”** The error names the folder it looked in. Ingest first, into that same folder. Set `RESOLVE_HOME` so the command line and the AI connection share one store (otherwise they can look in different working directories). Recipe list can run with no library (slots stay open); recommend and verify cannot. `list_graphs` / `workspace` / `resolve where` print the path and `builtAt`.
 
 **I know the component name, I just need the id.** `resolve "Main Card"` (CLI or MCP). An exact master always comes back with its id even if nothing uses it yet. If two masters share that name, you get the populated local set, not an empty stub from another file. If the name is not in the library, the card says so and tells you to `recommend` the job — not an empty list.
 

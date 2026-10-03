@@ -2,8 +2,8 @@ import { useState } from "react";
 import { FigmaRestIngestionSource } from "@/core/ingestion/adapters/figmaRestSource";
 import { useGraphStore } from "@/state/graphStore";
 
-const TOKEN_KEY = "figma-graphify.pat";
-const FILE_KEY = "figma-graphify.file";
+const TOKEN_KEY = "figma-resolve.pat";
+const FILE_KEY = "figma-resolve.file";
 
 const readStored = (key: string) => {
   try {

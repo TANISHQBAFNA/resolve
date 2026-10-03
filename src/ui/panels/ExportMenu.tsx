@@ -3,7 +3,7 @@ import { useGraphStore } from "@/state/graphStore";
 import { useAtlas } from "@/state/selectors";
 
 /**
- * Portable exports, in the spirit of Graphify's `graph.json`: the graph should
+ * Portable exports, in the spirit of a portable `graph.json`: the graph should
  * leave this app in a form another tool can traverse without re-reading Figma.
  */
 export function ExportMenu() {

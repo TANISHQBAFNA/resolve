@@ -18,7 +18,7 @@ Each proposal has an id, a type, a scope, one plain-English line, a short eviden
 
 Checkout screens keep using **Stepper** in the header, but the checkout recipe has no Stepper there.
 
-SOCI asks: add or rebind that recipe slot. Approving writes `.graphify/recipes.json` (or the same file in `~/.resolve/<workspace>/`) atomically. It does not touch Figma.
+SOCI asks: add or rebind that recipe slot. Approving writes `.resolve/recipes.json` (or the same file in `~/.resolve/<workspace>/`) atomically. It does not touch Figma.
 
 ### 2. Variant candidate
 

@@ -18,7 +18,7 @@ For ANY Figma design, screen, or component task, call Resolve before any Figma d
 5. `verify_frame` after the frame exists. Fetch that frame's design context first and pass it as `designContext`.
 6. `check_cousins` when a library file and a product or client file are both linked. Unsure means stop.
 
-Resolve is read-only. Never invent a component, name, or node id. Never Read `.graphify/graph.json`.
+Resolve is read-only. Never invent a component, name, or node id. Never Read `.resolve/graph.json`.
 
 **Design work.** Simplest thing that works. Reuse an existing component before anything new. One check: `verify_frame`.
 
