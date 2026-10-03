@@ -18,15 +18,15 @@ You can read this file from top to bottom without knowing any code. The first ha
 
 **What you see.** You do not open Resolve, and there is nothing to click. You see it in your AI tool's chat: Claude says which library components it chose, and it tells you the result of the check ("passed" or "failed, because..."). In Figma you get a screen made of real library components.
 
-**What Resolve is not.** It is not a Figma plugin. It does not draw anything; your AI tool draws. It never changes your Figma file; it only reads. It never guesses: no match means no answer. And it never changes your rules by itself; a person approves every change.
+**What Resolve is not.** It is not a Figma plugin. It does not draw anything; your AI tool draws. It never changes your Figma file; it only reads. It never guesses: no match means no answer. And it never changes your team's rules (for example "on the pay step, use this Button") by itself; a person approves every change.
 
 ## What Resolve does, one piece at a time
 
 - **It learns your library.** You give it your design system file once. It reads the file and writes down what is in it: every component, its variants (for example Primary and Secondary), and where each one is used on real screens. You can repeat this whenever the library changes. This step has two names: **learn** (when your AI tool does it) and **ingest** (when you do it by hand). They mean the same thing: read a Figma file and remember it.
 - **It recommends.** You describe what you need in plain words ("payee picker", "primary button"). Resolve picks the best matching component. It looks at the name and your words first. If the match is only partial, it says "weak match" and offers up to three options, instead of pretending to be sure.
 - **It shows a real example.** With the pick, Resolve points to a real, filled-in copy of that component on a real screen. The AI tool clones it and swaps the content, which looks far better than starting from a bare default.
-- **It checks the finished screen.** Resolve looks at every piece on the screen and answers pass or fail. It flags parts that are not in the library, parts that are retired, and leftover template text such as "Lorem ipsum". It checks by the component's real id, not just by its layer name, because a layer called "Button" can be anything.
-- **It knows what is retired.** A **retired** component is one your team no longer wants on new screens, although old screens may still use it. Resolve never recommends a retired part for a new screen, and it fails a check that uses one. It also says what to use instead.
+- **It checks the finished screen.** Resolve looks at every piece on the screen and answers pass or fail. It flags parts that are not in the library, parts that are retired, and leftover template text such as "Lorem ipsum". It checks by each component's real Figma id (a hidden number every component has), not just by its layer name (the label you see in Figma's layers list), because a layer called "Button" can be anything.
+- **It knows what is retired.** A **retired** component is one your team no longer wants on new screens, although old screens may still use it. Resolve does not recommend retired parts, and flags one if it comes up. A check fails when a screen uses one. It also says what to use instead.
 - **It knows your team's words (optional).** If your team says "beneficiary" and the library says "Payee picker", you can teach Resolve that those mean the same.
 - **It knows the code twin (optional).** Engineers can write a short file, called a **code map**, that says "this Figma Button is this Button in our code". When it is there, Resolve adds the code component to its answer, for example `PayeePicker from '@acme/payments'`. Resolve never guesses a code twin.
 - **It knows screen recipes (optional).** A recipe is a checklist of the parts a kind of screen usually needs (header, list, main button, input). Resolve fills each slot with a real component.
@@ -52,7 +52,7 @@ npx -y -p github:TANISHQBAFNA/resolve resolve-setup
 ```
 
 1. Paste the command and press Enter.
-2. **What you should see:** three lines starting with `create` (the Cursor rule, the Claude skill and `CLAUDE.md`), then a short checklist: `Node ok?`, `Figma connected?`, `Library learned?`, `Rule installed?`, and a last line starting `Next:` that tells you what to do next. At this point `Library learned?` says `no`, and that is fine.
+2. **What you should see:** three lines starting with `create` (the Cursor rule, the Claude skill and `CLAUDE.md`), then a short checklist: `Node ok?`, `Figma connected?`, `Library learned?`, `Rule installed?`, and a last line starting `Next:` that tells you what to do next. At this point `Library learned?` says `no`, and that is fine. In Claude Code, `Figma connected?` may say `no` even when Figma is connected; see the note in Step 3.
 3. It is safe to run again; it only touches its own lines. To look first without changing anything, add `--dry-run` at the end.
 
 ### Step 2. Connect Resolve to your AI tool
@@ -76,7 +76,7 @@ Checked on a test machine with Claude Code 2.1: steps 1 and 2 gave the lines abo
 
 #### Cursor
 
-1. In your project, create a file called `.cursor/mcp.json` with this inside:
+1. In your project's top folder, make a folder called `.cursor` (the dot at the start is part of the name; Finder on Mac hides folders like this, and Cmd+Shift+. shows them). Inside it, create a file called `mcp.json` with this inside:
 
    ```json
    {
@@ -121,7 +121,7 @@ Using the Claude desktop app instead? See [Setup in detail](#setup-in-detail).
 
 1. In your AI tool's chat, write: "Learn my Figma design system from this link: (paste the Figma file link)".
 2. The tool reads the file through Figma and hands it to Resolve (behind the scenes it calls a Resolve tool named `learn_library`). Big libraries can take a few minutes. The exact words in the chat differ from tool to tool.
-3. **What you should see:** the tool says it has learned the library and roughly how many components it found. To double-check, run the Step 1 command again: `Library learned?` now says `yes`, and the last line reads `Next: Ask Resolve for the screen.` (Checked on a test machine with the made-up Acme file; the Figma part of this step was not run, because it needs a Figma account.)
+3. **What you should see:** the tool says it has learned the library and roughly how many components it found. To double-check, run the Step 1 command again: `Library learned?` now says `yes`. The checklist cannot see a Claude Code Figma connection, so `Figma connected?` may still say `no`, and the last line may still say `Connect Figma`. Ignore that if `claude mcp list` shows figma as connected. (Checked on a test machine with the made-up Acme file and the Claude Code setup above: `Library learned?` went from `no` to `yes`, and `Figma connected?` stayed `no`. The Figma part of this step was not run, because it needs a Figma account.)
 
 Upgrading from an older version of Resolve? Read [Upgrading from the old names](#upgrading-from-the-old-names) first.
 
@@ -140,11 +140,11 @@ The exact, word-for-word answers for both are shown further down, under [recomme
 
 **Do I need a Figma token?** Not when your AI tool is connected to Figma. The tool reads the file and hands it to Resolve. A token (a personal password for Figma's programming interface) is only needed to read a live Figma link from the command line. Never put a token in a file you share.
 
-**What if my library has no component for what I asked?** Resolve says "No master matched" and returns nothing. Your AI tool should tell you, not make one up.
+**What if my library has no component for what I asked?** Resolve says "No master matched" (a master is a component in your library) and returns nothing. Your AI tool should tell you, not make one up.
 
 **What does "weak match" mean?** The words in your ask only partly matched. You get up to three possible parts instead of one confident pick. Look before you place.
 
-**Why did the check say "nothing checked"?** The screen had no piece that carries a library component id (for example a hand-drawn layer, or an empty frame). A layer name alone is only a label, so it is never enough for a pass.
+**Why did the check say "nothing checked"?** The screen (a *frame*, in Figma's words) had nothing Resolve could match to a library component by its real id, for example a hand-drawn shape or an empty screen. A layer name alone is only a label, so it never counts as a pass.
 
 **Where is my data?** In the store folder on your computer. Nothing is uploaded.
 
@@ -188,7 +188,7 @@ Everything below is reference detail: setup options, every command and flag, con
 
 ### Upgrading from the old names
 
-Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.graphify/`. Both still work: if the new `RESOLVE_HOME` / `.resolve/` exist they win, otherwise the old ones are read. Nothing is moved or deleted for you. To switch, rename the whole old folder to `.resolve/` (for example `mv .graphify .resolve`) and set `RESOLVE_HOME` if you used the old setting. Do not keep both folders. Resolve reads each file from the new folder first and falls back to the old folder for any file the new one does not have, so a stale old file (an old `code-map.json`, `synonyms.json` or even the old learned library) could keep applying.
+Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.graphify/`. Both still work: if the new `RESOLVE_HOME` / `.resolve/` exist they win, otherwise the old ones are read. Nothing is moved or deleted for you. To switch, rename the whole old folder to `.resolve/` (for example `mv .graphify .resolve`) and set `RESOLVE_HOME` if you used the old setting. Do not keep both folders. Resolve reads each file from the new folder first. For some files it falls back to the old folder when the new one does not have them: `code-map.json`, `synonyms.json`, `icon-libraries.json`, and the learned library itself. A stale old file of those kinds could keep applying. The other team files (`recipes.json`, `bind-rules.json`, `context-packs.json`, `library-rules.json`) are read only from the folder that holds the learned library, so once `.resolve` has one, the old copies are ignored.
 
 ### Setup in detail
 
