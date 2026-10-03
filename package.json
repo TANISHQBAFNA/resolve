@@ -16,7 +16,8 @@
     "rules",
     "skills/resolve",
     "README.md",
-    "AGENTS.md"
+    "AGENTS.md",
+    "INSTALL-FOR-AI.md"
   ],
   "scripts": {
     "dev": "vite",
