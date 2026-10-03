@@ -122,6 +122,54 @@ export function installClaude(current, block = CLAUDE_BLOCK) {
   return { action: text === current ? "unchanged" : "update", text };
 }
 
+/** The one server entry Resolve adds. Same command everywhere (Cursor, Claude Code, Codex). */
+export const MCP_ENTRY = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"] };
+
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function sameEntry(entry) {
+  return isPlainObject(entry) && entry.command === MCP_ENTRY.command && JSON.stringify(entry.args) === JSON.stringify(MCP_ENTRY.args);
+}
+
+/**
+ * Add the "resolve" server to a project MCP file (.cursor/mcp.json or .mcp.json).
+ * Keeps every other key and server. Never replaces a different "resolve" entry unless forced.
+ * Backs off (skip) when the file is not a JSON object we can safely edit.
+ * @returns {{ action: "create" | "update" | "unchanged" | "skip", text: string, note?: string }}
+ */
+export function installMcp(current, { claude = false, force = false } = {}) {
+  const entry = claude ? { type: "stdio", ...MCP_ENTRY, env: {} } : { ...MCP_ENTRY };
+  const blank = current == null || current.trim() === "";
+  let doc = {};
+  let indent = 2;
+  let ending = "\n";
+  if (!blank) {
+    const raw = current.replace(/^\uFEFF/, "");
+    try {
+      doc = JSON.parse(raw);
+    } catch {
+      return { action: "skip", text: current, note: " (left alone: it is not valid JSON, so Resolve did not touch it)" };
+    }
+    if (!isPlainObject(doc) || (doc.mcpServers !== undefined && !isPlainObject(doc.mcpServers))) {
+      return { action: "skip", text: current, note: " (left alone: it does not have the usual mcpServers shape)" };
+    }
+    indent = /^\t/m.test(raw) ? "\t" : (raw.match(/^( +)"/m)?.[1].length ?? 2);
+    ending = raw.includes("\r\n") ? "\r\n" : "\n";
+  }
+  const servers = doc.mcpServers ?? {};
+  if (servers.resolve !== undefined) {
+    if (sameEntry(servers.resolve)) return { action: "unchanged", text: current };
+    if (!force) {
+      return { action: "skip", text: current, note: " (left alone: it already has a different resolve entry; --force replaces only that entry)" };
+    }
+  }
+  const next = { ...doc, mcpServers: { ...servers, resolve: entry } };
+  const text = useEnding(`${JSON.stringify(next, null, indent)}\n`, ending);
+  return { action: blank ? "create" : "update", text };
+}
+
 export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, packageRoot: root = packageRoot }) {
   const base = isGlobal ? home : cwd;
   const claudePath = isGlobal ? join(home, ".claude", "CLAUDE.md") : join(cwd, "CLAUDE.md");
@@ -132,6 +180,15 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
   if (!isGlobal) {
     const rulePath = join(cwd, ".cursor", "rules", "resolve.mdc");
     planned.push({ path: rulePath, ...installOwned(readOrNull(rulePath), ruleSrc, force) });
+  }
+  // Project files only. User-level files (~/.claude.json, ~/.cursor, ~/.codex) are never written.
+  if (!isGlobal) {
+    const cursorMcp = join(cwd, ".cursor", "mcp.json");
+    const claudeMcp = join(cwd, ".mcp.json");
+    planned.push(
+      { path: cursorMcp, ...installMcp(readOrNull(cursorMcp), { force }) },
+      { path: claudeMcp, ...installMcp(readOrNull(claudeMcp), { claude: true, force }) },
+    );
   }
   const skillPath = join(base, ".claude", "skills", "resolve", "SKILL.md");
   planned.push(
@@ -152,8 +209,34 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
   return planned;
 }
 
+/** Read-only. Looks only at server names, urls and commands in ~/.claude.json. Never prints or returns its contents. */
+function claudeUserFigma(cwd, home) {
+  const file = join(home, ".claude.json");
+  try {
+    if (!existsSync(file) || statSync(file).size > 50_000_000) return false;
+    const doc = JSON.parse(readFileSync(file, "utf8"));
+    const hasFigma = (servers) =>
+      isPlainObject(servers) &&
+      Object.entries(servers).some(([name, server]) =>
+        /figma/i.test(name) || (isPlainObject(server) && /figma/i.test(JSON.stringify([server.url, server.command, server.args]))),
+      );
+    if (hasFigma(doc.mcpServers)) return true;
+    // Claude Code's "local" scope is stored per project folder.
+    for (let dir = cwd, hop = 0; hop < 12; hop += 1) {
+      if (hasFigma(doc.projects?.[dir]?.mcpServers)) return true;
+      const parent = dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  } catch {
+    // Unreadable or odd file is not a connection.
+  }
+  return false;
+}
+
 function figmaConnected(cwd, home) {
   if (process.env["FIGMA_ACCESS_TOKEN"]?.trim()) return true;
+  if (claudeUserFigma(cwd, home)) return true;
   const files = [join(cwd, ".cursor", "mcp.json"), join(home, ".cursor", "mcp.json"), join(cwd, ".mcp.json")];
   for (const file of files) {
     if (!existsSync(file)) continue;
@@ -215,7 +298,7 @@ function main() {
     else if (arg === "--yes" || arg === "-y") yes = true;
     else if (arg === "--help" || arg === "-h") {
       process.stdout.write(
-        "Usage: resolve-setup [--dry-run] [--global] [--yes] [--force]\nInstalls the Cursor rule, the Claude skill, and a marked CLAUDE.md block.\n--global writes into the home folder (~/.claude). It prints the paths and exits unless you pass --yes.\n--force replaces a file that has no Resolve markers.\n",
+        "Usage: resolve-setup [--dry-run] [--global] [--yes] [--force]\nInstalls the Cursor rule, the Claude skill, a marked CLAUDE.md block, and adds the Resolve server to this project's .cursor/mcp.json and .mcp.json (other servers are kept; a file that is not valid JSON is left alone).\n--global writes into the home folder (~/.claude). It prints the paths and exits unless you pass --yes. It does not write MCP files.\n--force replaces a file that has no Resolve markers, or a different resolve entry in an MCP file.\nIt never writes ~/.claude.json, ~/.cursor or ~/.codex.\n",
       );
       return;
     } else {
@@ -259,11 +342,13 @@ function main() {
   }
   let ruleSkipped = false;
   let claudeSkipped = false;
+  const mcpSkipped = [];
   for (const item of planned) {
     const note = item.note ?? (item.action === "skip" ? " (left existing file; no Resolve markers)" : "");
     process.stdout.write(`${item.action} ${item.path}${note}\n`);
     if (item.action === "skip" && item.path.endsWith(`${join(".cursor", "rules", "resolve.mdc")}`)) ruleSkipped = true;
     if (item.action === "skip" && item.path.endsWith(`${join("CLAUDE.md")}`)) claudeSkipped = true;
+    if (item.action === "skip" && item.path.endsWith("mcp.json")) mcpSkipped.push(item.path);
   }
   const skillInstalled = planned.some(
     (item) => item.path.endsWith(`${join("skills", "resolve", "SKILL.md")}`) && item.action !== "skip",
@@ -280,6 +365,9 @@ function main() {
     process.stdout.write(
       "The Cursor rule is NOT installed. An existing file has no Resolve markers. Re-run with --force to replace it.\n",
     );
+  }
+  for (const path of mcpSkipped) {
+    process.stdout.write(`The Resolve connection was NOT added to ${path}. Fix or move that file, then run resolve-setup again, or add the resolve entry by hand (see the README).\n`);
   }
   if (ruleSkipped || claudeSkipped) process.exit(1);
 }

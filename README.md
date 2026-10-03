@@ -43,56 +43,76 @@ Plan on about ten minutes. Each step ends with what you should see, so you can t
 2. **An AI tool**: Claude Code, Cursor or Codex.
 3. **Figma connected to that AI tool**, so the tool can read your design files. Step 2 shows how. Reading files for learning needs a **Dev or Full seat** in Figma. That is a paid seat type which allows AI tools to read your files. A View or free seat has a small read allowance; Resolve saves its progress and carries on in the next session.
 
-### Step 1. Add the rule file to your project (once per project)
+### Step 1. Set up your project (once per project)
 
-An AI tool forgets things between chats, so it needs a short written instruction that it reads every time: "for any Figma task, ask Resolve first." Different tools call this file different names. In Cursor it is a **Cursor rule**. In Claude it is a **Claude skill**, plus a small note in a file called `CLAUDE.md`. This one command writes all of them. Open a terminal in your project folder and run:
+An AI tool forgets things between chats, so it needs a short written instruction that it reads every time: "for any Figma task, ask Resolve first." Different tools call this file different names. In Cursor it is a **Cursor rule**. In Claude it is a **Claude skill**, plus a small note in a file called `CLAUDE.md`. The same command also adds the **project connection**: a small settings file that tells Cursor (`.cursor/mcp.json`) and Claude Code (`.mcp.json`) how to start Resolve. You do not have to create that file yourself. Open a terminal in your project folder and run:
 
 ```bash
 npx -y -p github:TANISHQBAFNA/resolve resolve-setup
 ```
 
 1. Paste the command and press Enter.
-2. **What you should see:** three lines starting with `create` (the Cursor rule, the Claude skill and `CLAUDE.md`), then a short checklist: `Node ok?`, `Figma connected?`, `Library learned?`, `Rule installed?`, and a last line starting `Next:` that tells you what to do next. At this point `Library learned?` says `no`, and that is fine. In Claude Code, `Figma connected?` may say `no` even when Figma is connected; see the note in Step 3.
-3. It is safe to run again; it only touches its own lines. To look first without changing anything, add `--dry-run` at the end.
+2. **What you should see:** five lines starting with `create` (the Cursor rule, `.cursor/mcp.json`, `.mcp.json`, the Claude skill and `CLAUDE.md`), then a short checklist: `Node ok?`, `Figma connected?`, `Library learned?`, `Rule installed?`, and a last line starting `Next:` that tells you what to do next. At this point `Library learned?` says `no`, and that is fine. `Figma connected?` says `no` until Figma is connected (Step 2).
+3. It is safe to run again; it only touches its own lines. If you already have a `.cursor/mcp.json` or `.mcp.json`, Resolve adds itself and keeps everything else in it. If such a file is not valid JSON, Resolve leaves it alone and tells you which file to fix. To look first without changing anything, add `--dry-run` at the end.
+4. If you only use one of the two tools, the other settings file is harmless; delete it if you like. Resolve never changes settings that live in your home folder (`~/.claude.json`, `~/.cursor`, `~/.codex`); the steps below that touch those are yours to run.
 
-### Step 2. Connect Resolve to your AI tool
+### Step 2. Connect Figma and check Resolve
 
-**MCP** (Model Context Protocol) is the plug that lets an AI tool talk to helper programs. Resolve is one such helper, and Figma has one too. "Connecting" simply means telling your tool how to start each helper. Pick the tool you use.
+**MCP** (Model Context Protocol) is the plug that lets an AI tool talk to helper programs. Resolve is one such helper, and Figma has one too. "Connecting" simply means telling your tool how to start each helper. Step 1 already did that for Resolve in this project. Pick the tool you use.
 
 #### Claude Code
 
-1. In your terminal, run these two commands (the first adds Resolve, the second adds Figma):
+1. Connect Figma (Claude Code keeps this one in your home folder, so Resolve does not write it for you). Run:
 
    ```bash
-   claude mcp add resolve -s user -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
    claude mcp add --transport http figma https://mcp.figma.com/mcp -s user
    ```
 
-   **What you should see:** `Added stdio MCP server resolve ... to user config`, then `Added HTTP MCP server figma ... to user config`.
-2. Run `claude mcp list`. **What you should see:** a line `resolve: ... ✔ Connected`, and a line `figma: ... ! Needs authentication`. The Figma line is expected for now; the next step logs you in.
-3. Start `claude`, type `/mcp`, choose **figma** and log in to Figma in the browser window that opens. **What you should see:** figma shows as connected.
+   **What you should see:** `Added HTTP MCP server figma ... to user config`.
+2. Run `claude mcp list` in your project. **What you should see:** `figma: ... ! Needs authentication` and `resolve: ... ⏸ Pending approval (run `claude` to approve)`. Claude Code asks you to approve a project's settings file the first time, and Figma needs a login. Both are expected.
+3. Start `claude`. Say yes when it asks about the project's `resolve` server. Then type `/mcp`, choose **figma** and log in to Figma in the browser window that opens. **What you should see:** both servers show as connected.
 
-Checked on a test machine with Claude Code 2.1: steps 1 and 2 gave the lines above. The Figma login (step 3) needs a Figma account and was not run.
+Or let the AI do it. In Claude Code, you can paste this into the chat: *"Add the Resolve MCP server to this project."* (If it asks for details: the command is `npx` with the arguments `-y -p github:TANISHQBAFNA/resolve resolve-mcp`.) Step 1 normally makes this unnecessary.
+
+Checked on a test machine with Claude Code 2.1: the `claude mcp add` line and `claude mcp list` gave the lines above. Not run: the approval question, the Figma login, and the "paste into the chat" route (it needs a live Claude session and a Figma account).
 
 #### Cursor
 
-1. In your project's top folder, make a folder called `.cursor` (the dot at the start is part of the name; Finder on Mac hides folders like this, and Cmd+Shift+. shows them). Inside it, create a file called `mcp.json` with this inside:
-
-   ```json
-   {
-     "mcpServers": {
-       "resolve": {
-         "command": "npx",
-         "args": ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
-       }
-     }
-   }
-   ```
-
+1. Step 1 already created `.cursor/mcp.json` with the `resolve` server. (The dot at the start of `.cursor` is part of the folder name. Finder on Mac hides such folders; Cmd+Shift+. shows them.)
 2. In Cursor, open **Settings → MCP**, add Figma there, and sign in to Figma.
 3. Reload the Cursor window. **What you should see:** `resolve` in the MCP list with a green dot, and the `resolve` rule from Step 1 under **Settings → Rules**.
 
-Checked on a test machine: Step 1 writes the Cursor rule (`.cursor/rules/resolve.mdc`, set to always apply), and the command in that file starts Resolve. **Not verified here:** the Cursor app itself (the screens in steps 2 and 3). More steps: [`docs/CURSOR-RESOLVE.md`](docs/CURSOR-RESOLVE.md).
+Or let the AI do it. If the file is missing or you would rather not look at it, paste this into Cursor's chat: *"Add the Resolve MCP server to this project."* (If it asks for details: the command is `npx` with the arguments `-y -p github:TANISHQBAFNA/resolve resolve-mcp`.)
+
+Checked on a test machine: Step 1 writes the Cursor rule (`.cursor/rules/resolve.mdc`, set to always apply) and `.cursor/mcp.json`, and the command in that file starts Resolve. **Not verified here:** the Cursor app itself (the screens in steps 2 and 3) and the "paste into the chat" route. More steps: [`docs/CURSOR-RESOLVE.md`](docs/CURSOR-RESOLVE.md).
+
+<details>
+<summary>If you prefer to do it by hand</summary>
+
+**Claude Code, all projects at once.** Instead of the project file, add Resolve to your home folder settings:
+
+```bash
+claude mcp add resolve -s user -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
+```
+
+**What you should see:** `Added stdio MCP server resolve ... to user config`, and later `resolve: ... ✔ Connected` in `claude mcp list`.
+
+**Cursor, one project.** Create a folder called `.cursor` in your project's top folder, and inside it a file called `mcp.json` with this inside:
+
+```json
+{
+  "mcpServers": {
+    "resolve": {
+      "command": "npx",
+      "args": ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
+    }
+  }
+}
+```
+
+If the file already has other servers, add only the `"resolve": { ... }` part next to them.
+
+</details>
 
 #### Codex
 
@@ -121,7 +141,7 @@ Using the Claude desktop app instead? See [Setup in detail](#setup-in-detail).
 
 1. In your AI tool's chat, write: "Learn my Figma design system from this link: (paste the Figma file link)".
 2. The tool reads the file through Figma and hands it to Resolve (behind the scenes it calls a Resolve tool named `learn_library`). Big libraries can take a few minutes. The exact words in the chat differ from tool to tool.
-3. **What you should see:** the tool says it has learned the library and roughly how many components it found. To double-check, run the Step 1 command again: `Library learned?` now says `yes`. The checklist cannot see a Claude Code Figma connection, so `Figma connected?` may still say `no`, and the last line may still say `Connect Figma`. Ignore that if `claude mcp list` shows figma as connected. (Checked on a test machine with the made-up Acme file and the Claude Code setup above: `Library learned?` went from `no` to `yes`, and `Figma connected?` stayed `no`. The Figma part of this step was not run, because it needs a Figma account.)
+3. **What you should see:** the tool says it has learned the library and roughly how many components it found. To double-check, run the Step 1 command again: `Library learned?` now says `yes`. If Figma is connected, `Figma connected?` says `yes` too and the last line reads `Next: Ask Resolve for the screen.` (The checklist looks in the Figma settings of Cursor and Claude Code. If you connected Figma another way, for example in the Claude desktop app, it may still say `no`; ignore that if your tool shows Figma as connected.) Checked on a test machine with the made-up Acme file and Figma added to Claude Code: `Library learned?` went from `no` to `yes`, and `Figma connected?` said `yes`. The Figma part of this step was not run, because it needs a Figma account.
 
 Upgrading from an older version of Resolve? Read [Upgrading from the old names](#upgrading-from-the-old-names) first.
 
@@ -194,7 +214,7 @@ Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.gra
 
 The plain steps for Claude Code, Cursor and Codex are near the top of this file. This section adds the options.
 
-**Rule files (`resolve-setup`).** It writes `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, and a marked block in `CLAUDE.md`. Run it again any time; it only changes its own block. `--dry-run` shows what it would do. `--global` writes to `~/.claude` instead (Claude only) and does nothing until you add `--yes`. `--force` replaces a file that has no Resolve markers.
+**Project files (`resolve-setup`).** It writes `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, a marked block in `CLAUDE.md`, and adds the `resolve` server (`npx -y -p github:TANISHQBAFNA/resolve resolve-mcp`) to `.cursor/mcp.json` and `.mcp.json`. Run it again any time; it only changes its own block and its own server entry. In the two JSON files it keeps every other key and server, keeps your indentation, and leaves the file alone (with a message) if it is not valid JSON or does not have the usual `mcpServers` object. A different existing `resolve` entry (for example one that points at a local build) is also left alone. `--dry-run` shows what it would do. `--global` writes to `~/.claude` instead (Claude only), writes no MCP file, and does nothing until you add `--yes`. `--force` replaces a file that has no Resolve markers, and replaces only the `resolve` entry in an MCP file. It never writes `~/.claude.json`, `~/.cursor` or `~/.codex`. It reads `~/.claude.json` read-only, only to see whether a Figma server is listed (for `Figma connected?`); it never prints that file.
 
 **Claude Desktop.** Add Figma under **Settings → Connectors**. Then open **Settings → Developer → Edit Config** and add Resolve:
 
@@ -582,7 +602,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 | Repo golden set (top-1) | 118/118, invent 0, leak 0 |
 | Phrase set (regression) | 96/96 |
 | 8-screen Material-like library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
-| Tests | 618 passing |
+| Tests | 627 passing |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
@@ -606,6 +626,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
+- **Oct 3, 2026 — [PR #PRNUM](https://github.com/TANISHQBAFNA/resolve/pull/PRNUM).** `resolve-setup` now adds the Resolve connection to the project's `.cursor/mcp.json` and `.mcp.json` by itself (keeps other servers, leaves invalid JSON alone), and `Figma connected?` also sees a Claude Code Figma server (read-only). README setup steps updated. 627 tests.
 - **Oct 3, 2026 — [PR #31](https://github.com/TANISHQBAFNA/resolve/pull/31).** README rewritten in plain language for designers: the problem, what Resolve does, numbered setup steps with "what you should see". Engineer detail moved under "For engineers and testers" and shortened. Docs only. 618 tests.
 - **Oct 3, 2026 — [PR #30](https://github.com/TANISHQBAFNA/resolve/pull/30).** `RESOLVE_HOME` is the name of the store setting and `.resolve/` the project folder; the old names still work as fallbacks and nothing is moved. README reorganised for designers (set-up for Claude, Cursor and Codex first). 618 tests.
 - **Oct 3, 2026 — [PR #28](https://github.com/TANISHQBAFNA/resolve/pull/28).** Map Figma components to team-owned code twins; retired parts stay mapped but are never recommended. 612 tests.
