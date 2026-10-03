@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "howToAdd": "Designers own this pack. To add or edit locally without touching agent code: copy this file to .graphify/recipes.json (it overlays the starter pack by id). Add an object to recipes[]. Reuse an id to replace a starter recipe. Leave defaultMasterId off unless that master already exists in the ingested graph — never invent a Figma node id. Unbound slots are filled by recommend from role + hints.",
+  "howToAdd": "Designers own this pack. To add or edit locally without touching agent code: copy this file to .resolve/recipes.json (it overlays the starter pack by id). Add an object to recipes[]. Reuse an id to replace a starter recipe. Leave defaultMasterId off unless that master already exists in the ingested graph — never invent a Figma node id. Unbound slots are filled by recommend from role + hints.",
   "recipes": [
     {
       "id": "checkout-summary",

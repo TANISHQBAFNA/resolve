@@ -32,8 +32,7 @@
     "prepare": "vite build --config vite.server.config.ts",
     "resolve": "node dist-server/cli.mjs",
     "mcp": "node dist-server/mcp.mjs",
-    "keyline": "node dist-server/cli.mjs",
-    "graphify": "node dist-server/cli.mjs"
+    "keyline": "node dist-server/cli.mjs"
   },
   "engines": {
     "node": "^22.12.0 || >=24.0.0"

@@ -1,5 +1,5 @@
 ---
-name: figma-graphify
+name: figma-resolve
 description: >-
   Query a Figma relationship graph for component instances, variants, blast
   radius, and screen structure. Use when a Figma URL is shared, before reading
@@ -9,12 +9,12 @@ description: >-
 
 # Resolve
 
-Ingest the **shared node**. Graph stays on disk (`.graphify/graph.json`).
+Ingest the **shared node**. Graph stays on disk (`.resolve/graph.json`).
 **Do not Read that file. Do not invent components.**
 
 Forced path: ingest (refresh if the library changed) → `recipe` if the screen job matches → `recommend` unbound slots → Figma on returned `figmaNodeId`s only → `verify_frame`.
 
-Prefer `npm run resolve` (product **Resolve**). `graphify` / `keyline` are aliases.
+Prefer `npm run resolve` (product **Resolve**). `keyline` is a deprecated alias.
 
 ## When a Figma link appears
 
@@ -34,7 +34,7 @@ npm run resolve -- ingest '<pasted-figma-url>'
 Do **not**:
 
 - Invent components, names, or node ids
-- Read `.graphify/graph.json` or dump REST JSON
+- Read `.resolve/graph.json` or dump REST JSON
 - Strip `?node-id=` and fetch the whole file
 - Map every screen unless the user asked for the whole file
 - Call `get_design_context` on a FRAME or SECTION until `recipe`/`recommend`/`resolve` returns an id

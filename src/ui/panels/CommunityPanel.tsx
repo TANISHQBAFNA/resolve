@@ -5,7 +5,7 @@ import { HealthChip } from "@/ui/overview/Stat";
 import { communityCohesion } from "@/ui/overview/health";
 
 /**
- * The communities list, in the spirit of Graphify's legend: each partition
+ * The communities list, in the spirit of a graph tool's legend: each partition
  * named after its highest-degree member, sized, coloured, and switchable.
  */
 export function CommunityPanel() {

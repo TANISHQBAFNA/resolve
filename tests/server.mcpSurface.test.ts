@@ -14,19 +14,19 @@ import type { DesignGraph } from "@/core/model";
 const XML = `<frame id="1:1" name="Home"><component id="9:9" name="Main Card" /></frame>`;
 
 describe("MCP default surface + SOCK loop", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
   const previousAdvanced = process.env["RESOLVE_MCP_ADVANCED"];
 
   beforeEach(() => {
-    process.env["GRAPHIFY_HOME"] = mkdtempSync(join(tmpdir(), "resolve-mcp-surf-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-mcp-surf-"));
     delete process.env["RESOLVE_MCP_ADVANCED"];
     clearCache();
   });
 
   afterEach(() => {
     clearCache();
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
     if (previousAdvanced === undefined) delete process.env["RESOLVE_MCP_ADVANCED"];
     else process.env["RESOLVE_MCP_ADVANCED"] = previousAdvanced;
   });

@@ -266,13 +266,13 @@ fold into and stays a node of its own — which is exactly the anomaly you want
 visible at this zoom.
 
 **Communities** (`core/query/communities.ts`). Louvain with a resolution
-parameter, plus Graphify's `--exclude-hubs` idea: a node touching everything
+parameter, plus an `--exclude-hubs` idea from other graph tools: a node touching everything
 drags unrelated clusters together, so the highest-degree nodes can be held out
 of the partitioning pass and assigned afterwards to whichever community they
 lean into. Communities are named after their highest-degree member, the same
-convention Graphify's legend uses, with no LLM involved.
+convention those tools' legends use, with no LLM involved.
 
-> Graphify uses Leiden, not Louvain. Leiden's refinement phase guarantees every
+> Some graph tools use Leiden, not Louvain. Leiden's refinement phase guarantees every
 > community is internally connected; Louvain can rarely violate that. On design
 > graphs, where communities are anchored by containment, it has not come up. If
 > it does, the fix is a refinement pass inside `communities.ts` and nothing

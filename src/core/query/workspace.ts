@@ -3,7 +3,7 @@ import { parseFigmaFileKey } from "@/core/ingestion/figmaFileKey";
 /**
  * One Resolve workspace = one shared design-system brain across several
  * Figma files (library + product / client). Designers edit JSON under
- * `.graphify/workspace.json`. Never dump graph.json to agents.
+ * `.resolve/workspace.json`. Never dump graph.json to agents.
  */
 
 export const WORKSPACE_FILE_ROLES = ["library", "product", "client"] as const;
@@ -105,7 +105,7 @@ export function assertIngestRoleChange(
   throw new Error(
     `File ${existing.key} is already ingested as ${existing.role}. ` +
       `This ingest would change it to ${role}, which would drop the ${existing.role} from cousins / recommend. ` +
-      `Re-run without --role to keep ${existing.role}, edit .graphify/workspace.json, or pass --force-role.`,
+      `Re-run without --role to keep ${existing.role}, edit .resolve/workspace.json, or pass --force-role.`,
   );
 }
 

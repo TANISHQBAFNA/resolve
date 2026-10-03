@@ -13,19 +13,19 @@ import { governanceView } from "@/server/governance";
 import { governanceMiddleware } from "@/server/governanceHttp";
 
 describe("/api/governance", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
   const previousOsHome = process.env["HOME"];
 
   beforeEach(() => {
-    process.env["GRAPHIFY_HOME"] = mkdtempSync(join(tmpdir(), "resolve-gov-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-gov-"));
     process.env["HOME"] = mkdtempSync(join(tmpdir(), "resolve-gov-home-"));
     clearCache();
   });
 
   afterEach(() => {
     clearCache();
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
     if (previousOsHome === undefined) delete process.env["HOME"];
     else process.env["HOME"] = previousOsHome;
   });
@@ -87,7 +87,7 @@ describe("/api/governance", () => {
 
   it("quarantines a bad require on disk and names it in warnings", () => {
     writeFileSync(
-      join(process.env["GRAPHIFY_HOME"]!, "bind-rules.json"),
+      join(process.env["RESOLVE_HOME"]!, "bind-rules.json"),
       `${JSON.stringify({
         version: 1,
         rules: [{ require: "node:gone" }, { forbid: "deprecated" }],

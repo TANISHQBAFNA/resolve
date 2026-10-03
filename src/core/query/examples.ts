@@ -34,7 +34,7 @@ export type ExampleReason =
   | "use the live replacement"
   | "no such component — call recommend";
 
-/** Generic filler only. Team strings live in `.graphify/placeholders.json`. */
+/** Generic filler only. Team strings live in `.resolve/placeholders.json`. */
 const LOREM_EXACT = new Set([
   "lorem",
   "lorem ipsum",

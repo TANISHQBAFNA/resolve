@@ -314,8 +314,8 @@ export function listRecipes(
   return {
     recipes: rows,
     hint: index
-      ? 'Slots bound/filled from live masters. Overlay .graphify/recipes.json still wins. Context packs (.graphify/context-packs.json) scope recommend. Unbound: recommend the nextRecommend query. After draw: verify_frame. Do not invent node ids. Do not Read graph.json.'
-      : 'Ingest a library, then list_recipes again to bind slots. Overlay .graphify/recipes.json still wins. Optional .graphify/context-packs.json scopes product + journey. Unbound: recommend. Do not invent node ids. Do not Read graph.json.',
+      ? 'Slots bound/filled from live masters. Overlay .resolve/recipes.json still wins. Context packs (.resolve/context-packs.json) scope recommend. Unbound: recommend the nextRecommend query. After draw: verify_frame. Do not invent node ids. Do not Read graph.json.'
+      : 'Ingest a library, then list_recipes again to bind slots. Overlay .resolve/recipes.json still wins. Optional .resolve/context-packs.json scopes product + journey. Unbound: recommend. Do not invent node ids. Do not Read graph.json.',
   };
 }
 

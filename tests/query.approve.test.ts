@@ -22,11 +22,11 @@ import { callTool, listToolDefinitions, ToolError } from "@/server/tools";
 import { graph, ids, index as demo } from "./fixture";
 
 describe("approve / reject proposal", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
   const previousAdvanced = process.env["RESOLVE_MCP_ADVANCED"];
 
   beforeEach(() => {
-    process.env["GRAPHIFY_HOME"] = mkdtempSync(join(tmpdir(), "resolve-approve-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-approve-"));
     delete process.env["RESOLVE_MCP_ADVANCED"];
     clearCache();
     saveGraph(graph);
@@ -34,8 +34,8 @@ describe("approve / reject proposal", () => {
 
   afterEach(() => {
     clearCache();
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
     if (previousAdvanced === undefined) delete process.env["RESOLVE_MCP_ADVANCED"];
     else process.env["RESOLVE_MCP_ADVANCED"] = previousAdvanced;
   });
@@ -76,12 +76,12 @@ describe("approve / reject proposal", () => {
 
     commitProposalDecision(decided);
     expect(readBindRules().rules).toHaveLength(1);
-    const auditPath = join(process.env["GRAPHIFY_HOME"]!, "bind-rules.audit.jsonl");
+    const auditPath = join(process.env["RESOLVE_HOME"]!, "bind-rules.audit.jsonl");
     expect(existsSync(auditPath)).toBe(true);
     const line = JSON.parse(readFileSync(auditPath, "utf8").trim()) as { who: string; proposalId: string };
     expect(line.who).toBe("tanishk");
     expect(line.proposalId).toBe(proposalId);
-    const onDisk = JSON.parse(readFileSync(join(process.env["GRAPHIFY_HOME"]!, "bind-rules.json"), "utf8")) as {
+    const onDisk = JSON.parse(readFileSync(join(process.env["RESOLVE_HOME"]!, "bind-rules.json"), "utf8")) as {
       rules: Array<Record<string, unknown>>;
     };
     expect(onDisk.rules[0]).toEqual({
@@ -308,7 +308,7 @@ describe("approve / reject proposal", () => {
 });
 
 function readSockStatus(proposalId: string): string | undefined {
-  const raw = JSON.parse(readFileSync(join(process.env["GRAPHIFY_HOME"]!, "sock.json"), "utf8")) as {
+  const raw = JSON.parse(readFileSync(join(process.env["RESOLVE_HOME"]!, "sock.json"), "utf8")) as {
     proposals: Array<{ id: string; status: string }>;
   };
   return raw.proposals.find((row) => row.id === proposalId)?.status;

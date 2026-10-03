@@ -38,14 +38,14 @@ function fixtureIndex() {
 describe("scoreboard", () => {
   const previousHome = process.env["HOME"];
   const previousWorkspace = process.env["RESOLVE_WORKSPACE"];
-  const previousGraphify = process.env["GRAPHIFY_HOME"];
+  const previousStore = process.env["RESOLVE_HOME"];
   let home: string;
 
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), "resolve-score-home-"));
     process.env["HOME"] = home;
     process.env["RESOLVE_WORKSPACE"] = "fixture";
-    delete process.env["GRAPHIFY_HOME"];
+    delete process.env["RESOLVE_HOME"];
     clearCache();
   });
 
@@ -55,8 +55,8 @@ describe("scoreboard", () => {
     else process.env["HOME"] = previousHome;
     if (previousWorkspace === undefined) delete process.env["RESOLVE_WORKSPACE"];
     else process.env["RESOLVE_WORKSPACE"] = previousWorkspace;
-    if (previousGraphify === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousGraphify;
+    if (previousStore === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousStore;
     process.exitCode = undefined;
   });
 
@@ -267,7 +267,7 @@ describe("scoreboard", () => {
     expect(() => scoreboardHistoryDir("foo/bar", { HOME: home })).toThrow(/not allowed/);
     expect(() => scoreboardWorkspaceName({ RESOLVE_WORKSPACE: ".." })).toThrow(/not allowed/);
     expect(scoreboardHistoryDir("fixture", { HOME: home })).toBe(join(home, ".resolve", "fixture", "scoreboard"));
-    expect(scoreboardHistoryDir("fixture", { HOME: home, GRAPHIFY_HOME: join(home, "pinned") })).toBe(
+    expect(scoreboardHistoryDir("fixture", { HOME: home, RESOLVE_HOME: join(home, "pinned") })).toBe(
       join(home, "pinned", "scoreboard"),
     );
   });
@@ -349,7 +349,7 @@ describe("scoreboard", () => {
 
   it("resolve score exits non-zero only for invent or a budget breach", async () => {
     const store = mkdtempSync(join(tmpdir(), "resolve-score-store-"));
-    process.env["GRAPHIFY_HOME"] = store;
+    process.env["RESOLVE_HOME"] = store;
     clearCache();
     await runCli([
       "ingest",

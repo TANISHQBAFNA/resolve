@@ -80,7 +80,7 @@ import {
 
 /**
  * Resolve CLI — ingest each linked file into the workspace
- * (`.graphify/workspace.json` + `.graphify/files/`).
+ * (`.resolve/workspace.json` + `.resolve/files/`).
  *
  * Agents call resolve / cousins (usage cards), then Figma. Do not Read graph.json.
  */
@@ -97,11 +97,11 @@ function usage(): void {
       "  resolve ingest <file.json | file.xml | figma-url | file-key> [--id <graphId>] [--file-key <key>] [--name <fileName>] [--from-metadata] [--scope node|screens|file] [--role library|product|client] [--force-role] [--label <name>]",
       "      Build a graph and add it to the workspace. JSON: REST body, MCP capture, or a graph.",
       "      --from-metadata: raw Figma MCP get_metadata XML (no REST token). Same as wrapping { metadataXml }.",
-      "      GRAPHIFY_HOME wins for the store folder; else nearest .graphify walking up from cwd. MCP and CLI must share it.",
+      "      RESOLVE_HOME wins for the store folder; else nearest .resolve walking up from cwd. MCP and CLI must share it.",
       "      Live Figma: pass the shared screen/frame/section URL (node-id in the link).",
       "      No node-id → each top-level FRAME/SECTION/COMPONENT/COMPONENT_SET, one request at a time.",
       "      --scope file is one request — safer on a low API tier. Section walks honor Retry-After and resume.",
-      "      Token from FIGMA_ACCESS_TOKEN (live URL only). Writes .graphify/files/<key>.json + workspace.json.",
+      "      Token from FIGMA_ACCESS_TOKEN (live URL only). Writes .resolve/files/<key>.json + workspace.json.",
       "      First file defaults to role library; later files default to product. Re-run to refresh.",
       "      Changing --role on a file already in the workspace is refused unless --force-role.",
       "      Agents call resolve / cousins — do not Read graph.json.",
@@ -110,9 +110,9 @@ function usage(): void {
       "      Same as MCP learn_library. Figma get_metadata XML. Pass design context so master default text is stored. No REST token. Resumable.",
       "",
       `  resolve recipe [list | "<name or intent>"] [--id] [--intent "<brief>"] ${PACK_BIND_FLAGS}`,
-      "      Screen packs. Overlay .graphify/recipes.json still wins.",
+      "      Screen packs. Overlay .resolve/recipes.json still wins.",
       "      After ingest, list/get bind slots to live masters (or next recommend query).",
-      "      Matching .graphify/context-packs.json scopes slot fills + nextRecommend.",
+      "      Matching .resolve/context-packs.json scopes slot fills + nextRecommend.",
       "      Never invents node ids. Unbound: recommend then verify_frame.",
       `  resolve recommend "<intent>" [--id] [--budget <chars>] ${PACK_BIND_FLAGS} [--screen-type <kind>]`,
       "      Ranked masters: name/intent first (exact, token, synonym). Context and usage break ties.",
@@ -134,10 +134,10 @@ function usage(): void {
       "      Before verify, fetch the frame's design context so Resolve can read the text. Pass that file as --design-context.",
       "      --texts fills empty layers in the frame only (JSON). It does not replace stored copy.",
       "      Component list: exact name or id only (fileKey:nodeId ok). Near match = unresolved + did you mean. Private (. / _) fails.",
-      "      Bind rules: .graphify/bind-rules.json (require / forbid / prefer). A miss names the rule and the correct master id.",
-      "      Optional .graphify/library-rules.json { allow, deny }. Else in-graph + not deprecated = approved.",
+      "      Bind rules: .resolve/bind-rules.json (require / forbid / prefer). A miss names the rule and the correct master id.",
+      "      Optional .resolve/library-rules.json { allow, deny }. Else in-graph + not deprecated = approved.",
       "      Same pack flags as recommend. Wrong-cousin drift: resolve cousins.",
-      "  resolve code-map [--json | --retired]   Report on .graphify/code-map.json: Figma component -> code component",
+      "  resolve code-map [--json | --retired]   Report on .resolve/code-map.json: Figma component -> code component",
       "      Counts mapped / retired / unmapped / ambiguous / conflict / stale / ignored. Keyed by file key + id; a name works only when unique.",
       "      status retired keeps a part mapped but never recommends it. --retired lists every retired part with its code and replacement. No map: one-line hint.",
       "  resolve rules                  List human-authored bind rules",
@@ -146,7 +146,7 @@ function usage(): void {
       "  resolve reject <proposal-id> --who <name>    Reject + audit line. SOCI never auto-applies.",
       `  resolve cousins ["<frame>"] [--file-key <key>] [--job "<screen job>"] [--components a,b] ${PACK_BIND_FLAGS}`,
       "      Wrong-cousin report: same role / weak name, different master family than the shared DS library.",
-      "      Needs a library-role file in .graphify/workspace.json. Unsure → says so. Never invents a master.",
+      "      Needs a library-role file in .resolve/workspace.json. Unsure → says so. Never invents a master.",
       "  resolve workspace              Linked files + store path / builtAt (same as MCP list_graphs.store)",
       "  resolve orient [--id <graphId>]     Optional god-node summary. Prefer recommend / resolve.",
       "  resolve query \"<question>\" [--id] [--budget <chars>]",
@@ -163,9 +163,9 @@ function usage(): void {
       "      Accuracy of recommend / resolve / recipe / verify against a golden set.",
       "      Expected masters are names, resolved to ids in the current graph. Never invents an id.",
       "      --init skips names that still have two populated masters and prints them.",
-      "      Default --out is GRAPHIFY_HOME/scoreboard/golden/from-library.json (the store folder), never the Resolve checkout.",
+      "      Default --out is RESOLVE_HOME/scoreboard/golden/from-library.json (the store folder), never the Resolve checkout.",
       "      Prints a short table. Exits non-zero when invent rate is above 0 or a card exceeds its budget.",
-      "      Saves the run to GRAPHIFY_HOME/scoreboard when set, else ~/.resolve/<workspace>/scoreboard.",
+      "      Saves the run to RESOLVE_HOME/scoreboard when set, else ~/.resolve/<workspace>/scoreboard.",
       "      Default golden path: scoreboard/golden. Default workspace name: default (or RESOLVE_WORKSPACE).",
       "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
       "",
@@ -609,7 +609,7 @@ export async function runCli(argv: string[]): Promise<void> {
       const workspace = readWorkspace();
       if (!workspace.files.length) {
         process.stdout.write(
-          "No workspace files yet. Ingest the shared DS with --role library, then product/client files. Or copy src/data/workspace.example.json to .graphify/workspace.json.\n",
+          "No workspace files yet. Ingest the shared DS with --role library, then product/client files. Or copy src/data/workspace.example.json to .resolve/workspace.json.\n",
         );
         return;
       }

@@ -27,7 +27,7 @@ graph model, the query layer or the UI.
 Parsing was already in `adaptFigmaRestFile`. Live fetch is
 `FigmaRestIngestionSource` / `fetchFigmaRestDocument`.
 
-**Agent path (preferred).** Ingest each linked Figma file into one workspace — not one giant `graph.json`. Shared design system: `--role library`. Product and client files next (`--role product` / `--role client`). That writes `.graphify/workspace.json` and `.graphify/files/<key>.json`. Optional `recipe` for a screen pack, then `recommend` unbound slots, then Figma on those `figmaNodeId`s (cards also stamp `fileKey`; ids collide across files), then `verify_frame`. When a library file and a product/client file are linked, `cousins` / `check_cousins` flags wrong-cousin drift. `workspace` lists linked files. Do not Read graph.json. Re-run ingest for a file to refresh.
+**Agent path (preferred).** Ingest each linked Figma file into one workspace — not one giant `graph.json`. Shared design system: `--role library`. Product and client files next (`--role product` / `--role client`). That writes `.resolve/workspace.json` and `.resolve/files/<key>.json`. Optional `recipe` for a screen pack, then `recommend` unbound slots, then Figma on those `figmaNodeId`s (cards also stamp `fileKey`; ids collide across files), then `verify_frame`. When a library file and a product/client file are linked, `cousins` / `check_cousins` flags wrong-cousin drift. `workspace` lists linked files. Do not Read graph.json. Re-run ingest for a file to refresh.
 
 Designer walkthrough: [GUIDE.md](GUIDE.md).
 
@@ -39,7 +39,7 @@ npm run resolve -- ingest 'https://www.figma.com/design/<productKey>/<name>?node
 npm run resolve -- workspace
 ```
 
-Roles are `library` | `product` | `client`. First ingest with no `--role` is the library; later files default to product. An unknown `--role` fails (no silent fallback). Or copy `src/data/workspace.example.json` to `.graphify/workspace.json` and ingest each row.
+Roles are `library` | `product` | `client`. First ingest with no `--role` is the library; later files default to product. An unknown `--role` fails (no silent fallback). Or copy `src/data/workspace.example.json` to `.resolve/workspace.json` and ingest each row.
 
 Paste the shared screen/frame/section URL. `node-id` is the ingest scope. No `node-id`: each top-level FRAME/SECTION/COMPONENT/COMPONENT_SET, one request at a time. `--scope file` is one request — safer on a low API tier. Section walks honor `Retry-After` (bounded) and checkpoint completed sections so a re-run resumes. Changing `--role` on a file already in the workspace is refused unless `--force-role`.
 
@@ -54,7 +54,7 @@ browser can call REST at all.
 outlines with `?depth=2`, then fetches each top-level FRAME/SECTION/COMPONENT/
 COMPONENT_SET. Empty outline falls back to one `GET /v1/files/:key`. Prefer
 `--scope file` on a low API tier. 429 responses honor `Retry-After`; completed
-sections stay on disk under `.graphify/ingest/` so the next run resumes.
+sections stay on disk under `.resolve/ingest/` so the next run resumes.
 
 **Thumbnails.** `GET /v1/images/:key?ids=a,b,c&format=png&scale=1` in batches;
 write the URLs onto `GraphNode.thumbnailUrl`. Rate-limited — do it lazily for
@@ -143,7 +143,7 @@ npm run resolve -- ingest screen.xml --from-metadata --file-key KEY --name "Libr
 
 No REST token. JSON captures with a `metadataXml` field still work the same way. The adapter is `adaptFigmaMcpMetadata({ fileKey, fileName, metadataXml, variableDefs })`. `CapturedMcpIngestionSource` wraps a stored capture so the same path runs in tests and in the browser.
 
-MCP and CLI must read the same store. `GRAPHIFY_HOME` wins. Else Resolve walks up from the process working directory (then `INIT_CWD`) looking for `.graphify/graph.json` or `workspace.json`. After a CLI ingest, the next MCP call reloads from disk — no server restart. If a tool says “No graph stored,” the message includes the exact path it looked in. `list_graphs` and `get_health` include `store.path` and `store.builtAt`.
+MCP and CLI must read the same store. `RESOLVE_HOME` wins. Else Resolve walks up from the process working directory (then `INIT_CWD`) looking for `.resolve/graph.json` or `workspace.json`. After a CLI ingest, the next MCP call reloads from disk — no server restart. If a tool says “No graph stored,” the message includes the exact path it looked in. `list_graphs` and `get_health` include `store.path` and `store.builtAt`.
 
 ### What MCP metadata cannot tell you
 
@@ -166,13 +166,13 @@ traverse it instead of re-reading the file. Each tool is a thin wrapper over
 
 | Tool | Implementation |
 |---|---|
-| `list_recipes()` | starter pack + `.graphify/recipes.json` overlay |
+| `list_recipes()` | starter pack + `.resolve/recipes.json` overlay |
 | `recipe(query)` / `get_recipe` | `recipeCard` — slots with `fileKey` + `figmaNodeId`, unbound → recommend query |
 | `recommend(intent)` | `recommendMasters(index, intent)` — ranked library masters, deprecated demoted. Prefers library-role files when the workspace has one. `ex` points at a real instance. |
 | `get_example(name)` | Full config for that instance: screen, variant, structure, sizing. |
 | `resolve(name)` | `componentUsageCard(index, name)` — usage card when the name is known |
 | `verify_frame(frame\|components)` | `verifyFrame(index, …)` — invents / deprecated / unresolved. Cards stamp `fileKey` + `figmaNodeId` when known. |
-| `check_cousins(frame\|job)` | `checkCousins` — wrong-cousin report. Needs a library-role file in `.graphify/workspace.json`. |
+| `check_cousins(frame\|job)` | `checkCousins` — wrong-cousin report. Needs a library-role file in `.resolve/workspace.json`. |
 | `list_graphs()` | Linked workspace files (`library` / `product` / `client`) |
 | `check_frame(intent)` | `checkFrame(index, intent)` — analog variant on similar screens |
 | `find_nodes(query)` | `searchNodes(index, query)` — the same query language as the UI |

@@ -4,7 +4,7 @@ import type { GraphIndex } from "./GraphIndex";
 /**
  * Community detection over the design graph.
  *
- * Graphify uses Leiden; this is Louvain with a resolution parameter. Louvain
+ * Some graph tools use Leiden; this is Louvain with a resolution parameter. Louvain
  * can in rare cases leave a community internally disconnected — Leiden's
  * refinement phase is what fixes that. For a design graph, where communities
  * are almost always anchored by containment, the difference has not shown up,
@@ -33,7 +33,7 @@ export interface CommunityOptions {
 
 export interface Community {
   id: number;
-  /** Name of the highest-degree member — the same convention Graphify shows. */
+  /** Name of the highest-degree member — the same convention graph-tool legends use. */
   name: string;
   hubId: string;
   nodeIds: string[];

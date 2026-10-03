@@ -114,7 +114,7 @@ Plugin installs read the server from `.claude-plugin/plugin.json`. If you write 
 }
 ```
 
-Same store for CLI and MCP: `~/.resolve/default` (or `RESOLVE_WORKSPACE=acme` → `~/.resolve/acme`). Pin a folder with `GRAPHIFY_HOME`. After a learn, the next MCP call sees it — no restart.
+Same store for CLI and MCP: `~/.resolve/default` (or `RESOLVE_WORKSPACE=acme` → `~/.resolve/acme`). Pin a folder with `RESOLVE_HOME`. After a learn, the next MCP call sees it — no restart.
 
 ## How the agent learns (two paths)
 
@@ -128,7 +128,7 @@ Same store for CLI and MCP: `~/.resolve/default` (or `RESOLVE_WORKSPACE=acme` �
 
 **Big libraries.** Do not dump the whole file. Call `learn_library` on a few frames, stop, come back later. The card says `learned X of Y pages; next: …`. Checkpoints survive across sessions. A view/free seat with a low quota uses the same resume path. When a file is stale, `freshness.delta` lists the exact pages/frames to re-fetch.
 
-Then: `recipe` (`query` or `intent`) / `recommend` → `get_example` (`ex` is on the top pick; call `get_example` for the others) → clone that instance and replace content; do not start from the default variant → place only returned `fileKey` + `nodeId` (and `componentKey` when published) with Figma `use_figma` → before verify, fetch the frame's design context so Resolve can read the text → `verify_frame` with that `designContext`. A real master id in `components` is checked as that master (an empty same-name stub in another file does not replace it). Pass the same kind of design context to `learn_library` so the component default is stored. `get_metadata` does not carry text characters. `textChecked` is true only when the instance text and that default were both read; otherwise the card says `partial`, `false`, or `n/a`. `texts` only fills empty layers inside the frame. A pass writes usage into SOCK. The same populated shape on 3 verified screens becomes the preferred example. Rules never change themselves. Team template strings go in `.graphify/placeholders.json`. Same store for CLI and MCP: `GRAPHIFY_HOME` also holds scoreboard history.
+Then: `recipe` (`query` or `intent`) / `recommend` → `get_example` (`ex` is on the top pick; call `get_example` for the others) → clone that instance and replace content; do not start from the default variant → place only returned `fileKey` + `nodeId` (and `componentKey` when published) with Figma `use_figma` → before verify, fetch the frame's design context so Resolve can read the text → `verify_frame` with that `designContext`. A real master id in `components` is checked as that master (an empty same-name stub in another file does not replace it). Pass the same kind of design context to `learn_library` so the component default is stored. `get_metadata` does not carry text characters. `textChecked` is true only when the instance text and that default were both read; otherwise the card says `partial`, `false`, or `n/a`. `texts` only fills empty layers inside the frame. A pass writes usage into SOCK. The same populated shape on 3 verified screens becomes the preferred example. Rules never change themselves. Team template strings go in `.resolve/placeholders.json`. Same store for CLI and MCP: `RESOLVE_HOME` also holds scoreboard history.
 
 ## What Resolve will not do
 

@@ -6,31 +6,83 @@
 
 Every example in this file is made up. "Acme" is a pretend company, the "Payments app" is a pretend product, and the components (Button, Text field, Payee picker) are pretend. None of it comes from a real design system.
 
-## Contents
+## What Resolve does
 
-1. [Words used here](#words-used-here)
-2. [What Resolve is, and what it is not](#what-resolve-is-and-what-it-is-not)
-3. [The problem it solves](#the-problem-it-solves)
-4. [How it works, step by step](#how-it-works-step-by-step)
-5. [Quick start](#quick-start)
-6. [Every command](#every-command)
-7. [Team config files](#team-config-files)
-8. [Retired and old components](#retired-and-old-components)
-9. [Accuracy and honesty rules](#accuracy-and-honesty-rules)
-10. [Limits: what is not tested yet](#limits-what-is-not-tested-yet)
-11. [Version history](#version-history)
-12. [FAQ](#faq)
-13. [For developers](#for-developers)
+Resolve sits between your AI tool (Claude, Cursor or Codex) and your Figma design system. Before the AI draws a screen, Resolve tells it which real component to use (for example "the Payee picker, here is its id"), so it stops drawing buttons from scratch or inventing parts that do not exist. After the AI draws, Resolve checks the screen and says pass or fail, for example "fail: this screen uses the retired Old Button, use Button". You do not open Resolve in Figma and you do not click anything in it. Your AI tool talks to it for you.
 
----
+## Set it up in 5 minutes
+
+You need Node 22.12 or newer (check with `node -v`) and the AI tool you use. It works best when that tool is also connected to Figma, because the tool then reads your library and teaches Resolve.
+
+**Step 1: add the rule (once per project).** This tells the AI tool to call Resolve before design tasks. Run it in your project folder:
+
+```bash
+npx -y -p github:TANISHQBAFNA/resolve resolve-setup
+```
+
+It writes a Cursor rule, a Claude skill and a short block in `CLAUDE.md`. It is safe to run again. Add `--dry-run` to see what it would do first. Setup ends with a short status: Node, Figma, library learned, rule installed, and the next step.
+
+**Step 2: connect Resolve to your tool.** Pick one.
+
+**Claude (Claude Code).** Checked: the `claude mcp add` command below was run with Claude Code 2.1 and wrote the expected entry.
+
+```bash
+claude mcp add resolve -s user -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
+claude mcp add --transport http figma https://mcp.figma.com/mcp -s user
+```
+
+Then type `/mcp` in Claude Code and log in to Figma. Claude Desktop uses a settings file instead; the steps are in [Setup in detail](#setup-in-detail).
+
+**Cursor.** Checked: `resolve-setup` writes the Cursor rule (`.cursor/rules/resolve.mdc`) and the `resolve-mcp` command starts the server. Not checked here: opening Cursor itself. In your project, create `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "resolve": {
+      "command": "npx",
+      "args": ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
+    }
+  }
+}
+```
+
+Then connect Figma in Cursor's MCP settings, and reload the window. More steps: [`docs/CURSOR-RESOLVE.md`](docs/CURSOR-RESOLVE.md).
+
+**Codex.** Not verified here (Codex is not installed on the machine used to test this README). This follows OpenAI's Codex documentation, which says MCP servers are set with `codex mcp add` or in `~/.codex/config.toml`:
+
+```bash
+codex mcp add resolve -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
+```
+
+or in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.resolve]
+command = "npx"
+args = ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
+```
+
+Type `/mcp` in Codex to see the server. `resolve-setup` does not write anything for Codex. Codex reads `AGENTS.md`, so copy the short section in [`docs/AGENTS-RESOLVE-SECTION.md`](docs/AGENTS-RESOLVE-SECTION.md) into your project's `AGENTS.md`.
+
+**Step 3: teach it your library.** Ask your AI tool: "Learn my Figma design system from this link: (paste the Figma file link)". It calls `learn_library`. This needs a Figma seat with MCP access (Dev or Full). Resolve keeps what it learned in a folder on your computer (see [Words used here](#words-used-here)).
+
+Upgrading from an older version? See [Upgrading from the old names](#upgrading-from-the-old-names).
+
+## Two asks to try
+
+These use the made-up Acme library (see [Every command](#every-command) to load it yourself). Type them to your AI tool.
+
+1. **"Which component should I use for a payee picker on the Send money screen?"** Resolve answers with the Acme "Payee picker": its file key, its node id, and a real example to copy. If the team filed a code map, it also says the code component, `PayeePicker from '@acme/payments'`. The tool places that component instead of drawing one.
+2. **"Check the Send money screen."** Resolve answers `pass: false`. The screen uses the retired "Old Button". The answer says what to use instead and what the code is: `retired Old Button -> use Button (code: OldButton from '@acme/ui-legacy')`.
+
+The exact answers for both are shown under [recommend](#recommend) and [verify](#verify).
 
 ## Words used here
-
 - **Library:** the Figma file that holds your design system's components.
 - **Master:** one real component in the library (for example "Button"). A button you drew on a screen is an *instance* of a master. A master that has variants (Primary, Secondary) is called a *set*.
 - **Node id:** the number Figma gives every layer, such as `30:10`. A master is found by its **file key** (the id in the Figma URL) plus its node id.
 - **MCP:** the standard way an AI tool talks to helper programs. Resolve is an MCP server. You do not need to know more than that.
-- **Store:** the folder on your computer where Resolve keeps what it learned (and your team's config files). `resolve where` prints it.
+- **Store:** the folder on your computer where Resolve keeps what it learned (and your team's config files). `resolve where` prints it. You can pin it with the `RESOLVE_HOME` setting (see [Setup in detail](#setup-in-detail)).
 - **Ingest** (or **learn**): read a Figma file into the store.
 - **Retired:** a component the team no longer wants on new screens. Old screens may still use it. See [Retired and old components](#retired-and-old-components).
 - **Code twin:** the code component that matches a Figma master, for example `Button from '@acme/ui'`. The team says which; Resolve never guesses.
@@ -43,7 +95,29 @@ Every example in this file is made up. "Acme" is a pretend company, the "Payment
 
 ---
 
-## What Resolve is, and what it is not
+## For engineers and testers
+
+Everything below is detail: how it works, every command and option, config files, rules, limits, accuracy tables and version history.
+
+- [Upgrading from the old names](#upgrading-from-the-old-names)
+- [What Resolve is, and what it is not](#what-resolve-is-and-what-it-is-not)
+- [The problem it solves](#the-problem-it-solves)
+- [How it works, step by step](#how-it-works-step-by-step)
+- [Setup in detail](#setup-in-detail)
+- [Every command](#every-command)
+- [Team config files](#team-config-files)
+- [Retired and old components](#retired-and-old-components)
+- [Accuracy and honesty rules](#accuracy-and-honesty-rules)
+- [Limits: what is not tested yet](#limits-what-is-not-tested-yet)
+- [Version history](#version-history)
+- [FAQ](#faq)
+- [For developers](#for-developers)
+
+### Upgrading from the old names
+
+Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.graphify/`. Both still work: if the new `RESOLVE_HOME` / `.resolve/` exist they win, otherwise the old ones are read. Nothing is moved or deleted for you; to switch, rename the folder to `.resolve/` and set `RESOLVE_HOME`.
+
+### What Resolve is, and what it is not
 
 **Resolve is a lookup service for AI coding and design tools.** You teach it your Figma design system once. After that, an AI tool (Cursor, Claude Code, Claude Desktop) can ask it questions such as "which component is the payee picker?" and get back the real component: its Figma file key, its node id, and (if your team says so) the code component that matches it.
 
@@ -55,7 +129,7 @@ Every example in this file is made up. "Acme" is a pretend company, the "Payment
 
 **Resolve does not change your rules on its own.** Rules, synonyms and code maps are files your team owns. Resolve reads them. It suggests changes (see `soci`), and a person has to approve each one.
 
-## The problem it solves
+### The problem it solves
 
 An AI tool that builds a screen in Figma often does one of three bad things:
 
@@ -67,7 +141,7 @@ The result looks fine at a glance but is not built from your design system, so i
 
 Resolve fixes this by giving the AI tool a short, exact answer before it draws, and a pass/fail check after it draws. Answers are small on purpose (about 600 characters for `recommend` and for a `verify` that found a problem) so they fit easily in the AI tool's working memory.
 
-## How it works, step by step
+### How it works, step by step
 
 Example: the Acme team wants a "Send money" screen in the Payments app.
 
@@ -77,7 +151,7 @@ Example: the Acme team wants a "Send money" screen in the Payments app.
 4. **Check.** The AI tool runs `verify` on the new frame. Resolve checks that every placed piece is a real library component (by component id, not just by layer name), that none is retired, and that no template text is left over. It answers pass or fail.
 5. **Learn from use (optional).** SOCI (the learning part, see [Words used here](#words-used-here)) notices when a pattern appears on three screens that passed the check and can suggest a rule or recipe. A person approves or rejects it.
 
-## Quick start
+### Setup in detail
 
 You need Node 22.12 or newer (`node -v`) and the AI tool you use. Resolve works best when the Figma connection is on in that tool, because the tool then has the library to teach Resolve.
 
@@ -128,18 +202,18 @@ npm run resolve -- ingest 'https://www.figma.com/design/ACMEUI/Acme-UI' --role l
 
 The first file you ingest is the library by default. Later files default to `product`. Full details: [`docs/SETUP-MCP.md`](docs/SETUP-MCP.md).
 
-**Where the data lives.** In a store folder: `GRAPHIFY_HOME` if you set it, otherwise the nearest `.graphify/` folder going up from where you run. The AI tool's MCP server and your command line must use the same folder. `resolve where` prints it.
+**Where the data lives.** In a store folder: `RESOLVE_HOME` if you set it, otherwise the nearest `.resolve/` folder going up from where you run. (`RESOLVE_HOME` is the current name; for older setups see [Upgrading from the old names](#upgrading-from-the-old-names).) The AI tool's MCP server and your command line must use the same folder. `resolve where` prints it.
 
-## Every command
+### Every command
 
 In a checkout of this repo, run commands as `npm run resolve -- <command>`. The installed package exposes the same command line as `resolve-figma`. The examples use a pretend Acme library with a "Button" set, a "Text field" set, "Payee picker", "Avatar", "Payment method row", and a retired "Old Button", plus screens such as "Send money". To follow along, use the made-up library in this repo, [`docs/examples/acme-ui.json`](docs/examples/acme-ui.json). Its "Send money" screen (a frame) holds one Payee picker, one Button and one Old Button, which is retired (its description says `status: deprecated` and `replacedBy: Button`):
 
 ```bash
-export GRAPHIFY_HOME=$(mktemp -d)        # a throwaway store
+export RESOLVE_HOME=$(mktemp -d)        # a throwaway store
 npm run resolve -- ingest docs/examples/acme-ui.json --role library --file-key ACMEUI --name "Acme UI"
 ```
 
-Then put the code map shown in [`code-map.json`](#graphifycode-mapjson--figma-to-code-twins) below into `$GRAPHIFY_HOME/code-map.json`. The code map and output shown are real output from that made-up library (a few long fields are cut, and it says so).
+Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-code-twins) below into `$RESOLVE_HOME/code-map.json`. The code map and output shown are real output from that made-up library (a few long fields are cut, and it says so).
 
 | Command | What it does |
 | --- | --- |
@@ -160,7 +234,7 @@ Then put the code map shown in [`code-map.json`](#graphifycode-mapjson--figma-to
 | `list`, `reindex`, `rm --yes`, `where` | Look after the store. |
 | `score` | Accuracy check against a golden set. |
 
-### ingest
+#### ingest
 
 ```bash
 npm run resolve -- ingest acme-ui.json --role library --file-key ACMEUI --name "Acme UI"
@@ -168,7 +242,7 @@ npm run resolve -- ingest acme-ui.json --role library --file-key ACMEUI --name "
 
 Takes a REST JSON body, an MCP capture, a graph, raw `get_metadata` XML, a Figma URL, or a file key. XML needs `--from-metadata` **and** `--file-key` (the id in the Figma URL): `npm run resolve -- ingest acme-ui.xml --from-metadata --file-key ACMEUI --name "Acme UI" --role library`. A URL with a `node-id` reads just that node. `--scope file` reads the whole file in one request (safer on a low Figma tier). Changing the `--role` of a file already in the workspace is refused unless you add `--force-role`. Roles: `library`, `product`, `client`.
 
-### learn
+#### learn
 
 ```bash
 npm run resolve -- learn --file-key ACMEUI --from-metadata acme-ui.xml --design-context acme-ui-context.txt
@@ -176,16 +250,16 @@ npm run resolve -- learn --file-key ACMEUI --from-metadata acme-ui.xml --design-
 
 Same as `learn_library` in the MCP server. Pass the design context too, so each component's default text is stored (this lets `verify` spot leftover template text).
 
-### recipe
+#### recipe
 
 ```bash
 npm run resolve -- recipe list
 npm run resolve -- recipe "checkout summary"
 ```
 
-A recipe is a list of slots (header, line list, primary action, input). Each slot is filled with a real component from your library, or is marked `unbound` or `missing`, with the next `recommend` to run. It never invents an id. Your own recipes go in `.graphify/recipes.json` and win over the built-in ones. See [`docs/RECIPES.md`](docs/RECIPES.md).
+A recipe is a list of slots (header, line list, primary action, input). Each slot is filled with a real component from your library, or is marked `unbound` or `missing`, with the next `recommend` to run. It never invents an id. Your own recipes go in `.resolve/recipes.json` and win over the built-in ones. See [`docs/RECIPES.md`](docs/RECIPES.md).
 
-### recommend
+#### recommend
 
 ```bash
 npm run resolve -- recommend "payee picker"
@@ -226,7 +300,7 @@ npm run resolve -- recommend "payee picker"
 
 The name or words in the ask come first (exact name, word match, synonym). Screen and usage only break ties. The card is at most 600 characters (the `cost.chars` figure is the card without the `cost` field itself). The `code` line appears only when your team filed a code map, the top pick is mapped, it is a good match and not retired, and the line fits in 600 characters without dropping a candidate; otherwise it is left out without a message. Nothing matches? You get an empty list and "No master matched. Do not invent." (When a code map exists and the only match is retired, the hint says `Only match is retired: <Name>. Use <replacement or none>.` instead.) A loose match carries "Weak match." and up to three parts instead of one confident guess. Options: `--budget <chars>`, `--pack`, `--product`, `--journey`, `--domain`, `--screen-type`.
 
-### example
+#### example
 
 ```bash
 npm run resolve -- example "Payee picker"
@@ -234,7 +308,7 @@ npm run resolve -- example "Payee picker"
 
 Returns the real instance (file key, node id, screen, variant, size) so the AI tool can clone it and replace the content, instead of starting from the bare default. If no real example is known, it says so.
 
-### resolve
+#### resolve
 
 ```bash
 npm run resolve -- resolve "Text field"
@@ -242,7 +316,7 @@ npm run resolve -- resolve "Text field"
 
 Use this when you already know the name. An exact master always comes back with `id`, `fileKey` and `figmaNodeId`, even if it is used nowhere. Retired names come back flagged `deprecated: true` with the live replacement. Private parts (names starting with `_` or `.`) come back only on an exact name. A miss says so and points at `recommend`. If a code map covers a current part, its `code` line is added when it fits.
 
-### verify
+#### verify
 
 ```bash
 npm run resolve -- verify "Send money"
@@ -294,7 +368,7 @@ A retired part is never left out of the answer. If the card is crowded, Resolve 
 
 Pass `--design-context <file>` (Figma `get_design_context` for the frame) so Resolve can read real text, and `--texts '<json>'` (the JSON itself, for example `'{"1:3":"Pay now"}'`, not a file name) to fill empty layers.
 
-### code-map
+#### code-map
 
 ```bash
 npm run resolve -- code-map
@@ -307,9 +381,9 @@ Unmapped: Text field [ACMEUI 30:20]; Avatar [ACMEUI 30:40]; Payment method row [
 Retired: Old Button [ACMEUI 30:50] -> use Button (code: OldButton from '@acme/ui-legacy')
 ```
 
-`--retired` prints every retired part with its code and replacement, one per line (`Retired: 1`, then `Old Button [ACMEUI 30:50] -> use Button (code: OldButton from '@acme/ui-legacy')`). `--json` prints the same data with the same keys whether or not there is a map (`configured` is `true` or `false`; the lists are `unmapped`, `ambiguous`, `conflicts`, `retired`, `stale`, `replacements`, `ignored`). A part with a bad `replacedBy` is listed under `Bad replacedBy` / `replacements`. Details are in [`code-map.json`](#graphifycode-mapjson--figma-to-code-twins) below. With no map, it prints `No code map. Add .graphify/code-map.json next to synonyms.json.`
+`--retired` prints every retired part with its code and replacement, one per line (`Retired: 1`, then `Old Button [ACMEUI 30:50] -> use Button (code: OldButton from '@acme/ui-legacy')`). `--json` prints the same data with the same keys whether or not there is a map (`configured` is `true` or `false`; the lists are `unmapped`, `ambiguous`, `conflicts`, `retired`, `stale`, `replacements`, `ignored`). A part with a bad `replacedBy` is listed under `Bad replacedBy` / `replacements`. Details are in [`code-map.json`](#resolvecode-mapjson--figma-to-code-twins) below. With no map, it prints `No code map. Add .resolve/code-map.json next to synonyms.json.`
 
-### rules, soci, approve, reject
+#### rules, soci, approve, reject
 
 ```bash
 npm run resolve -- rules
@@ -320,7 +394,7 @@ npm run resolve -- reject <proposal-id> --who "Priya"
 
 `rules` lists human-written bind rules (must use / must not use / prefer; see [`docs/BIND-RULES.md`](docs/BIND-RULES.md)). `soci` lists suggestions made from real use. Nothing is ever applied automatically. `approve` and `reject` record who decided (see [`docs/SOCI.md`](docs/SOCI.md)).
 
-### cousins
+#### cousins
 
 ```bash
 npm run resolve -- cousins "Send money"
@@ -329,7 +403,7 @@ npm run resolve -- cousins --components Button,Avatar
 
 A "cousin" is a product file's own copy of a library part, such as a hand-built "Price" next to the library's "Price". Needs a frame name or `--components a,b` (with neither it prints a usage line and exits with an error), and a library-role file in the workspace. When unsure it says so.
 
-### workspace, where, list, reindex, rm
+#### workspace, where, list, reindex, rm
 
 ```bash
 npm run resolve -- workspace    # linked files and store path
@@ -339,7 +413,7 @@ npm run resolve -- reindex      # checks graph.json loads
 npm run resolve -- rm --yes     # deletes the learned graph (asks you to confirm first)
 ```
 
-### orient, query, path, explain, check
+#### orient, query, path, explain, check
 
 ```bash
 npm run resolve -- orient
@@ -351,25 +425,25 @@ npm run resolve -- check "button"
 
 Optional. They look around the stored graph: a summary, a small related set, the shortest relationship between two things, a short brief on one node, and a variant to use plus retired ones to avoid. Agents should prefer `recommend` and `resolve`.
 
-### score
+#### score
 
 ```bash
-export GRAPHIFY_HOME=$(mktemp -d)        # a scratch store, so your real one is untouched
+export RESOLVE_HOME=$(mktemp -d)        # a scratch store, so your real one is untouched
 npm run resolve -- ingest scoreboard/fixture/library.json --role library --name "Scoreboard fixture"
 npm run resolve -- score --golden scoreboard/golden --workspace fixture
 ```
 
-Runs a set of asks with known right answers through `recommend`, `resolve`, `recipe` and `verify` and prints a table. It scores the library that is in the store, so ingest the sample library first (as above); on an empty store, or on a library without the parts the set asks for, it stops with an error. `--workspace <name>` is only the name the run is saved under (`GRAPHIFY_HOME/scoreboard`). It exits non-zero if anything was invented or a card is over its size. `npm run resolve -- score --init` writes a starter set from the library you already learned. See [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
+Runs a set of asks with known right answers through `recommend`, `resolve`, `recipe` and `verify` and prints a table. It scores the library that is in the store, so ingest the sample library first (as above); on an empty store, or on a library without the parts the set asks for, it stops with an error. `--workspace <name>` is only the name the run is saved under (`RESOLVE_HOME/scoreboard`). It exits non-zero if anything was invented or a card is over its size. `npm run resolve -- score --init` writes a starter set from the library you already learned. See [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
-### The seven MCP tools
+#### The seven MCP tools
 
 The same abilities are offered to AI tools as seven MCP tools: `learn_library`, `recommend`, `check_cousins`, `resolve`, `get_example`, `verify_frame` and `recipe`. They return the same cards as the command line.
 
-## Team config files
+### Team config files
 
-Each team keeps its own files in its store folder (`GRAPHIFY_HOME`, or the nearest `.graphify/`). Missing files mean "use the defaults". Files are read on every ask, so an edit applies on the next ask with no rebuild. Never put your company or design-system name in this repository; keep it in your own store.
+Each team keeps its own files in its store folder (`RESOLVE_HOME`, or the nearest `.resolve/`). Missing files mean "use the defaults". Files are read on every ask, so an edit applies on the next ask with no rebuild. Never put your company or design-system name in this repository; keep it in your own store.
 
-### `.graphify/synonyms.json` — your team's words
+#### `.resolve/synonyms.json` — your team's words
 
 **Owner:** the design system team (whoever knows how people on the team talk).
 
@@ -385,7 +459,7 @@ Shape: a list of `groups`, each with `terms` (two or more words that mean the sa
 
 Before this file, `recommend "beneficiary"` returns nothing. After it, it returns Payee picker. A broken file changes nothing. Words that are one word long are matched alone; built-in groups cover common words such as button/cta, search/find and price/amount.
 
-### `.graphify/icon-libraries.json` — icon-only libraries
+#### `.resolve/icon-libraries.json` — icon-only libraries
 
 **Owner:** the design system team.
 
@@ -399,7 +473,7 @@ Lists Figma libraries that hold only icons, so icons never outrank a real contro
 
 Icons come back when the ask is for an icon, or when you give the icon's exact distinctive name. An entry that matches nothing prints one line on stderr (once per run, never inside a card). An entry that matches your main library is ignored, with a message, because it would hide real components. With no file, Resolve falls back to a name guess (`word-NNN-word`, or a name that starts or ends with icon/glyph/symbol). Remote icon masters (published in another Figma file) are matched through a lookup that needs `FIGMA_ACCESS_TOKEN`; if that lookup fails, ingest still succeeds.
 
-### `.graphify/code-map.json` — Figma-to-code twins
+#### `.resolve/code-map.json` — Figma-to-code twins
 
 **Owner:** the engineers who own the code components. Resolve never writes or guesses this file.
 
@@ -443,11 +517,11 @@ The rules, in plain words:
 
 `resolve code-map` reports `mapped`, `retired`, `unmapped`, `ambiguous`, `conflict`, `stale` (an entry whose component is not in the library, with its file key), `ignored`, plus lists of retired parts (with code and replacement) and bad `replacedBy`. Only real components and component sets are counted: variants, remote stubs and `_`/`base` parts are not.
 
-### Other optional files
+#### Other optional files
 
 `bind-rules.json` (must use / must not use / prefer; see [`docs/BIND-RULES.md`](docs/BIND-RULES.md)), `library-rules.json` (a simple allow/deny list of names), `recipes.json` and `context-packs.json` (your own recipes and product/journey packs; see [`docs/RECIPES.md`](docs/RECIPES.md)), and `placeholders.json` (template sentences that must not be left in a final screen; see [`docs/GUIDE.md`](docs/GUIDE.md)).
 
-## Retired and old components
+### Retired and old components
 
 Old screens still use old components, so Resolve cannot forget them. But new screens must not use them. The rule has two halves:
 
@@ -472,7 +546,7 @@ What Resolve does, exactly. It depends on whether you have a code map:
 - Recipes skip a map-retired part and take the live one.
 - `resolve code-map --retired` lists every retired part, with code and replacement. `example` and `cousins` do not use the map.
 
-## Accuracy and honesty rules
+### Accuracy and honesty rules
 
 - **It never invents.** An id or component name in an answer is always one that exists in the stored library. "Invent rate" must be 0%.
 - **It says "no match".** Asks the library cannot answer (for example "color picker" when there is none) return an empty list and "No master matched. Do not invent."
@@ -490,11 +564,11 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 | Repo golden set (top-1) | 118/118, invent 0, leak 0 |
 | Phrase set (regression) | 96/96 |
 | 8-screen Material-like library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
-| Tests | 612 passing |
+| Tests | 618 passing |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
-## Limits: what is not tested yet
+### Limits: what is not tested yet
 
 - Not proven on a real company library over time. The checks above use a sample library and a Material-like test library. An earlier independent blind test on a sample library moved top-1 on unseen asks from 38% to 83% after PR #19.
 - Code twins are only as good as the map: Resolve does not check that the code component exists or that its props match the Figma variants.
@@ -510,10 +584,11 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 - Large-library speed is measured only on generated test graphs (`npm run bench`).
 - Anything that calls Figma (ingesting a Figma URL, the published-icon lookup, `npx` install from GitHub, `claude mcp add`, Claude Desktop and Cursor setup) was not run for this README; it needs your own token or account.
 
-## Version history
+### Version history
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
+- **Oct 3, 2026 — [PR #PRNUM](https://github.com/TANISHQBAFNA/resolve/pull/PRNUM).** `RESOLVE_HOME` is the name of the store setting and `.resolve/` the project folder; the old names still work as fallbacks and nothing is moved. README reorganised for designers (set-up for Claude, Cursor and Codex first). 618 tests.
 - **Oct 3, 2026 — [PR #28](https://github.com/TANISHQBAFNA/resolve/pull/28).** Map Figma components to team-owned code twins; retired parts stay mapped but are never recommended. 612 tests.
 - **Oct 1, 2026 — [PR #27](https://github.com/TANISHQBAFNA/resolve/pull/27).** Prefer filled sets over same-name stubs; icon libraries file; stricter retire rules. 582 tests.
 - **Sep 30, 2026 — [PR #26](https://github.com/TANISHQBAFNA/resolve/pull/26).** Treat layer names as labels, not component identity. 541 tests.
@@ -543,7 +618,7 @@ Newest first. Dates are the day each pull request was merged on GitHub (UTC). "T
 - **Sep 22, 2026 — [PR #3](https://github.com/TANISHQBAFNA/resolve/pull/3).** Product renamed from Keyline to Resolve. 219 tests.
 - **Sep 20, 2026 — [PR #1](https://github.com/TANISHQBAFNA/resolve/pull/1).** First public release: personal and client leftovers scrubbed from the tree. 219 tests.
 
-## FAQ
+### FAQ
 
 **Is Resolve a Figma plugin?** No. It runs beside your AI tool and talks to it over MCP. You never open it inside Figma.
 
@@ -565,13 +640,15 @@ Newest first. Dates are the day each pull request was merged on GitHub (UTC). "T
 
 **Why is there no code line on my `recommend` card?** One of: no map; the top pick is a weak match; the top pick is retired; the part is not mapped (see `resolve code-map`); the name is ambiguous or in conflict; the top pick lives in another Figma file (a remote stub or an external icon library), which cannot be mapped; or the line did not fit in the 600-character card without dropping a candidate (it is then left out with no message).
 
-**Where do I put team words?** `.graphify/synonyms.json`. See [team config files](#team-config-files).
+**What is `RESOLVE_HOME`?** The setting that pins the store folder. If you do not set it, Resolve uses the nearest `.resolve/` folder going up from where you run, then `~/.resolve/default`. Upgrading from an older version: see [Upgrading from the old names](#upgrading-from-the-old-names).
+
+**Where do I put team words?** `.resolve/synonyms.json`. See [team config files](#team-config-files).
 
 **Is my data sent anywhere?** Resolve stores files in your store folder on your machine. It calls Figma only when you ingest or look up published components, using your own token.
 
 **What Node version?** 22.12 or newer (Node 24 also works).
 
-## For developers
+### For developers
 
 ```bash
 git clone https://github.com/TANISHQBAFNA/resolve.git

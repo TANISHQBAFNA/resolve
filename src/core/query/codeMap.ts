@@ -4,7 +4,7 @@ import type { GraphIndex } from "./GraphIndex";
 import { overlayFile } from "./overlayFile";
 import { nodeFileKey } from "./workspaceMerge";
 
-export const NO_CODE_MAP_HINT = "No code map. Add .graphify/code-map.json next to synonyms.json.";
+export const NO_CODE_MAP_HINT = "No code map. Add .resolve/code-map.json next to synonyms.json.";
 const ENTRY_KEYS = ["fileKey", "id", "name", "code", "status", "replacedBy"];
 const CODE_KEYS = ["import", "component"];
 const FROM = /\bfrom\s+(['"])([^'"\s\p{Cc}]{1,120})\1\s*;?$/u;

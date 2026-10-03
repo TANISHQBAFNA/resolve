@@ -1,6 +1,6 @@
 {
   "name": "Resolve — Graph Export",
-  "id": "figma-graphify-export",
+  "id": "figma-resolve-export",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",

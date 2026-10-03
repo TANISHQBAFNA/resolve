@@ -4,7 +4,7 @@ import { parseBindRulesFile, type BindRulesFile } from "./bindRules";
 import type { WorkspaceManifest } from "./workspace";
 
 /**
- * Product + journey context packs. Designers edit JSON under .graphify/.
+ * Product + journey context packs. Designers edit JSON under .resolve/.
  * Binds a shared library to *this* product and *this* journey step.
  * Never carries invented Figma node ids.
  */
@@ -24,7 +24,7 @@ export interface ContextPack {
   audience?: string;
   constraints?: ContextConstraints;
   recipeIds?: string[];
-  /** Optional product/client file keys or labels from `.graphify/workspace.json`. */
+  /** Optional product/client file keys or labels from `.resolve/workspace.json`. */
   files?: string[];
   libraryRules?: LibraryRules;
   bindRules?: BindRulesFile;

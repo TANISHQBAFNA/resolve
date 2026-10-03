@@ -19,7 +19,7 @@ import { clearCache, saveGraph } from "@/server/store";
 import { index as demo } from "./fixture";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
-const HINT = "No code map. Add .graphify/code-map.json next to synonyms.json.";
+const HINT = "No code map. Add .resolve/code-map.json next to synonyms.json.";
 
 interface Row {
   id: string;
@@ -77,7 +77,7 @@ async function cli(argv: string[]): Promise<{ out: string; err: string }> {
 }
 
 describe("code-map.json", () => {
-  const previousHome = process.env["GRAPHIFY_HOME"];
+  const previousHome = process.env["RESOLVE_HOME"];
   let home: string;
 
   const put = (body: unknown) => writeFileSync(join(home, "code-map.json"), typeof body === "string" ? body : JSON.stringify(body));
@@ -89,13 +89,13 @@ describe("code-map.json", () => {
 
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), "resolve-code-map-"));
-    process.env["GRAPHIFY_HOME"] = home;
+    process.env["RESOLVE_HOME"] = home;
     clearCache();
   });
   afterEach(() => {
     clearCache();
-    if (previousHome === undefined) delete process.env["GRAPHIFY_HOME"];
-    else process.env["GRAPHIFY_HOME"] = previousHome;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
   });
 
   it("no map, empty file, BOM-only file: every card is byte-identical and silent", async () => {
@@ -562,7 +562,7 @@ describe("code-map.json", () => {
     put({ entries: [entry("2:2", "Chip")] });
     expect(lineFor(lib(), "Button")).toBeUndefined();
     const other = mkdtempSync(join(tmpdir(), "resolve-code-map-b-"));
-    process.env["GRAPHIFY_HOME"] = other;
+    process.env["RESOLVE_HOME"] = other;
     expect(lineFor(lib(), "Chip")).toBeUndefined();
   });
 });

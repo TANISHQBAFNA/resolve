@@ -44,7 +44,7 @@ npm run resolve -- ingest '<figma-file-or-design-url>'
 
 ## Pick → open the real example → clone → fill → verify (everyday)
 
-Forced path. Agent does not invent components. Cards stay the interface — **do not** `Read` `.graphify/graph.json`.
+Forced path. Agent does not invent components. Cards stay the interface — **do not** `Read` `.resolve/graph.json`.
 
 ```bash
 npm run resolve -- ingest '<figma-url>' --role library    # re-run if that file changed
@@ -61,9 +61,9 @@ npm run resolve -- verify --components "Button,MadeUpCard"
 npm run resolve -- cousins "Checkout Summary"
 ```
 
-After ingest, `recipe list` / `recipe "<job>"` bind slots to live `figmaNodeId`s. Overlay `.graphify/recipes.json` still wins. Unbound slots include the next `recommend` query. Bound ids that are missing or deprecated are flagged.
+After ingest, `recipe list` / `recipe "<job>"` bind slots to live `figmaNodeId`s. Overlay `.resolve/recipes.json` still wins. Unbound slots include the next `recommend` query. Bound ids that are missing or deprecated are flagged.
 
-`recommend` ranks by name/intent, variant props, where-used, sibling co-occurrence; live over stale; deprecated last. Optional product/journey/domain context pack (`.graphify/context-packs.json`, or `--pack` / `--product` / `--journey` / `--domain`) ranks on top of that. The same flags bind `recipe` list/get and `verify`. Cap ~2000 chars. Empty match still means do not invent.
+`recommend` ranks by name/intent, variant props, where-used, sibling co-occurrence; live over stale; deprecated last. Optional product/journey/domain context pack (`.resolve/context-packs.json`, or `--pack` / `--product` / `--journey` / `--domain`) ranks on top of that. The same flags bind `recipe` list/get and `verify`. Cap ~2000 chars. Empty match still means do not invent.
 
 When you already know the master name (give me the id):
 
@@ -72,17 +72,17 @@ npm run resolve -- resolve "Main Card"
 npm run resolve -- resolve "Input Field"
 ```
 
-Exact name always returns `id` + `fileKey` + `figmaNodeId`, even with zero usage. A miss says so and points at `recommend`. Prefer **resolve** over any keyline / graphify alias.
+Exact name always returns `id` + `fileKey` + `figmaNodeId`, even with zero usage. A miss says so and points at `recommend`. Prefer **resolve** over the deprecated keyline alias.
 
 Resolve is case-sensitive for deprecated and private masters. `Legacy Banner` and `_Private Note` return that master. `legacy banner` returns the live replacement. Any other casing of a private name returns an empty card.
 
-CLI ingest and the MCP server must share one store. Set `GRAPHIFY_HOME` to the `.graphify` folder, or run both from the same project root. `npm run resolve -- where` and MCP `list_graphs` print the path and `builtAt`. After ingest, the next MCP call sees the new graph without a restart.
+CLI ingest and the MCP server must share one store. Set `RESOLVE_HOME` to the `.resolve` folder, or run both from the same project root. `npm run resolve -- where` and MCP `list_graphs` print the path and `builtAt`. After ingest, the next MCP call sees the new graph without a restart.
 
 Primary learn: Figma MCP `get_metadata` → `learn_library` (paid Dev/Full seat). Pass `get_design_context` as `designContext` on that learn so master default text is stored. Secondary: REST token ingest. Big libraries: several checkpointed passes. View/free seats: low quota; Resolve resumes.
 
-Optional allow/deny file: `.graphify/library-rules.json` with `{ "allow": [...], "deny": [...] }`. If missing, approved = in-graph master and not deprecated.
+Optional allow/deny file: `.resolve/library-rules.json` with `{ "allow": [...], "deny": [...] }`. If missing, approved = in-graph master and not deprecated.
 
-Designers add screen packs in JSON — see [`docs/RECIPES.md`](RECIPES.md). Overlay: `.graphify/recipes.json`. Product + journey + domain: `.graphify/context-packs.json`. Linked files: `.graphify/workspace.json` (see [GUIDE.md](GUIDE.md)).
+Designers add screen packs in JSON — see [`docs/RECIPES.md`](RECIPES.md). Overlay: `.resolve/recipes.json`. Product + journey + domain: `.resolve/context-packs.json`. Linked files: `.resolve/workspace.json` (see [GUIDE.md](GUIDE.md)).
 
 ## Everyday screen flow
 
@@ -94,7 +94,7 @@ Designers add screen packs in JSON — see [`docs/RECIPES.md`](RECIPES.md). Over
 6. **Cousins** — when a library + product/client file are linked (`cousins` / `check_cousins`)
 7. **Human taste** — review before expanding scope
 
-**Do not** `Read` `.graphify/graph.json`. Resolve cards are the cheap path.
+**Do not** `Read` `.resolve/graph.json`. Resolve cards are the cheap path.
 
 ## Cursor wiring
 
