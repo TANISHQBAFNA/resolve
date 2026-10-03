@@ -6,89 +6,165 @@
 
 Every example in this file is made up. "Acme" is a pretend company, the "Payments app" is a pretend product, and the components (Button, Text field, Payee picker) are pretend. None of it comes from a real design system.
 
-## What Resolve does
+You can read this file from top to bottom without knowing any code. The first half is for designers. The second half, under **For engineers and testers**, is reference detail that you can skip.
 
-Resolve sits between your AI tool (Claude, Cursor or Codex) and your Figma design system. Before the AI draws a screen, Resolve tells it which real component to use (for example "the Payee picker, here is its id"), so it stops drawing buttons from scratch or inventing parts that do not exist. After the AI draws, Resolve checks the screen and says pass or fail, for example "fail: this screen uses the retired Old Button, use Button". You do not open Resolve in Figma and you do not click anything in it. Your AI tool talks to it for you.
+## The story in one minute
 
-## Set it up in 5 minutes
+**The problem.** You ask an AI tool (Claude, Cursor or Codex) to draw a screen in Figma. It is fast, but it guesses. It may draw a button from scratch instead of using the Button in your design system. It may pick a component your team retired, because the name looks right. It may even invent a part that does not exist. The screen looks fine at a glance, but it is not built from your design system, so it slowly drifts away from it.
 
-You need Node 22.12 or newer (check with `node -v`) and the AI tool you use. It works best when that tool is also connected to Figma, because the tool then reads your library and teaches Resolve.
+**Without Resolve.** You ask Claude for a "Send money" screen in the Acme Payments app. Claude draws a rounded rectangle that looks like a button. It places "Old Button", a component Acme retired last year. It adds a part called "Payee dropdown" that is not in the library at all. Nobody notices until an engineer tries to build the screen.
 
-**Step 1: add the rule (once per project).** This tells the AI tool to call Resolve before design tasks. Run it in your project folder:
+**With Resolve.** You ask the same thing. Before it draws anything, Claude asks Resolve, "Which component do I use for a payee picker?" Resolve answers: "The Acme Payee picker. Here is where it lives in Figma, and here is a real example of it to copy." Claude places that real component. When the screen is drawn, Claude asks Resolve to check it. Resolve says: "Fail. This screen uses the retired Old Button. Use Button instead." Claude fixes it. If you ask for something the library does not have, Resolve says "no match", and Claude tells you, instead of making one up.
+
+**What you see.** You do not open Resolve, and there is nothing to click. You see it in your AI tool's chat: Claude says which library components it chose, and it tells you the result of the check ("passed" or "failed, because..."). In Figma you get a screen made of real library components.
+
+**What Resolve is not.** It is not a Figma plugin. It does not draw anything; your AI tool draws. It never changes your Figma file; it only reads. It never guesses: no match means no answer. And it never changes your rules by itself; a person approves every change.
+
+## What Resolve does, one piece at a time
+
+- **It learns your library.** You give it your design system file once. It reads the file and writes down what is in it: every component, its variants (for example Primary and Secondary), and where each one is used on real screens. You can repeat this whenever the library changes. This step has two names: **learn** (when your AI tool does it) and **ingest** (when you do it by hand). They mean the same thing: read a Figma file and remember it.
+- **It recommends.** You describe what you need in plain words ("payee picker", "primary button"). Resolve picks the best matching component. It looks at the name and your words first. If the match is only partial, it says "weak match" and offers up to three options, instead of pretending to be sure.
+- **It shows a real example.** With the pick, Resolve points to a real, filled-in copy of that component on a real screen. The AI tool clones it and swaps the content, which looks far better than starting from a bare default.
+- **It checks the finished screen.** Resolve looks at every piece on the screen and answers pass or fail. It flags parts that are not in the library, parts that are retired, and leftover template text such as "Lorem ipsum". It checks by the component's real id, not just by its layer name, because a layer called "Button" can be anything.
+- **It knows what is retired.** A **retired** component is one your team no longer wants on new screens, although old screens may still use it. Resolve never recommends a retired part for a new screen, and it fails a check that uses one. It also says what to use instead.
+- **It knows your team's words (optional).** If your team says "beneficiary" and the library says "Payee picker", you can teach Resolve that those mean the same.
+- **It knows the code twin (optional).** Engineers can write a short file, called a **code map**, that says "this Figma Button is this Button in our code". When it is there, Resolve adds the code component to its answer, for example `PayeePicker from '@acme/payments'`. Resolve never guesses a code twin.
+- **It knows screen recipes (optional).** A recipe is a checklist of the parts a kind of screen usually needs (header, list, main button, input). Resolve fills each slot with a real component.
+
+Resolve keeps everything it learned in a folder on your computer. This folder is called the **store**. Nothing is sent anywhere. Resolve only talks to Figma when you ask it to read a file.
+
+## Set it up
+
+Plan on about ten minutes. Each step ends with what you should see, so you can tell it worked.
+
+**Before you start, you need three things:**
+
+1. **Node, version 22.12 or newer.** Node is a free program that runs Resolve in the background. To check, open a terminal (the Terminal app on Mac) and type `node -v`. You should see a number such as `v22.12.0` or higher. If you get an error or a lower number, install the current version from [nodejs.org](https://nodejs.org).
+2. **An AI tool**: Claude Code, Cursor or Codex.
+3. **Figma connected to that AI tool**, so the tool can read your design files. Step 2 shows how. Reading files for learning needs a **Dev or Full seat** in Figma. That is a paid seat type which allows AI tools to read your files. A View or free seat has a small read allowance; Resolve saves its progress and carries on in the next session.
+
+### Step 1. Add the rule file to your project (once per project)
+
+An AI tool forgets things between chats, so it needs a short written instruction that it reads every time: "for any Figma task, ask Resolve first." Different tools call this file different names. In Cursor it is a **Cursor rule**. In Claude it is a **Claude skill**, plus a small note in a file called `CLAUDE.md`. This one command writes all of them. Open a terminal in your project folder and run:
 
 ```bash
 npx -y -p github:TANISHQBAFNA/resolve resolve-setup
 ```
 
-It writes a Cursor rule, a Claude skill and a short block in `CLAUDE.md`. It is safe to run again. Add `--dry-run` to see what it would do first. Setup ends with a short status: Node, Figma, library learned, rule installed, and the next step.
+1. Paste the command and press Enter.
+2. **What you should see:** three lines starting with `create` (the Cursor rule, the Claude skill and `CLAUDE.md`), then a short checklist: `Node ok?`, `Figma connected?`, `Library learned?`, `Rule installed?`, and a last line starting `Next:` that tells you what to do next. At this point `Library learned?` says `no`, and that is fine.
+3. It is safe to run again; it only touches its own lines. To look first without changing anything, add `--dry-run` at the end.
 
-**Step 2: connect Resolve to your tool.** Pick one.
+### Step 2. Connect Resolve to your AI tool
 
-**Claude (Claude Code).** Checked: the `claude mcp add` command below was run with Claude Code 2.1 and wrote the expected entry.
+**MCP** (Model Context Protocol) is the plug that lets an AI tool talk to helper programs. Resolve is one such helper, and Figma has one too. "Connecting" simply means telling your tool how to start each helper. Pick the tool you use.
 
-```bash
-claude mcp add resolve -s user -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
-claude mcp add --transport http figma https://mcp.figma.com/mcp -s user
-```
+#### Claude Code
 
-Then type `/mcp` in Claude Code and log in to Figma. Claude Desktop uses a settings file instead; the steps are in [Setup in detail](#setup-in-detail).
+1. In your terminal, run these two commands (the first adds Resolve, the second adds Figma):
 
-**Cursor.** Checked: `resolve-setup` writes the Cursor rule (`.cursor/rules/resolve.mdc`) and the `resolve-mcp` command starts the server. Not checked here: opening Cursor itself. In your project, create `.cursor/mcp.json`:
+   ```bash
+   claude mcp add resolve -s user -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
+   claude mcp add --transport http figma https://mcp.figma.com/mcp -s user
+   ```
 
-```json
-{
-  "mcpServers": {
-    "resolve": {
-      "command": "npx",
-      "args": ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
-    }
-  }
-}
-```
+   **What you should see:** `Added stdio MCP server resolve ... to user config`, then `Added HTTP MCP server figma ... to user config`.
+2. Run `claude mcp list`. **What you should see:** a line `resolve: ... ✔ Connected`, and a line `figma: ... ! Needs authentication`. The Figma line is expected for now; the next step logs you in.
+3. Start `claude`, type `/mcp`, choose **figma** and log in to Figma in the browser window that opens. **What you should see:** figma shows as connected.
 
-Then connect Figma in Cursor's MCP settings, and reload the window. More steps: [`docs/CURSOR-RESOLVE.md`](docs/CURSOR-RESOLVE.md).
+Checked on a test machine with Claude Code 2.1: steps 1 and 2 gave the lines above. The Figma login (step 3) needs a Figma account and was not run.
 
-**Codex.** Not verified here (Codex is not installed on the machine used to test this README). This follows OpenAI's Codex documentation, which says MCP servers are set with `codex mcp add` or in `~/.codex/config.toml`:
+#### Cursor
 
-```bash
-codex mcp add resolve -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
-```
+1. In your project, create a file called `.cursor/mcp.json` with this inside:
 
-or in `~/.codex/config.toml`:
+   ```json
+   {
+     "mcpServers": {
+       "resolve": {
+         "command": "npx",
+         "args": ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
+       }
+     }
+   }
+   ```
 
-```toml
-[mcp_servers.resolve]
-command = "npx"
-args = ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
-```
+2. In Cursor, open **Settings → MCP**, add Figma there, and sign in to Figma.
+3. Reload the Cursor window. **What you should see:** `resolve` in the MCP list with a green dot, and the `resolve` rule from Step 1 under **Settings → Rules**.
 
-Type `/mcp` in Codex to see the server. `resolve-setup` does not write anything for Codex. Codex reads `AGENTS.md`, so copy the short section in [`docs/AGENTS-RESOLVE-SECTION.md`](docs/AGENTS-RESOLVE-SECTION.md) into your project's `AGENTS.md`.
+Checked on a test machine: Step 1 writes the Cursor rule (`.cursor/rules/resolve.mdc`, set to always apply), and the command in that file starts Resolve. **Not verified here:** the Cursor app itself (the screens in steps 2 and 3). More steps: [`docs/CURSOR-RESOLVE.md`](docs/CURSOR-RESOLVE.md).
 
-**Step 3: teach it your library.** Ask your AI tool: "Learn my Figma design system from this link: (paste the Figma file link)". It calls `learn_library`. This needs a Figma seat with MCP access (Dev or Full). Resolve keeps what it learned in a folder on your computer (see [Words used here](#words-used-here)).
+#### Codex
 
-Upgrading from an older version? See [Upgrading from the old names](#upgrading-from-the-old-names).
+**Not verified here.** Codex is not installed on the machine used to test this README. The steps follow OpenAI's Codex documentation, which says MCP servers are added with a command or by editing `~/.codex/config.toml`.
+
+1. Run:
+
+   ```bash
+   codex mcp add resolve -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
+   ```
+
+   Or, instead, add this to the file `~/.codex/config.toml`:
+
+   ```toml
+   [mcp_servers.resolve]
+   command = "npx"
+   args = ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"]
+   ```
+
+2. Start Codex and type `/mcp`. **What you should see (not verified):** `resolve` in the list.
+3. Step 1 does not write anything for Codex, because Codex reads a file called `AGENTS.md` instead. Copy the short section in [`docs/AGENTS-RESOLVE-SECTION.md`](docs/AGENTS-RESOLVE-SECTION.md) into your project's `AGENTS.md`.
+
+Using the Claude desktop app instead? See [Setup in detail](#setup-in-detail).
+
+### Step 3. Teach it your library
+
+1. In your AI tool's chat, write: "Learn my Figma design system from this link: (paste the Figma file link)".
+2. The tool reads the file through Figma and hands it to Resolve (behind the scenes it calls a Resolve tool named `learn_library`). Big libraries can take a few minutes. The exact words in the chat differ from tool to tool.
+3. **What you should see:** the tool says it has learned the library and roughly how many components it found. To double-check, run the Step 1 command again: `Library learned?` now says `yes`, and the last line reads `Next: Ask Resolve for the screen.` (Checked on a test machine with the made-up Acme file; the Figma part of this step was not run, because it needs a Figma account.)
+
+Upgrading from an older version of Resolve? Read [Upgrading from the old names](#upgrading-from-the-old-names) first.
 
 ## Two asks to try
 
-These use the made-up Acme library (see [Every command](#every-command) to load it yourself). Type them to your AI tool.
+These use the made-up Acme library. Type them into your AI tool once Step 3 is done.
 
-1. **"Which component should I use for a payee picker on the Send money screen?"** Resolve answers with the Acme "Payee picker": its file key, its node id, and a real example to copy. If the team filed a code map, it also says the code component, `PayeePicker from '@acme/payments'`. The tool places that component instead of drawing one.
-2. **"Check the Send money screen."** Resolve answers `pass: false`. The screen uses the retired "Old Button". The answer says what to use instead and what the code is: `retired Old Button -> use Button (code: OldButton from '@acme/ui-legacy')`.
+1. **"Which component should I use for a payee picker on the Send money screen?"** Resolve answers with the Acme "Payee picker": where it lives in Figma, and a real example to copy. If your engineers filed a code map, it also names the code component (`PayeePicker from '@acme/payments'`). Your tool then places that component, instead of drawing one.
+2. **"Check the Send money screen."** Resolve answers that the check failed, because the screen uses the retired "Old Button". It says what to use instead (Button) and what the code is (`OldButton from '@acme/ui-legacy'`).
 
-The exact answers for both are shown under [recommend](#recommend) and [verify](#verify).
+The exact, word-for-word answers for both are shown further down, under [recommend](#recommend) and [verify](#verify).
+
+## Questions designers ask
+
+**Does it change my Figma file?** No. Resolve only reads, and only when you ask it to learn a file. Your AI tool does the drawing.
+
+**Do I need a Figma token?** Not when your AI tool is connected to Figma. The tool reads the file and hands it to Resolve. A token (a personal password for Figma's programming interface) is only needed to read a live Figma link from the command line. Never put a token in a file you share.
+
+**What if my library has no component for what I asked?** Resolve says "No master matched" and returns nothing. Your AI tool should tell you, not make one up.
+
+**What does "weak match" mean?** The words in your ask only partly matched. You get up to three possible parts instead of one confident pick. Look before you place.
+
+**Why did the check say "nothing checked"?** The screen had no piece that carries a library component id (for example a hand-drawn layer, or an empty frame). A layer name alone is only a label, so it is never enough for a pass.
+
+**Where is my data?** In the store folder on your computer. Nothing is uploaded.
 
 ## Words used here
+
+These are explained where they first appear. This list is a reminder, and you do not need it to follow the setup.
+
 - **Library:** the Figma file that holds your design system's components.
 - **Master:** one real component in the library (for example "Button"). A button you drew on a screen is an *instance* of a master. A master that has variants (Primary, Secondary) is called a *set*.
 - **Node id:** the number Figma gives every layer, such as `30:10`. A master is found by its **file key** (the id in the Figma URL) plus its node id.
-- **MCP:** the standard way an AI tool talks to helper programs. Resolve is an MCP server. You do not need to know more than that.
+- **MCP:** the standard plug that lets an AI tool talk to helper programs. Resolve is one helper; the Figma connector is another.
 - **Store:** the folder on your computer where Resolve keeps what it learned (and your team's config files). `resolve where` prints it. You can pin it with the `RESOLVE_HOME` setting (see [Setup in detail](#setup-in-detail)).
 - **Ingest** (or **learn**): read a Figma file into the store.
+- **Rule file:** a short instruction the AI tool reads every time. A **Cursor rule** is one for Cursor. A **Claude skill** is one for Claude. Both say "ask Resolve first".
+- **Seat (Dev or Full):** a type of paid Figma seat that lets AI tools read your files.
 - **Retired:** a component the team no longer wants on new screens. Old screens may still use it. See [Retired and old components](#retired-and-old-components).
-- **Code twin:** the code component that matches a Figma master, for example `Button from '@acme/ui'`. The team says which; Resolve never guesses.
-- **Card:** a short answer Resolve gives to one question. It is a small block of JSON, kept short so an AI tool can read it quickly.
+- **Code twin / code map:** the code component that matches a Figma master, for example `Button from '@acme/ui'`. The code map is the file where engineers list those pairs. The team says which; Resolve never guesses.
+- **Card:** a short answer Resolve gives to one question. It is a small block of structured text, kept short so an AI tool can read it quickly.
 - **Frame:** a screen (or a section of one) drawn in Figma, for example "Send money".
-- **Graph:** the map of your library that `ingest` builds from the Figma file. It is a file in the store (`graph.json`). Every answer comes from it, so Resolve never needs to open Figma to answer.
+- **Graph:** the map of your library that learning builds from the Figma file. It is a file in the store (`graph.json`). Every answer comes from it, so Resolve never needs to open Figma to answer.
 - **Stub:** an empty placeholder for a component that lives in another Figma file. It has a name but no variants and no details here. Resolve ignores a stub when a real component has the same name.
 - **Bind rule:** a human-written rule such as "on the pay step, use this Button".
 - **SOCI** (System of Connected Intelligence): the part of Resolve that watches which components pass the check on real screens and *suggests* a rule or recipe. It never applies a suggestion; a person approves or rejects it. **SOCK** (System of Connected Knowledge) is the learned facts about your library that those suggestions come from.
@@ -97,12 +173,9 @@ The exact answers for both are shown under [recommend](#recommend) and [verify](
 
 ## For engineers and testers
 
-Everything below is detail: how it works, every command and option, config files, rules, limits, accuracy tables and version history.
+Everything below is reference detail: setup options, every command and flag, config files, exact rules, limits, accuracy numbers and version history. You do not need it to use Resolve.
 
 - [Upgrading from the old names](#upgrading-from-the-old-names)
-- [What Resolve is, and what it is not](#what-resolve-is-and-what-it-is-not)
-- [The problem it solves](#the-problem-it-solves)
-- [How it works, step by step](#how-it-works-step-by-step)
 - [Setup in detail](#setup-in-detail)
 - [Every command](#every-command)
 - [Team config files](#team-config-files)
@@ -115,66 +188,15 @@ Everything below is detail: how it works, every command and option, config files
 
 ### Upgrading from the old names
 
-Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.graphify/`. Both still work: if the new `RESOLVE_HOME` / `.resolve/` exist they win, otherwise the old ones are read. Nothing is moved or deleted for you; to switch, rename the folder to `.resolve/` and set `RESOLVE_HOME`.
-
-### What Resolve is, and what it is not
-
-**Resolve is a lookup service for AI coding and design tools.** You teach it your Figma design system once. After that, an AI tool (Cursor, Claude Code, Claude Desktop) can ask it questions such as "which component is the payee picker?" and get back the real component: its Figma file key, its node id, and (if your team says so) the code component that matches it.
-
-**Resolve is not a Figma plugin.** You do not open it inside Figma. You do not click anything in it. It runs next to your AI tool as an MCP server (MCP is the standard way an AI tool talks to helper programs), and it also has a command line for people.
-
-**Resolve does not draw anything.** The AI tool draws, using Figma's own connector. Resolve only says which library component to use, and checks the result afterwards.
-
-**Resolve does not guess.** If your library has no such component, it says "No master matched". It never makes up a component name or an id.
-
-**Resolve does not change your rules on its own.** Rules, synonyms and code maps are files your team owns. Resolve reads them. It suggests changes (see `soci`), and a person has to approve each one.
-
-### The problem it solves
-
-An AI tool that builds a screen in Figma often does one of three bad things:
-
-- It draws a button from scratch, instead of using the Button from your library.
-- It picks a retired component because the name looks right.
-- It invents a component name that does not exist.
-
-The result looks fine at a glance but is not built from your design system, so it drifts from it.
-
-Resolve fixes this by giving the AI tool a short, exact answer before it draws, and a pass/fail check after it draws. Answers are small on purpose (about 600 characters for `recommend` and for a `verify` that found a problem) so they fit easily in the AI tool's working memory.
-
-### How it works, step by step
-
-Example: the Acme team wants a "Send money" screen in the Payments app.
-
-1. **Learn the library.** Resolve reads the "Acme UI" Figma file and stores what is in it: components, their variants, and where they are used. This is `ingest` (command line) or `learn_library` (the AI tool calls it).
-2. **Ask.** The AI tool asks `recommend "payee picker"`. Resolve returns the Payee picker: file key, node id, and a real instance to copy. If the Acme team filed a code map, the answer also says `PayeePicker from '@acme/payments'`.
-3. **Draw.** The AI tool places that component, using the ids Resolve gave.
-4. **Check.** The AI tool runs `verify` on the new frame. Resolve checks that every placed piece is a real library component (by component id, not just by layer name), that none is retired, and that no template text is left over. It answers pass or fail.
-5. **Learn from use (optional).** SOCI (the learning part, see [Words used here](#words-used-here)) notices when a pattern appears on three screens that passed the check and can suggest a rule or recipe. A person approves or rejects it.
+Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.graphify/`. Both still work: if the new `RESOLVE_HOME` / `.resolve/` exist they win, otherwise the old ones are read. Nothing is moved or deleted for you. To switch, rename the whole old folder to `.resolve/` (for example `mv .graphify .resolve`) and set `RESOLVE_HOME` if you used the old setting. Do not keep both folders. Resolve reads each file from the new folder first and falls back to the old folder for any file the new one does not have, so a stale old file (an old `code-map.json`, `synonyms.json` or even the old learned library) could keep applying.
 
 ### Setup in detail
 
-You need Node 22.12 or newer (`node -v`) and the AI tool you use. Resolve works best when the Figma connection is on in that tool, because the tool then has the library to teach Resolve.
+The plain steps for Claude Code, Cursor and Codex are near the top of this file. This section adds the options.
 
-**Step 1: install the rule, once per project.** This makes the AI tool call Resolve before design tasks.
+**Rule files (`resolve-setup`).** It writes `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, and a marked block in `CLAUDE.md`. Run it again any time; it only changes its own block. `--dry-run` shows what it would do. `--global` writes to `~/.claude` instead (Claude only) and does nothing until you add `--yes`. `--force` replaces a file that has no Resolve markers.
 
-```bash
-npx -y -p github:TANISHQBAFNA/resolve resolve-setup
-```
-
-It writes `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, and a marked block in `CLAUDE.md`. Run it again any time; it only changes its own block. `--dry-run` shows what it would do. `--global` writes to `~/.claude` instead (Claude only) and does nothing until you add `--yes`. `--force` replaces a file that has no Resolve markers. Setup ends with a short status: Node, Figma, library learned, rule installed, and the next step.
-
-**Step 2: connect Resolve to your AI tool.**
-
-Claude Code:
-
-```bash
-claude mcp add resolve -s user -- npx -y -p github:TANISHQBAFNA/resolve resolve-mcp
-claude mcp add --transport http figma https://mcp.figma.com/mcp -s user
-```
-
-Then run `/mcp` in Claude Code and log in to Figma.
-
-Claude Desktop: add Figma under **Settings → Connectors**. Then open **Settings → Developer → Edit Config** and add Resolve:
+**Claude Desktop.** Add Figma under **Settings → Connectors**. Then open **Settings → Developer → Edit Config** and add Resolve:
 
 ```json
 {
@@ -189,11 +211,7 @@ Claude Desktop: add Figma under **Settings → Connectors**. Then open **Setting
 
 Quit Claude Desktop with Cmd+Q (not the window close button) and reopen. If Claude Desktop cannot start Resolve, use the full path from `which npx` as `command`. Claude Desktop does not read rule files, skills or `CLAUDE.md`; it only gets the short MCP instructions.
 
-Cursor: Cursor reads the project rule that Step 1 wrote. Steps are in [`docs/CURSOR-RESOLVE.md`](docs/CURSOR-RESOLVE.md).
-
-**Step 3: teach it your library.** Ask your AI tool to learn the library (it calls `learn_library`). Learning needs a paid Figma seat with MCP access (Dev or Full), or a Figma access token for command-line ingest. A view or free seat has a low read quota; Resolve saves progress and resumes on the next pass.
-
-From the command line instead:
+**Learning from the command line.** Learning through the AI tool needs a Dev or Full Figma seat. For command-line ingest you can use a Figma access token instead:
 
 ```bash
 export FIGMA_ACCESS_TOKEN=...   # your own token; never commit it
@@ -202,7 +220,7 @@ npm run resolve -- ingest 'https://www.figma.com/design/ACMEUI/Acme-UI' --role l
 
 The first file you ingest is the library by default. Later files default to `product`. Full details: [`docs/SETUP-MCP.md`](docs/SETUP-MCP.md).
 
-**Where the data lives.** In a store folder: `RESOLVE_HOME` if you set it, otherwise the nearest `.resolve/` folder going up from where you run. (`RESOLVE_HOME` is the current name; for older setups see [Upgrading from the old names](#upgrading-from-the-old-names).) The AI tool's MCP server and your command line must use the same folder. `resolve where` prints it.
+**Where the data lives.** In a store folder: `RESOLVE_HOME` if you set it, otherwise the nearest `.resolve/` folder going up from where you run. (For older setups see [Upgrading from the old names](#upgrading-from-the-old-names).) The AI tool's MCP server and your command line must use the same folder. `resolve where` prints it.
 
 ### Every command
 
@@ -582,55 +600,28 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 - SOCI does not compare journeys across products yet.
 - Linking several design systems into one is a later step.
 - Large-library speed is measured only on generated test graphs (`npm run bench`).
-- Anything that calls Figma (ingesting a Figma URL, the published-icon lookup, `npx` install from GitHub, `claude mcp add`, Claude Desktop and Cursor setup) was not run for this README; it needs your own token or account.
+- Not run for this README: anything that needs a Figma account (reading a live Figma link, the published-icon lookup, the Figma login), Codex, the Cursor app and the Claude desktop app. The `npx` install from GitHub, `claude mcp add`, `claude mcp list` and `resolve-setup` were run on a test machine.
 
 ### Version history
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
+- **Oct 3, 2026 — [PR #PRNUM](https://github.com/TANISHQBAFNA/resolve/pull/PRNUM).** README rewritten in plain language for designers: the problem, what Resolve does, numbered setup steps with "what you should see". Engineer detail moved under "For engineers and testers" and shortened. Docs only. TESTCOUNT tests.
 - **Oct 3, 2026 — [PR #30](https://github.com/TANISHQBAFNA/resolve/pull/30).** `RESOLVE_HOME` is the name of the store setting and `.resolve/` the project folder; the old names still work as fallbacks and nothing is moved. README reorganised for designers (set-up for Claude, Cursor and Codex first). 618 tests.
 - **Oct 3, 2026 — [PR #28](https://github.com/TANISHQBAFNA/resolve/pull/28).** Map Figma components to team-owned code twins; retired parts stay mapped but are never recommended. 612 tests.
 - **Oct 1, 2026 — [PR #27](https://github.com/TANISHQBAFNA/resolve/pull/27).** Prefer filled sets over same-name stubs; icon libraries file; stricter retire rules. 582 tests.
 - **Sep 30, 2026 — [PR #26](https://github.com/TANISHQBAFNA/resolve/pull/26).** Treat layer names as labels, not component identity. 541 tests.
 - **Sep 29, 2026 — [PR #25](https://github.com/TANISHQBAFNA/resolve/pull/25).** "Primary button" returns Button; ordinary words find the right part; honest "weak match". 517 tests.
-- **Sep 29, 2026 — [PR #24](https://github.com/TANISHQBAFNA/resolve/pull/24).** Make Resolve the first step on every Figma design task (short MCP instructions, `resolve-setup`). 490 tests.
-- **Sep 28, 2026 — [PR #23](https://github.com/TANISHQBAFNA/resolve/pull/23).** Docs: correct performance wording. 479 tests.
-- **Sep 28, 2026 — [PR #22](https://github.com/TANISHQBAFNA/resolve/pull/22).** Live text in `verify`; example caching for speed. 479 tests.
-- **Sep 28, 2026 — [PR #21](https://github.com/TANISHQBAFNA/resolve/pull/21).** A real example with every pick; leftover-text and sizing warnings. 466 tests.
-- **Sep 28, 2026 — [PR #20](https://github.com/TANISHQBAFNA/resolve/pull/20).** README refresh: seven layers, honest accuracy. 449 tests.
-- **Sep 28, 2026 — [PR #19](https://github.com/TANISHQBAFNA/resolve/pull/19).** Keep component picks when words describe the component (cart badge, login field). 429 tests.
-- **Sep 28, 2026 — [PR #18](https://github.com/TANISHQBAFNA/resolve/pull/18).** Fix library verify, Figma metadata handling, and Claude setup. 449 tests.
-- **Sep 27, 2026 — [PR #17](https://github.com/TANISHQBAFNA/resolve/pull/17).** Rank component picks by name before screen context. 428 tests.
-- **Sep 27, 2026 — [PR #16](https://github.com/TANISHQBAFNA/resolve/pull/16).** An offline accuracy scoreboard for agent cards. 412 tests.
-- **Sep 27, 2026 — [PR #15](https://github.com/TANISHQBAFNA/resolve/pull/15).** SOCI v1: improvement proposals from real use. 402 tests.
-- **Sep 27, 2026 — [PR #14](https://github.com/TANISHQBAFNA/resolve/pull/14).** Why line, bind rules, and the approve flow. 377 tests.
-- **Sep 27, 2026 — [PR #13](https://github.com/TANISHQBAFNA/resolve/pull/13).** Plug-and-play Resolve for the Figma MCP; live usage learning. 347 tests.
-- **Sep 27, 2026 — [PR #12](https://github.com/TANISHQBAFNA/resolve/pull/12).** Harden the agent loop: invent gates, a live shared store, lookup by name. 314 tests.
-- **Sep 26, 2026 — [PR #11](https://github.com/TANISHQBAFNA/resolve/pull/11).** Stamp the file key on verify, reject bad ingest roles, fix workspace docs. 284 tests.
-- **Sep 26, 2026 — [PR #10](https://github.com/TANISHQBAFNA/resolve/pull/10).** Multi-file workspace and the wrong-cousin report. 280 tests.
-- **Sep 26, 2026 — [PR #9](https://github.com/TANISHQBAFNA/resolve/pull/9).** Designer guide in plain English. 265 tests.
-- **Sep 26, 2026 — [PR #8](https://github.com/TANISHQBAFNA/resolve/pull/8).** Product and journey context packs for recipe and recommend. 264 tests.
-- **Sep 26, 2026 — [PR #7](https://github.com/TANISHQBAFNA/resolve/pull/7).** Better library picks and a forced happy path. 249 tests.
-- **Sep 25, 2026 — [PR #6](https://github.com/TANISHQBAFNA/resolve/pull/6).** Overview landing: health, counts, cluster cards. 244 tests.
-- **Sep 25, 2026 — [PR #5](https://github.com/TANISHQBAFNA/resolve/pull/5).** Screen recipes: composition packs for common jobs. 240 tests.
-- **Sep 25, 2026 — [PR #4](https://github.com/TANISHQBAFNA/resolve/pull/4).** Recommend and `verify_frame`: reuse becomes measurable. 227 tests.
-- **Sep 24, 2026 — [PR #2](https://github.com/TANISHQBAFNA/resolve/pull/2).** Toolchain upgrade (Vite 8, React 19, Vitest 5). 219 tests.
-- **Sep 22, 2026 — [PR #3](https://github.com/TANISHQBAFNA/resolve/pull/3).** Product renamed from Keyline to Resolve. 219 tests.
-- **Sep 20, 2026 — [PR #1](https://github.com/TANISHQBAFNA/resolve/pull/1).** First public release: personal and client leftovers scrubbed from the tree. 219 tests.
+- **Sep 29, 2026 — [PR #24](https://github.com/TANISHQBAFNA/resolve/pull/24).** Resolve is the first step on every Figma design task (short MCP instructions, `resolve-setup`). 490 tests.
+- **Sep 28, 2026 — PRs #18 to #23.** Live text in `verify`, a real example with every pick, better matching of component words, Claude setup fixes, performance wording. 429 to 479 tests.
+- **Sep 25 to 27, 2026 — PRs #4 to #17.** Recommend and `verify_frame`, screen recipes, multi-file workspace and the wrong-cousin report, bind rules and approvals, SOCI, the accuracy scoreboard, plug-and-play next to the Figma MCP. 227 to 428 tests.
+- **Sep 20 to 24, 2026 — PRs #1 to #3.** First public release (personal and client leftovers scrubbed), toolchain upgrade (Vite 8, React 19, Vitest 5), product renamed from Keyline to Resolve. 219 tests.
+
+The full list, one line per pull request, is in the [pull request history](https://github.com/TANISHQBAFNA/resolve/pulls?q=is%3Apr+is%3Amerged).
 
 ### FAQ
 
-**Is Resolve a Figma plugin?** No. It runs beside your AI tool and talks to it over MCP. You never open it inside Figma.
-
-**Does it change my Figma file?** No. It only reads (and only when you ingest or learn). The AI tool does the drawing.
-
-**Do I need a Figma token?** Only for command-line ingest of a live Figma URL. With the Figma MCP connected, the AI tool passes Resolve what it reads and no token is needed. Never commit a token.
-
-**What if my library has no component for the ask?** Resolve says "No master matched" and returns nothing. The AI tool should tell you, not make one up.
-
-**What does "weak match" mean?** The words in the ask only partly matched. You get up to three possible parts instead of one confident guess. Look before you place.
-
-**Why did `verify` say "nothing checked"?** The frame had no placed piece that carries a library component id or key (for example, a hand-drawn layer, or an empty frame). Layer names are only labels, so they are not enough for a pass.
+More plain-language answers are in [Questions designers ask](#questions-designers-ask).
 
 **Why does my retired component not show in `recommend`?** Once you have a code map, retired parts (retired in the library or in the map) are never recommended for a new screen. They stay mapped, and you still see them when you check an old frame with `verify` or ask for one by exact name with `resolve`. Without a code map, `recommend` behaves as before.
 
@@ -643,8 +634,6 @@ Newest first. Dates are the day each pull request was merged on GitHub (UTC). "T
 **What is `RESOLVE_HOME`?** The setting that pins the store folder. If you do not set it, Resolve uses the nearest `.resolve/` folder going up from where you run, then `~/.resolve/default`. Upgrading from an older version: see [Upgrading from the old names](#upgrading-from-the-old-names).
 
 **Where do I put team words?** `.resolve/synonyms.json`. See [team config files](#team-config-files).
-
-**Is my data sent anywhere?** Resolve stores files in your store folder on your machine. It calls Figma only when you ingest or look up published components, using your own token.
 
 **What Node version?** 22.12 or newer (Node 24 also works).
 
