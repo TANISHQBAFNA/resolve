@@ -1,3 +1,5 @@
+Installing Resolve for a user? Follow [INSTALL-FOR-AI.md](INSTALL-FOR-AI.md). The rest of this file is how to use Resolve once it is installed.
+
 ## Resolve
 
 For ANY Figma design, screen, or component task, call Resolve before drawing.

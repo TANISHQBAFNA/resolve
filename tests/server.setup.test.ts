@@ -260,4 +260,148 @@ describe("resolve-setup", () => {
     expect(ignore).not.toMatch(/^rules\/?$/m);
     expect(ignore).not.toMatch(/^skills\/?$/m);
   });
+
+  describe("project MCP files", () => {
+    const entry = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"] };
+    const project = (name: string) => {
+      const cwd = tempDir(name);
+      mkdirSync(cwd, { recursive: true });
+      return cwd;
+    };
+    const home = () => {
+      const dir = tempDir("home");
+      mkdirSync(dir, { recursive: true });
+      return dir;
+    };
+
+    it("creates .cursor/mcp.json and .mcp.json, and a second run changes nothing", () => {
+      const cwd = project("mcp-new");
+      const h = home();
+      const first = setup([], cwd, h);
+      expect(first.status).toBe(0);
+      expect(first.stdout).toContain(`create ${join(cwd, ".cursor/mcp.json")}`);
+      expect(first.stdout).toContain(`create ${join(cwd, ".mcp.json")}`);
+      expect(JSON.parse(readFileSync(join(cwd, ".cursor/mcp.json"), "utf8"))).toEqual({ mcpServers: { resolve: entry } });
+      expect(JSON.parse(readFileSync(join(cwd, ".mcp.json"), "utf8"))).toEqual({
+        mcpServers: { resolve: { type: "stdio", ...entry, env: {} } },
+      });
+      const before = readFileSync(join(cwd, ".cursor/mcp.json"), "utf8");
+      const second = setup([], cwd, h);
+      expect(second.stdout).toContain(`unchanged ${join(cwd, ".cursor/mcp.json")}`);
+      expect(second.stdout).toContain(`unchanged ${join(cwd, ".mcp.json")}`);
+      expect(readFileSync(join(cwd, ".cursor/mcp.json"), "utf8")).toBe(before);
+    });
+
+    it("keeps other servers and other keys when adding to an existing file", () => {
+      const cwd = project("mcp-merge");
+      mkdirSync(join(cwd, ".cursor"), { recursive: true });
+      const existing = { theme: "dark", mcpServers: { figma: { url: "https://mcp.figma.com/mcp" }, other: { command: "x" } } };
+      writeFileSync(join(cwd, ".cursor/mcp.json"), JSON.stringify(existing, null, 4));
+      const result = setup([], cwd, home());
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain(`update ${join(cwd, ".cursor/mcp.json")}`);
+      const text = readFileSync(join(cwd, ".cursor/mcp.json"), "utf8");
+      expect(JSON.parse(text)).toEqual({ ...existing, mcpServers: { ...existing.mcpServers, resolve: entry } });
+      expect(text).toContain('\n    "theme"');
+    });
+
+    it("leaves a file that is not valid JSON alone and says so", () => {
+      const cwd = project("mcp-bad");
+      mkdirSync(join(cwd, ".cursor"), { recursive: true });
+      writeFileSync(join(cwd, ".cursor/mcp.json"), "{ not json");
+      writeFileSync(join(cwd, ".mcp.json"), JSON.stringify({ mcpServers: [] }));
+      const result = setup([], cwd, home());
+      expect(result.status).toBe(0);
+      expect(readFileSync(join(cwd, ".cursor/mcp.json"), "utf8")).toBe("{ not json");
+      expect(readFileSync(join(cwd, ".mcp.json"), "utf8")).toBe(JSON.stringify({ mcpServers: [] }));
+      expect(result.stdout).toContain("not valid JSON");
+      expect(result.stdout).toContain(`The Resolve connection was NOT added to ${join(cwd, ".cursor/mcp.json")}`);
+      expect(result.stdout).toContain(`The Resolve connection was NOT added to ${join(cwd, ".mcp.json")}`);
+      expect(existsSync(join(cwd, ".cursor/rules/resolve.mdc"))).toBe(true);
+    });
+
+    it("never replaces a different resolve entry unless --force, and then only that entry", () => {
+      const cwd = project("mcp-diff");
+      mkdirSync(join(cwd, ".cursor"), { recursive: true });
+      const mine = { mcpServers: { resolve: { command: "node", args: ["/my/local/mcp.mjs"] }, keep: { command: "k" } } };
+      writeFileSync(join(cwd, ".cursor/mcp.json"), JSON.stringify(mine));
+      const soft = setup([], cwd, home());
+      expect(soft.stdout).toContain("different resolve entry");
+      expect(JSON.parse(readFileSync(join(cwd, ".cursor/mcp.json"), "utf8"))).toEqual(mine);
+      const forced = setup(["--force"], cwd, home());
+      expect(forced.status).toBe(0);
+      expect(JSON.parse(readFileSync(join(cwd, ".cursor/mcp.json"), "utf8"))).toEqual({
+        mcpServers: { resolve: entry, keep: { command: "k" } },
+      });
+    });
+
+    it("--dry-run shows the MCP files and writes nothing", () => {
+      const cwd = project("mcp-dry");
+      const result = setup(["--dry-run"], cwd, home());
+      expect(result.stdout).toContain(`create ${join(cwd, ".cursor/mcp.json")}`);
+      expect(result.stdout).toContain(`create ${join(cwd, ".mcp.json")}`);
+      expect(existsSync(join(cwd, ".cursor/mcp.json"))).toBe(false);
+      expect(existsSync(join(cwd, ".mcp.json"))).toBe(false);
+    });
+
+    it("--global writes no MCP file and never touches user-level config", () => {
+      const cwd = project("mcp-global");
+      const h = home();
+      writeFileSync(join(h, ".claude.json"), '{"mcpServers":{}}');
+      const result = setup(["--global", "--yes"], cwd, h);
+      expect(result.status).toBe(0);
+      expect(result.stdout).not.toContain("mcp.json");
+      expect(existsSync(join(cwd, ".mcp.json"))).toBe(false);
+      expect(existsSync(join(h, ".cursor"))).toBe(false);
+      expect(existsSync(join(h, ".codex"))).toBe(false);
+      expect(readFileSync(join(h, ".claude.json"), "utf8")).toBe('{"mcpServers":{}}');
+    });
+  });
+
+  describe("Figma connected? reads ~/.claude.json read-only", () => {
+    const run = (claudeJson: string | null) => {
+      const cwd = tempDir("fig-project");
+      const h = tempDir("fig-home");
+      mkdirSync(cwd, { recursive: true });
+      mkdirSync(h, { recursive: true });
+      if (claudeJson !== null) writeFileSync(join(h, ".claude.json"), claudeJson);
+      const result = spawnSync(process.execPath, [bin], {
+        cwd,
+        encoding: "utf8",
+        env: { ...process.env, HOME: h, FIGMA_ACCESS_TOKEN: "" },
+      });
+      return { cwd, h, result };
+    };
+
+    it("says yes for a user-level Figma server and never prints the file", () => {
+      const secret = "dummy-secret-value-123";
+      const json = JSON.stringify({
+        mcpServers: { figma: { type: "http", url: "https://mcp.figma.com/mcp" } },
+        oauthAccount: { token: secret },
+      });
+      const { h, result } = run(json);
+      expect(result.stdout).toContain("Figma connected? yes");
+      expect(`${result.stdout}${result.stderr}`).not.toContain(secret);
+      expect(readFileSync(join(h, ".claude.json"), "utf8")).toBe(json);
+    });
+
+    it("says yes for a Figma server saved for this project folder (local scope)", () => {
+      const cwd = tempDir("fig-local");
+      const h = tempDir("fig-local-home");
+      mkdirSync(cwd, { recursive: true });
+      mkdirSync(h, { recursive: true });
+      writeFileSync(
+        join(h, ".claude.json"),
+        JSON.stringify({ projects: { [cwd]: { mcpServers: { figma: { type: "http", url: "https://mcp.figma.com/mcp" } } } } }),
+      );
+      const result = spawnSync(process.execPath, [bin], { cwd, encoding: "utf8", env: { ...process.env, HOME: h, FIGMA_ACCESS_TOKEN: "" } });
+      expect(result.stdout).toContain("Figma connected? yes");
+    });
+
+    it("says no when there is no Figma server, no file, or a broken file", () => {
+      expect(run(JSON.stringify({ mcpServers: { resolve: { command: "npx" } } })).result.stdout).toContain("Figma connected? no");
+      expect(run(null).result.stdout).toContain("Figma connected? no");
+      expect(run("{ broken").result.stdout).toContain("Figma connected? no");
+    });
+  });
 });
