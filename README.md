@@ -606,7 +606,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
-- **Oct 3, 2026 — [PR #PRNUM](https://github.com/TANISHQBAFNA/resolve/pull/PRNUM).** README rewritten in plain language for designers: the problem, what Resolve does, numbered setup steps with "what you should see". Engineer detail moved under "For engineers and testers" and shortened. Docs only. TESTCOUNT tests.
+- **Oct 3, 2026 — [PR #31](https://github.com/TANISHQBAFNA/resolve/pull/31).** README rewritten in plain language for designers: the problem, what Resolve does, numbered setup steps with "what you should see". Engineer detail moved under "For engineers and testers" and shortened. Docs only. 618 tests.
 - **Oct 3, 2026 — [PR #30](https://github.com/TANISHQBAFNA/resolve/pull/30).** `RESOLVE_HOME` is the name of the store setting and `.resolve/` the project folder; the old names still work as fallbacks and nothing is moved. README reorganised for designers (set-up for Claude, Cursor and Codex first). 618 tests.
 - **Oct 3, 2026 — [PR #28](https://github.com/TANISHQBAFNA/resolve/pull/28).** Map Figma components to team-owned code twins; retired parts stay mapped but are never recommended. 612 tests.
 - **Oct 1, 2026 — [PR #27](https://github.com/TANISHQBAFNA/resolve/pull/27).** Prefer filled sets over same-name stubs; icon libraries file; stricter retire rules. 582 tests.
