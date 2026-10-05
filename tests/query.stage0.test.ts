@@ -178,6 +178,21 @@ describe("stage 0 reliability", () => {
     if (!("id" in example)) throw new Error("expected example id");
     expect(example.id).toBe(exact.id);
     expect(example.name).toBe("acme-mark");
+
+    for (const ask of ["acme-mark", "ACME-MARK"]) {
+      const recommended = recommendMasters(index, ask);
+      expect(recommended.candidates[0]?.id).toBe(exact.id);
+      const resolved = componentUsageCard(index, ask);
+      if (!resolved.found || resolved.kind !== "component") throw new Error("expected component card");
+      expect(resolved.component.id).toBe(recommended.candidates[0]?.id);
+    }
+    for (const ask of ["Acme Mark", "acme mark"]) {
+      const recommended = recommendMasters(index, ask);
+      expect(recommended.candidates[0]?.id).toBe(similar.id);
+      const resolved = componentUsageCard(index, ask);
+      if (!resolved.found || resolved.kind !== "component") throw new Error("expected component card");
+      expect(resolved.component.id).toBe(recommended.candidates[0]?.id);
+    }
   });
 
   it("does not suggest an icon as the replacement for a retired part", () => {

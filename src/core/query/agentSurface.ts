@@ -3137,6 +3137,37 @@ export function recommendMasters(
     if (!kept.length) onlyRetired = { name, use, guess: found?.guess };
   }
 
+  // Same rule as resolve: a live master whose name matches the ask (letter case ignored)
+  // is the top pick, ahead of a similar name that only shares collapsed letters.
+  // A listed icon still loses a generic ask ("search" → Search field, not the Search icon).
+  const exactLive = realMastersNamed(index, intent.trim()).filter((node) => {
+    if (isPrivateMaster(index, node) || isRetired(index, node) || view?.retired(node)) return false;
+    const set = setOf(index, node);
+    const askedExact =
+      node.name.toLowerCase() === intentNeedle ||
+      variantCardName(index, node).trim().toLowerCase() === intentNeedle ||
+      Boolean(set && set.name.toLowerCase() === intentNeedle);
+    return !shouldDemoteIcon(index, node, set, askedTokens, askedExact, workspace, intent);
+  });
+  const exactPick = preferNamedMaster(index, exactLive, workspace, intent.trim());
+  if (exactPick) {
+    const existing = kept.find((entry) => entry.node.id === exactPick.id);
+    const lead: Scored = existing
+      ? { ...existing, exactName: true, weak: false }
+      : {
+          node: exactPick,
+          score: 1_000_000,
+          lexical: 1_000,
+          why: ["name"],
+          analog: false,
+          deprecated: false,
+          instances: computeComponentUsage(index, exactPick).instanceCount,
+          exactName: true,
+          covered: tokens.length,
+        };
+    kept = [lead, ...kept.filter((entry) => entry.node.id !== exactPick.id)];
+  }
+
   const familyCardName = (entry: Scored): string => {
     if (entry.node.type !== "VARIANT") return variantCardName(index, entry.node);
     const set = setOf(index, entry.node);
