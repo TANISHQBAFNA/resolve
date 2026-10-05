@@ -6,6 +6,7 @@ import type { DesignGraph, GraphEdge, GraphNode, NodeType } from "@/core/model";
 import { descriptionIsRetired } from "@/core/model/governance";
 import {
   componentUsageCard,
+  exampleCard,
   fillRecipe,
   iconLibraryWarnings,
   indexGraph,
@@ -60,6 +61,25 @@ describe("stage 0 reliability", () => {
     clearCache();
     if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
     else process.env["RESOLVE_HOME"] = previousHome;
+  });
+
+  it("stays silent when the pinned store has no icon-libraries.json", () => {
+    const index = indexGraph(graph([n("file:LIB", "FILE", "Library", { fileKey: "LIB" })]));
+    const err: string[] = [];
+    const write = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      err.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      expect(iconLibraryWarnings(index, workspace)).toEqual([]);
+      componentUsageCard(index, "Library");
+      expect(err.join("")).not.toContain("malformed");
+    } finally {
+      process.stderr.write = write;
+    }
+    writeFileSync(join(home, "icon-libraries.json"), "{");
+    expect(iconLibraryWarnings(index, workspace)).toContain("icon-libraries.json is malformed; ignored");
   });
 
   it("warns when an icon library name matches nothing, and when the file is malformed", () => {
@@ -122,6 +142,42 @@ describe("stage 0 reliability", () => {
       expect(card.component.name).toBe("Acme Mark");
       expect(card.component.id).not.toBe(icon);
     }
+  });
+
+  it("returns the exact component name before a similar ranked name", () => {
+    const exact = n("node:exact", "MAIN_COMPONENT", "acme-mark", {
+      fileKey: "LIB",
+      figmaNodeId: "10:1",
+      isMainComponent: true,
+    });
+    const similar = n("node:similar", "COMPONENT_SET", "Acme Mark", {
+      fileKey: "LIB",
+      figmaNodeId: "10:2",
+      isMainComponent: true,
+    });
+    const variant = n("node:similar-v", "VARIANT", "Size=Large", {
+      parentId: "node:similar",
+      fileKey: "LIB",
+      figmaNodeId: "10:3",
+    });
+    const index = indexGraph(
+      graph(
+        [n("file:LIB", "FILE", "Library", { fileKey: "LIB" }), exact, similar, variant],
+        [e("CONTAINS", "file:LIB", similar.id), e("CONTAINS", similar.id, variant.id)],
+      ),
+    );
+    const card = componentUsageCard(index, "acme-mark");
+    expect(card.found).toBe(true);
+    if (!card.found || card.kind !== "component") throw new Error("expected component card");
+    expect(card.component.id).toBe(exact.id);
+    expect(card.component.name).toBe("acme-mark");
+    const folded = componentUsageCard(index, "ACME-MARK");
+    if (!folded.found || folded.kind !== "component") throw new Error("expected component card");
+    expect(folded.component.id).toBe(exact.id);
+    const example = exampleCard(index, "acme-mark");
+    if (!("id" in example)) throw new Error("expected example id");
+    expect(example.id).toBe(exact.id);
+    expect(example.name).toBe("acme-mark");
   });
 
   it("does not suggest an icon as the replacement for a retired part", () => {
@@ -196,6 +252,30 @@ describe("stage 0 reliability", () => {
     );
     expect(iconsOnly.slots[0]?.status).toBe("unbound");
     expect(iconsOnly.slots[0]?.master).toBeUndefined();
+
+    const hyphenated = n("node:hyphen", "MAIN_COMPONENT", "acme-pay-56-mark", {
+      fileKey: "LIB",
+      figmaNodeId: "9:8",
+      isMainComponent: true,
+    });
+    const hyphenRecipe: Recipe = {
+      id: "acme-detail",
+      title: "Acme detail",
+      intentAliases: ["acme detail"],
+      slots: [
+        { role: "content", required: true, hints: ["mark"] },
+        { role: "body", required: true, hints: ["mark"] },
+        { role: "detail", required: false, hints: ["mark"] },
+      ],
+    };
+    const hyphenFilled = fillRecipe(
+      indexGraph(graph([n("file:LIB", "FILE", "Library", { fileKey: "LIB" }), hyphenated])),
+      hyphenRecipe,
+    );
+    for (const slot of hyphenFilled.slots) {
+      expect(slot.status).toBe("unbound");
+      expect(slot.master).toBeUndefined();
+    }
   });
 
   it("recommends the live replacement, and says so, when a code map swaps a retired part", () => {

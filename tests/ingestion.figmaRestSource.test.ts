@@ -861,5 +861,116 @@ describe("fetchFigmaRestDocument", () => {
       process.stderr.write = write;
     }
   });
+
+  function publishedBody(key: string) {
+    return {
+      meta: {
+        key,
+        file_key: ICON_FILE_KEY,
+        file_name: "Acme Icons",
+        containing_frame: { pageName: "Glyphs", name: "Mark" },
+      },
+    };
+  }
+
+  it("recovers every stub when each lookup fails once and then succeeds", async () => {
+    const many = {
+      ...remoteIconFile,
+      components: {
+        "9:1": { name: "glyph-24-a", key: "acme-key-a", remote: true },
+        "9:2": { name: "glyph-24-b", key: "acme-key-b", remote: true },
+        "9:3": { name: "glyph-24-c", key: "acme-key-c", remote: true },
+        "9:4": { name: "glyph-24-d", key: "acme-key-d", remote: true },
+      },
+    };
+    const seen = new Map<string, number>();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.includes("/variables/")) return new Response("{}", { status: 404 });
+        if (url.endsWith(`/v1/files/${FILE_KEY}`)) {
+          return new Response(JSON.stringify(many), { status: 200 });
+        }
+        const count = (seen.get(url) ?? 0) + 1;
+        seen.set(url, count);
+        if (count === 1) return new Response(JSON.stringify({ err: "upstream" }), { status: 503 });
+        const key = ["acme-key-a", "acme-key-b", "acme-key-c", "acme-key-d"].find((item) => url.includes(item));
+        if (key) return new Response(JSON.stringify(publishedBody(key)), { status: 200 });
+        return new Response(JSON.stringify({ meta: { components: [] } }), { status: 200 });
+      }),
+    );
+    const err: string[] = [];
+    const write = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      err.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      const doc = await fetchFigmaRestDocument(FILE_KEY, {
+        token: "figd_test",
+        origin: "https://api.figma.com",
+        scope: "file",
+        sleep: async () => {},
+      });
+      expect(err.join("")).not.toContain(STUB_LOOKUP_STOPPED);
+      expect(doc.source.remoteSourceLookup).toBe("ok");
+      for (const id of ["9:1", "9:2", "9:3", "9:4"]) {
+        expect(doc.components[id]?.sourceFileKey).toBe(ICON_FILE_KEY);
+      }
+    } finally {
+      process.stderr.write = write;
+    }
+  });
+
+  it("marks stub lookup partial when the circuit trips before every stub is filled", async () => {
+    const many = {
+      ...remoteIconFile,
+      components: {
+        "9:1": { name: "glyph-24-a", key: "acme-key-a", remote: true },
+        "9:2": { name: "glyph-24-b", key: "acme-key-b", remote: true },
+        "9:3": { name: "glyph-24-c", key: "acme-key-c", remote: true },
+        "9:4": { name: "glyph-24-d", key: "acme-key-d", remote: true },
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.includes("/variables/")) return new Response("{}", { status: 404 });
+        if (url.endsWith(`/v1/files/${FILE_KEY}`)) {
+          return new Response(JSON.stringify(many), { status: 200 });
+        }
+        if (url.includes("acme-key-a") || url.includes(`/v1/files/${ICON_FILE_KEY}`)) {
+          if (url.includes("acme-key-a")) {
+            return new Response(JSON.stringify(publishedBody("acme-key-a")), { status: 200 });
+          }
+          return new Response(JSON.stringify({ meta: { components: [] }, name: "Acme Icons" }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ err: "upstream" }), { status: 503 });
+      }),
+    );
+    const err: string[] = [];
+    const write = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      err.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      const doc = await fetchFigmaRestDocument(FILE_KEY, {
+        token: "figd_test",
+        origin: "https://api.figma.com",
+        scope: "file",
+        sleep: async () => {},
+      });
+      expect(err.join("")).toContain(STUB_LOOKUP_STOPPED);
+      expect(doc.source.remoteSourceLookup).toBe("partial");
+      expect(doc.components["9:1"]?.sourceFileKey).toBe(ICON_FILE_KEY);
+      expect(doc.components["9:2"]?.sourceFileKey).toBeUndefined();
+      expect(doc.components["9:4"]?.sourceFileKey).toBeUndefined();
+    } finally {
+      process.stderr.write = write;
+    }
+  });
 });
 

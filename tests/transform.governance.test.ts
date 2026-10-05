@@ -98,6 +98,7 @@ describe("parseGovernance", () => {
       "Legacy",
       "Legacy.",
       "Legacy: will be removed in v4",
+      "Legacy - will be removed",
       "Legacy component",
       "Legacy style",
       "Legacy version",

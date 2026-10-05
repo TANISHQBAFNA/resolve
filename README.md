@@ -626,7 +626,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 | Repo golden set (top-1) | 118/118, invent 0, leak 0 |
 | Phrase set (regression) | 96/96 |
 | 8-screen Material-like library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
-| Tests | 639 passing |
+| Tests | 643 passing |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
@@ -650,7 +650,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
-- **Oct 5, 2026 — [PR #33](https://github.com/TANISHQBAFNA/resolve/pull/33) (draft, not merged).** The same ask gets the same top pick from `resolve` and `recommend`. A mistyped icon-library name, or a broken `icon-libraries.json`, warns instead of failing quietly. Retired parts are never the pick to place (exact `resolve` of that name still shows the retired part, flagged). A description that is only "Legacy" counts as retired. Replacements are never icons. The desktop app shows the library and the rules, not a graph. 639 tests.
+- **Oct 5, 2026 — [PR #33](https://github.com/TANISHQBAFNA/resolve/pull/33) (draft, not merged).** The same ask gets the same top pick from `resolve` and `recommend`, except an exact component name (letter case ignored) stays that component. A missing `icon-libraries.json` stays quiet. A mistyped icon-library name, or a broken `icon-libraries.json`, warns instead of failing quietly. Retired parts are never the pick to place (exact `resolve` of that name still shows the retired part, flagged). A description that is only "Legacy" counts as retired. Replacements are never icons. The desktop app shows the library and the rules, not a graph. 643 tests.
 - **Oct 3, 2026 — [PR #32](https://github.com/TANISHQBAFNA/resolve/pull/32).** Install by asking your AI tool: new `INSTALL-FOR-AI.md` checklist (Claude Code, Cursor, Codex; Codex not verified), linked from the README top and `AGENTS.md`. `resolve-setup` adds the project's `.cursor/mcp.json` and `.mcp.json` by itself (keeps other servers, leaves invalid JSON alone), and `Figma connected?` also sees a Claude Code Figma server (read-only). README setup rewritten around it; hand-typed steps moved into an "If you prefer to do it by hand" box. 632 tests.
 - **Oct 3, 2026 — [PR #31](https://github.com/TANISHQBAFNA/resolve/pull/31).** README rewritten in plain language for designers: the problem, what Resolve does, numbered setup steps with "what you should see". Engineer detail moved under "For engineers and testers" and shortened. Docs only. 618 tests.
 - **Oct 3, 2026 — [PR #30](https://github.com/TANISHQBAFNA/resolve/pull/30).** `RESOLVE_HOME` is the name of the store setting and `.resolve/` the project folder; the old names still work as fallbacks and nothing is moved. README reorganised for designers (set-up for Claude, Cursor and Codex first). 618 tests.

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { buildAiGraphContext, toMarkdownPrompt } from "@/core/ai";
 import {
   assertVerifyTextInput,
@@ -428,6 +428,13 @@ function pickResolveTarget(
     return variantCardName(index, node).trim().toLowerCase() === foldedName;
   });
   if (frameHit && namedMasters.length === 0 && !anyMaster) return frameHit;
+
+  // Exact name (letter case ignored) wins before fuzzy ranking.
+  // "acme-mark" stays that master even when "Acme Mark" would rank higher.
+  const liveExact = namedMasters.filter(
+    (node) => !isRetired(index, node) && !view?.retired(node),
+  );
+  if (liveExact.length) return preferNamedMaster(index, liveExact, workspace, trimmed) ?? liveExact[0];
 
   const ranked = recommendMasters(index, trimmed, {
     context,
@@ -1595,7 +1602,8 @@ function loadIconLibraries(): void {
   iconLibraryIgnored = new Set();
   iconLibraryMalformed = false;
   const path = overlayFile("icon-libraries.json");
-  if (!path) return;
+  // A pinned store with no file is no config. Only real JSON errors warn.
+  if (!path || !existsSync(path)) return;
   let raw: unknown;
   try {
     const text = readFileSync(path, "utf8").replace(/^\uFEFF/, "").trim();
@@ -2343,7 +2351,8 @@ function isPrivateMaster(index: GraphIndex, node: GraphNode): boolean {
   return Boolean(set && isPrivateMasterName(set.name));
 }
 
-const ICON_CODE_NAME = /^[a-z][a-z0-9]*-\d{2,}-[a-z]/i;
+/** Coded icon names: `glyph-24-search` and hyphenated categories like `acme-pay-56-mark`. */
+const ICON_CODE_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*-\d{2,}-[a-z]/i;
 const ICON_WORD = /^(?:icon|glyph|symbol)(?:\b|[-_\s])|(?:^|[-_\s])(?:icon|glyph|symbol)$/i;
 
 function asksIcon(tokens: string[], rawAsk?: string): boolean {

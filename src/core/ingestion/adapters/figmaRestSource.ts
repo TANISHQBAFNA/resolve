@@ -35,23 +35,27 @@ export const STUB_LOOKUP_STOPPED =
   "Figma stub lookup stopped after repeated 503/429 responses. Remote sources were not filled in. Re-run ingest to retry.";
 export const RETRYABLE_SERVER_STATUSES = new Set([500, 502, 503, 504]);
 
-/** Shared budget for remote-stub lookups. Opens after repeated 503/429s so ingest does not keep calling. */
+/** Shared budget for remote-stub lookups. Opens after this many 503/429s in a row. A success resets the streak. */
 export function stubLookupCircuit(budget = STUB_LOOKUP_RETRYABLE_BUDGET): {
   note(status: number): boolean;
+  succeed(): void;
   open: boolean;
   message: string;
 } {
-  let hits = 0;
+  let streak = 0;
   let open = false;
   return {
     message: STUB_LOOKUP_STOPPED,
     get open() {
       return open;
     },
+    succeed() {
+      if (!open) streak = 0;
+    },
     note(status: number): boolean {
       if (status !== 429 && !RETRYABLE_SERVER_STATUSES.has(status)) return false;
-      hits += 1;
-      if (hits >= budget) open = true;
+      streak += 1;
+      if (streak >= budget) open = true;
       return open;
     },
   };
@@ -197,6 +201,8 @@ interface RetryPolicy {
   maxRateLimitRetries?: number;
   /** True when this 429/5xx must stop the whole stub-lookup pass. */
   noteRetryable?: (status: number) => boolean;
+  /** A successful response resets the consecutive-failure streak. */
+  noteSuccess?: () => void;
   circuitOpen?: () => boolean;
   circuitMessage?: string;
 }
@@ -263,6 +269,7 @@ async function getJson(
     if (!res.ok) {
       throw new Error(`${httpFailureKind(res.status)} for ${fileKey}: ${await figmaError(res)}`);
     }
+    retry?.noteSuccess?.();
     try {
       return await res.json();
     } catch {
@@ -401,7 +408,6 @@ export async function enrichRemoteComponentSources(
   const fileNames = new Map<string, string>();
   const batchedFiles = new Set<string>();
   let attempted = false;
-  let hitCount = 0;
   let told = false;
   const circuit = stubLookupCircuit();
   const retry: RetryPolicy = {
@@ -411,6 +417,7 @@ export async function enrichRemoteComponentSources(
       ? { maxRateLimitRetries: options.retry.maxRateLimitRetries }
       : {}),
     noteRetryable: (status) => circuit.note(status),
+    noteSuccess: () => circuit.succeed(),
     circuitOpen: () => circuit.open,
     circuitMessage: circuit.message,
   };
@@ -425,7 +432,6 @@ export async function enrichRemoteComponentSources(
 
   const remember = (key: string | undefined, hit: RemoteSourceHit | undefined) => {
     if (!key || !hit) return;
-    hitCount += 1;
     const named = fileNames.get(hit.fileKey);
     const next = named && !hit.fileName ? { ...hit, fileName: named } : hit;
     if (next.fileName) fileNames.set(next.fileKey, next.fileName);
@@ -513,7 +519,17 @@ export async function enrichRemoteComponentSources(
     stampRemoteMeta(remote, hit);
   }
   restampRemoteLibraries(doc);
-  doc.source.remoteSourceLookup = hitCount > 0 ? "ok" : attempted ? "failed" : "skipped";
+  const filled = remotes.filter((remote) => remote.key && cache.has(remote.key)).length;
+  const stoppedEarly = circuit.open && filled < remotes.length;
+  doc.source.remoteSourceLookup = stoppedEarly
+    ? filled > 0
+      ? "partial"
+      : "failed"
+    : filled > 0
+      ? "ok"
+      : attempted
+        ? "failed"
+        : "skipped";
   return doc;
 }
 
