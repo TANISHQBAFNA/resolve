@@ -48,7 +48,7 @@ export function WorkspaceState({
             <p className="workspace-state__kicker">Resolve</p>
             <h2>No library loaded</h2>
             <p>
-              Ingest a Figma file to see health, counts, and clusters. Then agents follow recipe →
+              Ingest a Figma file to see health and counts. Then agents follow recipe →
               recommend → verify_frame — they never read graph.json.
             </p>
             <div className="workspace-state__actions">

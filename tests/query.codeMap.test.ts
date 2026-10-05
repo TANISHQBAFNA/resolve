@@ -326,8 +326,9 @@ describe("code-map.json", () => {
       const idx = retiredLib();
       expect(recommendMasters(idx, "chip").candidates.map((c) => c.name)).not.toContain("Chip");
       const only = recommendMasters(idx, "chip");
-      expect(only.candidates).toEqual([]);
-      expect(only.hint).toBe("Only match is retired: Chip. Use Pager.");
+      expect(only.candidates[0]?.name).toBe("Pager");
+      expect(only.candidates[0]?.why).toBe("replaces Chip (deprecated)");
+      expect(only.retired).toBe("Chip is retired, use Pager.");
       map();
       const variant = idx.graph.nodes.find((n) => n.name === "Old Button Primary")!;
       expect(codeMapView(idx)?.twin(variant)).toMatchObject({ retired: true, line: "OldButton from '@acme/ui'" });
@@ -400,10 +401,11 @@ describe("code-map.json", () => {
       expect(formatCodeMapReport(report(idx))).toContain("Bad replacedBy: Chip [LIB 5:5] - replacedBy matches no component: 'Nothing'");
     });
 
-    it("a library-retired part with no entry is not offered once a map exists; no map is unchanged", () => {
+    it("a library-retired part with no entry is not offered, with or without a map", () => {
       const idx = rl();
       const before = recommendMasters(idx, "legacy menu");
-      expect(before.candidates.map((c) => c.name)).toEqual(["Legacy Menu"]);
+      expect(before.candidates).toEqual([]);
+      expect(before.hint).toBe("Only match is retired: Legacy Menu. Use none.");
       put({ entries: [entry("1:1")] });
       const after = recommendMasters(idx, "legacy menu");
       expect(after.candidates).toEqual([]);

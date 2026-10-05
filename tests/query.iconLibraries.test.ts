@@ -501,15 +501,12 @@ describe("icon-libraries match on lookup-stamped remote stubs", () => {
     expectField([{ page: "Glyphs" }]);
   });
 
-  it("degrades to host-file matching when lookup failed and does not print unmatched", () => {
+  it("warns when a configured icon library matches nothing, even if lookup failed", () => {
     const index = lookupStubIndex(false);
     writeLibraries(home, [{ name: "Acme Icons" }]);
-    expect(iconLibraryWarnings(index, localWorkspace)).not.toContain(
+    expect(iconLibraryWarnings(index, localWorkspace)).toContain(
       'icon library "acme icons" matched no components',
     );
-    expect(
-      iconLibraryWarnings(index, localWorkspace).some((line) => /matched no components/.test(line)),
-    ).toBe(false);
     const recommended = recommendMasters(index, "toggle", { workspace: localWorkspace });
     expect(JSON.stringify(recommended)).not.toContain("matched no components");
     expect(recommended.candidates[0]?.id).toBe("node:toggle");

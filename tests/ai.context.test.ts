@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  AI_ACTIONS,
-  buildActionRequest,
   buildAiGraphContext,
   compactNode,
   toJsonPayload,
@@ -82,14 +80,6 @@ describe("AI serialisation", () => {
 
   it("stays small enough to paste into a chat window", () => {
     expect(toMarkdownPrompt(context).length).toBeLessThan(20_000);
-  });
-
-  it("builds a provider-agnostic request from an action", () => {
-    const action = AI_ACTIONS.find((candidate) => candidate.id === "impact-analysis")!;
-    const request = buildActionRequest(action, context);
-    expect(request.messages[0]?.role).toBe("system");
-    expect(request.messages[1]?.content).toContain(action.task);
-    expect(request.context).toBe(context);
   });
 
   it("never includes access tokens or auth headers", () => {

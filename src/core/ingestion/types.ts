@@ -229,7 +229,7 @@ export const SourceDocumentSchema = z.object({
      * Remote component source lookup (GET /v1/components/:key).
      * `skipped` = nothing to look up. `failed` = 403/404/network, stubs stay unknown.
      */
-    remoteSourceLookup: z.enum(["ok", "failed", "skipped"]).optional(),
+    remoteSourceLookup: z.enum(["ok", "failed", "partial", "skipped"]).optional(),
   }),
 });
 export type SourceDocument = z.infer<typeof SourceDocumentSchema>;

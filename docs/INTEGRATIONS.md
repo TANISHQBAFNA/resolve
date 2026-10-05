@@ -12,13 +12,10 @@ graph model, the query layer or the UI.
   new data source ───▶│ IngestionSource.load()        │──▶ SourceDocument ──▶ (unchanged)
                       └──────────────────────────────┘
 
-                      ┌──────────────────────────────┐
-  new AI provider ◀───│ LlmProvider.complete()        │◀── LlmRequest{ AiGraphContext }
-                      └──────────────────────────────┘
 ```
 
 - To add a **data source**, implement `IngestionSource` (`core/ingestion/types.ts`).
-- To add an **AI provider**, implement `LlmProvider` (`core/ai/provider.ts`).
+- Bounded graph context for a node lives in `core/ai/context.ts`. There is no LLM client in this repo.
 
 ---
 
@@ -178,11 +175,9 @@ traverse it instead of re-reading the file. Each tool is a thin wrapper over
 | `find_nodes(query)` | `searchNodes(index, query)` — the same query language as the UI |
 | `get_node(id)` | `index.getNode(id)` + `usageSummaryFor` |
 | `get_component_usage(id)` | `computeComponentUsage(index, node)` |
-| `get_subgraph(id, level, viewMode)` | `extractSubgraph(index, {...})` |
-| `get_ai_context(id, budget)` | `buildAiGraphContext(index, id, { nodeBudget })` |
+| `get_subgraph(id, level, viewMode)` | `extractSubgraph(index, {...})` — deprecated; use `recommend` |
 
-`get_ai_context` is the one that matters: it is already capped, already
-compacted, and already excludes materialised inverse edges.
+`get_subgraph` stays callable for a quarter, then goes. The why line on a `recommend` card is the brief agents should read.
 
 ### Why this is the point of the product
 
@@ -201,76 +196,20 @@ targeted answer never costs more than half of the source it came from.
 
 ---
 
-## 4. Claude / OpenAI-compatible providers (Phase 4)
+## 4. No LLM client
 
-Implement `LlmProvider`:
+`core/ai` only builds a bounded subgraph (`buildAiGraphContext`) and a markdown brief (`toMarkdownPrompt`). There is no provider, no action catalogue, and no AI panel. Agents read the why line on `recommend` and `resolve` cards.
 
-```ts
-import Anthropic from "@anthropic-ai/sdk";
-import type { LlmProvider, LlmRequest, LlmResponse } from "@/core/ai";
+## 5. Cursor / Claude Code
 
-export class AnthropicProvider implements LlmProvider {
-  readonly id = "anthropic";
-  readonly label = "Claude";
-
-  constructor(private readonly client: Anthropic, private readonly model = "claude-opus-5") {}
-
-  async complete(request: LlmRequest, signal?: AbortSignal): Promise<LlmResponse> {
-    const system = request.messages.find((m) => m.role === "system")?.content;
-    const messages = request.messages
-      .filter((m) => m.role !== "system")
-      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
-
-    const response = await this.client.messages.create(
-      { model: this.model, max_tokens: request.maxOutputTokens ?? 2048, system, messages },
-      { signal },
-    );
-
-    const text = response.content
-      .filter((block) => block.type === "text")
-      .map((block) => block.text)
-      .join("\n");
-    return { text, raw: response };
-  }
-}
-```
-
-An OpenAI-compatible provider is the same shape against `/v1/chat/completions`.
-API keys belong on a server, not in the bundle — the same proxy that fronts the
-Figma token should front the model call.
-
-**The payload contract is fixed regardless of provider.** `AI_ACTIONS` supplies
-the task text, `buildActionRequest` assembles the messages, and
-`buildAiGraphContext` bounds the data. A provider never sees the whole graph,
-because it is never handed the whole graph.
-
-## 5. Cursor / Claude Code handoff (works today)
-
-The `handoff-context` action in the AI panel produces a markdown payload that
-already contains the component tree, the design-system mapping and the Figma
-deep links for the selected subgraph. Copy it into Cursor or Claude Code as-is.
-
-For a tighter loop, write the payload to a file the agent already reads:
-
-```ts
-import { buildAiGraphContext, toMarkdownPrompt, AI_ACTIONS } from "@/core/ai";
-
-const context = buildAiGraphContext(index, focusId, { nodeBudget: 80 });
-const action = AI_ACTIONS.find((a) => a.id === "handoff-context")!;
-await writeFile(".cursor/figma-context.md", toMarkdownPrompt(context!, action.task));
-```
-
-Pair this with Figma Code Connect and the payload gains the last missing
-mapping — main component → source file — which turns "which components are on
-this screen" into "which files do I open".
+Use `recommend`, `resolve`, and `verify_frame`. Do not paste a graph canvas export. Code twins live in `.resolve/code-map.json`.
 
 ## 6. Adding a node type or an edge type
 
 1. Add the literal to `NODE_TYPES` / `EDGE_TYPES` in `core/model`.
 2. Add its category in `NODE_CATEGORY_BY_TYPE` (colour follows automatically).
 3. Emit it in `buildGraph`.
-4. Add a glyph and shape in `ui/nodeVisuals.ts`.
-5. If it needs a reverse index, add it in `GraphIndex`'s constructor switch.
+4. If it needs a reverse index, add it in `GraphIndex`'s constructor switch.
 
 Levels, filters, search, the browser and the AI payload all pick it up without
 further changes.

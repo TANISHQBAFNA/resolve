@@ -45,8 +45,8 @@ import {
   type Recipe,
   type ViewMode,
 } from "@/core/query";
-import { buildAiGraphContext, toMarkdownPrompt } from "@/core/ai";
 import { learnLibrary } from "./learn";
+import { withDeprecation } from "./deprecations";
 import {
   listGraphs,
   loadContextBind,
@@ -241,13 +241,13 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "orient",
     description:
-      "Start here only if you have not called recommend or resolve. God nodes and communities. Prefer recommend.",
+      "Deprecated. This will be removed after a quarter. Use recommend or recipe. God nodes and communities.",
     inputSchema: { type: "object", properties: { ...graphIdProperty } },
   },
   {
     name: "query",
     description:
-      "One-hop answer: similar screens (name + prototype neighbours) and which component variants they nest. Example: 'approval summary buttons' → tertiary on Approval details. Prefer this over walking the page tree.",
+      "Deprecated. This will be removed after a quarter. Use recommend or resolve. One-hop answer: similar screens and which component variants they nest.",
     inputSchema: {
       type: "object",
       properties: {
@@ -261,7 +261,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "path",
     description:
-      "Shortest relationship path between two nodes, by name or id. Foundation edges are excluded unless an endpoint is a style or variable.",
+      "Deprecated. This will be removed after a quarter. Use recommend. Shortest relationship path between two nodes, by name or id.",
     inputSchema: {
       type: "object",
       properties: {
@@ -275,7 +275,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "explain",
     description:
-      "Bounded markdown brief for one component, frame, or node — by name or id. Use instead of reading the Figma file.",
+      "Deprecated. This will be removed after a quarter. Use the why line on a recommend or resolve card. Bounded markdown brief for one node.",
     inputSchema: {
       type: "object",
       properties: {
@@ -289,7 +289,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "check_frame",
     description:
-      "Analog shortcut: given a new screen intent, pick the variant similar screens nest and list deprecated ones to avoid. Prefer `recommend` when you do not know the component family. Deterministic — does not call an LLM.",
+      "Deprecated. This will be removed after a quarter. Use verify_frame. Analog shortcut: pick the variant similar screens nest and list deprecated ones to avoid.",
     inputSchema: {
       type: "object",
       properties: {
@@ -411,7 +411,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_recipe",
     description:
-      "Alias of recipe. After ingest: slots bound/filled from live masters. Overlay still wins. Unbound: next recommend query. Never invents node ids.",
+      "Deprecated. This will be removed after a quarter. Use recipe. Alias of recipe. After ingest: slots bound/filled from live masters.",
     inputSchema: {
       type: "object",
       properties: {
@@ -441,7 +441,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "find_nodes",
     description:
-      "Search a graph by name, type and relationship. Supports the query language: free text, plus type:, page:, section:, frame:, instance-of:, used-in:, style:, variable:, library:, is: (remote, deprecated, draft, approved), and macros unused-components, deprecated-components, orphaned-frames, unresolved-instances. Prefix a term with - to negate it.",
+      "Deprecated. This will be removed after a quarter. Use recommend or resolve. Search a graph by name, type and relationship.",
     inputSchema: {
       type: "object",
       properties: {
@@ -455,7 +455,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_node",
     description:
-      "Everything known about one node: type, location, hierarchy path, counts, styles and variables it uses, its main component, and its Figma deep link.",
+      "Deprecated. This will be removed after a quarter. Use resolve. Everything known about one node: type, location, path, counts, and its Figma deep link.",
     inputSchema: {
       type: "object",
       properties: { ...graphIdProperty, nodeId: { type: "string" } },
@@ -465,7 +465,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_screen_inventory",
     description:
-      "Which components are used on a screen, frame or section. Each definition once, with a placement count — not every instance. One index lookup.",
+      "Deprecated. This will be removed after a quarter. Use resolve on a frame name. Which components are used on a screen, frame or section.",
     inputSchema: {
       type: "object",
       properties: { ...graphIdProperty, nodeId: { type: "string" } },
@@ -475,7 +475,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_component_usage",
     description:
-      "Where a component is used and what changing it would affect: instance count, the frames and pages involved, and a risk score.",
+      "Deprecated. This will be removed after a quarter. Use resolve. Where a component is used: instance count, frames, pages, and a risk score.",
     inputSchema: {
       type: "object",
       properties: { ...graphIdProperty, nodeId: { type: "string" } },
@@ -485,7 +485,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_related",
     description:
-      "Shortest relationship path between two nodes. Foundation edges are excluded unless an endpoint is a style or variable, so two screens are not reported as related merely because they share a colour.",
+      "Deprecated. This will be removed after a quarter. Use recommend. Shortest relationship path between two nodes.",
     inputSchema: {
       type: "object",
       properties: { ...graphIdProperty, fromId: { type: "string" }, toId: { type: "string" } },
@@ -495,7 +495,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_subgraph",
     description:
-      "A bounded neighbourhood around a node. level: PRODUCT_MAP | PAGE_MAP | FRAME_COMPOSITION | COMPONENT_DEPENDENCY (defaults to whatever suits the node type). viewMode: hierarchy | dependency | usage | prototype.",
+      "Deprecated. This will be removed after a quarter. Use recommend. A bounded neighbourhood around a node.",
     inputSchema: {
       type: "object",
       properties: {
@@ -509,24 +509,9 @@ export const TOOLS: ToolDefinition[] = [
     },
   },
   {
-    name: "get_ai_context",
-    description:
-      "A compact, ready-to-reason-about markdown brief for a node: what it is, where it sits, what it depends on and what depends on it. Use this instead of reading the Figma file.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ...graphIdProperty,
-        nodeId: { type: "string" },
-        nodeBudget: { type: "number", description: "Max neighbours. Default 40, hard cap 120." },
-        task: { type: "string", description: "Optional question to append to the brief." },
-      },
-      required: ["nodeId"],
-    },
-  },
-  {
     name: "get_health",
     description:
-      "Design-system health for a graph: most reused components, components with no instances, frames with no component usage, orphaned screens, and instances whose main component could not be resolved.",
+      "Deprecated. This will be removed after a quarter. Use learn_library. Design-system health: most reused components, unused components, frames with no component usage, orphaned screens, unresolved instances.",
     inputSchema: { type: "object", properties: { ...graphIdProperty } },
   },
 ];
@@ -688,7 +673,7 @@ export function callTool(name: string, rawArgs: unknown): unknown {
     );
   }
   const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
-  const result = attachCardMeta(dispatchTool(name, args), args);
+  const result = attachCardMeta(withDeprecation(name, dispatchTool(name, args)), args);
   if (result && typeof result === "object" && "cost" in result) return result;
   if (result && typeof result === "object" && !Array.isArray(result)) return withCost(result);
   return result;
@@ -1175,26 +1160,6 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           target: edge.target,
           type: edge.type,
         })),
-      };
-    }
-
-    case "get_ai_context": {
-      const { index, graphId } = context(args);
-      const nodeId = asString(args["nodeId"], "nodeId");
-      requireNode(index, nodeId);
-
-      const aiContext = buildAiGraphContext(index, nodeId, {
-        nodeBudget: asNumber(args["nodeBudget"], 40, 120),
-      });
-      if (!aiContext) throw new ToolError(`Could not build context for \`${nodeId}\`.`);
-
-      const task = typeof args["task"] === "string" ? args["task"] : undefined;
-      return {
-        graphId,
-        nodes: aiContext.neighbors.length + 1,
-        edges: aiContext.edges.length,
-        truncated: aiContext.meta.truncated,
-        markdown: toMarkdownPrompt(aiContext, task),
       };
     }
 

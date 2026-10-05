@@ -135,20 +135,12 @@ describe("recommend (library ranking)", () => {
     expect(result.hint).toMatch(/Do not Read graph\.json/);
   });
 
-  it("demotes deprecated masters below live ones", () => {
+  it("does not offer a deprecated master as a pick", () => {
     const result = recommendMasters(demo, "banner message");
-    const banner = result.candidates.find((candidate) => candidate.id === ids.banner);
-    expect(banner && "deprecated" in banner && banner.deprecated).toBe(true);
-    const firstDeprecated = result.candidates.findIndex(
-      (candidate) => "deprecated" in candidate && candidate.deprecated,
+    expect(result.candidates.some((candidate) => candidate.id === ids.banner)).toBe(false);
+    expect(result.candidates.every((candidate) => !("deprecated" in candidate) || candidate.deprecated === false)).toBe(
+      true,
     );
-    const lastLive = result.candidates.reduce(
-      (last, candidate, index) => ("deprecated" in candidate && candidate.deprecated ? last : index),
-      -1,
-    );
-    if (firstDeprecated >= 0 && lastLive >= 0) {
-      expect(lastLive).toBeLessThan(firstDeprecated);
-    }
   });
 
   it("prefers a live used master over a weak name match and a deprecated twin", () => {

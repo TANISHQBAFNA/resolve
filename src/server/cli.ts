@@ -71,6 +71,7 @@ import {
   workspacePath,
 } from "./store";
 import { learnLibrary } from "./learn";
+import { warnDeprecated } from "./deprecations";
 import {
   previousScore,
   scoreboardHistoryDir,
@@ -148,12 +149,12 @@ function usage(): void {
       "      Wrong-cousin report: same role / weak name, different master family than the shared DS library.",
       "      Needs a library-role file in .resolve/workspace.json. Unsure → says so. Never invents a master.",
       "  resolve workspace              Linked files + store path / builtAt (same as MCP list_graphs.store)",
-      "  resolve orient [--id <graphId>]     Optional god-node summary. Prefer recommend / resolve.",
+      "  resolve orient [--id <graphId>]     Deprecated. God-node summary. Use recommend or recipe.",
       "  resolve query \"<question>\" [--id] [--budget <chars>]",
-      "      Optional scoped subgraph. Agents should recommend or resolve a component instead.",
-      "  resolve path \"<A>\" \"<B>\" [--id]     Shortest relationship path",
-      "  resolve explain \"<name>\" [--id]      Bounded markdown brief for one node",
-      "  resolve check \"<intent>\" [--id]      Analog variant + deprecated to avoid (prefer recommend)",
+      "      Deprecated. Scoped subgraph. Use recommend or resolve.",
+      "  resolve path \"<A>\" \"<B>\" [--id]     Deprecated. Shortest relationship path. Use recommend.",
+      "  resolve explain \"<name>\" [--id]      Deprecated. Use the why line on a recommend or resolve card.",
+      "  resolve check \"<intent>\" [--id]      Deprecated. Analog variant. Use verify.",
       "",
       "  resolve list                 Show the stored graph",
       "  resolve reindex              Confirm graph.json loads",
@@ -166,11 +167,12 @@ function usage(): void {
       "      Default --out is RESOLVE_HOME/scoreboard/golden/from-library.json (the store folder), never the Resolve checkout.",
       "      Prints a short table. Exits non-zero when invent rate is above 0 or a card exceeds its budget.",
       "      Saves the run to RESOLVE_HOME/scoreboard when set, else ~/.resolve/<workspace>/scoreboard.",
-      "      Default golden path: scoreboard/golden. Default workspace name: default (or RESOLVE_WORKSPACE).",
+      "      Default golden path: <store>/scoreboard/golden when that folder exists, else ./scoreboard/golden.",
+      "      Default workspace name: default (or RESOLVE_WORKSPACE).",
       "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
       "",
       "  npm run resolve -- <command>     primary",
-      "  npm run keyline -- <command>     deprecated alias (one release)",
+      "  npm run keyline -- <command>     Deprecated alias. Use npm run resolve. Removed after a quarter.",
       "",
     ].join("\n"),
   );
@@ -355,7 +357,14 @@ function printJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
+function defaultGoldenDir(): string {
+  const stored = join(storeRoot(), "scoreboard", "golden");
+  if (existsSync(stored)) return stored;
+  return resolve("scoreboard/golden");
+}
+
 export async function runCli(argv: string[]): Promise<void> {
+  if (process.env["npm_lifecycle_event"] === "keyline") warnDeprecated("npm run keyline");
   const [command, ...args] = argv;
 
   switch (command) {
@@ -525,6 +534,8 @@ export async function runCli(argv: string[]): Promise<void> {
     }
 
     case "orient": {
+      warnDeprecated("orient");
+      warnDeprecated("communities");
       const { index, graphId } = requireGraph(args);
       const brief = buildOrientBrief(index);
       process.stdout.write(`# ${graphId}\n\n${toGraphReportMarkdown(brief)}`);
@@ -532,6 +543,7 @@ export async function runCli(argv: string[]): Promise<void> {
     }
 
     case "query": {
+      warnDeprecated("query");
       const question = positionals(args)[0];
       if (!question) throw new Error('Usage: resolve query "<question>"');
       const budget = Number(flag(args, "budget"));
@@ -545,6 +557,7 @@ export async function runCli(argv: string[]): Promise<void> {
     }
 
     case "path": {
+      warnDeprecated("path");
       const names = positionals(args);
       const from = names[0];
       const to = names[1];
@@ -554,6 +567,7 @@ export async function runCli(argv: string[]): Promise<void> {
     }
 
     case "explain": {
+      warnDeprecated("explain");
       const name = positionals(args)[0];
       if (!name) throw new Error('Usage: resolve explain "<name>"');
       printJson(explainNode(requireGraph(args).index, name));
@@ -561,6 +575,7 @@ export async function runCli(argv: string[]): Promise<void> {
     }
 
     case "check": {
+      warnDeprecated("check");
       const intent = positionals(args)[0];
       if (!intent) throw new Error('Usage: resolve check "<intent>"');
       printJson(checkFrame(requireGraph(args).index, intent));
@@ -782,7 +797,7 @@ export async function runCli(argv: string[]): Promise<void> {
         process.stdout.write(`Wrote ${cases.length} cases to ${out}\n`);
         return;
       }
-      const goldenPath = flag(args, "golden") ?? resolve("scoreboard/golden");
+      const goldenPath = flag(args, "golden") ?? defaultGoldenDir();
       if (!existsSync(goldenPath)) {
         throw new Error(`No golden set at ${goldenPath}. Pass --golden <path>.`);
       }

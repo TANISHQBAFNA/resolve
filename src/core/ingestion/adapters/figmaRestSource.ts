@@ -30,7 +30,36 @@ export const DEFAULT_MAX_RATE_LIMIT_RETRIES = 5;
 export const DEFAULT_MAX_SERVER_ERROR_RETRIES = 3;
 export const DEFAULT_MAX_ATTEMPTS = 4;
 export const DEFAULT_SERVER_ERROR_BACKOFF_MS = 2_000;
+export const STUB_LOOKUP_RETRYABLE_BUDGET = 6;
+export const STUB_LOOKUP_STOPPED =
+  "Figma stub lookup stopped after repeated 503/429 responses. Remote sources were not filled in. Re-run ingest to retry.";
 export const RETRYABLE_SERVER_STATUSES = new Set([500, 502, 503, 504]);
+
+/** Shared budget for remote-stub lookups. Opens after this many 503/429s in a row. A success resets the streak. */
+export function stubLookupCircuit(budget = STUB_LOOKUP_RETRYABLE_BUDGET): {
+  note(status: number): boolean;
+  succeed(): void;
+  open: boolean;
+  message: string;
+} {
+  let streak = 0;
+  let open = false;
+  return {
+    message: STUB_LOOKUP_STOPPED,
+    get open() {
+      return open;
+    },
+    succeed() {
+      if (!open) streak = 0;
+    },
+    note(status: number): boolean {
+      if (status !== 429 && !RETRYABLE_SERVER_STATUSES.has(status)) return false;
+      streak += 1;
+      if (streak >= budget) open = true;
+      return open;
+    },
+  };
+}
 
 export function exponentialBackoffMs(attempt: number, capMs = DEFAULT_MAX_RETRY_AFTER_MS): number {
   return Math.min(capMs, DEFAULT_BACKOFF_MS * 2 ** Math.max(0, attempt));
@@ -170,6 +199,12 @@ interface RetryPolicy {
   sleep: (ms: number) => Promise<void>;
   maxRetryAfterMs: number;
   maxRateLimitRetries?: number;
+  /** True when this 429/5xx must stop the whole stub-lookup pass. */
+  noteRetryable?: (status: number) => boolean;
+  /** A successful response resets the consecutive-failure streak. */
+  noteSuccess?: () => void;
+  circuitOpen?: () => boolean;
+  circuitMessage?: string;
 }
 
 async function getJson(
@@ -183,6 +218,9 @@ async function getJson(
   let headerlessAttempts = 0;
   let tries = 0;
   for (;;) {
+    if (retry?.circuitOpen?.()) {
+      throw new Error(retry.circuitMessage ?? STUB_LOOKUP_STOPPED);
+    }
     tries += 1;
     let res: Response;
     try {
@@ -192,6 +230,9 @@ async function getJson(
     }
     if (res.status === 429) {
       const detail = await figmaError(res);
+      if (retry?.noteRetryable?.(429)) {
+        throw new Error(retry.circuitMessage ?? `${httpFailureKind(429)} for ${fileKey}: ${detail}`);
+      }
       const headerWait = parseRetryAfterMs(res.headers.get("Retry-After"));
       const maxWait = retry?.maxRetryAfterMs ?? DEFAULT_MAX_RETRY_AFTER_MS;
       const maxHeaderless = retry?.maxRateLimitRetries ?? DEFAULT_MAX_RATE_LIMIT_RETRIES;
@@ -213,14 +254,22 @@ async function getJson(
       await (retry?.sleep ?? defaultSleep)(waitMs);
       continue;
     }
-    if (RETRYABLE_SERVER_STATUSES.has(res.status) && tries < DEFAULT_MAX_ATTEMPTS) {
-      const waitMs = serverBackoffMs(tries - 1);
-      await (retry?.sleep ?? defaultSleep)(waitMs);
-      continue;
+    if (RETRYABLE_SERVER_STATUSES.has(res.status)) {
+      if (retry?.noteRetryable?.(res.status)) {
+        throw new Error(
+          retry.circuitMessage ?? `${httpFailureKind(res.status)} for ${fileKey}: ${await figmaError(res)}`,
+        );
+      }
+      if (tries < DEFAULT_MAX_ATTEMPTS) {
+        const waitMs = serverBackoffMs(tries - 1);
+        await (retry?.sleep ?? defaultSleep)(waitMs);
+        continue;
+      }
     }
     if (!res.ok) {
       throw new Error(`${httpFailureKind(res.status)} for ${fileKey}: ${await figmaError(res)}`);
     }
+    retry?.noteSuccess?.();
     try {
       return await res.json();
     } catch {
@@ -359,11 +408,30 @@ export async function enrichRemoteComponentSources(
   const fileNames = new Map<string, string>();
   const batchedFiles = new Set<string>();
   let attempted = false;
-  let hitCount = 0;
+  let told = false;
+  const circuit = stubLookupCircuit();
+  const retry: RetryPolicy = {
+    sleep: options.retry?.sleep ?? defaultSleep,
+    maxRetryAfterMs: options.retry?.maxRetryAfterMs ?? DEFAULT_MAX_RETRY_AFTER_MS,
+    ...(options.retry?.maxRateLimitRetries !== undefined
+      ? { maxRateLimitRetries: options.retry.maxRateLimitRetries }
+      : {}),
+    noteRetryable: (status) => circuit.note(status),
+    noteSuccess: () => circuit.succeed(),
+    circuitOpen: () => circuit.open,
+    circuitMessage: circuit.message,
+  };
+  const stopLookups = (): boolean => {
+    if (!circuit.open) return false;
+    if (!told) {
+      told = true;
+      process.stderr.write(`${circuit.message}\n`);
+    }
+    return true;
+  };
 
   const remember = (key: string | undefined, hit: RemoteSourceHit | undefined) => {
     if (!key || !hit) return;
-    hitCount += 1;
     const named = fileNames.get(hit.fileKey);
     const next = named && !hit.fileName ? { ...hit, fileName: named } : hit;
     if (next.fileName) fileNames.set(next.fileKey, next.fileName);
@@ -385,7 +453,7 @@ export async function enrichRemoteComponentSources(
   };
 
   const batchFile = async (sourceFileKey: string) => {
-    if (batchedFiles.has(sourceFileKey)) return;
+    if (stopLookups() || batchedFiles.has(sourceFileKey)) return;
     batchedFiles.add(sourceFileKey);
     attempted = true;
     const comps = await getJsonSoft(
@@ -394,7 +462,7 @@ export async function enrichRemoteComponentSources(
       options.token,
       sourceFileKey,
       options.signal,
-      options.retry,
+      retry,
     );
     if (comps) ingestPublishedList(comps);
     const sets = await getJsonSoft(
@@ -403,9 +471,10 @@ export async function enrichRemoteComponentSources(
       options.token,
       sourceFileKey,
       options.signal,
-      options.retry,
+      retry,
     );
     if (sets) ingestPublishedList(sets);
+    if (stopLookups()) return;
     if (!fileNames.has(sourceFileKey)) {
       const file = await getJsonSoft(
         options.origin,
@@ -413,7 +482,7 @@ export async function enrichRemoteComponentSources(
         options.token,
         sourceFileKey,
         options.signal,
-        options.retry,
+        retry,
       );
       const name = asString(asRecord(file)["name"]);
       if (name) fileNames.set(sourceFileKey, name);
@@ -421,6 +490,7 @@ export async function enrichRemoteComponentSources(
   };
 
   for (const remote of remotes) {
+    if (stopLookups()) break;
     const key = remote.key!;
     if (cache.has(key)) continue;
     attempted = true;
@@ -431,7 +501,7 @@ export async function enrichRemoteComponentSources(
       options.token,
       key,
       options.signal,
-      options.retry,
+      retry,
     );
     if (!body) continue;
     ingestPublishedList(body);
@@ -449,7 +519,17 @@ export async function enrichRemoteComponentSources(
     stampRemoteMeta(remote, hit);
   }
   restampRemoteLibraries(doc);
-  doc.source.remoteSourceLookup = hitCount > 0 ? "ok" : attempted ? "failed" : "skipped";
+  const filled = remotes.filter((remote) => remote.key && cache.has(remote.key)).length;
+  const stoppedEarly = circuit.open && filled < remotes.length;
+  doc.source.remoteSourceLookup = stoppedEarly
+    ? filled > 0
+      ? "partial"
+      : "failed"
+    : filled > 0
+      ? "ok"
+      : attempted
+        ? "failed"
+        : "skipped";
   return doc;
 }
 

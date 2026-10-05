@@ -5,6 +5,7 @@ import packagedRecipes from "@/data/recipes.json";
 import {
   isNameInferredMaster,
   isPrivateMasterName,
+  masterLooksLikeIcon,
   placeableMasterByName,
   recommendMasters,
   resolveNode,
@@ -566,6 +567,23 @@ function hintOverlap(candidate: RecommendCandidate, hints: string[]): number {
   return hints.reduce((count, hint) => count + (haystack.includes(hint.toLowerCase()) ? 1 : 0), 0);
 }
 
+const CONTENT_SLOT = /^(?:content|body|detail|message)$/i;
+
+function slotAsksIcon(slot: RecipeSlot): boolean {
+  return /\b(?:icon|glyph|symbol)s?\b/i.test([slot.role, ...slot.hints].join(" "));
+}
+
+function iconForbidden(
+  index: GraphIndex,
+  slot: RecipeSlot,
+  node: GraphNode | undefined,
+  workspace?: WorkspaceManifest,
+): boolean {
+  if (!node || !masterLooksLikeIcon(index, node, workspace)) return false;
+  if (CONTENT_SLOT.test(slot.role)) return true;
+  return !slotAsksIcon(slot);
+}
+
 function fillSlot(
   index: GraphIndex,
   recipe: Recipe,
@@ -600,6 +618,13 @@ function fillSlot(
         ...base,
         status: "missing",
         hint: `Stored master "${master.name}" is private (leading . or _). Call recommend "${nextRecommend}". Do not place unpublished parts.`,
+      };
+    }
+    if (iconForbidden(index, slot, master, workspace)) {
+      return {
+        ...base,
+        status: "unbound",
+        hint: `Slot "${slot.role}" does not take an icon. Call recommend "${nextRecommend}". Do not place an icon.`,
       };
     }
     if (master.status === "deprecated") {
@@ -642,12 +667,16 @@ function fillSlot(
   });
   const live = ranked.candidates.filter((candidate): candidate is RecommendCandidate => {
     if (!("deprecated" in candidate) || typeof candidate.instances !== "number") return false;
-    return (
-      candidate.deprecated === false &&
-      Boolean(candidate.figmaNodeId) &&
-      !isPrivateMasterName(candidate.name) &&
-      usageAllowsRecipeFill(sock, candidate.id, candidate.instances)
-    );
+    if (
+      candidate.deprecated !== false ||
+      !candidate.figmaNodeId ||
+      isPrivateMasterName(candidate.name) ||
+      !usageAllowsRecipeFill(sock, candidate.id, candidate.instances)
+    ) {
+      return false;
+    }
+    const node = resolveNode(index, candidate.id);
+    return !iconForbidden(index, slot, node, workspace);
   });
   const pick = live.find((candidate) => hintOverlap(candidate, slot.hints) > 0);
   if (!pick) {
