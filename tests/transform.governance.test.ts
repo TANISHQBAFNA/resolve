@@ -83,7 +83,6 @@ describe("parseGovernance", () => {
       "Retired users, shown in admin table",
       "Obsolete data warning banner",
       "The old design is retired. This one is current.",
-      "Legacy",
       "Legacy users still see this",
     ];
     for (const blob of live) {
@@ -96,6 +95,9 @@ describe("parseGovernance", () => {
     const retired = [
       "No longer supported, do not use",
       "Not for production, retired",
+      "Legacy",
+      "Legacy.",
+      "Legacy: will be removed in v4",
       "Legacy component",
       "Legacy style",
       "Legacy version",

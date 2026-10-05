@@ -162,7 +162,10 @@ export function descriptionIsRetired(description?: string): boolean {
     if (!starts.has(at) && at !== 0) continue;
     if (negatedNear(lead, at, at + hit[0]!.length)) continue;
     if (phrase === "do not use" && doNotUseScoped(after)) continue;
-    if (phrase === "legacy" && !LEGACY_AFTER.test(after.trim())) continue;
+    if (phrase === "legacy") {
+      const rest = after.trim().replace(/^[:.\s]+/, "").trim();
+      if (rest && !LEGACY_AFTER.test(rest) && !/^will be removed\b/i.test(rest)) continue;
+    }
     if (
       (phrase === "retired" || phrase === "obsolete") &&
       adjectiveTitle(after)

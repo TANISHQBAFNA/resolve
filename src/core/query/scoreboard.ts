@@ -1276,11 +1276,19 @@ export function initGoldenCases(index: GraphIndex, skipped?: string[]): GoldenCa
   const masterNames = new Set(unique.map((node) => node.name.trim().toLowerCase()));
   const cases: GoldenCase[] = [];
   const seen = new Set<string>();
+  const usedIds = new Set<string>();
   const push = (row: GoldenCase) => {
     const key = `${row.expect}:${row.intent.toLowerCase()}`;
     if (seen.has(key)) return;
     seen.add(key);
-    cases.push(row);
+    let id = row.id;
+    if (usedIds.has(id)) {
+      let n = 2;
+      while (usedIds.has(`${row.id}-${n}`)) n += 1;
+      id = `${row.id}-${n}`;
+    }
+    usedIds.add(id);
+    cases.push(id === row.id ? row : { ...row, id });
   };
   for (const node of unique) {
     const name = node.name.trim();

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  STUB_LOOKUP_STOPPED,
   exponentialBackoffMs,
   fetchFigmaRestDocument,
   memoryCheckpointStore,
@@ -814,6 +815,51 @@ describe("fetchFigmaRestDocument", () => {
     const stub = graph.nodes.find((node) => node.figmaNodeId === "9:1");
     expect(stub?.metadata?.["sourceFileKey"]).toBeUndefined();
     expect(graph.source.remoteSourceLookup).toBe("failed");
+  });
+
+  it("stops stub lookup after repeated 503s and still returns the host file", async () => {
+    const many = {
+      ...remoteIconFile,
+      components: {
+        "9:1": { name: "glyph-24-a", key: "acme-key-a", remote: true },
+        "9:2": { name: "glyph-24-b", key: "acme-key-b", remote: true },
+        "9:3": { name: "glyph-24-c", key: "acme-key-c", remote: true },
+        "9:4": { name: "glyph-24-d", key: "acme-key-d", remote: true },
+      },
+    };
+    let stubHits = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.includes("/variables/")) return new Response("{}", { status: 404 });
+        if (url.endsWith(`/v1/files/${FILE_KEY}`)) {
+          return new Response(JSON.stringify(many), { status: 200 });
+        }
+        stubHits += 1;
+        return new Response(JSON.stringify({ err: "upstream" }), { status: 503 });
+      }),
+    );
+    const err: string[] = [];
+    const write = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      err.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      const doc = await fetchFigmaRestDocument(FILE_KEY, {
+        token: "figd_test",
+        origin: "https://api.figma.com",
+        scope: "file",
+        sleep: async () => {},
+      });
+      expect(stubHits).toBeLessThanOrEqual(6);
+      expect(err.join("")).toContain(STUB_LOOKUP_STOPPED);
+      expect(doc.fileName).toBe("Host Library");
+      expect(doc.source.remoteSourceLookup).toBe("failed");
+    } finally {
+      process.stderr.write = write;
+    }
   });
 });
 

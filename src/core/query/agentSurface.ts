@@ -404,6 +404,42 @@ function pickResolveTarget(
     }
   }
 
+  const caseHits = realMastersNamed(index, trimmed).filter((node) => node.name === trimmed);
+  const privateHit = caseHits.find((node) => isPrivateMaster(index, node));
+  if (privateHit) return privateHit;
+  const view = codeMapView(index);
+  const retiredHits = caseHits.filter(
+    (node) => (isRetired(index, node) || Boolean(view?.retired(node))) && !isPrivateMaster(index, node),
+  );
+  if (retiredHits.length) return preferNamedMaster(index, retiredHits, workspace, trimmed) ?? retiredHits[0];
+
+  const foldedName = trimmed.toLowerCase();
+  const frameHit = namedNode(
+    index,
+    (node) =>
+      (node.type === "FRAME" || node.type === "SECTION") && node.name.toLowerCase() === foldedName,
+  );
+  const namedMasters = realMastersNamed(index, trimmed).filter((node) => !isPrivateMaster(index, node));
+  // A same-named frame is a screen only when no component owns the name.
+  // Name-inferred masters (mcp-name:) still count; they are what usage cards describe.
+  const anyMaster = namedNode(index, (node) => {
+    if (!isMasterType(node.type)) return false;
+    if (node.name.trim().toLowerCase() === foldedName) return true;
+    return variantCardName(index, node).trim().toLowerCase() === foldedName;
+  });
+  if (frameHit && namedMasters.length === 0 && !anyMaster) return frameHit;
+
+  const ranked = recommendMasters(index, trimmed, {
+    context,
+    budgetChars: USAGE_CARD_BUDGET,
+    workspace,
+  });
+  const rankedId = ranked.candidates[0]?.id;
+  if (rankedId) {
+    const rankedNode = index.getNode(rankedId);
+    if (rankedNode && !isPrivateMaster(index, rankedNode)) return rankedNode;
+  }
+
   const reals = realMastersNamed(index, trimmed);
   if (reals.length >= 1) {
     const chosen = preferNamedMaster(index, reals, workspace, trimmed) ?? reals[0]!;
@@ -432,16 +468,7 @@ function pickResolveTarget(
     }
   }
 
-  const ranked = recommendMasters(index, trimmed, {
-    context,
-    budgetChars: USAGE_CARD_BUDGET,
-    workspace,
-  });
-  const topId = ranked.candidates[0]?.id;
-  if (!topId) return undefined;
-  const node = index.getNode(topId);
-  if (!node || isPrivateMaster(index, node)) return undefined;
-  return node;
+  return undefined;
 }
 
 /**
@@ -1541,6 +1568,7 @@ interface IconLibraryEntry {
 /** Team icon-library entries. Empty = name heuristic. Re-read every recommend. */
 let iconLibraryEntries: IconLibraryEntry[] = [];
 let iconLibraryIgnored = new Set<string>();
+let iconLibraryMalformed = false;
 
 function parseIconLibraryItem(item: unknown): IconLibraryEntry | undefined {
   if (typeof item === "string") {
@@ -1565,22 +1593,30 @@ function parseIconLibraryItem(item: unknown): IconLibraryEntry | undefined {
 function loadIconLibraries(): void {
   iconLibraryEntries = [];
   iconLibraryIgnored = new Set();
+  iconLibraryMalformed = false;
   const path = overlayFile("icon-libraries.json");
   if (!path) return;
+  let raw: unknown;
   try {
-    const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
-    const list = Array.isArray(raw)
-      ? raw
-      : raw && typeof raw === "object"
-        ? (raw as { libraries?: unknown }).libraries
-        : undefined;
-    if (!Array.isArray(list)) return;
-    for (const item of list) {
-      const entry = parseIconLibraryItem(item);
-      if (entry) iconLibraryEntries.push(entry);
-    }
+    const text = readFileSync(path, "utf8").replace(/^\uFEFF/, "").trim();
+    if (!text) return;
+    raw = JSON.parse(text);
   } catch {
-    iconLibraryEntries = [];
+    iconLibraryMalformed = true;
+    return;
+  }
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object"
+      ? (raw as { libraries?: unknown }).libraries
+      : undefined;
+  if (!Array.isArray(list)) {
+    iconLibraryMalformed = true;
+    return;
+  }
+  for (const item of list) {
+    const entry = parseIconLibraryItem(item);
+    if (entry) iconLibraryEntries.push(entry);
   }
 }
 
@@ -1689,22 +1725,6 @@ function fromIconLibrary(
   });
 }
 
-function remotesMissingSource(index: GraphIndex): boolean {
-  for (const node of index.getNodesByType(...MASTER_TYPES)) {
-    if (!node.isRemote) continue;
-    if (metaText(node, "sourceFileKey") || metaText(node, "sourceFileName") || metaText(node, "sourcePageName")) {
-      continue;
-    }
-    return true;
-  }
-  return false;
-}
-
-function skipUnmatchedIconWarning(index: GraphIndex): boolean {
-  if (index.graph.source.remoteSourceLookup === "failed") return true;
-  return remotesMissingSource(index);
-}
-
 let emittedIconLibraryWarningKey = "";
 
 function emitIconLibraryWarningsOnce(lines: readonly string[]): void {
@@ -1721,12 +1741,12 @@ export function iconLibraryWarnings(
   workspace?: WorkspaceManifest,
 ): string[] {
   loadIconLibraries();
-  if (!iconLibraryEntries.length) return [];
+  const lines: string[] = [];
+  if (iconLibraryMalformed) lines.push("icon-libraries.json is malformed; ignored");
+  if (!iconLibraryEntries.length) return lines;
   const main = mainLibraryAnchors(index, workspace);
   const masters = index.getNodesByType(...MASTER_TYPES);
-  const lines: string[] = [];
   iconLibraryIgnored = new Set();
-  const skipUnmatched = skipUnmatchedIconWarning(index);
   for (const entry of iconLibraryEntries) {
     if (entryHitsMainLibrary(entry, main)) {
       iconLibraryIgnored.add(entry.raw);
@@ -1734,7 +1754,7 @@ export function iconLibraryWarnings(
       continue;
     }
     const hit = masters.some((node) => entryHitsAnchors(entry, nodeIconAnchors(index, node, workspace)));
-    if (!hit && !skipUnmatched) lines.push(`icon library "${entry.raw}" matched no components`);
+    if (!hit) lines.push(`icon library "${entry.raw}" matched no components`);
   }
   return lines;
 }
@@ -2367,6 +2387,15 @@ function iconWordName(name: string): boolean {
 }
 
 /** Name heuristic, plus any master from a team-listed icon library. */
+export function masterLooksLikeIcon(
+  index: GraphIndex,
+  node: GraphNode,
+  workspace?: WorkspaceManifest,
+): boolean {
+  return looksLikeIcon(index, node, setOf(index, node), workspace);
+}
+
+/** Name heuristic, plus any master from a team-listed icon library. */
 function looksLikeIcon(
   index: GraphIndex,
   node: GraphNode,
@@ -2458,7 +2487,10 @@ function replacementOf(index: GraphIndex, node: GraphNode, twinOf: (n: GraphNode
     if (!next || seen.has(next.id)) return undefined;
     const named = replacedByName(at);
     if (!ask && !(named && (next.name.toLowerCase() === named.toLowerCase() || next.id === named))) guess = true;
-    if (!old(next)) return { node: next, guess };
+    if (!old(next)) {
+      if (looksLikeIcon(index, next, setOf(index, next))) return undefined;
+      return { node: next, guess };
+    }
     at = next;
   }
   return undefined;
@@ -2502,7 +2534,9 @@ export const codeMapCard = (getIndex: () => GraphIndex) => codeMapReport(getInde
  * the specific tokens (Legacy Banner → Banner, Old Price → Price).
  */
 function liveReplacement(index: GraphIndex, node: GraphNode, skip?: (node: GraphNode) => boolean): GraphNode | undefined {
-  const live = liveMasters(index, node, skip);
+  const live = liveMasters(index, node, skip).filter(
+    (candidate) => !looksLikeIcon(index, candidate, setOf(index, candidate)),
+  );
   const explicit = replacedByName(node);
   if (explicit) {
     const needle = explicit.toLowerCase();
@@ -2799,10 +2833,7 @@ export function recommendMasters(
   let redirect: { id: string; reason: string; covered: number } | undefined;
   for (const entry of retired) {
     const replacement = liveReplacement(index, entry.node);
-    if (!replacement) {
-      scored.push(entry);
-      continue;
-    }
+    if (!replacement) continue;
     const nameSpecific = tokensOf(entry.node.name).filter((token) => !RETIRED_NAME_TOKENS.has(token));
     const specificOverlap = askedSpecific.filter((token) => nameSpecific.includes(token)).length;
     // "legacy" alone may name a retired master. "legacy price" must not follow
@@ -3060,21 +3091,41 @@ export function recommendMasters(
     kept = kept.filter((entry) => !demotedPart(entry));
   }
 
-  // Code map: a retired part (library or map) stays mapped but is never offered for a new screen.
+  // A retired part stays mapped and flagged, and is never the pick to place.
   const view = codeMapView(index);
   let retiredNote: string | undefined;
   let onlyRetired: { name: string; use?: string; guess?: boolean } | undefined;
-  if (view) {
-    const gone = kept.filter((entry) => view.retired(entry.node));
-    kept = kept.filter((entry) => !gone.includes(entry));
-    const best = [...gone, ...retired].sort((a, b) => Number(b.exactName) - Number(a.exactName) || b.covered - a.covered)[0];
-    if (best && (best.exactName || best.covered > Math.max(0, ...kept.map((entry) => entry.covered)))) {
-      const name = setOf(index, best.node)?.name ?? best.node.name;
-      const found = replacementOf(index, best.node, view.twin);
-      const use = found?.node.name;
-      retiredNote = `${name} is retired${use ? `, ${useText(use, found.guess)}` : ""}.`;
-      if (!kept.length) onlyRetired = { name, use, guess: found?.guess };
+  const retiredNow = (entry: Scored) =>
+    entry.deprecated || isRetired(index, entry.node) || Boolean(view?.retired(entry.node));
+  const gone = kept.filter(retiredNow);
+  kept = kept.filter((entry) => !retiredNow(entry));
+  const best = [...gone, ...retired].sort(
+    (a, b) => Number(b.exactName) - Number(a.exactName) || b.covered - a.covered,
+  )[0];
+  if (best && (best.exactName || (view && best.covered > Math.max(0, ...kept.map((entry) => entry.covered))))) {
+    const name = setOf(index, best.node)?.name ?? best.node.name;
+    const found = replacementOf(index, best.node, view?.twin ?? (() => undefined));
+    const useNode = found?.node;
+    const use = useNode?.name;
+    retiredNote = `${name} is retired${use ? `, ${useText(use, found?.guess)}` : ""}.`;
+    if (useNode && best.exactName) {
+      const existing = kept.find((entry) => entry.node.id === useNode.id);
+      if (existing) existing.whyOverride = `replaces ${best.node.name} (deprecated)`;
+      const lead: Scored = existing ?? {
+        node: useNode,
+        score: 1_000_000,
+        lexical: 1_000,
+        why: ["name"],
+        whyOverride: `replaces ${best.node.name} (deprecated)`,
+        analog: false,
+        deprecated: false,
+        instances: computeComponentUsage(index, useNode).instanceCount,
+        exactName: false,
+        covered: best.covered,
+      };
+      kept = [lead, ...kept.filter((entry) => entry.node.id !== useNode.id)];
     }
+    if (!kept.length) onlyRetired = { name, use, guess: found?.guess };
   }
 
   const familyCardName = (entry: Scored): string => {

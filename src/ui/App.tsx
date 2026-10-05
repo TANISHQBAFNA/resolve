@@ -1,19 +1,7 @@
 import { useEffect, useState } from "react";
-import { ReactFlowProvider } from "@xyflow/react";
 import { DEFAULT_SOURCE, SOURCE_OPTIONS, resolveSource } from "@/state/sources";
 import { useGraphStore, type LoadStatus } from "@/state/graphStore";
 import packagedRecipes from "@/data/recipes.json";
-import { Breadcrumbs } from "@/ui/common/Breadcrumbs";
-import { Toolbar } from "@/ui/common/Toolbar";
-import { GraphCanvas } from "@/ui/graph/GraphCanvas";
-import { AtlasCanvas } from "@/ui/graph/AtlasCanvas";
-import { Legend } from "@/ui/graph/Legend";
-import { SearchBar } from "@/ui/panels/SearchBar";
-import { FilterPanel } from "@/ui/panels/FilterPanel";
-import { NodeBrowser } from "@/ui/panels/NodeBrowser";
-import { Inspector } from "@/ui/panels/Inspector";
-import { CommunityPanel } from "@/ui/panels/CommunityPanel";
-import { ExportMenu } from "@/ui/panels/ExportMenu";
 import { ImportButton } from "@/ui/panels/ImportButton";
 import { FigmaRestButton } from "@/ui/panels/FigmaRestButton";
 import { LibraryOverview } from "@/ui/overview/LibraryOverview";
@@ -61,20 +49,11 @@ export function App() {
           <button
             type="button"
             role="tab"
-            aria-selected={mode === "atlas"}
-            className={mode === "atlas" ? "is-active" : ""}
-            onClick={() => setMode("atlas")}
+            aria-selected={mode === "library"}
+            className={mode === "library" ? "is-active" : ""}
+            onClick={() => setMode("library")}
           >
-            Overview
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === "explorer"}
-            className={mode === "explorer" ? "is-active" : ""}
-            onClick={() => setMode("explorer")}
-          >
-            Explorer
+            Library
           </button>
           <button
             type="button"
@@ -119,7 +98,6 @@ export function App() {
         <div className="app__bar-right">
           <FigmaRestButton open={loadFigmaOpen} onOpenChange={setLoadFigmaOpen} />
           <ImportButton />
-          <ExportMenu />
           {graph && graph.warnings.length > 0 && (
             <button
               type="button"
@@ -168,39 +146,10 @@ function renderWorkspace(
     case "ready":
       return (
         <div className="app__body">
-          <aside className="app__left">
-            <SearchBar />
-            {mode === "explorer" && <FilterPanel />}
-            <NodeBrowser />
-          </aside>
-
           <main className="app__center">
-            {mode === "explorer" ? (
-              <>
-                <Breadcrumbs />
-                <Toolbar />
-                <div className="app__canvas">
-                  <ReactFlowProvider>
-                    <GraphCanvas />
-                  </ReactFlowProvider>
-                  <Legend />
-                </div>
-              </>
-            ) : (
-              <>
-                <LibraryOverview />
-                <ScoreboardSection compact />
-                <div className="app__canvas">
-                  <AtlasCanvas />
-                </div>
-              </>
-            )}
+            <LibraryOverview />
+            <ScoreboardSection compact />
           </main>
-
-          <aside className="app__right">
-            {mode === "atlas" && <CommunityPanel />}
-            <Inspector />
-          </aside>
         </div>
       );
     default: {

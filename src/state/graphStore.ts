@@ -2,21 +2,15 @@ import { create } from "zustand";
 import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
 import type { IngestionSource } from "@/core/ingestion/types";
 import { buildGraph } from "@/core/transform";
-import {
-  computeAnalytics,
-  defaultFilterState,
-  indexGraph,
-  type FilterState,
-  type GraphAnalytics,
-  type GraphIndex,
-  type GraphLevel,
-  type ViewMode,
-} from "@/core/query";
+import { computeAnalytics, type GraphAnalytics } from "@/core/query/analytics";
+import { defaultFilterState, type FilterState } from "@/core/query/filters";
+import { indexGraph, type GraphIndex } from "@/core/query/GraphIndex";
+import type { GraphLevel, ViewMode } from "@/core/query/subgraph";
 
 export type LoadStatus = "idle" | "loading" | "ready" | "error";
 
-/** `explorer` is the focused, level-based view. `atlas` is the whole file. `rules` is the bind-rule / why page. */
-export type ViewSurface = "explorer" | "atlas" | "rules";
+/** `library` is counts, health, and the scoreboard. `rules` is the bind-rule page. */
+export type ViewSurface = "library" | "rules";
 
 export interface AtlasSettings {
   /** Fold instances onto their main component so each component is one node. */
@@ -82,7 +76,7 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
   query: "",
   past: [],
   future: [],
-  mode: "atlas",
+  mode: "library",
   atlas: {
     collapseInstances: true,
     resolution: 1,

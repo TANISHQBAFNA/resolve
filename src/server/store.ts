@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import type { IngestCheckpointStore, ScreensCheckpoint } from "@/core/ingestion/adapters/figmaRestSource";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import { pinnedHome, STORE_DIRS } from "@/core/query/overlayFile";
+import { warnDeprecated } from "./deprecations";
 import {
   assertIngestRoleChange,
   defaultIngestRole,
@@ -449,7 +450,9 @@ export function readContextPacks(explicitPath?: string): ContextPackFile {
     throw new Error(`Context packs file not found: ${path}`);
   }
   const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
-  return parseContextPackFile(raw);
+  const file = parseContextPackFile(raw);
+  if (file.packs.length > 0) warnDeprecated("context packs");
+  return file;
 }
 
 export function loadContextBind(
