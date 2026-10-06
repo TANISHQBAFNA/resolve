@@ -457,11 +457,16 @@ describe("ingredient card: placed copies at every level", () => {
       const card = found(ingredientCard(index, "Header pair", { depth }));
       expect(card.parts).toHaveLength(2);
       expect(card.parts.every((p) => p.count === 1 && p.insidesDiffer)).toBe(true);
-      expect(card.summary.parts).toBe(2);
+      expect(card.summary).toMatchObject({ parts: 2, differentComponents: 1 });
+      expect(card.note).toContain("Header pair is built from 2 parts (1 different component; some copies hold different insides).");
     }
     const deep = found(ingredientCard(index, "Header pair", { depth: 2 }));
     expect(tree(deep.parts)).toEqual(["Toolbar (differ)", "  Avatar", "Toolbar (differ)", "  Icon"]);
     expect(formatIngredientCard(deep)).toContain("insides differ between copies");
+    // At the last level shown, two lines for one part name what each holds, so they never look the same.
+    const shallow = formatIngredientCard(found(ingredientCard(index, "Header pair")));
+    expect(shallow).toContain("- Toolbar [3:1] (code: no code link yet; insides differ between copies; has 1 part inside: Avatar)");
+    expect(shallow).toContain("- Toolbar [3:1] (code: no code link yet; insides differ between copies; has 1 part inside: Icon)");
     // Library counts still count Toolbar once per composite.
     expect(ingredientCoverage(index)).toMatchObject({ composites: 4 });
   });

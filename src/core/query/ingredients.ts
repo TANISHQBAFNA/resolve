@@ -66,11 +66,16 @@ export interface IngredientPart {
   why?: string;
   /** Number of parts directly inside this part. Ask for this part to see them. */
   inside?: number;
+  /** Names of those parts (first 3), given when copies of this part hold different insides. */
+  insideNames?: string[];
   parts?: IngredientPart[];
 }
 
 export interface IngredientSummary {
+  /** Lines listed. Copies of one component that hold different insides get a line each. */
   parts: number;
+  /** Set only when lower than `parts`: how many different components those lines are. */
+  differentComponents?: number;
   linkedToCode: number;
   missingCode: number;
   retired: number;
@@ -377,7 +382,12 @@ function describePart(walk: Walk, group: Group, level: number, seen: Set<string>
       const groups = groupParts(walk, ins.instances, ins.ownerId, walk.depth - level);
       part.parts = groups.slice(0, walk.limit).map((g) => describePart(walk, g, level + 1, next));
     } else {
-      part.inside = groupParts(walk, ins.instances, ins.ownerId, 0).length;
+      const inner = groupParts(walk, ins.instances, ins.ownerId, 0);
+      part.inside = inner.length;
+      // Lines that differ only one level down would look the same; name what each one holds.
+      if (group.insidesDiffer) {
+        part.insideNames = inner.slice(0, 3).map((g) => clean(g.main ? hooks.cardName(g.main) : g.layer));
+      }
     }
   }
   return part;
@@ -413,7 +423,11 @@ function noteFor(name: string, s: IngredientSummary, codeMap: boolean, isVariant
     if (isVariant && othersHaveParts) return "This variant has no other library parts inside it.";
     return `${name} has no other library parts inside it. It is a base part.`;
   }
-  const bits = [`${name} is built from ${plural(s.parts, "part")}.`];
+  const bits = [
+    s.differentComponents
+      ? `${name} is built from ${plural(s.parts, "part")} (${plural(s.differentComponents, "different component")}; some copies hold different insides).`
+      : `${name} is built from ${plural(s.parts, "part")}.`,
+  ];
   if (codeMap) bits.push(`${s.linkedToCode} linked to code, ${s.missingCode} with ${NO_CODE_LINK}.`);
   else bits.push("No code map yet, so no part has a code link.");
   if (s.retired) bits.push(`${plural(s.retired, "part")} retired.`);
@@ -528,6 +542,8 @@ export function buildIngredientCard(index: GraphIndex, ask: string, hooks: Ingre
   const all = groups.map((g) => describePart(walk, g, 1, new Set([scope.id])));
   const parts = all.slice(0, limit);
   const summary = summarize(all);
+  const kinds = new Set(groups.map((g) => g.main?.id ?? g.key)).size;
+  if (kinds < summary.parts) summary.differentComponents = kinds;
   const twin = hooks.twin(scope);
   const retired = hooks.retired(scope) || Boolean(twin?.retired);
   const guessed = hooks.nameGuess(scope);
@@ -695,7 +711,9 @@ function partLine(p: IngredientPart, indent: string, headKey?: string): string[]
     p.internal ? "internal part" : "",
     p.hidden ? "hidden by default" : "",
     p.insidesDiffer ? "insides differ between copies" : "",
-    p.inside ? `has ${plural(p.inside, "part")} inside` : "",
+    p.inside
+      ? `has ${plural(p.inside, "part")} inside${p.insideNames?.length ? `: ${listed(p.insideNames, p.inside)}` : ""}`
+      : "",
     p.insideFrom ? `parts ${p.insideFrom}` : "",
   ].filter(Boolean);
   const at = [p.fileKey && p.fileKey !== headKey ? p.fileKey : "", p.figmaNodeId ?? ""].filter(Boolean).join(" ");
