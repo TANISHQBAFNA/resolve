@@ -22,6 +22,22 @@ import {
  * current graph. No Figma calls. Ranking is read, never changed.
  */
 
+/** File key of the sample library the shipped phrase set was written for (scoreboard/fixture/library.json). */
+export const SAMPLE_LIBRARY_FILE_KEY = "SCOREFIX";
+
+/**
+ * True when every local component in the graph comes from the sample library.
+ * The shipped phrases only make sense there; on any other library their
+ * expectations ("date range picker" has no match) are wrong.
+ */
+export function isSampleLibrary(index: GraphIndex): boolean {
+  const masters = index.allNodes.filter(
+    (node) => (node.type === "COMPONENT_SET" || node.type === "MAIN_COMPONENT" || node.type === "VARIANT") && !node.isRemote,
+  );
+  if (!masters.length) return false;
+  return masters.every((node) => (node.fileKey ?? index.graph.fileKey) === SAMPLE_LIBRARY_FILE_KEY);
+}
+
 export const PHRASE_TYPES = ["exact", "paraphrase", "cousin-trap", "retired", "no-match", "weak-match"] as const;
 
 const PhraseSchema = z.object({
@@ -73,11 +89,14 @@ export interface PhraseReport {
   /** Invent rate and retired-recommended are the test gate. Both must be 0. */
   inventRate: number;
   pass: boolean;
+  /** Which phrase set was used and why, when the CLI chose it. */
+  note?: string;
   misses: PhraseMiss[];
 }
 
 export interface PhraseRunOptions {
   at?: string;
+  note?: string;
   source?: string[];
   workspace?: WorkspaceManifest;
   sock?: SockState;
@@ -93,6 +112,19 @@ function filesIn(path: string): string[] {
     .map((name) => join(path, name));
 }
 
+/** One plain line for a bad phrase file, instead of the validator's dump. */
+function plainParseError(error: unknown): string {
+  if (error instanceof z.ZodError) {
+    const first = error.issues[0];
+    if (!first) return "it does not match the phrase file format.";
+    const where = first.path.length ? first.path.join(".") : "the file";
+    const more = error.issues.length > 1 ? ` (and ${error.issues.length - 1} more problem(s))` : "";
+    return `${where}: ${first.message}${more}. Expected { "version": 1, "cases": [{ "id", "phrase", "type", "expect" }] }.`;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return `${message.split("\n")[0]}.`.replace(/\.\.$/, ".");
+}
+
 /** Load phrase files from folders or files, in order. A repeated id is an error. */
 export function loadPhraseCases(paths: string[]): PhraseCase[] {
   const seen = new Map<string, string>();
@@ -104,7 +136,7 @@ export function loadPhraseCases(paths: string[]): PhraseCase[] {
     try {
       parsed = FileSchema.parse(JSON.parse(readFileSync(file, "utf8")));
     } catch (error) {
-      throw new Error(`Bad phrase file ${file}: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Bad phrase file ${file}: ${plainParseError(error)}`);
     }
     for (const row of parsed.cases) {
       const first = seen.get(row.id);
@@ -146,7 +178,14 @@ export function scorePhrases(index: GraphIndex, cases: PhraseCase[], options: Ph
   const skipped: PhraseReport["skipped"] = [];
 
   for (const row of cases) {
-    const lookup = (names: string[]) => names.map((name) => resolveMasterByName(index, name));
+    const lookup = (names: string[]) =>
+      names.map((name) => {
+        try {
+          return resolveMasterByName(index, name);
+        } catch {
+          throw new Error(`No part named "${name}" in this library, so this phrase was not scored.`);
+        }
+      });
     let expected: ReturnType<typeof lookup>;
     let accepted: ReturnType<typeof lookup>;
     let banned: ReturnType<typeof lookup>;
@@ -246,6 +285,7 @@ export function scorePhrases(index: GraphIndex, cases: PhraseCase[], options: Ph
     // A run that scored nothing proves nothing, so it does not pass.
     pass: totals.phrases > 0 && totals.invented === 0 && totals.retiredRecommended === 0,
     misses,
+    ...(options.note ? { note: options.note } : {}),
   };
 }
 
@@ -261,14 +301,37 @@ function cell(hits: number, base: number): string {
   return base ? `${hits}/${base}` : "n/a";
 }
 
+const MISS_WORDS: Record<PhraseMiss["kind"], string> = {
+  top1: "wrong first pick",
+  top3: "right part not in the top 3",
+  "false-empty": "nothing offered",
+  "not-empty": "offered a part where none fits",
+  "wrong-cousin": "picked a look-alike part",
+  retired: "offered a retired or private part",
+  invent: "made up a part",
+};
+
 /** Plain-English summary first, details below. */
 export function formatPhraseTable(report: PhraseReport): string {
   const t = report.totals;
   const lines: string[] = [];
+  if (report.phrases === 0) {
+    // Nothing was tested: say so first, and do not print "never made up a part".
+    lines.push(
+      `Nothing was tested: none of the ${report.skipped.length} phrase(s) name a part this library has. That is a failure.`,
+    );
+    if (report.note) lines.push(report.note);
+    lines.push("Result: FAIL");
+    if (report.skipped.length) lines.push("", "Skipped");
+    for (const row of report.skipped) lines.push(`${row.id}: ${row.reason}`);
+    return lines.join("\n");
+  }
   lines.push(
     `Resolve tried ${report.phrases} designer phrases against your library.`,
     `It put the right part first for ${cell(t.top1, t.matchCases)} (${pct(t.top1, t.matchCases)}) and in the top 3 for ${cell(t.top3, t.matchCases)} (${pct(t.top3, t.matchCases)}).`,
-    `Where nothing fits, it correctly said "no match" ${cell(t.correctEmpty, t.emptyCases)} times.`,
+  );
+  if (t.emptyCases) lines.push(`Where nothing fits, it correctly said "no match" ${cell(t.correctEmpty, t.emptyCases)} times.`);
+  lines.push(
     t.invented === 0 ? "It never made up a part." : `It made up a part for ${t.invented} phrase(s). That is a failure.`,
     t.retiredRecommended === 0
       ? "It never recommended a retired or private part."
@@ -277,7 +340,6 @@ export function formatPhraseTable(report: PhraseReport): string {
   if (report.skipped.length) {
     lines.push(`${report.skipped.length} phrase(s) skipped: they name a part this library does not have.`);
   }
-  if (report.phrases === 0) lines.push("No phrase could be scored on this library, so nothing was tested. That is a failure.");
   const weakest = [...report.byType]
     .filter((row) => row.matchCases + row.emptyCases > 0)
     .map((row) => ({
@@ -286,6 +348,7 @@ export function formatPhraseTable(report: PhraseReport): string {
     }))
     .sort((a, b) => a.score - b.score)[0];
   if (weakest && weakest.score < 1) lines.push(`Weakest phrase type: ${weakest.type} (${Math.round(weakest.score * 100)}% right).`);
+  if (report.note) lines.push(report.note);
   lines.push(`Result: ${report.pass ? "pass" : "FAIL"}`, "", "Details");
   const head = ["type", "phrases", "top-1", "top-3", "empty ok", "false-empty", "wrong-cousin", "retired", "invent"];
   const body = [...report.byType, report.totals].map((row) => [
@@ -304,8 +367,16 @@ export function formatPhraseTable(report: PhraseReport): string {
   lines.push(fmt(head), ...body.map(fmt));
   if (report.misses.length) {
     lines.push("", "Misses");
-    for (const miss of report.misses) lines.push(`${miss.id} [${miss.kind}] "${miss.phrase}": ${miss.detail}`);
+    for (const miss of report.misses) {
+      const extra = miss.detail && miss.detail !== MISS_WORDS[miss.kind] ? ` ${capital(miss.detail)}.` : "";
+      lines.push(`"${miss.phrase}" (${miss.id}): ${MISS_WORDS[miss.kind]}.${extra}`);
+    }
   }
-  for (const row of report.skipped) lines.push(`skipped ${row.id}: ${row.reason}`);
+  if (report.skipped.length) lines.push("", "Skipped");
+  for (const row of report.skipped) lines.push(`${row.id}: ${row.reason}`);
   return lines.join("\n");
+}
+
+function capital(text: string): string {
+  return text ? `${text[0]?.toUpperCase() ?? ""}${text.slice(1)}` : text;
 }

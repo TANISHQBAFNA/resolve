@@ -9,6 +9,7 @@ import { indexGraph } from "@/core/query";
 import {
   PHRASE_TYPES,
   formatPhraseTable,
+  isSampleLibrary,
   loadPhraseCases,
   phraseExitCode,
   scorePhrases,
@@ -18,6 +19,13 @@ import { clearCache } from "@/server/store";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const phrasesDir = join(root, "scoreboard", "phrases");
+
+/** The same parts, but from another file: not the sample library. */
+function otherLibraryIndex() {
+  const raw = JSON.parse(readFileSync(join(root, "scoreboard", "fixture", "library.json"), "utf8")) as { fileKey: string };
+  raw.fileKey = "OTHERLIB";
+  return indexGraph(buildGraph(SourceDocumentSchema.parse(raw), { builtAt: "2026-01-01T00:00:00.000Z" }));
+}
 
 function fixtureIndex() {
   const raw: unknown = JSON.parse(readFileSync(join(root, "scoreboard", "fixture", "library.json"), "utf8"));
@@ -74,7 +82,11 @@ describe("designer phrase scoreboard", () => {
     const text = formatPhraseTable(report);
     expect(text.split("\n")[0]).toMatch(/^Resolve tried \d+ designer phrases/);
     expect(text).toMatch(/\nDetails\n/);
-    expect(text).toMatch(/skipped team-x/);
+    expect(text).toMatch(/\nSkipped\nteam-x: No part named "Teleport Pad" in this library/);
+    expect(text).not.toMatch(/golden/i);
+    // Misses use plain words, not tags.
+    expect(text).not.toMatch(/\[(top1|top3|false-empty|not-empty|wrong-cousin)\]/);
+    expect(text).toMatch(/: nothing offered\./);
   });
 
   it("counts a component set as a hit for one of its variants, like the golden scorer", () => {
@@ -95,7 +107,11 @@ describe("designer phrase scoreboard", () => {
     expect(report.phrases).toBe(0);
     expect(report.pass).toBe(false);
     expect(phraseExitCode(report)).toBe(1);
-    expect(formatPhraseTable(report)).toMatch(/No phrase could be scored/);
+    const text = formatPhraseTable(report);
+    // Lead with the failure, and never claim "never made up a part" when nothing ran.
+    expect(text.split("\n")[0]).toMatch(/^Nothing was tested/);
+    expect(text).not.toMatch(/never made up/);
+    expect(text).toMatch(/Result: FAIL/);
   });
 
   it("reads the same folder once when it is given twice", () => {
@@ -110,7 +126,26 @@ describe("designer phrase scoreboard", () => {
     expect(() => loadPhraseCases([dir])).toThrow(/Ids must be unique/);
   });
 
-  it("resolve score phrases adds the team's own phrases from the store, without touching the repo", async () => {
+  it("a wrong-shape phrase file gets one plain line, not a validator dump", () => {
+    const dir = mkdtempSync(join(tmpdir(), "resolve-phrases-shape-"));
+    writeFileSync(join(dir, "a.json"), JSON.stringify({ version: 2, cases: [{ id: "a", phrase: "tabs" }] }));
+    let message = "";
+    try {
+      loadPhraseCases([dir]);
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).toMatch(/^Bad phrase file .*a\.json: version: /);
+    expect(message).toMatch(/more problem/);
+    expect(message).not.toContain("\n");
+  });
+
+  it("knows the sample library from any other library", () => {
+    expect(isSampleLibrary(fixtureIndex())).toBe(true);
+    expect(isSampleLibrary(otherLibraryIndex())).toBe(false);
+  });
+
+  it("resolve score phrases uses the team's own phrases only, never mixed with the shipped set", async () => {
     const store = mkdtempSync(join(tmpdir(), "resolve-phrases-store-"));
     process.env["RESOLVE_HOME"] = store;
     clearCache();
@@ -132,10 +167,73 @@ describe("designer phrase scoreboard", () => {
     } finally {
       process.stdout.write = write;
     }
-    const report = JSON.parse(chunks.join("")) as { byType: { type: string }[]; pass: boolean };
-    expect(report.byType.some((row) => row.type === "team")).toBe(true);
-    expect(report.byType.some((row) => row.type === "exact")).toBe(true);
+    const report = JSON.parse(chunks.join("")) as { byType: { type: string }[]; pass: boolean; phrases: number; note?: string };
+    expect(report.byType.map((row) => row.type)).toEqual(["team"]);
+    expect(report.phrases).toBe(1);
+    expect(report.note).toMatch(/team's phrases only/);
     expect(report.pass).toBe(true);
     expect(process.exitCode ?? 0).toBe(0);
+  });
+  async function cliOut(argv: string[]): Promise<string> {
+    const chunks: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await runCli(argv);
+    } finally {
+      process.stdout.write = write;
+    }
+    return chunks.join("");
+  }
+
+  async function storeWith(library: string, fileKey?: string): Promise<string> {
+    const store = mkdtempSync(join(tmpdir(), "resolve-phrases-lib-"));
+    process.env["RESOLVE_HOME"] = store;
+    clearCache();
+    await runCli(["ingest", library, "--role", "library", "--name", "Lib", ...(fileKey ? ["--file-key", fileKey] : [])]);
+    clearCache();
+    return store;
+  }
+
+  it("on the sample library with no team phrases, runs the shipped set alone", async () => {
+    await storeWith(join(root, "scoreboard", "fixture", "library.json"));
+    const report = JSON.parse(await cliOut(["score", "phrases", "--json"])) as { phrases: number; pass: boolean; note?: string };
+    expect(report.phrases).toBe(loadPhraseCases([phrasesDir]).length);
+    expect(report.note).toMatch(/built-in phrase set on the sample library/);
+    expect(report.pass).toBe(true);
+  });
+
+  it("on another library with no team phrases, refuses the shipped set instead of giving a misleading score", async () => {
+    await storeWith(join(root, "docs", "examples", "acme-ui.json"), "ACMEUI");
+    await expect(runCli(["score", "phrases"])).rejects.toThrow(/No team phrases yet\. The built-in phrase set only fits the sample library/);
+  });
+
+  it("on another library with team phrases, scores only the team's phrases", async () => {
+    const store = await storeWith(join(root, "docs", "examples", "acme-ui.json"), "ACMEUI");
+    mkdirSync(join(store, "scoreboard", "phrases"), { recursive: true });
+    writeFileSync(
+      join(store, "scoreboard", "phrases", "team.json"),
+      JSON.stringify({ version: 1, cases: [{ id: "t1", phrase: "choose a payee", type: "team", expect: ["Payee picker"] }] }),
+    );
+    const report = JSON.parse(await cliOut(["score", "phrases", "--json"])) as {
+      phrases: number;
+      byType: { type: string }[];
+      totals: { top1: number };
+    };
+    expect(report.phrases).toBe(1);
+    expect(report.byType.map((row) => row.type)).toEqual(["team"]);
+    expect(report.totals.top1).toBe(1);
+  });
+
+  it("routes score --json phrases, score phrase and score Phrases to phrases, and rejects unknown words", async () => {
+    await storeWith(join(root, "scoreboard", "fixture", "library.json"));
+    for (const argv of [["score", "--json", "phrases"], ["score", "phrase", "--json"], ["score", "Phrases", "--json"]]) {
+      const report = JSON.parse(await cliOut(argv)) as { phrases?: number; byType?: unknown };
+      expect(report.phrases, argv.join(" ")).toBe(loadPhraseCases([phrasesDir]).length);
+    }
+    await expect(runCli(["score", "frases"])).rejects.toThrow(/Unknown score option "frases"/);
   });
 });
