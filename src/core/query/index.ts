@@ -16,4 +16,15 @@ export * from "./sock";
 export * from "./bindRules";
 export * from "./soci";
 export * from "./examples";
+export {
+  directPartInstances,
+  formatIngredientCard,
+  formatIngredientCoverage,
+  NO_CODE_LINK,
+  PART_GUESS,
+  type IngredientCard,
+  type IngredientCoverage,
+  type IngredientPart,
+  type PartStatus,
+} from "./ingredients";
 export { formatCodeMapReport } from "./codeMap";

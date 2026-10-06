@@ -23,6 +23,7 @@ import { nodeFileKey } from "./workspaceMerge";
 import { overlayFile } from "./overlayFile";
 import { codeMapReport, codeView, useText, type Hooks, type Twin } from "./codeMap";
 import { placeReady } from "./placeReady";
+import { buildIngredientCard, buildIngredientCoverage, type IngredientHooks, type IngredientOptions } from "./ingredients";
 import synonymFile from "@/data/synonyms.json";
 import modifierFile from "@/data/ui-modifiers.json";
 import { isRemovedByAbsence, patternFor, staleRefreshHint, type SockState } from "./sock";
@@ -2536,6 +2537,28 @@ const codeHooks = (index: GraphIndex): Hooks => ({
 });
 export const codeMapView = (index: GraphIndex) => codeView(index, codeHooks(index));
 export const codeMapCard = (getIndex: () => GraphIndex) => codeMapReport(getIndex, codeHooks);
+
+/** Hooks for the ingredient card: same retired, private, guess, and code-map rules as every other card. */
+function ingredientHooks(index: GraphIndex): IngredientHooks {
+  const view = codeMapView(index);
+  return {
+    retired: (node) => isRetired(index, node) || Boolean(view?.retired(node)),
+    internal: (node) => isPrivateMaster(index, node),
+    nameGuess: (node) => isNameInferredMaster(node),
+    twin: (node) => view?.twin(node),
+    codeMap: Boolean(view),
+    replacement: (node) => replacementFor(index, node, view?.twin),
+    cardName: (node) => variantCardName(index, node),
+  };
+}
+
+/** "What is inside this component?" Parts from NESTS links, each with its code component or none. */
+export function ingredientCard(index: GraphIndex, name: string, options: IngredientOptions = {}) {
+  return withCost(buildIngredientCard(index, name, ingredientHooks(index), options));
+}
+
+/** Library-wide ingredient counts: composites, parts, and how many parts link to code. */
+export const ingredientCoverage = (index: GraphIndex) => buildIngredientCoverage(index, ingredientHooks(index));
 
 /**
  * Live master a deprecated name should hand back.

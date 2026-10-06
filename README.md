@@ -31,6 +31,7 @@ You can read this file from top to bottom without knowing any code. The first ha
 - **It knows what is retired.** A **retired** component is one your team no longer wants on new screens, although old screens may still use it. Resolve does not recommend retired parts, and flags one if it comes up. A check fails when a screen uses one. It also says what to use instead.
 - **It knows your team's words (optional).** If your team says "beneficiary" and the library says "Payee picker", you can teach Resolve that those mean the same.
 - **It knows the code twin (optional).** Engineers can write a short file, called a **code map**, that says "this Figma Button is this Button in our code". When it is there, Resolve adds the code component to its answer, for example `PayeePicker from '@acme/payments'`. Resolve never guesses a code twin.
+- **It shows what is inside a component.** Ask "what is inside the Payee picker?" and Resolve lists the library parts it is built from (for example Avatar and Button), each with its code component when the code map has one. A part with no code link says so. It never guesses one.
 - **It knows screen recipes (optional).** A recipe is a checklist of the parts a kind of screen usually needs (header, list, main button, input). Resolve fills each slot with a real component.
 
 Resolve keeps everything it learned in a folder on your computer. This folder is called the **store**. Nothing is sent anywhere. Resolve only talks to Figma when you ask it to read a file.
@@ -301,6 +302,7 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `example "<name>"` | The real, filled-in instance behind a pick, to copy. |
 | `resolve "<name>"` | "I know the name, give me the id." |
 | `verify "<frame>"` | Pass/fail check of a drawn frame or a list of components. |
+| `ingredients "<name>"` | What is inside a component: its parts, each with its code component or "no code link yet". |
 | `code-map [--json \| --retired]` | Report on your Figma-to-code map; `--retired` lists retired parts with their code and replacement. |
 | `rules` | Lists the bind rules people wrote. |
 | `soci` | Lists pending SOCI proposals (suggested rules and recipes). |
@@ -460,6 +462,32 @@ Retired: Old Button [ACMEUI 30:50] -> use Button (code: OldButton from '@acme/ui
 
 `--retired` prints every retired part with its code and replacement, one per line (`Retired: 1`, then `Old Button [ACMEUI 30:50] -> use Button (code: OldButton from '@acme/ui-legacy')`). `--json` prints the same data with the same keys whether or not there is a map (`configured` is `true` or `false`; the lists are `unmapped`, `ambiguous`, `conflicts`, `retired`, `stale`, `replacements`, `ignored`). A part with a bad `replacedBy` is listed under `Bad replacedBy` / `replacements`. Details are in [`code-map.json`](#resolvecode-mapjson--figma-to-code-twins) below. With no map, it prints `No code map. Add .resolve/code-map.json next to synonyms.json.`
 
+#### ingredients
+
+```bash
+npm run resolve -- ingredients "Payee picker"
+npm run resolve -- ingredients "Button" --variant "Variant=Danger"
+npm run resolve -- ingredients --all
+```
+
+```
+Payee picker [30:30]
+Code: PayeePicker from '@acme/payments'
+Inside it:
+  - Avatar [30:40] (code: no code link yet)
+  - Button / Variant=Primary, Size=Medium [30:11] (code: Button from '@acme/ui')
+Payee picker is built from 2 parts. 1 linked to code, 1 with no code link yet.
+```
+
+It lists the library parts placed directly inside a component (a part inside a part is shown with `--depth 2` or `3`). It reads the links the graph already has, so nothing is guessed:
+
+- **Variants.** Each variant can hold different parts. Resolve follows the variant you name with `--variant` (properties like `"Size=Medium"`, or the variant's name). Otherwise it uses the first variant in the set and says when other variants use a different set of parts. Give it the id of a copy placed on a screen (`fileKey:nodeId`) and it reads that copy's own parts, so a swap made on the screen shows.
+- **Code.** Each part shows its code component from your code map, or `no code link yet`. With no code map at all, it says so.
+- **Honest labels.** A retired part says what to use instead. A part known only from its layer name is marked `guess from layer name, not confirmed`. A part from a library file you have not learned says so; if you have learned that library, Resolve finds the real part by its published component key. A copy whose component is missing is `component not found`.
+- **Names.** Exact name (letter case ignored) or id only. Anything else says "Nothing named ..." and exits with an error; use `recommend` to find the name first.
+
+`--json` prints the card as data (`parts`, each with `status`: `current`, `retired`, `unconfirmed`, `other-library` or `not-found`, and `code` or `null`). `--all` counts the whole library: how many components are built from other parts, and how many of those parts link to code. The MCP version is `get_ingredients`. It is off by default, so the agent tool list stays at seven; set `RESOLVE_MCP_ADVANCED=1` to turn it on.
+
 #### rules, soci, approve, reject
 
 ```bash
@@ -516,7 +544,7 @@ Runs a set of asks with known right answers through `recommend`, `resolve`, `rec
 
 #### The seven MCP tools
 
-The same abilities are offered to AI tools as seven MCP tools: `learn_library`, `recommend`, `check_cousins`, `resolve`, `get_example`, `verify_frame` and `recipe`. They return the same cards as the command line.
+The same abilities are offered to AI tools as seven MCP tools: `learn_library`, `recommend`, `check_cousins`, `resolve`, `get_example`, `verify_frame` and `recipe`. They return the same cards as the command line. One more tool, `get_ingredients` (see [ingredients](#ingredients)), is off by default.
 
 ### Team config files
 
@@ -644,7 +672,8 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 | Phrase set (regression) | 96/96 |
 | Designer phrase set (118 phrases, written after the ranker) | top-1 66/88 (75%), top-3 68/88 (77%), honest no-match 30/30, invent 0, retired offered 0. Weakest: paraphrase, 20/39 right first, 14 got nothing back |
 | 8-screen Material-like library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
-| Tests | 658 passing |
+| Ingredient card (sample library) | Payee picker = Avatar + Button, Payment method row = Avatar + Button; invented parts 0; unmapped parts shown as unmapped |
+| Tests | 674 passing |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
@@ -659,6 +688,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 - A replacement chain is followed up to 3 steps; a longer one counts as "no current replacement".
 - With or without a code map, `recommend` does not offer a retired part as the pick to place. An exact retired name with no live replacement says "Use none". `resolve` of that exact name still returns the retired master, flagged.
 - `example` and `cousins` do not use the code map and do not say a part is retired.
+- The ingredient card covers one component at a time, not a whole recipe or screen yet (that is the planned handoff sheet). The code map has no Angular selector or module fields yet (planned).
 - SOCI does not compare journeys across products yet.
 - Linking several design systems into one is a later step.
 - Large-library speed is measured only on generated test graphs (`npm run bench`).
@@ -668,8 +698,9 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
-- **Oct 6, 2026 — [PR #34](https://github.com/TANISHQBAFNA/resolve/pull/34) (draft, not merged).** New `resolve score phrases`: 118 designer-worded phrases on the sample library, or only a team's own phrases on its library (never mixed); right part first 66/88 (75%), weakest on paraphrases, and an invented or retired part fails the tests. Ranking is unchanged. 658 tests.
-- **Oct 5, 2026 — [PR #33](https://github.com/TANISHQBAFNA/resolve/pull/33) (draft, not merged).** The same ask gets the same top pick from `resolve` and `recommend`: an exact component name (letter case ignored) stays that component on both. A missing `icon-libraries.json` stays quiet. A mistyped icon-library name, or a broken `icon-libraries.json`, warns instead of failing quietly. Retired parts are never the pick to place (exact `resolve` of that name still shows the retired part, flagged). A description that is only "Legacy" counts as retired. Replacements are never icons. The desktop app shows the library and the rules, not a graph. 643 tests.
+- **Oct 6, 2026 — [PR #35](https://github.com/TANISHQBAFNA/resolve/pull/35) (draft, not merged).** New `resolve ingredients "<component>"` (MCP `get_ingredients`, off by default): the parts inside a component, following the variant used, each with its code component or "no code link yet"; guessed and retired parts are labelled. Ranking is unchanged. 674 tests.
+- **Oct 6, 2026 — [PR #34](https://github.com/TANISHQBAFNA/resolve/pull/34).** New `resolve score phrases`: 118 designer-worded phrases on the sample library, or only a team's own phrases on its library (never mixed); right part first 66/88 (75%), weakest on paraphrases, and an invented or retired part fails the tests. Ranking is unchanged. 658 tests.
+- **Oct 5, 2026 — [PR #33](https://github.com/TANISHQBAFNA/resolve/pull/33).** The same ask gets the same top pick from `resolve` and `recommend`: an exact component name (letter case ignored) stays that component on both. A missing `icon-libraries.json` stays quiet. A mistyped icon-library name, or a broken `icon-libraries.json`, warns instead of failing quietly. Retired parts are never the pick to place (exact `resolve` of that name still shows the retired part, flagged). A description that is only "Legacy" counts as retired. Replacements are never icons. The desktop app shows the library and the rules, not a graph. 643 tests.
 - **Oct 3, 2026 — [PR #32](https://github.com/TANISHQBAFNA/resolve/pull/32).** Install by asking your AI tool: new `INSTALL-FOR-AI.md` checklist (Claude Code, Cursor, Codex; Codex not verified), linked from the README top and `AGENTS.md`. `resolve-setup` adds the project's `.cursor/mcp.json` and `.mcp.json` by itself (keeps other servers, leaves invalid JSON alone), and `Figma connected?` also sees a Claude Code Figma server (read-only). README setup rewritten around it; hand-typed steps moved into an "If you prefer to do it by hand" box. 632 tests.
 - **Oct 3, 2026 — [PR #31](https://github.com/TANISHQBAFNA/resolve/pull/31).** README rewritten in plain language for designers: the problem, what Resolve does, numbered setup steps with "what you should see". Engineer detail moved under "For engineers and testers" and shortened. Docs only. 618 tests.
 - **Oct 3, 2026 — [PR #30](https://github.com/TANISHQBAFNA/resolve/pull/30).** `RESOLVE_HOME` is the name of the store setting and `.resolve/` the project folder; the old names still work as fallbacks and nothing is moved. README reorganised for designers (set-up for Claude, Cursor and Codex first). 618 tests.

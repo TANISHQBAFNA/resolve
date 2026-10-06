@@ -40,6 +40,7 @@ import {
   checkCousins,
   packForRecommend,
   parseIngestRole,
+  ingredientCard,
   type GraphIndex,
   type GraphLevel,
   type Recipe,
@@ -430,6 +431,21 @@ export const TOOLS: ToolDefinition[] = [
         domain: { type: "string" },
       },
       required: ["query"],
+    },
+  },
+  {
+    name: "get_ingredients",
+    description:
+      "What is inside a component: the library parts placed directly in it (from the graph's NESTS links), for a developer handoff. Follows one variant: pass variant (\"Size=Medium\"), else the first in the set; a placed instance id uses that copy's own parts. Each part has its code component from .resolve/code-map.json or code null (no code link; never guessed). status: current | retired (with use) | unconfirmed (guess from layer name) | other-library | not-found. Exact name or id only; unknown name → found=false, call recommend. Advanced surface. Do not Read graph.json.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...graphIdProperty,
+        name: { type: "string", description: "Exact component name, variant name, graph id, figma node id, or fileKey:nodeId (an instance id follows the variant it uses)." },
+        variant: { type: "string", description: 'Variant to follow, e.g. "Size=Medium, State=Default". Only for a component with variants.' },
+        depth: { type: "number", description: "Levels of parts to show, 1-3. Default 1." },
+      },
+      required: ["name"],
     },
   },
   {
@@ -1054,6 +1070,15 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         capRecipePayload(also.length ? { ...card, also } : card),
         readSock(),
       );
+    }
+
+    case "get_ingredients": {
+      const { index } = context(args);
+      const depth = typeof args["depth"] === "number" ? args["depth"] : Number(args["depth"] ?? 1);
+      return ingredientCard(index, asString(args["name"] ?? args["id"] ?? args["query"], "name"), {
+        variant: typeof args["variant"] === "string" ? args["variant"] : undefined,
+        depth: Number.isFinite(depth) ? Math.min(Math.max(Math.floor(depth), 1), 3) : 1,
+      });
     }
 
     case "list_graphs": {
