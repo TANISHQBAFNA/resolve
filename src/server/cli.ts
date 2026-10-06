@@ -10,6 +10,7 @@ import {
 } from "@/core/ingestion/adapters/figmaRestSource";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { buildGraph } from "@/core/transform";
+import { overlayFile } from "@/core/query/overlayFile";
 import {
   applySociDecision,
   buildOrientBrief,
@@ -35,6 +36,9 @@ import {
   WORKSPACE_FILE_ROLES,
   type WorkspaceFileRole,
   codeMapCard,
+  codeMapFromCsv,
+  codeMapRows,
+  codeMapTemplate,
   formatCodeMapReport,
   formatIngredientCard,
   formatIngredientCoverage,
@@ -144,6 +148,8 @@ function usage(): void {
       "      Optional .resolve/library-rules.json { allow, deny }. Else in-graph + not deprecated = approved.",
       "      Same pack flags as recommend. Wrong-cousin drift: resolve cousins.",
       "  resolve code-map [--json | --retired]   Report on .resolve/code-map.json: Figma component -> code component",
+      "  resolve code-map --init [--out <file.csv>] [--force]   Write a CSV with one row per component, to fill in a spreadsheet",
+      "  resolve code-map --import <file.csv> [--dry-run] [--force]   Turn the filled CSV into code-map.json (same checks as the loader)",
       "      Counts mapped / retired / unmapped / ambiguous / conflict / stale / ignored. Keyed by file key + id; a name works only when unique.",
       "      status retired keeps a part mapped but never recommends it. --retired lists every retired part with its code and replacement. No map: one-line hint.",
       "  resolve ingredients \"<component>\" [--variant \"<Prop=Value, ...>\"] [--depth 1-3] [--json] [--id <graphId>]",
@@ -631,6 +637,47 @@ export async function runCli(argv: string[]): Promise<void> {
     }
 
     case "code-map": {
+      const mapPath = overlayFile("code-map.json") ?? join(storeRoot(), "code-map.json");
+      const force = args.includes("--force");
+      if (args.includes("--init")) {
+        const out = flag(args, "out") ?? join(dirname(mapPath), "code-map.csv");
+        if (out.startsWith("--")) throw new Error("--out needs a file name, for example --out code-map.csv");
+        if (existsSync(out) && !force) throw new Error(`${out} already exists. Add --force to replace it.`);
+        const rows = codeMapRows(requireGraph(args).index);
+        writeFileSync(out, codeMapTemplate(rows));
+        const filled = rows.filter((r) => r.twin).length;
+        process.stdout.write(
+          `Wrote ${out}: ${rows.length} components, ${filled} already mapped. Fill in component and importPath (and for Angular: framework angular, selector, module or standalone, inputs, outputs), then run: resolve code-map --import ${out}\n`,
+        );
+        return;
+      }
+      if (args.includes("--import")) {
+        const file = flag(args, "import");
+        if (!file || file.startsWith("--")) throw new Error("Usage: resolve code-map --import <file.csv> [--dry-run] [--force]");
+        if (!existsSync(file)) throw new Error(`No such file: ${file}`);
+        const result = codeMapFromCsv(readFileSync(file, "utf8"));
+        if (result.errors.length) {
+          process.stdout.write(`Nothing written. Fix these rows in ${file}:\n${result.errors.slice(0, 20).map((e) => `  ${e}`).join("\n")}${result.errors.length > 20 ? `\n  +${result.errors.length - 20} more` : ""}\n`);
+          process.exitCode = 1;
+          return;
+        }
+        if (!result.entries.length) {
+          process.stdout.write(`Nothing written: no filled-in rows in ${file} (${result.skipped} empty).\n`);
+          process.exitCode = 1;
+          return;
+        }
+        const json = `${JSON.stringify({ entries: result.entries }, null, 2)}\n`;
+        if (args.includes("--dry-run")) {
+          process.stdout.write(json);
+          return;
+        }
+        if (existsSync(mapPath) && !force) throw new Error(`${mapPath} already exists. Add --force to replace it, or --dry-run to see the result.`);
+        writeFileSync(mapPath, json);
+        process.stdout.write(`Wrote ${mapPath}: ${result.entries.length} entries (${result.skipped} empty rows skipped).\n`);
+        const report = codeMapCard(() => requireGraph(args).index);
+        process.stdout.write(`${formatCodeMapReport(report)}\n`);
+        return;
+      }
       const report = codeMapCard(() => requireGraph(args).index);
       if (args.includes("--json")) printJson(report);
       else process.stdout.write(`${formatCodeMapReport(report, args.includes("--retired"))}\n`);

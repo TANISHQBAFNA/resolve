@@ -436,7 +436,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_ingredients",
     description:
-      "What is inside a component: the library parts placed directly in it (from the graph's NESTS links), for a developer handoff. Follows one variant: pass variant (\"Size=Medium\"), else the first in the set; a placed instance id reads that copy's own parts at every level (insideFrom / partsFrom = 'from the main component, not checked on this copy' where the copy's insides were not learned; variant is refused for an instance id). Each part has its code component from .resolve/code-map.json or code null (no code link; never guessed). status: current | retired (code = its old code, with use and useCode) | unconfirmed (guess from layer name) | other-library | not-found. Exact name or id only; unknown name → found=false, call recommend. Advanced surface. Do not Read graph.json.",
+      "What is inside a component: the library parts placed directly in it (from the graph's NESTS links), for a developer handoff. Follows one variant: pass variant (\"Size=Medium\"), else the first in the set; a placed instance id reads that copy's own parts at every level (insideFrom / partsFrom = 'from the main component, not checked on this screen' or '... on the copy inside this component' where the copy's insides were not learned; variant is refused for an instance id). Each part has its code component from .resolve/code-map.json or code null (no code link; never guessed), plus angular {selector, module | standalone, importPath, inputs, outputs} when the map entry is Angular. A card over 12,000 characters is shown less deep (then fewer parts per level) with cut.reason; ask a part by name for its own card. status: current | retired (code = its old code, with use and useCode) | unconfirmed (guess from layer name) | other-library | not-found. Exact name or id only; unknown name → found=false, call recommend. Advanced surface. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -535,6 +535,9 @@ export const TOOLS: ToolDefinition[] = [
 /* ------------------------------------------------------------------ */
 
 /** Compact JSON for MCP tool results. Pretty-print wastes agent context. */
+/** MCP size guard for get_ingredients (about 3k tokens). The CLI prints the full card. */
+export const INGREDIENTS_MCP_MAX_CHARS = 12_000;
+
 export function encodeToolResult(result: unknown): string {
   return JSON.stringify(result);
 }
@@ -1078,6 +1081,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       return ingredientCard(index, asString(args["name"] ?? args["id"] ?? args["query"], "name"), {
         variant: typeof args["variant"] === "string" ? args["variant"] : undefined,
         depth: Number.isFinite(depth) ? Math.min(Math.max(Math.floor(depth), 1), 3) : 1,
+        maxChars: INGREDIENTS_MCP_MAX_CHARS,
       });
     }
 

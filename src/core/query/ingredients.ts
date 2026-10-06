@@ -1,6 +1,7 @@
 import type { GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import { nodeFileKey } from "./workspaceMerge";
+import { angularText, codeText, type AngularTwin } from "./codeMap";
 
 /**
  * Ingredient card: "what is inside this component?"
@@ -21,7 +22,7 @@ export interface IngredientHooks {
   /** Known only from an instance layer name, not from a real component id. */
   nameGuess(node: GraphNode): boolean;
   /** Code component line (`Button from '@acme/ui'`) for a live part; retired is reported separately. */
-  twin(node: GraphNode): { line: string; retired: boolean } | undefined;
+  twin(node: GraphNode): { line: string; retired: boolean; angular?: AngularTwin } | undefined;
   /** True when a code map file with usable entries is loaded. */
   codeMap: boolean;
   /** Current part that replaces a retired one, if the library or the code map names one. */
@@ -39,7 +40,7 @@ const OTHER_LIBRARY_WHY = "lives in another library file that is not learned, so
 const OTHER_LIBRARY_CODE_WHY = "lives in another library file that is not learned, so its code link is unknown";
 /** Where a part's insides were read from when its own copy did not have them (placed on a screen, or anywhere else). */
 export const FROM_MAIN_SCREEN = "from the main component, not checked on this screen";
-export const FROM_MAIN = "from the main component, not checked on this copy";
+export const FROM_MAIN = "from the main component, not checked on the copy inside this component";
 type FromMain = typeof FROM_MAIN | typeof FROM_MAIN_SCREEN;
 
 export interface IngredientPart {
@@ -59,6 +60,11 @@ export interface IngredientPart {
   /** Current replacement for a retired part, and its code when the map has it. */
   use?: string;
   useCode?: string;
+  /** Angular fields from the code map (selector, module or standalone, import path, inputs, outputs). */
+  angular?: AngularTwin;
+  useAngular?: AngularTwin;
+  /** On a line split off because copies hold different insides: how many copies of this component sit at this level. */
+  of?: number;
   /** Copies of this part on the same level hold different insides, so each kind is listed on its own. */
   insidesDiffer?: true;
   /** Set when this part's insides come from its main component because this copy's own insides were not learned. */
@@ -89,6 +95,8 @@ export interface IngredientOptions {
   variant?: string;
   /** Levels of parts to show. 1 = parts directly inside (default). Max 3. */
   depth?: number;
+  /** Size guard (JSON characters). Over it, the card is shown less deep, then with fewer parts, and says so. */
+  maxChars?: number;
   /** Parts listed per level. Default 40. */
   limit?: number;
 }
@@ -307,6 +315,8 @@ interface Group {
   /** The copies behind this line; the first one is read for insides (they all hold the same). */
   copies: GraphNode[];
   insidesDiffer?: true;
+  /** Copies of this component at this level, across every line it is split into. */
+  of?: number;
 }
 
 /**
@@ -327,7 +337,14 @@ function groupParts(walk: Walk, instances: GraphNode[], ownerId: string, levels:
   const list = [...groups.values()];
   const perMain = new Map<string, number>();
   for (const g of list) if (g.main) perMain.set(g.main.id, (perMain.get(g.main.id) ?? 0) + 1);
-  for (const g of list) if (g.main && (perMain.get(g.main.id) ?? 0) > 1) g.insidesDiffer = true;
+  const copiesPerMain = new Map<string, number>();
+  for (const g of list) if (g.main) copiesPerMain.set(g.main.id, (copiesPerMain.get(g.main.id) ?? 0) + g.count);
+  for (const g of list) {
+    if (g.main && (perMain.get(g.main.id) ?? 0) > 1) {
+      g.insidesDiffer = true;
+      g.of = copiesPerMain.get(g.main.id);
+    }
+  }
   return list;
 }
 
@@ -337,7 +354,7 @@ function describePart(walk: Walk, group: Group, level: number, seen: Set<string>
   const base = {
     count: group.count,
     ...(group.hiddenCount === group.count ? { hidden: true as const } : {}),
-    ...(group.insidesDiffer ? { insidesDiffer: true as const } : {}),
+    ...(group.insidesDiffer ? { insidesDiffer: true as const, ...(group.of ? { of: group.of } : {}) } : {}),
   };
   if (!main) {
     return { name: clean(group.layer), ...base, status: "not-found", code: null, why: NOT_FOUND_WHY };
@@ -370,9 +387,10 @@ function describePart(walk: Walk, group: Group, level: number, seen: Set<string>
       ...base,
       status: retired ? "retired" : "current",
       code: twin ? twin.line : null,
+      ...(twin?.angular ? { angular: twin.angular } : {}),
       ...internal,
       ...(use ? { use: clean(hooks.cardName(use)) } : {}),
-      ...(useTwin && !useTwin.retired ? { useCode: useTwin.line } : {}),
+      ...(useTwin && !useTwin.retired ? { useCode: useTwin.line, ...(useTwin.angular ? { useAngular: useTwin.angular } : {}) } : {}),
     };
   }
   if (ins.instances.length) {
@@ -416,7 +434,8 @@ function signature(walk: Walk, defId: string): string {
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-const listed = (names: string[], total: number) => `${names.join(", ")}${total > names.length ? ` and ${total - names.length} more` : ""}`;
+/** Names often hold commas (`Size=M, State=Default`), so lists use a bar. */
+const listed = (names: string[], total: number) => `${names.join(" | ")}${total > names.length ? ` | and ${total - names.length} more` : ""}`;
 
 function noteFor(name: string, s: IngredientSummary, codeMap: boolean, isVariant: boolean, othersHaveParts: boolean): string {
   if (!s.parts) {
@@ -442,8 +461,54 @@ const VARIANT_LIST = 8;
 
 type How = "asked" | "used on a screen" | "used inside a component" | "default, first in the set";
 
-/** Ingredient card for one component, variant, or placed instance. */
+export interface IngredientCut {
+  maxChars: number;
+  depth: number;
+  askedDepth: number;
+  /** Set when parts per level were also cut. */
+  partsPerLevel?: number;
+  reason: string;
+}
+
+/**
+ * Ingredient card for one component, variant, or placed instance. With `maxChars`, a card that is too big is
+ * shown one level less deep at a time, then with fewer parts per level, and says what was cut.
+ */
 export function buildIngredientCard(index: GraphIndex, ask: string, hooks: IngredientHooks, options: IngredientOptions = {}) {
+  type Card = ReturnType<typeof buildCardOnce> & { cut?: IngredientCut };
+  const first: Card = buildCardOnce(index, ask, hooks, options);
+  const max = options.maxChars;
+  if (!max || !first.found || JSON.stringify(first).length <= max) return first;
+  const asked = Math.min(Math.max(Math.floor(options.depth ?? 1), 1), MAX_DEPTH);
+  const fullLimit = Math.max(1, Math.floor(options.limit ?? DEFAULT_LIMIT));
+  let depth = asked;
+  let limit = fullLimit;
+  let card: Card = first;
+  while (card.found && JSON.stringify(card).length > max) {
+    const wide = widest(card.parts);
+    if (depth > 1) depth -= 1;
+    else if (wide > 5) limit = Math.max(5, Math.floor(Math.min(limit, wide) / 2));
+    else break;
+    card = buildCardOnce(index, ask, hooks, { ...options, depth, limit });
+  }
+  if (!card.found) return card;
+  const shown = [depth < asked ? `${depth === 1 ? "only the parts directly inside" : `${depth} levels`} (asked for ${asked})` : "", limit < fullLimit ? `at most ${limit} parts per level` : ""]
+    .filter(Boolean)
+    .join(", ");
+  const reason = `the full card is over ${max.toLocaleString("en-US")} characters, so it shows ${shown || "what fits"}. Ask a part by its name or id for its own card${depth > 1 ? `, or ask with depth ${depth}` : ""}.`;
+  return {
+    ...card,
+    cut: { maxChars: max, depth, askedDepth: asked, ...(limit < fullLimit ? { partsPerLevel: limit } : {}), reason },
+    note: `${card.note} Cut to stay small: ${reason}`,
+  };
+}
+
+/** Most parts listed at any one level. */
+function widest(parts: IngredientPart[]): number {
+  return Math.max(parts.length, ...parts.map((p) => widest(p.parts ?? [])));
+}
+
+function buildCardOnce(index: GraphIndex, ask: string, hooks: IngredientHooks, options: IngredientOptions = {}) {
   const name = ask.trim();
   const depth = Math.min(Math.max(Math.floor(options.depth ?? 1), 1), MAX_DEPTH);
   const limit = Math.max(1, Math.floor(options.limit ?? DEFAULT_LIMIT));
@@ -552,14 +617,19 @@ export function buildIngredientCard(index: GraphIndex, ask: string, hooks: Ingre
   const ownUse = retired ? hooks.replacement(scope) : undefined;
   const ownUseTwin = ownUse ? hooks.twin(ownUse) : undefined;
   const useCode = ownUseTwin && !ownUseTwin.retired ? ownUseTwin.line : undefined;
+  const useAngular = useCode ? ownUseTwin?.angular : undefined;
 
   const hints: string[] = [];
   if (retired) {
     hints.push(
-      `${label} is retired${ownUse ? `. Use ${clean(hooks.cardName(ownUse))} instead${useCode ? ` (code: ${useCode})` : ""}` : ". There is no current replacement"}.`,
+      `${label} is retired${ownUse ? `. Use ${clean(hooks.cardName(ownUse))} instead${useCode ? ` (code: ${codeText({ line: useCode, angular: useAngular })})` : ""}` : ". There is no current replacement"}.`,
     );
   }
-  if (guessed) hints.push(`${label} itself is a ${PART_GUESS}, so its parts are unknown.`);
+  const readCopy = Boolean(instance) && groups.length > 0 && !ins.fromMain;
+  if (guessed && readCopy) {
+    hints.push(`${label} itself is a ${PART_GUESS}.`);
+    hints.push(noteFor(label, summary, hooks.codeMap, Boolean(variant), Boolean(otherVariants?.withParts)));
+  } else if (guessed) hints.push(`${label} itself is a ${PART_GUESS}, so its parts are unknown.`);
   else if (remoteStub) hints.push(`${label} ${OTHER_LIBRARY_WHY}. Learn that library to see its parts.`);
   else hints.push(noteFor(label, summary, hooks.codeMap, Boolean(variant), Boolean(otherVariants?.withParts)));
   if (otherVariants?.differentParts) {
@@ -568,15 +638,16 @@ export function buildIngredientCard(index: GraphIndex, ask: string, hooks: Ingre
       `${plural(n, "other variant")} ${n === 1 ? "uses" : "use"} a different set of parts: ${listed(otherVariants.examples, n)}. Ask with --variant to see one.`,
     );
   }
-  if (instance) {
+  // Only say where the parts were read when there are parts to read (a guess or a stub has none).
+  if (instance && groups.length) {
     hints.push(
       ins.fromMain
         ? `This copy's own parts were not learned, so these are the main component's parts, not checked on this ${how === "used on a screen" ? "screen" : "copy"}.`
         : "Parts read from this placed copy at every level shown, so swaps made on it are included.",
     );
-    if (all.some(function fromMain(p: IngredientPart): boolean { return Boolean(p.insideFrom) || (p.parts ?? []).some(fromMain); })) {
-      hints.push(`A part marked "${walk.fromMain ?? FROM_MAIN}" had no insides learned on this copy.`);
-    }
+  }
+  if (all.some(function fromMain(p: IngredientPart): boolean { return Boolean(p.insideFrom) || (p.parts ?? []).some(fromMain); })) {
+    hints.push(`A part marked "${walk.fromMain ?? FROM_MAIN}" had no insides learned for that copy.`);
   }
   if (all.length > parts.length) hints.push(`${all.length - parts.length} more parts not listed.`);
 
@@ -592,6 +663,7 @@ export function buildIngredientCard(index: GraphIndex, ask: string, hooks: Ingre
       ...(hooks.internal(owner) ? { internal: true as const } : {}),
       ...(ownUse ? { use: clean(hooks.cardName(ownUse)) } : {}),
       ...(useCode ? { useCode } : {}),
+      ...(useAngular ? { useAngular } : {}),
     },
     ...(variant && how
       ? { variant: { name: clean(hooks.cardName(variant)), id: variant.id, ...where(variant), how } }
@@ -600,6 +672,7 @@ export function buildIngredientCard(index: GraphIndex, ask: string, hooks: Ingre
       ? { instance: { name: clean(instance.name), id: instance.id, ...where(instance), how: how!, ...(ins.fromMain ? { partsFrom: walk.fromMain ?? FROM_MAIN } : {}) } }
       : {}),
     code: twin ? twin.line : null,
+    ...(twin?.angular ? { angular: twin.angular } : {}),
     codeMap: hooks.codeMap,
     parts,
     summary,
@@ -698,12 +771,13 @@ export function buildIngredientCoverage(index: GraphIndex, hooks: IngredientHook
 const pct = (n: number, d: number) => (d ? `${Math.round((n / d) * 100)}%` : "n/a");
 
 function partLine(p: IngredientPart, indent: string, headKey?: string): string[] {
-  const code = p.code ? `code: ${p.code}` : `code: ${NO_CODE_LINK}`;
+  const code = p.code ? `code: ${codeText({ line: p.code, angular: p.angular })}` : `code: ${NO_CODE_LINK}`;
+  const useCode = p.useCode ? ` (code: ${codeText({ line: p.useCode, angular: p.useAngular })})` : "";
   const tags = [
-    p.count > 1 ? `x${p.count}` : "",
+    p.of ? `${p.count} of ${plural(p.of, "copy", "copies")}` : p.count > 1 ? `x${p.count}` : "",
     p.status === "current" ? code : "",
     p.status === "retired"
-      ? `retired, ${code}${p.use ? `; use ${p.use}${p.useCode ? ` (code: ${p.useCode})` : ""}` : "; no current replacement"}`
+      ? `retired, ${code}${p.use ? `; use ${p.use}${useCode}` : "; no current replacement"}`
       : "",
     p.status === "unconfirmed" ? PART_GUESS : "",
     p.status === "other-library" ? "from a library that is not learned" : "",
@@ -748,9 +822,10 @@ export function formatIngredientCard(card: IngredientCard): string {
   }
   lines.push(
     c.status === "retired"
-      ? `Code: ${code} (retired${c.use ? `; use ${c.use}${c.useCode ? `, code: ${c.useCode}` : ""}` : ""})`
+      ? `Code: ${code} (retired${c.use ? `; use ${c.use}${c.useCode ? `, code: ${codeText({ line: c.useCode, angular: c.useAngular })}` : ""}` : ""})`
       : `Code: ${code}`,
   );
+  if (card.angular) lines.push(`Angular: ${angularText(card.angular, true)}`);
   if (card.parts.length) {
     lines.push("Inside it:");
     for (const p of card.parts) lines.push(...partLine(p, "  ", c.fileKey));

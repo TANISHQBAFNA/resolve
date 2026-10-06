@@ -1,0 +1,56 @@
+{
+  "entries": [
+    {
+      "fileKey": "ACMEUI",
+      "id": "30:10",
+      "code": {
+        "framework": "angular",
+        "import": "import { AcmeButtonComponent } from '@acme/ui-angular'",
+        "component": "AcmeButtonComponent",
+        "selector": "acme-button",
+        "module": "AcmeButtonModule",
+        "inputs": ["variant", "size", "disabled"],
+        "outputs": ["pressed"]
+      }
+    },
+    {
+      "fileKey": "ACMEUI",
+      "id": "30:20",
+      "code": {
+        "framework": "angular",
+        "import": "import { AcmeTextFieldComponent } from '@acme/ui-angular'",
+        "component": "AcmeTextFieldComponent",
+        "selector": "acme-text-field",
+        "standalone": true,
+        "inputs": ["label", "value", "error"],
+        "outputs": ["valueChange"]
+      }
+    },
+    {
+      "fileKey": "ACMEUI",
+      "id": "30:30",
+      "code": {
+        "framework": "angular",
+        "import": "import { AcmePayeePickerComponent } from '@acme/payments-angular'",
+        "component": "AcmePayeePickerComponent",
+        "selector": "acme-payee-picker",
+        "standalone": true,
+        "inputs": ["payees", "selected"],
+        "outputs": ["selectedChange"]
+      }
+    },
+    {
+      "fileKey": "ACMEUI",
+      "id": "30:50",
+      "status": "retired",
+      "replacedBy": "Button",
+      "code": {
+        "framework": "angular",
+        "import": "import { AcmeOldButtonComponent } from '@acme/ui-angular-legacy'",
+        "component": "AcmeOldButtonComponent",
+        "selector": "acme-old-button",
+        "module": "AcmeLegacyModule"
+      }
+    }
+  ]
+}

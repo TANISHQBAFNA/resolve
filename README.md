@@ -303,7 +303,7 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `resolve "<name>"` | "I know the name, give me the id." |
 | `verify "<frame>"` | Pass/fail check of a drawn frame or a list of components. |
 | `ingredients "<name>"` | What is inside a component: its parts, each with its code component or "no code link yet". |
-| `code-map [--json \| --retired]` | Report on your Figma-to-code map; `--retired` lists retired parts with their code and replacement. |
+| `code-map [--json \| --retired]` | Report on your Figma-to-code map; `--retired` lists retired parts with their code and replacement. `--init` writes a spreadsheet (CSV) to fill in; `--import <file.csv>` turns it into the map. |
 | `rules` | Lists the bind rules people wrote. |
 | `soci` | Lists pending SOCI proposals (suggested rules and recipes). |
 | `approve <id> --who <name>` / `reject <id> --who <name>` | A person says yes or no to a proposal. |
@@ -460,6 +460,16 @@ Unmapped: Text field [ACMEUI 30:20]; Avatar [ACMEUI 30:40]; Payment method row [
 Retired: Old Button [ACMEUI 30:50] -> use Button (code: OldButton from '@acme/ui-legacy')
 ```
 
+**Fill the map from a spreadsheet.** Hand-editing JSON is not needed:
+
+```bash
+npm run resolve -- code-map --init                       # writes code-map.csv next to code-map.json
+npm run resolve -- code-map --import code-map.csv --dry-run   # shows the JSON it would write
+npm run resolve -- code-map --import code-map.csv        # writes code-map.json
+```
+
+`--init` writes one row per library component (`fileKey`, `id`, `name`, then the columns to fill: `component`, `importPath`, `framework`, `selector`, `module`, `standalone`, `inputs`, `outputs`, `status`, `replacedBy`). Rows the map already knows come filled in. `--import` skips rows with no `component` and no `importPath`, checks every other row with the same rules as the map itself, and writes nothing if any row is wrong (it lists them as `row 3: selector must look like acme-button or [acmeTooltip]`). It does not replace an existing `code-map.json` unless you add `--force`; `--init` does not replace an existing CSV either. List several `inputs` or `outputs` with spaces. A filled-in example is [`docs/examples/acme-code-map-angular.csv`](docs/examples/acme-code-map-angular.csv).
+
 `--retired` prints every retired part with its code and replacement, one per line (`Retired: 1`, then `Old Button [ACMEUI 30:50] -> use Button (code: OldButton from '@acme/ui-legacy')`). `--json` prints the same data with the same keys whether or not there is a map (`configured` is `true` or `false`; the lists are `unmapped`, `ambiguous`, `conflicts`, `retired`, `stale`, `replacements`, `ignored`). A part with a bad `replacedBy` is listed under `Bad replacedBy` / `replacements`. Details are in [`code-map.json`](#resolvecode-mapjson--figma-to-code-twins) below. With no map, it prints `No code map. Add .resolve/code-map.json next to synonyms.json.`
 
 #### ingredients
@@ -482,11 +492,12 @@ Payee picker is built from 2 parts. 1 linked to code, 1 with no code link yet.
 It lists the library parts placed directly inside a component (a part inside a part is shown with `--depth 2` or `3`). It reads the links the graph already has, so nothing is guessed:
 
 - **Variants.** Each variant can hold different parts. Resolve follows the variant you name with `--variant` (properties like `"Size=Medium"`, or the variant's name). Otherwise it uses the first variant in the set and names the other variants that use a different set of parts. Give it the id of a copy placed on a screen (`fileKey:nodeId`) and it reads that copy's own parts at every level it shows, so a swap made on the screen shows. Where a copy's insides were not learned, it shows the main component's parts and marks them `from the main component, not checked on this screen`. Two copies of one part that hold different insides get a line each (`insides differ between copies`), so the counts always match what is listed. `--variant` is refused for a placed copy, because the copy already uses one variant.
-- **Code.** Each part shows its code component from your code map, or `no code link yet`. With no code map at all, it says so. The header shows the file key and node id (`[ACMEUI 30:30]`).
+- **Code.** Each part shows its code component from your code map, or `no code link yet`. With no code map at all, it says so. The header shows the file key and node id (`[ACMEUI 30:30]`). For an Angular map entry the part also shows its selector and module (`<acme-button>, AcmeButtonModule`), and the header adds an `Angular:` line with inputs and outputs (see [Angular entries](#angular-entries)).
+- **Swaps inside a component.** A component's own card reads the copies placed inside it too, so a swap made inside the component (for example a different icon in each of five buttons) shows as it really is. When copies of one part differ, each kind gets its own line marked `1 of 5 copies` (and so on) and `insides differ between copies`; at the last level shown the line names what that copy holds. Where the copy inside a component has no learned insides, its parts come from its main component and say `from the main component, not checked on the copy inside this component`.
 - **Honest labels.** A retired part shows its old code and what to use instead, with that part's code when the map has it (`retired, code: OldButton from '@acme/ui-legacy'; use Button (code: Button from '@acme/ui')`). A part known only from its layer name is marked `guess from layer name, not confirmed`. A part from a library file you have not learned says so; if you have learned that library, Resolve finds the real part by its published component key. A copy whose component is missing is `component not found`.
 - **Names.** Exact name (letter case ignored) or id only. Anything else says "Nothing named ..." and exits with an error; use `recommend` to find the name first. A name or a bare node id found in two learned files is listed, not picked; ask again with `fileKey:nodeId`.
 
-`--json` prints the card as data (`parts`, each with `status`: `current`, `retired`, `unconfirmed`, `other-library` or `not-found`, `code` or `null`, and `use` / `useCode` for a retired part; `insideFrom` marks insides read from the main component). `--all` counts the whole library: how many components are built from other parts, and how many of those parts link to code. The MCP version is `get_ingredients`. It is off by default, so the agent tool list stays at seven; set `RESOLVE_MCP_ADVANCED=1` to turn it on.
+`--json` prints the card as data (`parts`, each with `status`: `current`, `retired`, `unconfirmed`, `other-library` or `not-found`, `code` or `null`, and `use` / `useCode` for a retired part; `angular` for an Angular entry; `insideFrom` marks insides read from the main component). `--all` counts the whole library: how many components are built from other parts, and how many of those parts link to code. The MCP version is `get_ingredients`. It is off by default, so the agent tool list stays at seven; set `RESOLVE_MCP_ADVANCED=1` to turn it on. Over MCP a card larger than 12,000 characters is cut so it does not flood the agent: it is shown one level less deep at a time, then with fewer parts per level, and `cut.reason` says what was left out (ask a part by name for its own card). The command line always prints the whole card.
 
 #### rules, soci, approve, reject
 
@@ -582,7 +593,7 @@ Icons come back when the ask is for an icon, or when you give the icon's exact d
 
 #### `.resolve/code-map.json` — Figma-to-code twins
 
-**Owner:** the engineers who own the code components. Resolve never writes or guesses this file.
+**Owner:** the engineers who own the code components. Resolve never guesses this file. It only writes it when you run `code-map --import` on a CSV you filled in.
 
 It says "this Figma component is this code component". Shape:
 
@@ -621,6 +632,35 @@ The rules, in plain words:
 - **A missing, empty, or byte-order-mark-only file** is simply "no map", with no message. A file that is not valid JSON prints one line on stderr (`code-map.json is malformed; ignored`).
 - **A file with nothing usable** says `code-map.json has no usable entries.` and lists why each entry was ignored.
 - **Where the code line shows.** It is added to the `recommend` card (for the top pick only), the `resolve` card, and the MCP versions of both, only if it fits inside the card limit without dropping a candidate. When it does not fit it is left out without a message (the part is still counted as mapped in `code-map`). It is never added to a weak match, and never to a retired part. A part that lives in another Figma file (a remote stub, for example a published icon) cannot be mapped here; map it in the file where it lives. The code line is cleaned of control characters, so a bad file cannot sneak text into an agent's prompt. Without a map, every card is byte-for-byte what it was before.
+
+##### Angular entries
+
+An entry can describe an Angular component. Add `framework`, `selector` and, if you know them, `module` or `standalone`, `inputs` and `outputs` inside `code`. Entries without these fields (like the ones above) work exactly as before, and one file can mix both kinds. A made-up Acme example with an Angular package, [`docs/examples/acme-code-map-angular.json`](docs/examples/acme-code-map-angular.json):
+
+```json
+{
+  "fileKey": "ACMEUI",
+  "id": "30:10",
+  "code": {
+    "framework": "angular",
+    "import": "import { AcmeButtonComponent } from '@acme/ui-angular'",
+    "component": "AcmeButtonComponent",
+    "selector": "acme-button",
+    "module": "AcmeButtonModule",
+    "inputs": ["variant", "size", "disabled"],
+    "outputs": ["pressed"]
+  }
+}
+```
+
+- **`selector`** is required for an Angular entry. It is an element name with a dash (`acme-button`) or an attribute (`[acmeTooltip]`, `button[acme-button]`). A selector alone marks the entry as Angular; `"framework": "angular"` says it outright.
+- **`module`** is the NgModule to import (`AcmeButtonModule`). For a standalone component, use `"standalone": true` instead. Giving both is refused.
+- **`inputs`** and **`outputs`** are optional lists of plain names (`["variant", "size"]`).
+- **The import path** comes from the `import` line (`@acme/ui-angular`), as before.
+- Bad values are refused with a reason, never changed: `selector must look like acme-button or [acmeTooltip]`, `use module or standalone: true, not both`, `'module' needs an Angular selector`, `'selector' is an Angular field; set framework to angular` (on a `"framework": "react"` entry).
+- One component, one entry: a React and an Angular entry for the same component are a `conflict` ("a React and an Angular entry disagree; keep one entry per component").
+
+Where the Angular fields show: the ingredient card (text and `angular` in JSON, also `useAngular` for a retired part's replacement), the `resolve` card (`angular`, next to `code`), the `recommend` card (a short `angular` line such as `<acme-button>, AcmeButtonModule`, only when it fits in 600 characters), the `verify` retired lines, and `code-map` (an `Angular:` count line, and the selector on retired lines). With no Angular entries, every card and report is exactly what it was before.
 
 `resolve code-map` reports `mapped`, `retired`, `unmapped`, `ambiguous`, `conflict`, `stale` (an entry whose component is not in the library, with its file key), `ignored`, plus lists of retired parts (with code and replacement) and bad `replacedBy`. Only real components and component sets are counted: variants, remote stubs and `_`/`base` parts are not.
 
@@ -673,7 +713,8 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 | Designer phrase set (118 phrases, written after the ranker) | top-1 66/88 (75%), top-3 68/88 (77%), honest no-match 30/30, invent 0, retired offered 0. Weakest: paraphrase, 20/39 right first, 14 got nothing back |
 | 8-screen Material-like library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
 | Ingredient card (Acme example library) | Payee picker = Avatar + Button, Payment method row = Avatar + Button; invented parts 0; unmapped parts shown as unmapped |
-| Tests | 684 passing |
+| Angular code map (Acme example) | 4 Angular entries load with 0 ignored; the CSV example imports to the same map; 13 bad-value cases refused with a reason |
+| Tests | 698 passing |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
@@ -688,7 +729,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 - A replacement chain is followed up to 3 steps; a longer one counts as "no current replacement".
 - With or without a code map, `recommend` does not offer a retired part as the pick to place. An exact retired name with no live replacement says "Use none". `resolve` of that exact name still returns the retired master, flagged.
 - `example` and `cousins` do not use the code map and do not say a part is retired.
-- The ingredient card covers one component at a time, not a whole recipe or screen yet (that is the planned handoff sheet). The code map has no Angular selector or module fields yet (planned).
+- The ingredient card covers one component at a time, not a whole recipe or screen yet (that is the planned handoff sheet). The code map's Angular fields are tested on the made-up Acme map only; a real Angular map waits on access to the real Angular code.
 - SOCI does not compare journeys across products yet.
 - Linking several design systems into one is a later step.
 - Large-library speed is measured only on generated test graphs (`npm run bench`).
@@ -698,7 +739,8 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
-- **Oct 6, 2026 — [PR #35](https://github.com/TANISHQBAFNA/resolve/pull/35) (draft, not merged).** New `resolve ingredients "<component>"` (MCP `get_ingredients`, off by default): the parts inside a component, following the variant used, each with its code component or "no code link yet"; guessed and retired parts are labelled. A placed copy is read from its own insides at every level, and anything taken from the main component says so. Ranking is unchanged. 684 tests.
+- **Oct 6, 2026 — [PR #36](https://github.com/TANISHQBAFNA/resolve/pull/36) (draft, not merged).** The code map takes Angular entries (`selector`, `module` or `standalone`, `inputs`, `outputs`); they show on the ingredient, `resolve` and `recommend` cards, `verify` retired lines and `code-map`. New `code-map --init` / `--import` fill the map from a CSV. Over MCP, very large ingredient cards are cut and say so. React entries are unchanged. 698 tests.
+- **Oct 6, 2026 — [PR #35](https://github.com/TANISHQBAFNA/resolve/pull/35).** New `resolve ingredients "<component>"` (MCP `get_ingredients`, off by default): the parts inside a component, following the variant used, each with its code component or "no code link yet"; guessed and retired parts are labelled. A placed copy is read from its own insides at every level, and anything taken from the main component says so. Ranking is unchanged. 684 tests.
 - **Oct 6, 2026 — [PR #34](https://github.com/TANISHQBAFNA/resolve/pull/34).** New `resolve score phrases`: 118 designer-worded phrases on the sample library, or only a team's own phrases on its library (never mixed); right part first 66/88 (75%), weakest on paraphrases, and an invented or retired part fails the tests. Ranking is unchanged. 658 tests.
 - **Oct 5, 2026 — [PR #33](https://github.com/TANISHQBAFNA/resolve/pull/33).** The same ask gets the same top pick from `resolve` and `recommend`: an exact component name (letter case ignored) stays that component on both. A missing `icon-libraries.json` stays quiet. A mistyped icon-library name, or a broken `icon-libraries.json`, warns instead of failing quietly. Retired parts are never the pick to place (exact `resolve` of that name still shows the retired part, flagged). A description that is only "Legacy" counts as retired. Replacements are never icons. The desktop app shows the library and the rules, not a graph. 643 tests.
 - **Oct 3, 2026 — [PR #32](https://github.com/TANISHQBAFNA/resolve/pull/32).** Install by asking your AI tool: new `INSTALL-FOR-AI.md` checklist (Claude Code, Cursor, Codex; Codex not verified), linked from the README top and `AGENTS.md`. `resolve-setup` adds the project's `.cursor/mcp.json` and `.mcp.json` by itself (keeps other servers, leaves invalid JSON alone), and `Figma connected?` also sees a Claude Code Figma server (read-only). README setup rewritten around it; hand-typed steps moved into an "If you prefer to do it by hand" box. 632 tests.
