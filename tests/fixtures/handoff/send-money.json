@@ -13,7 +13,7 @@
         "link": "https://www.figma.com/design/ACMEUI/?node-id=20-40"
       },
       "recipe": null,
-      "recipeNote": "No recipe matched this screen's name. Pass --recipe <id> to check the screen against one.",
+      "recipeNote": "No recipe matched this screen's name. Pass --recipe and a recipe id (see resolve recipe list) to check the screen against one.",
       "components": [
         {
           "name": "Payee picker",
@@ -116,12 +116,10 @@
           "template": "<acme-button variant=\"primary\" size=\"medium\" [disabled]=\"…\" (pressed)=\"…\"></acme-button>",
           "states": {
             "Variant": [
-              "Primary",
               "Secondary",
               "Danger"
             ],
             "Size": [
-              "Medium",
               "Large"
             ]
           },
@@ -172,11 +170,9 @@
           "states": {
             "Variant": [
               "Primary",
-              "Secondary",
               "Danger"
             ],
             "Size": [
-              "Medium",
               "Large"
             ]
           },
@@ -236,7 +232,9 @@
         "unmapped": 0,
         "parts": 2,
         "partsLinkedToCode": 1,
-        "nameGuesses": 0
+        "nameGuesses": 0,
+        "notFound": 0,
+        "otherLibrary": 0
       }
     }
   ],

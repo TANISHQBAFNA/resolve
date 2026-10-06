@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import acmeFile from "../docs/examples/acme-ui.json";
@@ -9,6 +9,7 @@ import { adaptFigmaMcpMetadata } from "@/core/ingestion/adapters/figmaMcp";
 import { buildGraph } from "@/core/transform";
 import {
   angularTemplate,
+  formatHandoffIndex,
   formatHandoffScreen,
   handoffSheet,
   indexGraph,
@@ -39,6 +40,38 @@ function fixedAcmeFile(): unknown {
   return file;
 }
 const fixedGraph = () => graphOf(fixedAcmeFile());
+/** Acme plus a "Big screen" holding one copy of a 3-level shell: 3 sections x 4 groups x 12 leaf parts (159 parts at depth 3). */
+function bigAcmeFile(): unknown {
+  const file = fixedAcmeFile() as { document: { children: Array<{ id: string; name: string; type: string; children: unknown[] }> } };
+  const bb = { x: 0, y: 0, width: 10, height: 10 };
+  const copy = (id: string, componentId: string, name: string) => ({ id, name, type: "INSTANCE", componentId, absoluteBoundingBox: bb });
+  const comps: unknown[] = [];
+  let n = 0;
+  const id = () => `70:${(n += 1)}`;
+  const shellKids: unknown[] = [];
+  for (let i = 0; i < 3; i += 1) {
+    const sectionId = id();
+    const sectionKids: unknown[] = [];
+    for (let j = 0; j < 4; j += 1) {
+      const groupId = id();
+      const groupKids: unknown[] = [];
+      for (let k = 0; k < 12; k += 1) {
+        const leafId = id();
+        comps.push({ id: leafId, name: `Leaf part ${i}-${j}-${k}`, type: "COMPONENT", absoluteBoundingBox: bb });
+        groupKids.push(copy(id(), leafId, `Leaf part ${i}-${j}-${k}`));
+      }
+      comps.push({ id: groupId, name: `Group ${i}-${j}`, type: "COMPONENT", absoluteBoundingBox: bb, children: groupKids });
+      sectionKids.push(copy(id(), groupId, `Group ${i}-${j}`));
+    }
+    comps.push({ id: sectionId, name: `Section ${i}`, type: "COMPONENT", absoluteBoundingBox: bb, children: sectionKids });
+    shellKids.push(copy(id(), sectionId, `Section ${i}`));
+  }
+  comps.push({ id: "70:999", name: "Big shell", type: "COMPONENT", absoluteBoundingBox: bb, children: shellKids });
+  file.document.children.push({ id: "71:1", name: "Big lib", type: "CANVAS", children: comps });
+  file.document.children.push({ id: "72:1", name: "Big page", type: "CANVAS", children: [{ id: "72:2", name: "Big screen", type: "FRAME", absoluteBoundingBox: bb, children: [copy("72:3", "70:999", "Big shell")] }] });
+  return file;
+}
+
 const ok = (pack: HandoffPack) => {
   if (!pack.ok) throw new Error(`refused: ${JSON.stringify(pack.refused)}`);
   return pack;
@@ -80,7 +113,7 @@ describe("handoff sheet", () => {
               "Retired component Old Button is on this screen (copy ACMEUI 20:43). Replace it with Button (code: AcmeButtonComponent from '@acme/ui-angular', <acme-button>, AcmeButtonModule), then run handoff again. A draft does not skip this.",
           },
         ],
-        hint: "Replace the retired components (run verify for the list), then run handoff again.",
+        hint: "Replace the retired components named above (verify lists the ones placed on the screen), then run handoff again.",
       });
     }
   });
@@ -157,7 +190,11 @@ describe("handoff sheet", () => {
     expect(draft.draft).toBe(true);
     expect(draft.screens[0]!.components[0]).toMatchObject({ name: "Promo card", identity: "name-guess" });
     expect(draft.screens[0]!.openQuestions).toContain("Promo card: identity is a guess from the layer name. Confirm it with Figma REST or design_context before building.");
-    expect(formatHandoffScreen(draft.screens[0]!, true)).toContain("> **Draft, not for build.**");
+    const text = formatHandoffScreen(draft.screens[0]!, true);
+    expect(text).toContain("> **Draft, not for build.** Below: 1 name guess (marked `name-guess`; confirm with Figma REST or design_context).");
+    // A pseudo id is never shown as a Figma id.
+    expect(text).not.toMatch(/Figma: .*mcp-name/);
+    expect(text).toContain("- Figma: no Figma component id (known by its layer name only)");
   });
 
   it("decisions: approved decisions about this screen, its recipe or its components show who / when / why; others do not", () => {
@@ -179,7 +216,7 @@ describe("handoff sheet", () => {
       { proposalId: "by-screen", type: "require-rule", summary: "summary by-screen", who: "Ana (design)", when: "2026-02-03T10:00:00.000Z", why: "Agreed in review" },
       { proposalId: "by-component", type: "require-rule", summary: "summary by-component", who: "Ana (design)", when: "2026-02-03T10:00:00.000Z", why: "summary by-component" },
     ]);
-    expect(formatHandoffScreen(sheet, false)).toContain("- 2026-02-03, Ana (design): summary by-screen Why: Agreed in review (`by-screen`)");
+    expect(formatHandoffScreen(sheet, false)).toContain("- 2026-02-03 10:00 UTC, Ana (design): summary by-screen Why: Agreed in review (`by-screen`)");
   });
 
   it("recipe: matched from the screen name or asked; slots say whether their component is on the screen", () => {
@@ -190,7 +227,7 @@ describe("handoff sheet", () => {
     expect(asked.components.find((c) => c.figmaNodeId === "30:11")?.slot).toBe("primary-cta");
     const none = ok(handoffSheet(index, ["Send money"], { recipes: starterRecipes() })).screens[0]!;
     expect(none.recipe).toBeNull();
-    expect(none.recipeNote).toContain("Pass --recipe <id>");
+    expect(none.recipeNote).toContain("Pass --recipe and a recipe id");
   });
 
   it("a copy placed as a whole screen is its own single component; verify checks its components as a list", () => {
@@ -285,7 +322,7 @@ describe("resolve handoff (CLI) and get_handoff (MCP)", () => {
     expect(json.screens).toHaveLength(2);
     expect(json.ingredients[0]?.screens).toEqual(["Send money", "Confirm payment"]);
     expect(readFileSync(join(dir, "handoff.md"), "utf8")).toContain("- [Send money](screen-send-money.md): 3 components, 3 linked to code, verify PASS");
-    await expect(cli(["handoff", "Send money", "--out", dir])).rejects.toThrow("already exists. Add --force");
+    await expect(cli(["handoff", "Send money", "--out", dir])).rejects.toThrow("already has handoff files (handoff.json, handoff.md, ingredients.md, …). Add --force to replace them.");
     expect(await cli(["handoff", "Send money", "--out", dir, "--force"])).toContain("Wrote");
     const md = await cli(["handoff", "Send money"]);
     expect(md.startsWith("# Handoff: Send money\n")).toBe(true);
@@ -330,4 +367,213 @@ describe("resolve handoff (CLI) and get_handoff (MCP)", () => {
     expect(draft).toMatchObject({ ok: true, draft: true });
     expect(() => callTool("get_handoff", {})).toThrow("`frame` or `frames` is required.");
   });
+});
+
+describe("handoff fixes after PR #37 UAT", () => {
+  const previousHome = process.env["RESOLVE_HOME"];
+  const previousAdvanced = process.env["RESOLVE_MCP_ADVANCED"];
+  let home: string;
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), "resolve-handoff-uat-"));
+    process.env["RESOLVE_HOME"] = home;
+    clearCache();
+  });
+  afterEach(() => {
+    clearCache();
+    process.exitCode = undefined;
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
+    if (previousAdvanced === undefined) delete process.env["RESOLVE_MCP_ADVANCED"];
+    else process.env["RESOLVE_MCP_ADVANCED"] = previousAdvanced;
+  });
+
+  it("M2: the MCP cut keeps every open question and the true part count, and says how many parts are listed", () => {
+    saveGraph(graphOf(bigAcmeFile()));
+    writeFileSync(join(home, "code-map.json"), JSON.stringify(angularMap));
+    process.env["RESOLVE_MCP_ADVANCED"] = "1";
+    const full = ok(handoffSheet(indexGraph(graphOf(bigAcmeFile())), ["Big screen"], { maxCharsPerCard: 40_000 }));
+    expect(JSON.stringify(full).length).toBeGreaterThan(40_000);
+    const cut = callTool("get_handoff", { frame: "Big screen" }) as Extract<HandoffPack, { ok: true }> & { cut: { partsShown: number; partsTotal: number; depth: number; reason: string } };
+    expect(JSON.stringify(cut).length).toBeLessThanOrEqual(40_000);
+    expect(cut.cut.depth).toBeLessThan(3);
+    expect(cut.screens[0]!.openQuestions).toEqual(full.screens[0]!.openQuestions);
+    expect(cut.screens[0]!.summary).toEqual(full.screens[0]!.summary);
+    expect(cut.screens[0]!.summary.parts).toBe(159);
+    expect(cut.cut.partsTotal).toBe(159);
+    expect(cut.cut.partsShown).toBe(cut.screens[0]!.ingredients.length);
+    expect(cut.cut.reason).toContain(`${cut.cut.partsShown} of 159 parts are listed`);
+    expect(cut.cut.reason).toContain(`All ${full.screens[0]!.openQuestions.length} open questions and the summary counts are from the full sheet.`);
+    // L7: a bad depth is clamped and says so.
+    expect(callTool("get_handoff", { frame: "Send money", depth: 9 })).toMatchObject({ ok: true, depthNote: "depth 9 is not 1, 2 or 3; used 3." });
+    expect(callTool("get_handoff", { frame: "Send money", depth: 2 })).not.toHaveProperty("depthNote");
+  });
+
+  it("M3: a retired part read from a main component refuses, draft or not", () => {
+    const file = fixedAcmeFile() as { document: unknown };
+    const point = (node: { id?: string; componentId?: string; children?: unknown[] }) => {
+      if (node.id === "30:31") node.componentId = "30:50";
+      for (const child of (node.children ?? []) as (typeof node)[]) point(child);
+    };
+    point(file.document as Parameters<typeof point>[0]);
+    const index = indexGraph(graphOf(file));
+    for (const draft of [false, true]) {
+      const pack = handoffSheet(index, ["Send money"], { draft });
+      expect(pack.ok).toBe(false);
+      if (pack.ok) continue;
+      expect(pack.refused).toEqual([
+        expect.objectContaining({
+          kind: "retired",
+          component: "Old Button",
+          message: expect.stringContaining("Retired component Old Button is inside Payee picker [ACMEUI 30:30] (read from its main component, because the copy ACMEUI 20:41 on this screen has no learned insides of its own). Replace it with Button"),
+        }),
+      ]);
+    }
+  });
+
+  it("M4: a copy whose component is in no learned file refuses as not-found with the real fix; the draft labels it not-found", () => {
+    const index = indexGraph(fixedGraph());
+    const pack = handoffSheet(index, ["Receipt"]);
+    expect(pack.ok).toBe(false);
+    if (pack.ok) return;
+    expect(pack.refused).toEqual([
+      {
+        screen: "Receipt",
+        figmaNodeId: "20:30",
+        kind: "not-found",
+        component: "Legacy badge",
+        message: "The component of Legacy badge (copy ACMEUI 20:36) is not in the learned library: its main component 40:99 is in no learned file. Learn the library file that holds it, or replace the copy, then run handoff again. (Or pass --draft for a labelled draft that is not for build.)",
+      },
+    ]);
+    expect(pack.hint).toContain("Learn the library file that holds the missing components");
+    expect(JSON.stringify(pack)).not.toContain("MCP metadata insufficient");
+    const draft = ok(handoffSheet(index, ["Receipt"], { draft: true })).screens[0]!;
+    expect(draft.components.find((c) => c.name === "Legacy badge")).toMatchObject({ identity: "not-found", status: "not-found" });
+    expect(draft.summary).toMatchObject({ nameGuesses: 0, notFound: 1 });
+    const text = formatHandoffScreen(draft, true);
+    expect(text).toContain("- Identity: **not-found** (the copy's component is in no learned file)");
+    expect(text).toContain("1 component not in the learned library (marked `not-found`");
+    expect(text).not.toContain("name-guess");
+    expect(draft.openQuestions).toContain("Legacy badge: its component (40:99) is not in the learned library. Learn the library file that holds it, or replace the copy, before building.");
+  });
+
+  it("M1: a copy from a library file that is not learned is other-library, with no Figma id of this file and no code-map advice", () => {
+    putMap(angularMap);
+    const sheet = ok(handoffSheet(indexGraph(fixedGraph()), ["Payment methods"])).screens[0]!;
+    const brand = sheet.components.find((c) => c.name === "Brand mark")!;
+    expect(brand).toMatchObject({ status: "other-library", copies: ["20:18"], code: "unmapped" });
+    expect(brand).not.toHaveProperty("figmaNodeId");
+    expect(brand).not.toHaveProperty("fileKey");
+    expect(sheet.summary.otherLibrary).toBe(1);
+    expect(sheet.openQuestions).toContain("Brand mark (placed: 20:18) is from a library file that is not learned, so its code is unknown. Learn that library file to see its code and parts.");
+    expect(sheet.openQuestions.join("\n")).not.toMatch(/Brand mark \[.*has no code link/);
+    const text = formatHandoffScreen(sheet, false);
+    expect(text).toContain("- Figma: placed as 20:18; its component is in a library file that is not learned");
+    expect(text).toContain("- Code: unknown (its library file is not learned)");
+    expect(text).not.toContain("RE:1001");
+  });
+
+  it("L10 + L8: slots and decisions count components placed on the screen, not parts inside other components; decision time has its zone", () => {
+    const index = indexGraph(fixedGraph());
+    const sheet = ok(handoffSheet(index, ["Confirm payment"], { recipe: "confirm-dialog", recipes: starterRecipes() })).screens[0]!;
+    const onScreen = Object.fromEntries(sheet.recipe!.slots.map((s) => [s.role, s.onScreen]));
+    expect(onScreen["primary-cta"]).toBe(true);
+    const decision: HandoffDecisionInput = {
+      proposal: { id: "btn", createdAt: FROZEN, status: "approved", type: "require-rule", summary: "Use Button", evidence: [], suggestedRule: { require: "Button", masterId: "node:30:11" } },
+      who: "Ana",
+      when: "2026-02-03T20:00:00.000Z",
+    };
+    // Payment methods has Button only inside Payment method row: the Button decision is not about this screen.
+    expect(ok(handoffSheet(index, ["Payment methods"], { decisions: [decision] })).screens[0]!.decisions).toEqual([]);
+    const send = ok(handoffSheet(index, ["Send money"], { decisions: [decision] })).screens[0]!;
+    expect(formatHandoffScreen(send, false)).toContain("- 2026-02-03 20:00 UTC, Ana: Use Button");
+  });
+
+  it("recipes from the screen name only on an exact name; a loose match is named, not used", () => {
+    const index = indexGraph(fixedGraph());
+    const sheet = ok(handoffSheet(index, ["Confirm payment"], { recipes: starterRecipes() })).screens[0]!;
+    expect(sheet.recipe).toBeNull();
+    expect(sheet.recipeNote).toMatch(/^No recipe has this screen's name\. The closest by name is .+ \(confirm-dialog\), a loose match, so it is not checked; pass --recipe confirm-dialog to check the screen against it\.$/);
+  });
+
+  it("L2: a loose frame match is labelled; an empty frame name is refused plainly", () => {
+    const index = indexGraph(fixedGraph());
+    const sheet = ok(handoffSheet(index, ["money"])).screens[0]!;
+    expect(sheet.screen.name).toBe("Send money");
+    expect(sheet.matchedFrame).toBe('closest match for "money"; no frame has that exact name or id');
+    expect(formatHandoffScreen(sheet, false)).toContain('- Frame: closest match for "money"; no frame has that exact name or id. Pass the exact name or Figma id to be sure.');
+    expect(ok(handoffSheet(index, ["Send money"])).screens[0]).not.toHaveProperty("matchedFrame");
+    const empty = handoffSheet(index, ["  "]);
+    expect(empty).toMatchObject({ ok: false, refused: [{ kind: "not-found", message: "Give a frame name or Figma id (the frame name was empty)." }] });
+  });
+
+  it("L4, L9, L12: names are inert markdown, +N more after 10 copies, other variants leave out the placed value, a blank screen says so", () => {
+    const file = fixedAcmeFile() as { document: { children: Array<{ id: string; children: Array<Record<string, unknown>> }> } };
+    const page = file.document.children.find((p) => p.id === "20:1")!;
+    const bb = { x: 0, y: 0, width: 10, height: 10 };
+    page.children.push({
+      id: "20:80",
+      name: "Pay `now` *fast* [x](http://e) <img src=x onerror=alert(1)> ]",
+      type: "FRAME",
+      absoluteBoundingBox: bb,
+      children: Array.from({ length: 12 }, (_, i) => ({ id: `20:${81 + i}`, name: "Button", type: "INSTANCE", componentId: "30:11", absoluteBoundingBox: bb })),
+    });
+    page.children.push({ id: "20:99", name: "Blank", type: "FRAME", absoluteBoundingBox: bb, children: [] });
+    const index = indexGraph(graphOf(file));
+    const pack = ok(handoffSheet(index, ["20:80"]));
+    const text = formatHandoffScreen(pack.screens[0]!, false);
+    expect(text).toContain("# Handoff: Pay \\`now\\` \\*fast\\* [x]\\(http://e) \\<img src=x onerror=alert(1)\\> ]");
+    expect(text).not.toMatch(/(^|[^\\])<img/);
+    expect(text).toContain("(placed: 20:81, 20:82, 20:83, 20:84, 20:85, 20:86, 20:87, 20:88, 20:89, 20:90, +2 more)");
+    expect(text).toContain("- Other variants in Figma (states to build): Variant: Secondary, Danger; Size: Large");
+    const indexMd = formatHandoffIndex(pack, ["screen-pay.md"]);
+    expect(indexMd).toContain("- [Pay \\`now\\` \\*fast\\* \\[x\\]\\(http://e) \\<img src=x onerror=alert(1)\\> \\]](screen-pay.md)");
+    const blank = ok(handoffSheet(index, ["Blank"])).screens[0]!;
+    expect(blank.openQuestions[0]).toBe("No components are placed on this screen, so there is nothing to build from the library. Is it the right frame?");
+  });
+
+  it("L5, L6: a selector attribute is written once; non-ASCII values keep their letters; boolean hints read the same in text and template", () => {
+    const ng = { selector: 'acme-button[variant="primary"]', importPath: "x", inputs: ["variant", "size", "disabled", "größe"] };
+    const hints = inputHints({ Variant: "Secondary", Size: "Größe Ärger", Disabled: "Yes", Größe: "Groß" }, ng);
+    expect(hints).toEqual([
+      { input: "variant", value: "secondary", from: "Variant=Secondary" },
+      { input: "size", value: "größe-ärger", from: "Size=Größe Ärger" },
+      { input: "disabled", value: "true", from: "Disabled=Yes" },
+      { input: "größe", value: "groß", from: "Größe=Groß" },
+    ]);
+    expect(angularTemplate(ng, hints)).toBe('<acme-button variant="primary" size="größe-ärger" [disabled]="true" größe="groß"></acme-button>');
+    putMap({ entries: [{ fileKey: "ACMEUI", id: "30:10", code: { framework: "angular", import: "import { AcmeButtonComponent } from '@acme/ui-angular'", component: "AcmeButtonComponent", selector: "acme-button", module: "AcmeButtonModule", inputs: ["variant", "size", "disabled"] } }] });
+    const text = formatHandoffScreen(ok(handoffSheet(indexGraph(fixedGraph()), ["Send money"])).screens[0]!, false);
+    expect(text).toContain('→ inputs (suggested): variant="primary", size="medium"');
+  });
+
+  it("L3: --out refuses over any earlier handoff file, removes stale screen files with --force, and gives plain errors", async () => {
+    saveGraph(fixedGraph());
+    const dir = join(home, "out");
+    await cli(["handoff", "Send money", "Confirm payment", "--out", dir]);
+    // Only an old screen file and handoff.md, no handoff.json: still refused.
+    const lone = join(home, "lone");
+    mkdirSync(lone);
+    writeFileSync(join(lone, "handoff.md"), "old");
+    await expect(cli(["handoff", "Send money", "--out", lone])).rejects.toThrow("already has handoff files (handoff.md). Add --force to replace them.");
+    const again = await cli(["handoff", "Send money", "--out", dir, "--force"]);
+    expect(again).toContain("Removed 1 older screen file from an earlier handoff there: screen-confirm-payment.md.");
+    expect(readdirSync(dir).sort()).toEqual(["handoff.json", "handoff.md", "ingredients.md", "screen-send-money.md"]);
+    const file = join(home, "a-file");
+    writeFileSync(file, "x");
+    await expect(cli(["handoff", "Send money", "--out", file])).rejects.toThrow(`${file} is a file, not a folder. Pass a folder for --out.`);
+    await expect(cli(["handoff", "Send money", "--out", join(file, "sub")])).rejects.toThrow(/Cannot write the handoff files to .*: part of that path is a file, not a folder\. Pass another --out folder\./);
+  });
+
+  const putMap = (map: unknown) => writeFileSync(join(home, "code-map.json"), JSON.stringify(map));
+  async function cli(argv: string[]): Promise<string> {
+    const out: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((c: string | Uint8Array) => (out.push(String(c)), true)) as typeof process.stdout.write;
+    try {
+      await runCli(argv);
+    } finally {
+      process.stdout.write = write;
+    }
+    return out.join("");
+  }
 });

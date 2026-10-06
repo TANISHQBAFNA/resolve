@@ -216,6 +216,8 @@ describe("Angular fields in the code map", () => {
     const imported = codeMapFromCsv(readFileSync(CSV, "utf8"));
     expect(imported).toMatchObject({ skipped: 2, errors: [] });
     expect({ entries: imported.entries }).toEqual(angularMap);
+    // Same key order as the example file too (status and replacedBy before code).
+    expect(JSON.stringify({ entries: imported.entries })).toBe(JSON.stringify(angularMap));
   });
 
   it("CSV: bad rows are reported by row number; quoted cells and React rows work", () => {
@@ -328,6 +330,58 @@ describe("code-map --init / --import and MCP size guard", () => {
     // A name-only entry and a row with that name are the same component: replaced, not kept twice.
     writeFileSync(join(home, "code-map.json"), JSON.stringify({ entries: [{ name: "Button", code: { import: "import { Old } from '@acme/ui'", component: "Old" } }] }));
     expect(await cli(["code-map", "--import", csv, "--force"])).not.toContain("Kept");
+  });
+
+  it("H1: a row never deletes another file's entry, or a stale id, that shares its name; every entry not written back is listed", async () => {
+    const btn = (component: string, from = "@acme/ui") => ({ import: `import { ${component} } from '${from}'`, component });
+    const otherId = { fileKey: "OTHERLIB", id: "5:5", name: "Button", code: btn("OtherButton", "@other/ui") };
+    const otherName = { fileKey: "OTHERLIB", name: "Button", code: btn("OtherButton2", "@other/ui") };
+    const staleId = { fileKey: "ACMEUI", id: "99:99", name: "Button", code: btn("StaleButton") };
+    const sameName = { fileKey: "ACMEUI", name: "Button", code: btn("NamedButton") };
+    writeFileSync(join(home, "code-map.json"), JSON.stringify({ entries: [otherId, otherName, staleId, sameName] }));
+    // Michigan's repro: --init then --import --force of the template with Button filled in.
+    const init = join(home, "init.csv");
+    await cli(["code-map", "--init", "--out", init, "--force"]);
+    // The template comes pre-filled from the name-only ACMEUI entry; the designer changes that row.
+    const filled = readFileSync(init, "utf8").replace(/^ACMEUI,30:10,Button,.*$/m, "ACMEUI,30:10,Button,AcmeButton,@acme/ui,,,,,,,,");
+    writeFileSync(init, filled);
+    const kept = await cli(["code-map", "--import", init, "--force"]);
+    expect(kept).toContain("Kept 3 existing entries the CSV has no row for (use --replace to drop them):\n  OTHERLIB 5:5 Button\n  OTHERLIB Button\n  ACMEUI 99:99 Button\n");
+    expect(kept).toContain("Replaced 1 existing entry with the CSV row for the same component:\n  ACMEUI Button\n");
+    const map = JSON.parse(readFileSync(join(home, "code-map.json"), "utf8")) as { entries: unknown[] };
+    expect(map.entries).toEqual([{ fileKey: "ACMEUI", id: "30:10", code: btn("AcmeButton") }, otherId, otherName, staleId]);
+    // --replace drops them, and says so.
+    writeFileSync(join(home, "code-map.json"), JSON.stringify({ entries: [otherId, otherName, staleId, sameName] }));
+    const dropped = await cli(["code-map", "--import", init, "--replace"]);
+    expect(dropped).toContain("Dropped 3 existing entries the CSV has no row for (--replace):\n  OTHERLIB 5:5 Button\n  OTHERLIB Button\n  ACMEUI 99:99 Button\n");
+    // Emptying the ACMEUI Button row removes only ACMEUI's own entries, never OTHERLIB's.
+    writeFileSync(join(home, "code-map.json"), JSON.stringify({ entries: [otherId, { fileKey: "ACMEUI", id: "30:10", code: btn("AcmeButton") }] }));
+    const emptied = join(home, "emptied.csv");
+    writeFileSync(emptied, "fileKey,id,name,component,importPath\nACMEUI,30:10,Button,,\nACMEUI,30:20,Avatar,AcmeAvatar,@acme/ui\n");
+    const removed = await cli(["code-map", "--import", emptied, "--force"]);
+    expect(removed).toContain("Removed 1 entry whose row was left empty:\n  ACMEUI 30:10\n");
+    expect(removed).toContain("Kept 1 existing entry the CSV has no row for (use --replace to drop them):\n  OTHERLIB 5:5 Button\n");
+    expect((JSON.parse(readFileSync(join(home, "code-map.json"), "utf8")) as { entries: unknown[] }).entries).toContainEqual(otherId);
+  });
+
+  it("CSV: duplicate header names and unnamed columns with values are refused; unknown code-map flags are one-line errors", async () => {
+    const dup = join(home, "dup.csv");
+    writeFileSync(dup, "fileKey,id,name,component,importPath,,component\nACMEUI,30:10,Button,B,@acme/ui,,C\n");
+    const out = await cli(["code-map", "--import", dup, "--dry-run"]);
+    expect(out).toContain("column 'component' appears more than once in the header (columns 4 and 7); keep one");
+    expect(process.exitCode).toBe(1);
+    process.exitCode = undefined;
+    const unnamed = join(home, "unnamed.csv");
+    writeFileSync(unnamed, "fileKey,id,component,importPath,\nACMEUI,30:10,B,@acme/ui,x\n");
+    expect(await cli(["code-map", "--import", unnamed, "--dry-run"])).toContain("column 5 holds values but has no header name");
+    process.exitCode = undefined;
+    // A trailing empty header cell with no values is harmless.
+    const trailing = join(home, "trailing.csv");
+    writeFileSync(trailing, "fileKey,id,component,importPath,\nACMEUI,30:10,B,@acme/ui,\n");
+    expect(JSON.parse(await cli(["code-map", "--import", trailing, "--dry-run"])).entries).toHaveLength(1);
+    await expect(cli(["code-map", "--init", "--bogus", "--out", join(home, "x.csv")])).rejects.toThrow('Unknown code-map option "--bogus"');
+    await expect(cli(["code-map", "--import", trailing, "--dry-run", "--bogus"])).rejects.toThrow('Unknown code-map option "--bogus"');
+    expect(existsSync(join(home, "x.csv"))).toBe(false);
   });
 
   it("--import with no learned library says so instead of a raw file error", async () => {

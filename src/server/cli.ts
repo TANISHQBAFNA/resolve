@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { accessSync, constants as fsConstants, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import { SourceDocumentSchema } from "@/core/ingestion/types";
@@ -665,6 +665,13 @@ export async function runCli(argv: string[]): Promise<void> {
       const mapPath = overlayFile("code-map.json") ?? join(storeRoot(), "code-map.json");
       const force = args.includes("--force");
       const replace = args.includes("--replace");
+      for (let i = 0; i < args.length; i += 1) {
+        const arg = args[i]!;
+        if (["--out", "--import", "--id"].includes(arg)) i += 1;
+        else if (arg.startsWith("--") && !["--json", "--retired", "--init", "--force", "--dry-run", "--replace"].includes(arg)) {
+          throw new Error(`Unknown code-map option "${arg}". Use --init [--out <file.csv>] [--force], --import <file.csv> [--dry-run] [--force | --replace], --json or --retired.`);
+        }
+      }
       if (args.includes("--init") && args.includes("--import")) throw new Error("Use either --init or --import, not both.");
       if (args.includes("--init")) {
         const given = flag(args, "out");
@@ -714,6 +721,9 @@ export async function runCli(argv: string[]): Promise<void> {
             : "",
           merged.cleared.length
             ? `Removed ${merged.cleared.length} entr${merged.cleared.length === 1 ? "y" : "ies"} whose row was left empty:\n${list(merged.cleared)}\n`
+            : "",
+          merged.replaced.length
+            ? `Replaced ${merged.replaced.length} existing entr${merged.replaced.length === 1 ? "y" : "ies"} with the CSV row for the same component:\n${list(merged.replaced)}\n`
             : "",
         ].join("");
         if (args.includes("--dry-run")) {
@@ -784,10 +794,14 @@ export async function runCli(argv: string[]): Promise<void> {
       const out = flag(args, "out");
       if (out) {
         const target = resolve(out);
-        if (existsSync(join(target, "handoff.json")) && !args.includes("--force")) {
-          throw new Error(`${join(target, "handoff.json")} already exists. Add --force to replace the handoff files there.`);
+        const force = args.includes("--force");
+        if (existsSync(target) && !statSync(target).isDirectory()) throw new Error(`${target} is a file, not a folder. Pass a folder for --out.`);
+        // Our files only: handoff.md, handoff.json, ingredients.md and screen-*.md. Anything else in the folder is left alone.
+        const ours = (f: string) => ["handoff.md", "handoff.json", "ingredients.md"].includes(f) || /^screen-.+\.md$/.test(f);
+        const existing = existsSync(target) ? readdirSync(target).filter(ours) : [];
+        if (existing.length && !force) {
+          throw new Error(`${target} already has handoff files (${existing.slice(0, 3).join(", ")}${existing.length > 3 ? ", …" : ""}). Add --force to replace them.`);
         }
-        mkdirSync(target, { recursive: true });
         const used = new Set<string>();
         const files = result.screens.map((sheet) => {
           let name = `screen-${screenSlug(sheet.screen.name)}`;
@@ -795,12 +809,31 @@ export async function runCli(argv: string[]): Promise<void> {
           used.add(name);
           return `${name}.md`;
         });
-        result.screens.forEach((sheet, n) => writeFileSync(join(target, files[n]!), formatHandoffScreen(sheet, result.draft)));
-        writeFileSync(join(target, "ingredients.md"), formatHandoffIngredients(result));
-        writeFileSync(join(target, "handoff.json"), `${JSON.stringify(result, null, 2)}\n`);
-        writeFileSync(join(target, "handoff.md"), formatHandoffIndex(result, files));
+        const stale = existing.filter((f) => f.startsWith("screen-") && !files.includes(f));
+        try {
+          mkdirSync(target, { recursive: true });
+          accessSync(target, fsConstants.W_OK);
+          result.screens.forEach((sheet, n) => writeFileSync(join(target, files[n]!), formatHandoffScreen(sheet, result.draft)));
+          writeFileSync(join(target, "ingredients.md"), formatHandoffIngredients(result));
+          writeFileSync(join(target, "handoff.json"), `${JSON.stringify(result, null, 2)}\n`);
+          writeFileSync(join(target, "handoff.md"), formatHandoffIndex(result, files));
+          for (const f of stale) rmSync(join(target, f), { force: true });
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          const why =
+            code === "EACCES" || code === "EPERM"
+              ? "no permission to write there"
+              : code === "EEXIST" || code === "ENOTDIR"
+                ? "part of that path is a file, not a folder"
+                : code === "EROFS"
+                  ? "the file system is read-only"
+                  : code === "ENOSPC"
+                    ? "the disk is full"
+                    : String((error as Error).message ?? error).split("\n")[0];
+          throw new Error(`Cannot write the handoff files to ${target}: ${why}. Pass another --out folder.`);
+        }
         process.stdout.write(
-          `Wrote ${target}: handoff.md, ${files.join(", ")}, ingredients.md, handoff.json${result.draft ? " (DRAFT, not for build)" : ""}.\n`,
+          `Wrote ${target}: handoff.md, ${files.join(", ")}, ingredients.md, handoff.json${result.draft ? " (DRAFT, not for build)" : ""}.\n${stale.length ? `Removed ${stale.length} older screen file${stale.length === 1 ? "" : "s"} from an earlier handoff there: ${stale.join(", ")}.\n` : ""}`,
         );
         return;
       }

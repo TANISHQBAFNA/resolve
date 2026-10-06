@@ -304,7 +304,7 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `resolve "<name>"` | "I know the name, give me the id." |
 | `verify "<frame>"` | Pass/fail check of a drawn frame or a list of components. |
 | `ingredients "<name>"` | What is inside a component: its parts, each with its code component or "no code link yet". |
-| `handoff "<frame>"` | One sheet a developer can build a screen from: recipe slots, every placed component with its Figma id and code, the parts inside, verify, decisions and open questions. Refuses a screen with a retired component, or with layer-name guesses unless `--draft`. |
+| `handoff "<frame>"` | One sheet a developer can build a screen from: recipe slots, every placed component with its Figma id and code, the parts inside, verify, decisions and open questions. Refuses a screen with a retired component, or with layer-name guesses or missing components unless `--draft`. |
 | `code-map [--json \| --retired]` | Report on your Figma-to-code map; `--retired` lists retired parts with their code and replacement. `--init` writes a spreadsheet (CSV) to fill in; `--import <file.csv>` turns it into the map (`--force` keeps entries the CSV has no row for, `--replace` drops them). |
 | `rules` | Lists the bind rules people wrote. |
 | `soci` | Lists pending SOCI proposals (suggested rules and recipes). |
@@ -477,7 +477,9 @@ npm run resolve -- code-map --import code-map.csv --force   # updates an existin
 
 - `--force` updates it and keeps every entry the CSV has no row for (entries for another file, hand-added or stale entries), and lists them: `Kept 2 existing entries the CSV has no row for (use --replace to drop them): OTHERLIB 1:1, ...`. This is the safer choice, so nothing is lost without a word.
 - `--replace` writes only the CSV's entries, and lists what it dropped.
-- Either way, a filled row replaces the old entry for that component, and a row you emptied removes it (also listed). A name-only entry and a row with the same name count as the same component. `--dry-run` shows the JSON `--force` would write.
+- Either way, a filled row replaces the old entry for that component, and a row you emptied removes it. Both are listed (`Replaced ...`, `Removed ...`), so every old entry that is not written back as it was is named. `--dry-run` shows the JSON `--force` would write.
+- A row and an old entry are the same component when they have the same file key and id. An old entry with no id matches a row of the same name in the same file; an entry with no file key and no id (name only) matches a row of that name in any file. An entry for another file, or with a different id, is never matched by name alone, even when the names agree.
+- A header that names a column twice (`component` twice), or an unnamed column that holds values, is refused. Unknown `code-map` options are refused too.
 
 `--retired` prints every retired part with its code and replacement, one per line (`Retired: 1`, then `Old Button [ACMEUI 30:50] -> use Button (old code: OldButton from '@acme/ui-legacy')`). `--json` prints the same data with the same keys whether or not there is a map (`configured` is `true` or `false`; the lists are `unmapped`, `ambiguous`, `conflicts`, `retired`, `stale`, `replacements`, `ignored`). Two keys appear only with Angular entries: `angular` (counts) and `angularIgnored` (entries whose Angular fields were dropped). A part with a bad `replacedBy` is listed under `Bad replacedBy` / `replacements`. Details are in [`code-map.json`](#resolvecode-mapjson--figma-to-code-twins) below. With no map, it prints `No code map. Add .resolve/code-map.json next to synonyms.json.`
 
@@ -519,25 +521,32 @@ npm run resolve -- handoff "Home" --draft
 One sheet a developer can build a designed screen from. For each screen it lists:
 
 - **The screen**: file key, frame id and a Figma link.
-- **The recipe and its slots**: each slot's component and whether it is on the screen. The recipe is matched from the screen's name and labelled as such, or you pick it with `--recipe <id>`.
-- **Every component placed on the screen**, once per variant, with how many copies and their ids. Each one shows:
+- **The recipe and its slots**: each slot's component and whether it is placed on the screen itself (a part inside another component does not count). The recipe is used when its id, title or alias is exactly the screen's name, or when you pick it with `--recipe <id>`. A looser name match is only named ("the closest by name is ..."), not checked.
+- **Every component placed on the screen**, once per variant, with how many copies and their ids (the first 10, then `+N more`). Each one shows:
   - its code from the code map: the React import, or the Angular selector, module or standalone, inputs and outputs. A component with no map entry says `unmapped`; code is never guessed.
   - the Figma variant properties. When the Angular entry has an input of the same name, it suggests the value (`Variant=Secondary` becomes `variant="secondary"`) and a one-line template, for example `<acme-button variant="secondary" size="medium" [disabled]="…" (pressed)="…"></acme-button>`. An input paired with an `...Change` output is shown as `[(selected)]`. Both are labelled "suggested".
-  - the other variants in Figma (states to build).
+  - the other variants in Figma (states to build), leaving out the placed one.
   - the parts inside it, up to 3 levels (`--depth`), each with its code.
 - **Ingredients**: every part once, with its code, its status (`mapped`, `unmapped`, `retired`, `name-guess`, `other-library`, `not-found`) and which components use it.
 - **Verify**: the same check as `verify`.
-- **Decisions**: approved SOCI decisions about this screen, its recipe or its components, with who, when and why (from the approval audit line). It says "None approved for this screen yet" until the first approval.
-- **Open questions**: unmapped components and parts, parts from libraries you have not learned, required recipe slots that are not on the screen, and anything verify flagged.
+- **Decisions**: approved SOCI decisions about this screen, its recipe or the components placed on it, with who, when (with its time zone, for example `2026-02-03 10:00 UTC`) and why (from the approval audit line). It says "None approved for this screen yet" until the first approval.
+- **Open questions**: unmapped components and parts, components and parts from libraries you have not learned, required recipe slots that are not on the screen, and anything verify flagged.
 
-Two gates keep a handoff honest:
+A component from a library file you have not learned is `status: "other-library"`: it has no Figma id of this file and its code is unknown, so the sheet says to learn that library rather than to map it. It does not block the handoff.
 
-- **A retired component anywhere on the screen refuses it**, and names the replacement and its code. `--draft` does not skip this.
-- **A component known only from its layer name refuses it**: `MCP metadata insufficient for component X. Use Figma REST or design_context.` `--draft` (MCP `allowWeak: true`) makes a draft instead. A draft says `draft: true`, marks those components `identity: "name-guess"`, and opens with "Draft, not for build".
+Three gates keep a handoff honest:
+
+- **A retired component anywhere on the screen refuses it**, and names the replacement and its code. This includes a retired part inside the main component of a copy whose own insides were not learned (`Retired component Old Button is inside Payee picker [ACMEUI 30:30] (read from its main component ...)`). `--draft` does not skip this.
+- **A component known only from its layer name refuses it**: `MCP metadata insufficient for component X. Use Figma REST or design_context.`
+- **A copy whose component is in no learned file refuses it** (kind `not-found`): `The component of Legacy badge (copy ACMEUI 20:36) is not in the learned library ...`, with the fix: learn the library file that holds it, or replace the copy.
+
+For the last two, `--draft` (MCP `allowWeak: true`) makes a draft instead. A draft says `draft: true`, marks those components `identity: "name-guess"` or `identity: "not-found"`, and opens with "Draft, not for build".
 
 A refused handoff writes nothing and exits with an error. On the Acme sample, `handoff "Send money"` is refused because of the retired Old Button. With that copy swapped for Button, it exports cleanly; the golden output is in [`tests/fixtures/handoff/send-money.md`](tests/fixtures/handoff/send-money.md).
 
-Without `--out` it prints the sheet (`--json` prints the data). `--out <dir>` writes `handoff.md` (an index), one `screen-<name>.md` per screen, `ingredients.md` (every part across the screens) and `handoff.json`. It does not replace an existing `handoff.json` unless you add `--force`. A screen that is one placed copy (for example a page shell shared as the screen) is its own single component, with everything on it listed as its parts. The MCP version is `get_handoff`; like `get_ingredients` it is off by default (`RESOLVE_MCP_ADVANCED=1`). Over MCP a handoff larger than 40,000 characters is shown with fewer levels of parts, and `cut.reason` says so.
+Without `--out` it prints the sheet (`--json` prints the data). `--out <dir>` writes `handoff.md` (an index), one `screen-<name>.md` per screen, `ingredients.md` (every part across the screens) and `handoff.json`. If the folder already holds any of these files it refuses unless you add `--force`; with `--force`, older `screen-*.md` files from an earlier handoff there are removed (and listed). Other files in the folder are left alone. A path that is a file, or a folder you cannot write to, gives a one-line error. A screen found by a loose name match (not its exact name or id) says so at the top. Names from Figma are escaped in the markdown, so a name cannot add links or HTML.
+
+A screen that is one placed copy (for example a page shell shared as the screen) is its own single component, with everything on it listed as its parts. The MCP version is `get_handoff`; like `get_ingredients` it is off by default (`RESOLVE_MCP_ADVANCED=1`). Over MCP a handoff larger than 40,000 characters lists its parts one level less deep at a time until it fits; the open questions and the summary still come from the full sheet, and `cut` says how many parts are listed (`35 of 62 parts are listed`). A `depth` that is not 1, 2 or 3 is clamped, and `depthNote` says so.
 
 #### rules, soci, approve, reject
 
@@ -754,8 +763,8 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 | 8-screen Material-like library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
 | Ingredient card (Acme example library) | Payee picker = Avatar + Button, Payment method row = Avatar + Button; invented parts 0; unmapped parts shown as unmapped |
 | Angular code map (Acme example) | 4 Angular entries load with 0 ignored; the CSV example imports to the same map; 14 bad Angular values dropped with a reason while the code line stays; 5 real selector forms and input aliases accepted |
-| Handoff sheet (Acme example) | Send money refused for the retired Old Button (draft or not); after the fix, 3 components, 3 linked to code, 2 parts, verify PASS, matches the golden file; 0 invented code lines |
-| Tests | 715 passing |
+| Handoff sheet (Acme example) | Send money refused for the retired Old Button (draft or not); after the fix, 3 components, 3 linked to code, 2 parts, verify PASS, matches the golden file; 0 invented code lines. Receipt refused as `not-found` (Legacy badge's component is in no learned file); Payment methods' Brand mark labelled `other-library` |
+| Tests | 727 passing |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
@@ -770,8 +779,8 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 - A replacement chain is followed up to 3 steps; a longer one counts as "no current replacement".
 - With or without a code map, `recommend` does not offer a retired part as the pick to place. An exact retired name with no live replacement says "Use none". `resolve` of that exact name still returns the retired master, flagged.
 - `example` and `cousins` do not use the code map and do not say a part is retired.
-- The code map's Angular fields and the handoff sheet's suggested inputs are tested on the made-up Acme map only; a real Angular map waits on access to the real Angular code. Suggested input values are the Figma value in lower case with dashes (`Warn Light` becomes `warn-light`); check them against the code.
-- The handoff sheet reads one copy per variant on a screen for the parts list; two copies of one variant with different insides show the first one's parts. Its recipe match from the screen name is a name match, and says so.
+- The code map's Angular fields and the handoff sheet's suggested inputs are tested on the made-up Acme map only; a real Angular map waits on access to the real Angular code. Suggested input values are the Figma value in lower case with dashes, keeping letters of any language (`Warn Light` becomes `warn-light`, `Größe` becomes `größe`); check them against the code. An attribute the selector already sets (`acme-button[variant="primary"]`) is not repeated.
+- The handoff sheet reads one copy per variant on a screen for the parts list; two copies of one variant with different insides show the first one's parts. It uses a recipe from the screen name only on an exact name; a looser match is named, not checked.
 - SOCI does not compare journeys across products yet.
 - Linking several design systems into one is a later step.
 - Large-library speed is measured only on generated test graphs (`npm run bench`).
@@ -781,7 +790,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
-- **Oct 6, 2026 — [PR #37](https://github.com/TANISHQBAFNA/resolve/pull/37) (draft, not merged).** New `resolve handoff "<frame>"` (MCP `get_handoff`, off by default): one sheet per screen with recipe slots, every placed component with its Figma id and code, suggested Angular inputs from Figma variants, the parts inside, verify, approved decisions and open questions. A retired component refuses the handoff; a layer-name guess refuses it unless `--draft`. The code map keeps an entry's code line when its Angular fields are bad, and accepts real Angular selectors and input aliases. `code-map --import --force` keeps and lists entries the CSV has no row for (`--replace` drops them). Also: CSV rows are numbered as in the spreadsheet, extra columns are ignored, a friendly message when nothing is learned yet, clearer Angular counts, and retired lines say `old code`. Ranking is unchanged. 715 tests.
+- **Oct 6, 2026 — [PR #37](https://github.com/TANISHQBAFNA/resolve/pull/37) (draft, not merged).** New `resolve handoff "<frame>"` (MCP `get_handoff`, off by default): one sheet per screen with recipe slots, every placed component with its Figma id and code, suggested Angular inputs from Figma variants, the parts inside, verify, approved decisions and open questions. A retired component refuses the handoff, including a retired part read from a main component; a layer-name guess, or a copy whose component is in no learned file (kind `not-found`), refuses it unless `--draft`. A component from a library file that is not learned is labelled `other-library` (no Figma id, code unknown). Over MCP, a cut handoff keeps every open question and the true part count. The code map keeps an entry's code line when its Angular fields are bad, and accepts real Angular selectors and input aliases. `code-map --import --force` keeps and lists entries the CSV has no row for (`--replace` drops them); a row matches another file's entry, or one with a different id, never by name alone, and every replaced or removed entry is listed. Duplicate CSV headers and unknown `code-map` options are refused. `--out` refuses over any earlier handoff file and removes stale screen files with `--force`; names are escaped in the markdown; loose frame matches are labelled; decision times carry their zone. Also: CSV rows are numbered as in the spreadsheet, extra columns are ignored, a friendly message when nothing is learned yet, clearer Angular counts, and retired lines say `old code`. Ranking is unchanged. 727 tests.
 - **Oct 6, 2026 — [PR #36](https://github.com/TANISHQBAFNA/resolve/pull/36).** The code map takes Angular entries (`selector`, `module` or `standalone`, `inputs`, `outputs`); they show on the ingredient, `resolve` and `recommend` cards, `verify` retired lines and `code-map`. New `code-map --init` / `--import` fill the map from a CSV. Over MCP, very large ingredient cards are cut and say so. React entries are unchanged. One ingredient-card sentence changed: a placed copy with no parts (Acme's Old Button copy, ACMEUI 20:43) no longer says "Parts read from this placed copy...". 698 tests.
 - **Oct 6, 2026 — [PR #35](https://github.com/TANISHQBAFNA/resolve/pull/35).** New `resolve ingredients "<component>"` (MCP `get_ingredients`, off by default): the parts inside a component, following the variant used, each with its code component or "no code link yet"; guessed and retired parts are labelled. A placed copy is read from its own insides at every level, and anything taken from the main component says so. Ranking is unchanged. 684 tests.
 - **Oct 6, 2026 — [PR #34](https://github.com/TANISHQBAFNA/resolve/pull/34).** New `resolve score phrases`: 118 designer-worded phrases on the sample library, or only a team's own phrases on its library (never mixed); right part first 66/88 (75%), weakest on paraphrases, and an invented or retired part fails the tests. Ranking is unchanged. 658 tests.

@@ -96,7 +96,7 @@ export interface CsvImport {
   /** Rows with no component and no import path: not filled in yet. */
   skipped: number;
   errors: string[];
-  /** Components the CSV has a row for (filled or not), see `entryKeys`. Lets an import tell which map entries the CSV never mentions. */
+  /** Components the CSV has a row for (filled or not), matched against `entryKeys`. Lets an import tell which map entries the CSV never mentions. */
   rowKeys: string[];
   /** Keys of the rows that became entries. */
   filledKeys: string[];
@@ -105,18 +105,25 @@ export interface CsvImport {
 }
 
 /**
- * The keys a component is known by: fileKey + id, fileKey + name, and the bare name.
- * A map entry and a CSV row are about the same component when they share any key (so a name-only entry
- * and a row with fileKey + id + name of that name count as the same component).
+ * The keys a map entry is known by, for matching it to a CSV row. An entry with an id is known only by fileKey + id;
+ * an entry with a name and no id by fileKey + name; the bare name only when it has neither fileKey nor id (a true name-only entry).
+ * So a CSV row never matches another file's entry, or an entry with a different (stale) id, just because the names agree.
  */
 export function entryKeys(e: unknown): string[] {
   if (typeof e !== "object" || e === null || Array.isArray(e)) return [];
   const o = e as Record<string, unknown>;
   const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  if (s(o["id"])) return [`${s(o["fileKey"])}\n${s(o["id"])}`];
+  if (s(o["name"])) return [`${s(o["fileKey"])}\n#${s(o["name"])}`];
+  return [];
+}
+
+/** The keys a CSV row matches: its fileKey + id, plus name-only entries of its name (same file, or no file). */
+function rowMatchKeys(fileKey: string, id: string, name: string): string[] {
   const keys: string[] = [];
-  if (s(o["id"])) keys.push(`${s(o["fileKey"])}\n${s(o["id"])}`);
-  if (s(o["name"])) keys.push(`${s(o["fileKey"])}\n#${s(o["name"])}`, `\n#${s(o["name"])}`);
-  return keys;
+  if (id) keys.push(`${fileKey}\n${id}`);
+  if (name) keys.push(`${fileKey}\n#${name}`, `\n#${name}`);
+  return [...new Set(keys)];
 }
 
 export interface CodeMapMerge {
@@ -126,18 +133,24 @@ export interface CodeMapMerge {
   untouched: unknown[];
   /** Old entries whose CSV row was left empty: removed either way. */
   cleared: unknown[];
+  /** Old entries a filled CSV row replaced with a different entry (listed so nothing changes without a word). */
+  replaced: unknown[];
 }
 
 /**
  * `--import --force` keeps every old entry the CSV has no row for (other files, hand-added or stale entries) and lists it;
  * `--replace` drops them, and lists them too. A filled row replaces the old entry for that component; an emptied row removes it.
+ * Every old entry lands in exactly one of untouched, cleared, or replaced (or is written back unchanged).
  */
 export function mergeCodeMap(old: unknown[], csv: CsvImport, replace: boolean): CodeMapMerge {
   const rows = new Set(csv.rowKeys);
   const untouched = old.filter((e) => !entryKeys(e).some((k) => rows.has(k)));
   const filled = new Set(csv.filledKeys);
-  const cleared = old.filter((e) => !untouched.includes(e) && !entryKeys(e).some((k) => filled.has(k)));
-  return { entries: [...csv.entries, ...(replace ? [] : untouched)], untouched, cleared };
+  const matched = old.filter((e) => !untouched.includes(e));
+  const cleared = matched.filter((e) => !entryKeys(e).some((k) => filled.has(k)));
+  const written = new Set(csv.entries.map((e) => JSON.stringify(e)));
+  const replaced = matched.filter((e) => !cleared.includes(e) && !written.has(JSON.stringify(e)));
+  return { entries: [...csv.entries, ...(replace ? [] : untouched)], untouched, cleared, replaced };
 }
 
 /** `ACMEUI 30:10 Button`, for listing entries in import output. */
@@ -166,6 +179,14 @@ export function codeMapFromCsv(text: string): CsvImport {
   if (!head) return { ...none, errors: ["the file is empty"] };
   const names = head.map((h) => h.trim());
   const ignoredColumns = names.filter((h) => h && !(CSV_COLUMNS as readonly string[]).includes(h)).map((h) => h.slice(0, 30));
+  const dupes = (CSV_COLUMNS as readonly string[]).filter((c) => names.filter((h) => h === c).length > 1);
+  if (dupes.length) {
+    return { ...none, errors: dupes.map((c) => `column '${c}' appears more than once in the header (columns ${names.flatMap((h, i) => (h === c ? [i + 1] : [])).join(" and ")}); keep one`) };
+  }
+  const unnamed = names.flatMap((h, i) => (!h && records.some((r, at) => at > headAt && (r[i] ?? "").trim()) ? [i + 1] : []));
+  if (unnamed.length) {
+    return { ...none, errors: [`column${unnamed.length > 1 ? "s" : ""} ${unnamed.join(", ")} hold${unnamed.length > 1 ? "" : "s"} values but ha${unnamed.length > 1 ? "ve" : "s"} no header name; name ${unnamed.length > 1 ? "them" : "it"} or delete ${unnamed.length > 1 ? "them" : "it"}`] };
+  }
   for (const need of ["component", "importPath"] as const) {
     if (!names.includes(need)) return { ...none, errors: [`missing column '${need}'; columns are ${CSV_COLUMNS.join(", ")}`] };
   }
@@ -174,7 +195,7 @@ export function codeMapFromCsv(text: string): CsvImport {
     if (i <= headAt || blank(cells)) return;
     const line = i + 1;
     const get = (c: Column) => (names.includes(c) ? (cells[names.indexOf(c)] ?? "").trim() : "");
-    const keys = entryKeys({ fileKey: get("fileKey"), id: get("id"), name: get("name") });
+    const keys = rowMatchKeys(get("fileKey"), get("id"), get("name"));
     out.rowKeys.push(...keys);
     if (!get("component") && !get("importPath")) {
       out.skipped += 1;
@@ -203,9 +224,9 @@ export function codeMapFromCsv(text: string): CsvImport {
     const entry: Record<string, unknown> = {
       ...(get("fileKey") ? { fileKey: get("fileKey") } : {}),
       ...(get("id") ? { id: get("id") } : get("name") ? { name: get("name") } : {}),
-      code,
       ...(get("status") ? { status: get("status").toLowerCase() } : {}),
       ...(get("replacedBy") ? { replacedBy: get("replacedBy") } : {}),
+      code,
     };
     if (!get("component") || !get("importPath")) {
       out.errors.push(`row ${line}: needs both component and importPath`);

@@ -5,7 +5,7 @@
 
 ## Recipe
 
-No recipe matched this screen's name. Pass --recipe <id> to check the screen against one.
+No recipe matched this screen's name. Pass --recipe and a recipe id (see resolve recipe list) to check the screen against one.
 
 ## Components (3)
 
@@ -26,7 +26,7 @@ No recipe matched this screen's name. Pass --recipe <id> to check the screen aga
 - Angular: `<acme-button>, AcmeButtonModule; inputs: variant, size, disabled; outputs: pressed` (import `AcmeButtonModule` from '@acme/ui-angular')
 - Figma properties: Variant=Primary, Size=Medium → inputs (suggested): variant="primary", size="medium"
 - Template (suggested): `<acme-button variant="primary" size="medium" [disabled]="…" (pressed)="…"></acme-button>`
-- Variants in Figma (states to build): Variant: Primary, Secondary, Danger; Size: Medium, Large
+- Other variants in Figma (states to build): Variant: Secondary, Danger; Size: Large
 - Parts inside: none (a base part)
 
 ### Button / Variant=Secondary, Size=Medium
@@ -36,7 +36,7 @@ No recipe matched this screen's name. Pass --recipe <id> to check the screen aga
 - Angular: `<acme-button>, AcmeButtonModule; inputs: variant, size, disabled; outputs: pressed` (import `AcmeButtonModule` from '@acme/ui-angular')
 - Figma properties: Variant=Secondary, Size=Medium → inputs (suggested): variant="secondary", size="medium"
 - Template (suggested): `<acme-button variant="secondary" size="medium" [disabled]="…" (pressed)="…"></acme-button>`
-- Variants in Figma (states to build): Variant: Primary, Secondary, Danger; Size: Medium, Large
+- Other variants in Figma (states to build): Variant: Primary, Danger; Size: Large
 - Parts inside: none (a base part)
 
 ## Code to import

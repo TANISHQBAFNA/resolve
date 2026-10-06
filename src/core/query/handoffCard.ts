@@ -40,8 +40,9 @@ function screenLike(index: GraphIndex, node: GraphNode): boolean {
 }
 
 /** A screen frame by graph id, Figma id, `fileKey:id`, or exact name (frames first), else the closest frame by search. */
-function findFrame(index: GraphIndex, ask: string): { node?: GraphNode; others?: number; notScreen?: GraphNode } {
+function findFrame(index: GraphIndex, ask: string): { node?: GraphNode; others?: number; notScreen?: GraphNode; fuzzy?: boolean } {
   const want = ask.trim();
+  if (!want) return {};
   const exact = resolveNodeExact(index, want);
   const byId = exact && (exact.id === want || exact.figmaNodeId === want || want.endsWith(exact.figmaNodeId ?? "\u0000"));
   if (exact && byId) return screenLike(index, exact) ? { node: exact } : { notScreen: exact };
@@ -55,7 +56,8 @@ function findFrame(index: GraphIndex, ask: string): { node?: GraphNode; others?:
   }
   if (exact) return SCREEN_TYPES.has(exact.type) ? { node: exact } : { notScreen: exact };
   const near = resolveNode(index, want);
-  return near && SCREEN_TYPES.has(near.type) ? { node: near } : near ? { notScreen: near } : {};
+  const fuzzy = Boolean(near) && near!.name.trim().toLowerCase() !== want.toLowerCase();
+  return near && SCREEN_TYPES.has(near.type) ? { node: near, ...(fuzzy ? { fuzzy } : {}) } : near ? { notScreen: near } : {};
 }
 
 /** The handoff sheet for one or more screens. See handoff.ts for the gates and the shape. */

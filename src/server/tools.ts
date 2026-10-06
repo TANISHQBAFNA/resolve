@@ -454,16 +454,16 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_handoff",
     description:
-      "Developer handoff sheet for one or more designed screens (frames): recipe slots, each component placed on the screen with fileKey + figmaNodeId and its code from .resolve/code-map.json ('unmapped' when there is no entry; never guessed), Angular selector/module/inputs/outputs, suggested inputs from Figma variant properties (Variant=Primary -> variant=\"primary\") and a suggested template line, the parts inside each component (ingredients), verify result, approved decisions (who/when/why), and open questions. Refuses (ok=false, refused[]) when a retired component is on a screen (always), or when a component is only a guess from its layer name ('MCP metadata insufficient for component X. Use Figma REST or design_context.'). allowWeak: true makes a draft instead (draft: true, identity 'name-guess'); drafts are not for build. Over 40,000 characters, parts are shown one level deep with cut. Advanced surface. Do not Read graph.json.",
+      "Developer handoff sheet for one or more designed screens (frames): recipe slots, each component placed on the screen with fileKey + figmaNodeId and its code from .resolve/code-map.json ('unmapped' when there is no entry; never guessed), Angular selector/module/inputs/outputs, suggested inputs from Figma variant properties (Variant=Primary -> variant=\"primary\") and a suggested template line, the parts inside each component (ingredients), verify result, approved decisions (who/when/why), and open questions. Refuses (ok=false, refused[]) when a retired component is on a screen (always), or when a component is only a guess from its layer name ('MCP metadata insufficient for component X. Use Figma REST or design_context.'). allowWeak: true makes a draft instead (draft: true, identity 'name-guess'); drafts are not for build. Over 40,000 characters, parts are shown one level less deep at a time until it fits (cut says how many parts are listed); open questions and summary always come from the full sheet. A copy whose component is in no learned file refuses with kind 'not-found'; a component from a library file that is not learned is status 'other-library' (no Figma id, code unknown). Advanced surface. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
         ...graphIdProperty,
         frame: { type: "string", description: "Frame name, graph id, figma node id or fileKey:nodeId." },
         frames: { type: "array", items: { type: "string" }, description: "Several frames for one handoff pack." },
-        allowWeak: { type: "boolean", description: "Draft: allow components known only from layer names (labelled name-guess). Retired components still refuse." },
+        allowWeak: { type: "boolean", description: "Draft: allow components known only from layer names (labelled name-guess) or missing from the learned files (labelled not-found). Retired components still refuse." },
         recipe: { type: "string", description: "Recipe id or intent to check the screen against. Default: matched from the screen name." },
-        depth: { type: "number", description: "Levels of parts per component, 1-3. Default 3." },
+        depth: { type: "number", description: "Levels of parts per component, 1-3. Default 3. Any other value is clamped, and depthNote says so." },
         pack: { type: "string" },
         product: { type: "string" },
         journey: { type: "string" },
@@ -560,7 +560,7 @@ export const TOOLS: ToolDefinition[] = [
 /** Compact JSON for MCP tool results. Pretty-print wastes agent context. */
 /** MCP size guard for get_ingredients (about 3k tokens). The CLI prints the full card. */
 export const INGREDIENTS_MCP_MAX_CHARS = 12_000;
-/** MCP size guard for get_handoff (about 10k tokens). Over it, parts are shown one level deep. The CLI prints everything. */
+/** MCP size guard for get_handoff (about 10k tokens). Over it, parts are shown one level less deep at a time until it fits. The CLI prints everything. */
 export const HANDOFF_MCP_MAX_CHARS = 40_000;
 
 export function encodeToolResult(result: unknown): string {
@@ -1116,6 +1116,10 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       if (!frames?.length) throw new ToolError("`frame` or `frames` is required.");
       const asked = typeof args["depth"] === "number" ? args["depth"] : Number(args["depth"] ?? 3);
       const depth = Number.isFinite(asked) ? Math.min(Math.max(Math.floor(asked), 1), 3) : 3;
+      const depthNote =
+        args["depth"] !== undefined && asked !== depth
+          ? { depthNote: `depth ${JSON.stringify(args["depth"]).slice(0, 20)} is not 1, 2 or 3; used ${depth}.` }
+          : {};
       const bind = contextBindFromArgs(args);
       const pack = packForRecommend(bind);
       const build = (d: number) =>
@@ -1134,21 +1138,32 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           maxCharsPerCard: HANDOFF_MCP_MAX_CHARS,
         });
       const full = build(depth);
-      if (!full.ok || JSON.stringify(full).length <= HANDOFF_MCP_MAX_CHARS) return full;
+      if (!full.ok || JSON.stringify(full).length <= HANDOFF_MCP_MAX_CHARS) return { ...full, ...depthNote };
       let d = depth;
       let small: HandoffPack = full;
       while (d > 1 && JSON.stringify(small).length > HANDOFF_MCP_MAX_CHARS) {
         d -= 1;
         small = build(d);
       }
-      const still = JSON.stringify(small).length > HANDOFF_MCP_MAX_CHARS;
+      if (!small.ok) return small;
+      // Only the parts lists are cut: open questions and summary come from the full sheet, so nothing an agent must ask is lost.
+      const fullScreens = full.screens;
+      const screens = small.screens.map((sheet, n) => ({ ...sheet, openQuestions: fullScreens[n]!.openQuestions, summary: fullScreens[n]!.summary }));
+      const shown = small.screens.reduce((t, sheet) => t + sheet.ingredients.length, 0);
+      const total = fullScreens.reduce((t, sheet) => t + sheet.ingredients.length, 0);
+      const questions = fullScreens.reduce((t, sheet) => t + sheet.openQuestions.length, 0);
+      const result = { ...small, screens };
+      const still = JSON.stringify(result).length > HANDOFF_MCP_MAX_CHARS;
       return {
-        ...small,
+        ...result,
+        ...depthNote,
         cut: {
           maxChars: HANDOFF_MCP_MAX_CHARS,
           depth: d,
           askedDepth: depth,
-          reason: `the full handoff is over ${HANDOFF_MCP_MAX_CHARS.toLocaleString("en-US")} characters, so parts are shown ${d === 1 ? "one level" : `${d} levels`} deep${d < depth ? ` (asked for ${depth})` : ""}${still ? " (still over the limit; ask fewer frames)" : ""}. Ask get_ingredients for a component's full parts, or run resolve handoff --out for the files.`,
+          partsShown: shown,
+          partsTotal: total,
+          reason: `the full handoff is over ${HANDOFF_MCP_MAX_CHARS.toLocaleString("en-US")} characters, so parts are listed ${d === 1 ? "one level" : `${d} levels`} deep${d < depth ? ` (asked for ${depth})` : ""}: ${shown} of ${total} parts are listed${still ? " (still over the limit; ask fewer frames)" : ""}. All ${questions} open question${questions === 1 ? "" : "s"} and the summary counts are from the full sheet. Ask get_ingredients for a component's full parts, or run resolve handoff --out for the files.`,
         },
       };
     }
