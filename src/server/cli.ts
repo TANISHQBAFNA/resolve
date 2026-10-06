@@ -46,6 +46,7 @@ import {
   scoreExitCode,
   scoreGraph,
 } from "@/core/query/scoreboard";
+import { formatPhraseTable, loadPhraseCases, phraseExitCode, scorePhrases } from "@/core/query/phraseScore";
 import {
   commitProposalDecision,
   clearCache,
@@ -169,7 +170,11 @@ function usage(): void {
       "      Saves the run to RESOLVE_HOME/scoreboard when set, else ~/.resolve/<workspace>/scoreboard.",
       "      Default golden path: <store>/scoreboard/golden when that folder exists, else ./scoreboard/golden.",
       "      Default workspace name: default (or RESOLVE_WORKSPACE).",
-      "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
+      "  resolve score phrases [--phrases <path>] [--json]",
+      "      Designer phrases (\"payee picker\", \"6 digit OTP box\") against recommend. Plain summary first, details below.",
+      "      Uses ./scoreboard/phrases plus your own <store>/scoreboard/phrases/*.json. --phrases <path> uses only that path.",
+      "      Exits non-zero when a part is invented or a retired/private part is recommended.",
+      "  resolve where              Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
       "",
       "  npm run resolve -- <command>     primary",
       "  npm run keyline -- <command>     Deprecated alias. Use npm run resolve. Removed after a quarter.",
@@ -776,6 +781,26 @@ export async function runCli(argv: string[]): Promise<void> {
       const namedWorkspace = flag(args, "workspace");
       if (namedWorkspace) process.env["RESOLVE_WORKSPACE"] = scoreboardWorkspaceName({ RESOLVE_WORKSPACE: namedWorkspace });
       clearCache();
+      if (args[0] === "phrases") {
+        const loaded = resolveGraph(flag(args, "id"));
+        if (!loaded) throw new Error(missingGraphMessage());
+        const given = flag(args, "phrases");
+        if (given && !existsSync(given)) throw new Error(`No phrase set at ${given}.`);
+        const source = given
+          ? [given]
+          : [resolve("scoreboard/phrases"), join(storeRoot(), "scoreboard", "phrases")].filter((dir) => existsSync(dir));
+        if (!source.length) throw new Error("No phrase set found. Run from the Resolve checkout, or pass --phrases <path>.");
+        const report = scorePhrases(loaded.index, loadPhraseCases(source), {
+          source,
+          sock: readSock(),
+          bindRules: readBindRules(),
+          workspace: readWorkspace(),
+        });
+        if (args.includes("--json")) printJson(report);
+        else process.stdout.write(`${formatPhraseTable(report)}\n`);
+        if (phraseExitCode(report) !== 0) process.exitCode = 1;
+        return;
+      }
       if (args.includes("--init")) {
         const loaded = resolveGraph(flag(args, "id"));
         if (!loaded) throw new Error(missingGraphMessage());

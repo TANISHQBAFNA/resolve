@@ -176,6 +176,21 @@ These use the made-up Acme library. Type them into your AI tool once Step 2 is d
 
 The exact, word-for-word answers for both are shown further down, under [recommend](#recommend) and [verify](#verify).
 
+## Check that Resolve understands your words
+
+Designers do not ask for "Button Primary". They say "payee picker" or "6 digit OTP box". Resolve can test itself on phrases like that.
+
+You give it a list of phrases, and for each one the part you expect. Say Acme's library has a part called "Payee picker". Your list could say:
+
+- "payee picker" should find **Payee picker**.
+- "who am I sending to dropdown" should also find **Payee picker**.
+- "6 digit OTP box" should find **nothing**, because Acme has no such part yet.
+- "old style button" should never offer the retired **Old Button**.
+
+Then run `npm run resolve -- score phrases`. The first lines are plain English, for example "Resolve tried 118 designer phrases. It put the right part first for 68%." Below that is a table by kind of phrase, so you can see which wording it understands least. A part that is made up, or a retired part that is offered, fails the run.
+
+To add your own phrases, put a `.json` file in the `scoreboard/phrases` folder inside your store (`resolve where` prints the store). You do not need to change the Resolve repo. The file format is under [score](#score).
+
 ## Questions designers ask
 
 **Does it change my Figma file?** No. Resolve only reads, and only when you ask it to learn a file. Your AI tool does the drawing.
@@ -497,6 +512,8 @@ npm run resolve -- score --golden scoreboard/golden --workspace fixture
 
 Runs a set of asks with known right answers through `recommend`, `resolve`, `recipe` and `verify` and prints a table. It scores the library that is in the store, so ingest the sample library first (as above); on an empty store, or on a library without the parts the set asks for, it stops with an error. `--workspace <name>` is only the name the run is saved under (`RESOLVE_HOME/scoreboard`). It exits non-zero if anything was invented or a card is over its size. `npm run resolve -- score --init` writes a starter set from the library you already learned. See [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
+`npm run resolve -- score phrases [--phrases <path>] [--json]` scores designer-worded phrases against `recommend`. It reads `scoreboard/phrases/*.json` in the checkout plus `<store>/scoreboard/phrases/*.json` for the team's own; `--phrases` reads only that path. Each phrase has an `id`, a `phrase`, a `type` and an `expect`: part names, `"none"`, or `"weak"` (empty, or a pick named in `accept`). It reports top-1, top-3, correct-empty, false-empty, wrong-cousin, retired-recommended and invent, per type. It exits non-zero on any invent or retired-recommended. A phrase naming a part the library lacks is skipped and listed. Details in [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md#designer-phrase-set).
+
 #### The seven MCP tools
 
 The same abilities are offered to AI tools as seven MCP tools: `learn_library`, `recommend`, `check_cousins`, `resolve`, `get_example`, `verify_frame` and `recipe`. They return the same cards as the command line.
@@ -650,6 +667,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
+- **Oct 6, 2026 — PR (draft, not merged).** Designer-phrase scoreboard: 118 phrases written the way designers ask, scored on the sample library with `resolve score phrases`. Teams add their own phrases in the store. Invented or retired parts fail the tests. Ranking is unchanged. 649 tests.
 - **Oct 5, 2026 — [PR #33](https://github.com/TANISHQBAFNA/resolve/pull/33) (draft, not merged).** The same ask gets the same top pick from `resolve` and `recommend`: an exact component name (letter case ignored) stays that component on both. A missing `icon-libraries.json` stays quiet. A mistyped icon-library name, or a broken `icon-libraries.json`, warns instead of failing quietly. Retired parts are never the pick to place (exact `resolve` of that name still shows the retired part, flagged). A description that is only "Legacy" counts as retired. Replacements are never icons. The desktop app shows the library and the rules, not a graph. 643 tests.
 - **Oct 3, 2026 — [PR #32](https://github.com/TANISHQBAFNA/resolve/pull/32).** Install by asking your AI tool: new `INSTALL-FOR-AI.md` checklist (Claude Code, Cursor, Codex; Codex not verified), linked from the README top and `AGENTS.md`. `resolve-setup` adds the project's `.cursor/mcp.json` and `.mcp.json` by itself (keeps other servers, leaves invalid JSON alone), and `Figma connected?` also sees a Claude Code Figma server (read-only). README setup rewritten around it; hand-typed steps moved into an "If you prefer to do it by hand" box. 632 tests.
 - **Oct 3, 2026 — [PR #31](https://github.com/TANISHQBAFNA/resolve/pull/31).** README rewritten in plain language for designers: the problem, what Resolve does, numbered setup steps with "what you should see". Engineer detail moved under "For engineers and testers" and shortened. Docs only. 618 tests.

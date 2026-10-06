@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "retired-legacy-banner", "type": "retired", "phrase": "Legacy Banner", "expect": ["Banner"] },
+    { "id": "retired-old-banner", "type": "retired", "phrase": "old style banner", "expect": ["Banner"] },
+    { "id": "retired-legacy-alert", "type": "retired", "phrase": "Legacy Alert", "expect": ["Alert"] },
+    { "id": "retired-old-alert", "type": "retired", "phrase": "the old alert component", "expect": ["Alert"] },
+    { "id": "retired-old-price", "type": "retired", "phrase": "Old Price", "expect": ["Price"] },
+    { "id": "retired-strikethrough-price", "type": "retired", "phrase": "strikethrough old price", "expect": ["Price"] },
+    { "id": "retired-private-note", "type": "retired", "phrase": "private note", "expect": "none" },
+    { "id": "retired-hidden-badge", "type": "retired", "phrase": "hidden badge", "expect": ["Badge"] },
+    { "id": "retired-internal-icon", "type": "retired", "phrase": "internal icon", "expect": "none" }
+  ]
+}

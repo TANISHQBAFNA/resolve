@@ -292,7 +292,7 @@ export function resolveMasterByName(index: GraphIndex, name: string): GraphNode 
   return picked;
 }
 
-function vocabOf(index: GraphIndex): GraphVocab {
+export function vocabOf(index: GraphIndex): GraphVocab {
   const ids = new Set<string>();
   const names = new Set<string>();
   const componentNames = new Set<string>();
@@ -478,7 +478,7 @@ function picksFromList(vocab: GraphVocab, value: unknown): ScorePick[] {
   return picks;
 }
 
-function recommendPicks(card: unknown, vocab: GraphVocab): ScorePick[] {
+export function recommendPicks(card: unknown, vocab: GraphVocab): ScorePick[] {
   const record = asRecord(card);
   return picksFromList(vocab, record?.["candidates"]);
 }
@@ -744,7 +744,7 @@ function grade(
   };
 }
 
-function isCousinPick(expected: GraphNode | undefined, pick: ScorePick, index: GraphIndex): boolean {
+export function isCousinPick(expected: GraphNode | undefined, pick: ScorePick, index: GraphIndex): boolean {
   if (!expected || !pick.id) return false;
   const node = index.getNode(pick.id);
   if (!node) return false;

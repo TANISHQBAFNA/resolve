@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "exact-pay-cta", "type": "exact", "phrase": "Pay CTA", "expect": ["Pay CTA"] },
+    { "id": "exact-save-cta", "type": "exact", "phrase": "Save CTA", "expect": ["Save CTA"] },
+    { "id": "exact-search-field", "type": "exact", "phrase": "Search Field", "expect": ["Search Field"] },
+    { "id": "exact-text-field", "type": "exact", "phrase": "Text Field", "expect": ["Text Field"] },
+    { "id": "exact-header-bar", "type": "exact", "phrase": "Header Bar", "expect": ["Header Bar"] },
+    { "id": "exact-footer-bar", "type": "exact", "phrase": "Footer Bar", "expect": ["Footer Bar"] },
+    { "id": "exact-empty-message", "type": "exact", "phrase": "Empty Message", "expect": ["Empty Message"] },
+    { "id": "exact-quantity-stepper", "type": "exact", "phrase": "Quantity Stepper", "expect": ["Quantity Stepper"] },
+    { "id": "exact-promo-field", "type": "exact", "phrase": "Promo Field", "expect": ["Promo Field"] },
+    { "id": "exact-coupon-field", "type": "exact", "phrase": "Coupon Field", "expect": ["Coupon Field"] },
+    { "id": "exact-payment-row", "type": "exact", "phrase": "Payment Row", "expect": ["Payment Row"] },
+    { "id": "exact-summary-card", "type": "exact", "phrase": "Summary Card", "expect": ["Summary Card"] },
+    { "id": "exact-main-card", "type": "exact", "phrase": "Main Card", "expect": ["Main Card"] },
+    { "id": "exact-nav-item", "type": "exact", "phrase": "Nav Item", "expect": ["Nav Item"] },
+    { "id": "exact-breadcrumb", "type": "exact", "phrase": "Breadcrumb", "expect": ["Breadcrumb"] },
+    { "id": "exact-list-row", "type": "exact", "phrase": "List Row", "expect": ["List Row"] },
+    { "id": "exact-link-button", "type": "exact", "phrase": "Link Button", "expect": ["Link Button"] },
+    { "id": "exact-icon-close", "type": "exact", "phrase": "Icon Close", "expect": ["Icon Close"] },
+    { "id": "exact-checkbox", "type": "exact", "phrase": "Checkbox", "expect": ["Checkbox"] },
+    { "id": "exact-modal", "type": "exact", "phrase": "Modal", "expect": ["Modal"] },
+    { "id": "exact-toast", "type": "exact", "phrase": "Toast", "expect": ["Toast"] },
+    { "id": "exact-tabs", "type": "exact", "phrase": "Tabs", "expect": ["Tabs"] }
+  ]
+}
