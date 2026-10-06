@@ -471,7 +471,7 @@ npm run resolve -- ingredients --all
 ```
 
 ```
-Payee picker [30:30]
+Payee picker [ACMEUI 30:30]
 Code: PayeePicker from '@acme/payments'
 Inside it:
   - Avatar [30:40] (code: no code link yet)
@@ -481,12 +481,12 @@ Payee picker is built from 2 parts. 1 linked to code, 1 with no code link yet.
 
 It lists the library parts placed directly inside a component (a part inside a part is shown with `--depth 2` or `3`). It reads the links the graph already has, so nothing is guessed:
 
-- **Variants.** Each variant can hold different parts. Resolve follows the variant you name with `--variant` (properties like `"Size=Medium"`, or the variant's name). Otherwise it uses the first variant in the set and says when other variants use a different set of parts. Give it the id of a copy placed on a screen (`fileKey:nodeId`) and it reads that copy's own parts, so a swap made on the screen shows.
-- **Code.** Each part shows its code component from your code map, or `no code link yet`. With no code map at all, it says so.
-- **Honest labels.** A retired part says what to use instead. A part known only from its layer name is marked `guess from layer name, not confirmed`. A part from a library file you have not learned says so; if you have learned that library, Resolve finds the real part by its published component key. A copy whose component is missing is `component not found`.
-- **Names.** Exact name (letter case ignored) or id only. Anything else says "Nothing named ..." and exits with an error; use `recommend` to find the name first.
+- **Variants.** Each variant can hold different parts. Resolve follows the variant you name with `--variant` (properties like `"Size=Medium"`, or the variant's name). Otherwise it uses the first variant in the set and names the other variants that use a different set of parts. Give it the id of a copy placed on a screen (`fileKey:nodeId`) and it reads that copy's own parts at every level it shows, so a swap made on the screen shows. Where a copy's insides were not learned, it shows the main component's parts and marks them `from the main component, not checked on this screen`. Two copies of one part that hold different insides get a line each (`insides differ between copies`), so the counts always match what is listed. `--variant` is refused for a placed copy, because the copy already uses one variant.
+- **Code.** Each part shows its code component from your code map, or `no code link yet`. With no code map at all, it says so. The header shows the file key and node id (`[ACMEUI 30:30]`).
+- **Honest labels.** A retired part shows its old code and what to use instead, with that part's code when the map has it (`retired, code: OldButton from '@acme/ui-legacy'; use Button (code: Button from '@acme/ui')`). A part known only from its layer name is marked `guess from layer name, not confirmed`. A part from a library file you have not learned says so; if you have learned that library, Resolve finds the real part by its published component key. A copy whose component is missing is `component not found`.
+- **Names.** Exact name (letter case ignored) or id only. Anything else says "Nothing named ..." and exits with an error; use `recommend` to find the name first. A name or a bare node id found in two learned files is listed, not picked; ask again with `fileKey:nodeId`.
 
-`--json` prints the card as data (`parts`, each with `status`: `current`, `retired`, `unconfirmed`, `other-library` or `not-found`, and `code` or `null`). `--all` counts the whole library: how many components are built from other parts, and how many of those parts link to code. The MCP version is `get_ingredients`. It is off by default, so the agent tool list stays at seven; set `RESOLVE_MCP_ADVANCED=1` to turn it on.
+`--json` prints the card as data (`parts`, each with `status`: `current`, `retired`, `unconfirmed`, `other-library` or `not-found`, `code` or `null`, and `use` / `useCode` for a retired part; `insideFrom` marks insides read from the main component). `--all` counts the whole library: how many components are built from other parts, and how many of those parts link to code. The MCP version is `get_ingredients`. It is off by default, so the agent tool list stays at seven; set `RESOLVE_MCP_ADVANCED=1` to turn it on.
 
 #### rules, soci, approve, reject
 
@@ -672,8 +672,8 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 | Phrase set (regression) | 96/96 |
 | Designer phrase set (118 phrases, written after the ranker) | top-1 66/88 (75%), top-3 68/88 (77%), honest no-match 30/30, invent 0, retired offered 0. Weakest: paraphrase, 20/39 right first, 14 got nothing back |
 | 8-screen Material-like library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
-| Ingredient card (sample library) | Payee picker = Avatar + Button, Payment method row = Avatar + Button; invented parts 0; unmapped parts shown as unmapped |
-| Tests | 674 passing |
+| Ingredient card (Acme example library) | Payee picker = Avatar + Button, Payment method row = Avatar + Button; invented parts 0; unmapped parts shown as unmapped |
+| Tests | 684 passing |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
@@ -698,7 +698,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
-- **Oct 6, 2026 — [PR #35](https://github.com/TANISHQBAFNA/resolve/pull/35) (draft, not merged).** New `resolve ingredients "<component>"` (MCP `get_ingredients`, off by default): the parts inside a component, following the variant used, each with its code component or "no code link yet"; guessed and retired parts are labelled. Ranking is unchanged. 674 tests.
+- **Oct 6, 2026 — [PR #35](https://github.com/TANISHQBAFNA/resolve/pull/35) (draft, not merged).** New `resolve ingredients "<component>"` (MCP `get_ingredients`, off by default): the parts inside a component, following the variant used, each with its code component or "no code link yet"; guessed and retired parts are labelled. A placed copy is read from its own insides at every level, and anything taken from the main component says so. Ranking is unchanged. 684 tests.
 - **Oct 6, 2026 — [PR #34](https://github.com/TANISHQBAFNA/resolve/pull/34).** New `resolve score phrases`: 118 designer-worded phrases on the sample library, or only a team's own phrases on its library (never mixed); right part first 66/88 (75%), weakest on paraphrases, and an invented or retired part fails the tests. Ranking is unchanged. 658 tests.
 - **Oct 5, 2026 — [PR #33](https://github.com/TANISHQBAFNA/resolve/pull/33).** The same ask gets the same top pick from `resolve` and `recommend`: an exact component name (letter case ignored) stays that component on both. A missing `icon-libraries.json` stays quiet. A mistyped icon-library name, or a broken `icon-libraries.json`, warns instead of failing quietly. Retired parts are never the pick to place (exact `resolve` of that name still shows the retired part, flagged). A description that is only "Legacy" counts as retired. Replacements are never icons. The desktop app shows the library and the rules, not a graph. 643 tests.
 - **Oct 3, 2026 — [PR #32](https://github.com/TANISHQBAFNA/resolve/pull/32).** Install by asking your AI tool: new `INSTALL-FOR-AI.md` checklist (Claude Code, Cursor, Codex; Codex not verified), linked from the README top and `AGENTS.md`. `resolve-setup` adds the project's `.cursor/mcp.json` and `.mcp.json` by itself (keeps other servers, leaves invalid JSON alone), and `Figma connected?` also sees a Claude Code Figma server (read-only). README setup rewritten around it; hand-typed steps moved into an "If you prefer to do it by hand" box. 632 tests.

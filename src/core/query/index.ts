@@ -20,6 +20,8 @@ export {
   directPartInstances,
   formatIngredientCard,
   formatIngredientCoverage,
+  FROM_MAIN,
+  FROM_MAIN_SCREEN,
   NO_CODE_LINK,
   PART_GUESS,
   type IngredientCard,

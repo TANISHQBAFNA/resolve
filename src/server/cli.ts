@@ -148,9 +148,10 @@ function usage(): void {
       "      status retired keeps a part mapped but never recommends it. --retired lists every retired part with its code and replacement. No map: one-line hint.",
       "  resolve ingredients \"<component>\" [--variant \"<Prop=Value, ...>\"] [--depth 1-3] [--json] [--id <graphId>]",
       "      What is inside a component: the library parts placed directly in it, from the graph's nests links.",
-      "      Follows one variant: the one you name, else the first in the set. A placed instance id uses that copy's own parts.",
+      "      Follows one variant: the one you name, else the first in the set. A placed instance id reads that copy's own parts at every level;",
+      "      where a copy's insides were not learned, the main component's parts are shown and labelled so.",
       "      Each part shows its code component from .resolve/code-map.json, or 'no code link yet'. Never guessed.",
-      "      A part known only from a layer name is labelled as a guess. Retired parts show their replacement. Exact name or id only.",
+      "      A part known only from a layer name is labelled as a guess. Retired parts show their code and their replacement. Exact name or id only.",
       "  resolve ingredients --all [--json]   Library-wide counts: composites, parts inside them, and how many link to code.",
       "  resolve rules                  List human-authored bind rules",
       "  resolve soci                   List pending SOCI proposals (never auto-applied)",
@@ -661,7 +662,8 @@ export async function runCli(argv: string[]): Promise<void> {
       if (!name) throw new Error('Usage: resolve ingredients "<component>" [--variant "<Prop=Value>"] [--depth 1-3] [--json]');
       const rawDepth = flag(args, "depth");
       const depth = rawDepth === undefined ? undefined : Number(rawDepth);
-      if (depth !== undefined && (!Number.isInteger(depth) || depth < 1 || depth > 3)) {
+      const depthGiven = args.includes("--depth");
+      if (depthGiven && (rawDepth === undefined || rawDepth.startsWith("--") || !Number.isInteger(depth) || depth! < 1 || depth! > 3)) {
         throw new Error("--depth must be 1, 2 or 3.");
       }
       const variant = flag(args, "variant");

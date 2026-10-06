@@ -436,7 +436,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_ingredients",
     description:
-      "What is inside a component: the library parts placed directly in it (from the graph's NESTS links), for a developer handoff. Follows one variant: pass variant (\"Size=Medium\"), else the first in the set; a placed instance id uses that copy's own parts. Each part has its code component from .resolve/code-map.json or code null (no code link; never guessed). status: current | retired (with use) | unconfirmed (guess from layer name) | other-library | not-found. Exact name or id only; unknown name → found=false, call recommend. Advanced surface. Do not Read graph.json.",
+      "What is inside a component: the library parts placed directly in it (from the graph's NESTS links), for a developer handoff. Follows one variant: pass variant (\"Size=Medium\"), else the first in the set; a placed instance id reads that copy's own parts at every level (insideFrom / partsFrom = 'from the main component, not checked on this copy' where the copy's insides were not learned; variant is refused for an instance id). Each part has its code component from .resolve/code-map.json or code null (no code link; never guessed). status: current | retired (code = its old code, with use and useCode) | unconfirmed (guess from layer name) | other-library | not-found. Exact name or id only; unknown name → found=false, call recommend. Advanced surface. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
