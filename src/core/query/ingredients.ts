@@ -247,7 +247,7 @@ interface Walk {
  * A copy of a library part seen from another file is a stub with no insides. When the library itself is
  * learned, the same published component key finds the real part (exact key, one match only; never a name).
  */
-function realByKey(index: GraphIndex): (node: GraphNode) => GraphNode {
+export function realByKey(index: GraphIndex): (node: GraphNode) => GraphNode {
   let byKey: Map<string, GraphNode | null> | undefined;
   return (node) => {
     if (!node.isRemote) return node;

@@ -1,0 +1,284 @@
+{
+  "ok": true,
+  "handoff": 1,
+  "draft": false,
+  "codeMap": true,
+  "screens": [
+    {
+      "screen": {
+        "name": "Send money",
+        "id": "node:20:40",
+        "fileKey": "ACMEUI",
+        "figmaNodeId": "20:40",
+        "link": "https://www.figma.com/design/ACMEUI/?node-id=20-40"
+      },
+      "recipe": null,
+      "recipeNote": "No recipe matched this screen's name. Pass --recipe <id> to check the screen against one.",
+      "components": [
+        {
+          "name": "Payee picker",
+          "fileKey": "ACMEUI",
+          "figmaNodeId": "30:30",
+          "count": 1,
+          "copies": [
+            "20:41"
+          ],
+          "identity": "confirmed",
+          "status": "current",
+          "code": "AcmePayeePickerComponent from '@acme/payments-angular'",
+          "angular": {
+            "selector": "acme-payee-picker",
+            "standalone": true,
+            "importPath": "@acme/payments-angular",
+            "inputs": [
+              "payees",
+              "selected"
+            ],
+            "outputs": [
+              "selectedChange"
+            ]
+          },
+          "template": "<acme-payee-picker [payees]=\"…\" [(selected)]=\"…\"></acme-payee-picker>",
+          "partsFrom": "from the main component, not checked on this screen",
+          "parts": [
+            {
+              "name": "Avatar",
+              "fileKey": "ACMEUI",
+              "figmaNodeId": "30:40",
+              "count": 1,
+              "status": "current",
+              "code": null
+            },
+            {
+              "name": "Button / Variant=Primary, Size=Medium",
+              "fileKey": "ACMEUI",
+              "figmaNodeId": "30:11",
+              "count": 1,
+              "status": "current",
+              "code": "AcmeButtonComponent from '@acme/ui-angular'",
+              "angular": {
+                "selector": "acme-button",
+                "module": "AcmeButtonModule",
+                "importPath": "@acme/ui-angular",
+                "inputs": [
+                  "variant",
+                  "size",
+                  "disabled"
+                ],
+                "outputs": [
+                  "pressed"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Button",
+          "variant": "Variant=Primary, Size=Medium",
+          "fileKey": "ACMEUI",
+          "figmaNodeId": "30:11",
+          "count": 1,
+          "copies": [
+            "20:42"
+          ],
+          "identity": "confirmed",
+          "status": "current",
+          "code": "AcmeButtonComponent from '@acme/ui-angular'",
+          "angular": {
+            "selector": "acme-button",
+            "module": "AcmeButtonModule",
+            "importPath": "@acme/ui-angular",
+            "inputs": [
+              "variant",
+              "size",
+              "disabled"
+            ],
+            "outputs": [
+              "pressed"
+            ]
+          },
+          "figmaProps": {
+            "Variant": "Primary",
+            "Size": "Medium"
+          },
+          "inputs": [
+            {
+              "input": "variant",
+              "value": "primary",
+              "from": "Variant=Primary"
+            },
+            {
+              "input": "size",
+              "value": "medium",
+              "from": "Size=Medium"
+            }
+          ],
+          "template": "<acme-button variant=\"primary\" size=\"medium\" [disabled]=\"…\" (pressed)=\"…\"></acme-button>",
+          "states": {
+            "Variant": [
+              "Primary",
+              "Secondary",
+              "Danger"
+            ],
+            "Size": [
+              "Medium",
+              "Large"
+            ]
+          },
+          "parts": []
+        },
+        {
+          "name": "Button",
+          "variant": "Variant=Secondary, Size=Medium",
+          "fileKey": "ACMEUI",
+          "figmaNodeId": "30:13",
+          "count": 1,
+          "copies": [
+            "20:43"
+          ],
+          "identity": "confirmed",
+          "status": "current",
+          "code": "AcmeButtonComponent from '@acme/ui-angular'",
+          "angular": {
+            "selector": "acme-button",
+            "module": "AcmeButtonModule",
+            "importPath": "@acme/ui-angular",
+            "inputs": [
+              "variant",
+              "size",
+              "disabled"
+            ],
+            "outputs": [
+              "pressed"
+            ]
+          },
+          "figmaProps": {
+            "Variant": "Secondary",
+            "Size": "Medium"
+          },
+          "inputs": [
+            {
+              "input": "variant",
+              "value": "secondary",
+              "from": "Variant=Secondary"
+            },
+            {
+              "input": "size",
+              "value": "medium",
+              "from": "Size=Medium"
+            }
+          ],
+          "template": "<acme-button variant=\"secondary\" size=\"medium\" [disabled]=\"…\" (pressed)=\"…\"></acme-button>",
+          "states": {
+            "Variant": [
+              "Primary",
+              "Secondary",
+              "Danger"
+            ],
+            "Size": [
+              "Medium",
+              "Large"
+            ]
+          },
+          "parts": []
+        }
+      ],
+      "ingredients": [
+        {
+          "name": "Avatar",
+          "fileKey": "ACMEUI",
+          "figmaNodeId": "30:40",
+          "status": "unmapped",
+          "code": "unmapped",
+          "usedBy": [
+            "Payee picker"
+          ]
+        },
+        {
+          "name": "Button / Variant=Primary, Size=Medium",
+          "fileKey": "ACMEUI",
+          "figmaNodeId": "30:11",
+          "status": "mapped",
+          "code": "AcmeButtonComponent from '@acme/ui-angular'",
+          "angular": {
+            "selector": "acme-button",
+            "module": "AcmeButtonModule",
+            "importPath": "@acme/ui-angular",
+            "inputs": [
+              "variant",
+              "size",
+              "disabled"
+            ],
+            "outputs": [
+              "pressed"
+            ]
+          },
+          "usedBy": [
+            "Payee picker"
+          ]
+        }
+      ],
+      "verify": {
+        "pass": true,
+        "approved": 3,
+        "retired": [],
+        "invents": [],
+        "unresolved": []
+      },
+      "decisions": [],
+      "openQuestions": [
+        "Part Avatar [ACMEUI 30:40] (inside Payee picker) has no code link."
+      ],
+      "summary": {
+        "components": 3,
+        "copies": 3,
+        "linkedToCode": 3,
+        "unmapped": 0,
+        "parts": 2,
+        "partsLinkedToCode": 1,
+        "nameGuesses": 0
+      }
+    }
+  ],
+  "ingredients": [
+    {
+      "name": "Avatar",
+      "fileKey": "ACMEUI",
+      "figmaNodeId": "30:40",
+      "status": "unmapped",
+      "code": "unmapped",
+      "usedBy": [
+        "Payee picker"
+      ],
+      "screens": [
+        "Send money"
+      ]
+    },
+    {
+      "name": "Button / Variant=Primary, Size=Medium",
+      "fileKey": "ACMEUI",
+      "figmaNodeId": "30:11",
+      "status": "mapped",
+      "code": "AcmeButtonComponent from '@acme/ui-angular'",
+      "angular": {
+        "selector": "acme-button",
+        "module": "AcmeButtonModule",
+        "importPath": "@acme/ui-angular",
+        "inputs": [
+          "variant",
+          "size",
+          "disabled"
+        ],
+        "outputs": [
+          "pressed"
+        ]
+      },
+      "usedBy": [
+        "Payee picker"
+      ],
+      "screens": [
+        "Send money"
+      ]
+    }
+  ]
+}

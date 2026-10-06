@@ -29,5 +29,21 @@ export {
   type IngredientPart,
   type PartStatus,
 } from "./ingredients";
-export { angularText, codeText, formatCodeMapReport, type AngularTwin } from "./codeMap";
+export { angularText, bindingName, codeText, formatCodeMapReport, tidySelector, type AngularTwin } from "./codeMap";
 export { codeMapFromCsv, codeMapTemplate, CSV_COLUMNS, entryKeys, entryLabel, mergeCodeMap, parseCsv } from "./codeMapCsv";
+export {
+  angularTemplate,
+  figmaLink,
+  formatHandoffIndex,
+  formatHandoffIngredients,
+  formatHandoffRefusal,
+  formatHandoffScreen,
+  HANDOFF_VERSION,
+  inputHints,
+  screenSlug,
+  type HandoffComponent,
+  type HandoffDecisionInput,
+  type HandoffPack,
+  type HandoffScreen,
+} from "./handoff";
+export { handoffSheet, type HandoffInput } from "./handoffCard";

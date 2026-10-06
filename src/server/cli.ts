@@ -38,6 +38,12 @@ import {
   codeMapCard,
   codeMapFromCsv,
   entryLabel,
+  formatHandoffIndex,
+  formatHandoffIngredients,
+  formatHandoffRefusal,
+  formatHandoffScreen,
+  handoffSheet,
+  screenSlug,
   mergeCodeMap,
   codeMapRows,
   codeMapTemplate,
@@ -72,6 +78,7 @@ import {
   readPlaceholders,
   readRecipeOverlay,
   readSock,
+  readApprovedDecisions,
   readWorkspace,
   rebuildIndex,
   resolveGraph,
@@ -151,7 +158,8 @@ function usage(): void {
       "      Same pack flags as recommend. Wrong-cousin drift: resolve cousins.",
       "  resolve code-map [--json | --retired]   Report on .resolve/code-map.json: Figma component -> code component",
       "  resolve code-map --init [--out <file.csv>] [--force]   Write a CSV with one row per component, to fill in a spreadsheet",
-      "  resolve code-map --import <file.csv> [--dry-run] [--force]   Turn the filled CSV into code-map.json (same checks as the loader)",
+      "  resolve code-map --import <file.csv> [--dry-run] [--force | --replace]   Turn the filled CSV into code-map.json (same checks as the loader)",
+      "      --force keeps (and lists) existing entries the CSV has no row for; --replace drops them (and lists them). Extra columns are ignored.",
       "      Counts mapped / retired / unmapped / ambiguous / conflict / stale / ignored. Keyed by file key + id; a name works only when unique.",
       "      status retired keeps a part mapped but never recommends it. --retired lists every retired part with its code and replacement. No map: one-line hint.",
       "  resolve ingredients \"<component>\" [--variant \"<Prop=Value, ...>\"] [--depth 1-3] [--json] [--id <graphId>]",
@@ -161,6 +169,11 @@ function usage(): void {
       "      Each part shows its code component from .resolve/code-map.json, or 'no code link yet'. Never guessed.",
       "      A part known only from a layer name is labelled as a guess. Retired parts show their code and their replacement. Exact name or id only.",
       "  resolve ingredients --all [--json]   Library-wide counts: composites, parts inside them, and how many link to code.",
+      `  resolve handoff "<frame>" ["<frame>" ...] [--draft] [--json] [--out <dir>] [--recipe <id>] [--depth 1-3] [--force] ${PACK_BIND_FLAGS}`,
+      "      Developer handoff sheet for a designed screen: recipe slots, each placed component with its Figma id and code (React or Angular),",
+      "      the parts inside it, suggested inputs from Figma variant properties, verify result, approved decisions, open questions.",
+      "      Refuses when a retired component is on the screen (always) or a component is only a layer-name guess (unless --draft).",
+      "      --out writes handoff.md, screen-<name>.md, ingredients.md and handoff.json. Never guesses code: unmapped says unmapped.",
       "  resolve rules                  List human-authored bind rules",
       "  resolve soci                   List pending SOCI proposals (never auto-applied)",
       "  resolve approve <proposal-id> --who <name>   Approve: bind-rules, recipe overlay, or a recorded decision",
@@ -721,6 +734,83 @@ export async function runCli(argv: string[]): Promise<void> {
       const report = codeMapCard(() => requireGraph(args).index);
       if (args.includes("--json")) printJson(report);
       else process.stdout.write(`${formatCodeMapReport(report, args.includes("--retired"))}\n`);
+      return;
+    }
+
+    case "handoff": {
+      const VALUE_FLAGS = ["--out", "--recipe", "--depth", "--rules", "--pack", "--product", "--journey", "--domain", "--packs", "--id"];
+      const frames: string[] = [];
+      for (let i = 0; i < args.length; i += 1) {
+        const arg = args[i]!;
+        if (arg === "--json" || arg === "--draft" || arg === "--force") continue;
+        if (VALUE_FLAGS.includes(arg)) {
+          const value = args[i + 1];
+          if (value === undefined || value.startsWith("--")) throw new Error(`${arg} needs a value.`);
+          i += 1;
+          continue;
+        }
+        if (arg.startsWith("--")) throw new Error(`Unknown handoff option "${arg}". Use --draft, --json, --out, --recipe, --depth, --force, --rules or ${PACK_BIND_FLAGS}.`);
+        frames.push(arg);
+      }
+      if (!frames.length) {
+        throw new Error('Usage: resolve handoff "<frame>" ["<frame>" ...] [--draft] [--json] [--out <dir>] [--recipe <id>] [--depth 1-3]');
+      }
+      const rawDepth = flag(args, "depth");
+      const depth = rawDepth === undefined ? 3 : Number(rawDepth);
+      if (!Number.isInteger(depth) || depth < 1 || depth > 3) throw new Error("--depth must be 1, 2 or 3.");
+      const bind = bindFromFlags(args);
+      const pack = packForRecommend(bind);
+      const index = requireGraph(args).index;
+      const result = handoffSheet(index, frames, {
+        draft: args.includes("--draft"),
+        recipe: flag(args, "recipe"),
+        recipes: loadRecipes(),
+        ...(pack ? { context: pack } : {}),
+        bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
+        sock: readSock(),
+        workspace: bind.workspace ?? readWorkspace(),
+        placeholders: readPlaceholders(),
+        rules: readLibraryRules(flag(args, "rules")),
+        decisions: readApprovedDecisions(),
+        depth,
+      });
+      const json = args.includes("--json");
+      if (!result.ok) {
+        if (json) printJson(result);
+        else process.stdout.write(`${formatHandoffRefusal(result)}\n`);
+        process.exitCode = 1;
+        return;
+      }
+      const out = flag(args, "out");
+      if (out) {
+        const target = resolve(out);
+        if (existsSync(join(target, "handoff.json")) && !args.includes("--force")) {
+          throw new Error(`${join(target, "handoff.json")} already exists. Add --force to replace the handoff files there.`);
+        }
+        mkdirSync(target, { recursive: true });
+        const used = new Set<string>();
+        const files = result.screens.map((sheet) => {
+          let name = `screen-${screenSlug(sheet.screen.name)}`;
+          for (let n = 2; used.has(name); n += 1) name = `screen-${screenSlug(sheet.screen.name)}-${n}`;
+          used.add(name);
+          return `${name}.md`;
+        });
+        result.screens.forEach((sheet, n) => writeFileSync(join(target, files[n]!), formatHandoffScreen(sheet, result.draft)));
+        writeFileSync(join(target, "ingredients.md"), formatHandoffIngredients(result));
+        writeFileSync(join(target, "handoff.json"), `${JSON.stringify(result, null, 2)}\n`);
+        writeFileSync(join(target, "handoff.md"), formatHandoffIndex(result, files));
+        process.stdout.write(
+          `Wrote ${target}: handoff.md, ${files.join(", ")}, ingredients.md, handoff.json${result.draft ? " (DRAFT, not for build)" : ""}.\n`,
+        );
+        return;
+      }
+      if (json) {
+        printJson(result);
+        return;
+      }
+      const sheets = result.screens.map((sheet) => formatHandoffScreen(sheet, result.draft));
+      process.stdout.write(sheets.join("\n---\n\n"));
+      if (result.screens.length > 1) process.stdout.write(`\n---\n\n${formatHandoffIngredients(result)}`);
       return;
     }
 

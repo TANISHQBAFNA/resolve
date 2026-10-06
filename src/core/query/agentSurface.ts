@@ -2560,6 +2560,21 @@ function ingredientHooks(index: GraphIndex): IngredientHooks {
   };
 }
 
+/** Retired check and replacement with the code map applied, the same rules as every card (used by the handoff sheet). */
+export function retiredHooks(index: GraphIndex) {
+  const view = codeMapView(index);
+  return {
+    view,
+    retired: (node: GraphNode) => isRetired(index, node) || Boolean(view?.retired(node)),
+    replacement: (node: GraphNode) => {
+      const found = replacementOf(index, node, view?.twin);
+      if (!found) return undefined;
+      const twin = view?.twin(found.node);
+      return { name: found.node.name, guess: found.guess, ...(twin ? { twin } : {}) };
+    },
+  };
+}
+
 /** "What is inside this component?" Parts from NESTS links, each with its code component or none. */
 export function ingredientCard(index: GraphIndex, name: string, options: IngredientOptions = {}) {
   return withCost(buildIngredientCard(index, name, ingredientHooks(index), options));
