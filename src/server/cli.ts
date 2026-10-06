@@ -36,6 +36,10 @@ import {
   type WorkspaceFileRole,
   codeMapCard,
   formatCodeMapReport,
+  formatIngredientCard,
+  formatIngredientCoverage,
+  ingredientCard,
+  ingredientCoverage,
 } from "@/core/query";
 import {
   deltaAgainst,
@@ -142,6 +146,13 @@ function usage(): void {
       "  resolve code-map [--json | --retired]   Report on .resolve/code-map.json: Figma component -> code component",
       "      Counts mapped / retired / unmapped / ambiguous / conflict / stale / ignored. Keyed by file key + id; a name works only when unique.",
       "      status retired keeps a part mapped but never recommends it. --retired lists every retired part with its code and replacement. No map: one-line hint.",
+      "  resolve ingredients \"<component>\" [--variant \"<Prop=Value, ...>\"] [--depth 1-3] [--json] [--id <graphId>]",
+      "      What is inside a component: the library parts placed directly in it, from the graph's nests links.",
+      "      Follows one variant: the one you name, else the first in the set. A placed instance id reads that copy's own parts at every level;",
+      "      where a copy's insides were not learned, the main component's parts are shown and labelled so.",
+      "      Each part shows its code component from .resolve/code-map.json, or 'no code link yet'. Never guessed.",
+      "      A part known only from a layer name is labelled as a guess. Retired parts show their code and their replacement. Exact name or id only.",
+      "  resolve ingredients --all [--json]   Library-wide counts: composites, parts inside them, and how many link to code.",
       "  resolve rules                  List human-authored bind rules",
       "  resolve soci                   List pending SOCI proposals (never auto-applied)",
       "  resolve approve <proposal-id> --who <name>   Approve: bind-rules, recipe overlay, or a recorded decision",
@@ -623,6 +634,46 @@ export async function runCli(argv: string[]): Promise<void> {
       const report = codeMapCard(() => requireGraph(args).index);
       if (args.includes("--json")) printJson(report);
       else process.stdout.write(`${formatCodeMapReport(report, args.includes("--retired"))}\n`);
+      return;
+    }
+
+    case "ingredients":
+    case "ingredient": {
+      const words: string[] = [];
+      for (let i = 0; i < args.length; i += 1) {
+        const arg = args[i]!;
+        if (arg === "--json" || arg === "--all") continue;
+        if (arg === "--variant" || arg === "--depth" || arg === "--id") {
+          i += 1;
+          continue;
+        }
+        if (arg.startsWith("--")) throw new Error(`Unknown ingredients option "${arg}". Use --variant, --depth, --json, --all or --id.`);
+        words.push(arg);
+      }
+      const json = args.includes("--json");
+      if (args.includes("--all")) {
+        if (words.length) throw new Error('Use either --all or a component name, not both.');
+        const coverage = ingredientCoverage(requireGraph(args).index);
+        if (json) printJson(coverage);
+        else process.stdout.write(`${formatIngredientCoverage(coverage)}\n`);
+        return;
+      }
+      const name = words.join(" ").trim();
+      if (!name) throw new Error('Usage: resolve ingredients "<component>" [--variant "<Prop=Value>"] [--depth 1-3] [--json]');
+      const rawDepth = flag(args, "depth");
+      const depth = rawDepth === undefined ? undefined : Number(rawDepth);
+      const depthGiven = args.includes("--depth");
+      if (depthGiven && (rawDepth === undefined || rawDepth.startsWith("--") || !Number.isInteger(depth) || depth! < 1 || depth! > 3)) {
+        throw new Error("--depth must be 1, 2 or 3.");
+      }
+      const variant = flag(args, "variant");
+      if (args.includes("--variant") && (!variant || variant.startsWith("--"))) {
+        throw new Error('--variant needs a value, for example --variant "Size=Medium".');
+      }
+      const card = ingredientCard(requireGraph(args).index, name, { variant, depth });
+      if (json) printJson(card);
+      else process.stdout.write(`${formatIngredientCard(card)}\n`);
+      if (!card.found) process.exitCode = 1;
       return;
     }
 
