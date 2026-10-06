@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import { SourceDocumentSchema } from "@/core/ingestion/types";
@@ -46,6 +46,7 @@ import {
   scoreExitCode,
   scoreGraph,
 } from "@/core/query/scoreboard";
+import { formatPhraseTable, isSampleLibrary, loadPhraseCases, phraseExitCode, scorePhrases } from "@/core/query/phraseScore";
 import {
   commitProposalDecision,
   clearCache,
@@ -169,6 +170,11 @@ function usage(): void {
       "      Saves the run to RESOLVE_HOME/scoreboard when set, else ~/.resolve/<workspace>/scoreboard.",
       "      Default golden path: <store>/scoreboard/golden when that folder exists, else ./scoreboard/golden.",
       "      Default workspace name: default (or RESOLVE_WORKSPACE).",
+      "  resolve score phrases [--phrases <path>] [--json]",
+      "      Designer phrases (\"payee picker\", \"6 digit OTP box\") against recommend. Plain summary first, details below.",
+      "      Uses your own <store>/scoreboard/phrases/*.json when there are any. Otherwise the built-in ./scoreboard/phrases,",
+      "      but only on the sample library. Never mixes the two. --phrases <path> uses only that path.",
+      "      Exits non-zero when a part is invented or a retired/private part is recommended.",
       "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
       "",
       "  npm run resolve -- <command>     primary",
@@ -776,6 +782,52 @@ export async function runCli(argv: string[]): Promise<void> {
       const namedWorkspace = flag(args, "workspace");
       if (namedWorkspace) process.env["RESOLVE_WORKSPACE"] = scoreboardWorkspaceName({ RESOLVE_WORKSPACE: namedWorkspace });
       clearCache();
+      // Words after "score" that are not flags or flag values. Only "phrases" is known.
+      const scoreValueFlags = new Set(["--workspace", "--id", "--phrases", "--golden", "--out"]);
+      const scoreWords = args.filter((arg, at) => !arg.startsWith("--") && !scoreValueFlags.has(args[at - 1] ?? ""));
+      const unknownWord = scoreWords.find((word) => !/^phrases?$/i.test(word));
+      if (unknownWord) {
+        throw new Error(`Unknown score option "${unknownWord}". Use "resolve score" or "resolve score phrases".`);
+      }
+      if (scoreWords.length) {
+        const loaded = resolveGraph(flag(args, "id"));
+        if (!loaded) throw new Error(missingGraphMessage());
+        const given = flag(args, "phrases");
+        if (given && !existsSync(given)) throw new Error(`No phrase set at ${given}.`);
+        const teamDir = join(storeRoot(), "scoreboard", "phrases");
+        const shippedDir = resolve("scoreboard/phrases");
+        const hasJson = (dir: string) =>
+          existsSync(dir) && statSync(dir).isDirectory() && readdirSync(dir).some((name) => name.endsWith(".json"));
+        // Never mix the shipped sample-library set with a team's own phrases in one total.
+        let source: string[];
+        let note: string | undefined;
+        if (given) {
+          source = [given];
+        } else if (hasJson(teamDir)) {
+          source = [teamDir];
+          note = `Scored your team's phrases only (${teamDir}). The built-in set is for the sample library: pass --phrases scoreboard/phrases to run it.`;
+        } else if (!isSampleLibrary(loaded.index)) {
+          throw new Error(
+            `No team phrases yet. The built-in phrase set only fits the sample library, so it was not run on yours (its score would be misleading). Add your own .json phrase files to ${teamDir}, or pass --phrases <path>.`,
+          );
+        } else if (existsSync(shippedDir)) {
+          source = [shippedDir];
+          note = "Scored the built-in phrase set on the sample library.";
+        } else {
+          throw new Error(`No phrase set found. Run from the Resolve checkout, add phrase files to ${teamDir}, or pass --phrases <path>.`);
+        }
+        const report = scorePhrases(loaded.index, loadPhraseCases(source), {
+          ...(note ? { note } : {}),
+          source,
+          sock: readSock(),
+          bindRules: readBindRules(),
+          workspace: readWorkspace(),
+        });
+        if (args.includes("--json")) printJson(report);
+        else process.stdout.write(`${formatPhraseTable(report)}\n`);
+        if (phraseExitCode(report) !== 0) process.exitCode = 1;
+        return;
+      }
       if (args.includes("--init")) {
         const loaded = resolveGraph(flag(args, "id"));
         if (!loaded) throw new Error(missingGraphMessage());

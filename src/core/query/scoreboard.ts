@@ -249,7 +249,8 @@ function specificTokens(name: string): Set<string> {
   );
 }
 
-function sameFamily(a: GraphNode, b: GraphNode): boolean {
+/** Same node, or a variant and its component set (or two variants of one set). */
+export function sameFamily(a: GraphNode, b: GraphNode): boolean {
   if (a.id === b.id) return true;
   if (a.componentSetId && (a.componentSetId === b.id || a.componentSetId === b.componentSetId)) {
     return true;
@@ -292,7 +293,7 @@ export function resolveMasterByName(index: GraphIndex, name: string): GraphNode 
   return picked;
 }
 
-function vocabOf(index: GraphIndex): GraphVocab {
+export function vocabOf(index: GraphIndex): GraphVocab {
   const ids = new Set<string>();
   const names = new Set<string>();
   const componentNames = new Set<string>();
@@ -478,7 +479,7 @@ function picksFromList(vocab: GraphVocab, value: unknown): ScorePick[] {
   return picks;
 }
 
-function recommendPicks(card: unknown, vocab: GraphVocab): ScorePick[] {
+export function recommendPicks(card: unknown, vocab: GraphVocab): ScorePick[] {
   const record = asRecord(card);
   return picksFromList(vocab, record?.["candidates"]);
 }
@@ -744,7 +745,7 @@ function grade(
   };
 }
 
-function isCousinPick(expected: GraphNode | undefined, pick: ScorePick, index: GraphIndex): boolean {
+export function isCousinPick(expected: GraphNode | undefined, pick: ScorePick, index: GraphIndex): boolean {
   if (!expected || !pick.id) return false;
   const node = index.getNode(pick.id);
   if (!node) return false;

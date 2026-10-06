@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "cousin-tag-not-chip", "type": "cousin-trap", "phrase": "removable filter chip", "expect": ["Chip"], "mustNot": ["Tag"] },
+    { "id": "cousin-tag-label", "type": "cousin-trap", "phrase": "read-only category tag", "expect": ["Tag"], "mustNot": ["Chip"] },
+    { "id": "cousin-badge-not-tag", "type": "cousin-trap", "phrase": "notification badge on an icon", "expect": ["Badge"], "mustNot": ["Tag", "Chip"] },
+    { "id": "cousin-input-vs-text-field", "type": "cousin-trap", "phrase": "labelled text field with helper text", "expect": ["Text Field"], "mustNot": ["Input"] },
+    { "id": "cousin-search-not-text", "type": "cousin-trap", "phrase": "search field", "expect": ["Search Field"], "mustNot": ["Text Field", "Input"] },
+    { "id": "cousin-promo-not-search", "type": "cousin-trap", "phrase": "promo code field at checkout", "expect": ["Promo Field", "Coupon Field"], "mustNot": ["Search Field", "Text Field"] },
+    { "id": "cousin-pay-not-save", "type": "cousin-trap", "phrase": "primary button on the payment screen", "expect": ["Pay CTA"], "accept": ["Button Primary"], "mustNot": ["Save CTA"] },
+    { "id": "cousin-save-not-pay", "type": "cousin-trap", "phrase": "primary button on the profile settings screen", "expect": ["Save CTA"], "accept": ["Button Primary"], "mustNot": ["Pay CTA"] },
+    { "id": "cousin-primary-not-secondary", "type": "cousin-trap", "phrase": "filled primary button", "expect": ["Button Primary"], "mustNot": ["Button Secondary", "Button Danger"] },
+    { "id": "cousin-secondary-not-primary", "type": "cousin-trap", "phrase": "outlined secondary button", "expect": ["Button Secondary"], "mustNot": ["Button Primary", "Button Danger"] },
+    { "id": "cousin-danger-not-primary", "type": "cousin-trap", "phrase": "red danger button", "expect": ["Button Danger"], "mustNot": ["Button Primary", "Button Secondary"] },
+    { "id": "cousin-link-not-button", "type": "cousin-trap", "phrase": "inline text link", "expect": ["Link Button"], "mustNot": ["Button Primary"] },
+    { "id": "cousin-main-vs-summary-card", "type": "cousin-trap", "phrase": "summary card with totals", "expect": ["Summary Card"], "mustNot": ["Main Card"] },
+    { "id": "cousin-main-card", "type": "cousin-trap", "phrase": "main content card", "expect": ["Main Card"], "mustNot": ["Summary Card"] },
+    { "id": "cousin-alert-not-banner", "type": "cousin-trap", "phrase": "inline alert message", "expect": ["Alert"], "mustNot": ["Banner"] },
+    { "id": "cousin-banner-not-alert", "type": "cousin-trap", "phrase": "promo banner", "expect": ["Banner"], "mustNot": ["Alert"] },
+    { "id": "cousin-modal-not-toast", "type": "cousin-trap", "phrase": "blocking modal", "expect": ["Modal"], "mustNot": ["Toast"] },
+    { "id": "cousin-header-not-footer", "type": "cousin-trap", "phrase": "header bar", "expect": ["Header Bar"], "mustNot": ["Footer Bar"] },
+    { "id": "cousin-payment-row-not-list-row", "type": "cousin-trap", "phrase": "card on file row", "expect": ["Payment Row"], "mustNot": ["List Row"] },
+    { "id": "cousin-switch-not-checkbox", "type": "cousin-trap", "phrase": "settings switch", "expect": ["Switch"], "mustNot": ["Checkbox", "Radio"] }
+  ]
+}

@@ -96,3 +96,32 @@ The process exits with an error if the invent rate is above 0 or a card is over 
 Overview and Rules show the newest saved run across workspaces, and a picker when more than one workspace has a run. The page only reads. It does not change rules or the library.
 
 The dev server and `vite preview` both serve it at `/api/scoreboard`. Preview does not open a websocket for that.
+
+## Designer phrase set
+
+`scoreboard/phrases/*.json` is a second set, written the way a designer asks ("empty state for no transactions", "6 digit OTP box") rather than with component names. It is scored against `recommend` only. It sits next to the golden set and does not replace it. It was written after the ranker, to see how it does on loose wording, so weak numbers are findings. Do not tune weights to lift them.
+
+```bash
+npm run resolve -- score phrases            # your own phrases, or the shipped set on the sample library
+npm run resolve -- score phrases --json
+npm run resolve -- score phrases --phrases path/to/file-or-folder
+```
+
+A phrase:
+
+```json
+{ "id": "para-empty-state", "type": "paraphrase", "phrase": "empty state for no transactions", "expect": ["Empty Message"] }
+```
+
+| Field | Meaning |
+| --- | --- |
+| `type` | Groups the breakdown. Shipped types: `exact`, `paraphrase`, `cousin-trap`, `retired`, `no-match`, `weak-match`. Any other label (for example `team`) gets its own row. |
+| `expect` | Part names (any one is right), `"none"` (nothing in the library fits, so empty is right), or `"weak"` (empty is right, and so is a pick listed in `accept`). |
+| `accept` | Other parts that are also fine as the top pick. |
+| `mustNot` | Cousins. A top pick from this list, or a part sharing a specific name word with the expected one, counts as wrong-cousin. |
+
+Measures, per type and overall: top-1 and top-3 (phrases that expect a part), correct-empty (phrases where empty is right), false-empty (a part was expected, nothing came back), wrong-cousin, retired-recommended (any candidate that is retired or private, not only the top one), and invent (an id or component name in the card that is not in the graph). A pick of a component set counts as right for any of its variants (and a variant for its set), the same rule as the golden set; a `"weak"` phrase only accepts the exact parts in `accept`. Invent above 0, retired-recommended above 0, or a run where no phrase could be scored exits non-zero (an empty phrase folder is an error), and `tests/query.phraseScore.test.ts` fails on the shipped set. Expected names are looked up in the graph. A phrase naming a part the library lacks is skipped and listed, never guessed.
+
+**Which set runs.** `--phrases <path>` runs only that path. Without it: if `<store>/scoreboard/phrases/` holds `.json` files, only those run (the team's own). If not, the shipped set runs, but only when every local component in the store comes from the sample library (file key `SCOREFIX`, `scoreboard/fixture/library.json`). On any other library the command stops with "No team phrases yet" rather than score the sample-library expectations against it. The shipped set and team phrases are never added into one total.
+
+**Your own phrases.** Put `.json` files (same shape, `{ "version": 1, "cases": [...] }`) in `<store>/scoreboard/phrases/`. A repeated id is an error. A file in the wrong shape is reported in one line naming the first problem. Nothing in the repo changes. These runs are not saved to the history that `resolve score` writes.

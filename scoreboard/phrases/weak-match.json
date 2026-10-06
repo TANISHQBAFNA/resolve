@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "weak-form-field", "type": "weak-match", "phrase": "form field", "expect": "weak", "accept": ["Text Field", "Input"] },
+    { "id": "weak-button", "type": "weak-match", "phrase": "button", "expect": "weak", "accept": ["Button", "Button Primary"] },
+    { "id": "weak-card", "type": "weak-match", "phrase": "card", "expect": "weak", "accept": ["Main Card", "Summary Card"] },
+    { "id": "weak-selector", "type": "weak-match", "phrase": "selector control", "expect": "weak", "accept": ["Checkbox", "Radio", "Switch"] },
+    { "id": "weak-message", "type": "weak-match", "phrase": "message to the user", "expect": "weak", "accept": ["Alert", "Banner", "Toast", "Empty Message"] },
+    { "id": "weak-row", "type": "weak-match", "phrase": "row", "expect": "weak", "accept": ["List Row", "Payment Row"] },
+    { "id": "weak-bar", "type": "weak-match", "phrase": "bar", "expect": "weak", "accept": ["Header Bar", "Footer Bar"] },
+    { "id": "weak-icon", "type": "weak-match", "phrase": "icon", "expect": "weak", "accept": ["Icon Close"] },
+    { "id": "weak-label", "type": "weak-match", "phrase": "small label", "expect": "weak", "accept": ["Tag", "Badge", "Chip", "Price"] },
+    { "id": "weak-cta", "type": "weak-match", "phrase": "call to action", "expect": "weak", "accept": ["Pay CTA", "Save CTA", "Button Primary", "Button"] }
+  ]
+}

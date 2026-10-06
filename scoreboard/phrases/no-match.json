@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "none-otp", "type": "no-match", "phrase": "6 digit OTP box", "expect": "none" },
+    { "id": "none-date-picker", "type": "no-match", "phrase": "date range picker", "expect": "none" },
+    { "id": "none-slider", "type": "no-match", "phrase": "amount slider", "expect": "none" },
+    { "id": "none-map", "type": "no-match", "phrase": "branch locator map", "expect": "none" },
+    { "id": "none-chart", "type": "no-match", "phrase": "spending line chart", "expect": "none" },
+    { "id": "none-stepper-progress", "type": "no-match", "phrase": "onboarding progress dots", "expect": "none" },
+    { "id": "none-skeleton", "type": "no-match", "phrase": "loading skeleton shimmer", "expect": "none" },
+    { "id": "none-bottom-sheet", "type": "no-match", "phrase": "bottom sheet with drag handle", "expect": "none" },
+    { "id": "none-camera", "type": "no-match", "phrase": "cheque camera capture frame", "expect": "none" },
+    { "id": "none-biometric", "type": "no-match", "phrase": "fingerprint prompt", "expect": "none" },
+    { "id": "none-pin-pad", "type": "no-match", "phrase": "numeric PIN keypad", "expect": "none" },
+    { "id": "none-carousel", "type": "no-match", "phrase": "card carousel", "expect": "none" },
+    { "id": "none-tooltip", "type": "no-match", "phrase": "tooltip on hover", "expect": "none" },
+    { "id": "none-data-table", "type": "no-match", "phrase": "sortable data table", "expect": "none" },
+    { "id": "none-confetti", "type": "no-match", "phrase": "holographic confetti cannon", "expect": "none" },
+    { "id": "none-gibberish", "type": "no-match", "phrase": "zzqx flurb", "expect": "none" },
+    { "id": "none-vague", "type": "no-match", "phrase": "the thing", "expect": "none" },
+    { "id": "none-dropdown", "type": "no-match", "phrase": "dropdown select", "expect": "none" }
+  ]
+}
