@@ -37,6 +37,8 @@ import {
   type WorkspaceFileRole,
   codeMapCard,
   codeMapFromCsv,
+  entryLabel,
+  mergeCodeMap,
   codeMapRows,
   codeMapTemplate,
   formatCodeMapReport,
@@ -376,6 +378,16 @@ function bindFromFlags(args: string[]) {
   });
 }
 
+/** Entries of the code map on disk, as written (good or bad). A file that is not a map gives none. */
+function existingEntries(path: string): unknown[] {
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, "").trim() || "{}") as { entries?: unknown };
+    return Array.isArray(raw.entries) ? raw.entries : [];
+  } catch {
+    return [];
+  }
+}
+
 function printJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
@@ -639,9 +651,12 @@ export async function runCli(argv: string[]): Promise<void> {
     case "code-map": {
       const mapPath = overlayFile("code-map.json") ?? join(storeRoot(), "code-map.json");
       const force = args.includes("--force");
+      const replace = args.includes("--replace");
+      if (args.includes("--init") && args.includes("--import")) throw new Error("Use either --init or --import, not both.");
       if (args.includes("--init")) {
-        const out = flag(args, "out") ?? join(dirname(mapPath), "code-map.csv");
-        if (out.startsWith("--")) throw new Error("--out needs a file name, for example --out code-map.csv");
+        const given = flag(args, "out");
+        if (args.includes("--out") && (!given || given.startsWith("--"))) throw new Error("--out needs a file name, for example --out code-map.csv");
+        const out = given ?? join(dirname(mapPath), "code-map.csv");
         if (existsSync(out) && !force) throw new Error(`${out} already exists. Add --force to replace it.`);
         const rows = codeMapRows(requireGraph(args).index);
         writeFileSync(out, codeMapTemplate(rows));
@@ -653,28 +668,53 @@ export async function runCli(argv: string[]): Promise<void> {
       }
       if (args.includes("--import")) {
         const file = flag(args, "import");
-        if (!file || file.startsWith("--")) throw new Error("Usage: resolve code-map --import <file.csv> [--dry-run] [--force]");
+        if (!file || file.startsWith("--")) throw new Error("Usage: resolve code-map --import <file.csv> [--dry-run] [--force | --replace]");
+        if (args.includes("--json")) throw new Error("--json is not used with --import. Use --dry-run to see the JSON that would be written.");
+        if (force && replace) throw new Error("Use either --force (keep entries the CSV has no row for) or --replace (drop them), not both.");
         if (!existsSync(file)) throw new Error(`No such file: ${file}`);
         const result = codeMapFromCsv(readFileSync(file, "utf8"));
+        const ignoredCols = result.ignoredColumns.length
+          ? `Ignored column${result.ignoredColumns.length > 1 ? "s" : ""} Resolve does not use: ${result.ignoredColumns.join(", ")}.\n`
+          : "";
         if (result.errors.length) {
-          process.stdout.write(`Nothing written. Fix these rows in ${file}:\n${result.errors.slice(0, 20).map((e) => `  ${e}`).join("\n")}${result.errors.length > 20 ? `\n  +${result.errors.length - 20} more` : ""}\n`);
+          const fileLevel = result.errors.every((e) => !e.startsWith("row "));
+          process.stdout.write(`${ignoredCols}Nothing written. Fix ${fileLevel ? "this" : "these rows"} in ${file}:\n${result.errors.slice(0, 20).map((e) => `  ${e}`).join("\n")}${result.errors.length > 20 ? `\n  +${result.errors.length - 20} more` : ""}\n`);
           process.exitCode = 1;
           return;
         }
         if (!result.entries.length) {
-          process.stdout.write(`Nothing written: no filled-in rows in ${file} (${result.skipped} empty).\n`);
+          process.stdout.write(`${ignoredCols}Nothing written: no filled-in rows in ${file} (${result.skipped} empty).\n`);
           process.exitCode = 1;
           return;
         }
-        const json = `${JSON.stringify({ entries: result.entries }, null, 2)}\n`;
+        const exists = existsSync(mapPath);
+        if (exists && !force && !replace && !args.includes("--dry-run")) {
+          throw new Error(`${mapPath} already exists. Add --force to update it (entries the CSV has no row for are kept), --replace to write only the CSV's entries, or --dry-run to see the result.`);
+        }
+        const old = exists ? existingEntries(mapPath) : [];
+        const merged = mergeCodeMap(old, result, replace);
+        const json = `${JSON.stringify({ entries: merged.entries }, null, 2)}\n`;
+        const list = (items: unknown[]) => items.slice(0, 12).map((e) => `  ${entryLabel(e)}`).join("\n") + (items.length > 12 ? `\n  +${items.length - 12} more` : "");
+        const notes = [
+          merged.untouched.length
+            ? `${replace ? "Dropped" : "Kept"} ${merged.untouched.length} existing entr${merged.untouched.length === 1 ? "y" : "ies"} the CSV has no row for${replace ? " (--replace)" : " (use --replace to drop them)"}:\n${list(merged.untouched)}\n`
+            : "",
+          merged.cleared.length
+            ? `Removed ${merged.cleared.length} entr${merged.cleared.length === 1 ? "y" : "ies"} whose row was left empty:\n${list(merged.cleared)}\n`
+            : "",
+        ].join("");
         if (args.includes("--dry-run")) {
           process.stdout.write(json);
+          if (ignoredCols || notes) process.stderr.write(`${ignoredCols}${notes}`);
           return;
         }
-        if (existsSync(mapPath) && !force) throw new Error(`${mapPath} already exists. Add --force to replace it, or --dry-run to see the result.`);
+        const index = requireGraph(args).index;
+        mkdirSync(dirname(mapPath), { recursive: true });
         writeFileSync(mapPath, json);
-        process.stdout.write(`Wrote ${mapPath}: ${result.entries.length} entries (${result.skipped} empty rows skipped).\n`);
-        const report = codeMapCard(() => requireGraph(args).index);
+        process.stdout.write(
+          `${ignoredCols}Wrote ${mapPath}: ${merged.entries.length} entries (${result.entries.length} from the CSV, ${result.skipped} empty rows skipped).\n${notes}`,
+        );
+        const report = codeMapCard(() => index);
         process.stdout.write(`${formatCodeMapReport(report)}\n`);
         return;
       }

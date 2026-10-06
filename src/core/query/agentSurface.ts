@@ -3632,7 +3632,7 @@ export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
     names.add(name);
     const use = replacementOf(index, node, view.twin);
     const twin = view.twin(node);
-    return [`retired ${name} -> ${useText(use?.node.name, use?.guess)}${twin ? ` (code: ${codeText(twin)})` : ""}`];
+    return [`retired ${name} -> ${useText(use?.node.name, use?.guess)}${twin ? ` (old code: ${codeText(twin)})` : ""}`];
   });
   return rows.length ? withRetiredRows(card, rows) : card;
 }

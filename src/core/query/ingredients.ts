@@ -495,7 +495,8 @@ export function buildIngredientCard(index: GraphIndex, ask: string, hooks: Ingre
   const shown = [depth < asked ? `${depth === 1 ? "only the parts directly inside" : `${depth} levels`} (asked for ${asked})` : "", limit < fullLimit ? `at most ${limit} parts per level` : ""]
     .filter(Boolean)
     .join(", ");
-  const reason = `the full card is over ${max.toLocaleString("en-US")} characters, so it shows ${shown || "what fits"}. Ask a part by its name or id for its own card${depth > 1 ? `, or ask with depth ${depth}` : ""}.`;
+  const still = JSON.stringify(card).length > max;
+  const reason = `the full card is over ${max.toLocaleString("en-US")} characters, so it shows ${shown || "what fits"}${still ? " (still over the limit at its smallest)" : ""}. Ask a part by its name or id for its own card${depth > 1 ? `, or ask with depth ${depth}` : ""}.`;
   return {
     ...card,
     cut: { maxChars: max, depth, askedDepth: asked, ...(limit < fullLimit ? { partsPerLevel: limit } : {}), reason },

@@ -434,7 +434,7 @@ Retired parts used in the frame: **a retired part fails the check**, whether the
   "hint": "Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. If stale, learn_library. Do not Read graph.json.",
   "textChecked": "n/a",
   "retired": [
-    "retired Old Button -> use Button (code: OldButton from '@acme/ui-legacy')"
+    "retired Old Button -> use Button (old code: OldButton from '@acme/ui-legacy')"
   ],
   "cost": {
     "chars": 550,
@@ -457,7 +457,7 @@ npm run resolve -- code-map --retired
 ```
 Code map: 6 components: 2 mapped, 1 retired (kept mapped), 3 unmapped, 0 ambiguous, 0 conflict. 0 stale, 0 ignored entries.
 Unmapped: Text field [ACMEUI 30:20]; Avatar [ACMEUI 30:40]; Payment method row [ACMEUI 30:60]
-Retired: Old Button [ACMEUI 30:50] -> use Button (code: OldButton from '@acme/ui-legacy')
+Retired: Old Button [ACMEUI 30:50] -> use Button (old code: OldButton from '@acme/ui-legacy')
 ```
 
 **Fill the map from a spreadsheet.** Hand-editing JSON is not needed:
@@ -470,7 +470,7 @@ npm run resolve -- code-map --import code-map.csv        # writes code-map.json
 
 `--init` writes one row per library component (`fileKey`, `id`, `name`, then the columns to fill: `component`, `importPath`, `framework`, `selector`, `module`, `standalone`, `inputs`, `outputs`, `status`, `replacedBy`). Rows the map already knows come filled in. `--import` skips rows with no `component` and no `importPath`, checks every other row with the same rules as the map itself, and writes nothing if any row is wrong (it lists them as `row 3: selector must look like acme-button or [acmeTooltip]`). It does not replace an existing `code-map.json` unless you add `--force`; `--init` does not replace an existing CSV either. List several `inputs` or `outputs` with spaces. A filled-in example is [`docs/examples/acme-code-map-angular.csv`](docs/examples/acme-code-map-angular.csv).
 
-`--retired` prints every retired part with its code and replacement, one per line (`Retired: 1`, then `Old Button [ACMEUI 30:50] -> use Button (code: OldButton from '@acme/ui-legacy')`). `--json` prints the same data with the same keys whether or not there is a map (`configured` is `true` or `false`; the lists are `unmapped`, `ambiguous`, `conflicts`, `retired`, `stale`, `replacements`, `ignored`). A part with a bad `replacedBy` is listed under `Bad replacedBy` / `replacements`. Details are in [`code-map.json`](#resolvecode-mapjson--figma-to-code-twins) below. With no map, it prints `No code map. Add .resolve/code-map.json next to synonyms.json.`
+`--retired` prints every retired part with its code and replacement, one per line (`Retired: 1`, then `Old Button [ACMEUI 30:50] -> use Button (old code: OldButton from '@acme/ui-legacy')`). `--json` prints the same data with the same keys whether or not there is a map (`configured` is `true` or `false`; the lists are `unmapped`, `ambiguous`, `conflicts`, `retired`, `stale`, `replacements`, `ignored`). A part with a bad `replacedBy` is listed under `Bad replacedBy` / `replacements`. Details are in [`code-map.json`](#resolvecode-mapjson--figma-to-code-twins) below. With no map, it prints `No code map. Add .resolve/code-map.json next to synonyms.json.`
 
 #### ingredients
 
@@ -687,7 +687,7 @@ What Resolve does, exactly. It depends on whether you have a code map:
 | --- | --- | --- |
 | `recommend` | Never offers a retired part as the pick. Asking for a retired name returns the live replacement. If the only match is retired, the hint says `Only match is retired: Old Button. Use none.` | Never offers a retired part, whether the library or the map retired it. The note `Old Button is retired, use Button.` is added when the best match was retired and it fits in 600 characters without dropping a candidate. If the only match is retired the hint says `Only match is retired: Old Button. Use Button.` (or `Use none.`) instead of "No master matched". |
 | `resolve` | Answers an exact retired name flagged `deprecated: true`, with the replacement. | Same, plus map-retired parts. It is an answer to "I know the name", not a recommendation, so it still answers; it prints no code line for a retired part. |
-| `verify` | A retired part fails the check (listed under `deprecated`). | The same, for library-retired and map-retired parts alike (a map-retired part is not a pass-with-warning). Each retired part also gets a line: `retired Old Button -> use Button (code: OldButton from '@acme/ui-legacy')`. |
+| `verify` | A retired part fails the check (listed under `deprecated`). | The same, for library-retired and map-retired parts alike (a map-retired part is not a pass-with-warning). Each retired part also gets a line: `retired Old Button -> use Button (old code: OldButton from '@acme/ui-legacy')`. |
 
 - A retired part's replacement is a *current* part, found through `replacedBy` (followed up to 3 steps) or, without it, the library's own name guess. A guess is never shown as a firm answer: it reads `closest current part (guess): Button`. If there is none the line says `no current replacement`. Resolve never points at a retired part, and never suggests an icon as the replacement. A recipe content slot (content, body, detail, message) is never filled with an icon; if icons are the only candidates, that slot stays empty.
 - Recipes skip a map-retired part and take the live one.
@@ -763,7 +763,7 @@ More plain-language answers are in [Questions designers ask](#questions-designer
 
 **Why does my retired component not show in `recommend`?** Retired parts (retired in the library, or in a code map) are never the pick for a new screen. They stay mapped when you have a code map. You still see them when you check an old frame with `verify`, or ask for one by its exact name with `resolve`. `recommend` names the live replacement, or says none.
 
-**Does a retired part fail `verify`?** Yes, the same way whether the library or your code map retired it. The card lists it under `deprecated` and, with a code map, adds a line such as `retired Old Button -> use Button (code: OldButton from '@acme/ui-legacy')`.
+**Does a retired part fail `verify`?** Yes, the same way whether the library or your code map retired it. The card lists it under `deprecated` and, with a code map, adds a line such as `retired Old Button -> use Button (old code: OldButton from '@acme/ui-legacy')`.
 
 **Can the code map revive a retired part?** No. If the library flags a part retired, `"status": "current"` in the map does not change that. Fix it in Figma.
 

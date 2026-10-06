@@ -30,4 +30,4 @@ export {
   type PartStatus,
 } from "./ingredients";
 export { angularText, codeText, formatCodeMapReport, type AngularTwin } from "./codeMap";
-export { codeMapFromCsv, codeMapTemplate, CSV_COLUMNS, parseCsv } from "./codeMapCsv";
+export { codeMapFromCsv, codeMapTemplate, CSV_COLUMNS, entryKeys, entryLabel, mergeCodeMap, parseCsv } from "./codeMapCsv";

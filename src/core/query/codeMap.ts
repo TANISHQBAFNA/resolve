@@ -8,7 +8,35 @@ export const NO_CODE_MAP_HINT = "No code map. Add .resolve/code-map.json next to
 const ENTRY_KEYS = ["fileKey", "id", "name", "code", "status", "replacedBy"];
 const CODE_KEYS = ["import", "component", "framework", "selector", "module", "standalone", "inputs", "outputs"];
 const PLAIN = /^[A-Za-z_$][\w$]{0,59}$/;
-const SELECTOR = /^(?:[a-z][a-z0-9]*(?:-[a-z0-9]+)+|(?:[a-z][a-z0-9-]*)?\[[A-Za-z][\w-]{0,40}\])$/;
+/** One part of an Angular selector: optional element, then `[attr]`, `[attr="value"]`, `.class`, and `:not(...)`. */
+const SELECTOR_PART =
+  /^(?<el>[a-z][a-z0-9]*(?:-[a-z0-9]+)*)?(?<rest>(?:\[[A-Za-z_][\w.:-]{0,40}(?:=(?:"[^"\]]{0,60}"|'[^'\]]{0,60}'|[\w-]{1,60}))?\]|\.[A-Za-z_-][\w-]{0,40})*(?::not\([^()]{1,80}\))*)$/;
+/** `variant`, or Angular's `property: alias` form (the alias is what a template binds to). */
+const IO_NAME = /^([A-Za-z_$][\w$]{0,39})(?:\s*:\s*([A-Za-z_$][\w$-]{0,39}))?$/;
+
+/**
+ * A real Angular selector: `acme-button`, `[acmeTooltip]`, `button[mat-button], a[mat-button]`, `[type="submit"]`, `.acme-card`.
+ * Returns the tidy form (parts joined by ", ") or undefined when it does not look like one.
+ * A part that is only an element name needs a dash (`acme-button`, not `button`), as custom elements do.
+ */
+export function tidySelector(raw: string): string | undefined {
+  if (raw.length > 200) return undefined;
+  const parts = raw.split(",").map((p) => p.trim());
+  if (!parts.length || parts.length > 8) return undefined;
+  for (const part of parts) {
+    const m = SELECTOR_PART.exec(part);
+    if (!part || !m) return undefined;
+    const el = m.groups?.["el"] ?? "";
+    const rest = m.groups?.["rest"] ?? "";
+    if (!rest && !el.includes("-")) return undefined;
+  }
+  return parts.join(", ");
+}
+/** The name a template binds to: the alias in `property: alias`, else the name. */
+export const bindingName = (io: string) => {
+  const m = IO_NAME.exec(io);
+  return m ? (m[2] ?? m[1]!) : io;
+};
 const FROM = /\bfrom\s+(['"])([^'"\s\p{Cc}]{1,120})\1\s*;?$/u;
 
 /** What the host (agentSurface) knows about a master. Kept as hooks so this file has no cycle. */
@@ -25,13 +53,14 @@ export const useText = (name?: string | null, guess?: boolean) =>
   name ? (guess ? `closest current part (guess): ${name}` : `use ${name}`) : "no current replacement";
 /** Angular fields of a code twin. Only present when the entry is an Angular one. */
 export interface AngularTwin {
-  /** `acme-button` (element) or `[acmeTooltip]` (attribute). */
+  /** `acme-button` (element), `[acmeTooltip]` (attribute), or a list like `button[mat-button], a[mat-button]`. */
   selector: string;
   /** NgModule to import, for a component that is not standalone. */
   module?: string;
   standalone?: true;
   /** Module path from the import line, e.g. `@acme/ui-angular`. */
   importPath: string;
+  /** Names, or `property: alias` (Angular's own form). */
   inputs?: string[];
   outputs?: string[];
 }
@@ -74,8 +103,10 @@ export interface CodeMapReport {
   stale: Item[];
   replacements: Item[];
   ignored: Item[];
-  /** Only when the map has Angular entries: how many mapped components carry Angular fields. */
-  angular?: { mapped: number; standalone: number; module: number; inputsOrOutputs: number };
+  /** Only when the map has Angular entries: how many components carry Angular fields (`mapped` counts retired ones too; `retired` says how many). */
+  angular?: { mapped: number; standalone: number; module: number; inputsOrOutputs: number; retired?: number };
+  /** Only when some entry had bad Angular fields: those fields were dropped, the entry's code line is still used. */
+  angularIgnored?: Item[];
 }
 export interface CodeView {
   twin(node: GraphNode): Twin | undefined;
@@ -93,6 +124,8 @@ interface Row {
   status?: string;
   replacedBy?: string;
   angular?: AngularTwin;
+  /** Why this entry's Angular fields were dropped (the code line is kept). */
+  angularDropped?: string;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -117,7 +150,13 @@ function parseRow(raw: unknown, n: number): Row {
   if (!/^[A-Za-z_$][\w$.]{0,59}$/.test(component)) throw "component must be a plain name like Button";
   const module = text(code, "import")?.match(FROM)?.[2];
   if (!module) throw "import needs from '<module>'";
-  const angular = parseAngular(code, module, text);
+  let angular: AngularTwin | undefined;
+  let angularDropped: string | undefined;
+  try {
+    angular = parseAngular(code, module, text);
+  } catch (reason) {
+    angularDropped = String(reason);
+  }
   const [fileKey = "", id, name, status, replacedBy] = [
     text(raw, "fileKey"),
     text(raw, "id"),
@@ -137,10 +176,11 @@ function parseRow(raw: unknown, n: number): Row {
     ...(status ? { status } : {}),
     ...(replacedBy ? { replacedBy: clean(replacedBy).slice(0, 60) } : {}),
     ...(angular ? { angular } : {}),
+    ...(angularDropped ? { angularDropped } : {}),
   };
 }
 
-/** Angular fields, checked; a bad value rejects the whole entry with a reason (never silently changed). */
+/** Angular fields, checked. A bad value drops the Angular fields only (with a reason); the entry's code line still counts. */
 function parseAngular(
   code: Record<string, unknown>,
   importPath: string,
@@ -159,7 +199,8 @@ function parseAngular(
     if (extra) throw `'${extra}' needs an Angular selector`;
     return undefined;
   }
-  if (selector.length > 60 || !SELECTOR.test(selector)) throw "selector must look like acme-button or [acmeTooltip]";
+  const tidy = tidySelector(selector);
+  if (!tidy) throw "selector must look like acme-button, [acmeTooltip] or button[mat-button], a[mat-button]";
   const module = text(code, "module");
   if (module && !PLAIN.test(module)) throw "module must be a plain name like AcmeButtonModule";
   const standalone = code["standalone"];
@@ -168,16 +209,16 @@ function parseAngular(
   const names = (k: "inputs" | "outputs") => {
     const v = code[k];
     if (v === undefined) return undefined;
-    if (!Array.isArray(v) || v.length > 40 || v.some((x) => typeof x !== "string" || !/^[A-Za-z_$][\w$]{0,39}$/.test(x))) {
-      throw `${k} must be a list of plain names like ${k === "inputs" ? "variant" : "pressed"}`;
+    if (!Array.isArray(v) || v.length > 40 || v.some((x) => typeof x !== "string" || !IO_NAME.test(x.trim()))) {
+      throw `${k} must be a list of names like ${k === "inputs" ? "variant or label: ariaLabel" : "pressed"}`;
     }
-    const list = [...new Set(v as string[])];
+    const list = [...new Set((v as string[]).map((x) => { const m = IO_NAME.exec(x.trim())!; return m[2] ? `${m[1]}: ${m[2]}` : m[1]!; }))];
     return list.length ? list : undefined;
   };
   const inputs = names("inputs");
   const outputs = names("outputs");
   return {
-    selector,
+    selector: tidy,
     ...(module ? { module } : {}),
     ...(standalone === true ? { standalone: true as const } : {}),
     importPath,
@@ -186,11 +227,13 @@ function parseAngular(
   };
 }
 
-/** Parse one entry exactly as the loader does; used by the CSV import so both paths share one set of rules. */
+/**
+ * Parse one entry exactly as the loader does; used by the CSV import so both paths share one set of rules.
+ * Bad Angular fields count as a problem here (the loader would keep the code line and drop them, but an import should be fixed first).
+ */
 export function checkEntry(raw: unknown): string | undefined {
   try {
-    parseRow(raw, 1);
-    return undefined;
+    return parseRow(raw, 1).angularDropped;
   } catch (reason) {
     return String(reason);
   }
@@ -200,7 +243,7 @@ let warned = "";
 const warnedClash = new Set<string>();
 
 /** Missing, empty, BOM-only = no map, quietly. Not JSON = no map plus one stderr line. */
-function load(): { rows: Row[]; ignored: Item[]; path: string } | undefined {
+function load(): { rows: Row[]; ignored: Item[]; path: string; angularIgnored: Item[] } | undefined {
   const path = overlayFile("code-map.json");
   if (!path || !existsSync(path)) {
     warned = "";
@@ -225,17 +268,24 @@ function load(): { rows: Row[]; ignored: Item[]; path: string } | undefined {
   const ignored: Item[] = Object.keys(raw as object)
     .filter((k) => k !== "entries")
     .map((k) => ({ reason: `unsupported field '${clean(k).slice(0, 30)}'${k === "namingRule" ? " (planned)" : ""}` }));
+  const angularIgnored: Item[] = [];
   list.forEach((item, i) => {
     try {
-      rows.push(parseRow(item, i + 1));
+      const row = parseRow(item, i + 1);
+      rows.push(row);
+      if (row.angularDropped) {
+        angularIgnored.push({ entry: i + 1, ...(row.name ? { name: row.name } : {}), ...(row.id ? { fileKey: row.fileKey, id: row.id } : {}), reason: row.angularDropped });
+      }
     } catch (reason) {
       ignored.push({ entry: i + 1, reason: String(reason) });
     }
   });
-  return { rows, ignored, path };
+  return { rows, ignored, path, angularIgnored };
 }
 
-function resolveRows(index: GraphIndex, { rows, ignored, path }: { rows: Row[]; ignored: Item[]; path: string }, hooks: Hooks): CodeView {
+type Loaded = { rows: Row[]; ignored: Item[]; path: string; angularIgnored: Item[] };
+
+function resolveRows(index: GraphIndex, { rows, ignored, path, angularIgnored }: Loaded, hooks: Hooks): CodeView {
   const fk = (n: GraphNode) => nodeFileKey(n, index.graph.fileKey) ?? "";
   const fid = (n: GraphNode) => n.figmaNodeId ?? n.id;
   const masters = index.graph.nodes.filter(
@@ -313,14 +363,23 @@ function resolveRows(index: GraphIndex, { rows, ignored, path }: { rows: Row[]; 
     else if (ambiguous.has(n.id)) report.ambiguous.push({ ...item, reason: "name is not unique" });
     else report.unmapped.push(item);
   }
-  const ng = masters.filter((n) => !conflict.has(n.id)).flatMap((n) => twins.get(n.id)?.angular ?? []);
+  const withNg = masters.filter((n) => !conflict.has(n.id) && twins.get(n.id)?.angular);
+  const ng = withNg.map((n) => twins.get(n.id)!.angular!);
   if (ng.length) {
+    const retiredNg = withNg.filter((n) => retired(n)).length;
     report.angular = {
       mapped: ng.length,
       standalone: ng.filter((a) => a.standalone).length,
       module: ng.filter((a) => a.module).length,
       inputsOrOutputs: ng.filter((a) => a.inputs || a.outputs).length,
+      ...(retiredNg ? { retired: retiredNg } : {}),
     };
+  }
+  if (angularIgnored.length) {
+    report.angularIgnored = angularIgnored.map((i) => {
+      const hit = i.id ? byId.get(`${i.fileKey ?? ""}\n${i.id}`) : undefined;
+      return hit && !i.name ? { entry: i.entry, name: hit.name, fileKey: i.fileKey, id: i.id, reason: i.reason } : i;
+    });
   }
   report.counts.unmapped = report.unmapped.length;
   report.counts.ambiguous = report.ambiguous.length;
@@ -366,7 +425,7 @@ export function formatCodeMapReport(report: CodeMapReport, retiredOnly = false, 
     const name = clean(i.name ?? i.id ?? "");
     const where = [i.fileKey, i.id && i.name ? i.id : ""].filter(Boolean).join(" ");
     const code = i.code ? (i.angular ? `${i.code}, ${angularText(i.angular)}` : i.code) : "";
-    const use = i.use === undefined ? "" : `-> ${useText(i.use && clean(i.use), i.guess)}${code ? ` (code: ${code})` : ""}`;
+    const use = i.use === undefined ? "" : `-> ${useText(i.use && clean(i.use), i.guess)}${code ? ` (old code: ${code})` : ""}`;
     return [i.entry ? `entry ${i.entry}` : "", name, where ? `[${clean(where)}]` : "", use, i.reason ? `- ${i.reason}` : ""]
       .filter(Boolean)
       .join(" ");
@@ -382,7 +441,7 @@ export function formatCodeMapReport(report: CodeMapReport, retiredOnly = false, 
       : report.hint,
     ...(report.angular
       ? [
-          `Angular: ${report.angular.mapped} mapped components have a selector (${report.angular.standalone} standalone, ${report.angular.module} with a module, ${report.angular.inputsOrOutputs} list inputs or outputs).`,
+          `Angular: ${report.angular.mapped} ${report.angular.mapped === 1 ? "component has" : "components have"} a selector${report.angular.retired ? ` (incl. ${report.angular.retired} retired)` : ""}: ${report.angular.standalone} standalone, ${report.angular.module} with a module, ${report.angular.inputsOrOutputs} list inputs or outputs.`,
         ]
       : []),
     ...section("Unmapped", report.unmapped),
@@ -392,5 +451,6 @@ export function formatCodeMapReport(report: CodeMapReport, retiredOnly = false, 
     ...section("Bad replacedBy", report.replacements),
     ...section("Stale", report.stale),
     ...section("Ignored", report.ignored),
+    ...section("Angular fields ignored (code line still used)", report.angularIgnored ?? []),
   ].join("\n");
 }
