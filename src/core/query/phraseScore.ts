@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve as resolvePath } from "node:path";
 import { z } from "zod";
 import type { GraphIndex } from "./GraphIndex";
 import { recommendMasters } from "./agentSurface";
@@ -11,6 +11,7 @@ import {
   isCousinPick,
   recommendPicks,
   resolveMasterByName,
+  sameFamily,
   vocabOf,
   type ScorePick,
 } from "./scoreboard";
@@ -96,7 +97,9 @@ function filesIn(path: string): string[] {
 export function loadPhraseCases(paths: string[]): PhraseCase[] {
   const seen = new Map<string, string>();
   const out: PhraseCase[] = [];
-  for (const file of paths.flatMap(filesIn)) {
+  // The same folder given twice (for example the store inside the checkout) is read once.
+  const files = [...new Set(paths.flatMap(filesIn).map((file) => resolvePath(file)))];
+  for (const file of files) {
     let parsed: z.infer<typeof FileSchema>;
     try {
       parsed = FileSchema.parse(JSON.parse(readFileSync(file, "utf8")));
@@ -110,6 +113,7 @@ export function loadPhraseCases(paths: string[]): PhraseCase[] {
       out.push(row);
     }
   }
+  if (!out.length) throw new Error(`No phrases found in ${paths.join(", ")}. Add a .json file with { "version": 1, "cases": [...] }.`);
   return out;
 }
 
@@ -155,7 +159,16 @@ export function scorePhrases(index: GraphIndex, cases: PhraseCase[], options: Ph
       continue;
     }
     const okIds = new Set([...expected, ...accepted].map((node) => node.id));
-    const isOk = (pick: ScorePick) => (pick.id ? okIds.has(pick.id) : false);
+    // Same rule as the golden scorer: a part, or its component set / sibling variant, is a hit.
+    // "weak" phrases stay strict: only an exact accepted pick counts.
+    const okNodes = [...expected, ...accepted];
+    const isOk = (pick: ScorePick) => {
+      if (!pick.id) return false;
+      if (okIds.has(pick.id)) return true;
+      const node = index.getNode(pick.id);
+      return Boolean(node && okNodes.some((want) => sameFamily(want, node)));
+    };
+    const isExactOk = (pick: ScorePick) => (pick.id ? okIds.has(pick.id) : false);
     const bannedIds = new Set(banned.map((node) => node.id));
 
     const card = recommendMasters(index, row.phrase, {
@@ -186,7 +199,7 @@ export function scorePhrases(index: GraphIndex, cases: PhraseCase[], options: Ph
     if (row.expect === "none" || row.expect === "weak") {
       stat.emptyCases += 1;
       if (!picks.length) stat.correctEmpty += 1;
-      else if (row.expect === "weak" && top && isOk(top)) stat.correctEmpty += 1;
+      else if (row.expect === "weak" && top && isExactOk(top)) stat.correctEmpty += 1;
       else miss("not-empty", `offered ${picks.map((pick) => pick.name).join(", ")}`);
       continue;
     }
@@ -230,7 +243,8 @@ export function scorePhrases(index: GraphIndex, cases: PhraseCase[], options: Ph
     totals,
     byType: rows,
     inventRate,
-    pass: totals.invented === 0 && totals.retiredRecommended === 0,
+    // A run that scored nothing proves nothing, so it does not pass.
+    pass: totals.phrases > 0 && totals.invented === 0 && totals.retiredRecommended === 0,
     misses,
   };
 }
@@ -263,6 +277,7 @@ export function formatPhraseTable(report: PhraseReport): string {
   if (report.skipped.length) {
     lines.push(`${report.skipped.length} phrase(s) skipped: they name a part this library does not have.`);
   }
+  if (report.phrases === 0) lines.push("No phrase could be scored on this library, so nothing was tested. That is a failure.");
   const weakest = [...report.byType]
     .filter((row) => row.matchCases + row.emptyCases > 0)
     .map((row) => ({

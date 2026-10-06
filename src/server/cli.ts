@@ -174,7 +174,7 @@ function usage(): void {
       "      Designer phrases (\"payee picker\", \"6 digit OTP box\") against recommend. Plain summary first, details below.",
       "      Uses ./scoreboard/phrases plus your own <store>/scoreboard/phrases/*.json. --phrases <path> uses only that path.",
       "      Exits non-zero when a part is invented or a retired/private part is recommended.",
-      "  resolve where              Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
+      "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
       "",
       "  npm run resolve -- <command>     primary",
       "  npm run keyline -- <command>     Deprecated alias. Use npm run resolve. Removed after a quarter.",

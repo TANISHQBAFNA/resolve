@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SourceDocumentSchema } from "@/core/ingestion/types";
 import { buildGraph } from "@/core/transform";
@@ -75,6 +75,31 @@ describe("designer phrase scoreboard", () => {
     expect(text.split("\n")[0]).toMatch(/^Resolve tried \d+ designer phrases/);
     expect(text).toMatch(/\nDetails\n/);
     expect(text).toMatch(/skipped team-x/);
+  });
+
+  it("counts a component set as a hit for one of its variants, like the golden scorer", () => {
+    const report = scorePhrases(fixtureIndex(), [
+      { id: "fam", phrase: "red danger button", type: "cousin-trap", expect: ["Button Danger"], mustNot: ["Button Primary"] },
+      { id: "weak-strict", phrase: "red danger button", type: "weak-match", expect: "weak", accept: ["Button Danger"] },
+    ]);
+    expect(report.totals.top1).toBe(1);
+    expect(report.totals.wrongCousin).toBe(0);
+    // "weak" stays strict: the set is not the accepted variant, so it is not a correct empty.
+    expect(report.totals.correctEmpty).toBe(0);
+  });
+
+  it("an empty phrase folder is an error, and a run that scores nothing does not pass", () => {
+    const dir = mkdtempSync(join(tmpdir(), "resolve-phrases-empty-"));
+    expect(() => loadPhraseCases([dir])).toThrow(/No phrases found/);
+    const report = scorePhrases(fixtureIndex(), [{ id: "gone", phrase: "teleporter", type: "team", expect: ["Teleport Pad"] }]);
+    expect(report.phrases).toBe(0);
+    expect(report.pass).toBe(false);
+    expect(phraseExitCode(report)).toBe(1);
+    expect(formatPhraseTable(report)).toMatch(/No phrase could be scored/);
+  });
+
+  it("reads the same folder once when it is given twice", () => {
+    expect(loadPhraseCases([phrasesDir, relative(process.cwd(), phrasesDir) || "."]).length).toBe(loadPhraseCases([phrasesDir]).length);
   });
 
   it("rejects duplicate phrase ids across files", () => {

@@ -249,7 +249,8 @@ function specificTokens(name: string): Set<string> {
   );
 }
 
-function sameFamily(a: GraphNode, b: GraphNode): boolean {
+/** Same node, or a variant and its component set (or two variants of one set). */
+export function sameFamily(a: GraphNode, b: GraphNode): boolean {
   if (a.id === b.id) return true;
   if (a.componentSetId && (a.componentSetId === b.id || a.componentSetId === b.componentSetId)) {
     return true;
