@@ -465,8 +465,8 @@ describe("ingredient card: placed copies at every level", () => {
     expect(formatIngredientCard(deep)).toContain("insides differ between copies");
     // At the last level shown, two lines for one part name what each holds, so they never look the same.
     const shallow = formatIngredientCard(found(ingredientCard(index, "Header pair")));
-    expect(shallow).toContain("- Toolbar [3:1] (code: no code link yet; insides differ between copies; has 1 part inside: Avatar)");
-    expect(shallow).toContain("- Toolbar [3:1] (code: no code link yet; insides differ between copies; has 1 part inside: Icon)");
+    expect(shallow).toContain("- Toolbar [3:1] (1 of 2 copies; code: no code link yet; insides differ between copies; has 1 part inside: Avatar)");
+    expect(shallow).toContain("- Toolbar [3:1] (1 of 2 copies; code: no code link yet; insides differ between copies; has 1 part inside: Icon)");
     // Library counts still count Toolbar once per composite.
     expect(ingredientCoverage(index)).toMatchObject({ composites: 4 });
   });
@@ -478,6 +478,7 @@ describe("ingredient card: placed copies at every level", () => {
     // Inside a component definition, a copy with no learned insides is labelled with "copy", not "screen".
     const row = found(ingredientCard(kit(), "List row"));
     expect(row.parts[0]).toMatchObject({ name: "Field / Kind=Icon", count: 2, inside: 2, insideFrom: FROM_MAIN });
+    expect(FROM_MAIN).toBe("from the main component, not checked on the copy inside this component");
   });
 
   it("--variant on a placed copy is refused, not ignored", () => {
@@ -495,8 +496,25 @@ describe("ingredient card: placed copies at every level", () => {
     expect(card.parts).toEqual([]);
     expect(card.note).toContain("This variant has no other library parts inside it.");
     expect(card.note).not.toContain("base part");
-    expect(card.note).toContain("2 other variants use a different set of parts: Type=Icon, Type=Avatar.");
+    expect(card.note).toContain("2 other variants use a different set of parts: Type=Icon | Type=Avatar.");
     expect(card.otherVariants).toMatchObject({ withParts: 2 });
+  });
+
+  it("size guard: a wide card at depth 1 keeps fewer parts per level and says how many", () => {
+    const parts = Array.from({ length: 30 }, (_, i) => comp(`8:${i + 1}`, `Part number ${i + 1} with a fairly long name`));
+    const wide = {
+      name: "Acme Wide",
+      document: { id: "0:0", name: "Document", type: "DOCUMENT", children: [{ id: "0:1", name: "Lib", type: "CANVAS", children: [...parts, comp("9:1", "Big panel", parts.map((p, i) => inst(`9:${i + 10}`, p.name, p.id)))] }] },
+      components: Object.fromEntries([...parts, { id: "9:1", name: "Big panel" }].map((c) => [c.id, { key: `k-${c.id}`, name: c.name, description: "" }])),
+      componentSets: {},
+      styles: {},
+    };
+    const card = found(ingredientCard(indexGraph(rest("WIDEP", wide)), "Big panel", { maxChars: 2_500 }));
+    expect(card.cut).toMatchObject({ depth: 1, askedDepth: 1, partsPerLevel: 7 });
+    expect(card.parts).toHaveLength(7);
+    expect(card.note).toContain("23 more parts not listed.");
+    expect(card.note).toContain("so it shows at most 7 parts per level.");
+    expect(JSON.stringify(card).length).toBeLessThanOrEqual(2_500);
   });
 
   it("a bare node id found in two learned files is listed, never picked", () => {

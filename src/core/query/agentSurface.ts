@@ -21,7 +21,7 @@ import { extractSubgraph, levelForNode } from "./subgraph";
 import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
 import { overlayFile } from "./overlayFile";
-import { codeMapReport, codeView, useText, type Hooks, type Twin } from "./codeMap";
+import { angularText, codeMapReport, codeMapTargets, codeText, codeView, useText, type Hooks, type Twin } from "./codeMap";
 import { placeReady } from "./placeReady";
 import { buildIngredientCard, buildIngredientCoverage, type IngredientHooks, type IngredientOptions } from "./ingredients";
 import synonymFile from "@/data/synonyms.json";
@@ -564,7 +564,10 @@ export function componentUsageCard(
       : { ...withReplacement, byScreen: [] as typeof body.byScreen };
   // The code line is for a live part only; a retired part's mapping is read through verify.
   const coded = twin && !retired ? { ...fitted, code: twin.line } : undefined;
-  return withCost(coded && JSON.stringify(withCost(coded)).length <= budget ? coded : fitted);
+  // Angular fields ride with the code line when they fit; else the code line alone; else neither.
+  const angular = coded && twin?.angular ? { ...coded, angular: twin.angular } : undefined;
+  const fits = (card: object | undefined) => Boolean(card) && JSON.stringify(withCost(card!)).length <= budget;
+  return withCost(fits(angular) ? angular! : fits(coded) ? coded! : fitted);
 }
 
 /** Full config for the real instance behind a pick's `ex` pointer. */
@@ -2537,6 +2540,11 @@ const codeHooks = (index: GraphIndex): Hooks => ({
 });
 export const codeMapView = (index: GraphIndex) => codeView(index, codeHooks(index));
 export const codeMapCard = (getIndex: () => GraphIndex) => codeMapReport(getIndex, codeHooks);
+/** Every component the map can name, with its current twin (for the CSV template). */
+export const codeMapRows = (index: GraphIndex) => {
+  const view = codeMapView(index);
+  return codeMapTargets(index, codeHooks(index)).map(({ node, ...row }) => ({ ...row, twin: view?.twin(node) }));
+};
 
 /** Hooks for the ingredient card: same retired, private, guess, and code-map rules as every other card. */
 function ingredientHooks(index: GraphIndex): IngredientHooks {
@@ -3449,14 +3457,17 @@ export function recommendMasters(
 
   const lead = kept[0];
   const leadTwin = lead && !weakLead && !lead.deprecated ? view?.twin(lead.node) : undefined;
-  const extra: { retired?: string; code?: string } = {};
-  const append = (key: "retired" | "code", value?: string) => {
+  const extra: { retired?: string; code?: string; angular?: string } = {};
+  const append = <K extends keyof typeof extra>(key: K, value?: (typeof extra)[K]) => {
     if (value && JSON.stringify({ ...payload, ...extra, [key]: value }).length <= budgetChars) extra[key] = value;
   };
   const only = onlyRetired ? { ...payload, hint: `Only match is retired: ${onlyRetired.name}. ${onlyRetired.guess ? "Closest current part (guess): " : "Use "}${onlyRetired.use ?? "none"}.` } : undefined;
   const said = only && JSON.stringify(only).length <= budgetChars;
   if (!said) append("retired", retiredNote);
   append("code", leadTwin && !leadTwin.retired ? leadTwin.line : undefined);
+  // Selector and module as one short line (inputs and outputs are on the resolve card), only beside a code line.
+  const ng = extra.code ? leadTwin?.angular : undefined;
+  append("angular", ng ? angularText(ng) : undefined);
 
   return withCost({ ...(said ? only : payload), ...extra });
 }
@@ -3621,7 +3632,7 @@ export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
     names.add(name);
     const use = replacementOf(index, node, view.twin);
     const twin = view.twin(node);
-    return [`retired ${name} -> ${useText(use?.node.name, use?.guess)}${twin ? ` (code: ${twin.line})` : ""}`];
+    return [`retired ${name} -> ${useText(use?.node.name, use?.guess)}${twin ? ` (code: ${codeText(twin)})` : ""}`];
   });
   return rows.length ? withRetiredRows(card, rows) : card;
 }

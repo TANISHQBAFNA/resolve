@@ -1,0 +1,7 @@
+fileKey,id,name,component,importPath,framework,selector,module,standalone,inputs,outputs,status,replacedBy
+ACMEUI,30:10,Button,AcmeButtonComponent,@acme/ui-angular,angular,acme-button,AcmeButtonModule,,variant size disabled,pressed,,
+ACMEUI,30:20,Text field,AcmeTextFieldComponent,@acme/ui-angular,angular,acme-text-field,,true,label value error,valueChange,,
+ACMEUI,30:30,Payee picker,AcmePayeePickerComponent,@acme/payments-angular,angular,acme-payee-picker,,true,payees selected,selectedChange,,
+ACMEUI,30:40,Avatar,,,,,,,,,,
+ACMEUI,30:50,Old Button,AcmeOldButtonComponent,@acme/ui-angular-legacy,angular,acme-old-button,AcmeLegacyModule,,,,retired,Button
+ACMEUI,30:60,Payment method row,,,,,,,,,,
