@@ -44,7 +44,7 @@ function findFrame(index: GraphIndex, ask: string): { node?: GraphNode; others?:
   const want = ask.trim();
   if (!want) return {};
   const exact = resolveNodeExact(index, want);
-  const byId = exact && (exact.id === want || exact.figmaNodeId === want || want.endsWith(exact.figmaNodeId ?? "\u0000"));
+  const byId = exact && (/figma\.com\//i.test(want) || exact.id === want || exact.figmaNodeId === want || want.endsWith(exact.figmaNodeId ?? "\u0000"));
   if (exact && byId) return screenLike(index, exact) ? { node: exact } : { notScreen: exact };
   const named = index
     .getNodesByType("FRAME", "SECTION")

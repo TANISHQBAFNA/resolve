@@ -126,7 +126,7 @@ export interface HandoffComponent {
   /** `other-library`: from a library file that is not learned (no Figma id of this file, code unknown). */
   status: "current" | "retired" | "not-found" | "other-library";
   slot?: string;
-  /** Code from the code map, or "unmapped" (never guessed). */
+  /** Code from the code map, "unmapped" (never guessed), or "unknown" when its component is not in the learned files (other library, not found). */
   code: string;
   angular?: AngularTwin;
   /** Figma variant properties of the placed variant. */
@@ -135,7 +135,7 @@ export interface HandoffComponent {
   inputs?: InputHint[];
   /** One-line Angular template (suggested). */
   template?: string;
-  /** Other values each Figma property can take on this component (states to build). */
+  /** Other values each Figma property can take on this component (the placed value is left out; despite the name, these are the OTHER states to build). */
   states?: Record<string, string[]>;
   use?: string;
   partsFrom?: string;
@@ -161,7 +161,13 @@ export interface HandoffSlot {
   required: boolean;
   status: string;
   component?: { name: string; fileKey?: string; figmaNodeId?: string };
+  /** True when a copy is placed on the screen for this slot (`state` "placed"). A part inside a placed component is not `onScreen`; see `state`. */
   onScreen: boolean;
+  /** Only for a slot with a bound component. `placed`: a copy placed on the screen (or directly in a whole-screen copy). `inside`: only a part of a placed component (`insideOf` names it). `missing`: neither. One copy fills at most one slot. */
+  state?: "placed" | "inside" | "missing";
+  insideOf?: string;
+  /** `missing` because the only placed copies of its component already fill another slot. */
+  sharedWith?: string;
 }
 
 export interface HandoffDecision {
@@ -177,7 +183,14 @@ export interface HandoffScreen {
   screen: { name: string; fileKey?: string; figmaNodeId?: string; link?: string; id: string };
   context?: { id: string; product?: string; journey?: string; domain?: string; accessibility?: string; density?: string };
   /** `matchedBy: "screen name"` when Resolve picked the recipe from the screen's name (a match, not a fact); `"asked"` with --recipe. */
-  recipe: { id: string; title: string; matchedBy: "asked" | "screen name"; slots: HandoffSlot[] } | null;
+  recipe: {
+    id: string;
+    title: string;
+    matchedBy: "asked" | "screen name";
+    slots: HandoffSlot[];
+    /** `covered` counts `placed` and `inside` slots out of all `slots`. */
+    coverage: { slots: number; covered: number; placed: number; inside: number };
+  } | null;
   /** Set when the frame was found by a loose name match, not its exact name or id. */
   matchedFrame?: string;
   recipeNote?: string;
@@ -228,6 +241,11 @@ export type HandoffPack =
       hint: string;
     };
 
+const slotCoverage = (slots: HandoffSlot[]) => {
+  const placed = slots.filter((s) => s.state === "placed").length;
+  const inside = slots.filter((s) => s.state === "inside").length;
+  return { slots: slots.length, covered: placed + inside, placed, inside };
+};
 const fid = (index: GraphIndex, n: GraphNode) => nodeFileKey(n, index.graph.fileKey);
 const where = (fileKey?: string, id?: string) => [fileKey, id].filter(Boolean).join(" ");
 export const figmaLink = (fileKey?: string, id?: string) =>
@@ -284,14 +302,22 @@ export function inputHints(props: Record<string, string> | undefined, angular: A
   return hints;
 }
 
+/** Attributes a selector pins, e.g. `acme-button[variant="primary"]` -> variant: primary. */
+export function selectorPins(angular: AngularTwin | undefined): Map<string, string> {
+  const pins = new Map<string, string>();
+  const first = angular?.selector.split(",")[0]!.trim() ?? "";
+  for (const a of first.matchAll(/\[([^\]=]+)=(?:"([^"]*)"|'([^']*)'|([^\]]*))\]/g)) pins.set(a[1]!, a[2] ?? a[3] ?? a[4] ?? "");
+  return pins;
+}
+
 /** `<acme-button variant="primary" (pressed)="…"></acme-button>` for an element selector; undefined for attribute-only or class selectors. */
-export function angularTemplate(angular: AngularTwin | undefined, hints: InputHint[]): string | undefined {
+export function angularTemplate(angular: AngularTwin | undefined, hints: InputHint[], drop: string[] = []): string | undefined {
   if (!angular) return undefined;
   const first = angular.selector.split(",")[0]!.trim();
   const m = /^([a-z][a-z0-9]*(?:-[a-z0-9]+)*)((?:\[[^\]]+\])*)$/.exec(first);
   if (!m) return undefined;
   const el = m[1]!;
-  const attrs = [...m[2]!.matchAll(/\[([^\]=]+)(?:=(?:"([^"]*)"|'([^']*)'|([^\]]*)))?\]/g)].map((a) => {
+  const attrs = [...m[2]!.matchAll(/\[([^\]=]+)(?:=(?:"([^"]*)"|'([^']*)'|([^\]]*)))?\]/g)].filter((a) => !drop.includes(a[1]!)).map((a) => {
     const value = a[2] ?? a[3] ?? a[4];
     return value === undefined ? a[1]! : `${a[1]}="${value}"`;
   });
@@ -506,6 +532,20 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     const inner = [...new Set([...index.getNestedInstances(main.id), ...index.getDescendants(main.id).filter(isCopy)])];
     for (const c of inner) {
       const m = mainOf(c);
+      if (!m && missingOf(c) && !draft) {
+        const missing = missingOf(c)!;
+        if (!seenMissing.has(missing)) {
+          seenMissing.add(missing);
+          refused.push({
+            screen: screenName,
+            figmaNodeId: frame.figmaNodeId,
+            kind: "not-found",
+            component: clean(c.name),
+            message: `The component of ${clean(c.name)} (copy ${where(fid(index, c), c.figmaNodeId)}) is not in the learned library: its main component ${missing} is in no learned file. It is inside ${familyName(main)} [${where(fid(index, main), main.figmaNodeId)}] (read from its main component, because the copy ${where(fid(index, top), top.figmaNodeId)} on this screen has no learned insides of its own). Learn the library file that holds it, or replace the part, then run handoff again. (Or pass --draft for a labelled draft that is not for build.)`,
+          });
+        }
+        continue;
+      }
       if (!m || m.isRemote) continue;
       if (hooks.retired(m)) {
         retiredRefusal(
@@ -551,9 +591,56 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     const main = mainOf(copy);
     if (main) placedFamilies.set(familyKey(index, main), main);
   }
+  // Each slot is filled by one copy: a placed copy, else a part inside a placed component, else it is missing.
+  const hostsOf = (() => {
+    const all = directCopies(index, frame);
+    return [...all.filter((c) => c.id !== frame.id), ...all.filter((c) => c.id === frame.id)];
+  })();
+  const innerCopies = (copy: GraphNode, seen = new Set<string>()): GraphNode[] => {
+    const own = [...new Set([...index.getNestedInstances(copy.id), ...index.getDescendants(copy.id).filter(isCopy)])].filter((c) => c.id !== copy.id);
+    if (own.length || index.getChildren(copy.id).length) return own;
+    const main = mainOf(copy);
+    if (!main || main.isRemote || seen.has(main.id)) return [];
+    seen.add(main.id);
+    const def = [...new Set([...index.getNestedInstances(main.id), ...index.getDescendants(main.id).filter(isCopy)])];
+    return def.flatMap((c) => [c, ...innerCopies(c, seen)]);
+  };
+  const insideBy = new Map<string, Array<{ copy: GraphNode; parent: string }>>();
+  for (const host of hostsOf) {
+    const hostMain = mainOf(host);
+    const parent = hostMain ? familyName(hostMain) : clean(host.name);
+    for (const c of innerCopies(host)) {
+      const m = mainOf(c);
+      if (!m) continue;
+      const list = insideBy.get(familyKey(index, m)) ?? [];
+      if (!list.some((e) => e.copy.id === c.id)) list.push({ copy: c, parent });
+      insideBy.set(familyKey(index, m), list);
+    }
+  }
+  const taken = new Set<string>();
+  const filledBy = new Map<string, string>();
   const slots: HandoffSlot[] = (filled?.slots ?? []).map((s) => {
     const node = s.master ? index.getNode(s.master.id) : undefined;
     const fam = node ? familyKey(index, node) : undefined;
+    let state: HandoffSlot["state"];
+    let insideOf: string | undefined;
+    let sharedWith: string | undefined;
+    if (fam) {
+      const copy = hostsOf.find((c) => !taken.has(c.id) && mainOf(c) && familyKey(index, mainOf(c)!) === fam);
+      const part = copy ? undefined : insideBy.get(fam)?.find((e) => !taken.has(e.copy.id));
+      if (copy) {
+        taken.add(copy.id);
+        filledBy.set(fam, filledBy.get(fam) ?? s.role);
+        state = "placed";
+      } else if (part) {
+        taken.add(part.copy.id);
+        state = "inside";
+        insideOf = part.parent;
+      } else {
+        state = "missing";
+        sharedWith = filledBy.get(fam);
+      }
+    }
     return {
       role: s.role,
       required: s.required,
@@ -561,7 +648,10 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
       ...(s.master
         ? { component: { name: clean(s.master.set ?? s.master.name), ...(s.master.fileKey ? { fileKey: s.master.fileKey } : {}), ...(s.master.figmaNodeId ? { figmaNodeId: s.master.figmaNodeId } : {}) } }
         : {}),
-      onScreen: Boolean(fam && placedFamilies.has(fam)),
+      onScreen: state === "placed",
+      ...(state ? { state } : {}),
+      ...(insideOf ? { insideOf } : {}),
+      ...(sharedWith ? { sharedWith } : {}),
     };
   });
   const slotOfFamily = new Map<string, string>();
@@ -577,14 +667,24 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     const remote = Boolean(main?.isRemote);
     const missing = !main ? missingOf(first) : undefined;
     const set = main ? setOf(index, main) : undefined;
+    const name = clean(set?.name ?? main?.name ?? first.name);
     const twin = main && !remote ? hooks.twin(main) : undefined;
     const props = main?.variantProperties && Object.keys(main.variantProperties).length ? main.variantProperties : undefined;
-    const hints = inputHints(props, twin?.angular);
-    const template = angularTemplate(twin?.angular, hints);
+    const allHints = inputHints(props, twin?.angular);
+    // A selector that pins an attribute (`acme-button[variant="primary"]`) only matches that value: a different Figma value is not suggested.
+    const pins = selectorPins(twin?.angular);
+    const conflicts: string[] = [];
+    const hints = allHints.filter((h) => {
+      const pinned = [...pins].find(([attr]) => norm(attr) === norm(h.input));
+      if (!pinned || norm(pinned[1]) === norm(h.value)) return true;
+      conflicts.push(pinned[0]);
+      open.push(`${name}: the selector only matches ${pinned[0]}="${pinned[1]}"; this copy is ${h.from.slice(h.from.indexOf("=") + 1)} (${h.from}). Check how the code builds this variant.`);
+      return false;
+    });
+    const template = angularTemplate(twin?.angular, hints, conflicts);
     const card = hooks.ingredient(`${fid(index, first) ?? ""}:${first.figmaNodeId ?? first.id}`.replace(/^:/, ""), depth, options.maxCharsPerCard);
     const parts = card.found ? trimParts(card.parts) : [];
     const guess = !main ? !missing : hooks.nameGuess(main);
-    const name = clean(set?.name ?? main?.name ?? first.name);
     const states = main && !remote ? statesOf(index, main) : undefined;
     components.push({
       name,
@@ -596,7 +696,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
       identity: missing ? "not-found" : guess ? NAME_GUESS : "confirmed",
       status: !main ? "not-found" : remote ? "other-library" : hooks.retired(main) ? "retired" : "current",
       ...(main && slotOfFamily.has(familyKey(index, main)) ? { slot: slotOfFamily.get(familyKey(index, main)) } : {}),
-      code: twin ? twin.line : "unmapped",
+      code: twin ? twin.line : remote || missing ? "unknown" : "unmapped",
       ...(twin?.angular ? { angular: twin.angular } : {}),
       ...(props ? { figmaProps: props } : {}),
       ...(hints.length ? { inputs: hints } : {}),
@@ -621,7 +721,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
         ...(p.fileKey ? { fileKey: p.fileKey } : {}),
         ...(p.figmaNodeId ? { figmaNodeId: p.figmaNodeId } : {}),
         status: partStatus(p),
-        code: p.code ?? "unmapped",
+        code: p.code ?? (p.status === "other-library" || p.status === "not-found" ? "unknown" : "unmapped"),
         ...(p.angular ? { angular: p.angular } : {}),
         usedBy: [],
       };
@@ -667,7 +767,8 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     if (i.status === "retired") open.push(`Part ${i.name} (inside ${i.usedBy.join(", ")}) is retired in the library; the library component needs an update.`);
   }
   for (const s of slots) {
-    if (s.required && s.component && !s.onScreen) open.push(`Recipe slot ${s.role} expects ${s.component.name}; it is not placed on this screen. Is that on purpose?`);
+    if (s.required && s.component && s.state === "missing") open.push(`Recipe slot ${s.role} expects ${s.component.name}; it is not placed on this screen.${s.sharedWith ? ` Its placed copy already fills ${s.sharedWith}.` : ""} Is that on purpose?`);
+    if (s.required && s.component && s.state === "inside") open.push(`Recipe slot ${s.role}: ${s.component.name} comes with ${s.insideOf}; check it is meant to fill the ${s.role} slot.`);
     if (s.required && !s.component) open.push(`Recipe slot ${s.role} has no component bound in the recipe; check what the design uses for it.`);
   }
   for (const i of verify.invents) open.push(`Verify flagged ${i}.`);
@@ -676,7 +777,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
   const familyIds = new Set([...placedFamilies.keys()]);
   const decisions = decisionsFor(options.decisions, frame, recipe?.id, familyIds, index);
   const pack = options.context;
-  const linked = components.filter((c) => c.code !== "unmapped").length;
+  const linked = components.filter((c) => c.code !== "unmapped" && c.code !== "unknown").length;
   const allParts = ingredients.length;
   const nameGuesses = components.filter((c) => c.identity === NAME_GUESS).length + ingredients.filter((i) => i.status === NAME_GUESS).length;
   const notFound = components.filter((c) => c.status === "not-found").length + ingredients.filter((i) => i.status === "not-found").length;
@@ -706,7 +807,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
           },
         }
       : {}),
-    recipe: recipe ? { id: recipe.id, title: recipe.title, matchedBy: options.recipe ? "asked" : "screen name", slots } : null,
+    recipe: recipe ? { id: recipe.id, title: recipe.title, matchedBy: options.recipe ? "asked" : "screen name", slots, coverage: slotCoverage(slots) } : null,
     ...(recipeNote ? { recipeNote } : {}),
     components,
     ingredients,
@@ -717,7 +818,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
       components: components.length,
       copies: components.reduce((n, c) => n + c.count, 0),
       linkedToCode: linked,
-      unmapped: components.length - linked,
+      unmapped: components.filter((c) => c.code === "unmapped").length,
       parts: allParts,
       partsLinkedToCode: ingredients.filter((i) => i.status === "mapped").length,
       nameGuesses,
@@ -828,8 +929,10 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   if (s.recipe) {
     out.push(`${md(s.recipe.title)} (\`${s.recipe.id}\`)${s.recipe.matchedBy === "screen name" ? ", matched from the screen name; pass --recipe <id> to pick another" : ""}`, "", "| Slot | Required | Recipe status | Component | On this screen |", "|---|---|---|---|---|");
     for (const sl of s.recipe.slots) {
-      out.push(`| ${md(sl.role)} | ${sl.required ? "yes" : "no"} | ${md(sl.status)} | ${sl.component ? `${md(sl.component.name)} [${md(where(sl.component.fileKey, sl.component.figmaNodeId))}]` : "none bound"} | ${sl.component ? (sl.onScreen ? "yes" : "no") : "-"} |`);
+      out.push(`| ${md(sl.role)} | ${sl.required ? "yes" : "no"} | ${md(sl.status)} | ${sl.component ? `${md(sl.component.name)} [${md(where(sl.component.fileKey, sl.component.figmaNodeId))}]` : "none bound"} | ${sl.state === "placed" ? "placed" : sl.state === "inside" ? `inside ${md(sl.insideOf ?? "a placed component")}` : sl.state === "missing" ? (sl.sharedWith ? `missing (its placed copy fills ${md(sl.sharedWith)})` : "missing") : "-"} |`);
     }
+    const cov = s.recipe.coverage;
+    out.push("", `${cov.covered}/${cov.slots} slots covered (${cov.placed} placed, ${cov.inside} inside another component).`);
   } else out.push(md(s.recipeNote ?? "No recipe."));
   out.push("", `## Components (${s.components.length})`, "");
   for (const c of s.components) {
@@ -846,7 +949,7 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
     out.push(c.status === "other-library" && placed ? `- Figma: placed as ${md(c.copies.join(", "))}${c.count > c.copies.length ? `, +${c.count - c.copies.length} more` : ""}; ${figma}${c.slot ? `; recipe slot: ${md(c.slot)}` : ""}` : `- Figma: ${figma}${placed}${c.slot ? `; recipe slot: ${md(c.slot)}` : ""}`);
     if (c.identity === NAME_GUESS) out.push("- Identity: **name-guess** (from the layer name, not confirmed)");
     if (c.identity === "not-found") out.push("- Identity: **not-found** (the copy's component is in no learned file)");
-    out.push(`- Code: ${c.status === "other-library" ? "unknown (its library file is not learned)" : codeLine(c.code, undefined)}`);
+    out.push(`- Code: ${c.status === "other-library" ? "unknown (its library file is not learned)" : c.code === "unknown" ? "unknown (its component is not in the learned files)" : codeLine(c.code, undefined)}`);
     if (c.angular) out.push(`- Angular: ${ng(c.angular, true)}${c.angular.standalone ? " (add the component to `imports`)" : c.angular.module ? ` (import \`${c.angular.module}\` from '${c.angular.importPath}')` : ""}`);
     if (c.figmaProps) {
       const hints = c.inputs?.length ? ` → inputs (suggested): ${c.inputs.map(inputText).map(md).join(", ")}` : "";
@@ -863,7 +966,7 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   }
   const imports = new Map<string, string>();
   for (const c of s.components) {
-    if (c.code === "unmapped") continue;
+    if (c.code === "unmapped" || c.code === "unknown") continue;
     const a = c.angular;
     imports.set(c.code, a ? `\`${c.code}\` (${a.standalone ? "standalone" : a.module ? `module \`${a.module}\`` : "Angular"})` : `\`${c.code}\``);
   }
@@ -872,7 +975,7 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   out.push(`## Ingredients (${s.ingredients.length} parts)`, "");
   if (s.ingredients.length) {
     out.push("| Part | Figma | Code | Status | Used by |", "|---|---|---|---|---|");
-    for (const i of s.ingredients) out.push(`| ${md(i.name)} | ${figmaId(i.figmaNodeId) ? md(where(i.fileKey, i.figmaNodeId)) : "-"} | ${i.code === "unmapped" ? "unmapped" : `\`${i.code}\`${i.angular ? `, ${ng(i.angular)}` : ""}`} | ${i.status} | ${i.usedBy.map(md).join(", ")} |`);
+    for (const i of s.ingredients) out.push(`| ${md(i.name)} | ${figmaId(i.figmaNodeId) ? md(where(i.fileKey, i.figmaNodeId)) : "-"} | ${i.code === "unmapped" || i.code === "unknown" ? i.code : `\`${i.code}\`${i.angular ? `, ${ng(i.angular)}` : ""}`} | ${i.status} | ${i.usedBy.map(md).join(", ")} |`);
   } else out.push("No parts inside the placed components.");
   out.push("", "## Verify", "");
   if (s.verify.checked) out.push("Checked as a component list (this screen is one copy).", "");
@@ -892,7 +995,7 @@ export function formatHandoffIngredients(pack: Extract<HandoffPack, { ok: true }
   if (!pack.ingredients.length) return `${[...out, "No parts inside the placed components."].join("\n")}\n`;
   out.push("| Part | Figma | Code | Status | Used by | Screens |", "|---|---|---|---|---|---|");
   for (const i of pack.ingredients) {
-    out.push(`| ${md(i.name)} | ${figmaId(i.figmaNodeId) ? md(where(i.fileKey, i.figmaNodeId)) : "-"} | ${i.code === "unmapped" ? "unmapped" : `\`${i.code}\`${i.angular ? `, ${ng(i.angular)}` : ""}`} | ${i.status} | ${i.usedBy.map(md).join(", ")} | ${(i.screens ?? []).map(md).join(", ")} |`);
+    out.push(`| ${md(i.name)} | ${figmaId(i.figmaNodeId) ? md(where(i.fileKey, i.figmaNodeId)) : "-"} | ${i.code === "unmapped" || i.code === "unknown" ? i.code : `\`${i.code}\`${i.angular ? `, ${ng(i.angular)}` : ""}`} | ${i.status} | ${i.usedBy.map(md).join(", ")} | ${(i.screens ?? []).map(md).join(", ")} |`);
   }
   return `${out.join("\n")}\n`;
 }

@@ -17,6 +17,7 @@ import { computeAnalytics, computeComponentUsage, type GraphAnalytics } from "./
 import { detectCommunitiesForIndex } from "./communities";
 import type { GraphIndex } from "./GraphIndex";
 import { searchNodes } from "./search";
+import { parseFigmaTarget } from "@/core/ingestion/figmaFileKey";
 import { extractSubgraph, levelForNode } from "./subgraph";
 import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
@@ -988,6 +989,18 @@ export function resolveNodeExact(index: GraphIndex, nameOrId: string): GraphNode
   if (!trimmed) return undefined;
   const direct = index.getNode(trimmed);
   if (direct) return direct;
+  // A pasted Figma link (`...?node-id=20-40`) is the frame it points at.
+  if (/figma\.com\//i.test(trimmed)) {
+    try {
+      const target = parseFigmaTarget(trimmed);
+      for (const id of target.nodeIds) {
+        const hit = resolveNodeExact(index, `${target.fileKey}:${id}`) ?? resolveNodeExact(index, id);
+        if (hit) return hit;
+      }
+    } catch {
+      // Not a link we can read; fall through to a name match.
+    }
+  }
   const lower = trimmed.toLowerCase();
   let exactName: GraphNode | undefined;
   let realMaster: GraphNode | undefined;
