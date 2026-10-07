@@ -221,12 +221,12 @@ Resolve also keeps a list of what designers really asked for that it could not a
 
 ```
 Designers asked for 1 thing(s) Resolve could not answer well (4 ask(s) in all). Most asked first.
-Each one needs a team word (synonyms.json), a recipe, or a part the design system does not have yet.
+A part ask needs a team word (synonyms.json), a recipe, or a part the design system does not have yet.
 
 4x "date range picker": nothing found (last 2026-10-07)
 ```
 
-Each row tells you what to fix: a team word for a part Acme already has, a recipe, or a part the design system team should build.
+Each row tells you what to fix: a team word for a part Acme already has, a recipe, or a part the design system team should build. A screen ask such as "approval screen" with no mapped approval screen shows as `no mapped approval screen yet`; checking one real approval frame with `verify_frame` answers it.
 
 ## Questions designers ask
 
@@ -677,7 +677,7 @@ Runs a set of asks with known right answers through `recommend`, `resolve`, `rec
 
 `npm run resolve -- score phrases [--phrases <path>] [--json]` scores designer-worded phrases against `recommend`. It reads the team's own `<store>/scoreboard/phrases/*.json` when there are any. Otherwise it reads the built-in `scoreboard/phrases/*.json` in the checkout, but only when the store holds the sample library (`scoreboard/fixture`); on any other library it stops and asks for team phrases. The two sets are never added together. `--phrases` reads only that path. `score phrase` and `score Phrases` work too; any other word after `score` is an error. Each phrase has an `id`, a `phrase`, a `type` and an `expect`: part names, `"none"`, or `"weak"` (empty, or a pick named in `accept`). It reports top-1, top-3, correct-empty, false-empty, wrong-cousin, retired-recommended and invent, per type. It exits non-zero on any invent or retired-recommended. A phrase naming a part the library lacks is skipped and listed, and a run where nothing could be scored fails. Details in [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md#designer-phrase-set).
 
-`npm run resolve -- gaps [--json]` lists what designers asked `recommend` for (MCP tool or CLI) that came back empty or as a weak match, from `<store>/scoreboard/gaps.jsonl`. The same ask, ignoring letter case and spacing, is one row with a count and the last date, most asked first. `score phrases`, `recipe` and `resolve` do not add to it. Writing the file never fails a `recommend`. The file is under `scoreboard/`, which the `resolve-setup` ignore block already keeps out of git. Delete it to start over.
+`npm run resolve -- gaps [--json]` lists what designers asked `recommend` for (MCP tool or CLI) that came back empty or as a weak match, and screen asks with no mapped screen of that job, from `<store>/scoreboard/gaps.jsonl`. The same ask, ignoring letter case and spacing, is one row with a count and the last date, most asked first. `score phrases`, `recipe` and `resolve` do not add to it. Writing the file never fails a `recommend`. The file is under `scoreboard/`, which the `resolve-setup` ignore block already keeps out of git. Delete it to start over.
 
 #### The seven MCP tools
 
@@ -886,6 +886,7 @@ The same 14 Acme cards (three recommends, three resolves, one example, two verif
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
+- **Oct 7, 2026 — screen jobs (branch `stage5-sock-screen-jobs`).** Ask the agent for an "inquiry screen" and it answers from Acme's mapped inquiry screens: Search and List, in the order those screens use them, with their Figma ids. Nobody writes a recipe or a synonym for it. With no mapped screen of that job, the answer is empty and says so. Component ranking is unchanged. Default tools stay 7.
 - **Oct 7, 2026 — [PR #44](https://github.com/TANISHQBAFNA/resolve/pull/44).** New `resolve gaps` lists what designers asked `recommend` for that found nothing or only a weak match, most asked first, from a local, git-ignored `<store>/scoreboard/gaps.jsonl`. If Acme designers ask for "date range picker" twice, it shows `2x "date range picker": nothing found`. Ranking is unchanged. Default tools stay 7. 823 tests.
 - **Oct 7, 2026 — [PR #42](https://github.com/TANISHQBAFNA/resolve/pull/42).** MCP tools return a Markdown card. `format` `json` is the same card as compact JSON, without the `cost` block, rank `score`, duplicate `node:` ids, the graph.json hint, learn's save-state dump, or a handoff parts list sent twice. `fileKey`, `figmaNodeId`, `componentKey`, `ex`, PASS/FAIL, replacements, slot status, `textChecked`, name guesses, other-library, the context echo, and code-map check sentences stay. The CLI prints compact JSON; `--pretty` indents it. Exit codes are unchanged. On the Acme set (14 cards: 3 recommends, 3 resolves, 1 example, 2 verifies, 1 recipe, the recipe list, cousins, 1 ingredient card, the Send money handoff) tokens go from 4,434 to 3,269. Ranking is unchanged. Default tools stay 7. 818 tests.
 - **Oct 7, 2026 — [PR #40](https://github.com/TANISHQBAFNA/resolve/pull/40).** `resolve code-map --check` answers from the committed handoff and code map only (no learned cache). It matches file key and node id. On the shipped Acme map, `AcmeOldButtonComponent` is retired (`Don't use. Use Button.`). A part from another library with no code twin is `other-library` (exit 6). `resolve pack validate` stays strict. Loading a pack skips a bad pack or field and warns once. Ranking is unchanged. Audience, a11y, and density are echoed and do not change the pick. 806 tests.

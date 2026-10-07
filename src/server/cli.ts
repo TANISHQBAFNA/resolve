@@ -29,6 +29,7 @@ import {
   describeRole,
   parseIngestRole,
   recommendMasters,
+  screenAskCard,
   exampleCard,
   iconLibraryWarnings,
   indexGraph,
@@ -539,6 +540,11 @@ async function dispatchCli(argv: string[]): Promise<void> {
         );
         return;
       }
+      const screen = screenAskCard(query, { sock, index: resolveGraph(flag(args, "id"))?.index, recipes });
+      if (screen) {
+        printJson(screen);
+        return;
+      }
       printJson(
         recipeCard(
           recipes,
@@ -584,7 +590,14 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const context = pack || screenType
         ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
         : undefined;
-      const card = recommendMasters(requireGraph(args).index, intent, {
+      const index = requireGraph(args).index;
+      const screen = screenAskCard(intent, { sock: readSock(), index, recipes: loadRecipes() });
+      if (screen) {
+        recordGap(intent, screen);
+        printJson(screen);
+        return;
+      }
+      const card = recommendMasters(index, intent, {
         budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
         ...(context ? { context } : {}),
         workspace: bind.workspace,

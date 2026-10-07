@@ -320,19 +320,22 @@ export function listRecipes(
   };
 }
 
+/** A recipe whose id, title or alias is the whole query (letter case ignored). */
+export function exactRecipe(recipes: Recipe[], query: string): Recipe | undefined {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return undefined;
+  return (
+    recipes.find((recipe) => recipe.id.toLowerCase() === needle || recipe.title.toLowerCase() === needle) ??
+    recipes.find((recipe) => recipe.intentAliases.some((item) => item.trim().toLowerCase() === needle))
+  );
+}
+
 export function matchRecipe(recipes: Recipe[], query: string): Recipe | undefined {
   const needle = query.trim().toLowerCase();
   if (!needle) return undefined;
 
-  const exact = recipes.find(
-    (recipe) => recipe.id.toLowerCase() === needle || recipe.title.toLowerCase() === needle,
-  );
+  const exact = exactRecipe(recipes, query);
   if (exact) return exact;
-
-  const alias = recipes.find((recipe) =>
-    recipe.intentAliases.some((item) => item.trim().toLowerCase() === needle),
-  );
-  if (alias) return alias;
 
   const tokens = tokensOf(query);
   if (!tokens.length) return undefined;

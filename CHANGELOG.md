@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — screen jobs from SOCK
+
+Oct 7, 2026 IST. `recommend` and `recipe` answer a bare screen ask ("inquiry screen", "summary screen", "approval screen", "payment screen") from mapped screens in SOCK. `src/data/screen-jobs.json` gives each job a meaning and its words only. `verify_frame` writes the job on each fact, from the journey or frame name, and marks parts nested inside other components so they are not part of the screen. Facts written earlier are classified when read. Masters rank by how many distinct screens of the job used them (`strong` from 3 screens, `low` below), with `fileKey`, `figmaNodeId` and `ex`. No mapped screen of the job gives an empty card, never a look-alike part or a starter recipe, and `resolve gaps` lists it as "no mapped <job> screen yet". Two job words return both approaches. An exact recipe id, title or alias that is not a bare single job still answers with that recipe ("checkout summary"). Component ranking is unchanged. Default MCP tools stay 7.
+
 ## Unreleased — finder gaps
 
 Oct 7, 2026 IST. New `resolve gaps [--json]` lists what designers asked `recommend` for (MCP tool or CLI) that came back empty or as a weak match, most asked first, with a count and the last date. Asks are kept in `<store>/scoreboard/gaps.jsonl`, which setup's gitignore block already keeps out of git. `score phrases`, `recipe` and `resolve` do not add to it, and a failed write never breaks `recommend`. Ranking is unchanged. Default MCP tools stay 7.
