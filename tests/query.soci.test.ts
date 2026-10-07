@@ -876,6 +876,40 @@ describe("frame slot does not leak onto nested instances", () => {
   });
 });
 
+describe("verify_frame feeds the screen-job approach", () => {
+  const previousHome = process.env["RESOLVE_HOME"];
+
+  beforeEach(() => {
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-job-"));
+    clearCache();
+  });
+
+  afterEach(() => {
+    clearCache();
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
+  });
+
+  it("tags Checkout frames as payment, keeps nested parts out, and recommend ranks what the screens placed", () => {
+    saveGraph(checkoutFrameGraph(2));
+    for (let i = 1; i <= 3; i += 1) callTool("verify_frame", { frame: `node:frame-${i}` });
+    const facts = loadSock()?.facts ?? [];
+    expect(facts.length).toBeGreaterThan(0);
+    expect(facts.every((fact) => fact.job === "payment")).toBe(true);
+    expect(facts.filter((fact) => fact.masterId === "node:badge").every((fact) => fact.nested === true)).toBe(true);
+    const card = callTool("recommend", { intent: "payment screen" }) as {
+      approaches: Array<{ job: string; confidence: string; mappedScreens: number; masters: Array<{ id: string; screens: number; fileKey?: string }> }>;
+    };
+    expect(card.approaches).toHaveLength(1);
+    expect(card.approaches[0]).toMatchObject({ job: "payment", confidence: "strong", mappedScreens: 3 });
+    expect(card.approaches[0]?.masters.map((row) => [row.id, row.screens])).toEqual([
+      ["node:stepper", 3],
+      ["node:card", 2],
+    ]);
+    expect(card.approaches[0]?.masters.every((row) => row.fileKey === "LIB")).toBe(true);
+  });
+});
+
 describe("malformed sock.json", () => {
   const previousHome = process.env["RESOLVE_HOME"];
 

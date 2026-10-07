@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "jobs": [
+    {
+      "id": "inquiry",
+      "meaning": "Look up something that already exists.",
+      "words": ["inquiry", "inquiries", "enquiry", "enquiries", "enquire", "lookup"]
+    },
+    {
+      "id": "summary",
+      "meaning": "Review what this flow already collected, before the commit.",
+      "words": ["summary", "summaries"]
+    },
+    {
+      "id": "approval",
+      "meaning": "Someone other than the maker decides.",
+      "words": ["approval", "approvals", "approve"]
+    },
+    {
+      "id": "payment",
+      "meaning": "Move money.",
+      "words": ["payment", "payments", "pay", "checkout"]
+    }
+  ]
+}

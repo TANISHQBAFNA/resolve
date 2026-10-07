@@ -5,6 +5,8 @@
  * Usage facts write themselves. Rules never do.
  */
 
+import { isGenericScreenToken, jobOfName } from "./screenJobs";
+
 export const DEFAULT_USAGE_THRESHOLD = 3;
 
 export type UsageConfidence = "low" | "strong";
@@ -59,6 +61,10 @@ export interface UsageFact {
   configKey?: string;
   /** Graph id of the instance that carried configKey. */
   exampleNodeId?: string;
+  /** Screen job (screen-jobs.json) from the journey or frame name at verify time. Old facts without it are classified on read. */
+  job?: string;
+  /** A part inside another component on the frame, not placed on the screen itself. Not part of a screen's composition. */
+  nested?: true;
   verifiedAt: string;
 }
 
@@ -226,8 +232,12 @@ export function recordVerifiedUsage(
       exampleNodeId?: string;
       /** Wins over the shared input.slot. Omit both to record no slot. */
       slot?: string;
+      /** Inside another component on the frame, not placed on the screen itself. */
+      nested?: boolean;
     }>;
     journey?: string;
+    /** Screen job of the frame, when its journey or name names exactly one. */
+    job?: string;
     product?: string;
     pack?: string;
     slot?: string;
@@ -265,6 +275,8 @@ export function recordVerifiedUsage(
       ...(master.overrideKeys?.length ? { overrideKeys: master.overrideKeys } : {}),
       ...(master.configKey ? { configKey: master.configKey } : {}),
       ...(master.exampleNodeId ? { exampleNodeId: master.exampleNodeId } : {}),
+      ...(input.job ? { job: input.job } : {}),
+      ...(master.nested ? { nested: true as const } : {}),
       verifiedAt,
     });
   }
@@ -296,6 +308,93 @@ export function patternsOf(state: SockState): UsagePattern[] {
     if (!row.promoted) row.confidence = "low";
   }
   return [...byMaster.values()];
+}
+
+/** A fact's screen job: the one it was written with, else its journey, else its screen name. */
+export function factJob(fact: UsageFact): string | undefined {
+  return fact.job ?? jobOfName(fact.journey) ?? jobOfName(fact.screenName);
+}
+
+export interface ScreenPatternMaster {
+  masterId: string;
+  name: string;
+  fileKey?: string;
+  figmaNodeId?: string;
+  /** Graph id of a real instance on one of the screens, when a fact carried one. */
+  exampleNodeId?: string;
+  /** Distinct verified screens of this job that placed this master. */
+  screens: number;
+  confidence: UsageConfidence;
+}
+
+export interface ScreenPattern {
+  job: string;
+  /** Distinct verified screens of this job. */
+  screens: number;
+  confidence: UsageConfidence;
+  masters: ScreenPatternMaster[];
+}
+
+/**
+ * What mapped screens of one job are made of. Counted, promoted facts of real frames only, placed on the screen itself.
+ * A master ranks by how many distinct screens of the job used it. A tie keeps the order of the screen that holds the
+ * most of those masters, then first-seen order. Empty when no screen of the job is mapped.
+ */
+export function screenPatternFor(state: SockState, job: string): ScreenPattern {
+  const facts = (Array.isArray(state.facts) ? state.facts : []).filter(
+    (fact): fact is UsageFact =>
+      Boolean(fact) &&
+      typeof fact.masterId === "string" &&
+      typeof fact.screenId === "string" &&
+      fact.countsTowardThreshold !== false &&
+      fact.promoted === true &&
+      !fact.deprecated &&
+      !fact.private &&
+      !fact.nested &&
+      factJob(fact) === job,
+  );
+  const screens = new Map<string, string[]>();
+  const byMaster = new Map<string, { row: ScreenPatternMaster; seen: Set<string>; first: number }>();
+  facts.forEach((fact, at) => {
+    const onScreen = screens.get(fact.screenId) ?? [];
+    if (!onScreen.includes(fact.masterId)) onScreen.push(fact.masterId);
+    screens.set(fact.screenId, onScreen);
+    const hit = byMaster.get(fact.masterId) ?? {
+      row: {
+        masterId: fact.masterId,
+        name: fact.name,
+        ...(fact.fileKey ? { fileKey: fact.fileKey } : {}),
+        ...(fact.figmaNodeId ? { figmaNodeId: fact.figmaNodeId } : {}),
+        screens: 0,
+        confidence: "low" as UsageConfidence,
+      },
+      seen: new Set<string>(),
+      first: at,
+    };
+    hit.seen.add(fact.screenId);
+    if (!hit.row.exampleNodeId && fact.exampleNodeId) hit.row.exampleNodeId = fact.exampleNodeId;
+    byMaster.set(fact.masterId, hit);
+  });
+  // ponytail: the anchor is one screen; a per-pair order vote across screens if real files need it.
+  const anchor = [...screens.values()].reduce<string[]>((best, list) => (list.length > best.length ? list : best), []);
+  const anchorAt = (id: string) => {
+    const at = anchor.indexOf(id);
+    return at < 0 ? Number.MAX_SAFE_INTEGER : at;
+  };
+  const masters = [...byMaster.values()]
+    .map((hit) => {
+      hit.row.screens = hit.seen.size;
+      hit.row.confidence = hit.seen.size >= state.threshold ? "strong" : "low";
+      return hit;
+    })
+    .sort((a, b) => b.row.screens - a.row.screens || anchorAt(a.row.masterId) - anchorAt(b.row.masterId) || a.first - b.first)
+    .map((hit) => hit.row);
+  return {
+    job,
+    screens: screens.size,
+    confidence: screens.size >= state.threshold ? "strong" : "low",
+    masters,
+  };
 }
 
 export function patternFor(state: SockState, masterId: string): UsagePattern | undefined {
@@ -486,37 +585,6 @@ function uniqueTrimmed(values: Array<string | undefined>): string[] {
     out.push(trimmed);
   }
   return out;
-}
-
-/** Words that never identify a screen type on their own. */
-const GENERIC_SCREEN_WORDS = new Set([
-  "screen",
-  "page",
-  "frame",
-  "view",
-  "untitled",
-  "copy",
-  "artboard",
-  "section",
-  "canvas",
-  "layer",
-  "default",
-  "draft",
-  "wip",
-  "temp",
-  "tmp",
-  "final",
-  "component",
-  "group",
-  "variant",
-  "master",
-  "instance",
-  "node",
-]);
-
-function isGenericScreenToken(token: string): boolean {
-  if (GENERIC_SCREEN_WORDS.has(token)) return true;
-  return /^v\d+$/.test(token);
 }
 
 /** Specific words left after generic screen words (and v1/v2) are removed. */

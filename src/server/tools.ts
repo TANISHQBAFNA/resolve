@@ -27,6 +27,8 @@ import {
   recommendMasters,
   recordCousinCorrections,
   recordVerifiedUsage,
+  screenAskCard,
+  jobOfName,
   screenInventory,
   topLevelMasterIds,
   searchNodes,
@@ -186,7 +188,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "recommend",
     description:
-      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.resolve/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (SOCK facts, 'used N× in file', or 'not verified on a screen yet') and, when a real populated instance is known, an ex id (or fileKey:nodeId when it lives in another file). No example is omitted. Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. The card echoes that context with its source (document, pack <id>, or active pack). Pass the same context on recipe and verify_frame. Every pick shows fileKey and figmaNodeId. The structured card is capped at 600 characters; Markdown is shorter. Empty candidates means stop. Do not invent a component. Do not Read graph.json.",
+      "Intent in, ranked library masters out. A bare screen job (inquiry, summary, approval or payment screen) answers from mapped screens instead: approaches with masters in order. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.resolve/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (SOCK facts, 'used N× in file', or 'not verified on a screen yet') and, when a real populated instance is known, an ex id (or fileKey:nodeId when it lives in another file). No example is omitted. Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. The card echoes that context with its source (document, pack <id>, or active pack). Pass the same context on recipe and verify_frame. Every pick shows fileKey and figmaNodeId. The structured card is capped at 600 characters; Markdown is shorter. Empty candidates means stop. Do not invent a component. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -431,7 +433,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "recipe",
     description:
-      "Get a screen recipe by id, title, or intent. After ingest, slots resolve against live masters (overlay .resolve/recipes.json still wins). Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. That scopes slot fills and nextRecommend. The card echoes audience and a11y. Unbound slots include the next recommend query. Never invents node ids. After placing: verify_frame with the same context. Do not Read graph.json.",
+      "Get a screen recipe by id, title, or intent. A bare screen job (\"payment screen\") answers from mapped screens, never a starter recipe. After ingest, slots resolve against live masters (overlay .resolve/recipes.json still wins). Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. That scopes slot fills and nextRecommend. The card echoes audience and a11y. Unbound slots include the next recommend query. Never invents node ids. After placing: verify_frame with the same context. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -933,6 +935,11 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
         : undefined;
       const intent = asString(args["intent"] ?? args["question"] ?? args["query"], "intent");
+      const screen = screenAskCard(intent, { sock: readSock(), index, recipes: loadRecipes() });
+      if (screen) {
+        recordGap(intent, screen);
+        return screen;
+      }
       const card = recommendMasters(index, intent, {
         budgetChars: budget,
         ...(resolvedContext ? { context: resolvedContext } : {}),
@@ -1051,17 +1058,22 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
               ? exampleFactForMasterOnFrame(index, result.frame.id, master.id, readPlaceholders())
               : undefined;
             const withExample = example ? { ...withKeys, ...example } : withKeys;
-            if (!slotArg) return withExample;
+            const placed = topLevel && !topLevel.has(master.id) ? { ...withExample, nested: true } : withExample;
+            if (!slotArg) return placed;
             if (topLevel) {
-              return topLevel.has(master.id) ? { ...withExample, slot: slotArg } : withExample;
+              return topLevel.has(master.id) ? { ...placed, slot: slotArg } : placed;
             }
-            return { ...withExample, slot: slotArg };
+            return { ...placed, slot: slotArg };
           });
+          const journeyArg = typeof args["journey"] === "string" ? args["journey"] : undefined;
+          const screenName = result.frame?.name ?? frame ?? "observation";
+          const job = realFrame ? (jobOfName(journeyArg) ?? jobOfName(screenName)) : undefined;
           let next = recordVerifiedUsage(readSock(), {
             screenId,
-            screenName: result.frame?.name ?? frame ?? "observation",
+            screenName,
             masters: mastersWithOverrides,
-            journey: typeof args["journey"] === "string" ? args["journey"] : undefined,
+            ...(job ? { job } : {}),
+            journey: journeyArg,
             product: typeof args["product"] === "string" ? args["product"] : undefined,
             pack: typeof args["pack"] === "string" ? args["pack"] : undefined,
             frameId: realFrame ? frameId : undefined,
@@ -1140,6 +1152,8 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const extra = intent && intent !== query ? intent : undefined;
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
       const recipes = loadRecipes();
+      const screen = screenAskCard(query, { sock: readSock(), index: resolveGraph(graphId)?.index, recipes });
+      if (screen) return withPendingImprovements(screen, readSock());
       const ranked = rankRecipes(recipes, query);
       const card = recipeCard(
         recipes,

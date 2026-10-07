@@ -1,10 +1,13 @@
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import type { Recipe } from "./recipes";
-import { matchRecipe } from "./recipes";
+import { exactRecipe, matchRecipe } from "./recipes";
+import { jobById, jobsInAsk } from "./screenJobs";
 import {
+  emptySock,
   inferSlot,
   isRemovedByAbsence,
+  screenPatternFor,
   patternsOf,
   proposeStrongPatterns,
   scopeFromUsageFacts,
@@ -17,6 +20,7 @@ import {
   type SociSuggestedRecipe,
   type SociSuggestedVariant,
   type SockState,
+  type UsageConfidence,
   type UsageFact,
   type UsagePattern,
 } from "./sock";
@@ -1010,3 +1014,65 @@ export function applySociDecision(
 }
 
 
+
+export interface ScreenApproach {
+  job: string;
+  meaning: string;
+  confidence: UsageConfidence;
+  mappedScreens: number;
+  masters: Array<{ id: string; name: string; fileKey?: string; figmaNodeId?: string; ex?: string; screens: number }>;
+}
+
+/** Example pointer for a fact's instance: its Figma node id, or fileKey:nodeId when it is in another file. */
+function exPointer(index: GraphIndex | undefined, exampleNodeId: string | undefined, fileKey?: string): string | undefined {
+  if (!index || !exampleNodeId) return undefined;
+  const node = index.getNode(exampleNodeId);
+  if (!node?.figmaNodeId) return undefined;
+  const where = nodeFileKey(node, index.graph.fileKey);
+  return where && fileKey && where !== fileKey ? `${where}:${node.figmaNodeId}` : node.figmaNodeId;
+}
+
+/**
+ * How mapped screens of one job are built: a SOCK read. Never writes recipes.json, never waits for approve.
+ * No mapped screen of the job: no masters, nothing invented.
+ */
+export function approachFor(state: SockState, job: string, index?: GraphIndex): ScreenApproach {
+  const pattern = screenPatternFor(state, job);
+  return {
+    job,
+    meaning: jobById(job)?.meaning ?? "",
+    confidence: pattern.confidence,
+    mappedScreens: pattern.screens,
+    masters: pattern.masters.map((row) => {
+      const ex = exPointer(index, row.exampleNodeId, row.fileKey);
+      return {
+        id: row.masterId,
+        name: row.name,
+        ...(row.fileKey ? { fileKey: row.fileKey } : {}),
+        ...(row.figmaNodeId ? { figmaNodeId: row.figmaNodeId } : {}),
+        ...(ex ? { ex } : {}),
+        screens: row.screens,
+      };
+    }),
+  };
+}
+
+/**
+ * recommend / recipe on a screen ask ("inquiry screen", "approval summary"): answered from mapped screens in SOCK.
+ * Undefined when the ask is not only job words, or when it names two or more jobs and is exactly a recipe
+ * id, title or alias ("checkout summary"), so that recipe and component ranking answer as before.
+ */
+export function screenAskCard(intent: string, options: { sock?: SockState; index?: GraphIndex; recipes?: Recipe[] } = {}) {
+  const jobs = jobsInAsk(intent);
+  if (!jobs) return undefined;
+  if (jobs.length > 1 && options.recipes && exactRecipe(options.recipes, intent)) return undefined;
+  const state = options.sock ?? emptySock();
+  const approaches = jobs
+    .map((job) => approachFor(state, job, options.index))
+    .sort((a, b) => b.mappedScreens - a.mappedScreens);
+  const missing = approaches.filter((row) => !row.masters.length).map((row) => row.job);
+  const hint = missing.length === approaches.length
+    ? `No mapped ${missing.join(" or ")} screen yet. Nothing is invented. After verify_frame on a real frame whose name or journey says ${missing.join(" or ")}, this answers from it.`
+    : `From mapped screens, most used first. Place fileKey+figmaNodeId in this order.${missing.length ? ` No mapped ${missing.join(" or ")} screen yet.` : ""}`;
+  return { intent, approaches, hint };
+}
