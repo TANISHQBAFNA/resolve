@@ -24,8 +24,10 @@ npx -y -p github:TANISHQBAFNA/resolve resolve-setup
 
 You can add `--dry-run` first to see what it would do. It is safe to run again.
 
-Expected output: lines starting with `create` (or `unchanged` on a repeat run) for `.cursor/rules/resolve.mdc`, `.cursor/mcp.json`, `.mcp.json`, `.claude/skills/resolve/SKILL.md` and `CLAUDE.md`, then a checklist (`Node ok?`, `Figma connected?`, `Library learned?`, `Rule installed?`) and a `Next:` line.
+Expected output: lines starting with `create` (or `unchanged` on a repeat run) for `.cursor/rules/resolve.mdc`, `.cursor/mcp.json`, `.mcp.json`, `.claude/skills/resolve/SKILL.md`, `CLAUDE.md`, `.gitignore` and the slash commands (`.claude/commands/` and `.cursor/commands/`, one file each for `design-system`, `find`, `check`, `parts`, `handoff` and `resolve-status`), then a checklist (`Node ok?`, `Figma connected?`, `Library learned?`, `Rule installed?`) and a `Next:` line.
 
+- The slash commands let the designer type `/design-system <Figma link>`, `/find <phrase>`, `/check <link>`, `/parts <screen link>` (what's on this screen and its code twin, or unmapped), `/handoff <link>` (the developer build sheet) and `/resolve-status`. Setup writes them; do not create or edit them by hand. A command file the user wrote (no Resolve markers) is kept, and setup says `skip ... kept your own file`; that is fine, report it, and do not use `--force`. Running setup again updates the Resolve ones. To remove everything Resolve added (only after the user asks): `npx -y -p github:TANISHQBAFNA/resolve resolve-setup --uninstall`.
+- Setup adds a marked block to `.gitignore` that ignores only the learned cache (`.resolve/graph.json`, `.resolve/files/`, `.resolve/learn/`, `.resolve/ingest/`). Recipes, the code map and decisions stay committable. If the project already ignores the whole `.resolve` folder, say so: that line also hides the team files.
 - This adds the `resolve` server to the project's `.cursor/mcp.json` (Cursor) and `.mcp.json` (Claude Code). It keeps any other servers in those files.
 - If it prints `The Resolve connection was NOT added to <file>`, that file is not valid JSON or has an unusual shape, or it already has a different `resolve` entry. Do not overwrite it. Tell the user which file, and in step 2 add the entry by hand only if the file is valid JSON.
 - If the command prints nothing and exits with code 127, npm is too old. Go back to step 0.
@@ -92,7 +94,7 @@ Say this in plain words:
 
 1. **Restart the tool.** A session that is already running does not see the new settings files. Claude Code: quit and start `claude` again in the project. Cursor: reload the window (Command Palette, "Developer: Reload Window"). Codex: start a new session.
 2. **Sign in to Figma.** Claude Code: start `claude`, say yes to the project's `resolve` server, type `/mcp`, choose figma and log in. Cursor: reload the window, open Settings, MCP, and sign in to Figma. Codex: run `codex mcp login figma` if it asks.
-3. **Paste a Figma file link** into this chat, for example: "Learn my Figma design system from this link: (the link)". You then call `get_metadata` and `learn_library`. Learning needs a Dev or Full Figma seat; a View or free seat has a small read allowance, and Resolve saves its progress.
+3. **Paste a Figma file link** into this chat, for example: "Learn my Figma design system from this link: (the link)" (or type `/design-system (the link)`). You then call `get_metadata` and `learn_library`. Learning needs a Dev or Full Figma seat; a View or free seat has a small read allowance, and Resolve saves its progress.
 
 After the library is learned, running `resolve-setup` again shows `Library learned? yes`.
 
@@ -102,10 +104,10 @@ For a screen, read the requirements or FSD yourself and pass `product`, `journey
 
 Finish with a short list:
 
-- Files created or changed (for example `.cursor/mcp.json`, `.mcp.json`, `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, `CLAUDE.md`).
+- Files created or changed (for example `.cursor/mcp.json`, `.mcp.json`, `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, `CLAUDE.md`, the slash commands in `.claude/commands/` and `.cursor/commands/`).
 - Commands you ran, and whether each succeeded.
 - Anything you skipped or left alone, and why.
-- The two manual steps from step 5.
+- The two manual steps from step 5, and that the designer can now type `/design-system <Figma link>` to learn the library, then `/find`, `/check`, `/parts`, `/handoff` and `/resolve-status`.
 
 ## If you must edit a JSON file by hand
 

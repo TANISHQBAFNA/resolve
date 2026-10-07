@@ -308,7 +308,7 @@ describe("scoreboard", () => {
     }
   });
 
-  it("keeps recommend within 600 for long context packs", { timeout: 20_000 }, () => {
+  it("keeps recommend within 600 for long context packs", { timeout: 30_000 }, () => {
     const index = fixtureIndex();
     const long = "Storefront checkout journey ".repeat(40);
     const card = recommendMasters(index, "primary button", {

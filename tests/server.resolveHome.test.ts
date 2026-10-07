@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { overlayFile, pinnedHome } from "@/core/query/overlayFile";
@@ -14,8 +14,8 @@ describe("RESOLVE_HOME", () => {
   const set = (name: string, value?: string) => (value === undefined ? delete process.env[name] : (process.env[name] = value));
 
   beforeEach(() => {
-    a = mkdtempSync(join(tmpdir(), "resolve-home-a-"));
-    b = mkdtempSync(join(tmpdir(), "resolve-home-b-"));
+    a = mkdtempSync(join(realpathSync(tmpdir()), "resolve-home-a-"));
+    b = mkdtempSync(join(realpathSync(tmpdir()), "resolve-home-b-"));
     set("RESOLVE_HOME");
     set("GRAPHIFY_HOME");
     clearCache();
@@ -49,7 +49,7 @@ describe("RESOLVE_HOME", () => {
   });
 
   it("the old project folder is still read; the new folder wins; nothing is moved or deleted", () => {
-    const project = mkdtempSync(join(tmpdir(), "resolve-home-proj-"));
+    const project = mkdtempSync(join(realpathSync(tmpdir()), "resolve-home-proj-"));
     const old = join(project, ".graphify");
     mkdirSync(old);
     writeFileSync(join(old, "workspace.json"), "{}");

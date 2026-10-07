@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,7 +11,7 @@ const BEGIN = "<!-- resolve-setup:begin -->";
 const END = "<!-- resolve-setup:end -->";
 
 function tempDir(name: string): string {
-  return join(tmpdir(), `resolve-setup-${name}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  return join(realpathSync(tmpdir()), `resolve-setup-${name}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
 }
 
 function setup(args: string[], cwd: string, home?: string): { status: number | null; stdout: string; stderr: string } {
@@ -215,6 +215,7 @@ describe("resolve-setup", () => {
     mkdirSync(packDir, { recursive: true });
     cpSync(join(root, "bin"), join(packDir, "bin"), { recursive: true });
     cpSync(join(root, "rules"), join(packDir, "rules"), { recursive: true });
+    cpSync(join(root, "commands"), join(packDir, "commands"), { recursive: true });
     cpSync(join(root, "skills"), join(packDir, "skills"), { recursive: true });
     writeFileSync(
       join(packDir, "package.json"),
@@ -222,7 +223,7 @@ describe("resolve-setup", () => {
         name: "resolve-setup-fixture",
         version: "0.0.0",
         bin: { "resolve-setup": "./bin/resolve-setup.mjs" },
-        files: ["bin", "rules", "skills"],
+        files: ["bin", "rules", "skills", "commands"],
       }),
     );
     const packed = spawnSync("npm", ["pack", "--json"], { cwd: packDir, encoding: "utf8" });
@@ -243,6 +244,8 @@ describe("resolve-setup", () => {
     expect(existsSync(join(installDir, ".cursor/rules/resolve.mdc"))).toBe(true);
     expect(existsSync(join(installDir, ".claude/skills/resolve/SKILL.md"))).toBe(true);
     expect(readFileSync(join(installDir, "CLAUDE.md"), "utf8")).toContain("call Resolve before drawing");
+    expect(existsSync(join(installDir, ".claude/commands/handoff.md"))).toBe(true);
+    expect(existsSync(join(installDir, ".cursor/commands/find.md"))).toBe(true);
   }, 60_000);
 
   it("the published package includes the rule and the skill", () => {

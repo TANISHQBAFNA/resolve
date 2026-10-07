@@ -13,6 +13,7 @@ import type { BindRulesFile } from "./bindRules";
 import type { ContextPack } from "./contextPacks";
 import { buildHandoff, SCREEN_TYPES, type HandoffDecisionInput, type HandoffHooks, type HandoffPack, type VerifyLike } from "./handoff";
 import { realByKey } from "./ingredients";
+import { missingNodeSentence, readFigmaLink } from "./learnedLink";
 import { fillRecipe, matchRecipe, type Recipe } from "./recipes";
 import type { SockState } from "./sock";
 import type { WorkspaceManifest } from "./workspace";
@@ -40,11 +41,14 @@ function screenLike(index: GraphIndex, node: GraphNode): boolean {
 }
 
 /** A screen frame by graph id, Figma id, `fileKey:id`, or exact name (frames first), else the closest frame by search. */
-function findFrame(index: GraphIndex, ask: string): { node?: GraphNode; others?: number; notScreen?: GraphNode; fuzzy?: boolean } {
+function findFrame(index: GraphIndex, ask: string): { node?: GraphNode; others?: number; notScreen?: GraphNode; fuzzy?: boolean; message?: string } {
   const want = ask.trim();
   if (!want) return {};
+  const link = readFigmaLink(index, want);
+  if (link && !link.ok) return { message: link.message };
+  if (link?.ok && !resolveNodeExact(index, want)) return { message: missingNodeSentence(link.fileKey, link.nodeIds[0] ?? "") };
   const exact = resolveNodeExact(index, want);
-  const byId = exact && (exact.id === want || exact.figmaNodeId === want || want.endsWith(exact.figmaNodeId ?? "\u0000"));
+  const byId = exact && (/figma\.com\//i.test(want) || exact.id === want || exact.figmaNodeId === want || want.endsWith(exact.figmaNodeId ?? "\u0000"));
   if (exact && byId) return screenLike(index, exact) ? { node: exact } : { notScreen: exact };
   const named = index
     .getNodesByType("FRAME", "SECTION")

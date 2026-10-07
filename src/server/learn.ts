@@ -1,4 +1,7 @@
-import type { DesignGraph } from "@/core/model";
+import { existsSync, readFileSync } from "node:fs";
+import { parseFigmaTarget } from "@/core/ingestion/figmaFileKey";
+import { join } from "node:path";
+import type { DesignGraph, GraphNode } from "@/core/model";
 import { applyLearnedText } from "@/core/ingestion/textStamps";
 import { applyLearnedIdentity } from "@/core/ingestion/designContextIds";
 import {
@@ -10,6 +13,7 @@ import {
   LEARN_ZERO_COMPONENTS,
   learnGaps,
   learnProgressLine,
+  type LearnReport,
   realLearnedComponentCount,
   markRemovedByAbsence,
   mergeDesignGraphs,
@@ -33,6 +37,45 @@ import {
   saveSock,
   storeInfo,
 } from "./store";
+
+function iconLibraryNames(root: string): string[] {
+  const path = join(root, "icon-libraries.json");
+  if (!existsSync(path)) return [];
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, "")) as unknown;
+    const list = Array.isArray(raw)
+      ? raw
+      : raw && typeof raw === "object"
+        ? (raw as { libraries?: unknown }).libraries
+        : undefined;
+    if (!Array.isArray(list)) return [];
+    return list.flatMap((item) => {
+      if (typeof item === "string" && item.trim()) return [item.trim()];
+      if (item && typeof item === "object" && typeof (item as { name?: unknown }).name === "string") {
+        const name = (item as { name: string }).name.trim();
+        return name ? [name] : [];
+      }
+      return [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+function learnReport(graph: DesignGraph, fileKey: string): LearnReport {
+  const components = graph.nodes.filter((node: GraphNode) => {
+    if ((node.fileKey ?? graph.fileKey).trim() !== fileKey) return false;
+    if (node.metadata?.["identity"] === "inferred-from-name") return false;
+    if (`${node.id} ${node.figmaNodeId ?? ""}`.includes("mcp-name:")) return false;
+    return node.type === "COMPONENT_SET" || node.type === "MAIN_COMPONENT";
+  });
+  const retired = components.filter((node) => node.status === "deprecated").length;
+  const savedIn = storeInfo().path;
+  const iconLibraries = iconLibraryNames(savedIn);
+  const icons = iconLibraries.length ? iconLibraries.join(", ") : "none";
+  const told = `Learned ${components.length} components (${retired} retired) from ${graph.fileName}. Icon libraries: ${icons}. Saved in ${savedIn}. Running /design-system again is safe. It updates this learned copy and leaves your recipes, code map and decisions alone.`;
+  return { components: components.length, retired, iconLibraries, savedIn, safeToRunAgain: true, told };
+}
 
 function uniqueRemovedMasters(items: RemovedMaster[]): RemovedMaster[] {
   const out: RemovedMaster[] = [];
@@ -73,8 +116,24 @@ function normalizeCheckpoint(raw: LearnCheckpoint | undefined, fileKey: string):
   };
 }
 
+/** A file key, or the key inside a Figma link. A web URL that is not a Figma link is rejected. */
+export function fileKeyFromInput(raw: string): string {
+  const trimmed = raw.trim();
+  if (/figma\.com\//i.test(trimmed)) {
+    try {
+      return parseFigmaTarget(trimmed).fileKey;
+    } catch {
+      throw new Error("That does not look like a Figma link. Copy the link from the browser address bar. It contains figma.com/design/.");
+    }
+  }
+  if (/^https?:\/\//i.test(trimmed) || /[/?#]/.test(trimmed) || !/^[A-Za-z0-9]{1,128}$/.test(trimmed)) {
+    throw new Error("That does not look like a Figma file key or a Figma link. Pass the key from the file URL (figma.com/design/<key>/).");
+  }
+  return trimmed;
+}
+
 export function learnLibrary(input: LearnInput): LearnResult {
-  const fileKey = input.fileKey.trim();
+  const fileKey = fileKeyFromInput(input.fileKey);
   if (!fileKey) throw new Error("learn_library needs fileKey.");
   const xml = input.metadataXml?.trim();
   const catalog = input.libraries ?? input.designContext;
@@ -119,7 +178,7 @@ export function learnLibrary(input: LearnInput): LearnResult {
   if (xml && !skippedDuplicate) {
     const incoming = graphFromMetadataXml({
       fileKey,
-      fileName: input.fileName ?? input.label,
+      fileName: input.fileName?.trim() || input.label?.trim() || fileKey,
       metadataXml: xml,
       lastModified: input.lastModified,
       version: input.version,
@@ -273,5 +332,6 @@ export function learnLibrary(input: LearnInput): LearnResult {
     next,
     progress: progressLine,
     hint,
+    report: learnReport(graph, fileKey),
   };
 }

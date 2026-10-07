@@ -64,6 +64,17 @@ export interface LearnGap {
   hint: string;
 }
 
+/** Plain counts for /design-system. Running learn again is safe. */
+export interface LearnReport {
+  components: number;
+  retired: number;
+  iconLibraries: string[];
+  savedIn: string;
+  safeToRunAgain: true;
+  /** One paragraph a designer can read. */
+  told: string;
+}
+
 export interface LearnResult {
   learned: boolean;
   fileKey: string;
@@ -79,6 +90,7 @@ export interface LearnResult {
   remaining: LearnUnit[];
   next?: LearnUnit;
   progress: string;
+  report: LearnReport;
 }
 
 export function hashLearnPayload(xml: string): string {

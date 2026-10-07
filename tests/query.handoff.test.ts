@@ -480,7 +480,9 @@ describe("handoff fixes after PR #37 UAT", () => {
     putMap(angularMap);
     const sheet = ok(handoffSheet(indexGraph(fixedGraph()), ["Payment methods"])).screens[0]!;
     const brand = sheet.components.find((c) => c.name === "Brand mark")!;
-    expect(brand).toMatchObject({ status: "other-library", copies: ["20:18"], code: "unmapped" });
+    expect(brand).toMatchObject({ status: "other-library", copies: ["20:18"], code: "unknown" });
+    expect(sheet.summary.unmapped).toBe(sheet.components.filter((c) => c.code === "unmapped").length);
+    expect(sheet.summary.linkedToCode + sheet.summary.unmapped + 1).toBe(sheet.summary.components);
     expect(brand).not.toHaveProperty("figmaNodeId");
     expect(brand).not.toHaveProperty("fileKey");
     expect(sheet.summary.otherLibrary).toBe(1);
@@ -549,6 +551,83 @@ describe("handoff fixes after PR #37 UAT", () => {
     expect(indexMd).toContain("- [Pay \\`now\\` \\*fast\\* \\[x\\]\\(http://e) \\<img src=x onerror=alert(1)\\> \\]](screen-pay.md)");
     const blank = ok(handoffSheet(index, ["Blank"])).screens[0]!;
     expect(blank.openQuestions[0]).toBe("No components are placed on this screen, so there is nothing to build from the library. Is it the right frame?");
+  });
+
+  it("R-L5: a copy whose Figma value conflicts with a selector-pinned attribute gets no template value for it, and an open question", () => {
+    putMap({ entries: [{ fileKey: "ACMEUI", id: "30:10", code: { framework: "angular", import: "import { AcmeButtonComponent } from '@acme/ui-angular'", component: "AcmeButtonComponent", selector: 'acme-button[variant="primary"]', module: "AcmeButtonModule", inputs: ["variant", "size"] } }] });
+    const sheet = ok(handoffSheet(indexGraph(fixedGraph()), ["Send money"])).screens[0]!;
+    const primary = sheet.components.find((c) => c.variant?.startsWith("Variant=Primary"))!;
+    const secondary = sheet.components.find((c) => c.variant?.startsWith("Variant=Secondary"))!;
+    expect(primary.template).toBe('<acme-button variant="primary" size="medium"></acme-button>');
+    expect(secondary.inputs?.map((i) => i.input)).toEqual(["size"]);
+    expect(secondary.template).not.toContain('variant="');
+    expect(sheet.openQuestions).toContain('Button: the selector only matches variant="primary"; this copy is Secondary (Variant=Secondary). Check how the code builds this variant.');
+  });
+
+  it("R-B + R-L10: a slot is placed, inside another component, or missing; one copy fills one slot", () => {
+    const index = indexGraph(fixedGraph());
+    const sheet = ok(handoffSheet(index, ["Confirm payment"], { recipe: "confirm-dialog", recipes: starterRecipes() })).screens[0]!;
+    const slots = sheet.recipe!.slots;
+    // One direct Button fills primary-cta; secondary-cta is the Button part inside Payee picker, not the same copy again.
+    expect(slots.map((s) => [s.role, s.state, s.insideOf])).toEqual([
+      ["body", undefined, undefined],
+      ["primary-cta", "placed", undefined],
+      ["secondary-cta", "inside", "Payee picker"],
+    ]);
+    expect(sheet.recipe!.coverage).toEqual({ slots: 3, covered: 2, placed: 1, inside: 1 });
+    const text = formatHandoffScreen(sheet, false);
+    expect(text).toContain("2/3 slots covered (1 placed, 1 inside another component).");
+    expect(text).toContain("| secondary-cta | no | filled | Button [ACMEUI 30:10] | inside Payee picker |");
+  });
+
+  it("R-N1: a not-found part inside a library component's definition refuses, like a retired one; a draft only labels it", () => {
+    const file = fixedAcmeFile() as { document: unknown };
+    const add = (node: { id?: string; children?: unknown[] }) => {
+      if (node.id === "30:30") node.children = [...(node.children ?? []), { id: "30:34", name: "Legacy badge", type: "INSTANCE", componentId: "40:99", absoluteBoundingBox: { x: 0, y: 0, width: 10, height: 10 }, children: [] }];
+      for (const child of (node.children ?? []) as (typeof node)[]) add(child);
+    };
+    add(file.document as Parameters<typeof add>[0]);
+    const index = indexGraph(graphOf(file));
+    const pack = handoffSheet(index, ["Send money"]);
+    expect(pack.ok).toBe(false);
+    if (pack.ok) return;
+    expect(pack.refused).toEqual([
+      expect.objectContaining({ kind: "not-found", component: "Legacy badge", message: expect.stringContaining("is inside Payee picker [ACMEUI 30:30]") }),
+    ]);
+    expect(handoffSheet(index, ["Send money"], { draft: true }).ok).toBe(true);
+  });
+
+  it("R-N2: other-library and not-found components are code unknown, not unmapped", () => {
+    putMap(angularMap);
+    const sheet = ok(handoffSheet(indexGraph(fixedGraph()), ["Payment methods"])).screens[0]!;
+    const unknown = sheet.components.filter((c) => c.code === "unknown");
+    expect(unknown.map((c) => c.name)).toEqual(["Brand mark"]);
+    expect(sheet.summary.unmapped).toBe(sheet.components.filter((c) => c.code === "unmapped").length);
+    expect(sheet.summary.linkedToCode + sheet.summary.unmapped + unknown.length).toBe(sheet.summary.components);
+  });
+
+  it("a pasted Figma link with node-id works wherever a frame is asked for; status shows what is learned", async () => {
+    saveGraph(fixedGraph());
+    const link = "https://www.figma.com/design/ACMEUI/Acme-UI?node-id=20-40&t=abc";
+    const byName = ok(handoffSheet(indexGraph(fixedGraph()), ["Send money"])).screens[0]!;
+    const byLink = ok(handoffSheet(indexGraph(fixedGraph()), [link])).screens[0]!;
+    expect(byLink).toEqual(byName);
+    expect(byLink.screen.figmaNodeId).toBe("20:40");
+    expect(byLink.matchedFrame).toBeUndefined();
+    expect(callTool("verify_frame", { frame: link })).toMatchObject({ frame: { name: "Send money" } });
+    expect(JSON.parse(await cli(["cousins", link]))).toBeTruthy();
+    expect(await cli(["handoff", link])).toContain("# Handoff: Send money");
+    // The node is in another file: not found, never a loose match on the link text.
+    expect(handoffSheet(indexGraph(fixedGraph()), ["https://www.figma.com/design/OTHERFILE/X?node-id=999-1"]).ok).toBe(false);
+    const status = await cli(["status"]);
+    expect(status).toContain("Learned files:");
+    expect(status).toContain("last learned 2026-01-01 00:00 UTC");
+    expect(status).toContain("Code map: none yet");
+    expect(status).toMatch(/version /);
+    expect(status).toMatch(/Figma token: (missing|set)/);
+    expect(status).toMatch(/Always-on rule: (installed|not installed)/);
+    expect(status).toContain("Next:");
+    expect(JSON.parse(await cli(["status", "--json"])).files).toHaveLength(1);
   });
 
   it("L5, L6: a selector attribute is written once; non-ASCII values keep their letters; boolean hints read the same in text and template", () => {

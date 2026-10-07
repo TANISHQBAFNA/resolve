@@ -57,6 +57,13 @@ describe("learn_library from Figma MCP get_metadata", () => {
     });
     expect(first.learned).toBe(true);
     expect(first.added).toBeGreaterThan(0);
+    expect(first.report.components).toBeGreaterThan(0);
+    expect(first.report.retired).toBe(0);
+    expect(first.report.safeToRunAgain).toBe(true);
+    expect(first.report.iconLibraries).toEqual([]);
+    expect(first.report.told).toContain(`Learned ${first.report.components} components (0 retired)`);
+    expect(first.report.told).toContain("Running /design-system again is safe");
+    expect(first.report.savedIn).toBe(process.env["RESOLVE_HOME"]);
     expect(loadGraph()?.graph.nodes.some((node) => node.name === "Main Card")).toBe(true);
 
     const second = learnLibrary({

@@ -11,9 +11,10 @@ if (nodeVersionTooOld(process.version)) {
  * In a project: the Cursor rule, the Claude skill, and a marked CLAUDE.md block.
  * --global is Claude only (~/.claude skill and ~/.claude/CLAUDE.md). Cursor has no
  * global rules folder; its rule stays in the project.
- * Re-runs only change a complete marked block. Does not read tokens or other secrets.
+ * Also the slash commands (commands/*.md): .claude/commands for Claude Code, .cursor/commands for Cursor.
+ * Re-runs only change a complete marked block. --uninstall removes only what Resolve wrote. Does not read tokens or other secrets.
  */
-import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { accessSync, constants, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,7 +39,7 @@ export const CLAUDE_BLOCK = [
 function writeError(target, error) {
   const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
   if (code === "EACCES" || code === "EPERM" || code === "EROFS") {
-    return new Error(`Could not write in ${dirname(target)}. Resolve needs permission to create files there.`);
+    return new Error(`Could not write ${target}. Resolve needs permission to change that file.`);
   }
   return new Error(`Could not write ${target}. Resolve could not create that file.`);
 }
@@ -92,34 +93,124 @@ export function installOwned(current, shipped, force = false) {
   const shippedStart = next.indexOf(BEGIN);
   const shippedEnd = next.lastIndexOf(END);
   const inner = next.slice(shippedStart + BEGIN.length, shippedEnd);
-  const text = current.slice(0, start + BEGIN.length) + inner + current.slice(end);
-  return { action: text === current ? "unchanged" : "update", text };
+  const edited = current.slice(start + BEGIN.length, end).trim() !== inner.trim();
+  let text = current.slice(0, start) + `${BEGIN}${inner}${END}` + current.slice(end + END.length);
+  const later = stripAllBlocks(text.slice(start + BEGIN.length + inner.length + END.length), BEGIN, END);
+  if (later != null) text = text.slice(0, start + BEGIN.length + inner.length + END.length) + later;
+  const extra = countPairs(current, BEGIN, END) > 1;
+  const note = [
+    edited ? " Replaced hand edits inside the Resolve markers." : "",
+    extra ? " Removed an extra Resolve block." : "",
+  ].join("");
+  return { action: text === current ? "unchanged" : "update", text, ...(note ? { note } : {}) };
 }
 
 function useEnding(text, ending) {
   return ending === "\n" ? text : text.replace(/\n/g, ending);
 }
 
-/** @returns {{ action: "create" | "update" | "unchanged" | "skip", text: string, note?: string }} */
-export function installClaude(current, block = CLAUDE_BLOCK) {
+/**
+ * @param {string | null} current
+ * @param {string} block
+ * @param {string} begin
+ * @param {string} end
+ * @param {string} label
+ * @returns {{ action: "create" | "update" | "unchanged" | "skip", text: string, note?: string }}
+ */
+function pairAt(text, begin, end, from = 0) {
+  const start = text.indexOf(begin, from);
+  if (start === -1) return null;
+  const finish = text.indexOf(end, start + begin.length);
+  if (finish === -1 || finish < start) return null;
+  return { start, finish };
+}
+
+function countPairs(text, begin, end) {
+  let n = 0;
+  let i = 0;
+  while (i < text.length) {
+    const pair = pairAt(text, begin, end, i);
+    if (!pair) break;
+    n += 1;
+    i = pair.finish + end.length;
+  }
+  return n;
+}
+
+/** Cut every complete marker pair. Bytes outside the pairs stay. Null when there is no complete pair. */
+function stripAllBlocks(text, begin, end) {
+  let out = "";
+  let i = 0;
+  let found = false;
+  while (i < text.length) {
+    const pair = pairAt(text, begin, end, i);
+    if (!pair) {
+      out += text.slice(i);
+      break;
+    }
+    found = true;
+    out += text.slice(i, pair.start);
+    i = pair.finish + end.length;
+    if (text.startsWith("\r\n", i)) i += 2;
+    else if (text[i] === "\n") i += 1;
+  }
+  return found ? out : null;
+}
+
+export function installMarked(current, block, begin, end, label) {
   const ending = current != null && current.includes("\r\n") ? "\r\n" : "\n";
-  const owned = useEnding(`${BEGIN}\n${block.trim()}\n${END}`, ending);
-  if (current == null || current.trim() === "") return { action: "create", text: `${owned}\n` };
-  const start = current.indexOf(BEGIN);
-  const end = current.indexOf(END);
-  if ((start === -1) !== (end === -1)) {
+  const owned = useEnding(`${begin}\n${block.trim()}\n${end}`, ending);
+  if (current == null) return { action: "create", text: `${owned}\n` };
+  const start = current.indexOf(begin);
+  const finish = current.indexOf(end);
+  if ((start === -1) !== (finish === -1)) {
     return {
       action: "skip",
       text: current,
-      note: " (left CLAUDE.md; it has only one Resolve marker, so nothing was changed)",
+      note: ` (left ${label}; it has only one Resolve marker, so nothing was changed)`,
     };
   }
   if (start === -1) {
     const sep = current.endsWith(ending + ending) ? "" : current.endsWith(ending) ? ending : ending + ending;
     return { action: "update", text: `${current}${sep}${owned}${ending}` };
   }
-  const text = `${current.slice(0, start)}${owned}${current.slice(end + END.length)}`;
-  return { action: text === current ? "unchanged" : "update", text };
+  const inner = current.slice(start + begin.length, finish);
+  const edited = inner.trim() !== block.trim();
+  const head = `${current.slice(0, start)}${owned}`;
+  const tail = stripAllBlocks(current.slice(finish + end.length), begin, end);
+  const text = head + (tail ?? current.slice(finish + end.length));
+  const note = [
+    edited ? ` Replaced hand edits inside the Resolve markers in ${label}.` : "",
+    countPairs(current, begin, end) > 1 ? ` Removed an extra Resolve block in ${label}.` : "",
+  ].join("");
+  return { action: text === current ? "unchanged" : "update", text, ...(note ? { note } : {}) };
+}
+
+/** @returns {{ action: "create" | "update" | "unchanged" | "skip", text: string, note?: string }} */
+export function installClaude(current, block = CLAUDE_BLOCK) {
+  return installMarked(current, block, BEGIN, END, "CLAUDE.md");
+}
+
+/** Learned cache only. Team files in .resolve/ stay committable. */
+export const GIT_BEGIN = "# resolve-setup:begin";
+export const GIT_END = "# resolve-setup:end";
+export const GIT_BLOCK = [
+  "# Learned cache. Rebuild it with /design-system. Commit team files in .resolve/: recipes.json, code-map.json, bind-rules.json, bind-rules.audit.jsonl, synonyms.json, icon-libraries.json.",
+  ".resolve/graph.json",
+  ".resolve/files/",
+  ".resolve/learn/",
+  ".resolve/ingest/",
+].join("\n");
+
+/** @param {string} text */
+export function ignoresWholeResolveStore(text) {
+  const start = text.indexOf(GIT_BEGIN);
+  const finish = text.indexOf(GIT_END);
+  const outside = start === -1 || finish === -1 || finish < start ? text : text.slice(0, start) + text.slice(finish + GIT_END.length);
+  return outside.split(/\r?\n/).some((line) => {
+    const trimmed = line.trim();
+    return trimmed === ".resolve" || trimmed === ".resolve/";
+  });
 }
 
 /** The one server entry Resolve adds. Same command everywhere (Cursor, Claude Code, Codex). */
@@ -170,6 +261,193 @@ export function installMcp(current, { claude = false, force = false } = {}) {
   return { action: blank ? "create" : "update", text };
 }
 
+/** Slash commands shipped in the package: [{ name, text }] from commands/*.md (front matter + body with $ARGUMENTS). */
+export function shippedCommands(root = packageRoot) {
+  const dir = join(root, "commands");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((file) => file.endsWith(".md"))
+    .sort()
+    .map((file) => ({ name: file.replace(/\.md$/, ""), text: readFileSync(join(dir, file), "utf8") }));
+}
+
+/** Cursor commands are plain markdown with no front matter; the designer's words follow the command. */
+export function cursorCommand(text) {
+  const { body } = splitFrontmatter(text);
+  return `${body.replace(/\$ARGUMENTS/g, "the words the designer typed after the command")}\n`;
+}
+
+const RECORD_NAME = "setup-record.json";
+
+function recordPath(opts) {
+  return opts.global ? join(opts.home, ".resolve", RECORD_NAME) : join(opts.cwd, ".resolve", RECORD_NAME);
+}
+
+function emptyRecord() {
+  return { created: [], originals: {}, createdDirs: [] };
+}
+
+function loadRecord(opts) {
+  try {
+    const raw = JSON.parse(readFileSync(recordPath(opts), "utf8"));
+    return {
+      created: Array.isArray(raw.created) ? raw.created : [],
+      originals: raw.originals && typeof raw.originals === "object" ? raw.originals : {},
+      createdDirs: Array.isArray(raw.createdDirs) ? raw.createdDirs : [],
+    };
+  } catch {
+    return emptyRecord();
+  }
+}
+
+function saveRecord(opts, record) {
+  const path = recordPath(opts);
+  const dir = dirname(path);
+  const dirExisted = existsSync(dir);
+  mkdirSync(dir, { recursive: true });
+  if (!dirExisted && !record.createdDirs.includes(dir)) record.createdDirs.push(dir);
+  writeFileSync(path, `${JSON.stringify(record)}\n`);
+}
+
+/** True when current is the saved original plus only Resolve marker blocks. */
+function onlyBlockAdded(current, original, begin, end) {
+  if (typeof original !== "string" || !current.startsWith(original)) return false;
+  const extra = stripAllBlocks(current.slice(original.length), begin, end);
+  return extra != null && extra.trim() === "";
+}
+
+function assertCanWrite(target) {
+  try {
+    if (existsSync(target)) {
+      accessSync(target, constants.W_OK);
+      return;
+    }
+    let dir = dirname(target);
+    while (!existsSync(dir)) {
+      const parent = dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    accessSync(dir, constants.W_OK);
+  } catch {
+    throw new Error(`Could not write ${target}. Resolve needs permission to change that file.`);
+  }
+}
+
+const onlyFrontmatter = (text) => splitFrontmatter(text).body === "" && (text.trim() === "" || text.startsWith("---"));
+
+/**
+ * Remove what setup wrote: marked blocks (and the file when nothing else is left in it), and the resolve entry of the
+ * project MCP files when it is exactly ours. Files without Resolve markers are never touched.
+ * @returns {Array<{ action: "remove" | "update" | "skip", path: string, text?: string, note?: string }>}
+ */
+export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot }) {
+  const base = isGlobal ? home : cwd;
+  const opts = { cwd, home, global: isGlobal };
+  const record = loadRecord(opts);
+  const names = shippedCommands(root).map((c) => c.name);
+  const owned = [
+    ...(isGlobal ? [] : [join(cwd, ".cursor", "rules", "resolve.mdc")]),
+    join(base, ".claude", "skills", "resolve", "SKILL.md"),
+    ...names.map((n) => join(base, ".claude", "commands", `${n}.md`)),
+    ...(isGlobal ? [] : names.map((n) => join(cwd, ".cursor", "commands", `${n}.md`))),
+    isGlobal ? join(home, ".claude", "CLAUDE.md") : join(cwd, "CLAUDE.md"),
+    ...(isGlobal ? [] : [join(cwd, ".gitignore")]),
+  ];
+  const plan = [];
+  for (const path of owned) {
+    const current = readOrNull(path);
+    if (current == null) continue;
+    const git = path.endsWith(".gitignore");
+    const begin = git ? GIT_BEGIN : BEGIN;
+    const end = git ? GIT_END : END;
+    const rest = stripAllBlocks(current, begin, end);
+    const created = record.created.includes(path);
+    const original = record.originals[path];
+    if (rest == null) {
+      plan.push({ action: "skip", path, note: " (not written by Resolve, kept)" });
+    } else if (typeof original === "string" && onlyBlockAdded(current, original, begin, end)) {
+      plan.push({ action: "update", path, text: original });
+    } else if ((rest.trim() === "" || onlyFrontmatter(rest)) && created) {
+      plan.push({ action: "remove", path });
+    } else if (rest.trim() === "" || onlyFrontmatter(rest)) {
+      plan.push({ action: "skip", path, note: " (kept; Resolve did not create this file)" });
+    } else plan.push({ action: "update", path, text: rest });
+  }
+  if (!isGlobal) {
+    for (const path of [join(cwd, ".cursor", "mcp.json"), join(cwd, ".mcp.json")]) {
+      const current = readOrNull(path);
+      if (current == null) continue;
+      let doc;
+      try {
+        doc = JSON.parse(current.replace(/^\uFEFF/, ""));
+      } catch {
+        continue;
+      }
+      if (!isPlainObject(doc) || !isPlainObject(doc.mcpServers) || !sameEntry(doc.mcpServers.resolve)) continue;
+      const { resolve: _gone, ...others } = doc.mcpServers;
+      const created = record.created.includes(path);
+      const original = record.originals[path];
+      let sameOthers = false;
+      if (typeof original === "string") {
+        try {
+          const orig = JSON.parse(original);
+          const origServers = { ...(isPlainObject(orig.mcpServers) ? orig.mcpServers : {}) };
+          delete origServers.resolve;
+          sameOthers = JSON.stringify(others) === JSON.stringify(origServers);
+        } catch {
+          sameOthers = false;
+        }
+      }
+      const empty = Object.keys(others).length === 0 && Object.keys(doc).length === 1;
+      if (typeof original === "string" && sameOthers) plan.push({ action: "update", path, text: original });
+      else if (empty && created) plan.push({ action: "remove", path });
+      else if (empty) plan.push({ action: "skip", path, note: " (kept; Resolve did not create this file)" });
+      else {
+        const indent = /^\t/m.test(current) ? "\t" : (current.match(/^( +)"/m)?.[1].length ?? 2);
+        const ending = current.includes("\r\n") ? "\r\n" : "\n";
+        plan.push({ action: "update", path, text: useEnding(`${JSON.stringify({ ...doc, mcpServers: others }, null, indent)}\n`, ending) });
+      }
+    }
+  }
+  return plan;
+}
+
+function removeEmptyDirs(dirs) {
+  const ordered = [...dirs].sort((a, b) => b.length - a.length);
+  for (const dir of ordered) {
+    try {
+      if (!existsSync(dir)) continue;
+      if (readdirSync(dir).length === 0) rmdirSync(dir);
+    } catch {
+      // A folder that is not empty, or not ours to remove, stays.
+    }
+  }
+}
+
+export function runUninstall(opts) {
+  const plan = planUninstall(opts);
+  if (!opts.dryRun) {
+    for (const item of plan) {
+      if (item.action === "skip") continue;
+      assertCanWrite(item.path);
+    }
+    for (const item of plan) {
+      try {
+        if (item.action === "remove") rmSync(item.path);
+        else if (item.action === "update") writeFileSync(item.path, item.text);
+      } catch (error) {
+        throw writeError(item.path, error);
+      }
+    }
+    const record = loadRecord(opts);
+    const rec = recordPath(opts);
+    if (existsSync(rec)) rmSync(rec);
+    removeEmptyDirs(record.createdDirs);
+  }
+  return plan;
+}
+
 export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, packageRoot: root = packageRoot }) {
   const base = isGlobal ? home : cwd;
   const claudePath = isGlobal ? join(home, ".claude", "CLAUDE.md") : join(cwd, "CLAUDE.md");
@@ -190,21 +468,63 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
       { path: claudeMcp, ...installMcp(readOrNull(claudeMcp), { claude: true, force }) },
     );
   }
+  // Slash commands. A command file you wrote yourself (no Resolve markers) is kept unless --force.
+  for (const command of shippedCommands(root)) {
+    const claudeCommand = join(base, ".claude", "commands", `${command.name}.md`);
+    planned.push({ path: claudeCommand, command: true, ...installOwned(readOrNull(claudeCommand), command.text, force) });
+    if (!isGlobal) {
+      const cursorPath = join(cwd, ".cursor", "commands", `${command.name}.md`);
+      planned.push({ path: cursorPath, command: true, ...installOwned(readOrNull(cursorPath), cursorCommand(command.text), force) });
+    }
+  }
   const skillPath = join(base, ".claude", "skills", "resolve", "SKILL.md");
   planned.push(
     { path: skillPath, ...installOwned(readOrNull(skillPath), skillSrc, force) },
     { path: claudePath, ...installClaude(readOrNull(claudePath)) },
   );
+  if (!isGlobal) {
+    const gitPath = join(cwd, ".gitignore");
+    const gitCurrent = readOrNull(gitPath);
+    const gitItem = { path: gitPath, ...installMarked(gitCurrent, GIT_BLOCK, GIT_BEGIN, GIT_END, ".gitignore") };
+    if (ignoresWholeResolveStore(gitItem.text) && !gitItem.note) {
+      gitItem.note = " (your .gitignore also ignores the whole .resolve folder, so recipes and the code map stay uncommitted until that line is removed)";
+    }
+    planned.push(gitItem);
+  }
   if (!dryRun) {
     for (const item of planned) {
       if (item.action === "skip" || item.action === "unchanged") continue;
+      assertCanWrite(item.path);
+    }
+    const opts = { cwd, home, global: isGlobal };
+    const record = loadRecord(opts);
+    for (const item of planned) {
+      if (item.action === "skip" || item.action === "unchanged") continue;
       try {
-        mkdirSync(dirname(item.path), { recursive: true });
+        const dir = dirname(item.path);
+        let walk = dir;
+        const missing = [];
+        while (!existsSync(walk)) {
+          missing.push(walk);
+          const parent = dirname(walk);
+          if (parent === walk) break;
+          walk = parent;
+        }
+        mkdirSync(dir, { recursive: true });
+        for (const made of missing) {
+          if (!record.createdDirs.includes(made)) record.createdDirs.push(made);
+        }
+        if (item.action === "create" && !record.created.includes(item.path)) record.created.push(item.path);
+        if (item.action === "update" && record.originals[item.path] === undefined) {
+          const prior = readOrNull(item.path);
+          if (prior != null) record.originals[item.path] = prior;
+        }
         writeFileSync(item.path, item.text);
       } catch (error) {
         throw writeError(item.path, error);
       }
     }
+    saveRecord(opts, record);
   }
   return planned;
 }
@@ -291,24 +611,44 @@ function main() {
   let isGlobal = false;
   let force = false;
   let yes = false;
+  let uninstall = false;
   for (const arg of process.argv.slice(2)) {
     if (arg === "--dry-run") dryRun = true;
     else if (arg === "--global") isGlobal = true;
     else if (arg === "--force") force = true;
     else if (arg === "--yes" || arg === "-y") yes = true;
+    else if (arg === "--uninstall") uninstall = true;
     else if (arg === "--help" || arg === "-h") {
       process.stdout.write(
-        "Usage: resolve-setup [--dry-run] [--global] [--yes] [--force]\nInstalls the Cursor rule, the Claude skill, a marked CLAUDE.md block, and adds the Resolve server to this project's .cursor/mcp.json and .mcp.json (other servers are kept; a file that is not valid JSON is left alone).\n--global writes into the home folder (~/.claude). It prints the paths and exits unless you pass --yes. It does not write MCP files.\n--force replaces a file that has no Resolve markers, or a different resolve entry in an MCP file.\nIt never writes ~/.claude.json, ~/.cursor or ~/.codex.\n",
+        "Usage: resolve-setup [--dry-run] [--global] [--yes] [--force] [--uninstall]\nInstalls the Cursor rule, the Claude skill, a marked CLAUDE.md block, the slash commands (.claude/commands and .cursor/commands: /design-system /find /check /parts /handoff /resolve-status), and adds the Resolve server to this project's .cursor/mcp.json and .mcp.json (other servers are kept; a file that is not valid JSON is left alone).\n--global writes into the home folder (~/.claude). It prints the paths and exits unless you pass --yes. It does not write MCP files.\n--force replaces a file that has no Resolve markers, or a different resolve entry in an MCP file.\nIt never writes ~/.claude.json, ~/.cursor or ~/.codex.\nRun it again to update: only files and blocks Resolve wrote are rewritten. A command or rule file you wrote yourself is kept.\n--uninstall removes only what Resolve wrote (its marked blocks and files, and its own resolve entry in the MCP files). Your own files and text stay.\n",
       );
       return;
     } else {
-      process.stderr.write(`Unknown argument ${arg}. Use --dry-run, --global, --yes, and --force.\n`);
+      process.stderr.write(`Unknown argument ${arg}. Use --dry-run, --global, --yes, --force, and --uninstall.\n`);
       process.exit(1);
     }
   }
   const cwd = process.cwd();
   const home = homedir();
   const target = isGlobal ? home : cwd;
+  if (uninstall) {
+    if (isGlobal && !dryRun && !yes) {
+      process.stdout.write(`This removes Resolve files from the home folder (${home}). Re-run with --global --uninstall --yes to confirm.\n`);
+      for (const item of runUninstall({ cwd, home, global: true, dryRun: true })) process.stdout.write(`  ${item.action} ${item.path}\n`);
+      process.exit(1);
+    }
+    process.stdout.write(`Removing Resolve from ${target}\n`);
+    let plan;
+    try {
+      plan = runUninstall({ cwd, home, global: isGlobal, dryRun });
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+      process.exit(1);
+    }
+    for (const item of plan) process.stdout.write(`${item.action} ${item.path}${item.note ?? ""}\n`);
+    if (!plan.length) process.stdout.write("Nothing from Resolve was found.\n");
+    return;
+  }
   if (isGlobal && !dryRun && !yes) {
     process.stdout.write(
       `This writes into the home folder (${home}), not this project.\nPaths:\n`,
@@ -344,7 +684,7 @@ function main() {
   let claudeSkipped = false;
   const mcpSkipped = [];
   for (const item of planned) {
-    const note = item.note ?? (item.action === "skip" ? " (left existing file; no Resolve markers)" : "");
+    const note = item.note ?? (item.action === "skip" ? (item.command ? " (kept your own file; Resolve did not write this command. --force replaces it)" : " (left existing file; no Resolve markers)") : "");
     process.stdout.write(`${item.action} ${item.path}${note}\n`);
     if (item.action === "skip" && item.path.endsWith(`${join(".cursor", "rules", "resolve.mdc")}`)) ruleSkipped = true;
     if (item.action === "skip" && item.path.endsWith(`${join("CLAUDE.md")}`)) claudeSkipped = true;
