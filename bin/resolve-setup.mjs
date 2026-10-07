@@ -31,7 +31,7 @@ export const CLAUDE_BLOCK = [
   "",
   "Resolve works best when the Figma MCP connection is active and a design system, library, or existing screens are learned. If either is missing, tell the user in plain words what is missing and how to add it. Connect Figma in this app, then map the file with learn_library. Do not guess. Do not invent components.",
   "",
-  "Map the file first. Set context before any component pick from the requirements or FSD: product, journey step, audience, and a11y. Do not ask for those four. Pass pack when a context pack matches that document; else pass only the fields the document states. Then recipe, recommend, get_example, verify_frame, and check_cousins when a library and a product file are linked. Place only returned figmaNodeIds. An empty recommend means stop. Resolve is read-only.",
+  "Map the file first. Set context before any component pick from the requirements or FSD: product, journey, audience, and a11y. The agent reads that document; Resolve does not. Do not ask for those four. Leave a field off when the document does not say it. Do not invent a product. A context pack is optional and matches only an exact product, and an exact journey when the document gives one. Then recipe, recommend, get_example, verify_frame, and check_cousins when a library and a product file are linked. Place only returned figmaNodeIds. An empty recommend means stop. Resolve is read-only.",
   "",
 ].join("\n");
 

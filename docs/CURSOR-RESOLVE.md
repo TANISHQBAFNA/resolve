@@ -63,7 +63,7 @@ npm run resolve -- cousins "Checkout Summary"
 
 After ingest, `recipe list` / `recipe "<job>"` bind slots to live `figmaNodeId`s. Overlay `.resolve/recipes.json` still wins. Unbound slots include the next `recommend` query. Bound ids that are missing or deprecated are flagged.
 
-`recommend` ranks by name/intent, variant props, where-used, sibling co-occurrence; live over stale; deprecated last. Optional product/journey/domain context pack (`.resolve/context-packs.json`, or `--pack` / `--product` / `--journey` / `--domain`) ranks on top of that. The same flags bind `recipe` list/get and `verify`. Cap ~2000 chars. Empty match still means do not invent.
+`recommend` ranks by name/intent, variant props, where-used, sibling co-occurrence; live over stale; deprecated last. Optional product/journey/domain from the requirements or FSD (`--product` / `--journey` / `--domain` / `--audience` / `--a11y`). A context pack (`.resolve/context-packs.json`, or `--pack`) is used only on an exact product match, and an exact journey match when one was passed. Audience, a11y, and density are echoed and do not change the pick. The same product/journey/domain flags bind `recipe`. Cap ~2000 chars. Empty match still means do not invent.
 
 When you already know the master name (give me the id):
 
@@ -87,7 +87,7 @@ Designers add screen packs in JSON — see [`docs/RECIPES.md`](RECIPES.md). Over
 ## Everyday screen flow
 
 1. **Ingest** — (refresh) each linked file (`--role library|product|client`)
-2. **Context / recipe** — (optional) named pack for the screen job; optional product + journey + domain context pack (`--pack` / `--product` / `--journey` / `--domain`). Packs may name `files` / `client`.
+2. **Context / recipe** — (optional) product, journey, audience, and a11y from the requirements or FSD (`--product` / `--journey` / `--domain` / `--audience` / `--a11y`). `--pack` only when that id is named. A pack matches an exact product, and an exact journey when one was passed. Audience and a11y are echoed and do not change the pick.
 3. **Recommend** — unbound slots / free-text brief → ranked masters (library preferred when a library-role file is linked; context-scoped when a pack is bound)
 4. **Draw** — `use_figma` / `get_design_context` on those `figmaNodeId`s only (cards stamp `fileKey`)
 5. **Verify** — before verify, fetch the frame's design context so Resolve can read the text (`--design-context` / `designContext`). Pass design context to `learn_library` too, or the default stays unknown. Invents / deprecated / unresolved (same optional `--pack` / `--product` / `--journey` / `--domain`)

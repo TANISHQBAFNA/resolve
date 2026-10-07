@@ -26,6 +26,7 @@ import {
   upsertWorkspaceFile,
   type BindRulesFile,
   type AuditLine,
+  normaliseA11y,
   type ContextBind,
   type ContextPackFile,
   type GraphIndex,
@@ -505,7 +506,7 @@ export function loadContextBind(
     journey: trim(args.journey),
     domain: trim(args.domain),
     audience: trim(args.audience),
-    a11y: trim(args.a11y),
+    a11y: trim(args.a11y) ? normaliseA11y(trim(args.a11y)!) : undefined,
     ...(workspace.files.length ? { workspace } : {}),
   };
 }

@@ -20,6 +20,7 @@ import {
   listRecipes,
   listSoci,
   mergeBindRules,
+  appliedContext,
   packForRecommend,
   pathBetween,
   queryQuestion,
@@ -569,17 +570,19 @@ export async function runCli(argv: string[]): Promise<void> {
       const bind = bindFromFlags(args);
       const pack = packForRecommend(bind);
       const screenType = flag(args, "screen-type");
-      printJson(
-        componentUsageCard(requireGraph(args).index, name, {
-          budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
-          sock: readSock(),
-          placeholders: readPlaceholders(),
-          workspace: bind.workspace ?? readWorkspace(),
-          ...((pack || screenType)
-            ? { context: { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) } }
-            : {}),
-        }),
-      );
+      const card = componentUsageCard(requireGraph(args).index, name, {
+        budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
+        sock: readSock(),
+        placeholders: readPlaceholders(),
+        workspace: bind.workspace ?? readWorkspace(),
+        ...((pack || screenType)
+          ? { context: { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) } }
+          : {}),
+      });
+      const echo = pack ? appliedContext(pack) : undefined;
+      const cap = Number.isFinite(budget) && budget > 0 ? budget : 2000;
+      const shown = echo ? { ...card, context: echo, ...(pack?.warning ? { warning: pack.warning } : {}) } : card;
+      printJson(JSON.stringify(shown).length <= cap ? shown : card);
       return;
     }
 

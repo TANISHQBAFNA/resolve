@@ -108,9 +108,9 @@ Copy [`src/data/context-packs.example.json`](../src/data/context-packs.example.j
 
 `product` and `journey` also accept a string (`"Storefront"`, `"summary"`). `libraryRules` is the same `{ allow, deny }` shape as `.resolve/library-rules.json`.
 
-**Bind order** (first hit wins): `--pack` / MCP `pack` → recipe `contextPackId` → pack `recipeIds` → `--product` / `--journey` / `--domain` → file `active` (if that pack lists this recipe, or lists none).
+**Bind order:** a named `--pack` / MCP `pack` when that id exists and its product does not fight `--product`. Otherwise a pack whose product matches `--product` exactly, and whose journey matches when `--journey` was passed. One shared word is not a match. With no product in the document: recipe `contextPackId`, then a single `recipeIds` bind, then `active` (only if the document named no product). `--audience` and `--a11y` are echoed (`AA` is stored as `wcag-aa`) and do not change the pick.
 
-`recommend` uses the same pack (or the active pack, or inline product/journey flags) **on top of** existing ranking: name/intent, variants, where-used, live over stale, retired last. Empty match still means do not invent.
+`recommend` uses a matched pack's product and journey **on top of** existing ranking: name/intent, variants, where-used, live over stale, retired last. Audience, density, and a11y do not. Empty match still means do not invent.
 
 `verify_frame` stays invent / retired / unmatched. Pack `libraryRules` can deny a master. Wrong-cousin drift (same role, different family than the shared DS) is `resolve cousins` / `check_cousins` when `.resolve/workspace.json` has a library-role file.
 

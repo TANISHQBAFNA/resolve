@@ -24,6 +24,26 @@ import { appendBindAudit, clearCache, saveGraph, saveSock } from "@/server/store
 import { emptySock } from "@/core/query/sock";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
+
+it("M41-3 handoff markdown shows audience and a11y", () => {
+  const text = formatHandoffScreen(
+    {
+      screen: { name: "Send money", id: "node:send", fileKey: "ACMEPAY", figmaNodeId: "20:40" },
+      context: { product: "Acme Pay", journey: "confirm", audience: "returning customer", accessibility: "wcag-aa", a11y: "wcag-aa" },
+      recipe: null,
+      components: [],
+      ingredients: [],
+      verify: { pass: true, approved: 0, retired: [], invents: [], unresolved: [] },
+      decisions: [],
+      openQuestions: [],
+      summary: { components: 0, copies: 0, linkedToCode: 0, unmapped: 0, parts: 0, partsLinkedToCode: 0, nameGuesses: 0, notFound: 0, otherLibrary: 0 },
+    },
+    false,
+  );
+  expect(text).toContain("Audience: returning customer");
+  expect(text).toContain("Accessibility (a11y): wcag-aa");
+  expect(text).not.toContain("Context pack:");
+});
 const graphOf = (file: unknown) => buildGraph(adaptFigmaRestFile({ fileKey: "ACMEUI", file, kind: "mock", ingestedAt: FROZEN }), { builtAt: FROZEN });
 const acmeGraph = () => graphOf(acmeFile);
 /** Acme with the fix applied: the retired Old Button copy on Send money (20:43) swapped for Button / Variant=Secondary. */

@@ -96,6 +96,8 @@ Say this in plain words:
 
 After the library is learned, running `resolve-setup` again shows `Library learned? yes`.
 
+For a screen, read the requirements or FSD yourself and pass `product`, `journey`, `domain`, `audience`, and `a11y` only when that document states them. Leave a field off when it does not. Do not invent a product. A context pack is optional: Resolve uses one only on an exact product match, and an exact journey match when the document gives a journey. Do not pass `pack` unless the document names that pack id. Audience, a11y, and density do not change which component is picked.
+
 ## Step 6. Report
 
 Finish with a short list:

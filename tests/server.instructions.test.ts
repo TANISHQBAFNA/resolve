@@ -83,6 +83,8 @@ describe("MCP instructions stay a short trigger", () => {
       expect(text).toContain("audience");
       expect(text).toContain("a11y");
       expect(text).not.toMatch(/npm run resolve/);
+      expect(text.toLowerCase()).toContain("do not invent a product");
+      expect(text.toLowerCase()).toContain("leave a field off");
       expect(text).not.toMatch(/Level-1/);
       expect(text).not.toMatch(/caveman/i);
     }

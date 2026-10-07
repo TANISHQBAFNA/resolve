@@ -38,6 +38,7 @@ import {
   withCost,
   withPendingImprovements,
   checkCousins,
+  appliedContext,
   packForRecommend,
   parseIngestRole,
   ingredientCard,
@@ -204,7 +205,6 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
-        ...screenContextProperties,
         ...freshnessProperties,
         fileKey: {
           type: "string",
@@ -251,7 +251,6 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
-        ...screenContextProperties,
         screenType: { type: "string" },
         ...freshnessProperties,
       },
@@ -344,7 +343,6 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
-        ...screenContextProperties,
         designContext: {
           description:
             "Figma get_design_context (or get_metadata that includes characters) for this frame. Before verify, fetch the frame's design context so Resolve can read the text.",
@@ -855,13 +853,18 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const resolvedContext = pack || screenType
         ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
         : undefined;
-      return componentUsageCard(index, asString(args["name"] ?? args["query"], "name"), {
+      const card = componentUsageCard(index, asString(args["name"] ?? args["query"], "name"), {
         budgetChars: budget,
         sock: readSock(),
         workspace: bind.workspace ?? readWorkspace(),
         placeholders: readPlaceholders(),
         ...(resolvedContext ? { context: resolvedContext } : {}),
       });
+      const echo = pack ? appliedContext(pack) : undefined;
+      if (!echo) return card;
+      const shown = { ...card, context: echo, ...(pack?.warning ? { warning: pack.warning } : {}) };
+      const cap = budget ?? 2000;
+      return JSON.stringify(shown).length <= cap ? shown : card;
     }
 
     case "orient": {

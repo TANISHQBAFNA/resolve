@@ -23,6 +23,10 @@ export interface ContextPack {
   journey?: { step?: string; screenJob?: string };
   audience?: string;
   constraints?: ContextConstraints;
+  /** Where each echoed field came from. Not used for ranking. */
+  sources?: ContextSources;
+  /** Plain warning when a pack id is unknown or fights the document product. */
+  warning?: string;
   recipeIds?: string[];
   /** Optional product/client file keys or labels from `.resolve/workspace.json`. */
   files?: string[];
@@ -49,15 +53,32 @@ export interface ContextBind {
   workspace?: WorkspaceManifest;
 }
 
-export interface AppliedContext {
-  id: string;
+/** `document`, `pack <id>`, or `active pack`. */
+export interface ContextSources {
   product?: string;
   client?: string;
   domain?: string;
   journey?: string;
   audience?: string;
   a11y?: string;
+}
+
+export interface AppliedContext {
+  id?: string;
+  product?: string;
+  productFrom?: string;
+  client?: string;
+  clientFrom?: string;
+  domain?: string;
+  domainFrom?: string;
+  journey?: string;
+  journeyFrom?: string;
+  audience?: string;
+  audienceFrom?: string;
+  a11y?: string;
+  a11yFrom?: string;
   files?: string[];
+  warning?: string;
 }
 
 export interface ContextQuery {
@@ -67,14 +88,6 @@ export interface ContextQuery {
   domain?: string;
   recipeId?: string;
 }
-
-const STOPWORDS = new Set(["a", "an", "the", "and", "or", "for", "to", "of", "with"]);
-
-const tokensOf = (text: string): string[] =>
-  text
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((part) => part.length > 1 && !STOPWORDS.has(part));
 
 const slug = (text: string): string =>
   text
@@ -114,7 +127,8 @@ function constraintsOf(raw: unknown): ContextConstraints | undefined {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const record = raw as Record<string, unknown>;
   const density = typeof record["density"] === "string" ? record["density"].trim() : "";
-  const a11y = typeof record["a11y"] === "string" ? record["a11y"].trim() : "";
+  const a11yRaw = typeof record["a11y"] === "string" ? record["a11y"].trim() : "";
+  const a11y = a11yRaw ? normaliseA11y(a11yRaw) : "";
   if (!density && !a11y) return undefined;
   return { ...(density ? { density } : {}), ...(a11y ? { a11y } : {}) };
 }
@@ -167,162 +181,207 @@ export function parseContextPackFile(raw: unknown): ContextPackFile {
   return { packs, ...(activeRaw ? { active: activeRaw } : {}) };
 }
 
-export function appliedContext(pack: ContextPack): AppliedContext {
+/** `AA` and `WCAG AA` become `wcag-aa`. Anything else is returned trimmed. */
+export function normaliseA11y(raw: string): string {
+  const compact = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+  if (compact === "a" || compact === "wcaga") return "wcag-a";
+  if (compact === "aa" || compact === "wcagaa") return "wcag-aa";
+  if (compact === "aaa" || compact === "wcagaaa") return "wcag-aaa";
+  return raw.trim();
+}
+
+const fold = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+function productMatch(pack: ContextPack, product: string): boolean {
+  const want = fold(product);
+  if (!want) return false;
+  return [pack.product?.id, pack.product?.name].some((name) => Boolean(name) && fold(name!) === want);
+}
+
+function journeyMatch(pack: ContextPack, journey: string): boolean {
+  const want = fold(journey);
+  if (!want) return false;
+  return [pack.journey?.step, pack.journey?.screenJob].some((name) => Boolean(name) && fold(name!) === want);
+}
+
+function namedPack(packs: ContextPack[], id: string): ContextPack | undefined {
+  const needle = id.trim().toLowerCase();
+  if (!needle) return undefined;
+  return packs.find((pack) => pack.id.toLowerCase() === needle);
+}
+
+function sourceFor(pack: ContextPack, key: keyof ContextSources): string | undefined {
+  return pack.sources?.[key];
+}
+
+export function appliedContext(pack: ContextPack): AppliedContext | undefined {
   const product = pack.product?.name || pack.product?.id;
   const client = pack.client?.name || pack.client?.id;
   const journey = pack.journey?.screenJob || pack.journey?.step;
-  return {
-    id: pack.id,
-    ...(product ? { product } : {}),
-    ...(client ? { client } : {}),
-    ...(pack.domain ? { domain: pack.domain } : {}),
-    ...(journey ? { journey } : {}),
-    ...(pack.audience ? { audience: pack.audience } : {}),
-    ...(pack.constraints?.a11y ? { a11y: pack.constraints.a11y } : {}),
+  const a11y = pack.constraints?.a11y ? normaliseA11y(pack.constraints.a11y) : undefined;
+  const from = (key: keyof ContextSources) => sourceFor(pack, key);
+  const sourceValues = Object.values(pack.sources ?? {});
+  const chosen = sourceValues.length
+    ? sourceValues.some((item) => item === "active pack" || item.startsWith("pack "))
+    : Boolean(pack.id);
+  const echo: AppliedContext = {
+    ...(chosen && pack.id ? { id: pack.id } : {}),
+    ...(product ? { product, ...(from("product") ? { productFrom: from("product") } : {}) } : {}),
+    ...(client ? { client, ...(from("client") ? { clientFrom: from("client") } : {}) } : {}),
+    ...(pack.domain ? { domain: pack.domain, ...(from("domain") ? { domainFrom: from("domain") } : {}) } : {}),
+    ...(journey ? { journey, ...(from("journey") ? { journeyFrom: from("journey") } : {}) } : {}),
+    ...(pack.audience ? { audience: pack.audience, ...(from("audience") ? { audienceFrom: from("audience") } : {}) } : {}),
+    ...(a11y ? { a11y, ...(from("a11y") ? { a11yFrom: from("a11y") } : {}) } : {}),
     ...(pack.files?.length ? { files: pack.files } : {}),
+    ...(pack.warning ? { warning: pack.warning } : {}),
   };
+  if (!product && !client && !pack.domain && !journey && !pack.audience && !a11y && !pack.warning) return undefined;
+  return echo;
 }
 
 export function contextPhrase(pack: ContextPack): string {
-  return [
-    pack.product?.name || pack.product?.id,
-    pack.client?.name || pack.client?.id,
-    pack.domain,
-    pack.journey?.screenJob || pack.journey?.step,
-    pack.audience,
-    pack.constraints?.density,
-    pack.constraints?.a11y,
-  ]
+  // Audience, density, and a11y are echo only. They must not enter the recommend text.
+  return [pack.product?.name || pack.product?.id, pack.client?.name || pack.client?.id, pack.domain, pack.journey?.screenJob || pack.journey?.step]
     .filter((part): part is string => Boolean(part))
     .join(" ");
 }
 
-function packHaystack(pack: ContextPack): Set<string> {
-  return new Set(
-    tokensOf(
-      [
-        pack.id,
-        pack.product?.id,
-        pack.product?.name,
-        pack.domain,
-        pack.journey?.step,
-        pack.journey?.screenJob,
-        ...(pack.recipeIds ?? []),
-      ]
-        .filter(Boolean)
-        .join(" "),
-    ),
-  );
-}
-
-function scorePack(pack: ContextPack, tokens: string[]): number {
-  if (!tokens.length) return 0;
-  const haystack = packHaystack(pack);
-  return tokens.reduce((count, token) => count + (haystack.has(token) ? 1 : 0), 0);
-}
-
-function bestPack(packs: ContextPack[], tokens: string[]): ContextPack | undefined {
-  let best: { pack: ContextPack; score: number } | undefined;
-  for (const pack of packs) {
-    const score = scorePack(pack, tokens);
-    if (score === 0) continue;
-    if (!best || score > best.score || (score === best.score && pack.id < best.pack.id)) {
-      best = { pack, score };
-    }
-  }
-  return best?.pack;
+function exactPacks(packs: ContextPack[], product?: string, journey?: string): ContextPack[] {
+  const named = product?.trim();
+  if (!named) return [];
+  let hits = packs.filter((pack) => productMatch(pack, named));
+  const step = journey?.trim();
+  if (step) hits = hits.filter((pack) => journeyMatch(pack, step));
+  return hits;
 }
 
 export function matchContextPack(packs: ContextPack[], query: ContextQuery): ContextPack | undefined {
-  const packId = query.packId?.trim();
-  if (packId) {
-    const needle = packId.toLowerCase();
-    return packs.find((pack) => pack.id.toLowerCase() === needle);
-  }
-
-  const tokens = tokensOf([query.product, query.journey, query.domain].filter(Boolean).join(" "));
+  if (query.packId?.trim()) return namedPack(packs, query.packId);
+  const product = query.product?.trim();
   const recipeId = query.recipeId?.trim();
-  const bound = recipeId ? packs.filter((pack) => pack.recipeIds?.includes(recipeId)) : [];
-  if (bound.length === 1) return bound[0];
-  if (bound.length > 1) return (tokens.length ? bestPack(bound, tokens) : undefined) ?? [...bound].sort((a, b) => a.id.localeCompare(b.id))[0];
-  if (tokens.length) return bestPack(packs, tokens);
-  return undefined;
+  if (!product && recipeId) {
+    const bound = packs.filter((pack) => pack.recipeIds?.includes(recipeId));
+    return bound.length === 1 ? bound[0] : undefined;
+  }
+  const hits = exactPacks(packs, product, query.journey);
+  if (recipeId) {
+    const bound = hits.filter((pack) => pack.recipeIds?.includes(recipeId));
+    if (bound.length === 1) return bound[0];
+  }
+  return hits.length === 1 ? hits[0] : undefined;
 }
 
-/** Audience and a11y from this call sit on top of the matched pack. Neither invents a component. */
-function withCallContext(pack: ContextPack | undefined, bind: ContextBind): ContextPack | undefined {
-  const audience = bind.audience?.trim();
-  const a11y = bind.a11y?.trim();
-  if (!audience && !a11y) return pack;
-  const base = pack ?? { id: "inline" };
+function stated(bind: ContextBind) {
+  const product = bind.product?.trim() || undefined;
+  const journey = bind.journey?.trim() || undefined;
+  const domain = bind.domain?.trim() || undefined;
+  const audience = bind.audience?.trim() || undefined;
+  const a11y = bind.a11y?.trim() ? normaliseA11y(bind.a11y) : undefined;
+  return { product, journey, domain, audience, a11y };
+}
+
+/** Fields the document stated, and nothing from a pack. No pack id. */
+function documentOnly(bind: ContextBind, warning?: string): ContextPack | undefined {
+  const doc = stated(bind);
+  const sources: ContextSources = {};
+  if (doc.product) sources.product = "document";
+  if (doc.journey) sources.journey = "document";
+  if (doc.domain) sources.domain = "document";
+  if (doc.audience) sources.audience = "document";
+  if (doc.a11y) sources.a11y = "document";
+  if (!doc.product && !doc.journey && !doc.domain && !doc.audience && !doc.a11y && !warning) return undefined;
   return {
-    ...base,
-    ...(audience ? { audience } : {}),
-    ...(a11y ? { constraints: { ...base.constraints, a11y } } : {}),
+    id: "",
+    ...(doc.product ? { product: productOf(doc.product) } : {}),
+    ...(doc.domain ? { domain: doc.domain } : {}),
+    ...(doc.journey ? { journey: journeyOf(doc.journey) } : {}),
+    ...(doc.audience ? { audience: doc.audience } : {}),
+    ...(doc.a11y ? { constraints: { a11y: doc.a11y } } : {}),
+    sources,
+    ...(warning ? { warning } : {}),
   };
 }
 
-function chooseRecipePack(
-  recipe: { id: string; contextPackId?: string },
-  bind: ContextBind,
-): ContextPack | undefined {
+/** Document fields win. Pack fields fill the gaps and say where they came from. */
+function withDocument(pack: ContextPack, bind: ContextBind, source: string, warning?: string): ContextPack {
+  const doc = stated(bind);
+  const sources: ContextSources = {};
+  const packA11y = pack.constraints?.a11y ? normaliseA11y(pack.constraints.a11y) : undefined;
+  const a11y = doc.a11y || packA11y;
+  if (doc.product) sources.product = "document";
+  else if (pack.product) sources.product = source;
+  if (doc.journey) sources.journey = "document";
+  else if (pack.journey) sources.journey = source;
+  if (doc.domain) sources.domain = "document";
+  else if (pack.domain) sources.domain = source;
+  if (doc.audience) sources.audience = "document";
+  else if (pack.audience) sources.audience = source;
+  if (doc.a11y) sources.a11y = "document";
+  else if (packA11y) sources.a11y = source;
+  if (pack.client) sources.client = source;
+  return {
+    ...pack,
+    ...(doc.product ? { product: productOf(doc.product) } : {}),
+    ...(doc.journey ? { journey: journeyOf(doc.journey) } : {}),
+    ...(doc.domain ? { domain: doc.domain } : {}),
+    ...(doc.audience ? { audience: doc.audience } : {}),
+    ...(a11y ? { constraints: { ...pack.constraints, a11y } } : {}),
+    sources,
+    ...(warning ? { warning } : {}),
+  };
+}
+
+function decidePack(bind: ContextBind, recipe?: { id: string; contextPackId?: string }): ContextPack | undefined {
   const packs = bind.packs;
-  if (bind.packId?.trim()) return matchContextPack(packs, { packId: bind.packId });
-  if (recipe.contextPackId) {
-    const named = matchContextPack(packs, { packId: recipe.contextPackId });
-    if (named) return named;
+  const product = bind.product?.trim();
+  const journey = bind.journey?.trim();
+  const asked = bind.packId?.trim();
+  if (asked) {
+    const found = namedPack(packs, asked);
+    if (!found) return documentOnly(bind, `No context pack "${asked}".`);
+    if (product && found.product && !productMatch(found, product)) {
+      const name = found.product.name || found.product.id || found.id;
+      return documentOnly(bind, `Context pack "${found.id}" is for ${name}, not ${product}.`);
+    }
+    return withDocument(found, bind, `pack ${found.id}`);
   }
-  const bound = matchContextPack(packs, {
-    recipeId: recipe.id,
-    product: bind.product,
-    journey: bind.journey,
-    domain: bind.domain,
-  });
-  if (bound) return bound;
-  const flagged = matchContextPack(packs, {
-    product: bind.product,
-    journey: bind.journey,
-    domain: bind.domain,
-  });
-  if (flagged) return flagged;
-  if (!bind.active) return undefined;
-  const active = matchContextPack(packs, { packId: bind.active });
-  if (!active) return undefined;
-  if (active.recipeIds?.length && !active.recipeIds.includes(recipe.id)) return undefined;
-  return active;
+  if (product) {
+    const hits = exactPacks(packs, product, journey);
+    if (recipe) {
+      const bound = hits.filter((pack) => pack.id === recipe.contextPackId || pack.recipeIds?.includes(recipe.id));
+      if (bound.length === 1) return withDocument(bound[0]!, bind, `pack ${bound[0]!.id}`);
+    }
+    if (hits.length === 1) return withDocument(hits[0]!, bind, `pack ${hits[0]!.id}`);
+    if (hits.length > 1) {
+      return documentOnly(bind, `${hits.length} context packs match ${product}${journey ? ` / ${journey}` : ""}. None was used.`);
+    }
+    return documentOnly(bind);
+  }
+  if (recipe?.contextPackId) {
+    const named = namedPack(packs, recipe.contextPackId);
+    if (named) return withDocument(named, bind, `pack ${named.id}`);
+  }
+  if (recipe) {
+    const bound = packs.filter((pack) => pack.recipeIds?.includes(recipe.id));
+    if (bound.length === 1) return withDocument(bound[0]!, bind, `pack ${bound[0]!.id}`);
+  }
+  if (bind.active) {
+    const active = namedPack(packs, bind.active);
+    if (active && (!recipe || !active.recipeIds?.length || active.recipeIds.includes(recipe.id))) {
+      return withDocument(active, bind, "active pack");
+    }
+  }
+  return documentOnly(bind);
 }
 
 export function packForRecipe(
   recipe: { id: string; contextPackId?: string },
   bind: ContextBind = { packs: [] },
 ): ContextPack | undefined {
-  return withCallContext(chooseRecipePack(recipe, bind), bind);
+  return decidePack(bind, recipe);
 }
 
-function inlinePack(bind: ContextBind): ContextPack | undefined {
-  if (!bind.product && !bind.journey && !bind.domain) return undefined;
-  return {
-    id: "inline",
-    product: productOf(bind.product),
-    domain: bind.domain?.trim() || undefined,
-    journey: journeyOf(bind.journey),
-  };
-}
-
-function chooseRecommendPack(bind: ContextBind): ContextPack | undefined {
-  if (bind.packId?.trim()) return matchContextPack(bind.packs, { packId: bind.packId });
-  const flagged = matchContextPack(bind.packs, {
-    product: bind.product,
-    journey: bind.journey,
-    domain: bind.domain,
-  });
-  if (flagged) return flagged;
-  if (bind.product || bind.journey || bind.domain) return inlinePack(bind);
-  if (bind.active) return matchContextPack(bind.packs, { packId: bind.active });
-  return undefined;
-}
-
-/** Active / flagged pack for recommend when no recipe is in play. */
+/** Pack for recommend. Exact product, and exact journey when the document gives one. */
 export function packForRecommend(bind: ContextBind = { packs: [] }): ContextPack | undefined {
-  return withCallContext(chooseRecommendPack(bind), bind);
+  return decidePack(bind);
 }
