@@ -120,9 +120,12 @@ interface Row {
   fileKey: string;
   id?: string;
   name?: string;
+  component: string;
+  importPath: string;
   line: string;
   status?: string;
   replacedBy?: string;
+  framework?: "angular" | "react";
   angular?: AngularTwin;
   /** Why this entry's Angular fields were dropped (the code line is kept). */
   angularDropped?: string;
@@ -167,14 +170,19 @@ function parseRow(raw: unknown, n: number): Row {
   if (status && status !== "current" && status !== "retired") throw "status must be current or retired";
   if (id && !fileKey) throw "id needs fileKey";
   if (!id && !name) throw "needs fileKey + id, or name";
+  const frameworkText = typeof code["framework"] === "string" ? code["framework"].trim() : undefined;
+  const framework = frameworkText === "react" ? "react" : frameworkText === "angular" || angular ? "angular" : undefined;
   return {
     n,
     fileKey,
     ...(id ? { id } : {}),
     ...(name ? { name } : {}),
+    component,
+    importPath: module,
     line: `${component} from '${module}'`,
     ...(status ? { status } : {}),
     ...(replacedBy ? { replacedBy: clean(replacedBy).slice(0, 60) } : {}),
+    ...(framework ? { framework } : {}),
     ...(angular ? { angular } : {}),
     ...(angularDropped ? { angularDropped } : {}),
   };
@@ -417,6 +425,91 @@ export function codeMapReport(getIndex: () => GraphIndex, hooksFor: (index: Grap
   if (!loaded.rows.length) return emptyReport("code-map.json has no usable entries.", loaded.ignored);
   const index = getIndex();
   return resolveRows(index, loaded, hooksFor(index)).report;
+}
+
+/** One usable code-map row, with no learned graph attached. */
+export interface CodeMapListed {
+  entry: number;
+  fileKey?: string;
+  id?: string;
+  name?: string;
+  component: string;
+  importPath: string;
+  status: "current" | "retired";
+  replacedBy?: string;
+  framework?: "angular" | "react";
+  selector?: string;
+  module?: string;
+  standalone?: true;
+  /** Set when Angular fields were dropped. The code line is still usable. */
+  angularDropped?: string;
+}
+
+/** A row the loader skipped. The check names it when a query hits that row. */
+export interface CodeMapSkipped {
+  entry: number;
+  reason: string;
+  name?: string;
+  component?: string;
+  selector?: string;
+}
+
+/**
+ * Read a code-map document with the same entry rules as the loader.
+ * Does not open a graph. A missing or non-object `entries` list is an error.
+ * A bad row is listed in `problems` and skipped.
+ */
+function skippedFields(item: unknown): Pick<CodeMapSkipped, "name" | "component" | "selector"> {
+  if (!isRecord(item)) return {};
+  const name = typeof item["name"] === "string" ? item["name"].trim() : "";
+  const code = isRecord(item["code"]) ? item["code"] : undefined;
+  const component = code && typeof code["component"] === "string" ? code["component"].trim() : "";
+  const selector = code && typeof code["selector"] === "string" ? code["selector"].trim() : "";
+  return {
+    ...(name ? { name } : {}),
+    ...(component ? { component } : {}),
+    ...(selector ? { selector } : {}),
+  };
+}
+
+export function listCodeMapEntries(raw: unknown): { entries: CodeMapListed[]; problems: string[]; skipped: CodeMapSkipped[]; error?: string } {
+  if (!isRecord(raw) || !Array.isArray(raw["entries"])) {
+    return {
+      entries: [],
+      problems: [],
+      skipped: [],
+      error: "The code map must be a JSON object with an entries list. Fix the file, or rebuild it with resolve code-map --import.",
+    };
+  }
+  const entries: CodeMapListed[] = [];
+  const problems: string[] = [];
+  const skipped: CodeMapSkipped[] = [];
+  raw["entries"].forEach((item, index) => {
+    const n = index + 1;
+    try {
+      const row = parseRow(item, n);
+      entries.push({
+        entry: n,
+        ...(row.fileKey ? { fileKey: row.fileKey } : {}),
+        ...(row.id ? { id: row.id } : {}),
+        ...(row.name ? { name: row.name } : {}),
+        component: row.component,
+        importPath: row.importPath,
+        status: row.status === "retired" ? "retired" : "current",
+        ...(row.replacedBy ? { replacedBy: row.replacedBy } : {}),
+        ...(row.framework ? { framework: row.framework } : {}),
+        ...(row.angular?.selector ? { selector: row.angular.selector } : {}),
+        ...(row.angular?.module ? { module: row.angular.module } : {}),
+        ...(row.angular?.standalone ? { standalone: true as const } : {}),
+        ...(row.angularDropped ? { angularDropped: row.angularDropped } : {}),
+      });
+    } catch (reason) {
+      const why = String(reason);
+      problems.push(`entry ${n}: ${why}`);
+      skipped.push({ entry: n, reason: why, ...skippedFields(item) });
+    }
+  });
+  return { entries, problems, skipped };
 }
 
 export function formatCodeMapReport(report: CodeMapReport, retiredOnly = false, first = 8): string {

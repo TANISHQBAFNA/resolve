@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Resolve — Figma rules. Agents resolve. One-node Figma component usage map for Cursor agents.",
   "bin": {
+    "resolve": "./bin/resolve-cli.mjs",
     "resolve-mcp": "./bin/resolve-mcp.mjs",
     "resolve-figma": "./bin/resolve-cli.mjs",
     "resolve-setup": "./bin/resolve-setup.mjs"

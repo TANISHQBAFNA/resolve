@@ -71,6 +71,7 @@ describe("slash commands: install", () => {
       }
     }
     expect(read(join(cwd, "CLAUDE.md"))).toContain("Do not invent components");
+    expect(read(join(cwd, "CLAUDE.md"))).toContain("Do not invent a product");
     expect(read(join(cwd, ".cursor/rules/resolve.mdc"))).toContain("alwaysApply: true");
   });
 

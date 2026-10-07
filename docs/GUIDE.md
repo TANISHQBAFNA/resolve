@@ -237,14 +237,13 @@ Use this when **one Figma library serves more than one product**, or when a gene
 
 1. Copy [`src/data/context-packs.example.json`](../src/data/context-packs.example.json) to **`.resolve/context-packs.json`**.
 2. Edit that new file. Leave the example in `src/data/` as a template — Resolve does **not** load the example until you copy it.
-3. **Never add Figma component ids** to a context pack. Recommend fills those after ingest.
+3. **Never add a Figma file key or component id** to a context pack. Recommend fills those after ingest. Run `resolve pack validate` before you commit the file.
 
 A filled-in file looks like this:
 
 ```json
 {
   "version": 1,
-  "active": "storefront-checkout-summary",
   "packs": [
     {
       "id": "storefront-checkout-summary",
@@ -264,9 +263,9 @@ A filled-in file looks like this:
 
 ### What each line means
 
-**`active`.** The pack agents should load by default when you do not name one. Here: Storefront checkout summary.
+**`active`.** Do not set this. Pass product and journey from the requirements or FSD. A pack is used only when that product matches exactly, and the journey matches exactly when the document gives one.
 
-**`id`.** A stable name you choose for this pack. Use it with `--pack storefront-checkout-summary`. Keep it unique.
+**`id`.** A stable slug you choose for this pack: lowercase letters, numbers, and hyphens, like `storefront-checkout-summary`. Use it with `--pack storefront-checkout-summary`. Keep it unique.
 
 **`product`.** Which product this screen is for. You can write `{ "id": "storefront", "name": "Storefront" }` or a plain string `"Storefront"`. This is how Resolve prefers Storefront checkout pieces over another product that shares the same library.
 
@@ -274,19 +273,19 @@ A filled-in file looks like this:
 
 **`journey`.** Where you are in the flow. `step` is the short label (`summary`). `screenJob` is the screen you are building (`checkout summary`) — the same kind of phrase you pass to `recipe`. You can also set `journey` to a single string like `"summary"`.
 
-**`audience`.** Who the screen is for, in a phrase (`returning shopper`). This becomes extra context for ranking. It is not a separate audience tool.
+**`audience`.** Who the screen is for, in a phrase (`returning shopper`). Resolve echoes it with a source. It does not change the pick.
 
-**`constraints`.** Extra wishes in words — how dense the layout should feel (`compact`), and the accessibility bar you care about (`wcag-aa`). These help ranking. They do not run an accessibility audit.
+**`constraints`.** Extra wishes in words — how dense the layout should feel (`compact`), and the accessibility bar you care about. `a11y` must be `wcag-a`, `wcag-aa`, or `wcag-aaa` (`AA` is stored as `wcag-aa`). Audience, density, and a11y are echoed and do not change the pick. They do not run an accessibility audit.
 
 **`recipeIds`.** Which screen packs this context applies to. Use the recipe **id**, not the title: `checkout-summary`, not `"Checkout Summary"`. This is the usual way to bind a pack. One file can list several recipes if they share the same product and journey.
 
 **`libraryRules` (optional).** A small allow / deny list of **component names**. `"deny": ["Banner"]` means “do not pick Banner for this pack.” Same idea as the optional `.resolve/library-rules.json` file.
 
-**`files` (optional).** Which product or client file(s) this pack applies to. Use the **file key** or the **label** from `.resolve/workspace.json` (`Storefront`). This does not invent masters. Recommend still prefers the shared DS library when a library-role file is linked.
+**`files` (optional).** Which product or client file(s) this pack applies to. Use the **label** from `.resolve/workspace.json` (`Storefront`), not the Figma file key. This does not invent masters. Recommend still prefers the shared DS library when a library-role file is linked.
 
 **`client` (optional).** When the product name and the client name are not the same. Same shape as `product` — `{ "id": "northwind", "name": "Northwind" }` or a string `"Northwind"`. Same pack, not a second model.
 
-Unknown extra keys are ignored. Invented Figma ids in this file are ignored. That is on purpose — this file is for product and journey, not for drawing.
+Unknown extra keys are warnings from `resolve pack validate`, and they do not change ranking. A Figma file key, a Figma link, a token, or a node id fails `resolve pack validate`, which names the field and how to fix it. When Resolve loads the pack, a bad pack or just that bad field is skipped, with one warning, and the command still runs. This file is for product and journey, not for drawing. A pack that loads is ranked the same way as before. Audience, a11y, and density do not change the pick.
 
 ---
 

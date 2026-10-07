@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — name check and context-pack check
+
+Oct 7, 2026 IST. `resolve code-map --check` reads the committed handoff and code map only (no learned cache). It matches file key and node id, never a shared package alone, and answers ok, retired, not in this handoff, unmapped, other-library (exit 6), or not-found. A draft handoff is refused. `--check` needs `status: retired` on the map entry unless the sheet itself says retired. `resolve pack validate` stays strict (slug, accessibility, recipe ids, no file key, token, or node id; unknown fields warn). Loading a pack skips a bad pack or field and warns once, so a command does not fail because of the pack file. Ranking is unchanged. Audience, a11y, and density are echoed and do not change the pick.
+
 ## Unreleased — context-pack slot fill and cache ignore
 
 Oct 7, 2026 IST. A context pack linked to a recipe no longer empties that recipe's slots in handoff or in the recipe card. The pack phrase is not pasted into the component query. An extra intent is ranked with the slot words. A product name that is itself a component name can outrank the slot words; the pack is not only a tie-break. A slot with a stored default master still uses that master. Setup's `.gitignore` block ignores the learned cache and scoreboard run history (`.resolve/scoreboard/*`). Phrase sets (`scoreboard/phrases/`) and golden files (`scoreboard/golden/`, including the file from `score --init`) stay committable, with recipes, context packs, the code map, decisions (`sock.json`), bind rules and synonyms. A user line such as `.resolve/*` is treated as ignoring the whole folder, same as `.resolve/`. Resolve's ticket add-on for AIDLC, if your team uses it, uses `design-handoff`. It calls `/handoff`. Ranking of a plain recommend is unchanged.

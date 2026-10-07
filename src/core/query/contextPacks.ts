@@ -28,7 +28,7 @@ export interface ContextPack {
   /** Plain warning when a pack id is unknown or fights the document product. */
   warning?: string;
   recipeIds?: string[];
-  /** Optional product/client file keys or labels from `.resolve/workspace.json`. */
+  /** Optional product/client labels from `.resolve/workspace.json`. Not Figma file keys. */
   files?: string[];
   libraryRules?: LibraryRules;
   bindRules?: BindRulesFile;
@@ -170,7 +170,7 @@ function parseOne(raw: unknown): ContextPack[] {
   ];
 }
 
-/** Designer JSON in, packs out. Unknown keys and figmaNodeId ignored. Bad files → []. */
+/** Designer JSON in, packs out. Unknown keys and figmaNodeId ignored. Bad files → []. Ranking uses this. `resolve pack validate` is strict. `readContextPacks` skips a bad pack or field and warns once. */
 export function parseContextPackFile(raw: unknown): ContextPackFile {
   if (Array.isArray(raw)) return { packs: raw.flatMap(parseOne) };
   if (!raw || typeof raw !== "object") return { packs: [] };
