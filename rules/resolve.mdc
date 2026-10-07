@@ -1,5 +1,5 @@
 ---
-description: For ANY Figma design, screen, or component task, call Resolve before drawing. Check Figma MCP is connected and a library or screens are ingested. Never invent components.
+description: For ANY Figma design, screen, or component task, call Resolve before drawing. Set context first (product, journey, audience, a11y). Place only returned components. Never invent components.
 alwaysApply: true
 ---
 
@@ -12,11 +12,12 @@ For ANY Figma design, screen, or component task, call Resolve before any Figma d
 **Path (Resolve MCP tools, not shell commands):**
 
 1. Map the Figma file first. `get_metadata`, then `learn_library` (fileKey; `role` `library` for the design system, `product` or `client` for screens). Re-run when that file changed.
-2. `recipe` when the screen job matches a pack.
-3. `recommend` for each unbound, missing, or deprecated slot. Place returned `figmaNodeId`s only (cards stamp `fileKey`).
-4. `get_example`, then clone that instance and replace the content. Do not start from the default variant.
-5. `verify_frame` after the frame exists. Fetch that frame's design context first and pass it as `designContext`.
-6. `check_cousins` when a library file and a product or client file are both linked. Unsure means stop.
+2. Set context before any component pick. Read the requirements or FSD (you read that document; Resolve does not) and pass `product`, `journey`, `domain`, `audience`, and `a11y` only when it states them. Do not ask for those four. Leave a field off when the document does not say it. Do not invent a product, an audience, or an a11y bar. A context pack is optional. Resolve uses one only on an exact product match, and an exact journey match when the document gives a journey. Do not pass `pack` unless the document names that pack id.
+3. `recipe` for the screen job. Pass the same context.
+4. `recommend` for each unbound, missing, or deprecated slot. Pass the same context. Place returned `figmaNodeId`s only (cards stamp `fileKey`). An empty card means stop. Do not draw a stand-in.
+5. `get_example`, then clone that instance and replace the content. Pass the same context. Do not start from the default variant.
+6. `verify_frame` after the frame exists. Pass the same context. Fetch that frame's design context first and pass it as `designContext`.
+7. `check_cousins` when a library file and a product or client file are both linked. Pass the same context. Unsure means stop.
 
 Resolve is read-only. Never invent a component, name, or node id. Never Read `.resolve/graph.json`.
 

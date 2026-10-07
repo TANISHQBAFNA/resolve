@@ -176,14 +176,23 @@ describe("agent tools", () => {
   });
 
   it("recipe, list_recipes, and verify_frame accept the same pack-bind fields as recommend", () => {
-    for (const name of ["recipe", "get_recipe", "list_recipes", "verify_frame"] as const) {
+    for (const name of ["recommend", "resolve", "recipe", "get_recipe", "list_recipes", "get_handoff"] as const) {
       const schema = TOOLS.find((tool) => tool.name === name)?.inputSchema as {
         properties: Record<string, unknown>;
       };
-      expect(schema.properties).toHaveProperty("pack");
-      expect(schema.properties).toHaveProperty("product");
-      expect(schema.properties).toHaveProperty("journey");
-      expect(schema.properties).toHaveProperty("domain");
+      expect(schema.properties, name).toHaveProperty("pack");
+      expect(schema.properties, name).toHaveProperty("product");
+      expect(schema.properties, name).toHaveProperty("journey");
+      expect(schema.properties, name).toHaveProperty("domain");
+      expect(schema.properties, name).toHaveProperty("audience");
+      expect(schema.properties, name).toHaveProperty("a11y");
+    }
+    for (const name of ["get_example", "verify_frame", "check_cousins"] as const) {
+      const schema = TOOLS.find((tool) => tool.name === name)?.inputSchema as {
+        properties: Record<string, unknown>;
+      };
+      expect(schema.properties, name).not.toHaveProperty("audience");
+      expect(schema.properties, name).not.toHaveProperty("a11y");
     }
   });
 });

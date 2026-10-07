@@ -1363,6 +1363,16 @@ export interface RecommendContext {
   constraints?: { density?: string; a11y?: string };
   files?: string[];
   libraryRules?: LibraryRules;
+  /** Echo labels. Ranking ignores these. */
+  sources?: {
+    product?: string;
+    client?: string;
+    domain?: string;
+    journey?: string;
+    audience?: string;
+    a11y?: string;
+  };
+  warning?: string;
 }
 
 export function parseLibraryRules(raw: unknown): LibraryRules {
@@ -1489,17 +1499,30 @@ function contextTokenGroups(context?: RecommendContext) {
 }
 
 function appliedRecommendContext(context?: RecommendContext) {
-  if (!context?.id) return undefined;
+  if (!context) return undefined;
   const product = context.product?.name || context.product?.id;
   const client = context.client?.name || context.client?.id;
   const journey = context.journey?.screenJob || context.journey?.step;
+  const a11y = context.constraints?.a11y?.trim();
+  const from = (key: "product" | "client" | "domain" | "journey" | "audience" | "a11y") => context.sources?.[key];
+  const sourceValues = Object.values(context.sources ?? {});
+  const id = context.id?.trim();
+  const chosen = sourceValues.length
+    ? sourceValues.some((item) => item === "active pack" || item.startsWith("pack "))
+    : Boolean(id);
+  if (!product && !client && !context.domain && !journey && !context.audience && !a11y && !context.warning && !context.files?.length) {
+    return undefined;
+  }
   return {
-    id: context.id,
-    ...(product ? { product } : {}),
-    ...(client ? { client } : {}),
-    ...(context.domain ? { domain: context.domain } : {}),
-    ...(journey ? { journey } : {}),
+    ...(chosen && id ? { id } : {}),
+    ...(product ? { product, ...(from("product") ? { productFrom: from("product") } : {}) } : {}),
+    ...(client ? { client, ...(from("client") ? { clientFrom: from("client") } : {}) } : {}),
+    ...(context.domain ? { domain: context.domain, ...(from("domain") ? { domainFrom: from("domain") } : {}) } : {}),
+    ...(journey ? { journey, ...(from("journey") ? { journeyFrom: from("journey") } : {}) } : {}),
+    ...(context.audience ? { audience: context.audience, ...(from("audience") ? { audienceFrom: from("audience") } : {}) } : {}),
+    ...(a11y ? { a11y, ...(from("a11y") ? { a11yFrom: from("a11y") } : {}) } : {}),
     ...(context.files?.length ? { files: context.files } : {}),
+    ...(context.warning ? { warning: context.warning } : {}),
   };
 }
 
@@ -2064,7 +2087,6 @@ function contextWords(context?: RecommendContext): string[] {
       context.product?.id,
       context.client?.name,
       context.client?.id,
-      context.audience,
     ]
       .filter((part): part is string => Boolean(part))
       .join(" "),
@@ -3369,7 +3391,8 @@ export function recommendMasters(
       truncated,
       ...(weakLead ? { match: "weak match" } : {}),
       ...(extraNote ? { note: extraNote } : {}),
-      ...(contextEcho ? { context: contextEcho } : {}),
+      ...(contextEcho && Object.keys(contextEcho).length ? { context: contextEcho } : {}),
+      ...(options.context?.warning ? { warning: options.context.warning } : {}),
       hint:
         echoBag.hint ??
         (weakLead
@@ -3386,6 +3409,10 @@ export function recommendMasters(
   };
 
   let payload = payloadOf();
+  if (JSON.stringify(payload).length > budgetChars) {
+    shedEcho(contextEcho, () => JSON.stringify(payloadOf()).length > budgetChars);
+    payload = payloadOf();
+  }
   const shrink = () => {
     candidates = listed();
     payload = payloadOf();
@@ -3405,6 +3432,31 @@ export function recommendMasters(
   if (overBudget()) {
     dropExtras = true;
     shrink();
+  }
+  if (overBudget()) {
+    dropVariant = true;
+    shrink();
+  }
+  if (overBudget()) {
+    const lead = candidates[0];
+    if (lead && "why" in lead && lead.why.length > 48) {
+      lead.why = `${lead.why.slice(0, 47)}…`;
+      payload = payloadOf();
+    }
+  }
+  if (overBudget() && contextEcho) {
+    const journey = contextEcho["journey"];
+    if (typeof journey === "string" && journey.length > 80) {
+      delete contextEcho["journey"];
+      delete contextEcho["journeyFrom"];
+      payload = payloadOf();
+    }
+    const optional = ["a11y", "a11yFrom", "audience", "audienceFrom", "files", "client", "clientFrom", "domainFrom", "productFrom", "warning"] as const;
+    for (const key of optional) {
+      if (!overBudget()) break;
+      delete contextEcho[key];
+      payload = payloadOf();
+    }
   }
   if (overBudget()) {
     const ceiling = Math.min(kept.length, target);
@@ -3487,7 +3539,17 @@ export function recommendMasters(
   return withCost({ ...(said ? only : payload), ...extra });
 }
 
-const ECHO_KEYS = ["journey", "product", "domain", "id", "client"] as const;
+const ECHO_KEYS = ["product", "domain", "id", "client", "audience", "a11y", "productFrom", "domainFrom", "clientFrom", "audienceFrom", "a11yFrom"] as const;
+
+/** Drop echo fields before a candidate is removed. Journey is deleted whole, never cut mid-word. */
+function shedEcho(context: Record<string, unknown> | undefined, over: () => boolean): void {
+  if (!context) return;
+  const drop = ["a11y", "a11yFrom", "audience", "audienceFrom", "files", "client", "clientFrom"];
+  for (const key of drop) {
+    if (!over()) return;
+    if (key in context) delete context[key];
+  }
+}
 
 /** Shorten echoed context and the matches-clause before any name cut. */
 function fitEcho(
