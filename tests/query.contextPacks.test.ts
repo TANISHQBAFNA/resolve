@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { DesignGraph, GraphEdge, GraphNode, NodeType } from "@/core/model";
 import {
+  appliedContext,
   fillRecipe,
   indexGraph,
   listRecipes,
   matchContextPack,
   packForRecipe,
+  packForRecommend,
   parseContextPackFile,
   parseRecipeFile,
   recipeCard,
@@ -174,11 +176,12 @@ describe("context pack load", () => {
     expect(parseContextPackFile(null)).toEqual({ packs: [] });
   });
 
-  it("parses the shipped example template without node ids", () => {
+  it("parses the shipped example template without node ids or an active pack", () => {
     const file = parseContextPackFile(examplePacks);
     expect(file.packs[0]?.id).toBe("storefront-checkout-summary");
     expect(file.packs[0]?.recipeIds).toContain("checkout-summary");
     expect(file.packs.every((pack) => !("figmaNodeId" in pack))).toBe(true);
+    expect(file.active).toBeUndefined();
   });
 });
 
@@ -217,6 +220,28 @@ describe("bind pack to recipe", () => {
     expect(packForRecipe(checkout, { packs, packId: "admin-settings" })?.id).toBe("admin-settings");
   });
 
+  it("overlays audience and a11y from the call without dropping the pack", () => {
+    const pack = packForRecommend({
+      packs,
+      packId: "storefront-checkout-summary",
+      audience: "new customer",
+      a11y: "wcag-aaa",
+    });
+    expect(pack?.id).toBe("storefront-checkout-summary");
+    expect(pack?.audience).toBe("new customer");
+    expect(pack?.constraints).toEqual({ density: "compact", a11y: "wcag-aaa" });
+    expect(pack && "figmaNodeId" in pack).toBe(false);
+  });
+
+  it("audience and a11y alone are context, with no invented component id", () => {
+    const pack = packForRecommend({ packs: [], audience: "returning customer", a11y: "AA" });
+    expect(pack?.id).toBe("");
+    expect(pack?.audience).toBe("returning customer");
+    expect(pack?.constraints).toEqual({ a11y: "wcag-aa" });
+    expect(pack?.sources).toEqual({ audience: "document", a11y: "document" });
+    expect(pack && "figmaNodeId" in pack).toBe(false);
+  });
+
   it("matches product + journey flags to a pack", () => {
     expect(
       matchContextPack(packs, { product: "storefront", journey: "summary", domain: "checkout" })?.id,
@@ -249,6 +274,8 @@ describe("bind pack to recipe", () => {
     expect(card.found).toBe(true);
     if (!card.found) return;
     expect(card.context?.product).toMatch(/storefront/i);
+    expect(card.context?.audience).toBe("returning shopper");
+    expect(card.context?.a11y).toBe("wcag-aa");
     expect(card.slots[0]?.nextRecommend).toMatch(/button/i);
   });
 });
@@ -291,5 +318,114 @@ describe("recommend ranking with product/journey context", () => {
     expect(denied.invents.some((hit) => hit.reason === "denied" || hit.reason === "not-in-graph")).toBe(
       true,
     );
+  });
+});
+
+const acmePacks = [
+  {
+    id: "acme-pay-confirm",
+    product: { id: "acme-pay", name: "Acme Pay" },
+    journey: { step: "confirm", screenJob: "Send money" },
+    audience: "returning customer",
+    constraints: { density: "comfortable", a11y: "wcag-aa" },
+    recipeIds: ["checkout-summary"],
+  },
+  {
+    id: "acme-cards",
+    product: { id: "acme-cards", name: "Acme Cards" },
+    journey: { step: "apply", screenJob: "Apply for card" },
+    audience: "small business owners",
+    constraints: { density: "compact", a11y: "wcag-aaa" },
+    recipeIds: ["checkout-summary"],
+  },
+];
+
+describe("H41 exact pack match and echo-only audience", () => {
+  const checkout = {
+    id: "checkout-summary",
+    title: "Checkout summary",
+    intentAliases: ["checkout"],
+    slots: [{ role: "primary-cta", required: true, hints: ["button", "primary"] }],
+  };
+
+  it("H41-1 does not pick a pack from one shared token, and an active pack does not override another product", () => {
+    const { index } = productLab();
+    const decided = packForRecommend({ packs: acmePacks, product: "Acme Loans", journey: "Apply for loan" });
+    const card = recommendMasters(index, "primary button", decided ? { context: decided, budgetChars: 2000 } : {});
+    const text = JSON.stringify(card.context);
+    expect(text).not.toMatch(/Acme Cards|small business|wcag-aaa/i);
+    expect(card.context?.product).toBe("Acme Loans");
+    expect(card.context?.productFrom).toBe("document");
+    expect(card.context?.journey).toBe("Apply for loan");
+    expect(card.context?.journeyFrom).toBe("document");
+    expect(card.context?.id).toBeUndefined();
+
+    const recipePack = packForRecipe(checkout, { packs: acmePacks, active: "acme-cards", product: "Globex Wallet" });
+    const echo = appliedContext(recipePack!);
+    expect(JSON.stringify(echo)).not.toMatch(/Acme Cards|small business|wcag-aaa/i);
+    expect(echo?.product).toBe("Globex Wallet");
+    expect(echo?.productFrom).toBe("document");
+    expect(echo?.id).toBeUndefined();
+  });
+
+  it("H41-2 audience, a11y, and density do not change the candidate list", () => {
+    const { index } = productLab();
+    const dense = packForRecommend({
+      packs: [
+        {
+          id: "acme-density",
+          product: { name: "Acme Pay" },
+          audience: "returning customer",
+          constraints: { density: "compact", a11y: "wcag-aaa" },
+        },
+      ],
+      active: "acme-density",
+    });
+    for (const ask of ["button compact", "button aaa"]) {
+      const bare = recommendMasters(index, ask);
+      const packed = recommendMasters(index, ask, dense ? { context: dense } : {});
+      expect(packed.candidates.map((row) => row.id)).toEqual(bare.candidates.map((row) => row.id));
+      expect(packed.hint).toMatch(/No master matched\. Do not invent/);
+    }
+    const pay = packForRecommend({ packs: acmePacks, packId: "acme-pay-confirm" });
+    for (const ask of ["button wcag", "button aa", "button comfortable", "input wcag"]) {
+      const bare = recommendMasters(index, ask);
+      const packed = recommendMasters(index, ask, pay ? { context: pay } : {});
+      expect(packed.candidates.map((row) => row.id), ask).toEqual(bare.candidates.map((row) => row.id));
+      expect(packed.hint, ask).toMatch(/No master matched\. Do not invent/);
+    }
+  });
+
+  it("M41-1 labels each echoed field with its source and does not borrow audience from an unchosen pack", () => {
+    const chosen = packForRecommend({
+      packs: acmePacks,
+      product: "Acme Pay",
+      journey: "confirm",
+      audience: "new customer",
+    });
+    const echo = appliedContext(chosen!);
+    expect(echo?.id).toBe("acme-pay-confirm");
+    expect(echo?.productFrom).toBe("document");
+    expect(echo?.journeyFrom).toBe("document");
+    expect(echo?.audience).toBe("new customer");
+    expect(echo?.audienceFrom).toBe("document");
+    expect(echo?.a11y).toBe("wcag-aa");
+    expect(echo?.a11yFrom).toBe("pack acme-pay-confirm");
+
+    const loans = appliedContext(packForRecommend({ packs: acmePacks, product: "Acme Loans" })!);
+    expect(loans?.audience).toBeUndefined();
+    expect(loans?.a11y).toBeUndefined();
+    expect(loans?.id).toBeUndefined();
+
+    const missing = packForRecommend({ packs: acmePacks, packId: "nope", product: "Acme Pay" });
+    expect(missing?.warning).toBe('No context pack "nope".');
+    expect(appliedContext(missing!)?.id).toBeUndefined();
+
+    const fight = packForRecommend({ packs: acmePacks, packId: "acme-cards", product: "Globex Wallet" });
+    expect(fight?.warning).toBe('Context pack "acme-cards" is for Acme Cards, not Globex Wallet.');
+    expect(appliedContext(fight!)?.audience).toBeUndefined();
+    expect(appliedContext(fight!)?.a11y).toBeUndefined();
+    expect(appliedContext(fight!)?.product).toBe("Globex Wallet");
+    expect(appliedContext(packForRecommend({ packs: [], product: "Acme Pay", a11y: "AA" })!)?.a11y).toBe("wcag-aa");
   });
 });

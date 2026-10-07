@@ -181,7 +181,7 @@ export interface HandoffDecision {
 
 export interface HandoffScreen {
   screen: { name: string; fileKey?: string; figmaNodeId?: string; link?: string; id: string };
-  context?: { id: string; product?: string; journey?: string; domain?: string; accessibility?: string; density?: string };
+  context?: { id?: string; product?: string; journey?: string; domain?: string; audience?: string; accessibility?: string; a11y?: string; density?: string };
   /** `matchedBy: "screen name"` when Resolve picked the recipe from the screen's name (a match, not a fact); `"asked"` with --recipe. */
   recipe: {
     id: string;
@@ -798,11 +798,12 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     ...(pack
       ? {
           context: {
-            id: pack.id,
+            ...(pack.id ? { id: pack.id } : {}),
             ...(pack.product?.name || pack.product?.id ? { product: pack.product?.name ?? pack.product?.id } : {}),
             ...(pack.journey?.step || pack.journey?.screenJob ? { journey: pack.journey?.screenJob ?? pack.journey?.step } : {}),
             ...(pack.domain ? { domain: pack.domain } : {}),
-            ...(pack.constraints?.a11y ? { accessibility: pack.constraints.a11y } : {}),
+            ...(pack.audience ? { audience: pack.audience } : {}),
+            ...(pack.constraints?.a11y ? { accessibility: pack.constraints.a11y, a11y: pack.constraints.a11y } : {}),
             ...(pack.constraints?.density ? { density: pack.constraints.density } : {}),
           },
         }
@@ -920,8 +921,13 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   if (s.matchedFrame) out.push(`- Frame: ${md(s.matchedFrame)}. Pass the exact name or Figma id to be sure.`);
   if (s.context) {
     const c = s.context;
-    out.push(`- Context pack: ${md(c.id)}${[c.product, c.journey, c.domain].filter(Boolean).length ? ` (${[c.product, c.journey, c.domain].filter(Boolean).map((x) => md(x!)).join(", ")})` : ""}`);
-    if (c.accessibility) out.push(`- Accessibility target: ${md(c.accessibility)}`);
+    if (c.id) out.push(`- Context pack: ${md(c.id)}${[c.product, c.journey, c.domain].filter(Boolean).length ? ` (${[c.product, c.journey, c.domain].filter(Boolean).map((x) => md(x!)).join(", ")})` : ""}`);
+    else {
+      if (c.product) out.push(`- Product: ${md(c.product)}`);
+      if (c.journey) out.push(`- Journey: ${md(c.journey)}`);
+    }
+    if (c.audience) out.push(`- Audience: ${md(c.audience)}`);
+    if (c.a11y || c.accessibility) out.push(`- Accessibility (a11y): ${md(c.a11y || c.accessibility || "")}`);
   }
   out.push(`- ${s.summary.components} component${s.summary.components === 1 ? "" : "s"} placed (${s.summary.copies} cop${s.summary.copies === 1 ? "y" : "ies"}), ${s.summary.linkedToCode} linked to code, ${s.summary.unmapped} unmapped. ${s.summary.parts} part${s.summary.parts === 1 ? "" : "s"} inside, ${s.summary.partsLinkedToCode} linked to code.${s.summary.otherLibrary ? ` ${s.summary.otherLibrary} from a library file that is not learned.` : ""}`);
   if (s.note) out.push(`- Note: ${md(s.note)}`);

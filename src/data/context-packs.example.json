@@ -1,7 +1,6 @@
 {
   "version": 1,
-  "howToAdd": "Copy this file to .resolve/context-packs.json. Fill in your product, the journey step (for example checkout summary), and who the screen is for. Bind recipeIds to recipes you already have — use the recipe id (checkout-summary), not the title. Optional files lists product/client workspace labels or keys. Optional client when product ≠ client. Never add Figma component ids; recommend fills those after ingest. Set active to the pack agents should load by default.",
-  "active": "storefront-checkout-summary",
+  "howToAdd": "Copy this file to .resolve/context-packs.json. Fill in your product, the journey step (for example checkout summary), and who the screen is for. Bind recipeIds to recipes you already have — use the recipe id (checkout-summary), not the title. Optional files lists product/client workspace labels or keys. Optional client when product ≠ client. Never add Figma component ids; recommend fills those after ingest. Do not set active here. Pass product and journey from the requirements or FSD. A pack is used only when that product matches exactly.",
   "packs": [
     {
       "id": "storefront-checkout-summary",

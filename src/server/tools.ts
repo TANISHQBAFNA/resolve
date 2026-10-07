@@ -38,6 +38,7 @@ import {
   withCost,
   withPendingImprovements,
   checkCousins,
+  appliedContext,
   packForRecommend,
   parseIngestRole,
   ingredientCard,
@@ -84,6 +85,18 @@ const graphIdProperty = {
   graphId: {
     type: "string",
     description: "Graph to query. Optional when exactly one graph is stored.",
+  },
+};
+
+/** Who the screen is for, and the accessibility bar. From the requirements or FSD, or the context pack. */
+const screenContextProperties = {
+  audience: {
+    type: "string",
+    description: "Who the screen is for, taken from the requirements or FSD. Overrides the context pack for this call. Leave off when the document does not say.",
+  },
+  a11y: {
+    type: "string",
+    description: 'Accessibility bar from the requirements or FSD, e.g. "wcag-aa". Overrides the context pack for this call. Leave off when the document does not say. Does not run an audit.',
   },
 };
 
@@ -149,7 +162,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "recommend",
     description:
-      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.resolve/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (SOCK facts, 'used N× in file', or 'not verified on a screen yet') and, when a real populated instance is known, ex: that node id or 'fileKey:nodeId' when it lives in another file. No example is omitted (no 'ex: none'). Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Optional product/journey/domain context pack. Returns figmaNodeId. Cap 600 chars. Forced path: learn_library → optional recipe → recommend → get_example → clone → fill → verify_frame. Do not invent components. Do not Read graph.json.",
+      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.resolve/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (SOCK facts, 'used N× in file', or 'not verified on a screen yet') and, when a real populated instance is known, ex: that node id or 'fileKey:nodeId' when it lives in another file. No example is omitted (no 'ex: none'). Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. The card echoes that context. Pass the same context on recipe and verify_frame. Returns figmaNodeId. Cap 600 chars. Empty candidates means stop. Do not invent a component. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -165,6 +178,7 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string", description: "Product id or name. Scopes ranking when a pack matches, else inline." },
         journey: { type: "string", description: "Journey step / screen job. Scopes ranking on top of name/intent." },
         domain: { type: "string", description: 'Product domain, e.g. "checkout" or "onboarding".' },
+        ...screenContextProperties,
         screenType: { type: "string", description: 'Screen kind, e.g. "settings" or "checkout". Same tie-break as domain.' },
         budgetChars: { type: "number", description: "Hard cap on JSON chars. Default 600." },
         ...freshnessProperties,
@@ -203,7 +217,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "resolve",
     description:
-      "I know the name, give me the id. Exact master name or id always returns id + fileKey + figmaNodeId even when unused (zero instances). One-line why from SOCK facts. Optional screenType/journey/domain breaks cousin ties the same way recommend does. A deprecated master comes back flagged, plus its live replacement. Names starting with _ or . return only on an exact name; a fuzzy ask does not. Unknown name: found=false + call recommend \"<intent>\", not an empty list. Frame names return a screen inventory. Cap ~2000 chars.",
+      "I know the name, give me the id. Exact master name or id always returns id + fileKey + figmaNodeId even when unused (zero instances). One-line why from SOCK facts. Pass the same context as recommend (pack, or product, journey, audience, a11y). screenType/journey/domain break cousin ties. A deprecated master comes back flagged, plus its live replacement. Names starting with _ or . return only on an exact name; a fuzzy ask does not. Unknown name: found=false + call recommend \"<intent>\", not an empty list. Frame names return a screen inventory. Cap ~2000 chars.",
     inputSchema: {
       type: "object",
       properties: {
@@ -216,6 +230,7 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string", description: "Product id or name. Scopes ranking when a pack matches, else inline." },
         journey: { type: "string", description: "Journey step / screen job. Breaks ties between cousins." },
         domain: { type: "string", description: 'Product domain, e.g. "checkout" or "settings".' },
+        ...screenContextProperties,
         screenType: { type: "string", description: 'Screen kind, e.g. "settings" or "checkout".' },
         budgetChars: { type: "number", description: "Hard cap on JSON chars. Default 2000." },
         ...freshnessProperties,
@@ -376,7 +391,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "list_recipes",
     description:
-      "List screen recipes (composition packs). When a graph is ingested, slots bind to live masters (fill or suggest figmaNodeIds from recommend). Overlay .resolve/recipes.json still wins. Matching product+journey+domain context packs (.resolve/context-packs.json) scope slot fills and nextRecommend. Optional pack / product / journey / domain. Unbound slots include the next recommend query. Never invents node ids. Next: recipe \"<id or intent>\". Do not Read graph.json.",
+      "List screen recipes (composition packs). When a graph is ingested, slots bind to live masters (fill or suggest figmaNodeIds from recommend). Overlay .resolve/recipes.json still wins. Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. That scopes slot fills and nextRecommend. Unbound slots include the next recommend query. Never invents node ids. Next: recipe \"<id or intent>\". Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -385,13 +400,14 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
+        ...screenContextProperties,
       },
     },
   },
   {
     name: "recipe",
     description:
-      "Get a screen recipe by id, title, or intent. After ingest, slots resolve against live masters (overlay .resolve/recipes.json still wins). Matching product+journey+domain context pack scopes slot fills and nextRecommend. Optional pack / product / journey / domain. Unbound slots include the next recommend query. Never invents node ids. After placing: verify_frame. Do not Read graph.json.",
+      "Get a screen recipe by id, title, or intent. After ingest, slots resolve against live masters (overlay .resolve/recipes.json still wins). Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. That scopes slot fills and nextRecommend. The card echoes audience and a11y. Unbound slots include the next recommend query. Never invents node ids. After placing: verify_frame with the same context. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -408,6 +424,7 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
+        ...screenContextProperties,
         ...freshnessProperties,
       },
     },
@@ -432,6 +449,7 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
+        ...screenContextProperties,
       },
       required: ["query"],
     },
@@ -468,6 +486,7 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
+        ...screenContextProperties,
       },
     },
   },
@@ -650,6 +669,8 @@ function contextBindFromArgs(args: Record<string, unknown>) {
     product: typeof args["product"] === "string" ? args["product"] : undefined,
     journey: typeof args["journey"] === "string" ? args["journey"] : undefined,
     domain: typeof args["domain"] === "string" ? args["domain"] : undefined,
+    audience: typeof args["audience"] === "string" ? args["audience"] : undefined,
+    a11y: typeof args["a11y"] === "string" ? args["a11y"] : undefined,
     packsFile: typeof args["packsFile"] === "string" ? args["packsFile"] : undefined,
   });
 }
@@ -832,13 +853,18 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const resolvedContext = pack || screenType
         ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
         : undefined;
-      return componentUsageCard(index, asString(args["name"] ?? args["query"], "name"), {
+      const card = componentUsageCard(index, asString(args["name"] ?? args["query"], "name"), {
         budgetChars: budget,
         sock: readSock(),
         workspace: bind.workspace ?? readWorkspace(),
         placeholders: readPlaceholders(),
         ...(resolvedContext ? { context: resolvedContext } : {}),
       });
+      const echo = pack ? appliedContext(pack) : undefined;
+      if (!echo) return card;
+      const shown = { ...card, context: echo, ...(pack?.warning ? { warning: pack.warning } : {}) };
+      const cap = budget ?? 2000;
+      return JSON.stringify(shown).length <= cap ? shown : card;
     }
 
     case "orient": {
