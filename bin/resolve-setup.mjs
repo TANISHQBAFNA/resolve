@@ -14,7 +14,7 @@ if (nodeVersionTooOld(process.version)) {
  * Also the slash commands (commands/*.md): .claude/commands for Claude Code, .cursor/commands for Cursor.
  * Re-runs only change a complete marked block. --uninstall removes only what Resolve wrote. Does not read tokens or other secrets.
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { accessSync, constants, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -39,7 +39,7 @@ export const CLAUDE_BLOCK = [
 function writeError(target, error) {
   const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
   if (code === "EACCES" || code === "EPERM" || code === "EROFS") {
-    return new Error(`Could not write in ${dirname(target)}. Resolve needs permission to create files there.`);
+    return new Error(`Could not write ${target}. Resolve needs permission to change that file.`);
   }
   return new Error(`Could not write ${target}. Resolve could not create that file.`);
 }
@@ -93,8 +93,16 @@ export function installOwned(current, shipped, force = false) {
   const shippedStart = next.indexOf(BEGIN);
   const shippedEnd = next.lastIndexOf(END);
   const inner = next.slice(shippedStart + BEGIN.length, shippedEnd);
-  const text = current.slice(0, start + BEGIN.length) + inner + current.slice(end);
-  return { action: text === current ? "unchanged" : "update", text };
+  const edited = current.slice(start + BEGIN.length, end).trim() !== inner.trim();
+  let text = current.slice(0, start) + `${BEGIN}${inner}${END}` + current.slice(end + END.length);
+  const later = stripAllBlocks(text.slice(start + BEGIN.length + inner.length + END.length), BEGIN, END);
+  if (later != null) text = text.slice(0, start + BEGIN.length + inner.length + END.length) + later;
+  const extra = countPairs(current, BEGIN, END) > 1;
+  const note = [
+    edited ? " Replaced hand edits inside the Resolve markers." : "",
+    extra ? " Removed an extra Resolve block." : "",
+  ].join("");
+  return { action: text === current ? "unchanged" : "update", text, ...(note ? { note } : {}) };
 }
 
 function useEnding(text, ending) {
@@ -109,10 +117,50 @@ function useEnding(text, ending) {
  * @param {string} label
  * @returns {{ action: "create" | "update" | "unchanged" | "skip", text: string, note?: string }}
  */
+function pairAt(text, begin, end, from = 0) {
+  const start = text.indexOf(begin, from);
+  if (start === -1) return null;
+  const finish = text.indexOf(end, start + begin.length);
+  if (finish === -1 || finish < start) return null;
+  return { start, finish };
+}
+
+function countPairs(text, begin, end) {
+  let n = 0;
+  let i = 0;
+  while (i < text.length) {
+    const pair = pairAt(text, begin, end, i);
+    if (!pair) break;
+    n += 1;
+    i = pair.finish + end.length;
+  }
+  return n;
+}
+
+/** Cut every complete marker pair. Bytes outside the pairs stay. Null when there is no complete pair. */
+function stripAllBlocks(text, begin, end) {
+  let out = "";
+  let i = 0;
+  let found = false;
+  while (i < text.length) {
+    const pair = pairAt(text, begin, end, i);
+    if (!pair) {
+      out += text.slice(i);
+      break;
+    }
+    found = true;
+    out += text.slice(i, pair.start);
+    i = pair.finish + end.length;
+    if (text.startsWith("\r\n", i)) i += 2;
+    else if (text[i] === "\n") i += 1;
+  }
+  return found ? out : null;
+}
+
 export function installMarked(current, block, begin, end, label) {
   const ending = current != null && current.includes("\r\n") ? "\r\n" : "\n";
   const owned = useEnding(`${begin}\n${block.trim()}\n${end}`, ending);
-  if (current == null || current.trim() === "") return { action: "create", text: `${owned}\n` };
+  if (current == null) return { action: "create", text: `${owned}\n` };
   const start = current.indexOf(begin);
   const finish = current.indexOf(end);
   if ((start === -1) !== (finish === -1)) {
@@ -126,8 +174,16 @@ export function installMarked(current, block, begin, end, label) {
     const sep = current.endsWith(ending + ending) ? "" : current.endsWith(ending) ? ending : ending + ending;
     return { action: "update", text: `${current}${sep}${owned}${ending}` };
   }
-  const text = `${current.slice(0, start)}${owned}${current.slice(finish + end.length)}`;
-  return { action: text === current ? "unchanged" : "update", text };
+  const inner = current.slice(start + begin.length, finish);
+  const edited = inner.trim() !== block.trim();
+  const head = `${current.slice(0, start)}${owned}`;
+  const tail = stripAllBlocks(current.slice(finish + end.length), begin, end);
+  const text = head + (tail ?? current.slice(finish + end.length));
+  const note = [
+    edited ? ` Replaced hand edits inside the Resolve markers in ${label}.` : "",
+    countPairs(current, begin, end) > 1 ? ` Removed an extra Resolve block in ${label}.` : "",
+  ].join("");
+  return { action: text === current ? "unchanged" : "update", text, ...(note ? { note } : {}) };
 }
 
 /** @returns {{ action: "create" | "update" | "unchanged" | "skip", text: string, note?: string }} */
@@ -144,7 +200,11 @@ export const GIT_CACHE = [
   ".resolve/files/",
   ".resolve/GRAPH_REPORT.md",
   ".resolve/index.json",
-  ".resolve/scoreboard/",
+  ".resolve/scoreboard/*",
+  "!.resolve/scoreboard/phrases/",
+  "!.resolve/scoreboard/phrases/**",
+  "!.resolve/scoreboard/golden/",
+  "!.resolve/scoreboard/golden/**",
   ".resolve/learn/",
   ".resolve/ingest/",
 ];
@@ -162,9 +222,22 @@ export const GIT_TEAM = [
   "sock.json",
 ];
 export const GIT_BLOCK = [
-  `# Learned cache. Rebuild it with /design-system. Commit team files in .resolve/: ${GIT_TEAM.join(", ")}. sock.json holds decisions.`,
+  `# Learned cache. Rebuild it with /design-system. Commit team files in .resolve/: ${GIT_TEAM.join(", ")}. sock.json holds decisions. Also commit scoreboard/phrases/ and scoreboard/golden/ (team phrase sets and the golden file from score --init). Run history under scoreboard/ stays ignored.`,
   ...GIT_CACHE,
 ].join("\n");
+
+/** Lines that ignore the whole store, including globs. Our own cache paths inside the marker block do not count. */
+const WHOLE_STORE = new Set([
+  ".resolve",
+  ".resolve/",
+  ".resolve/*",
+  ".resolve/**",
+  ".resolve/**/*",
+  "**/.resolve",
+  "**/.resolve/**",
+  "*/.resolve",
+  "*/.resolve/**",
+]);
 
 /** @param {string} text */
 export function ignoresWholeResolveStore(text) {
@@ -173,7 +246,8 @@ export function ignoresWholeResolveStore(text) {
   const outside = start === -1 || finish === -1 || finish < start ? text : text.slice(0, start) + text.slice(finish + GIT_END.length);
   return outside.split(/\r?\n/).some((line) => {
     const trimmed = line.trim();
-    return trimmed === ".resolve" || trimmed === ".resolve/";
+    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("!")) return false;
+    return WHOLE_STORE.has(trimmed);
   });
 }
 
@@ -241,12 +315,61 @@ export function cursorCommand(text) {
   return `${body.replace(/\$ARGUMENTS/g, "the words the designer typed after the command")}\n`;
 }
 
-/** The part of a Resolve-owned file left after its marked block is cut out. Null: the file has no complete block. */
-function withoutBlock(text, begin = BEGIN, end = END) {
-  const start = text.indexOf(begin);
-  const finish = text.indexOf(end);
-  if (start === -1 || finish === -1 || finish < start) return null;
-  return text.slice(0, start) + text.slice(finish + end.length).replace(/^\r?\n/, "");
+const RECORD_NAME = "setup-record.json";
+
+function recordPath(opts) {
+  return opts.global ? join(opts.home, ".resolve", RECORD_NAME) : join(opts.cwd, ".resolve", RECORD_NAME);
+}
+
+function emptyRecord() {
+  return { created: [], originals: {}, createdDirs: [] };
+}
+
+function loadRecord(opts) {
+  try {
+    const raw = JSON.parse(readFileSync(recordPath(opts), "utf8"));
+    return {
+      created: Array.isArray(raw.created) ? raw.created : [],
+      originals: raw.originals && typeof raw.originals === "object" ? raw.originals : {},
+      createdDirs: Array.isArray(raw.createdDirs) ? raw.createdDirs : [],
+    };
+  } catch {
+    return emptyRecord();
+  }
+}
+
+function saveRecord(opts, record) {
+  const path = recordPath(opts);
+  const dir = dirname(path);
+  const dirExisted = existsSync(dir);
+  mkdirSync(dir, { recursive: true });
+  if (!dirExisted && !record.createdDirs.includes(dir)) record.createdDirs.push(dir);
+  writeFileSync(path, `${JSON.stringify(record)}\n`);
+}
+
+/** True when current is the saved original plus only Resolve marker blocks. */
+function onlyBlockAdded(current, original, begin, end) {
+  if (typeof original !== "string" || !current.startsWith(original)) return false;
+  const extra = stripAllBlocks(current.slice(original.length), begin, end);
+  return extra != null && extra.trim() === "";
+}
+
+function assertCanWrite(target) {
+  try {
+    if (existsSync(target)) {
+      accessSync(target, constants.W_OK);
+      return;
+    }
+    let dir = dirname(target);
+    while (!existsSync(dir)) {
+      const parent = dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    accessSync(dir, constants.W_OK);
+  } catch {
+    throw new Error(`Could not write ${target}. Resolve needs permission to change that file.`);
+  }
 }
 
 const onlyFrontmatter = (text) => splitFrontmatter(text).body === "" && (text.trim() === "" || text.startsWith("---"));
@@ -258,6 +381,8 @@ const onlyFrontmatter = (text) => splitFrontmatter(text).body === "" && (text.tr
  */
 export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot }) {
   const base = isGlobal ? home : cwd;
+  const opts = { cwd, home, global: isGlobal };
+  const record = loadRecord(opts);
   const names = shippedCommands(root).map((c) => c.name);
   const owned = [
     ...(isGlobal ? [] : [join(cwd, ".cursor", "rules", "resolve.mdc")]),
@@ -272,14 +397,23 @@ export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot 
     const current = readOrNull(path);
     if (current == null) continue;
     const git = path.endsWith(".gitignore");
-    const rest = withoutBlock(current, git ? GIT_BEGIN : BEGIN, git ? GIT_END : END);
+    const begin = git ? GIT_BEGIN : BEGIN;
+    const end = git ? GIT_END : END;
+    const rest = stripAllBlocks(current, begin, end);
+    const created = record.created.includes(path);
+    const original = record.originals[path];
     if (rest == null) {
       plan.push({ action: "skip", path, note: " (not written by Resolve, kept)" });
-    } else if (rest.trim() === "" || onlyFrontmatter(rest)) plan.push({ action: "remove", path });
-    else plan.push({ action: "update", path, text: rest.replace(/\s+$/, "") + "\n" });
+    } else if (typeof original === "string" && onlyBlockAdded(current, original, begin, end)) {
+      plan.push({ action: "update", path, text: original });
+    } else if ((rest.trim() === "" || onlyFrontmatter(rest)) && created) {
+      plan.push({ action: "remove", path });
+    } else if (rest.trim() === "" || onlyFrontmatter(rest)) {
+      plan.push({ action: "skip", path, note: " (kept; Resolve did not create this file)" });
+    } else plan.push({ action: "update", path, text: rest });
   }
   if (!isGlobal) {
-    for (const [path, claude] of [[join(cwd, ".cursor", "mcp.json"), false], [join(cwd, ".mcp.json"), true]]) {
+    for (const path of [join(cwd, ".cursor", "mcp.json"), join(cwd, ".mcp.json")]) {
       const current = readOrNull(path);
       if (current == null) continue;
       let doc;
@@ -290,18 +424,52 @@ export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot 
       }
       if (!isPlainObject(doc) || !isPlainObject(doc.mcpServers) || !sameEntry(doc.mcpServers.resolve)) continue;
       const { resolve: _gone, ...others } = doc.mcpServers;
-      const next = { ...doc, mcpServers: others };
+      const created = record.created.includes(path);
+      const original = record.originals[path];
+      let sameOthers = false;
+      if (typeof original === "string") {
+        try {
+          const orig = JSON.parse(original);
+          const origServers = { ...(isPlainObject(orig.mcpServers) ? orig.mcpServers : {}) };
+          delete origServers.resolve;
+          sameOthers = JSON.stringify(others) === JSON.stringify(origServers);
+        } catch {
+          sameOthers = false;
+        }
+      }
       const empty = Object.keys(others).length === 0 && Object.keys(doc).length === 1;
-      const indent = /^\t/m.test(current) ? "\t" : (current.match(/^( +)"/m)?.[1].length ?? 2);
-      plan.push(empty ? { action: "remove", path } : { action: "update", path, text: `${JSON.stringify(next, null, indent)}\n` });
+      if (typeof original === "string" && sameOthers) plan.push({ action: "update", path, text: original });
+      else if (empty && created) plan.push({ action: "remove", path });
+      else if (empty) plan.push({ action: "skip", path, note: " (kept; Resolve did not create this file)" });
+      else {
+        const indent = /^\t/m.test(current) ? "\t" : (current.match(/^( +)"/m)?.[1].length ?? 2);
+        const ending = current.includes("\r\n") ? "\r\n" : "\n";
+        plan.push({ action: "update", path, text: useEnding(`${JSON.stringify({ ...doc, mcpServers: others }, null, indent)}\n`, ending) });
+      }
     }
   }
   return plan;
 }
 
+function removeEmptyDirs(dirs) {
+  const ordered = [...dirs].sort((a, b) => b.length - a.length);
+  for (const dir of ordered) {
+    try {
+      if (!existsSync(dir)) continue;
+      if (readdirSync(dir).length === 0) rmdirSync(dir);
+    } catch {
+      // A folder that is not empty, or not ours to remove, stays.
+    }
+  }
+}
+
 export function runUninstall(opts) {
   const plan = planUninstall(opts);
   if (!opts.dryRun) {
+    for (const item of plan) {
+      if (item.action === "skip") continue;
+      assertCanWrite(item.path);
+    }
     for (const item of plan) {
       try {
         if (item.action === "remove") rmSync(item.path);
@@ -310,6 +478,10 @@ export function runUninstall(opts) {
         throw writeError(item.path, error);
       }
     }
+    const record = loadRecord(opts);
+    const rec = recordPath(opts);
+    if (existsSync(rec)) rmSync(rec);
+    removeEmptyDirs(record.createdDirs);
   }
   return plan;
 }
@@ -360,13 +532,37 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
   if (!dryRun) {
     for (const item of planned) {
       if (item.action === "skip" || item.action === "unchanged") continue;
+      assertCanWrite(item.path);
+    }
+    const opts = { cwd, home, global: isGlobal };
+    const record = loadRecord(opts);
+    for (const item of planned) {
+      if (item.action === "skip" || item.action === "unchanged") continue;
       try {
-        mkdirSync(dirname(item.path), { recursive: true });
+        const dir = dirname(item.path);
+        let walk = dir;
+        const missing = [];
+        while (!existsSync(walk)) {
+          missing.push(walk);
+          const parent = dirname(walk);
+          if (parent === walk) break;
+          walk = parent;
+        }
+        mkdirSync(dir, { recursive: true });
+        for (const made of missing) {
+          if (!record.createdDirs.includes(made)) record.createdDirs.push(made);
+        }
+        if (item.action === "create" && !record.created.includes(item.path)) record.created.push(item.path);
+        if (item.action === "update" && record.originals[item.path] === undefined) {
+          const prior = readOrNull(item.path);
+          if (prior != null) record.originals[item.path] = prior;
+        }
         writeFileSync(item.path, item.text);
       } catch (error) {
         throw writeError(item.path, error);
       }
     }
+    saveRecord(opts, record);
   }
   return planned;
 }
@@ -466,7 +662,7 @@ function main() {
       );
       return;
     } else {
-      process.stderr.write(`Unknown argument ${arg}. Use --dry-run, --global, --yes, and --force.\n`);
+      process.stderr.write(`Unknown argument ${arg}. Use --dry-run, --global, --yes, --force, and --uninstall.\n`);
       process.exit(1);
     }
   }

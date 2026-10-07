@@ -657,11 +657,15 @@ function fillSlot(
     };
   }
 
-  // Rank on the slot's own words. The pack is passed beside that query, so product and
-  // journey only break ties. Putting the pack into the query makes a word such as
-  // "payment" look like the component, the real slot component drops out, and the slot comes back empty.
+  // Rank on the extra brief plus the slot's own words. The pack phrase stays on
+  // nextRecommend and out of this query. The pack object is still passed as context.
+  // A product name that is itself a component name can outrank the slot words; the
+  // pack is not only a tie-break. Putting the pack phrase into the query makes a word
+  // such as "payment" look like the component, the real slot component drops out, and
+  // the slot comes back empty.
   const core = slot.hints.join(" ") || slot.role.replace(/-/g, " ");
-  const ranked = recommendMasters(index, core, {
+  const rankQuery = [extraIntent, core].filter(Boolean).join(" ");
+  const ranked = recommendMasters(index, rankQuery, {
     budgetChars: 2000,
     ...(pack ? { context: pack } : {}),
     ...(workspace ? { workspace } : {}),

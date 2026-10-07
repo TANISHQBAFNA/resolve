@@ -1,10 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { figmaAccessToken } from "@/core/ingestion/adapters/figmaRestSource";
 import { codeMapCard } from "@/core/query";
 import { listGraphs, loadFileGraph, loadGraph, readWorkspace, resolveGraph, storeRoot } from "./store";
 
-const RULE_MARKER = "<!-- resolve-setup:begin -->";
+const RULE_BEGIN = "<!-- resolve-setup:begin -->";
+const RULE_END = "<!-- resolve-setup:end -->";
 
 export interface StatusReport {
   store: string;
@@ -16,22 +17,33 @@ export interface StatusReport {
   next: string;
 }
 
+function pairInstalled(text: string): boolean {
+  const start = text.indexOf(RULE_BEGIN);
+  const finish = text.indexOf(RULE_END);
+  return start !== -1 && finish !== -1 && finish > start;
+}
+
 function ruleInstalled(): StatusReport["rule"] {
-  const files = [join(process.cwd(), ".cursor", "rules", "resolve.mdc"), join(process.cwd(), "CLAUDE.md")];
-  for (const path of files) {
-    try {
-      if (existsSync(path) && readFileSync(path, "utf8").includes(RULE_MARKER)) return "installed";
-    } catch {
-      // Unreadable is not installed.
+  let dir = process.cwd();
+  for (let hop = 0; hop < 8; hop += 1) {
+    const files = [join(dir, ".cursor", "rules", "resolve.mdc"), join(dir, "CLAUDE.md")];
+    for (const path of files) {
+      try {
+        if (existsSync(path) && pairInstalled(readFileSync(path, "utf8"))) return "installed";
+      } catch {
+        // Unreadable is not installed.
+      }
     }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
   return "not installed";
 }
 
-function nextStep(files: number, token: StatusReport["token"], rule: StatusReport["rule"]): string {
+function nextStep(files: number, rule: StatusReport["rule"]): string {
   if (!files) return "Run /design-system and paste the Figma link to your library.";
   if (rule === "not installed") return "Run resolve-setup in this project so the always-on rule is installed.";
-  if (token === "missing") return "Connect Figma in this app so the next learn can read the file.";
   return "Use /find for a component, /check for a screen, or /handoff for the developer build sheet.";
 }
 
@@ -75,28 +87,43 @@ export function statusReport(): StatusReport {
       : null,
     token,
     rule,
-    next: nextStep(files.length, token, rule),
+    next: nextStep(files.length, rule),
   };
 }
 
+function localWhen(iso?: string): string {
+  if (!iso || Number.isNaN(Date.parse(iso))) return "unknown";
+  const date = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const zone =
+    new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(date).find((part) => part.type === "timeZoneName")
+      ?.value ?? "";
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())} ${zone}`.trim();
+}
+
+/** Figma's version is often a long internal number. Say that it is recorded, in plain words. */
+function readableVersion(version?: string): string {
+  if (!version) return "version not recorded";
+  if (/^\d{11,}$/.test(version)) return "version recorded";
+  return `version ${version}`;
+}
+
 export function formatStatus(report: StatusReport): string {
-  const when = (iso?: string) => (iso && !Number.isNaN(Date.parse(iso)) ? iso.slice(0, 16).replace("T", " ") + " UTC" : "unknown");
   const lines: string[] = [];
   if (!report.files.length) {
     lines.push(`Nothing is learned yet (store: ${report.store}). Learn a Figma file first: /design-system <Figma link>.`);
   } else {
     lines.push(`Resolve store: ${report.store}`, "", "Learned files:");
     for (const f of report.files) {
-      const version = f.version ? `version ${f.version}` : "version not recorded";
-      lines.push(`- ${f.name} (${f.fileKey}): ${f.role === "library" ? "design system" : f.role ? `screens (${f.role})` : "learned"}, ${f.nodes} nodes, last learned ${when(f.learnedAt)}, ${version}`);
+      lines.push(`- ${f.name} (${f.fileKey}): ${f.role === "library" ? "design system" : f.role ? `screens (${f.role})` : "learned"}, ${f.nodes} items, last learned ${localWhen(f.learnedAt)}, ${readableVersion(f.version)}`);
     }
   }
   const c = report.codeMap;
   lines.push(
     "",
     report.token === "set"
-      ? "Figma token: set. If Figma says it expired, sign in again in this app."
-      : "Figma token: missing. Connect Figma in this app, then run /design-system.",
+      ? "Figma token: set. A token adds exact component ids and REST learn. If Figma says it expired, sign in again in this app."
+      : "Figma token: missing. A token adds exact component ids and REST learn. /design-system learns through Figma in this app and does not need one.",
     report.rule === "installed" ? "Always-on rule: installed." : "Always-on rule: not installed. Run resolve-setup in this project.",
     !c ? "Code map: none." : c.configured ? `Code map: ${c.mapped} of ${c.components} components link to code (${c.retired} retired, ${c.unmapped} unmapped).` : "Code map: none yet (resolve code-map --init writes a spreadsheet to fill).",
     `Next: ${report.next}`,

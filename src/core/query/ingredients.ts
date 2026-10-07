@@ -1,5 +1,6 @@
 import type { GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
+import { missingNodeSentence, readFigmaLink } from "./learnedLink";
 import { nodeFileKey } from "./workspaceMerge";
 import { angularText, codeText, type AngularTwin } from "./codeMap";
 
@@ -123,11 +124,24 @@ type Found =
   | { node: GraphNode }
   | { ambiguous: GraphNode[]; byId: boolean }
   | { screen: GraphNode }
+  | { message: string }
   | undefined;
 
 /** Exact id, Figma id, fileKey:nodeId, or exact name (letter case ignored). Never a fuzzy match. */
 function findTarget(index: GraphIndex, ask: string, hooks: IngredientHooks): Found {
+  const link = readFigmaLink(index, ask);
+  if (link && !link.ok) return { message: link.message };
   const usable = (n: GraphNode) => DEF_TYPES.has(n.type) || n.type === "COMPONENT_INSTANCE" || n.type === "FRAME" || n.type === "SECTION";
+  if (link?.ok) {
+    const hits = index.allNodes.filter(
+      (n) => usable(n) && link.nodeIds.some((id) => matchesId(index, n, `${link.fileKey}:${id}`) || matchesId(index, n, id)),
+    );
+    if (!hits.length) return { message: missingNodeSentence(link.fileKey, link.nodeIds[0] ?? "") };
+    const pick = hits[0]!;
+    if (DEF_TYPES.has(pick.type) || pick.type === "COMPONENT_INSTANCE") return { node: pick };
+    if (pick.type === "FRAME" || pick.type === "SECTION") return { screen: pick };
+    return { message: missingNodeSentence(link.fileKey, link.nodeIds[0] ?? "") };
+  }
   const direct = index.getNode(ask);
   // A bare node id can exist in two learned files; that is listed, never picked.
   const byIds = direct && usable(direct) ? [direct] : direct ? [] : index.allNodes.filter((n) => usable(n) && matchesId(index, n, ask));
@@ -523,7 +537,12 @@ function buildCardOnce(index: GraphIndex, ask: string, hooks: IngredientHooks, o
         };
   if (!name) return { found: false as const, name, hint: INGREDIENTS_NOT_FOUND_HINT };
   const hit = findTarget(index, name, hooks);
-  if (!hit) return { found: false as const, name, hint: `Nothing named "${clean(name)}". ${INGREDIENTS_NOT_FOUND_HINT}` };
+  if (hit && "message" in hit) return { found: false as const, name, hint: hit.message };
+  if (!hit) {
+    const link = readFigmaLink(index, name);
+    if (link?.ok) return { found: false as const, name, hint: missingNodeSentence(link.fileKey, link.nodeIds[0] ?? "") };
+    return { found: false as const, name, hint: `Nothing named "${clean(name)}". ${INGREDIENTS_NOT_FOUND_HINT}` };
+  }
   if ("screen" in hit) {
     return { found: false as const, name, hint: `"${clean(hit.screen.name)}" is a screen, not a component. Use resolve on the screen to list what is on it.` };
   }

@@ -18,8 +18,8 @@ const NAMES = ["check", "design-system", "find", "handoff", "parts", "resolve-st
 const CALLS: Record<string, string[]> = {
   "design-system": ["learn_library", "get_metadata", "page by page", "50,000", "report.told"],
   find: ["recommend", "resolve", "weak match"],
-  check: ["verify_frame", "check_cousins", "node-id"],
-  parts: ["what's on this screen and its code twin (or unmapped)", "resolve-figma handoff", "unmapped"],
+  check: ["verify_frame", "check_cousins", "node-id", "name-only", "wrong cousin", "missing required state"],
+  parts: ["what's on this screen and its code twin (or unmapped)", "resolve-figma parts", "unmapped", "retired", "screen link"],
   handoff: ["developer build sheet", "resolve-figma handoff", "get_handoff", "node-id"],
   "resolve-status": ["resolve-figma status", "version", "always-on rule"],
 };
@@ -149,7 +149,11 @@ describe("slash commands: install", () => {
       ".resolve/files/",
       ".resolve/GRAPH_REPORT.md",
       ".resolve/index.json",
-      ".resolve/scoreboard/",
+      ".resolve/scoreboard/*",
+      "!.resolve/scoreboard/phrases/",
+      "!.resolve/scoreboard/phrases/**",
+      "!.resolve/scoreboard/golden/",
+      "!.resolve/scoreboard/golden/**",
       ".resolve/learn/",
       ".resolve/ingest/",
     ];
@@ -183,6 +187,39 @@ describe("slash commands: install", () => {
       expect(ignoreLines).not.toContain(`.resolve/${name}`);
       expect(ignoreLines).not.toContain(name);
       expect(git.slice(start, end)).toContain(name);
+    }
+    expect(git.slice(start, end)).toContain("scoreboard/phrases/");
+    expect(git.slice(start, end)).toContain("scoreboard/golden/");
+  });
+
+  it("git check-ignore leaves phrase sets and golden files, and ignores scoreboard run history", () => {
+    const cwd = temp("gitignore-check");
+    const home = temp("gitignore-check-home");
+    expect(setup([], cwd, home).status).toBe(0);
+    expect(spawnSync("git", ["init"], { cwd, encoding: "utf8" }).status).toBe(0);
+    mkdirSync(join(cwd, ".resolve/scoreboard/phrases"), { recursive: true });
+    mkdirSync(join(cwd, ".resolve/scoreboard/golden"), { recursive: true });
+    mkdirSync(join(cwd, ".resolve/scoreboard/runs"), { recursive: true });
+    writeFileSync(join(cwd, ".resolve/scoreboard/phrases/team.json"), "{}\n");
+    writeFileSync(join(cwd, ".resolve/scoreboard/golden/from-library.json"), "{}\n");
+    writeFileSync(join(cwd, ".resolve/scoreboard/runs/1.json"), "{}\n");
+    writeFileSync(join(cwd, ".resolve/scoreboard/last.json"), "{}\n");
+    const ignored = (rel: string) =>
+      spawnSync("git", ["check-ignore", "-q", "--", rel], { cwd, encoding: "utf8" }).status === 0;
+    expect(ignored(".resolve/scoreboard/phrases/team.json")).toBe(false);
+    expect(ignored(".resolve/scoreboard/golden/from-library.json")).toBe(false);
+    expect(ignored(".resolve/scoreboard/runs/1.json")).toBe(true);
+    expect(ignored(".resolve/scoreboard/last.json")).toBe(true);
+  });
+
+  it("warns when a user glob ignores the whole .resolve folder", () => {
+    for (const line of [".resolve", ".resolve/", ".resolve/*", ".resolve/**", ".resolve/**/*", "**/.resolve", "**/.resolve/**", "*/.resolve", "*/.resolve/**"]) {
+      const cwd = temp(`gitignore-glob-${line.replace(/[^\w]+/g, "-")}`);
+      const home = temp("gitignore-glob-home");
+      writeFileSync(join(cwd, ".gitignore"), `${line}\n`);
+      const result = setup([], cwd, home);
+      expect(result.status, line).toBe(0);
+      expect(result.stdout, line).toContain("ignores the whole .resolve folder");
     }
   });
 

@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { parseFigmaTarget } from "@/core/ingestion/figmaFileKey";
 import { join } from "node:path";
 import type { DesignGraph, GraphNode } from "@/core/model";
 import { applyLearnedText } from "@/core/ingestion/textStamps";
@@ -115,8 +116,24 @@ function normalizeCheckpoint(raw: LearnCheckpoint | undefined, fileKey: string):
   };
 }
 
+/** A file key, or the key inside a Figma link. A web URL that is not a Figma link is rejected. */
+export function fileKeyFromInput(raw: string): string {
+  const trimmed = raw.trim();
+  if (/figma\.com\//i.test(trimmed)) {
+    try {
+      return parseFigmaTarget(trimmed).fileKey;
+    } catch {
+      throw new Error("That does not look like a Figma link. Copy the link from the browser address bar. It contains figma.com/design/.");
+    }
+  }
+  if (/^https?:\/\//i.test(trimmed) || /[/?#]/.test(trimmed) || !/^[A-Za-z0-9]{1,128}$/.test(trimmed)) {
+    throw new Error("That does not look like a Figma file key or a Figma link. Pass the key from the file URL (figma.com/design/<key>/).");
+  }
+  return trimmed;
+}
+
 export function learnLibrary(input: LearnInput): LearnResult {
-  const fileKey = input.fileKey.trim();
+  const fileKey = fileKeyFromInput(input.fileKey);
   if (!fileKey) throw new Error("learn_library needs fileKey.");
   const xml = input.metadataXml?.trim();
   const catalog = input.libraries ?? input.designContext;
@@ -161,7 +178,7 @@ export function learnLibrary(input: LearnInput): LearnResult {
   if (xml && !skippedDuplicate) {
     const incoming = graphFromMetadataXml({
       fileKey,
-      fileName: input.fileName ?? input.label,
+      fileName: input.fileName?.trim() || input.label?.trim() || fileKey,
       metadataXml: xml,
       lastModified: input.lastModified,
       version: input.version,
