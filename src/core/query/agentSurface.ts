@@ -17,7 +17,7 @@ import { computeAnalytics, computeComponentUsage, type GraphAnalytics } from "./
 import { detectCommunitiesForIndex } from "./communities";
 import type { GraphIndex } from "./GraphIndex";
 import { searchNodes } from "./search";
-import { parseFigmaTarget } from "@/core/ingestion/figmaFileKey";
+import { missingNodeSentence, readFigmaLink } from "./learnedLink";
 import { extractSubgraph, levelForNode } from "./subgraph";
 import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
@@ -990,16 +990,16 @@ export function resolveNodeExact(index: GraphIndex, nameOrId: string): GraphNode
   const direct = index.getNode(trimmed);
   if (direct) return direct;
   // A pasted Figma link (`...?node-id=20-40`) is the frame it points at.
+  // The bare node id is used only when that file is already learned. A link to
+  // another file must not match a node that happens to share the id.
   if (/figma\.com\//i.test(trimmed)) {
-    try {
-      const target = parseFigmaTarget(trimmed);
-      for (const id of target.nodeIds) {
-        const hit = resolveNodeExact(index, `${target.fileKey}:${id}`) ?? resolveNodeExact(index, id);
-        if (hit) return hit;
-      }
-    } catch {
-      // Not a link we can read; fall through to a name match.
+    const link = readFigmaLink(index, trimmed);
+    if (!link?.ok) return undefined;
+    for (const id of link.nodeIds) {
+      const hit = resolveNodeExact(index, `${link.fileKey}:${id}`) ?? resolveNodeExact(index, id);
+      if (hit) return hit;
     }
+    return undefined;
   }
   const lower = trimmed.toLowerCase();
   let exactName: GraphNode | undefined;
@@ -1023,7 +1023,11 @@ export function resolveNodeExact(index: GraphIndex, nameOrId: string): GraphNode
 }
 
 export function resolveNode(index: GraphIndex, nameOrId: string): GraphNode | undefined {
-  return resolveNodeExact(index, nameOrId) ?? searchNodes(index, nameOrId.trim(), { limit: 1 })[0]?.node;
+  const exact = resolveNodeExact(index, nameOrId);
+  if (exact) return exact;
+  // A link is an id, not a name. Do not fuzzy-match the URL text.
+  if (/figma\.com\//i.test(nameOrId)) return undefined;
+  return searchNodes(index, nameOrId.trim(), { limit: 1 })[0]?.node;
 }
 
 export function suggestQuestions(index: GraphIndex, analytics: GraphAnalytics): string[] {
@@ -1376,6 +1380,16 @@ export interface RecommendContext {
   constraints?: { density?: string; a11y?: string };
   files?: string[];
   libraryRules?: LibraryRules;
+  /** Echo labels. Ranking ignores these. */
+  sources?: {
+    product?: string;
+    client?: string;
+    domain?: string;
+    journey?: string;
+    audience?: string;
+    a11y?: string;
+  };
+  warning?: string;
 }
 
 export function parseLibraryRules(raw: unknown): LibraryRules {
@@ -1502,17 +1516,30 @@ function contextTokenGroups(context?: RecommendContext) {
 }
 
 function appliedRecommendContext(context?: RecommendContext) {
-  if (!context?.id) return undefined;
+  if (!context) return undefined;
   const product = context.product?.name || context.product?.id;
   const client = context.client?.name || context.client?.id;
   const journey = context.journey?.screenJob || context.journey?.step;
+  const a11y = context.constraints?.a11y?.trim();
+  const from = (key: "product" | "client" | "domain" | "journey" | "audience" | "a11y") => context.sources?.[key];
+  const sourceValues = Object.values(context.sources ?? {});
+  const id = context.id?.trim();
+  const chosen = sourceValues.length
+    ? sourceValues.some((item) => item === "active pack" || item.startsWith("pack "))
+    : Boolean(id);
+  if (!product && !client && !context.domain && !journey && !context.audience && !a11y && !context.warning && !context.files?.length) {
+    return undefined;
+  }
   return {
-    id: context.id,
-    ...(product ? { product } : {}),
-    ...(client ? { client } : {}),
-    ...(context.domain ? { domain: context.domain } : {}),
-    ...(journey ? { journey } : {}),
+    ...(chosen && id ? { id } : {}),
+    ...(product ? { product, ...(from("product") ? { productFrom: from("product") } : {}) } : {}),
+    ...(client ? { client, ...(from("client") ? { clientFrom: from("client") } : {}) } : {}),
+    ...(context.domain ? { domain: context.domain, ...(from("domain") ? { domainFrom: from("domain") } : {}) } : {}),
+    ...(journey ? { journey, ...(from("journey") ? { journeyFrom: from("journey") } : {}) } : {}),
+    ...(context.audience ? { audience: context.audience, ...(from("audience") ? { audienceFrom: from("audience") } : {}) } : {}),
+    ...(a11y ? { a11y, ...(from("a11y") ? { a11yFrom: from("a11y") } : {}) } : {}),
     ...(context.files?.length ? { files: context.files } : {}),
+    ...(context.warning ? { warning: context.warning } : {}),
   };
 }
 
@@ -2077,7 +2104,6 @@ function contextWords(context?: RecommendContext): string[] {
       context.product?.id,
       context.client?.name,
       context.client?.id,
-      context.audience,
     ]
       .filter((part): part is string => Boolean(part))
       .join(" "),
@@ -2591,6 +2617,59 @@ export function retiredHooks(index: GraphIndex) {
 /** "What is inside this component?" Parts from NESTS links, each with its code component or none. */
 export function ingredientCard(index: GraphIndex, name: string, options: IngredientOptions = {}) {
   return withCost(buildIngredientCard(index, name, ingredientHooks(index), options));
+}
+
+/**
+ * What's on this screen and its code twin. Does not refuse a retired part:
+ * retired rows are labelled, with the replacement. Name guesses are left off.
+ */
+export function screenPartsCard(index: GraphIndex, ask: string) {
+  const trimmed = ask.trim();
+  const link = readFigmaLink(index, trimmed);
+  if (link && !link.ok) return { ok: false as const, message: link.message };
+  const frame = trimmed ? resolveNode(index, trimmed) : undefined;
+  if (link?.ok && !frame) return { ok: false as const, message: missingNodeSentence(link.fileKey, link.nodeIds[0] ?? "") };
+  if (!frame || (frame.type !== "FRAME" && frame.type !== "SECTION")) {
+    return { ok: false as const, message: `No frame named "${trimmed}" in the learned files.` };
+  }
+  const view = codeMapView(index);
+  const seen = new Set<string>();
+  const parts: Array<{
+    name: string;
+    figmaNodeId?: string;
+    code: string;
+    retired?: true;
+    replacement?: string;
+    replacementCode?: string;
+  }> = [];
+  for (const instance of index.getNestedInstances(frame.id)) {
+    const main = index.getMainComponent(instance.id);
+    if (!main || isNameInferredMaster(main)) continue;
+    if (seen.has(main.id)) continue;
+    seen.add(main.id);
+    const retired = isRetired(index, main) || Boolean(view?.retired(main));
+    const twin = view?.twin(main);
+    const replacement = retired ? replacementOf(index, main, view?.twin) : undefined;
+    const useTwin = replacement ? view?.twin(replacement.node) : undefined;
+    parts.push({
+      name: variantCardName(index, main),
+      ...(main.figmaNodeId ? { figmaNodeId: main.figmaNodeId } : {}),
+      code: twin?.line ? codeText(twin) : "unmapped",
+      ...(retired
+        ? {
+            retired: true as const,
+            ...(replacement ? { replacement: variantCardName(index, replacement.node) } : {}),
+            ...(useTwin?.line ? { replacementCode: codeText(useTwin) } : {}),
+          }
+        : {}),
+    });
+  }
+  return {
+    ok: true as const,
+    frame: frame.name,
+    ...(frame.figmaNodeId ? { figmaNodeId: frame.figmaNodeId } : {}),
+    parts,
+  };
 }
 
 /** Library-wide ingredient counts: composites, parts, and how many parts link to code. */
@@ -3322,6 +3401,14 @@ export function recommendMasters(
 
   const leadCandidate = (entry: Scored): RecommendCandidate => {
     const full = toCandidate(entry, false, 0);
+    if (
+      entry.weak &&
+      entry === kept[0] &&
+      /used \d+× in file/.test(full.why) &&
+      !/bind rule|used on \d+ real screen/.test(full.why)
+    ) {
+      full.why = weakMatchWhy(intent, familyCardName(entry));
+    }
     const pointer = examplePointer(index, entry.node, exQuery, tight ? "id" : "screen");
     const next: RecommendCandidate = {
       ...full,
@@ -3382,7 +3469,8 @@ export function recommendMasters(
       truncated,
       ...(weakLead ? { match: "weak match" } : {}),
       ...(extraNote ? { note: extraNote } : {}),
-      ...(contextEcho ? { context: contextEcho } : {}),
+      ...(contextEcho && Object.keys(contextEcho).length ? { context: contextEcho } : {}),
+      ...(options.context?.warning ? { warning: options.context.warning } : {}),
       hint:
         echoBag.hint ??
         (weakLead
@@ -3399,6 +3487,10 @@ export function recommendMasters(
   };
 
   let payload = payloadOf();
+  if (JSON.stringify(payload).length > budgetChars) {
+    shedEcho(contextEcho, () => JSON.stringify(payloadOf()).length > budgetChars);
+    payload = payloadOf();
+  }
   const shrink = () => {
     candidates = listed();
     payload = payloadOf();
@@ -3418,6 +3510,31 @@ export function recommendMasters(
   if (overBudget()) {
     dropExtras = true;
     shrink();
+  }
+  if (overBudget()) {
+    dropVariant = true;
+    shrink();
+  }
+  if (overBudget()) {
+    const lead = candidates[0];
+    if (lead && "why" in lead && lead.why.length > 48) {
+      lead.why = `${lead.why.slice(0, 47)}…`;
+      payload = payloadOf();
+    }
+  }
+  if (overBudget() && contextEcho) {
+    const journey = contextEcho["journey"];
+    if (typeof journey === "string" && journey.length > 80) {
+      delete contextEcho["journey"];
+      delete contextEcho["journeyFrom"];
+      payload = payloadOf();
+    }
+    const optional = ["a11y", "a11yFrom", "audience", "audienceFrom", "files", "client", "clientFrom", "domainFrom", "productFrom", "warning"] as const;
+    for (const key of optional) {
+      if (!overBudget()) break;
+      delete contextEcho[key];
+      payload = payloadOf();
+    }
   }
   if (overBudget()) {
     const ceiling = Math.min(kept.length, target);
@@ -3500,7 +3617,17 @@ export function recommendMasters(
   return withCost({ ...(said ? only : payload), ...extra });
 }
 
-const ECHO_KEYS = ["journey", "product", "domain", "id", "client"] as const;
+const ECHO_KEYS = ["product", "domain", "id", "client", "audience", "a11y", "productFrom", "domainFrom", "clientFrom", "audienceFrom", "a11yFrom"] as const;
+
+/** Drop echo fields before a candidate is removed. Journey is deleted whole, never cut mid-word. */
+function shedEcho(context: Record<string, unknown> | undefined, over: () => boolean): void {
+  if (!context) return;
+  const drop = ["a11y", "a11yFrom", "audience", "audienceFrom", "files", "client", "clientFrom"];
+  for (const key of drop) {
+    if (!over()) return;
+    if (key in context) delete context[key];
+  }
+}
 
 /** Shorten echoed context and the matches-clause before any name cut. */
 function fitEcho(
@@ -3569,7 +3696,7 @@ function fitEcho(
 }
 
 export type VerifyReason = "not-in-graph" | "not-a-master" | "denied" | "private";
-export type UnresolvedReason = "unresolved-instance" | "frame-not-in-graph" | "not-exact";
+export type UnresolvedReason = "unresolved-instance" | "frame-not-in-graph" | "not-exact" | "file-not-learned";
 
 export interface VerifyResolved {
   given: string;
@@ -3635,6 +3762,15 @@ function lookalikeLayers(index: GraphIndex, frame: GraphNode): string[] {
     names.push(name);
   }
   return names;
+}
+
+/** Why a weak /find hit is weak. Ranking is unchanged; only this sentence changes. */
+function weakMatchWhy(intent: string, name: string): string {
+  const asked = tokensOf(intent);
+  const named = new Set(tokensOf(name));
+  const hit = asked.find((token) => named.has(token));
+  const word = hit ?? asked[0] ?? "that";
+  return `only the word '${word}' matched; no variant or role matched`;
 }
 
 function uncheckedLine(count: number, names: string[]): string {
@@ -3816,15 +3952,40 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
   const idsInContext = contextCarriesMasterIds(input.designContext);
   const componentIds = elementComponentIds(input.designContext);
   const frameName = input.frame?.trim();
+  let linkHint: string | undefined;
   if (frameName) {
-    frameNode = resolveNode(index, frameName);
-    if (!frameNode) {
+    const link = readFigmaLink(index, frameName);
+    if (link && !link.ok) {
+      linkHint = link.message;
       pushUnique(
         unresolved,
         seenUnresolved,
-        { name: frameName, reason: "frame-not-in-graph" },
-        `frame:${frameName}`,
+        { name: frameName, reason: link.kind === "not-learned" ? "file-not-learned" : "frame-not-in-graph" },
+        `link:${frameName}`,
       );
+    } else if (link?.ok) {
+      frameNode = resolveNode(index, frameName);
+      if (!frameNode) {
+        linkHint = missingNodeSentence(link.fileKey, link.nodeIds[0] ?? "");
+        pushUnique(
+          unresolved,
+          seenUnresolved,
+          { name: link.nodeIds[0] ?? frameName, reason: "frame-not-in-graph" },
+          `link:${frameName}`,
+        );
+      }
+    } else {
+      frameNode = resolveNode(index, frameName);
+    }
+    if (!frameNode) {
+      if (!link) {
+        pushUnique(
+          unresolved,
+          seenUnresolved,
+          { name: frameName, reason: "frame-not-in-graph" },
+          `frame:${frameName}`,
+        );
+      }
     } else {
       for (const instance of index.getNestedInstances(frameNode.id)) {
         const main = index.getMainComponent(instance.id);
@@ -3998,7 +4159,9 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
       }`
     : undefined;
   const pending = input.sock?.proposals.filter((row) => row.status === "pending").length ?? 0;
-  const hint = nameOnlyPass
+  const hint = linkHint
+    ? linkHint
+    : nameOnlyPass
     ? EXACT_COMPONENT_HINT
     : verified
       ? [

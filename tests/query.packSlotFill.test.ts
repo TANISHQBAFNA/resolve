@@ -82,6 +82,11 @@ describe("a context pack linked to a recipe still fills its slots", () => {
     const primary = filled.slots.find((slot) => slot.role === "primary-cta");
     expect(primary?.status).toBe("bound");
     expect(primary?.master?.name).toBe("Button");
+    const avatar = confirmRecipe("Avatar");
+    const pinnedAvatar = fillRecipe(index, avatar, undefined, packForRecipe(avatar, { packs }));
+    const avatarSlot = pinnedAvatar.slots.find((slot) => slot.role === "primary-cta");
+    expect(avatarSlot?.status).toBe("bound");
+    expect(avatarSlot?.master?.name).toBe("Avatar");
   });
 
   it("handoff of Acme Confirm payment still names Button for the primary slot", () => {
@@ -92,8 +97,10 @@ describe("a context pack linked to a recipe still fills its slots", () => {
     });
     expect(sheet.ok).toBe(true);
     if (!sheet.ok) return;
-    const primary = sheet.screens[0]?.recipe?.slots.find((slot) => slot.role === "primary-cta");
+    const screen = sheet.screens[0]!;
+    const primary = screen.recipe?.slots.find((slot) => slot.role === "primary-cta");
     expect(primary?.status).toBe("filled");
     expect(primary?.component?.name).toBe("Button");
+    expect(screen.recipe?.coverage).toEqual({ slots: 3, covered: 2, placed: 1, inside: 1 });
   });
 });

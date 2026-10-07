@@ -12,6 +12,9 @@ describe("designer failures", () => {
     expect(designerFailure("Figma authentication failed")).toBe(DESIGNER.token);
     expect(designerFailure("token expired")).toBe(DESIGNER.token);
     expect(designerFailure("Figma authorization failed: View seat cannot call this API")).toBe(DESIGNER.viewSeat);
+    expect(designerFailure("Figma authorization failed for ACMEUI: Forbidden")).toBe(DESIGNER.viewSeat);
+    expect(designerFailure("No file at /tmp/nope.json. Pass a JSON path, a Figma URL, or a file key (with FIGMA_ACCESS_TOKEN).")).toContain("No file at /tmp/nope.json");
+    expect(designerFailure("No file at /tmp/nope.xml.")).toContain("No file at /tmp/nope.xml");
     expect(designerFailure("This account is on a free seat")).toBe(DESIGNER.viewSeat);
     expect(designerFailure(missingGraphMessage())).toBe(DESIGNER.nothingLearned);
     expect(designerFailure("Resolve MCP is not built. In this repo: npm run build:server")).toBe(DESIGNER.notInstalled);

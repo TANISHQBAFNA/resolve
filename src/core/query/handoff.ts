@@ -52,7 +52,7 @@ export interface HandoffHooks {
   /** verify_frame on this screen, or on a component list (a screen that is one copy: verify reads frames, not copies). */
   verify(frameId: string, components?: string[]): VerifyLike;
   /** A frame by graph id, Figma id, `fileKey:id`, or name. */
-  frame(ask: string): { node?: GraphNode; others?: number; notScreen?: GraphNode; fuzzy?: boolean };
+  frame(ask: string): { node?: GraphNode; others?: number; notScreen?: GraphNode; fuzzy?: boolean; message?: string };
   fillRecipe?(recipe: Recipe): FilledRecipe;
 }
 
@@ -181,7 +181,7 @@ export interface HandoffDecision {
 
 export interface HandoffScreen {
   screen: { name: string; fileKey?: string; figmaNodeId?: string; link?: string; id: string };
-  context?: { id: string; product?: string; journey?: string; domain?: string; accessibility?: string; density?: string };
+  context?: { id?: string; product?: string; journey?: string; domain?: string; audience?: string; accessibility?: string; a11y?: string; density?: string };
   /** `matchedBy: "screen name"` when Resolve picked the recipe from the screen's name (a match, not a fact); `"asked"` with --recipe. */
   recipe: {
     id: string;
@@ -450,9 +450,11 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
   if (!clean(ask)) return { ok: false, refused: [{ screen: "", kind: "not-found", message: "Give a frame name or Figma id (the frame name was empty)." }] };
   const found = hooks.frame(ask);
   if (!found.node) {
-    const message = found.notScreen
-      ? `"${clean(ask)}" is a ${found.notScreen.type}, not a screen. Ask for a frame; for one component use resolve ingredients.`
-      : `No frame named "${clean(ask)}" in the learned files.`;
+    const message = found.message
+      ? found.message
+      : found.notScreen
+        ? `"${clean(ask)}" is a ${found.notScreen.type}, not a screen. Ask for a frame; for one component use resolve ingredients.`
+        : `No frame named "${clean(ask)}" in the learned files.`;
     return { ok: false, refused: [{ screen: clean(ask), kind: "not-found", message }] };
   }
   const frame = found.node;
@@ -798,11 +800,12 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     ...(pack
       ? {
           context: {
-            id: pack.id,
+            ...(pack.id ? { id: pack.id } : {}),
             ...(pack.product?.name || pack.product?.id ? { product: pack.product?.name ?? pack.product?.id } : {}),
             ...(pack.journey?.step || pack.journey?.screenJob ? { journey: pack.journey?.screenJob ?? pack.journey?.step } : {}),
             ...(pack.domain ? { domain: pack.domain } : {}),
-            ...(pack.constraints?.a11y ? { accessibility: pack.constraints.a11y } : {}),
+            ...(pack.audience ? { audience: pack.audience } : {}),
+            ...(pack.constraints?.a11y ? { accessibility: pack.constraints.a11y, a11y: pack.constraints.a11y } : {}),
             ...(pack.constraints?.density ? { density: pack.constraints.density } : {}),
           },
         }
@@ -909,6 +912,7 @@ function partLines(parts: HandoffPart[], indent: string): string[] {
 export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   const out: string[] = [];
   out.push(`# Handoff: ${md(s.screen.name)}${draft ? " (DRAFT)" : ""}`, "");
+  if (s.verify.note?.includes("library node")) out.push(`> ${md(s.verify.note)}`, "");
   if (draft) {
     const weak = [
       s.summary.nameGuesses ? `${s.summary.nameGuesses} name guess${s.summary.nameGuesses === 1 ? "" : "es"} (marked \`name-guess\`; confirm with Figma REST or design_context)` : "",
@@ -920,8 +924,13 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   if (s.matchedFrame) out.push(`- Frame: ${md(s.matchedFrame)}. Pass the exact name or Figma id to be sure.`);
   if (s.context) {
     const c = s.context;
-    out.push(`- Context pack: ${md(c.id)}${[c.product, c.journey, c.domain].filter(Boolean).length ? ` (${[c.product, c.journey, c.domain].filter(Boolean).map((x) => md(x!)).join(", ")})` : ""}`);
-    if (c.accessibility) out.push(`- Accessibility target: ${md(c.accessibility)}`);
+    if (c.id) out.push(`- Context pack: ${md(c.id)}${[c.product, c.journey, c.domain].filter(Boolean).length ? ` (${[c.product, c.journey, c.domain].filter(Boolean).map((x) => md(x!)).join(", ")})` : ""}`);
+    else {
+      if (c.product) out.push(`- Product: ${md(c.product)}`);
+      if (c.journey) out.push(`- Journey: ${md(c.journey)}`);
+    }
+    if (c.audience) out.push(`- Audience: ${md(c.audience)}`);
+    if (c.a11y || c.accessibility) out.push(`- Accessibility (a11y): ${md(c.a11y || c.accessibility || "")}`);
   }
   out.push(`- ${s.summary.components} component${s.summary.components === 1 ? "" : "s"} placed (${s.summary.copies} cop${s.summary.copies === 1 ? "y" : "ies"}), ${s.summary.linkedToCode} linked to code, ${s.summary.unmapped} unmapped. ${s.summary.parts} part${s.summary.parts === 1 ? "" : "s"} inside, ${s.summary.partsLinkedToCode} linked to code.${s.summary.otherLibrary ? ` ${s.summary.otherLibrary} from a library file that is not learned.` : ""}`);
   if (s.note) out.push(`- Note: ${md(s.note)}`);
@@ -979,7 +988,7 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   } else out.push("No parts inside the placed components.");
   out.push("", "## Verify", "");
   if (s.verify.checked) out.push("Checked as a component list (this screen is one copy).", "");
-  if (s.verify.note) out.push(`Note: ${md(s.verify.note)}`, "");
+  if (s.verify.note && !s.verify.note.includes("library node")) out.push(`Note: ${md(s.verify.note)}`, "");
   out.push(`${s.verify.pass ? "PASS" : "FAIL"}: ${s.verify.approved} approved component${s.verify.approved === 1 ? "" : "s"}.${s.verify.retired.length ? ` Retired: ${s.verify.retired.map(md).join(", ")}.` : ""}${s.verify.invents.length ? ` Flagged: ${s.verify.invents.map(md).join(", ")}.` : ""}${s.verify.unresolved.length ? ` Unresolved: ${s.verify.unresolved.map(md).join(", ")}.` : ""}`);
   out.push("", "## Decisions", "");
   if (s.decisions.length) for (const d of s.decisions) out.push(`- ${whenText(d.when)}, ${md(d.who)}: ${md(d.summary)}${d.why !== d.summary ? ` Why: ${md(d.why)}` : ""} (\`${d.proposalId}\`)`);
