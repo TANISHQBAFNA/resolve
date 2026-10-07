@@ -657,7 +657,11 @@ function fillSlot(
     };
   }
 
-  const ranked = recommendMasters(index, nextRecommend, {
+  // Rank on the slot's own words. The pack is passed beside that query, so product and
+  // journey only break ties. Putting the pack into the query makes a word such as
+  // "payment" look like the component, the real slot component drops out, and the slot comes back empty.
+  const core = slot.hints.join(" ") || slot.role.replace(/-/g, " ");
+  const ranked = recommendMasters(index, core, {
     budgetChars: 2000,
     ...(pack ? { context: pack } : {}),
     ...(workspace ? { workspace } : {}),

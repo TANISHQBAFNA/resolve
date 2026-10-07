@@ -142,6 +142,49 @@ describe("slash commands: install", () => {
     expect(read(join(cwd, ".gitignore"))).toBe(".resolve/\nnode_modules\n");
   });
 
+  it("gitignore block lists the learned cache and never ignores team knowledge", () => {
+    const cache = [
+      ".resolve/graph.json",
+      ".resolve/files/",
+      ".resolve/GRAPH_REPORT.md",
+      ".resolve/index.json",
+      ".resolve/scoreboard/",
+      ".resolve/learn/",
+      ".resolve/ingest/",
+    ];
+    const team = [
+      "recipes.json",
+      "context-packs.json",
+      "code-map.json",
+      "bind-rules.json",
+      "bind-rules.audit.jsonl",
+      "synonyms.json",
+      "icon-libraries.json",
+      "library-rules.json",
+      "workspace.json",
+      "sock.json",
+    ];
+    const cwd = temp("gitignore-sets");
+    const home = temp("gitignore-sets-home");
+    expect(setup([], cwd, home).status).toBe(0);
+    const git = read(join(cwd, ".gitignore"));
+    const start = git.indexOf("# resolve-setup:begin");
+    const end = git.indexOf("# resolve-setup:end");
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const ignoreLines = git
+      .slice(start, end)
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#"));
+    expect(ignoreLines).toEqual(cache);
+    for (const name of team) {
+      expect(ignoreLines).not.toContain(`.resolve/${name}`);
+      expect(ignoreLines).not.toContain(name);
+      expect(git.slice(start, end)).toContain(name);
+    }
+  });
+
   it("--global puts the Claude commands in ~/.claude/commands and writes no Cursor files", () => {
     const cwd = temp("global");
     const home = temp("global-home");

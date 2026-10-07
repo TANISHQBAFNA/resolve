@@ -140,12 +140,32 @@ export function installClaude(current, block = CLAUDE_BLOCK) {
 /** Learned cache only. Team files in .resolve/ stay committable. */
 export const GIT_BEGIN = "# resolve-setup:begin";
 export const GIT_END = "# resolve-setup:end";
-export const GIT_BLOCK = [
-  "# Learned cache. Rebuild it with /design-system. Commit team files in .resolve/: recipes.json, code-map.json, bind-rules.json, bind-rules.audit.jsonl, synonyms.json, icon-libraries.json.",
+/** Rebuildable cache. These are the only .resolve paths the block ignores. */
+export const GIT_CACHE = [
   ".resolve/graph.json",
   ".resolve/files/",
+  ".resolve/GRAPH_REPORT.md",
+  ".resolve/index.json",
+  ".resolve/scoreboard/",
   ".resolve/learn/",
   ".resolve/ingest/",
+];
+/** Team knowledge. Never an ignore path. */
+export const GIT_TEAM = [
+  "recipes.json",
+  "context-packs.json",
+  "code-map.json",
+  "bind-rules.json",
+  "bind-rules.audit.jsonl",
+  "synonyms.json",
+  "icon-libraries.json",
+  "library-rules.json",
+  "workspace.json",
+  "sock.json",
+];
+export const GIT_BLOCK = [
+  `# Learned cache. Rebuild it with /design-system. Commit team files in .resolve/: ${GIT_TEAM.join(", ")}. sock.json holds decisions.`,
+  ...GIT_CACHE,
 ].join("\n");
 
 /** @param {string} text */
