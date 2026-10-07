@@ -245,7 +245,7 @@ describe("Angular fields in the code map", () => {
     expect(alias.entries[0]).toMatchObject({ code: { inputs: ["label: ariaLabel", "value"] } });
     const ok = codeMapFromCsv(`${head}\r\nACMEUI,30:10,Button,Button,@acme/ui,,,,,,,,\r\nACMEUI,30:20,Text field,AcmeTextFieldComponent,@acme/ui-angular,angular,acme-text-field,,true,"label, value",,,\r\n`);
     expect(ok.errors).toEqual([]);
-    expect(ok.entries[0]).toEqual({ fileKey: "ACMEUI", id: "30:10", code: { import: "import { Button } from '@acme/ui'", component: "Button" } });
+    expect(ok.entries[0]).toEqual({ fileKey: "ACMEUI", id: "30:10", name: "Button", code: { import: "import { Button } from '@acme/ui'", component: "Button" } });
     expect(ok.entries[1]).toMatchObject({ code: { inputs: ["label", "value"], standalone: true } });
     expect(() => parseCsv('a,"b')).toThrow("a quoted cell is not closed");
   });
@@ -322,7 +322,7 @@ describe("code-map --init / --import and MCP size guard", () => {
     expect(kept).toContain("Kept 2 existing entries the CSV has no row for (use --replace to drop them):\n  OTHERLIB 1:1\n  Gone\n");
     expect(kept).toContain("Removed 1 entry whose row was left empty:\n  ACMEUI 30:40\n");
     const map = JSON.parse(readFileSync(join(home, "code-map.json"), "utf8")) as { entries: unknown[] };
-    expect(map.entries).toEqual([{ fileKey: "ACMEUI", id: "30:10", code: { import: "import { Button } from '@acme/ui'", component: "Button" } }, other, stale]);
+    expect(map.entries).toEqual([{ fileKey: "ACMEUI", id: "30:10", name: "Button", code: { import: "import { Button } from '@acme/ui'", component: "Button" } }, other, stale]);
     const dropped = await cli(["code-map", "--import", csv, "--replace"]);
     expect(dropped).toContain("Dropped 2 existing entries the CSV has no row for (--replace):\n  OTHERLIB 1:1\n  Gone\n");
     expect((JSON.parse(readFileSync(join(home, "code-map.json"), "utf8")) as { entries: unknown[] }).entries).toHaveLength(1);
@@ -349,7 +349,7 @@ describe("code-map --init / --import and MCP size guard", () => {
     expect(kept).toContain("Kept 3 existing entries the CSV has no row for (use --replace to drop them):\n  OTHERLIB 5:5 Button\n  OTHERLIB Button\n  ACMEUI 99:99 Button\n");
     expect(kept).toContain("Replaced 1 existing entry with the CSV row for the same component:\n  ACMEUI Button\n");
     const map = JSON.parse(readFileSync(join(home, "code-map.json"), "utf8")) as { entries: unknown[] };
-    expect(map.entries).toEqual([{ fileKey: "ACMEUI", id: "30:10", code: btn("AcmeButton") }, otherId, otherName, staleId]);
+    expect(map.entries).toEqual([{ fileKey: "ACMEUI", id: "30:10", name: "Button", code: btn("AcmeButton") }, otherId, otherName, staleId]);
     // --replace drops them, and says so.
     writeFileSync(join(home, "code-map.json"), JSON.stringify({ entries: [otherId, otherName, staleId, sameName] }));
     const dropped = await cli(["code-map", "--import", init, "--replace"]);
