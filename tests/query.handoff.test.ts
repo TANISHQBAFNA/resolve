@@ -460,7 +460,7 @@ describe("handoff fixes after PR #37 UAT", () => {
     putMap(angularMap);
     const sheet = ok(handoffSheet(indexGraph(fixedGraph()), ["Payment methods"])).screens[0]!;
     const brand = sheet.components.find((c) => c.name === "Brand mark")!;
-    expect(brand).toMatchObject({ status: "other-library", copies: ["20:18"], code: "unmapped" });
+    expect(brand).toMatchObject({ status: "other-library", copies: ["20:18"], code: "unknown" });
     expect(brand).not.toHaveProperty("figmaNodeId");
     expect(brand).not.toHaveProperty("fileKey");
     expect(sheet.summary.otherLibrary).toBe(1);
@@ -576,4 +576,122 @@ describe("handoff fixes after PR #37 UAT", () => {
     }
     return out.join("");
   }
+});
+
+describe("PR #37 retest Lows (R-L5, R-L10 / R-B, R-N1, R-N2)", () => {
+  const previousHome = process.env["RESOLVE_HOME"];
+  let home: string;
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), "resolve-handoff-retest-"));
+    process.env["RESOLVE_HOME"] = home;
+    clearCache();
+  });
+  afterEach(() => {
+    clearCache();
+    if (previousHome === undefined) delete process.env["RESOLVE_HOME"];
+    else process.env["RESOLVE_HOME"] = previousHome;
+  });
+  const putMap = (map: unknown) => writeFileSync(join(home, "code-map.json"), JSON.stringify(map));
+
+  it("slots have three states: placed, inside a placed component, missing; each copy fills one slot", () => {
+    const index = indexGraph(fixedGraph());
+    const sheet = ok(handoffSheet(index, ["Confirm payment"], { recipe: "confirm-dialog", recipes: starterRecipes() })).screens[0]!;
+    const by = Object.fromEntries(sheet.recipe!.slots.map((s) => [s.role, s]));
+    // One direct Danger Button: it fills primary-cta only. The other Button is inside Payee picker.
+    expect(by["primary-cta"]).toMatchObject({ state: "placed", onScreen: true });
+    expect(by["primary-cta"]).not.toHaveProperty("inside");
+    expect(by["secondary-cta"]).toMatchObject({ state: "inside", inside: "Payee picker", onScreen: true });
+    expect(by["body"]).not.toHaveProperty("state");
+    expect(sheet.openQuestions.join("\n")).not.toMatch(/Recipe slot (primary|secondary)-cta/);
+    const text = formatHandoffScreen(sheet, false);
+    expect(text).toContain("| secondary-cta | no | filled | Button [ACMEUI 30:10] | inside Payee picker (comes with Payee picker; check it is meant to fill the secondary-cta slot) |");
+    expect(text).toContain("Slots covered: 2/2 (1 placed, 1 inside a placed component). Each copy fills one slot.");
+  });
+
+  it("a slot with no copy anywhere on the screen is missing and is the only one asked about", () => {
+    const file = fixedAcmeFile() as { document: { children: Array<{ id: string; children: Array<Record<string, unknown>> }> } };
+    const page = file.document.children.find((p) => p.id === "20:1")!;
+    page.children.push({ id: "20:99", name: "Only avatar", type: "FRAME", absoluteBoundingBox: { x: 0, y: 0, width: 10, height: 10 }, children: [{ id: "20:98", name: "Avatar", type: "INSTANCE", componentId: "30:40", absoluteBoundingBox: { x: 0, y: 0, width: 10, height: 10 } }] });
+    const sheet = ok(handoffSheet(indexGraph(graphOf(file)), ["Only avatar"], { recipe: "confirm-dialog", recipes: starterRecipes() })).screens[0]!;
+    const cta = sheet.recipe!.slots.find((s) => s.role === "primary-cta")!;
+    expect(cta).toMatchObject({ state: "missing", onScreen: false });
+    expect(sheet.openQuestions).toContain("Recipe slot primary-cta expects Button; it is not on this screen. Is that on purpose?");
+    expect(formatHandoffScreen(sheet, false)).toContain("Slots covered: 0/2 (0 placed, 0 inside a placed component).");
+  });
+
+  it("a whole-screen copy: parts inside its regions are inside, named by the region that brings them", () => {
+    const file = fixedAcmeFile() as { document: { children: Array<{ id: string; name: string; type: string; children: Array<Record<string, unknown>> }> } };
+    const bb = { x: 0, y: 0, width: 10, height: 10 };
+    const btn = (id: string) => ({ id, name: "Button", type: "INSTANCE", componentId: "30:11", absoluteBoundingBox: bb });
+    file.document.children.push({
+      id: "73:1",
+      name: "Shell lib",
+      type: "CANVAS",
+      children: [
+        { id: "73:2", name: "Action bar", type: "COMPONENT", absoluteBoundingBox: bb, children: [btn("73:3"), btn("73:4")] },
+        { id: "73:5", name: "Page shell", type: "COMPONENT", absoluteBoundingBox: bb, children: [{ id: "73:6", name: "Action bar", type: "INSTANCE", componentId: "73:2", absoluteBoundingBox: bb, children: [btn("I73:6;73:3"), btn("I73:6;73:4")] }] },
+      ],
+    });
+    file.document.children.push({
+      id: "74:1",
+      name: "Shell page",
+      type: "CANVAS",
+      children: [{ id: "74:2", name: "Shell screen", type: "INSTANCE", componentId: "73:5", absoluteBoundingBox: bb, children: [{ id: "I74:2;73:6", name: "Action bar", type: "INSTANCE", componentId: "73:2", absoluteBoundingBox: bb, children: [btn("I74:2;73:6;73:3"), btn("I74:2;73:6;73:4")] }] }],
+    });
+    const sheet = ok(handoffSheet(indexGraph(graphOf(file)), ["74:2"], { recipe: "confirm-dialog", recipes: starterRecipes() })).screens[0]!;
+    const states = sheet.recipe!.slots.filter((s) => s.component).map((s) => [s.role, s.state, s.inside]);
+    expect(states).toEqual([
+      ["primary-cta", "inside", "Action bar"],
+      ["secondary-cta", "inside", "Action bar"],
+    ]);
+    expect(sheet.openQuestions.join("\n")).not.toMatch(/Recipe slot (primary|secondary)-cta/);
+    expect(formatHandoffScreen(sheet, false)).toContain("Slots covered: 2/2 (0 placed, 2 inside a placed component).");
+  });
+
+  it("R-N1: a not-found part inside a library component's definition refuses like a not-found copy; the draft goes through", () => {
+    const file = fixedAcmeFile() as { document: unknown };
+    const add = (node: { id?: string; children?: unknown[] }) => {
+      if (node.id === "30:30") node.children = [...(node.children ?? []), { id: "30:39", name: "Legacy badge", type: "INSTANCE", componentId: "40:99", absoluteBoundingBox: { x: 0, y: 0, width: 4, height: 4 } }];
+      for (const child of (node.children ?? []) as (typeof node)[]) add(child);
+    };
+    add(file.document as Parameters<typeof add>[0]);
+    const index = indexGraph(graphOf(file));
+    const pack = handoffSheet(index, ["Send money"]);
+    expect(pack.ok).toBe(false);
+    if (pack.ok) return;
+    expect(pack.refused).toEqual([
+      expect.objectContaining({
+        kind: "not-found",
+        component: "Legacy badge",
+        message: expect.stringContaining("The component of Legacy badge is not in the learned library: it is inside Payee picker [ACMEUI 30:30] (read from its main component, because the copy ACMEUI 20:41 on this screen has no learned insides of its own), and its main component 40:99 is in no learned file."),
+      }),
+    ]);
+    expect(ok(handoffSheet(index, ["Send money"], { draft: true })).draft).toBe(true);
+  });
+
+  it("R-N2: other-library and not-found components and parts are code unknown, not unmapped, and not counted as unmapped", () => {
+    putMap(angularMap);
+    const index = indexGraph(fixedGraph());
+    const pay = ok(handoffSheet(index, ["Payment methods"])).screens[0]!;
+    expect(pay.components.find((c) => c.name === "Brand mark")).toMatchObject({ code: "unknown" });
+    expect(pay.summary.unmapped).toBe(pay.components.filter((c) => c.code === "unmapped").length);
+    expect(pay.components.filter((c) => c.code === "unknown").map((c) => c.name)).toEqual(["Brand mark"]);
+    expect(formatHandoffScreen(pay, false)).toMatch(new RegExp(`linked to code, ${pay.summary.unmapped} unmapped, 1 code unknown\\.`));
+    const receipt = ok(handoffSheet(index, ["Receipt"], { draft: true })).screens[0]!;
+    const badge = receipt.components.find((c) => c.name === "Legacy badge")!;
+    expect(badge).toMatchObject({ status: "not-found", code: "unknown" });
+    expect(formatHandoffScreen(receipt, true)).toContain("- Code: unknown (its component is in no learned file)");
+    expect(receipt.openQuestions.join("\n")).not.toMatch(/Legacy badge.*has no code link/);
+  });
+
+  it("R-L5: a selector that pins another value gets no template and an open question; a matching copy keeps its template", () => {
+    putMap({ entries: [{ fileKey: "ACMEUI", id: "30:10", code: { framework: "angular", import: "import { AcmeButtonComponent } from '@acme/ui-angular'", component: "AcmeButtonComponent", selector: 'acme-button[variant="primary"]', module: "AcmeButtonModule", inputs: ["variant", "size"] } }] });
+    const sheet = ok(handoffSheet(indexGraph(fixedGraph()), ["Send money"])).screens[0]!;
+    const primary = sheet.components.find((c) => c.variant?.includes("Variant=Primary"))!;
+    const secondary = sheet.components.find((c) => c.variant?.includes("Variant=Secondary"))!;
+    expect(primary.template).toBe('<acme-button variant="primary" size="medium"></acme-button>');
+    expect(secondary).not.toHaveProperty("template");
+    expect(secondary.inputs).toEqual(expect.arrayContaining([{ input: "variant", value: "secondary", from: "Variant=Secondary" }]));
+    expect(sheet.openQuestions).toContain('Button / Variant=Secondary: the code map selector acme-button[variant="primary"] only matches variant="primary", but this copy needs variant="secondary". No template is suggested; check the selector in the code map.');
+  });
 });

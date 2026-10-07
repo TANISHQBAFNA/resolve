@@ -126,7 +126,7 @@ export interface HandoffComponent {
   /** `other-library`: from a library file that is not learned (no Figma id of this file, code unknown). */
   status: "current" | "retired" | "not-found" | "other-library";
   slot?: string;
-  /** Code from the code map, or "unmapped" (never guessed). */
+  /** Code from the code map, "unmapped" (no code-map entry), or "unknown" (other-library or not-found: no entry can be made). Never guessed. */
   code: string;
   angular?: AngularTwin;
   /** Figma variant properties of the placed variant. */
@@ -161,7 +161,15 @@ export interface HandoffSlot {
   required: boolean;
   status: string;
   component?: { name: string; fileKey?: string; figmaNodeId?: string };
+  /** True when the slot is covered: `placed` or `inside`. */
   onScreen: boolean;
+  /**
+   * `placed`: a copy of the bound component is placed on the screen (or directly in a whole-screen copy).
+   * `inside`: it is only there as a part of a placed component (`inside` names it). `missing`: not on the screen.
+   * Each copy fills at most one slot. Absent when no component is bound.
+   */
+  state?: "placed" | "inside" | "missing";
+  inside?: string;
 }
 
 export interface HandoffDecision {
@@ -190,6 +198,7 @@ export interface HandoffScreen {
     components: number;
     copies: number;
     linkedToCode: number;
+    /** Components with no code-map entry. Other-library and not-found components are not counted (their code is "unknown"). */
     unmapped: number;
     parts: number;
     partsLinkedToCode: number;
@@ -282,6 +291,23 @@ export function inputHints(props: Record<string, string> | undefined, angular: A
     hints.push({ input, value, from: `${prop}=${raw}` });
   }
   return hints;
+}
+
+/** Attribute values the selector pins (`acme-button[variant="primary"]` -> variant=primary), from its first selector. */
+export function selectorPins(angular: AngularTwin | undefined): Map<string, string> {
+  const out = new Map<string, string>();
+  const first = angular?.selector.split(",")[0]?.trim() ?? "";
+  for (const a of first.matchAll(/\[([^\]=]+)=(?:"([^"]*)"|'([^']*)'|([^\]]*))\]/g)) out.set(a[1]!.trim(), (a[2] ?? a[3] ?? a[4] ?? "").trim());
+  return out;
+}
+
+/** Suggested inputs whose value differs from the value the selector pins: the selector cannot match this copy. */
+export function selectorConflicts(angular: AngularTwin | undefined, hints: InputHint[]): Array<InputHint & { pinned: string }> {
+  const pins = selectorPins(angular);
+  return hints.flatMap((h) => {
+    const pinned = pins.get(h.input);
+    return pinned !== undefined && norm(pinned) !== norm(h.value) ? [{ ...h, pinned }] : [];
+  });
 }
 
 /** `<acme-button variant="primary" (pressed)="…"></acme-button>` for an element selector; undefined for attribute-only or class selectors. */
@@ -506,6 +532,19 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     const inner = [...new Set([...index.getNestedInstances(main.id), ...index.getDescendants(main.id).filter(isCopy)])];
     for (const c of inner) {
       const m = mainOf(c);
+      const gone = !m ? missingOf(c) : undefined;
+      if (gone && !draft && !seenMissing.has(gone)) {
+        // Same gate as a not-found copy on the screen, read from the library component's definition.
+        seenMissing.add(gone);
+        const name = clean(c.name);
+        refused.push({
+          screen: screenName,
+          figmaNodeId: frame.figmaNodeId,
+          kind: "not-found",
+          component: name,
+          message: `The component of ${name} is not in the learned library: it is inside ${familyName(main)} [${where(fid(index, main), main.figmaNodeId)}] (read from its main component, because the copy ${where(fid(index, top), top.figmaNodeId)} on this screen has no learned insides of its own), and its main component ${gone} is in no learned file. Learn the library file that holds it, or fix the library component, then run handoff again. (Or pass --draft for a labelled draft that is not for build.)`,
+        });
+      }
       if (!m || m.isRemote) continue;
       if (hooks.retired(m)) {
         retiredRefusal(
@@ -551,9 +590,37 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     const main = mainOf(copy);
     if (main) placedFamilies.set(familyKey(index, main), main);
   }
+  // Three states per slot: placed (a direct copy), inside (only as a part of a placed component), missing.
+  // Each copy fills at most one slot: direct copies first, then copies inside placed components.
+  const pool = new Map<string, Array<{ inside?: string }>>();
+  const direct = new Set(directCopies(index, frame).map((c) => c.id));
+  const insideOf = (copy: GraphNode): string => {
+    const chain: string[] = [];
+    let at = copy.parentId ? index.getNode(copy.parentId) : undefined;
+    while (at && at.id !== frame.id) {
+      if (isCopy(at)) {
+        const m = mainOf(at);
+        chain.unshift(m ? familyName(m) : clean(at.name));
+      }
+      at = at.parentId ? index.getNode(at.parentId) : undefined;
+    }
+    return chain.join(" › ") || "a placed component";
+  };
+  if (filled?.slots.some((s) => s.master)) {
+    const add = (copy: GraphNode, inside?: string) => {
+      const main = mainOf(copy);
+      if (!main) return;
+      const key = familyKey(index, main);
+      pool.set(key, [...(pool.get(key) ?? []), inside ? { inside } : {}]);
+    };
+    for (const copy of directCopies(index, frame)) add(copy);
+    for (const copy of nested) if (!direct.has(copy.id) && copy.id !== frame.id) add(copy, insideOf(copy));
+  }
   const slots: HandoffSlot[] = (filled?.slots ?? []).map((s) => {
     const node = s.master ? index.getNode(s.master.id) : undefined;
     const fam = node ? familyKey(index, node) : undefined;
+    const got = fam ? pool.get(fam)?.shift() : undefined;
+    const state = !s.master ? undefined : !got ? "missing" : got.inside ? "inside" : "placed";
     return {
       role: s.role,
       required: s.required,
@@ -561,8 +628,10 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
       ...(s.master
         ? { component: { name: clean(s.master.set ?? s.master.name), ...(s.master.fileKey ? { fileKey: s.master.fileKey } : {}), ...(s.master.figmaNodeId ? { figmaNodeId: s.master.figmaNodeId } : {}) } }
         : {}),
-      onScreen: Boolean(fam && placedFamilies.has(fam)),
-    };
+      onScreen: state === "placed" || state === "inside",
+      ...(state ? { state } : {}),
+      ...(got?.inside ? { inside: got.inside } : {}),
+    } satisfies HandoffSlot;
   });
   const slotOfFamily = new Map<string, string>();
   for (const s of filled?.slots ?? []) {
@@ -580,7 +649,9 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     const twin = main && !remote ? hooks.twin(main) : undefined;
     const props = main?.variantProperties && Object.keys(main.variantProperties).length ? main.variantProperties : undefined;
     const hints = inputHints(props, twin?.angular);
-    const template = angularTemplate(twin?.angular, hints);
+    // A selector that pins another value (acme-button[variant="primary"] on a Secondary copy) gets no template, and a question.
+    const clash = selectorConflicts(twin?.angular, hints);
+    const template = clash.length ? undefined : angularTemplate(twin?.angular, hints);
     const card = hooks.ingredient(`${fid(index, first) ?? ""}:${first.figmaNodeId ?? first.id}`.replace(/^:/, ""), depth, options.maxCharsPerCard);
     const parts = card.found ? trimParts(card.parts) : [];
     const guess = !main ? !missing : hooks.nameGuess(main);
@@ -596,7 +667,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
       identity: missing ? "not-found" : guess ? NAME_GUESS : "confirmed",
       status: !main ? "not-found" : remote ? "other-library" : hooks.retired(main) ? "retired" : "current",
       ...(main && slotOfFamily.has(familyKey(index, main)) ? { slot: slotOfFamily.get(familyKey(index, main)) } : {}),
-      code: twin ? twin.line : "unmapped",
+      code: twin ? twin.line : missing || remote ? "unknown" : "unmapped",
       ...(twin?.angular ? { angular: twin.angular } : {}),
       ...(props ? { figmaProps: props } : {}),
       ...(hints.length ? { inputs: hints } : {}),
@@ -606,6 +677,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
       ...(card.found && card.cut ? { partsCut: card.cut.reason } : {}),
       parts,
     });
+    for (const c of clash) open.push(`${name} / ${c.from}: the code map selector ${twin!.angular!.selector.split(",")[0]!.trim()} only matches ${c.input}="${c.pinned}", but this copy needs ${c.input}="${c.value}". No template is suggested; check the selector in the code map.`);
     if (missing) open.push(`${name}: its component (${missing}) is not in the learned library. Learn the library file that holds it, or replace the copy, before building.`);
     else if (guess) open.push(`${name}: identity is a guess from the layer name. Confirm it with Figma REST or design_context before building.`);
     if (remote) open.push(`${name} (placed: ${copies.flatMap((c) => (c.figmaNodeId ? [c.figmaNodeId] : [])).slice(0, 3).join(", ") || "on this screen"}) is from a library file that is not learned, so its code is unknown. Learn that library file to see its code and parts.`);
@@ -621,7 +693,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
         ...(p.fileKey ? { fileKey: p.fileKey } : {}),
         ...(p.figmaNodeId ? { figmaNodeId: p.figmaNodeId } : {}),
         status: partStatus(p),
-        code: p.code ?? "unmapped",
+        code: p.code ?? (partStatus(p) === "other-library" || partStatus(p) === "not-found" ? "unknown" : "unmapped"),
         ...(p.angular ? { angular: p.angular } : {}),
         usedBy: [],
       };
@@ -667,7 +739,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     if (i.status === "retired") open.push(`Part ${i.name} (inside ${i.usedBy.join(", ")}) is retired in the library; the library component needs an update.`);
   }
   for (const s of slots) {
-    if (s.required && s.component && !s.onScreen) open.push(`Recipe slot ${s.role} expects ${s.component.name}; it is not placed on this screen. Is that on purpose?`);
+    if (s.required && s.component && s.state === "missing") open.push(`Recipe slot ${s.role} expects ${s.component.name}; it is not on this screen. Is that on purpose?`);
     if (s.required && !s.component) open.push(`Recipe slot ${s.role} has no component bound in the recipe; check what the design uses for it.`);
   }
   for (const i of verify.invents) open.push(`Verify flagged ${i}.`);
@@ -676,7 +748,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
   const familyIds = new Set([...placedFamilies.keys()]);
   const decisions = decisionsFor(options.decisions, frame, recipe?.id, familyIds, index);
   const pack = options.context;
-  const linked = components.filter((c) => c.code !== "unmapped").length;
+  const linked = components.filter((c) => c.code !== "unmapped" && c.code !== "unknown").length;
   const allParts = ingredients.length;
   const nameGuesses = components.filter((c) => c.identity === NAME_GUESS).length + ingredients.filter((i) => i.status === NAME_GUESS).length;
   const notFound = components.filter((c) => c.status === "not-found").length + ingredients.filter((i) => i.status === "not-found").length;
@@ -717,7 +789,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
       components: components.length,
       copies: components.reduce((n, c) => n + c.count, 0),
       linkedToCode: linked,
-      unmapped: components.length - linked,
+      unmapped: components.filter((c) => c.code === "unmapped").length,
       parts: allParts,
       partsLinkedToCode: ingredients.filter((i) => i.status === "mapped").length,
       nameGuesses,
@@ -787,7 +859,9 @@ const whenText = (when: string) => {
 };
 const inputText = (h: InputHint) => (/^(true|false)$/.test(h.value) ? `[${h.input}]="${h.value}"` : `${h.input}="${h.value}"`);
 const ng = (a: AngularTwin, full = false) => `\`${angularText(a, full)}\``;
-const codeLine = (code: string, angular?: AngularTwin) => (code === "unmapped" ? "unmapped (no code-map entry)" : `\`${code}\`${angular ? `, ${ng(angular)}` : ""}`);
+const codeLine = (code: string, angular?: AngularTwin) =>
+  code === "unmapped" ? "unmapped (no code-map entry)" : code === "unknown" ? "unknown (its component is in no learned file)" : `\`${code}\`${angular ? `, ${ng(angular)}` : ""}`;
+const codeCell = (i: HandoffIngredient) => (i.code === "unmapped" || i.code === "unknown" ? i.code : `\`${i.code}\`${i.angular ? `, ${ng(i.angular)}` : ""}`);
 
 function partLines(parts: HandoffPart[], indent: string): string[] {
   return parts.flatMap((p) => {
@@ -803,6 +877,8 @@ function partLines(parts: HandoffPart[], indent: string): string[] {
     return [line, ...partLines(p.parts ?? [], `${indent}  `)];
   });
 }
+
+const unknownCode = (s: HandoffScreen) => s.components.filter((c) => c.code === "unknown").length;
 
 /** The developer's screen sheet (screen-<name>.md). */
 export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
@@ -822,13 +898,20 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
     out.push(`- Context pack: ${md(c.id)}${[c.product, c.journey, c.domain].filter(Boolean).length ? ` (${[c.product, c.journey, c.domain].filter(Boolean).map((x) => md(x!)).join(", ")})` : ""}`);
     if (c.accessibility) out.push(`- Accessibility target: ${md(c.accessibility)}`);
   }
-  out.push(`- ${s.summary.components} component${s.summary.components === 1 ? "" : "s"} placed (${s.summary.copies} cop${s.summary.copies === 1 ? "y" : "ies"}), ${s.summary.linkedToCode} linked to code, ${s.summary.unmapped} unmapped. ${s.summary.parts} part${s.summary.parts === 1 ? "" : "s"} inside, ${s.summary.partsLinkedToCode} linked to code.${s.summary.otherLibrary ? ` ${s.summary.otherLibrary} from a library file that is not learned.` : ""}`);
+  out.push(`- ${s.summary.components} component${s.summary.components === 1 ? "" : "s"} placed (${s.summary.copies} cop${s.summary.copies === 1 ? "y" : "ies"}), ${s.summary.linkedToCode} linked to code, ${s.summary.unmapped} unmapped${unknownCode(s) ? `, ${unknownCode(s)} code unknown` : ""}. ${s.summary.parts} part${s.summary.parts === 1 ? "" : "s"} inside, ${s.summary.partsLinkedToCode} linked to code.${s.summary.otherLibrary ? ` ${s.summary.otherLibrary} from a library file that is not learned.` : ""}`);
   if (s.note) out.push(`- Note: ${md(s.note)}`);
   out.push("", "## Recipe", "");
   if (s.recipe) {
     out.push(`${md(s.recipe.title)} (\`${s.recipe.id}\`)${s.recipe.matchedBy === "screen name" ? ", matched from the screen name; pass --recipe <id> to pick another" : ""}`, "", "| Slot | Required | Recipe status | Component | On this screen |", "|---|---|---|---|---|");
     for (const sl of s.recipe.slots) {
-      out.push(`| ${md(sl.role)} | ${sl.required ? "yes" : "no"} | ${md(sl.status)} | ${sl.component ? `${md(sl.component.name)} [${md(where(sl.component.fileKey, sl.component.figmaNodeId))}]` : "none bound"} | ${sl.component ? (sl.onScreen ? "yes" : "no") : "-"} |`);
+      const on = !sl.component ? "-" : sl.state === "inside" ? `inside ${md(sl.inside ?? "a placed component")} (comes with ${md((sl.inside ?? "it").split(" › ")[0]!)}; check it is meant to fill the ${md(sl.role)} slot)` : sl.onScreen ? "yes" : "no";
+      out.push(`| ${md(sl.role)} | ${sl.required ? "yes" : "no"} | ${md(sl.status)} | ${sl.component ? `${md(sl.component.name)} [${md(where(sl.component.fileKey, sl.component.figmaNodeId))}]` : "none bound"} | ${on} |`);
+    }
+    const bound = s.recipe.slots.filter((sl) => sl.component);
+    if (bound.length) {
+      const placed = bound.filter((sl) => sl.state === "placed" || (!sl.state && sl.onScreen)).length;
+      const inside = bound.filter((sl) => sl.state === "inside").length;
+      out.push("", `Slots covered: ${placed + inside}/${bound.length} (${placed} placed, ${inside} inside a placed component). Each copy fills one slot.`);
     }
   } else out.push(md(s.recipeNote ?? "No recipe."));
   out.push("", `## Components (${s.components.length})`, "");
@@ -863,7 +946,7 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   }
   const imports = new Map<string, string>();
   for (const c of s.components) {
-    if (c.code === "unmapped") continue;
+    if (c.code === "unmapped" || c.code === "unknown") continue;
     const a = c.angular;
     imports.set(c.code, a ? `\`${c.code}\` (${a.standalone ? "standalone" : a.module ? `module \`${a.module}\`` : "Angular"})` : `\`${c.code}\``);
   }
@@ -872,7 +955,7 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   out.push(`## Ingredients (${s.ingredients.length} parts)`, "");
   if (s.ingredients.length) {
     out.push("| Part | Figma | Code | Status | Used by |", "|---|---|---|---|---|");
-    for (const i of s.ingredients) out.push(`| ${md(i.name)} | ${figmaId(i.figmaNodeId) ? md(where(i.fileKey, i.figmaNodeId)) : "-"} | ${i.code === "unmapped" ? "unmapped" : `\`${i.code}\`${i.angular ? `, ${ng(i.angular)}` : ""}`} | ${i.status} | ${i.usedBy.map(md).join(", ")} |`);
+    for (const i of s.ingredients) out.push(`| ${md(i.name)} | ${figmaId(i.figmaNodeId) ? md(where(i.fileKey, i.figmaNodeId)) : "-"} | ${codeCell(i)} | ${i.status} | ${i.usedBy.map(md).join(", ")} |`);
   } else out.push("No parts inside the placed components.");
   out.push("", "## Verify", "");
   if (s.verify.checked) out.push("Checked as a component list (this screen is one copy).", "");
@@ -892,7 +975,7 @@ export function formatHandoffIngredients(pack: Extract<HandoffPack, { ok: true }
   if (!pack.ingredients.length) return `${[...out, "No parts inside the placed components."].join("\n")}\n`;
   out.push("| Part | Figma | Code | Status | Used by | Screens |", "|---|---|---|---|---|---|");
   for (const i of pack.ingredients) {
-    out.push(`| ${md(i.name)} | ${figmaId(i.figmaNodeId) ? md(where(i.fileKey, i.figmaNodeId)) : "-"} | ${i.code === "unmapped" ? "unmapped" : `\`${i.code}\`${i.angular ? `, ${ng(i.angular)}` : ""}`} | ${i.status} | ${i.usedBy.map(md).join(", ")} | ${(i.screens ?? []).map(md).join(", ")} |`);
+    out.push(`| ${md(i.name)} | ${figmaId(i.figmaNodeId) ? md(where(i.fileKey, i.figmaNodeId)) : "-"} | ${codeCell(i)} | ${i.status} | ${i.usedBy.map(md).join(", ")} | ${(i.screens ?? []).map(md).join(", ")} |`);
   }
   return `${out.join("\n")}\n`;
 }
