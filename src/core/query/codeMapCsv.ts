@@ -223,7 +223,9 @@ export function codeMapFromCsv(text: string): CsvImport {
     };
     const entry: Record<string, unknown> = {
       ...(get("fileKey") ? { fileKey: get("fileKey") } : {}),
-      ...(get("id") ? { id: get("id") } : get("name") ? { name: get("name") } : {}),
+      ...(get("id") ? { id: get("id") } : {}),
+      // The design name is kept with the id too: `code-map --check "Old Button"` finds a retired part by the name designers use.
+      ...(get("name") ? { name: get("name") } : {}),
       ...(get("status") ? { status: get("status").toLowerCase() } : {}),
       ...(get("replacedBy") ? { replacedBy: get("replacedBy") } : {}),
       code,

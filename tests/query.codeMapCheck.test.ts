@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { existsSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runCli } from "@/server/cli";
@@ -158,6 +158,57 @@ describe("code-map name check without a learned graph", () => {
     expect(card.exitCode).toBe(5);
     expect(card.message).toBe("Not in the design system or on this screen. Don't invent it.");
     expect(card.import).toBeUndefined();
+  });
+
+  it("answers a bare Angular module name like its class", () => {
+    expect(checkComponentName("AcmeButtonModule", codeMap, handoff).status).toBe("ok");
+    expect(checkComponentName("AcmeLegacyModule", codeMap, handoff).status).toBe("retired");
+    expect(checkComponentName("ButtonModule", codeMap, handoff).status).toBe("not-found");
+  });
+
+  it("matches an HTML tag on selectors only, never on a design name", () => {
+    for (const query of ["<button mat-raised-button>", "<button>", "<button></button>"]) {
+      const card = checkComponentName(query, codeMap, handoff);
+      expect(card.status, query).toBe("not-found");
+      expect(card.exitCode).toBe(5);
+    }
+    expect(checkComponentName("<acme-button>", codeMap, handoff).status).toBe("ok");
+    expect(checkComponentName("<acme-old-button>", codeMap, handoff).status).toBe("retired");
+  });
+
+  it("reads a part with no twin (code null) by its status: same library is unmapped, another library is other-library", () => {
+    const withPart = (status: string) => {
+      const sheet = structuredClone(handoff);
+      sheet.screens[0]!.components[0]!.parts = [
+        { name: "Badge", fileKey: status === "other-library" ? "GLOBEXUI" : "ACMEUI", figmaNodeId: "31:1", count: 1, status, code: null },
+      ] as never;
+      return sheet;
+    };
+    expect(checkComponentName("Badge", codeMap, withPart("current")).status).toBe("unmapped");
+    expect(checkComponentName("Badge", codeMap, withPart("other-library")).status).toBe("other-library");
+    expect(checkComponentName("Badge", codeMap, withPart("not-found")).status).toBe("not-found");
+  });
+
+  it("counts a recipe slot's master only when it is placed on the screen", () => {
+    const withSlot = (onScreen: boolean) => {
+      const sheet = structuredClone(handoff);
+      sheet.screens[0]!.components = sheet.screens[0]!.components.filter((row) => row.name !== "Button");
+      sheet.screens[0]!.recipe = {
+        slots: [{ role: "primary-cta", required: true, status: "bound", component: { name: "Button", fileKey: "ACMEUI", figmaNodeId: "30:10" }, onScreen }],
+      } as never;
+      return sheet;
+    };
+    expect(checkComponentName("AcmeButtonComponent", codeMap, withSlot(false)).status).toBe("not-in-handoff");
+    expect(checkComponentName("AcmeButtonComponent", codeMap, withSlot(true)).status).toBe("ok");
+  });
+
+  it("refuses the retired Acme part by its design name with the shipped example code map", () => {
+    const example = JSON.parse(readFileSync(join(process.cwd(), "docs/examples/acme-code-map-angular.json"), "utf8")) as unknown;
+    for (const query of ["Old Button", "OldButton"]) {
+      const card = checkComponentName(query, example, handoff);
+      expect(card.status, query).toBe("retired");
+      expect(card.use).toBe("Button");
+    }
   });
 
   it("explains a missing or malformed handoff and code map in plain English", () => {

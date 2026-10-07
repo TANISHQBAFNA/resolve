@@ -3,6 +3,7 @@
     {
       "fileKey": "ACMEUI",
       "id": "30:10",
+      "name": "Button",
       "code": {
         "framework": "angular",
         "import": "import { AcmeButtonComponent } from '@acme/ui-angular'",
@@ -16,6 +17,7 @@
     {
       "fileKey": "ACMEUI",
       "id": "30:20",
+      "name": "Text field",
       "code": {
         "framework": "angular",
         "import": "import { AcmeTextFieldComponent } from '@acme/ui-angular'",
@@ -29,6 +31,7 @@
     {
       "fileKey": "ACMEUI",
       "id": "30:30",
+      "name": "Payee picker",
       "code": {
         "framework": "angular",
         "import": "import { AcmePayeePickerComponent } from '@acme/payments-angular'",
@@ -42,6 +45,7 @@
     {
       "fileKey": "ACMEUI",
       "id": "30:50",
+      "name": "Old Button",
       "status": "retired",
       "replacedBy": "Button",
       "code": {
