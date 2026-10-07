@@ -7,7 +7,7 @@ The designer typed: $ARGUMENTS
 Find the right component in the learned design system. Do not draw anything.
 
 1. If the input is empty, ask what the designer needs and stop.
-2. Call the Resolve tool `recommend` with `intent` set to the phrase. If the phrase is an exact component name, call `resolve` with `name` instead.
+2. Call the Resolve tool `recommend` with `intent` set to the phrase. If the phrase is an exact component name, call `resolve` with `name` instead. The card is Markdown. `fileKey`, `figmaNodeId`, `why`, and `ex` are labeled lines. Pass `format` `json` only when you need the same card as JSON.
 3. If Resolve says no design system is learned, tell the designer to run `/design-system <Figma link>` first. Stop.
 4. Read the match before you speak. If the result says `weak match`, or the hint starts with "Weak match", show it as a weak match and quote the one-line reason (`why`). That reason says why it is weak, for example `only the word 'button' matched; no variant or role matched`. Do not quote a usage count as the reason. Do not tell the designer to place it as if you were sure. A guess is never a confident pick.
 5. A confident top pick: component name, `fileKey` and `figmaNodeId`, and the one-line reason. Show the next two hits as name and id only. If the top pick has an example (`ex`), name it; call `get_example` only when asked how to place it.
