@@ -70,7 +70,8 @@ describe("slash commands: install", () => {
         expect(text).not.toMatch(/figd\_|\bfile[ -]?key: [A-Za-z0-9]{16,}/i);
       }
     }
-    expect(read(join(cwd, "CLAUDE.md"))).toContain("Never invent a component");
+    expect(read(join(cwd, "CLAUDE.md"))).toContain("Do not invent components");
+    expect(read(join(cwd, "CLAUDE.md"))).toContain("Do not invent a product");
     expect(read(join(cwd, ".cursor/rules/resolve.mdc"))).toContain("alwaysApply: true");
   });
 

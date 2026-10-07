@@ -2,7 +2,7 @@
 
 ## Unreleased — name check and context-pack check
 
-Oct 7, 2026 IST. `resolve code-map --check` reads the committed handoff and code map only (no learned cache) and answers OK, retired, not in this handoff, or unmapped, and never guesses a code twin. `resolve pack validate` checks the slug id, the accessibility level, recipe ids, and that no Figma file key or node id is in the pack. The same pack rules run when Resolve loads a pack. Ranking is unchanged.
+Oct 7, 2026 IST. `resolve code-map --check` reads the committed handoff and code map only (no learned cache). It matches file key and node id, never a shared package alone, and answers ok, retired, not in this handoff, unmapped, other-library (exit 6), or not-found. A draft handoff is refused. `--check` needs `status: retired` on the map entry unless the sheet itself says retired. `resolve pack validate` stays strict (slug, accessibility, recipe ids, no file key, token, or node id; unknown fields warn). Loading a pack skips a bad pack or field and warns once, so a command does not fail because of the pack file. Ranking is unchanged. Audience, a11y, and density are echoed and do not change the pick.
 
 ## Unreleased — context-pack slot fill and cache ignore
 

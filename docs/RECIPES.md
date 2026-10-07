@@ -85,12 +85,11 @@ Optional: bind a context pack from the recipe side with `"contextPackId": "store
 
 Designers that share one Figma library across products add a **product + journey** pack so `recipe` / `recommend` pick masters for *this* product and *this* step — not a generic name match.
 
-Copy [`src/data/context-packs.example.json`](../src/data/context-packs.example.json) to `.resolve/context-packs.json` (or write a smaller file). Human-editable. The pack id is a slug. `constraints.a11y` is `wcag-a`, `wcag-aa`, or `wcag-aaa`. **Never add a Figma file key or component id.** `resolve pack validate` checks the file and names the field to fix. The same check runs when Resolve loads the pack. Line-by-line meaning: [designer guide](GUIDE.md#how-to-write-a-context-pack).
+Copy [`src/data/context-packs.example.json`](../src/data/context-packs.example.json) to `.resolve/context-packs.json` (or write a smaller file). Human-editable. The pack id is a slug. `constraints.a11y` is `wcag-a`, `wcag-aa`, or `wcag-aaa`. **Never add a Figma file key or component id.** Do not set `active`. `resolve pack validate` checks the file and names the field to fix. Loading a pack skips a bad pack or a bad field and warns once; the command still runs. Line-by-line meaning: [designer guide](GUIDE.md#how-to-write-a-context-pack).
 
 ```json
 {
   "version": 1,
-  "active": "storefront-checkout-summary",
   "packs": [
     {
       "id": "storefront-checkout-summary",

@@ -308,7 +308,7 @@ describe("scoreboard", () => {
     }
   });
 
-  it("keeps recommend within 600 for long context packs", { timeout: 20_000 }, () => {
+  it("keeps recommend within 600 for long context packs", { timeout: 30_000 }, () => {
     const index = fixtureIndex();
     const long = "Storefront checkout journey ".repeat(40);
     const card = recommendMasters(index, "primary button", {
@@ -345,7 +345,7 @@ describe("scoreboard", () => {
     }
     expect(over).toBe(0);
     expect(max).toBeLessThanOrEqual(600);
-  }, 30_000);
+  });
 
   it("resolve score exits non-zero only for invent or a budget breach", async () => {
     const store = mkdtempSync(join(tmpdir(), "resolve-score-store-"));

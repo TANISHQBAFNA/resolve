@@ -244,7 +244,6 @@ A filled-in file looks like this:
 ```json
 {
   "version": 1,
-  "active": "storefront-checkout-summary",
   "packs": [
     {
       "id": "storefront-checkout-summary",
@@ -264,7 +263,7 @@ A filled-in file looks like this:
 
 ### What each line means
 
-**`active`.** The pack agents should load by default when you do not name one. Here: Storefront checkout summary.
+**`active`.** Do not set this. Pass product and journey from the requirements or FSD. A pack is used only when that product matches exactly, and the journey matches exactly when the document gives one.
 
 **`id`.** A stable slug you choose for this pack: lowercase letters, numbers, and hyphens, like `storefront-checkout-summary`. Use it with `--pack storefront-checkout-summary`. Keep it unique.
 
@@ -274,9 +273,9 @@ A filled-in file looks like this:
 
 **`journey`.** Where you are in the flow. `step` is the short label (`summary`). `screenJob` is the screen you are building (`checkout summary`) — the same kind of phrase you pass to `recipe`. You can also set `journey` to a single string like `"summary"`.
 
-**`audience`.** Who the screen is for, in a phrase (`returning shopper`). This becomes extra context for ranking. It is not a separate audience tool.
+**`audience`.** Who the screen is for, in a phrase (`returning shopper`). Resolve echoes it with a source. It does not change the pick.
 
-**`constraints`.** Extra wishes in words — how dense the layout should feel (`compact`), and the accessibility bar you care about. `a11y` must be `wcag-a`, `wcag-aa`, or `wcag-aaa`. These help ranking. They do not run an accessibility audit.
+**`constraints`.** Extra wishes in words — how dense the layout should feel (`compact`), and the accessibility bar you care about. `a11y` must be `wcag-a`, `wcag-aa`, or `wcag-aaa` (`AA` is stored as `wcag-aa`). Audience, density, and a11y are echoed and do not change the pick. They do not run an accessibility audit.
 
 **`recipeIds`.** Which screen packs this context applies to. Use the recipe **id**, not the title: `checkout-summary`, not `"Checkout Summary"`. This is the usual way to bind a pack. One file can list several recipes if they share the same product and journey.
 
@@ -286,7 +285,7 @@ A filled-in file looks like this:
 
 **`client` (optional).** When the product name and the client name are not the same. Same shape as `product` — `{ "id": "northwind", "name": "Northwind" }` or a string `"Northwind"`. Same pack, not a second model.
 
-Unknown extra keys are ignored by ranking. A Figma file key, a Figma link, or a node id is refused when Resolve loads the pack, and by `resolve pack validate`, which names the field and how to fix it. This file is for product and journey, not for drawing. A pack that passes is ranked the same way as before.
+Unknown extra keys are warnings from `resolve pack validate`, and they do not change ranking. A Figma file key, a Figma link, a token, or a node id fails `resolve pack validate`, which names the field and how to fix it. When Resolve loads the pack, a bad pack or just that bad field is skipped, with one warning, and the command still runs. This file is for product and journey, not for drawing. A pack that loads is ranked the same way as before. Audience, a11y, and density do not change the pick.
 
 ---
 

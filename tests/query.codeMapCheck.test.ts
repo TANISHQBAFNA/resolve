@@ -60,6 +60,8 @@ const handoff = {
       components: [
         {
           name: "Button",
+          fileKey: "ACMEUI",
+          figmaNodeId: "30:10",
           count: 1,
           copies: [],
           identity: "confirmed",
@@ -70,6 +72,8 @@ const handoff = {
         },
         {
           name: "Avatar",
+          fileKey: "ACMEUI",
+          figmaNodeId: "30:40",
           count: 1,
           copies: [],
           identity: "confirmed",
@@ -100,30 +104,28 @@ const handoff = {
 
 describe("code-map name check without a learned graph", () => {
   it("returns OK with the Angular selector, module, and import", () => {
-    for (const query of ["Button", "acme-button", "AcmeButtonComponent", "@acme/ui-angular"]) {
+    for (const query of ["Button", "acme-button", "AcmeButtonComponent", "import { AcmeButtonComponent } from '@acme/ui-angular'"]) {
       const card = checkComponentName(query, codeMap, handoff);
-      expect(card.status).toBe("ok");
+      expect(card.status, query).toBe("ok");
       expect(card.exitCode).toBe(0);
       expect(card.ok).toBe(true);
       expect(card.selector).toBe("acme-button");
       expect(card.module).toBe("AcmeButtonModule");
       expect(card.import).toBe("@acme/ui-angular");
       expect(card.component).toBe("AcmeButtonComponent");
-      expect(card.message).toMatch(/acme-button/);
-      expect(card.message).toMatch(/AcmeButtonModule/);
-      expect(card.message).toMatch(/@acme\/ui-angular/);
+      expect(card.message).toBe("Button. Use `<acme-button>` (AcmeButtonModule).");
       expect(card).not.toHaveProperty("use");
     }
   });
 
   it("refuses a retired name, selector, class, and legacy import with use Button", () => {
-    for (const query of ["OldButton", "acme-old-button", "AcmeOldButtonComponent", "@acme/ui-angular-legacy"]) {
+    for (const query of ["OldButton", "acme-old-button", "AcmeOldButtonComponent", "import { AcmeOldButtonComponent } from '@acme/ui-angular-legacy'", "import { AcmeLegacyModule } from '@acme/ui-angular-legacy'"]) {
       const card = checkComponentName(query, codeMap, handoff);
-      expect(card.status).toBe("retired");
+      expect(card.status, query).toBe("retired");
       expect(card.exitCode).toBe(2);
       expect(card.ok).toBe(false);
       expect(card.use).toBe("Button");
-      expect(card.message).toMatch(/use Button/);
+      expect(card.message).toBe("Don't use. Use Button.");
     }
   });
 
@@ -131,8 +133,7 @@ describe("code-map name check without a learned graph", () => {
     const card = checkComponentName("Avatar", codeMap, handoff);
     expect(card.status).toBe("unmapped");
     expect(card.exitCode).toBe(4);
-    expect(card.message).toMatch(/no code twin yet/);
-    expect(card.message).toMatch(/Nothing was guessed/);
+    expect(card.message).toBe("On the screen, no code yet. Build it or ask.");
     expect(card.selector).toBeUndefined();
     expect(card.module).toBeUndefined();
     expect(card.import).toBeUndefined();
@@ -140,14 +141,14 @@ describe("code-map name check without a learned graph", () => {
   });
 
   it("says MatButton is a code-map part this handoff does not use", () => {
-    for (const query of ["MatButton", "button[mat-button]", "@angular/material/button"]) {
+    for (const query of ["MatButton", "button[mat-button]", "a[mat-button]", "import { MatButton } from '@angular/material/button'", "import { MatButtonModule } from '@angular/material/button'"]) {
       const card = checkComponentName(query, codeMap, handoff);
-      expect(card.status).toBe("not-in-handoff");
+      expect(card.status, query).toBe("not-in-handoff");
       expect(card.exitCode).toBe(3);
       expect(card.selector).toBe("button[mat-button], a[mat-button]");
       expect(card.module).toBe("MatButtonModule");
       expect(card.import).toBe("@angular/material/button");
-      expect(card.message).toMatch(/does not use it/);
+      expect(card.message).toBe("Real component, but not on this screen. Ask the designer.");
     }
   });
 
@@ -155,7 +156,7 @@ describe("code-map name check without a learned graph", () => {
     const card = checkComponentName("PayeeDropdown", codeMap, handoff);
     expect(card.status).toBe("not-found");
     expect(card.exitCode).toBe(5);
-    expect(card.message).toMatch(/Nothing was guessed/);
+    expect(card.message).toBe("Not in the design system or on this screen. Don't invent it.");
     expect(card.import).toBeUndefined();
   });
 
@@ -163,7 +164,7 @@ describe("code-map name check without a learned graph", () => {
     expect(checkComponentName("Button", { entries: [] }, handoff).message).toMatch(/no usable entries/);
     expect(checkComponentName("Button", { entries: "nope" }, handoff).status).toBe("error");
     expect(checkComponentName("Button", codeMap, { ok: false, refused: [{ message: "Old Button is retired." }] }).message).toMatch(/refused/);
-    expect(checkComponentName("Button", codeMap, { ok: false, refused: [{ message: "Old Button is retired." }] }).message).not.toMatch(/\n\s*at /);
+    expect(checkComponentName("Button", codeMap, { ok: false, refused: [{ message: "Old Button is retired." }] }).message).not.toMatch(/^\s*at /m);
     expect(checkComponentName("Button", codeMap, []).status).toBe("error");
   });
 });
@@ -216,7 +217,7 @@ describe("resolve code-map --check on committed files only", () => {
     expect(existsSync(join(home, "graph.json"))).toBe(false);
     const ok = await run(["code-map", "--check", "Button", "--handoff", join(home, "handoff.json"), "--json"]);
     expect(ok.code).toBeUndefined();
-    expect(ok.err).not.toMatch(/\bat /);
+    expect(ok.err).not.toMatch(/^\s*at /m);
     const okJson = JSON.parse(ok.out) as Record<string, unknown>;
     expect(okJson["status"]).toBe("ok");
     expect(okJson["exitCode"]).toBe(0);

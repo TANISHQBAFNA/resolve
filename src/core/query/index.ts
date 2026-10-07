@@ -36,6 +36,7 @@ export {
   assertContextPackDocument,
   formatPackIssues,
   packValidation,
+  softenContextPackFile,
   validateContextPackDocument,
   type PackIssue,
   type PackValidation,

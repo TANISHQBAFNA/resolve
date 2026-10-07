@@ -85,7 +85,106 @@ describe("context pack validate", () => {
     expect(report.ok).toBe(false);
     expect(report.exitCode).toBe(1);
     expect(report.message).toMatch(/packs list/);
-    expect(report.message).not.toMatch(/\bat /);
+    expect(report.message).not.toMatch(/^\s*at /m);
+    expect(report.warnings).toEqual([]);
+  });
+
+  it("warns on an unknown field and still exits 0", () => {
+    const report = packValidation(
+      { packs: [{ id: "acme-checkout", recipeIds: ["checkout-summary"], recipeID: ["nope"] }] },
+      recipes,
+    );
+    expect(report.ok).toBe(true);
+    expect(report.exitCode).toBe(0);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings.some((item) => item.field === "packs[0].recipeID" && /Unknown field/.test(item.message))).toBe(true);
+    expect(report.message).toMatch(/Unknown field "recipeID"/);
+  });
+
+  it("flags tokens, file keys in sentences and object keys, file_key, figmaLink, and encoded node ids", () => {
+    const token = "fig" + "d_" + "notarealtoken";
+    const fileKey = "AbCdEfGhIjKlMnOpQrStUv";
+    const nested = validateContextPackDocument(
+      { packs: [{ id: "acme-checkout", recipeIds: ["checkout-summary"], notes: `secret ${token} inside` }] },
+      recipes,
+    );
+    expect(nested.some((item) => item.field === "packs[0].notes" && /token/.test(item.message))).toBe(true);
+
+    const sentence = validateContextPackDocument(
+      { packs: [{ id: "acme-checkout", recipeIds: ["checkout-summary"], audience: `see ${fileKey} today` }] },
+      recipes,
+    );
+    expect(sentence.some((item) => item.field === "packs[0].audience" && /file key/.test(item.message))).toBe(true);
+
+    const asKey = validateContextPackDocument(
+      { packs: [{ id: "acme-checkout", recipeIds: ["checkout-summary"], [fileKey]: "label" }] },
+      recipes,
+    );
+    expect(asKey.some((item) => item.field === `packs[0].${fileKey}`)).toBe(true);
+
+    const renamed = validateContextPackDocument(
+      { packs: [{ id: "acme-checkout", recipeIds: ["checkout-summary"], file_key: "Storefront", figmaLink: "https://example.com" }] },
+      recipes,
+    );
+    expect(renamed.some((item) => item.field === "packs[0].file_key")).toBe(true);
+    expect(renamed.some((item) => item.field === "packs[0].figmaLink")).toBe(true);
+
+    const encoded = validateContextPackDocument(
+      { packs: [{ id: "acme-checkout", recipeIds: ["checkout-summary"], notes: "12%3A34", legacy: "12-34" }] },
+      recipes,
+    );
+    expect(encoded.some((item) => item.field === "packs[0].notes" && /node id/.test(item.message))).toBe(true);
+    expect(encoded.some((item) => item.field === "packs[0].legacy" && /node id/.test(item.message))).toBe(true);
+  });
+
+  it("does not flag clock times, common ratios, or a long lowercase word", () => {
+    const quiet = validateContextPackDocument(
+      {
+        packs: [
+          {
+            id: "acme-checkout",
+            recipeIds: ["checkout-summary"],
+            audience: "commuters, 9:30 rush",
+            notes: "16:9 hero",
+            layout: "tablet 16:9 layout",
+            word: "internationalizationsupport",
+          },
+        ],
+      },
+      recipes,
+    );
+    expect(quiet).toEqual([]);
+  });
+
+  it("still flags a real node id such as 30:10", () => {
+    const node = validateContextPackDocument(
+      { packs: [{ id: "acme-checkout", recipeIds: ["checkout-summary"], audience: "see 30:10" }] },
+      recipes,
+    );
+    expect(node.some((item) => /node id/.test(item.message))).toBe(true);
+  });
+
+  it("reports the duplicate id at the later pack, and says when more than 30 errors were cut", () => {
+    const dup = validateContextPackDocument(
+      {
+        packs: [
+          { recipeIds: ["checkout-summary"] },
+          { id: "acme-checkout", recipeIds: ["checkout-summary"] },
+          { id: "acme-checkout", recipeIds: ["checkout-summary"] },
+        ],
+      },
+      recipes,
+    );
+    expect(dup.some((item) => item.field === "packs[2].id" && /already used/.test(item.message))).toBe(true);
+    expect(dup.some((item) => item.field === "packs[1].id" && /already used/.test(item.message))).toBe(false);
+
+    const many = packValidation(
+      { packs: Array.from({ length: 40 }, (_, index) => ({ id: `Not A Slug ${index}` })) },
+      recipes,
+    );
+    expect(many.exitCode).toBe(1);
+    expect(many.errors).toHaveLength(30);
+    expect(many.message).toMatch(/and 10 more/);
   });
 });
 
@@ -131,6 +230,21 @@ describe("resolve pack validate", () => {
     await runCli(["pack", "validate", join(home, "broken.json")]);
     expect(process.exitCode).toBe(1);
     expect(stdout.join("")).toMatch(/not valid JSON/);
-    expect(stdout.join("")).not.toMatch(/\bat /);
+    expect(stdout.join("")).not.toMatch(/^\s*at /m);
+
+    stdout = [];
+    process.exitCode = undefined;
+    writeFileSync(join(home, "empty.json"), "");
+    await runCli(["pack", "validate", join(home, "empty.json")]);
+    expect(process.exitCode).toBe(1);
+    expect(stdout.join("")).toMatch(/is empty/);
+    expect(stdout.join("")).not.toMatch(/not valid JSON/);
+
+    stdout = [];
+    process.exitCode = undefined;
+    await runCli(["pack", "validate", home]);
+    expect(process.exitCode).toBe(1);
+    expect(stdout.join("")).toMatch(/is a folder/);
+    expect(stdout.join("")).not.toMatch(/not valid JSON/);
   });
 });

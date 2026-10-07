@@ -14,8 +14,8 @@ import {
   mergeRecipes,
   mergeWorkspaceGraphs,
   loadBindRulesLenient,
-  assertContextPackDocument,
   parseContextPackFile,
+  softenContextPackFile,
   parseLibraryRules,
   parseRecipeFile,
   parseWorkspaceFile,
@@ -130,7 +130,7 @@ export function discoverStoreRoot(
       seen.add(dir);
       for (const folder of STORE_DIRS) {
         const candidate = join(dir, folder);
-        if (existsSync(join(candidate, "graph.json")) || existsSync(join(candidate, "workspace.json"))) {
+        if (["graph.json", "workspace.json", "code-map.json", "context-packs.json"].some((name) => existsSync(join(candidate, name)))) {
           return candidate;
         }
       }
@@ -470,15 +470,19 @@ export function loadRecipes(explicitPath?: string): Recipe[] {
   return mergeRecipes(starterRecipes(), readRecipeOverlay(explicitPath));
 }
 
-function recipeIdsForPacks(): Set<string> {
+const warnedPackFiles = new Set<string>();
+
+function warnPackFile(path: string): void {
+  if (warnedPackFiles.has(path)) return;
+  warnedPackFiles.add(path);
+  process.stderr.write(`${path}: a context pack or field was skipped. Run resolve pack validate for the full list.\n`);
+}
+
+function recipeIdsForPacks(): Set<string> | undefined {
   try {
     return new Set(loadRecipes().map((recipe) => recipe.id));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (/json|unexpected|position/i.test(message)) {
-      throw new Error("recipes.json is not valid JSON, so a context pack cannot be checked. Fix .resolve/recipes.json, then try again.");
-    }
-    throw new Error(message.split("\n")[0] || "recipes.json could not be read.");
+  } catch {
+    return undefined;
   }
 }
 
@@ -486,17 +490,27 @@ export function readContextPacks(explicitPath?: string): ContextPackFile {
   const path = explicitPath ?? (existsSync(contextPacksPath()) ? contextPacksPath() : undefined);
   if (!path) return { packs: [] };
   if (!existsSync(path)) {
-    throw new Error(`Context packs file not found: ${path}`);
+    if (explicitPath) warnPackFile(path);
+    return { packs: [] };
+  }
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8").replace(/^\uFEFF/, "");
+  } catch {
+    warnPackFile(path);
+    return { packs: [] };
   }
   let raw: unknown;
   try {
-    raw = JSON.parse(readFileSync(path, "utf8")) as unknown;
+    raw = JSON.parse(text) as unknown;
   } catch {
-    throw new Error(`${path} is not valid JSON. Fix the commas and quotes, then run resolve pack validate.`);
+    warnPackFile(path);
+    return { packs: [] };
   }
-  // Same rules as `resolve pack validate`. Ranking code is unchanged; a pack that fails this check is not loaded.
-  assertContextPackDocument(raw, recipeIdsForPacks());
-  const file = parseContextPackFile(raw);
+  const softened = softenContextPackFile(raw, recipeIdsForPacks());
+  if (softened.skipped) warnPackFile(path);
+  else warnedPackFiles.delete(path);
+  const file = parseContextPackFile(softened.raw);
   if (file.packs.length > 0) warnDeprecated("context packs");
   return file;
 }

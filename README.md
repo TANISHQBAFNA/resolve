@@ -307,11 +307,11 @@ npm run resolve -- ingest 'https://www.figma.com/design/ACMEUI/Acme-UI' --role l
 
 The first file you ingest is the library by default. Later files default to `product`. Full details: [`docs/SETUP-MCP.md`](docs/SETUP-MCP.md).
 
-**Where the data lives.** In a store folder: `RESOLVE_HOME` if you set it, otherwise the nearest `.resolve/` folder going up from where you run. (For older setups see [Upgrading from the old names](#upgrading-from-the-old-names).) The AI tool's MCP server and your command line must use the same folder. `resolve where` prints it.
+**Where the data lives.** In a store folder: `RESOLVE_HOME` if you set it, otherwise the nearest `.resolve/` folder going up from where you run that holds `graph.json`, `workspace.json`, `code-map.json`, or `context-packs.json`. A folder with only the code map or only the context packs is still the store. (For older setups see [Upgrading from the old names](#upgrading-from-the-old-names).) The AI tool's MCP server and your command line must use the same folder. `resolve where` prints it.
 
 ### Every command
 
-In a checkout of this repo, run commands as `npm run resolve -- <command>`. The installed package exposes the same command line as `resolve-figma`. The examples use a pretend Acme library with a "Button" set, a "Text field" set, "Payee picker", "Avatar", "Payment method row", and a retired "Old Button", plus screens such as "Send money". To follow along, use the made-up library in this repo, [`docs/examples/acme-ui.json`](docs/examples/acme-ui.json). Its "Send money" screen (a frame) holds one Payee picker, one Button and one Old Button, which is retired (its description says `status: deprecated` and `replacedBy: Button`):
+In a checkout of this repo, run commands as `npm run resolve -- <command>`. The installed package exposes the same command line as `resolve` and `resolve-figma`. The examples use a pretend Acme library with a "Button" set, a "Text field" set, "Payee picker", "Avatar", "Payment method row", and a retired "Old Button", plus screens such as "Send money". To follow along, use the made-up library in this repo, [`docs/examples/acme-ui.json`](docs/examples/acme-ui.json). Its "Send money" screen (a frame) holds one Payee picker, one Button and one Old Button, which is retired (its description says `status: deprecated` and `replacedBy: Button`):
 
 ```bash
 export RESOLVE_HOME=$(mktemp -d)        # a throwaway store
@@ -331,7 +331,7 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `verify "<frame>"` | Pass/fail check of a drawn frame or a list of components. |
 | `ingredients "<name>"` | What is inside a component: its parts, each with its code component or "no code link yet". |
 | `handoff "<frame>"` | One sheet a developer can build a screen from: recipe slots, every placed component with its Figma id and code, the parts inside, verify, decisions and open questions. Refuses a screen with a retired component, or with layer-name guesses or missing components unless `--draft`. |
-| `code-map [--json \| --retired]` | Report on your Figma-to-code map; `--retired` lists retired parts with their code and replacement. `--init` writes a spreadsheet (CSV) to fill in; `--import <file.csv>` turns it into the map (`--force` keeps entries the CSV has no row for, `--replace` drops them). `--check "<name>" --handoff <handoff.json>` answers from the committed handoff and code map only (no learned cache). |
+| `code-map [--json \| --retired]` | Report on your Figma-to-code map; `--retired` lists retired parts with their code and replacement. `--init` writes a spreadsheet (CSV) to fill in; `--import <file.csv>` turns it into the map (`--force` keeps entries the CSV has no row for, `--replace` drops them). `--check "<name>" [--handoff <handoff.json>]` answers from the committed handoff and code map only (no learned cache). `--handoff` defaults to `./handoff.json`. |
 | `pack validate [path]` | Checks a context pack: slug id, known accessibility level, recipe ids that exist, and no Figma file key or node id. |
 | `rules` | Lists the bind rules people wrote. |
 | `soci` | Lists pending SOCI proposals (suggested rules and recipes). |
@@ -510,26 +510,29 @@ npm run resolve -- code-map --import code-map.csv --force   # updates an existin
 
 `--retired` prints every retired part with its code and replacement, one per line (`Retired: 1`, then `Old Button [ACMEUI 30:50] -> use Button (old code: OldButton from '@acme/ui-legacy')`). `--json` prints the same data with the same keys whether or not there is a map (`configured` is `true` or `false`; the lists are `unmapped`, `ambiguous`, `conflicts`, `retired`, `stale`, `replacements`, `ignored`). Two keys appear only with Angular entries: `angular` (counts) and `angularIgnored` (entries whose Angular fields were dropped). A part with a bad `replacedBy` is listed under `Bad replacedBy` / `replacements`. Details are in [`code-map.json`](#resolvecode-mapjson--figma-to-code-twins) below. With no map, it prints `No code map. Add .resolve/code-map.json next to synonyms.json.`
 
-**Check one name without the learned library.** `code-map --check` reads two committed team files only: the handoff sheet (`resolve handoff --out`) and `code-map.json`. It does not read `graph.json` or any other cache, and it never guesses a code twin. Pass a display name, an Angular selector, a class name, or an import path.
+**Check one name without the learned library.** `code-map --check` reads two committed team files only: the handoff sheet (`resolve handoff --out`) and `code-map.json`. It does not read `graph.json` or any other cache, and it never guesses a code twin. It matches the handoff part's file key and node id to the code-map entry with that same key. A shared package path is not a match. An import line matches only when the name in the braces is that entry's component or module. A display name on the sheet (letter case ignored) uses that part's file key and node id. Pass a display name, an Angular selector, a class name, or an import line.
 
 ```bash
-npm run resolve -- code-map --check "OldButton" --handoff artifacts/acme-142/handoff --json
+npm run resolve -- code-map --check "AcmeOldButtonComponent" --handoff artifacts/acme-142/handoff --json
 ```
 
-`--handoff` is the `handoff.json` file or the folder that contains it. If you leave it out, Resolve looks for `handoff.json` in the current folder. One answer:
+`--handoff` is optional. It is the `handoff.json` file or the folder that contains it. If you leave it out, Resolve looks for `handoff.json` in the current folder. One answer, and the plain sentence a designer can act on:
 
-| Answer | Exit | Meaning |
+| Answer | Exit | Sentence |
 | --- | --- | --- |
-| `ok` | 0 | On this handoff, and the code map has a current twin. |
-| `retired` | 2 | Refused. `use` is the replacement to use. |
-| `not-in-handoff` | 3 | A real code-map part that this handoff does not use. |
-| `unmapped` | 4 | On this handoff, but the code map has no twin yet. Nothing was guessed. |
-| `not-found` | 5 | In neither file. Nothing was guessed. |
-| `error` | 1 | The name was empty, or the handoff or code map is missing or not valid JSON. |
+| `ok` | 0 | `Button. Use \`<acme-button>\` (AcmeButtonModule).` A standalone component says `(standalone)`. A React entry says `Button. Use Button from '@acme/ui' (React).` |
+| `retired` | 2 | `Don't use. Use Button.` When the replacement is itself retired, or the chain loops, the sentence is `Don't use. There is no current replacement.` |
+| `not-in-handoff` | 3 | `Real component, but not on this screen. Ask the designer.` |
+| `unmapped` | 4 | `On the screen, no code yet. Build it or ask.` |
+| `not-found` | 5 | `Not in the design system or on this screen. Don't invent it.` |
+| `other-library` | 6 | `On the screen, from another library, no code twin.` |
+| `error` | 1 | The name was empty, the handoff is a draft, or the handoff or code map is missing or not valid JSON. A draft says `This handoff is a draft, not for a build. Run resolve handoff again without --draft.` |
 
-On the made-up Acme library, `OldButton`, `acme-old-button`, and an import from `@acme/ui-angular-legacy` are retired: use Button. `Avatar` is unmapped. An Angular Material `MatButton` is not in the handoff.
+`--check` treats a part as retired only when the code-map entry says `status: "retired"`, or the handoff sheet itself marks that part retired. It does not use the learned library's retired flag. `code-map --retired` does. Leave `status` off and the check treats the part as current, unless the sheet says retired.
 
-`--json` prints one object. The fields are always `ok`, `status`, `query`, `message`, `exitCode`, `codeMapPath`, and `handoffPath`. When a code-map entry matched, it also has `component`, `import`, `matchedBy` (`name`, `selector`, `class`, or `import`), and `selector` and `module` when the entry has them (`standalone: true` instead of `module` when the component is standalone). `use` is present only for `retired`, and it is the replacement name (`Button`). `unmapped` and `not-found` do not include `selector`, `module`, or `import`. A missing or broken file is `status: "error"` with a plain `message`, never a stack trace.
+On the shipped map [`docs/examples/acme-code-map-angular.json`](docs/examples/acme-code-map-angular.json) (file key and id only, no display names): `AcmeOldButtonComponent`, the selector `acme-old-button`, and `import { AcmeOldButtonComponent } from '@acme/ui-angular-legacy'` are retired, and the sentence is `Don't use. Use Button.` `MatButton` is not on that map, so the check answers not-found. A part on the handoff whose `code` is `"unknown"` or missing is `other-library`.
+
+`--json` prints one object. The fields are always `ok`, `status`, `query`, `message`, `exitCode`, `codeMapPath`, and `handoffPath`. When a code-map entry matched, it also has `component`, `import`, `matchedBy` (`name`, `selector`, `class`, or `import`), and `selector` and `module` when the entry has them (`standalone: true` instead of `module` when the component is standalone). `use` is present only for `retired`, and it is the replacement name (`Button`). `unmapped`, `other-library`, and `not-found` do not include `selector`, `module`, or `import`. With `--json`, an empty name or a missing `--handoff` value is still JSON. A missing or broken file is `status: "error"` with a plain `message`, never a stack trace. A skipped code-map row names the entry and why it was skipped.
 
 #### pack validate
 
@@ -538,9 +541,9 @@ npm run resolve -- pack validate
 npm run resolve -- pack validate .resolve/context-packs.json --json
 ```
 
-Checks the context pack file (`.resolve/context-packs.json` when you do not pass a path). The pack `id` must be a slug (`checkout-summary`). `constraints.a11y`, when set, must be `wcag-a`, `wcag-aa`, or `wcag-aaa`. Every `recipeIds` entry must be a recipe id that exists (starter recipes plus `.resolve/recipes.json`). No Figma file key, Figma link, or node id may appear anywhere in the file, including a key named `figmaNodeId`. `files` is a workspace label, not a file key. Errors name the field and how to fix it. Exit 0 when the file is ok, 1 when it is not.
+Checks the context pack file (`.resolve/context-packs.json` when you do not pass a path). The pack `id` must be a slug (`checkout-summary`). `constraints.a11y`, when set, must be `wcag-a`, `wcag-aa`, or `wcag-aaa` (`AA` is accepted and stored as `wcag-aa`). Every `recipeIds` entry must be a recipe id that exists (starter recipes plus `.resolve/recipes.json`). No Figma file key, Figma link, token, or node id may appear anywhere in the file, including a key named `figmaNodeId`, `file_key`, or `figmaLink`. A clock time (`9:30`) or a common ratio (`16:9`) is not a node id. `files` is a workspace label, not a file key. Errors name the field and how to fix it, and a long list ends with how many more were cut. An unknown field is a warning. Exit 0 when there are no errors (warnings are fine). Exit 1 when there are errors. A folder, an empty file, and a file that cannot be read each get their own sentence.
 
-`--json` adds `path` to `ok`, `packs`, `message`, `exitCode`, and `errors`. Each error is `{ "field", "message", "pack" }` (`pack` is the pack id when that id is text). The same rules run when Resolve loads a pack for a command, so a bad pack is refused there too. Ranking of a pack that passes is unchanged.
+`--json` is `ok`, `path`, `packs`, `message`, `exitCode`, `errors`, and `warnings`. Each error or warning is `{ "field", "message", "pack" }` (`pack` is the pack id when that id is text). Loading a pack for a command does not use this strict check. A bad pack, or just the bad field, is skipped, with one warning for that file. Commands keep working. Ranking of a pack that loads is unchanged. Audience, a11y, and density are echoed and do not change the pick.
 
 #### ingredients
 
@@ -824,7 +827,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 | Ingredient card (Acme example library) | Payee picker = Avatar + Button, Payment method row = Avatar + Button; invented parts 0; unmapped parts shown as unmapped |
 | Angular code map (Acme example) | 4 Angular entries load with 0 ignored; the CSV example imports to the same map; 14 bad Angular values dropped with a reason while the code line stays; 5 real selector forms and input aliases accepted |
 | Handoff sheet (Acme example) | Send money refused for the retired Old Button (draft or not); after the fix, 3 components, 3 linked to code, 2 parts, verify PASS, matches the golden file; 0 invented code lines. Receipt refused as `not-found` (Legacy badge's component is in no learned file); Payment methods' Brand mark labelled `other-library` |
-| Tests | 749 passing |
+| Tests | 792 passing |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
@@ -850,7 +853,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
-- **Oct 7, 2026 — component check and context-pack check (branch `stage2-resolve-checks`, stacks on #39 and #38, not yet merged).** `resolve code-map --check` answers from the committed handoff and code map only (no learned cache): OK, retired (`use Button` on the Acme example), not in this handoff, or unmapped. It never guesses. `resolve pack validate` checks the slug id, the accessibility level (`wcag-a`, `wcag-aa`, `wcag-aaa`), that every recipe id exists, and that no Figma file key or node id is in the pack. The same pack rules run when Resolve loads a pack. Ranking is unchanged. 749 tests.
+- **Oct 7, 2026 — component check and context-pack check (branch `stage2-resolve-checks`, stacks on #39 and #38, not yet merged).** `resolve code-map --check` answers from the committed handoff and code map only (no learned cache). It matches file key and node id. On the shipped Acme map, `AcmeOldButtonComponent` is retired (`Don't use. Use Button.`). A part from another library with no code twin is `other-library` (exit 6). `resolve pack validate` stays strict. Loading a pack skips a bad pack or field and warns once. Ranking is unchanged. Audience, a11y, and density are echoed and do not change the pick. 792 tests.
 - **Unreleased — context from the requirements or FSD.** A pack is used only on an exact product match, and an exact journey match when the document gives one. Audience, a11y, and density are echoed with a source and do not change the pick.
 - **Oct 7, 2026 — context-pack slot fill (branch `stage2-resolve-fixes`, stacks on the slash-commands branch, not yet merged).** Linking a context pack to a recipe no longer leaves that recipe's slots empty in handoff or on the recipe card. On the Acme library, a payments pack that points at Confirm dialog still fills the button slots with Button. A slot that already stores a default master keeps that master. Setup's `.gitignore` markers are `# resolve-setup:begin` and `# resolve-setup:end`. Between them, git ignores only the learned cache: `.resolve/graph.json`, `.resolve/files/`, `.resolve/GRAPH_REPORT.md`, `.resolve/index.json`, `.resolve/scoreboard/`, `.resolve/learn/`, `.resolve/ingest/`. Recipes, context packs, the code map, decisions, bind rules and synonyms stay committable. The AIDLC add-on's ticket command is `design-handoff`. It calls `/handoff`. Ranking is unchanged. 749 tests.
 - **Oct 7, 2026 — slash commands (branch `stage1-slash-commands-mac`, not yet merged).** `resolve-setup` installs six slash commands for Claude Code (`.claude/commands/`) and Cursor (`.cursor/commands/`): `/design-system <link>`, `/find <phrase>`, `/check <link>`, `/parts <link>`, `/handoff <link>` and `/resolve-status`. `/parts` is what's on this screen and its code twin (or unmapped). `/handoff` is the developer build sheet. `/design-system` says how many components, how many are retired, which icon libraries are known, and where it was saved; running it again is safe. `/find` shows a weak match as weak, with a one-line reason. `/resolve-status` is one short answer: libraries, when learned, version, Figma token, always-on rule, and what to do next. A failure is one plain sentence (bad link, missing or expired token, View-only seat, nothing learned, Resolve not installed), never a stack trace. Files Resolve writes carry begin/end markers; that wrapper is the only ownership mark (no hash manifest). Setup again updates only those, a command or rule you wrote yourself is kept, and `resolve-setup --uninstall` removes only what Resolve wrote. Setup also ignores the learned cache in `.gitignore` and leaves team files (recipes, code map, decisions) committable. The same commands are MCP prompts (not tools; the default stays 7 tools). A pasted Figma link with `node-id` works wherever a frame is asked for (`verify`, `cousins`, `handoff`). Handoff fixes from the PR #37 retest: a Figma value that contradicts a selector-pinned attribute gets no template value and an open question; recipe slots are `placed`, `inside <Component>` or `missing`, one copy fills one slot, with a `N/M slots covered` count; a not-found part inside a library component's definition refuses like a retired one; other-library and not-found parts are `code: "unknown"` (not `unmapped`) in the JSON; `states` is documented as the other values. Ranking is unchanged. 745 tests.

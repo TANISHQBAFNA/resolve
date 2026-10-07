@@ -82,15 +82,32 @@ describe("store", () => {
     expect(bind.workspace).toBeUndefined();
   });
 
-  it("refuses a context pack that contains a Figma id when the pack is loaded", () => {
-    writeFileSync(
-      join(dir, "context-packs.json"),
-      JSON.stringify({
-        packs: [{ id: "storefront-checkout-summary", recipeIds: ["checkout-summary"], figmaNodeId: "9:1" }],
-      }),
-    );
-    expect(() => readContextPacks()).toThrow(/figmaNodeId/);
-    expect(() => readContextPacks()).toThrow(/Remove figmaNodeId/);
+  it("skips a Figma id when a context pack is loaded and warns once", () => {
+    const lines: string[] = [];
+    const writeErr = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      lines.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      writeFileSync(
+        join(dir, "context-packs.json"),
+        JSON.stringify({
+          packs: [{ id: "storefront-checkout-summary", recipeIds: ["checkout-summary"], figmaNodeId: "9:1" }],
+        }),
+      );
+      const file = readContextPacks();
+      expect(file.packs).toHaveLength(1);
+      expect(file.packs[0]?.id).toBe("storefront-checkout-summary");
+      expect(file.packs[0] && "figmaNodeId" in file.packs[0]).toBe(false);
+      expect(file.packs[0]?.recipeIds).toEqual(["checkout-summary"]);
+      const skips = lines.filter((line) => /was skipped/.test(line));
+      expect(skips).toHaveLength(1);
+      readContextPacks();
+      expect(lines.filter((line) => /was skipped/.test(line))).toHaveLength(1);
+    } finally {
+      process.stderr.write = writeErr;
+    }
   });
 
   it("saveIngestedFile writes workspace.json + per-file graph and stamps fileKey", () => {
@@ -163,6 +180,18 @@ describe("store", () => {
 
     expect(discoverStoreRoot(nested, {})).toBe(join(root, ".resolve"));
     expect(discoverStoreRoot(nested, { RESOLVE_HOME: dir })).toBe(dir);
+
+    const codeOnly = mkdtempSync(join(tmpdir(), "resolve-code-only-"));
+    const codeNested = join(codeOnly, "pkg");
+    mkdirSync(join(codeOnly, ".resolve"), { recursive: true });
+    mkdirSync(codeNested, { recursive: true });
+    writeFileSync(join(codeOnly, ".resolve", "code-map.json"), "{}\n");
+    expect(discoverStoreRoot(codeNested, {})).toBe(join(codeOnly, ".resolve"));
+
+    const packsOnly = mkdtempSync(join(tmpdir(), "resolve-packs-only-"));
+    mkdirSync(join(packsOnly, ".resolve"), { recursive: true });
+    writeFileSync(join(packsOnly, ".resolve", "context-packs.json"), "{}\n");
+    expect(discoverStoreRoot(packsOnly, {})).toBe(join(packsOnly, ".resolve"));
   });
 
   it("defaults to ~/.resolve/<workspace> when no local .resolve exists", () => {

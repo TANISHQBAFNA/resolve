@@ -170,7 +170,7 @@ function parseOne(raw: unknown): ContextPack[] {
   ];
 }
 
-/** Designer JSON in, packs out. Unknown keys and figmaNodeId ignored. Bad files → []. Ranking uses this. `readContextPacks` and `resolve pack validate` refuse a bad slug, a bad accessibility level, an unknown recipe id, and any Figma file key or node id before this parse runs. */
+/** Designer JSON in, packs out. Unknown keys and figmaNodeId ignored. Bad files → []. Ranking uses this. `resolve pack validate` is strict. `readContextPacks` skips a bad pack or field and warns once. */
 export function parseContextPackFile(raw: unknown): ContextPackFile {
   if (Array.isArray(raw)) return { packs: raw.flatMap(parseOne) };
   if (!raw || typeof raw !== "object") return { packs: [] };

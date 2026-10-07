@@ -163,13 +163,14 @@ function usage(): void {
       "      Optional .resolve/library-rules.json { allow, deny }. Else in-graph + not deprecated = approved.",
       "      Same pack flags as recommend. Wrong-cousin drift: resolve cousins.",
       "  resolve code-map [--json | --retired]   Report on .resolve/code-map.json: Figma component -> code component",
-      "  resolve code-map --check \"<name>\" --handoff <handoff.json> [--json]",
+      "  resolve code-map --check \"<name>\" [--handoff <handoff.json>] [--json]",
       "      One answer from the committed handoff and code map only. No learned cache, and nothing is guessed.",
-      "      OK (selector, module, import), retired (names the replacement), not in this handoff, or on the handoff with no code twin.",
-      "      Exit 0 ok, 2 retired, 3 not-in-handoff, 4 unmapped, 5 not-found, 1 when a file or the name is unusable.",
+      "      --handoff defaults to ./handoff.json. OK, retired, not on this screen, unmapped, other library, or not found.",
+      "      Exit 0 ok, 2 retired, 3 not-in-handoff, 4 unmapped, 5 not-found, 6 other-library, 1 when a file or the name is unusable.",
       "  resolve pack validate [path] [--json]",
       "      Check a context pack: id is a slug, accessibility is wcag-a, wcag-aa, or wcag-aaa, every recipe id exists,",
-      "      and the file has no Figma file key or node id. Errors name the field and how to fix it. Exit 0 ok, 1 not ok.",
+      "      and the file has no Figma file key, token, or node id. Errors name the field and how to fix it.",
+      "      Unknown fields are warnings. Exit 0 when there are no errors, 1 when there are. Loading a pack skips a bad field instead.",
       "  resolve code-map --init [--out <file.csv>] [--force]   Write a CSV with one row per component, to fill in a spreadsheet",
       "  resolve code-map --import <file.csv> [--dry-run] [--force | --replace]   Turn the filled CSV into code-map.json (same checks as the loader)",
       "      --force keeps (and lists) existing entries the CSV has no row for; --replace drops them (and lists them). Extra columns are ignored.",
@@ -687,20 +688,36 @@ export async function runCli(argv: string[]): Promise<void> {
         const arg = args[i]!;
         if (["--out", "--import", "--id", "--check", "--handoff"].includes(arg)) i += 1;
         else if (arg.startsWith("--") && !["--json", "--retired", "--init", "--force", "--dry-run", "--replace"].includes(arg)) {
-          throw new Error(`Unknown code-map option "${arg}". Use --check "<name>" --handoff <handoff.json> [--json], --init [--out <file.csv>] [--force], --import <file.csv> [--dry-run] [--force | --replace], --json or --retired.`);
+          throw new Error(`Unknown code-map option "${arg}". Use --check "<name>" [--handoff <handoff.json>] [--json], --init [--out <file.csv>] [--force], --import <file.csv> [--dry-run] [--force | --replace], --json or --retired.`);
         }
       }
       if (args.includes("--check")) {
         if (args.includes("--init") || args.includes("--import") || args.includes("--retired")) {
           throw new Error("Use --check on its own. It cannot be combined with --init, --import, or --retired.");
         }
+        const json = args.includes("--json");
         const name = flag(args, "check");
-        if (!name || name.startsWith("--")) throw new Error('Usage: resolve code-map --check "<name>" --handoff <handoff.json> [--json]');
         const handoffGiven = flag(args, "handoff");
+        const handoffDefault = join(process.cwd(), "handoff.json");
         if (args.includes("--handoff") && (!handoffGiven || handoffGiven.startsWith("--"))) {
-          throw new Error("--handoff needs the handoff.json from resolve handoff --out <folder>.");
+          const message = "--handoff needs the handoff.json from resolve handoff --out <folder>.";
+          if (json) {
+            printJson({ ok: false, status: "error", query: name && !name.startsWith("--") ? name : "", message, exitCode: 1, codeMapPath: mapPath, handoffPath: "" });
+            process.exitCode = 1;
+            return;
+          }
+          throw new Error(message);
         }
-        const handoff = handoffGiven ?? join(process.cwd(), "handoff.json");
+        if (!name || name.startsWith("--")) {
+          const message = "The name was empty.";
+          if (json) {
+            printJson({ ok: false, status: "error", query: "", message, exitCode: 1, codeMapPath: mapPath, handoffPath: handoffGiven ?? handoffDefault });
+            process.exitCode = 1;
+            return;
+          }
+          throw new Error('Usage: resolve code-map --check "<name>" [--handoff <handoff.json>] [--json]');
+        }
+        const handoff = handoffGiven ?? handoffDefault;
         const checked = checkComponentFiles(name, mapPath, handoff);
         if (args.includes("--json")) printJson(checked);
         else process.stdout.write(`${checked.message}\n`);
@@ -1191,23 +1208,43 @@ export async function runCli(argv: string[]): Promise<void> {
       const pathArg = args.filter((arg) => !arg.startsWith("--") && arg !== "validate");
       if (pathArg.length > 1) throw new Error("Usage: resolve pack validate [path] [--json]");
       const target = pathArg[0] ? resolve(pathArg[0]) : contextPacksPath();
-      if (!existsSync(target)) {
-        const message = `No context pack file at ${target}. Copy src/data/context-packs.example.json to .resolve/context-packs.json, then run resolve pack validate.`;
-        const payload = { ok: false, path: target, packs: 0, message, exitCode: 1, errors: [{ field: "(file)", message }] };
+      const failPack = (message: string, field = "(file)"): void => {
+        const payload = { ok: false, path: target, packs: 0, message, exitCode: 1, errors: [{ field, message }], warnings: [] as { field: string; message: string }[] };
         if (args.includes("--json")) printJson(payload);
         else process.stdout.write(`${message}\n`);
         process.exitCode = 1;
+      };
+      if (!existsSync(target)) {
+        failPack(`No context pack file at ${target}. Copy src/data/context-packs.example.json to .resolve/context-packs.json, then run resolve pack validate.`);
+        return;
+      }
+      let info: ReturnType<typeof statSync>;
+      try {
+        info = statSync(target);
+      } catch {
+        failPack(`Could not read ${target}. Check the path and the file permissions.`);
+        return;
+      }
+      if (info.isDirectory()) {
+        failPack(`${target} is a folder. Pass the context-packs.json file, not a folder.`);
+        return;
+      }
+      let text: string;
+      try {
+        text = readFileSync(target, "utf8").replace(/^\uFEFF/, "");
+      } catch {
+        failPack(`Could not read ${target}. Check the file permissions.`);
+        return;
+      }
+      if (!text.trim()) {
+        failPack(`${target} is empty. Add a packs list, or copy src/data/context-packs.example.json.`);
         return;
       }
       let raw: unknown;
       try {
-        raw = JSON.parse(readFileSync(target, "utf8").replace(/^\uFEFF/, "")) as unknown;
+        raw = JSON.parse(text) as unknown;
       } catch {
-        const message = `${target} is not valid JSON. Fix the commas and quotes, then run resolve pack validate again.`;
-        const payload = { ok: false, path: target, packs: 0, message, exitCode: 1, errors: [{ field: "(file)", message }] };
-        if (args.includes("--json")) printJson(payload);
-        else process.stdout.write(`${message}\n`);
-        process.exitCode = 1;
+        failPack(`${target} is not valid JSON. Fix the commas and quotes, then run resolve pack validate again.`);
         return;
       }
       let recipeIds: Set<string>;
@@ -1215,7 +1252,7 @@ export async function runCli(argv: string[]): Promise<void> {
         recipeIds = new Set(loadRecipes().map((recipe) => recipe.id));
       } catch {
         const message = "recipes.json is not valid JSON, so recipe ids cannot be checked. Fix .resolve/recipes.json, then run resolve pack validate again.";
-        const payload = { ok: false, path: target, packs: 0, message, exitCode: 1, errors: [{ field: "recipes.json", message }] };
+        const payload = { ok: false, path: target, packs: 0, message, exitCode: 1, errors: [{ field: "recipes.json", message }], warnings: [] as { field: string; message: string }[] };
         if (args.includes("--json")) printJson(payload);
         else process.stdout.write(`${message}\n`);
         process.exitCode = 1;
