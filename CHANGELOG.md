@@ -4,6 +4,10 @@
 
 Oct 7, 2026 IST. New `resolve gaps [--json]` lists what designers asked `recommend` for (MCP tool or CLI) that came back empty or as a weak match, most asked first, with a count and the last date. Asks are kept in `<store>/scoreboard/gaps.jsonl`, which setup's gitignore block already keeps out of git. `score phrases`, `recipe` and `resolve` do not add to it, and a failed write never breaks `recommend`. Ranking is unchanged. Default MCP tools stay 7.
 
+## Unreleased — Markdown cards
+
+Oct 7, 2026 IST. MCP tools return a Markdown card by default. `format: "json"` returns the same card as compact JSON. Both drop filler: the `cost` block, rank `score`, duplicate `node:` ids, the "Do not Read graph.json" hint, learn's save-state dump, and the handoff parts list sent twice. Cards keep `fileKey`, `figmaNodeId`, `componentKey`, the `ex` example id, a PASS/FAIL line, replacements for invented, deprecated and retired names, slot status with the next `recommend`, `textChecked`, name-guess and other-library flags, the context echo, and code-map statuses with their sentences and exit codes. A part from another library in the screen's parts card is `code: "unknown"`, `status: "other-library"`. The CLI prints compact JSON; `--pretty` indents it. Exit codes are unchanged. On the Acme set (14 cards) tokens go from 4,434 to 3,269. Ranking is unchanged. Default MCP tools stay 7.
+
 ## Unreleased — name check and context-pack check
 
 Oct 7, 2026 IST. `resolve code-map --check` reads the committed handoff and code map only (no learned cache). It matches file key and node id, never a shared package alone, and answers ok, retired, not in this handoff, unmapped, other-library (exit 6), or not-found. A draft handoff is refused. `--check` needs `status: retired` on the map entry unless the sheet itself says retired. `resolve pack validate` stays strict (slug, accessibility, recipe ids, no file key, token, or node id; unknown fields warn). Loading a pack skips a bad pack or field and warns once, so a command does not fail because of the pack file. Ranking is unchanged. Audience, a11y, and density are echoed and do not change the pick.
@@ -15,6 +19,10 @@ Oct 7, 2026 IST. A context pack linked to a recipe no longer empties that recipe
 ## Unreleased — slash commands
 
 Oct 7, 2026 IST. `resolve-setup` installs `/design-system`, `/find`, `/check`, `/parts`, `/handoff` and `/resolve-status` as Claude Code commands (`.claude/commands/`) and Cursor commands (`.cursor/commands/`), plus the same six as MCP prompts. Resolve-owned files carry begin/end markers; a file you wrote is kept, and `resolve-setup --uninstall` removes only Resolve's own. No shared hash manifest. New `resolve status` (libraries, when learned, version, token, always-on rule, next step). `/design-system` reports components, retired items, icon libraries and where it was saved, and is safe to run again. `/find` shows a weak match as weak. `/parts` is what's on a screen and its code twin (or unmapped); `/handoff` is the developer build sheet. Failures are one plain sentence (bad link, token, View-only seat, nothing learned, not installed), never a stack trace. Setup's `.gitignore` block ignores only the learned cache. A pasted Figma link with `node-id` works as a frame. Handoff: selector-pinned attributes no longer contradict a variant's suggested input, recipe slots are `placed` / `inside` / `missing` (one copy per slot), a not-found part inside a library component's definition refuses, and other-library or not-found parts are `code: "unknown"`. Ranking is unchanged.
+
+## Unreleased — context from the requirements
+
+Oct 7, 2026 IST. Context from the requirements or FSD sets the product and journey before a designer agent picks a component. A context pack is used only on an exact product match, and an exact journey match when the document gives one. Audience, a11y and density are echoed with their source and do not change the pick.
 
 ## Unreleased — RESOLVE_HOME
 
