@@ -11,7 +11,7 @@ Check that the screen only uses approved components. Resolve only reads; it does
 3. Call the Resolve tool `verify_frame` with `frame` (the link) and `designContext`.
 4. If a library file and a product file are both learned, also call `check_cousins` with `frame` (the link).
 5. If Resolve says the frame or the design system is not learned, tell the designer to run `/design-system <link>` for that file first. Stop.
-6. Report in plain words, three short lists: **Retired** (old components still on the screen, with the current replacement), **Wrong** (a lookalike from another family, with the right one), **Unknown** (not in the learned design system). Say PASS when all three are empty. Quote component names and ids exactly as Resolve gave them.
+6. Report one line per layer. Every layer has exactly one status: **pass**, **name-only** (a guess from the layer name), **retired**, **invented**, **wrong cousin**, or **missing required state**. A pass line names the layer and stops. Each problem names the layer and says what to use instead (the replacement for retired, the real component for invented or name-only, the library cousin for a wrong cousin, the required component for a missing state). Do not leave a layer off the list. Do not give a layer two statuses.
 
 Do not fix anything unless the designer asks. Never invent a component, name or node id.
 
@@ -21,6 +21,6 @@ Tell the designer in one or two plain sentences, then stop. Never show a stack t
 
 - That does not look like a Figma link. Copy the link from the browser address bar. It contains figma.com/design/. A screen link also contains node-id.
 - Figma needs you to sign in again. The token is missing or has expired. Connect Figma in this app, then run this command again.
-- This Figma seat can only view the file. Learning a library needs a Dev or Full seat. Ask someone with that seat to run /design-system, or change the seat, then try again.
+- Figma refused this file. The seat may only be able to view it, or this token may not have access. Learning a library needs a Dev or Full seat and access to the file. Ask someone with that seat to run /design-system, or check access, then try again.
 - Resolve has not learned a design system yet. Run /design-system and paste the Figma link to the library.
 - Resolve is not installed in this project. In the chat, paste: Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md. Do not create the files yourself.

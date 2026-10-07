@@ -2,9 +2,11 @@ import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import {
   isNameInferredMaster,
   resolveNode,
+  resolveNodeExact,
   withCost,
   type RecommendContext,
 } from "./agentSurface";
+import { missingNodeSentence, readFigmaLink } from "./learnedLink";
 import type { GraphIndex } from "./GraphIndex";
 import {
   fillRecipe,
@@ -164,6 +166,31 @@ export function checkCousins(
       ok: 0,
       hint: "Ingest the library and the product/client file first. Do not Read graph.json.",
     });
+  }
+
+  const frameAsk = input.frame?.trim();
+  if (frameAsk) {
+    const link = readFigmaLink(index, frameAsk);
+    if (link && !link.ok) {
+      return withCost({
+        checked: false,
+        reason: link.kind === "not-learned" ? ("file-not-learned" as const) : ("bad-link" as const),
+        cousins: [] as CousinHit[],
+        unsure: [] as CousinHit[],
+        ok: 0,
+        hint: link.message,
+      });
+    }
+    if (link?.ok && !resolveNodeExact(index, frameAsk)) {
+      return withCost({
+        checked: false,
+        reason: "not-found" as const,
+        cousins: [] as CousinHit[],
+        unsure: [] as CousinHit[],
+        ok: 0,
+        hint: missingNodeSentence(link.fileKey, link.nodeIds[0] ?? ""),
+      });
+    }
   }
 
   const fallback = index.graph.fileKey;

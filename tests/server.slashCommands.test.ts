@@ -18,8 +18,8 @@ const NAMES = ["check", "design-system", "find", "handoff", "parts", "resolve-st
 const CALLS: Record<string, string[]> = {
   "design-system": ["learn_library", "get_metadata", "page by page", "50,000", "report.told"],
   find: ["recommend", "resolve", "weak match"],
-  check: ["verify_frame", "check_cousins", "node-id"],
-  parts: ["what's on this screen and its code twin (or unmapped)", "resolve-figma handoff", "unmapped"],
+  check: ["verify_frame", "check_cousins", "node-id", "name-only", "wrong cousin", "missing required state"],
+  parts: ["what's on this screen and its code twin (or unmapped)", "resolve-figma parts", "unmapped", "retired", "screen link"],
   handoff: ["developer build sheet", "resolve-figma handoff", "get_handoff", "node-id"],
   "resolve-status": ["resolve-figma status", "version", "always-on rule"],
 };
@@ -70,7 +70,7 @@ describe("slash commands: install", () => {
         expect(text).not.toMatch(/figd\_|\bfile[ -]?key: [A-Za-z0-9]{16,}/i);
       }
     }
-    expect(read(join(cwd, "CLAUDE.md"))).toContain("Never invent a component");
+    expect(read(join(cwd, "CLAUDE.md"))).toContain("Do not invent components");
     expect(read(join(cwd, ".cursor/rules/resolve.mdc"))).toContain("alwaysApply: true");
   });
 

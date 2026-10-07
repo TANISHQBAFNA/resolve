@@ -17,7 +17,7 @@ import { computeAnalytics, computeComponentUsage, type GraphAnalytics } from "./
 import { detectCommunitiesForIndex } from "./communities";
 import type { GraphIndex } from "./GraphIndex";
 import { searchNodes } from "./search";
-import { parseFigmaTarget } from "@/core/ingestion/figmaFileKey";
+import { missingNodeSentence, readFigmaLink } from "./learnedLink";
 import { extractSubgraph, levelForNode } from "./subgraph";
 import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
@@ -990,16 +990,16 @@ export function resolveNodeExact(index: GraphIndex, nameOrId: string): GraphNode
   const direct = index.getNode(trimmed);
   if (direct) return direct;
   // A pasted Figma link (`...?node-id=20-40`) is the frame it points at.
+  // The bare node id is used only when that file is already learned. A link to
+  // another file must not match a node that happens to share the id.
   if (/figma\.com\//i.test(trimmed)) {
-    try {
-      const target = parseFigmaTarget(trimmed);
-      for (const id of target.nodeIds) {
-        const hit = resolveNodeExact(index, `${target.fileKey}:${id}`) ?? resolveNodeExact(index, id);
-        if (hit) return hit;
-      }
-    } catch {
-      // Not a link we can read; fall through to a name match.
+    const link = readFigmaLink(index, trimmed);
+    if (!link?.ok) return undefined;
+    for (const id of link.nodeIds) {
+      const hit = resolveNodeExact(index, `${link.fileKey}:${id}`) ?? resolveNodeExact(index, id);
+      if (hit) return hit;
     }
+    return undefined;
   }
   const lower = trimmed.toLowerCase();
   let exactName: GraphNode | undefined;
@@ -1023,7 +1023,11 @@ export function resolveNodeExact(index: GraphIndex, nameOrId: string): GraphNode
 }
 
 export function resolveNode(index: GraphIndex, nameOrId: string): GraphNode | undefined {
-  return resolveNodeExact(index, nameOrId) ?? searchNodes(index, nameOrId.trim(), { limit: 1 })[0]?.node;
+  const exact = resolveNodeExact(index, nameOrId);
+  if (exact) return exact;
+  // A link is an id, not a name. Do not fuzzy-match the URL text.
+  if (/figma\.com\//i.test(nameOrId)) return undefined;
+  return searchNodes(index, nameOrId.trim(), { limit: 1 })[0]?.node;
 }
 
 export function suggestQuestions(index: GraphIndex, analytics: GraphAnalytics): string[] {
@@ -2615,6 +2619,59 @@ export function ingredientCard(index: GraphIndex, name: string, options: Ingredi
   return withCost(buildIngredientCard(index, name, ingredientHooks(index), options));
 }
 
+/**
+ * What's on this screen and its code twin. Does not refuse a retired part:
+ * retired rows are labelled, with the replacement. Name guesses are left off.
+ */
+export function screenPartsCard(index: GraphIndex, ask: string) {
+  const trimmed = ask.trim();
+  const link = readFigmaLink(index, trimmed);
+  if (link && !link.ok) return { ok: false as const, message: link.message };
+  const frame = trimmed ? resolveNode(index, trimmed) : undefined;
+  if (link?.ok && !frame) return { ok: false as const, message: missingNodeSentence(link.fileKey, link.nodeIds[0] ?? "") };
+  if (!frame || (frame.type !== "FRAME" && frame.type !== "SECTION")) {
+    return { ok: false as const, message: `No frame named "${trimmed}" in the learned files.` };
+  }
+  const view = codeMapView(index);
+  const seen = new Set<string>();
+  const parts: Array<{
+    name: string;
+    figmaNodeId?: string;
+    code: string;
+    retired?: true;
+    replacement?: string;
+    replacementCode?: string;
+  }> = [];
+  for (const instance of index.getNestedInstances(frame.id)) {
+    const main = index.getMainComponent(instance.id);
+    if (!main || isNameInferredMaster(main)) continue;
+    if (seen.has(main.id)) continue;
+    seen.add(main.id);
+    const retired = isRetired(index, main) || Boolean(view?.retired(main));
+    const twin = view?.twin(main);
+    const replacement = retired ? replacementOf(index, main, view?.twin) : undefined;
+    const useTwin = replacement ? view?.twin(replacement.node) : undefined;
+    parts.push({
+      name: variantCardName(index, main),
+      ...(main.figmaNodeId ? { figmaNodeId: main.figmaNodeId } : {}),
+      code: twin?.line ? codeText(twin) : "unmapped",
+      ...(retired
+        ? {
+            retired: true as const,
+            ...(replacement ? { replacement: variantCardName(index, replacement.node) } : {}),
+            ...(useTwin?.line ? { replacementCode: codeText(useTwin) } : {}),
+          }
+        : {}),
+    });
+  }
+  return {
+    ok: true as const,
+    frame: frame.name,
+    ...(frame.figmaNodeId ? { figmaNodeId: frame.figmaNodeId } : {}),
+    parts,
+  };
+}
+
 /** Library-wide ingredient counts: composites, parts, and how many parts link to code. */
 export const ingredientCoverage = (index: GraphIndex) => buildIngredientCoverage(index, ingredientHooks(index));
 
@@ -3344,6 +3401,14 @@ export function recommendMasters(
 
   const leadCandidate = (entry: Scored): RecommendCandidate => {
     const full = toCandidate(entry, false, 0);
+    if (
+      entry.weak &&
+      entry === kept[0] &&
+      /used \d+× in file/.test(full.why) &&
+      !/bind rule|used on \d+ real screen/.test(full.why)
+    ) {
+      full.why = weakMatchWhy(intent, familyCardName(entry));
+    }
     const pointer = examplePointer(index, entry.node, exQuery, tight ? "id" : "screen");
     const next: RecommendCandidate = {
       ...full,
@@ -3631,7 +3696,7 @@ function fitEcho(
 }
 
 export type VerifyReason = "not-in-graph" | "not-a-master" | "denied" | "private";
-export type UnresolvedReason = "unresolved-instance" | "frame-not-in-graph" | "not-exact";
+export type UnresolvedReason = "unresolved-instance" | "frame-not-in-graph" | "not-exact" | "file-not-learned";
 
 export interface VerifyResolved {
   given: string;
@@ -3697,6 +3762,15 @@ function lookalikeLayers(index: GraphIndex, frame: GraphNode): string[] {
     names.push(name);
   }
   return names;
+}
+
+/** Why a weak /find hit is weak. Ranking is unchanged; only this sentence changes. */
+function weakMatchWhy(intent: string, name: string): string {
+  const asked = tokensOf(intent);
+  const named = new Set(tokensOf(name));
+  const hit = asked.find((token) => named.has(token));
+  const word = hit ?? asked[0] ?? "that";
+  return `only the word '${word}' matched; no variant or role matched`;
 }
 
 function uncheckedLine(count: number, names: string[]): string {
@@ -3878,15 +3952,40 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
   const idsInContext = contextCarriesMasterIds(input.designContext);
   const componentIds = elementComponentIds(input.designContext);
   const frameName = input.frame?.trim();
+  let linkHint: string | undefined;
   if (frameName) {
-    frameNode = resolveNode(index, frameName);
-    if (!frameNode) {
+    const link = readFigmaLink(index, frameName);
+    if (link && !link.ok) {
+      linkHint = link.message;
       pushUnique(
         unresolved,
         seenUnresolved,
-        { name: frameName, reason: "frame-not-in-graph" },
-        `frame:${frameName}`,
+        { name: frameName, reason: link.kind === "not-learned" ? "file-not-learned" : "frame-not-in-graph" },
+        `link:${frameName}`,
       );
+    } else if (link?.ok) {
+      frameNode = resolveNode(index, frameName);
+      if (!frameNode) {
+        linkHint = missingNodeSentence(link.fileKey, link.nodeIds[0] ?? "");
+        pushUnique(
+          unresolved,
+          seenUnresolved,
+          { name: link.nodeIds[0] ?? frameName, reason: "frame-not-in-graph" },
+          `link:${frameName}`,
+        );
+      }
+    } else {
+      frameNode = resolveNode(index, frameName);
+    }
+    if (!frameNode) {
+      if (!link) {
+        pushUnique(
+          unresolved,
+          seenUnresolved,
+          { name: frameName, reason: "frame-not-in-graph" },
+          `frame:${frameName}`,
+        );
+      }
     } else {
       for (const instance of index.getNestedInstances(frameNode.id)) {
         const main = index.getMainComponent(instance.id);
@@ -4060,7 +4159,9 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
       }`
     : undefined;
   const pending = input.sock?.proposals.filter((row) => row.status === "pending").length ?? 0;
-  const hint = nameOnlyPass
+  const hint = linkHint
+    ? linkHint
+    : nameOnlyPass
     ? EXACT_COMPONENT_HINT
     : verified
       ? [

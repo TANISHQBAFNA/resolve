@@ -9,7 +9,7 @@ export const DESIGNER = {
   token:
     "Figma needs you to sign in again. The token is missing or has expired. Connect Figma in this app, then run this command again.",
   viewSeat:
-    "This Figma seat can only view the file. Learning a library needs a Dev or Full seat. Ask someone with that seat to run /design-system, or change the seat, then try again.",
+    "Figma refused this file. The seat may only be able to view it, or this token may not have access. Learning a library needs a Dev or Full seat and access to the file. Ask someone with that seat to run /design-system, or check access, then try again.",
   nothingLearned:
     "Resolve has not learned a design system yet. Run /design-system and paste the Figma link to the library.",
   notInstalled:
@@ -29,9 +29,10 @@ export function designerFailure(raw: string): string {
     .join(" ");
   if (!one) return DESIGNER.generic;
   if (Object.values(DESIGNER).some((sentence) => one === sentence)) return one;
+  if (/^No file at /i.test(one)) return one;
   if (/^Not a Figma file URL or file key:/i.test(one) || /^Give a Figma file URL or file key/i.test(one)) return DESIGNER.badLink;
-  if (/FIGMA_ACCESS_TOKEN|authentication failed|invalid token|token expired|expired token/i.test(one)) return DESIGNER.token;
-  if (/view[- ]only|view seat|free seat|Dev or Full seat/i.test(one)) return DESIGNER.viewSeat;
+  if (/\b403\b|Figma authorization failed|view[- ]only|view seat|free seat|Dev or Full seat/i.test(one)) return DESIGNER.viewSeat;
+  if (/\b401\b|FIGMA_ACCESS_TOKEN|authentication failed|invalid token|token expired|expired token/i.test(one)) return DESIGNER.token;
   if (/No design system or screens are ingested yet|Nothing is learned yet/i.test(one)) return DESIGNER.nothingLearned;
   if (/Resolve MCP is not built|cannot find module|ENOENT/i.test(one)) return DESIGNER.notInstalled;
   if (/node_modules|node:internal/.test(one)) return DESIGNER.generic;

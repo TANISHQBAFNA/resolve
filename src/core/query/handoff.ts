@@ -52,7 +52,7 @@ export interface HandoffHooks {
   /** verify_frame on this screen, or on a component list (a screen that is one copy: verify reads frames, not copies). */
   verify(frameId: string, components?: string[]): VerifyLike;
   /** A frame by graph id, Figma id, `fileKey:id`, or name. */
-  frame(ask: string): { node?: GraphNode; others?: number; notScreen?: GraphNode; fuzzy?: boolean };
+  frame(ask: string): { node?: GraphNode; others?: number; notScreen?: GraphNode; fuzzy?: boolean; message?: string };
   fillRecipe?(recipe: Recipe): FilledRecipe;
 }
 
@@ -450,9 +450,11 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
   if (!clean(ask)) return { ok: false, refused: [{ screen: "", kind: "not-found", message: "Give a frame name or Figma id (the frame name was empty)." }] };
   const found = hooks.frame(ask);
   if (!found.node) {
-    const message = found.notScreen
-      ? `"${clean(ask)}" is a ${found.notScreen.type}, not a screen. Ask for a frame; for one component use resolve ingredients.`
-      : `No frame named "${clean(ask)}" in the learned files.`;
+    const message = found.message
+      ? found.message
+      : found.notScreen
+        ? `"${clean(ask)}" is a ${found.notScreen.type}, not a screen. Ask for a frame; for one component use resolve ingredients.`
+        : `No frame named "${clean(ask)}" in the learned files.`;
     return { ok: false, refused: [{ screen: clean(ask), kind: "not-found", message }] };
   }
   const frame = found.node;
@@ -910,6 +912,7 @@ function partLines(parts: HandoffPart[], indent: string): string[] {
 export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   const out: string[] = [];
   out.push(`# Handoff: ${md(s.screen.name)}${draft ? " (DRAFT)" : ""}`, "");
+  if (s.verify.note?.includes("library node")) out.push(`> ${md(s.verify.note)}`, "");
   if (draft) {
     const weak = [
       s.summary.nameGuesses ? `${s.summary.nameGuesses} name guess${s.summary.nameGuesses === 1 ? "" : "es"} (marked \`name-guess\`; confirm with Figma REST or design_context)` : "",
@@ -985,7 +988,7 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   } else out.push("No parts inside the placed components.");
   out.push("", "## Verify", "");
   if (s.verify.checked) out.push("Checked as a component list (this screen is one copy).", "");
-  if (s.verify.note) out.push(`Note: ${md(s.verify.note)}`, "");
+  if (s.verify.note && !s.verify.note.includes("library node")) out.push(`Note: ${md(s.verify.note)}`, "");
   out.push(`${s.verify.pass ? "PASS" : "FAIL"}: ${s.verify.approved} approved component${s.verify.approved === 1 ? "" : "s"}.${s.verify.retired.length ? ` Retired: ${s.verify.retired.map(md).join(", ")}.` : ""}${s.verify.invents.length ? ` Flagged: ${s.verify.invents.map(md).join(", ")}.` : ""}${s.verify.unresolved.length ? ` Unresolved: ${s.verify.unresolved.map(md).join(", ")}.` : ""}`);
   out.push("", "## Decisions", "");
   if (s.decisions.length) for (const d of s.decisions) out.push(`- ${whenText(d.when)}, ${md(d.who)}: ${md(d.summary)}${d.why !== d.summary ? ` Why: ${md(d.why)}` : ""} (\`${d.proposalId}\`)`);

@@ -53,6 +53,7 @@ import {
   formatIngredientCoverage,
   ingredientCard,
   ingredientCoverage,
+  screenPartsCard,
 } from "@/core/query";
 import {
   deltaAgainst,
@@ -90,7 +91,7 @@ import {
   workspacePath,
 } from "./store";
 import { learnLibrary } from "./learn";
-import { designerFailure } from "./designerMessages";
+import { DESIGNER, designerFailure } from "./designerMessages";
 import { formatStatus, statusReport } from "./status";
 import { warnDeprecated } from "./deprecations";
 import {
@@ -259,7 +260,7 @@ function graphFromMetadataXml(xml: string, args: string[]): DesignGraph {
   return buildGraph(
     adaptFigmaMcpMetadata({
       fileKey: flag(args, "file-key") ?? "local-file",
-      fileName: flag(args, "name") ?? "Untitled",
+      fileName: flag(args, "name") ?? flag(args, "file-key") ?? "file",
       metadataXml: xml,
     }),
   );
@@ -462,6 +463,8 @@ export async function runCli(argv: string[]): Promise<void> {
         return;
       }
 
+      const looksLikePath = target.startsWith("/") || target.startsWith(".") || /\.(json|xml)$/i.test(target);
+      if (!looksLikePath) throw new Error(DESIGNER.badLink);
       throw new Error(
         `No file at ${target}. Pass a JSON path, a Figma URL, or a file key (with FIGMA_ACCESS_TOKEN).`,
       );
@@ -655,17 +658,19 @@ export async function runCli(argv: string[]): Promise<void> {
         );
       }
       const bind = bindFromFlags(args);
-      printJson(
-        checkCousins(resolveGraph(flag(args, "id"))?.index, {
-          frame,
-          fileKey,
-          components,
-          job: flag(args, "job"),
-          recipes: loadRecipes(),
-          context: packForRecommend(bind),
-          workspace: bind.workspace ?? readWorkspace(),
-        }),
-      );
+      const cousins = checkCousins(resolveGraph(flag(args, "id"))?.index, {
+        frame,
+        fileKey,
+        components,
+        job: flag(args, "job"),
+        recipes: loadRecipes(),
+        context: packForRecommend(bind),
+        workspace: bind.workspace ?? readWorkspace(),
+      });
+      printJson(cousins);
+      if (cousins.checked === false && cousins.reason !== "no-placements" && cousins.reason !== "no-library-file" && cousins.reason !== "no-graph") {
+        process.exitCode = 1;
+      }
       return;
     }
 
@@ -802,6 +807,9 @@ export async function runCli(argv: string[]): Promise<void> {
       const out = flag(args, "out");
       if (out) {
         const target = resolve(out);
+        if (/^\/(proc|sys|dev)(\/|$)/.test(target)) {
+          throw new Error(`Cannot write the handoff files to ${target}: that is not a folder for a handoff. Pass another --out folder.`);
+        }
         const force = args.includes("--force");
         if (existsSync(target) && !statSync(target).isDirectory()) throw new Error(`${target} is a file, not a folder. Pass a folder for --out.`);
         // Our files only: handoff.md, handoff.json, ingredients.md and screen-*.md. Anything else in the folder is left alone.
@@ -852,6 +860,15 @@ export async function runCli(argv: string[]): Promise<void> {
       const sheets = result.screens.map((sheet) => formatHandoffScreen(sheet, result.draft));
       process.stdout.write(sheets.join("\n---\n\n"));
       if (result.screens.length > 1) process.stdout.write(`\n---\n\n${formatHandoffIngredients(result)}`);
+      return;
+    }
+
+    case "parts": {
+      const ask = positionals(args).join(" ").trim();
+      if (!ask) throw new Error('Usage: resolve parts "<screen link or frame name>" [--json]');
+      const card = screenPartsCard(requireGraph(args).index, ask);
+      printJson(card);
+      if (!card.ok) process.exitCode = 1;
       return;
     }
 
