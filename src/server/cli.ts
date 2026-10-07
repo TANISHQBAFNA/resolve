@@ -106,7 +106,7 @@ import {
 
 /** Same flags `bindFromFlags` reads — keep help + usage errors in lockstep. */
 const PACK_BIND_FLAGS =
-  "[--pack <id>] [--product <name>] [--journey <step>] [--domain <domain>]";
+  "[--pack <id>] [--product <name>] [--journey <step>] [--domain <domain>] [--audience <who>] [--a11y <bar>]";
 
 function usage(): void {
   process.stdout.write(
@@ -387,6 +387,8 @@ function bindFromFlags(args: string[]) {
     product: flag(args, "product"),
     journey: flag(args, "journey"),
     domain: flag(args, "domain"),
+    audience: flag(args, "audience"),
+    a11y: flag(args, "a11y"),
     packsFile: flag(args, "packs"),
   });
 }
@@ -748,7 +750,7 @@ export async function runCli(argv: string[]): Promise<void> {
     }
 
     case "handoff": {
-      const VALUE_FLAGS = ["--out", "--recipe", "--depth", "--rules", "--pack", "--product", "--journey", "--domain", "--packs", "--id"];
+      const VALUE_FLAGS = ["--out", "--recipe", "--depth", "--rules", "--pack", "--product", "--journey", "--domain", "--audience", "--a11y", "--packs", "--id"];
       const frames: string[] = [];
       for (let i = 0; i < args.length; i += 1) {
         const arg = args[i]!;

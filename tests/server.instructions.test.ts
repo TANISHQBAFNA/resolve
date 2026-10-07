@@ -76,6 +76,9 @@ describe("MCP instructions stay a short trigger", () => {
       expect(text).toContain("get_example");
       expect(text).toContain("verify_frame");
       expect(text).toContain("check_cousins");
+      expect(text).toContain("Set context before any component pick");
+      expect(text).toContain("audience");
+      expect(text).toContain("a11y");
       expect(text).not.toMatch(/npm run resolve/);
       expect(text).not.toMatch(/Level-1/);
       expect(text).not.toMatch(/caveman/i);

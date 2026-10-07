@@ -42,6 +42,10 @@ export interface ContextBind {
   product?: string;
   journey?: string;
   domain?: string;
+  /** Who the screen is for. Overrides the pack for this call. */
+  audience?: string;
+  /** Accessibility bar, for example wcag-aa. Overrides the pack. Not an audit. */
+  a11y?: string;
   workspace?: WorkspaceManifest;
 }
 
@@ -51,6 +55,8 @@ export interface AppliedContext {
   client?: string;
   domain?: string;
   journey?: string;
+  audience?: string;
+  a11y?: string;
   files?: string[];
 }
 
@@ -171,6 +177,8 @@ export function appliedContext(pack: ContextPack): AppliedContext {
     ...(client ? { client } : {}),
     ...(pack.domain ? { domain: pack.domain } : {}),
     ...(journey ? { journey } : {}),
+    ...(pack.audience ? { audience: pack.audience } : {}),
+    ...(pack.constraints?.a11y ? { a11y: pack.constraints.a11y } : {}),
     ...(pack.files?.length ? { files: pack.files } : {}),
   };
 }
@@ -241,9 +249,22 @@ export function matchContextPack(packs: ContextPack[], query: ContextQuery): Con
   return undefined;
 }
 
-export function packForRecipe(
+/** Audience and a11y from this call sit on top of the matched pack. Neither invents a component. */
+function withCallContext(pack: ContextPack | undefined, bind: ContextBind): ContextPack | undefined {
+  const audience = bind.audience?.trim();
+  const a11y = bind.a11y?.trim();
+  if (!audience && !a11y) return pack;
+  const base = pack ?? { id: "inline" };
+  return {
+    ...base,
+    ...(audience ? { audience } : {}),
+    ...(a11y ? { constraints: { ...base.constraints, a11y } } : {}),
+  };
+}
+
+function chooseRecipePack(
   recipe: { id: string; contextPackId?: string },
-  bind: ContextBind = { packs: [] },
+  bind: ContextBind,
 ): ContextPack | undefined {
   const packs = bind.packs;
   if (bind.packId?.trim()) return matchContextPack(packs, { packId: bind.packId });
@@ -271,6 +292,13 @@ export function packForRecipe(
   return active;
 }
 
+export function packForRecipe(
+  recipe: { id: string; contextPackId?: string },
+  bind: ContextBind = { packs: [] },
+): ContextPack | undefined {
+  return withCallContext(chooseRecipePack(recipe, bind), bind);
+}
+
 function inlinePack(bind: ContextBind): ContextPack | undefined {
   if (!bind.product && !bind.journey && !bind.domain) return undefined;
   return {
@@ -281,8 +309,7 @@ function inlinePack(bind: ContextBind): ContextPack | undefined {
   };
 }
 
-/** Active / flagged pack for recommend when no recipe is in play. */
-export function packForRecommend(bind: ContextBind = { packs: [] }): ContextPack | undefined {
+function chooseRecommendPack(bind: ContextBind): ContextPack | undefined {
   if (bind.packId?.trim()) return matchContextPack(bind.packs, { packId: bind.packId });
   const flagged = matchContextPack(bind.packs, {
     product: bind.product,
@@ -293,4 +320,9 @@ export function packForRecommend(bind: ContextBind = { packs: [] }): ContextPack
   if (bind.product || bind.journey || bind.domain) return inlinePack(bind);
   if (bind.active) return matchContextPack(bind.packs, { packId: bind.active });
   return undefined;
+}
+
+/** Active / flagged pack for recommend when no recipe is in play. */
+export function packForRecommend(bind: ContextBind = { packs: [] }): ContextPack | undefined {
+  return withCallContext(chooseRecommendPack(bind), bind);
 }

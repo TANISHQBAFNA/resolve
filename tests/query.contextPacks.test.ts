@@ -6,6 +6,7 @@ import {
   listRecipes,
   matchContextPack,
   packForRecipe,
+  packForRecommend,
   parseContextPackFile,
   parseRecipeFile,
   recipeCard,
@@ -217,6 +218,28 @@ describe("bind pack to recipe", () => {
     expect(packForRecipe(checkout, { packs, packId: "admin-settings" })?.id).toBe("admin-settings");
   });
 
+  it("overlays audience and a11y from the call without dropping the pack", () => {
+    const pack = packForRecommend({
+      packs,
+      packId: "storefront-checkout-summary",
+      audience: "new customer",
+      a11y: "wcag-aaa",
+    });
+    expect(pack?.id).toBe("storefront-checkout-summary");
+    expect(pack?.audience).toBe("new customer");
+    expect(pack?.constraints).toEqual({ density: "compact", a11y: "wcag-aaa" });
+    expect(pack && "figmaNodeId" in pack).toBe(false);
+  });
+
+  it("audience and a11y alone are context, with no invented component id", () => {
+    const pack = packForRecommend({ packs: [], audience: "returning customer", a11y: "wcag-aa" });
+    expect(pack).toEqual({
+      id: "inline",
+      audience: "returning customer",
+      constraints: { a11y: "wcag-aa" },
+    });
+  });
+
   it("matches product + journey flags to a pack", () => {
     expect(
       matchContextPack(packs, { product: "storefront", journey: "summary", domain: "checkout" })?.id,
@@ -249,6 +272,8 @@ describe("bind pack to recipe", () => {
     expect(card.found).toBe(true);
     if (!card.found) return;
     expect(card.context?.product).toMatch(/storefront/i);
+    expect(card.context?.audience).toBe("returning shopper");
+    expect(card.context?.a11y).toBe("wcag-aa");
     expect(card.slots[0]?.nextRecommend).toMatch(/button/i);
   });
 });
@@ -269,6 +294,8 @@ describe("recommend ranking with product/journey context", () => {
     expect(result.candidates[0]?.why).toMatch(/matches/i);
     expect(result.context?.id).toBe("storefront-checkout-summary");
     expect(result.context?.domain).toBe("checkout");
+    expect(result.context?.audience).toBe("returning shopper");
+    expect(result.context?.a11y).toBe("wcag-aa");
   });
 
   it("empty match still does not invent, even when a pack is active", () => {

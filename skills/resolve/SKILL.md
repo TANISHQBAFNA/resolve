@@ -1,6 +1,6 @@
 ---
 name: resolve
-description: For ANY Figma design, screen, or component task, call Resolve before drawing. Check that Figma MCP is connected and a design system or screens are ingested; if either is missing, tell the user what is missing and how to add it. Map the file with learn_library, then recipe, recommend, get_example, verify_frame, and check_cousins when relevant. Never invent components.
+description: For ANY Figma design, screen, or component task, call Resolve before drawing. Set context first (product, journey, audience, a11y), then place only returned components. If Figma or a learned library is missing, say so in plain words. Never invent components.
 ---
 
 # Resolve
@@ -21,11 +21,12 @@ If either is missing, stop. Tell the user in plain words what is missing and how
 ## Path
 
 1. **Map the file first.** Figma `get_metadata`, then Resolve `learn_library` with that XML, `fileKey`, and `role` (`library` for the design system, `product` or `client` for screens). Pass `search_design_system` or `get_libraries` as `libraries` when you have them. Pass `designContext` so the component default text is stored. Re-run when that file changed.
-2. **recipe** when the screen job matches a pack.
-3. **recommend** for each unbound, missing, or deprecated slot. Place only the returned `figmaNodeId`s. Cards include `fileKey` because ids collide across files.
-4. **get_example** for the real instance (`ex` on the top pick; call `get_example` for the others). Clone that instance and replace the content. Do not start from the default variant. A known name goes to `resolve`. A miss points at `recommend`.
-5. **verify_frame** after the frame exists. Fetch that frame's design context first and pass it as `designContext`. `texts` only fills empty layers inside the frame.
-6. **check_cousins** when a library file and a product or client file are both linked. Unsure means stop.
+2. **Set context before any component pick.** Name the product, the journey step, the audience, and the a11y bar (for example `wcag-aa`). Pass `pack` when `.resolve/context-packs.json` matches this screen. Otherwise pass `product`, `journey`, `domain`, `audience`, and `a11y` from the designer. If any of those four are unknown, ask once in plain words. Do not call `recommend` and do not draw until they are set. Do not invent a product, an audience, or an a11y bar. A saved pack is a copy of `src/data/context-packs.example.json` at `.resolve/context-packs.json`. Never put Figma ids in that file.
+3. **`recipe`** for the screen job. Pass the same context. The card echoes audience and a11y.
+4. **`recommend`** for each unbound, missing, or deprecated slot. Pass the same context. Place only the returned `figmaNodeId`s. Cards include `fileKey` because ids collide across files. An empty card means stop. Do not draw a stand-in.
+5. **`get_example`** for the real instance (`ex` on the top pick; call `get_example` for the others). Pass the same context. Clone that instance and replace the content. Do not start from the default variant. A known name goes to `resolve` with the same context. A miss points at `recommend`.
+6. **`verify_frame`** after the frame exists. Pass the same context. Fetch that frame's design context first and pass it as `designContext`. `texts` only fills empty layers inside the frame.
+7. **`check_cousins`** when a library file and a product or client file are both linked. Pass the same context. Unsure means stop.
 
 Placing into a different Figma file needs the library published and `libraries` from `search_design_system`. Otherwise build inside the library file.
 

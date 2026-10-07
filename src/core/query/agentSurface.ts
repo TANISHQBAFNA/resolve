@@ -1499,6 +1499,8 @@ function appliedRecommendContext(context?: RecommendContext) {
     ...(client ? { client } : {}),
     ...(context.domain ? { domain: context.domain } : {}),
     ...(journey ? { journey } : {}),
+    ...(context.audience ? { audience: context.audience } : {}),
+    ...(context.constraints?.a11y ? { a11y: context.constraints.a11y } : {}),
     ...(context.files?.length ? { files: context.files } : {}),
   };
 }
@@ -2065,6 +2067,8 @@ function contextWords(context?: RecommendContext): string[] {
       context.client?.name,
       context.client?.id,
       context.audience,
+      context.constraints?.density,
+      context.constraints?.a11y,
     ]
       .filter((part): part is string => Boolean(part))
       .join(" "),
@@ -3487,7 +3491,7 @@ export function recommendMasters(
   return withCost({ ...(said ? only : payload), ...extra });
 }
 
-const ECHO_KEYS = ["journey", "product", "domain", "id", "client"] as const;
+const ECHO_KEYS = ["journey", "product", "domain", "id", "client", "audience", "a11y"] as const;
 
 /** Shorten echoed context and the matches-clause before any name cut. */
 function fitEcho(
