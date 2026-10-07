@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — name check and context-pack check
+
+Oct 7, 2026 IST. `resolve code-map --check` reads the committed handoff and code map only (no learned cache) and answers OK, retired, not in this handoff, or unmapped, and never guesses a code twin. `resolve pack validate` checks the slug id, the accessibility level, recipe ids, and that no Figma file key or node id is in the pack. The same pack rules run when Resolve loads a pack. Ranking is unchanged.
+
 ## Unreleased — context-pack slot fill and cache ignore
 
 Oct 7, 2026 IST. A context pack linked to a recipe no longer empties that recipe's slots in handoff or in the recipe card. The pack still breaks ties; it is not pasted into the component query. A slot with a stored default master still uses that master. Setup's `.gitignore` block ignores the learned cache only: `.resolve/graph.json`, `.resolve/files/`, `.resolve/GRAPH_REPORT.md`, `.resolve/index.json`, `.resolve/scoreboard/`, `.resolve/learn/`, `.resolve/ingest/`. Recipes, context packs, the code map, decisions (`sock.json`), bind rules and synonyms stay committable. The AIDLC add-on's ticket command is `design-handoff`. It calls `/handoff`. Ranking is unchanged.

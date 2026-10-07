@@ -48,6 +48,8 @@ import {
   codeMapRows,
   codeMapTemplate,
   formatCodeMapReport,
+  checkComponentFiles,
+  packValidation,
   formatIngredientCard,
   formatIngredientCoverage,
   ingredientCard,
@@ -80,6 +82,7 @@ import {
   readSock,
   readApprovedDecisions,
   readWorkspace,
+  contextPacksPath,
   rebuildIndex,
   resolveGraph,
   saveIngestedFile,
@@ -159,6 +162,13 @@ function usage(): void {
       "      Optional .resolve/library-rules.json { allow, deny }. Else in-graph + not deprecated = approved.",
       "      Same pack flags as recommend. Wrong-cousin drift: resolve cousins.",
       "  resolve code-map [--json | --retired]   Report on .resolve/code-map.json: Figma component -> code component",
+      "  resolve code-map --check \"<name>\" --handoff <handoff.json> [--json]",
+      "      One answer from the committed handoff and code map only. No learned cache, and nothing is guessed.",
+      "      OK (selector, module, import), retired (names the replacement), not in this handoff, or on the handoff with no code twin.",
+      "      Exit 0 ok, 2 retired, 3 not-in-handoff, 4 unmapped, 5 not-found, 1 when a file or the name is unusable.",
+      "  resolve pack validate [path] [--json]",
+      "      Check a context pack: id is a slug, accessibility is wcag-a, wcag-aa, or wcag-aaa, every recipe id exists,",
+      "      and the file has no Figma file key or node id. Errors name the field and how to fix it. Exit 0 ok, 1 not ok.",
       "  resolve code-map --init [--out <file.csv>] [--force]   Write a CSV with one row per component, to fill in a spreadsheet",
       "  resolve code-map --import <file.csv> [--dry-run] [--force | --replace]   Turn the filled CSV into code-map.json (same checks as the loader)",
       "      --force keeps (and lists) existing entries the CSV has no row for; --replace drops them (and lists them). Extra columns are ignored.",
@@ -670,10 +680,27 @@ export async function runCli(argv: string[]): Promise<void> {
       const replace = args.includes("--replace");
       for (let i = 0; i < args.length; i += 1) {
         const arg = args[i]!;
-        if (["--out", "--import", "--id"].includes(arg)) i += 1;
+        if (["--out", "--import", "--id", "--check", "--handoff"].includes(arg)) i += 1;
         else if (arg.startsWith("--") && !["--json", "--retired", "--init", "--force", "--dry-run", "--replace"].includes(arg)) {
-          throw new Error(`Unknown code-map option "${arg}". Use --init [--out <file.csv>] [--force], --import <file.csv> [--dry-run] [--force | --replace], --json or --retired.`);
+          throw new Error(`Unknown code-map option "${arg}". Use --check "<name>" --handoff <handoff.json> [--json], --init [--out <file.csv>] [--force], --import <file.csv> [--dry-run] [--force | --replace], --json or --retired.`);
         }
+      }
+      if (args.includes("--check")) {
+        if (args.includes("--init") || args.includes("--import") || args.includes("--retired")) {
+          throw new Error("Use --check on its own. It cannot be combined with --init, --import, or --retired.");
+        }
+        const name = flag(args, "check");
+        if (!name || name.startsWith("--")) throw new Error('Usage: resolve code-map --check "<name>" --handoff <handoff.json> [--json]');
+        const handoffGiven = flag(args, "handoff");
+        if (args.includes("--handoff") && (!handoffGiven || handoffGiven.startsWith("--"))) {
+          throw new Error("--handoff needs the handoff.json from resolve handoff --out <folder>.");
+        }
+        const handoff = handoffGiven ?? join(process.cwd(), "handoff.json");
+        const checked = checkComponentFiles(name, mapPath, handoff);
+        if (args.includes("--json")) printJson(checked);
+        else process.stdout.write(`${checked.message}\n`);
+        if (checked.exitCode !== 0) process.exitCode = checked.exitCode;
+        return;
       }
       if (args.includes("--init") && args.includes("--import")) throw new Error("Use either --init or --import, not both.");
       if (args.includes("--init")) {
@@ -1145,6 +1172,55 @@ export async function runCli(argv: string[]): Promise<void> {
       else process.stdout.write(`${formatScoreTable(report, delta)}\n`);
       writeScoreHistory(historyDir, report);
       if (scoreExitCode(report) !== 0) process.exitCode = 1;
+      return;
+    }
+
+    case "pack": {
+      const sub = args.find((arg) => !arg.startsWith("--"));
+      for (const arg of args) {
+        if (arg.startsWith("--") && arg !== "--json") {
+          throw new Error(`Unknown pack option "${arg}". Use resolve pack validate [path] [--json].`);
+        }
+      }
+      if (sub !== "validate") throw new Error("Usage: resolve pack validate [path] [--json]");
+      const pathArg = args.filter((arg) => !arg.startsWith("--") && arg !== "validate");
+      if (pathArg.length > 1) throw new Error("Usage: resolve pack validate [path] [--json]");
+      const target = pathArg[0] ? resolve(pathArg[0]) : contextPacksPath();
+      if (!existsSync(target)) {
+        const message = `No context pack file at ${target}. Copy src/data/context-packs.example.json to .resolve/context-packs.json, then run resolve pack validate.`;
+        const payload = { ok: false, path: target, packs: 0, message, exitCode: 1, errors: [{ field: "(file)", message }] };
+        if (args.includes("--json")) printJson(payload);
+        else process.stdout.write(`${message}\n`);
+        process.exitCode = 1;
+        return;
+      }
+      let raw: unknown;
+      try {
+        raw = JSON.parse(readFileSync(target, "utf8").replace(/^\uFEFF/, "")) as unknown;
+      } catch {
+        const message = `${target} is not valid JSON. Fix the commas and quotes, then run resolve pack validate again.`;
+        const payload = { ok: false, path: target, packs: 0, message, exitCode: 1, errors: [{ field: "(file)", message }] };
+        if (args.includes("--json")) printJson(payload);
+        else process.stdout.write(`${message}\n`);
+        process.exitCode = 1;
+        return;
+      }
+      let recipeIds: Set<string>;
+      try {
+        recipeIds = new Set(loadRecipes().map((recipe) => recipe.id));
+      } catch {
+        const message = "recipes.json is not valid JSON, so recipe ids cannot be checked. Fix .resolve/recipes.json, then run resolve pack validate again.";
+        const payload = { ok: false, path: target, packs: 0, message, exitCode: 1, errors: [{ field: "recipes.json", message }] };
+        if (args.includes("--json")) printJson(payload);
+        else process.stdout.write(`${message}\n`);
+        process.exitCode = 1;
+        return;
+      }
+      const report = packValidation(raw, recipeIds);
+      const payload = { ...report, path: target };
+      if (args.includes("--json")) printJson(payload);
+      else process.stdout.write(`${report.message}\n`);
+      if (report.exitCode !== 0) process.exitCode = report.exitCode;
       return;
     }
 

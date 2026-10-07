@@ -29,7 +29,17 @@ export {
   type IngredientPart,
   type PartStatus,
 } from "./ingredients";
-export { angularText, bindingName, codeText, formatCodeMapReport, tidySelector, type AngularTwin } from "./codeMap";
+export { angularText, bindingName, codeText, formatCodeMapReport, listCodeMapEntries, tidySelector, type AngularTwin, type CodeMapListed } from "./codeMap";
+export { checkComponentFiles, checkComponentName, type CodeMapCheckResult } from "./codeMapCheck";
+export {
+  A11Y_LEVELS,
+  assertContextPackDocument,
+  formatPackIssues,
+  packValidation,
+  validateContextPackDocument,
+  type PackIssue,
+  type PackValidation,
+} from "./packValidate";
 export { codeMapFromCsv, codeMapTemplate, CSV_COLUMNS, entryKeys, entryLabel, mergeCodeMap, parseCsv } from "./codeMapCsv";
 export {
   angularTemplate,

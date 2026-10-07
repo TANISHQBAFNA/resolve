@@ -120,6 +120,8 @@ interface Row {
   fileKey: string;
   id?: string;
   name?: string;
+  component: string;
+  importPath: string;
   line: string;
   status?: string;
   replacedBy?: string;
@@ -172,6 +174,8 @@ function parseRow(raw: unknown, n: number): Row {
     fileKey,
     ...(id ? { id } : {}),
     ...(name ? { name } : {}),
+    component,
+    importPath: module,
     line: `${component} from '${module}'`,
     ...(status ? { status } : {}),
     ...(replacedBy ? { replacedBy: clean(replacedBy).slice(0, 60) } : {}),
@@ -417,6 +421,59 @@ export function codeMapReport(getIndex: () => GraphIndex, hooksFor: (index: Grap
   if (!loaded.rows.length) return emptyReport("code-map.json has no usable entries.", loaded.ignored);
   const index = getIndex();
   return resolveRows(index, loaded, hooksFor(index)).report;
+}
+
+/** One usable code-map row, with no learned graph attached. */
+export interface CodeMapListed {
+  entry: number;
+  name?: string;
+  component: string;
+  importPath: string;
+  status: "current" | "retired";
+  replacedBy?: string;
+  selector?: string;
+  module?: string;
+  standalone?: true;
+  /** Set when Angular fields were dropped. The code line is still usable. */
+  angularDropped?: string;
+}
+
+/**
+ * Read a code-map document with the same entry rules as the loader.
+ * Does not open a graph. A missing or non-object `entries` list is an error.
+ * A bad row is listed in `problems` and skipped.
+ */
+export function listCodeMapEntries(raw: unknown): { entries: CodeMapListed[]; problems: string[]; error?: string } {
+  if (!isRecord(raw) || !Array.isArray(raw["entries"])) {
+    return {
+      entries: [],
+      problems: [],
+      error: "The code map must be a JSON object with an entries list. Fix the file, or rebuild it with resolve code-map --import.",
+    };
+  }
+  const entries: CodeMapListed[] = [];
+  const problems: string[] = [];
+  raw["entries"].forEach((item, index) => {
+    const n = index + 1;
+    try {
+      const row = parseRow(item, n);
+      entries.push({
+        entry: n,
+        ...(row.name ? { name: row.name } : {}),
+        component: row.component,
+        importPath: row.importPath,
+        status: row.status === "retired" ? "retired" : "current",
+        ...(row.replacedBy ? { replacedBy: row.replacedBy } : {}),
+        ...(row.angular?.selector ? { selector: row.angular.selector } : {}),
+        ...(row.angular?.module ? { module: row.angular.module } : {}),
+        ...(row.angular?.standalone ? { standalone: true as const } : {}),
+        ...(row.angularDropped ? { angularDropped: row.angularDropped } : {}),
+      });
+    } catch (reason) {
+      problems.push(`entry ${n}: ${String(reason)}`);
+    }
+  });
+  return { entries, problems };
 }
 
 export function formatCodeMapReport(report: CodeMapReport, retiredOnly = false, first = 8): string {

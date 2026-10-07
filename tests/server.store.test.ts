@@ -68,7 +68,6 @@ describe("store", () => {
             domain: "checkout",
             journey: "summary",
             recipeIds: ["checkout-summary"],
-            figmaNodeId: "do-not-keep",
           },
         ],
       }),
@@ -81,6 +80,17 @@ describe("store", () => {
     expect(bind.active).toBe("storefront-checkout-summary");
     expect(bind.packs).toHaveLength(1);
     expect(bind.workspace).toBeUndefined();
+  });
+
+  it("refuses a context pack that contains a Figma id when the pack is loaded", () => {
+    writeFileSync(
+      join(dir, "context-packs.json"),
+      JSON.stringify({
+        packs: [{ id: "storefront-checkout-summary", recipeIds: ["checkout-summary"], figmaNodeId: "9:1" }],
+      }),
+    );
+    expect(() => readContextPacks()).toThrow(/figmaNodeId/);
+    expect(() => readContextPacks()).toThrow(/Remove figmaNodeId/);
   });
 
   it("saveIngestedFile writes workspace.json + per-file graph and stamps fileKey", () => {

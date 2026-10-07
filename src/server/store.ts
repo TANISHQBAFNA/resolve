@@ -14,6 +14,7 @@ import {
   mergeRecipes,
   mergeWorkspaceGraphs,
   loadBindRulesLenient,
+  assertContextPackDocument,
   parseContextPackFile,
   parseLibraryRules,
   parseRecipeFile,
@@ -468,13 +469,32 @@ export function loadRecipes(explicitPath?: string): Recipe[] {
   return mergeRecipes(starterRecipes(), readRecipeOverlay(explicitPath));
 }
 
+function recipeIdsForPacks(): Set<string> {
+  try {
+    return new Set(loadRecipes().map((recipe) => recipe.id));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/json|unexpected|position/i.test(message)) {
+      throw new Error("recipes.json is not valid JSON, so a context pack cannot be checked. Fix .resolve/recipes.json, then try again.");
+    }
+    throw new Error(message.split("\n")[0] || "recipes.json could not be read.");
+  }
+}
+
 export function readContextPacks(explicitPath?: string): ContextPackFile {
   const path = explicitPath ?? (existsSync(contextPacksPath()) ? contextPacksPath() : undefined);
   if (!path) return { packs: [] };
   if (!existsSync(path)) {
     throw new Error(`Context packs file not found: ${path}`);
   }
-  const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(path, "utf8")) as unknown;
+  } catch {
+    throw new Error(`${path} is not valid JSON. Fix the commas and quotes, then run resolve pack validate.`);
+  }
+  // Same rules as `resolve pack validate`. Ranking code is unchanged; a pack that fails this check is not loaded.
+  assertContextPackDocument(raw, recipeIdsForPacks());
   const file = parseContextPackFile(raw);
   if (file.packs.length > 0) warnDeprecated("context packs");
   return file;
