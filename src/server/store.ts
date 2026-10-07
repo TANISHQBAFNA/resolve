@@ -368,6 +368,31 @@ export function readSock(): SockState {
   return loadSock() ?? emptySock();
 }
 
+/**
+ * Approved SOCI proposals with who / when from the audit log (newest approval per proposal).
+ * A proposal approved without an audit line is skipped: a decision on a handoff sheet always says who and when.
+ */
+export function readApprovedDecisions(): Array<{ proposal: SockState["proposals"][number]; who: string; when: string }> {
+  const approved = readSock().proposals.filter((p) => p.status === "approved");
+  if (!approved.length || !existsSync(bindAuditPath())) return [];
+  const last = new Map<string, { who: string; when: string }>();
+  for (const line of readFileSync(bindAuditPath(), "utf8").split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      const row = JSON.parse(line) as { who?: unknown; when?: unknown; proposalId?: unknown; action?: unknown };
+      if (row.action === "approve" && typeof row.proposalId === "string" && typeof row.who === "string" && typeof row.when === "string") {
+        last.set(row.proposalId, { who: row.who, when: row.when });
+      }
+    } catch {
+      // A torn line is skipped, never fatal.
+    }
+  }
+  return approved.flatMap((proposal) => {
+    const audit = last.get(proposal.id);
+    return audit ? [{ proposal, ...audit }] : [];
+  });
+}
+
 export function loadLearnCheckpoint(fileKey: string): LearnCheckpoint | undefined {
   const path = learnCheckpointPath(fileKey);
   if (!existsSync(path)) return undefined;

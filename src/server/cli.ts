@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { accessSync, constants as fsConstants, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import { SourceDocumentSchema } from "@/core/ingestion/types";
@@ -37,6 +37,14 @@ import {
   type WorkspaceFileRole,
   codeMapCard,
   codeMapFromCsv,
+  entryLabel,
+  formatHandoffIndex,
+  formatHandoffIngredients,
+  formatHandoffRefusal,
+  formatHandoffScreen,
+  handoffSheet,
+  screenSlug,
+  mergeCodeMap,
   codeMapRows,
   codeMapTemplate,
   formatCodeMapReport,
@@ -70,6 +78,7 @@ import {
   readPlaceholders,
   readRecipeOverlay,
   readSock,
+  readApprovedDecisions,
   readWorkspace,
   rebuildIndex,
   resolveGraph,
@@ -149,7 +158,8 @@ function usage(): void {
       "      Same pack flags as recommend. Wrong-cousin drift: resolve cousins.",
       "  resolve code-map [--json | --retired]   Report on .resolve/code-map.json: Figma component -> code component",
       "  resolve code-map --init [--out <file.csv>] [--force]   Write a CSV with one row per component, to fill in a spreadsheet",
-      "  resolve code-map --import <file.csv> [--dry-run] [--force]   Turn the filled CSV into code-map.json (same checks as the loader)",
+      "  resolve code-map --import <file.csv> [--dry-run] [--force | --replace]   Turn the filled CSV into code-map.json (same checks as the loader)",
+      "      --force keeps (and lists) existing entries the CSV has no row for; --replace drops them (and lists them). Extra columns are ignored.",
       "      Counts mapped / retired / unmapped / ambiguous / conflict / stale / ignored. Keyed by file key + id; a name works only when unique.",
       "      status retired keeps a part mapped but never recommends it. --retired lists every retired part with its code and replacement. No map: one-line hint.",
       "  resolve ingredients \"<component>\" [--variant \"<Prop=Value, ...>\"] [--depth 1-3] [--json] [--id <graphId>]",
@@ -159,6 +169,11 @@ function usage(): void {
       "      Each part shows its code component from .resolve/code-map.json, or 'no code link yet'. Never guessed.",
       "      A part known only from a layer name is labelled as a guess. Retired parts show their code and their replacement. Exact name or id only.",
       "  resolve ingredients --all [--json]   Library-wide counts: composites, parts inside them, and how many link to code.",
+      `  resolve handoff "<frame>" ["<frame>" ...] [--draft] [--json] [--out <dir>] [--recipe <id>] [--depth 1-3] [--force] ${PACK_BIND_FLAGS}`,
+      "      Developer handoff sheet for a designed screen: recipe slots, each placed component with its Figma id and code (React or Angular),",
+      "      the parts inside it, suggested inputs from Figma variant properties, verify result, approved decisions, open questions.",
+      "      Refuses when a retired component is on the screen (always) or a component is only a layer-name guess (unless --draft).",
+      "      --out writes handoff.md, screen-<name>.md, ingredients.md and handoff.json. Never guesses code: unmapped says unmapped.",
       "  resolve rules                  List human-authored bind rules",
       "  resolve soci                   List pending SOCI proposals (never auto-applied)",
       "  resolve approve <proposal-id> --who <name>   Approve: bind-rules, recipe overlay, or a recorded decision",
@@ -374,6 +389,16 @@ function bindFromFlags(args: string[]) {
     domain: flag(args, "domain"),
     packsFile: flag(args, "packs"),
   });
+}
+
+/** Entries of the code map on disk, as written (good or bad). A file that is not a map gives none. */
+function existingEntries(path: string): unknown[] {
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, "").trim() || "{}") as { entries?: unknown };
+    return Array.isArray(raw.entries) ? raw.entries : [];
+  } catch {
+    return [];
+  }
 }
 
 function printJson(value: unknown): void {
@@ -639,9 +664,19 @@ export async function runCli(argv: string[]): Promise<void> {
     case "code-map": {
       const mapPath = overlayFile("code-map.json") ?? join(storeRoot(), "code-map.json");
       const force = args.includes("--force");
+      const replace = args.includes("--replace");
+      for (let i = 0; i < args.length; i += 1) {
+        const arg = args[i]!;
+        if (["--out", "--import", "--id"].includes(arg)) i += 1;
+        else if (arg.startsWith("--") && !["--json", "--retired", "--init", "--force", "--dry-run", "--replace"].includes(arg)) {
+          throw new Error(`Unknown code-map option "${arg}". Use --init [--out <file.csv>] [--force], --import <file.csv> [--dry-run] [--force | --replace], --json or --retired.`);
+        }
+      }
+      if (args.includes("--init") && args.includes("--import")) throw new Error("Use either --init or --import, not both.");
       if (args.includes("--init")) {
-        const out = flag(args, "out") ?? join(dirname(mapPath), "code-map.csv");
-        if (out.startsWith("--")) throw new Error("--out needs a file name, for example --out code-map.csv");
+        const given = flag(args, "out");
+        if (args.includes("--out") && (!given || given.startsWith("--"))) throw new Error("--out needs a file name, for example --out code-map.csv");
+        const out = given ?? join(dirname(mapPath), "code-map.csv");
         if (existsSync(out) && !force) throw new Error(`${out} already exists. Add --force to replace it.`);
         const rows = codeMapRows(requireGraph(args).index);
         writeFileSync(out, codeMapTemplate(rows));
@@ -653,34 +688,162 @@ export async function runCli(argv: string[]): Promise<void> {
       }
       if (args.includes("--import")) {
         const file = flag(args, "import");
-        if (!file || file.startsWith("--")) throw new Error("Usage: resolve code-map --import <file.csv> [--dry-run] [--force]");
+        if (!file || file.startsWith("--")) throw new Error("Usage: resolve code-map --import <file.csv> [--dry-run] [--force | --replace]");
+        if (args.includes("--json")) throw new Error("--json is not used with --import. Use --dry-run to see the JSON that would be written.");
+        if (force && replace) throw new Error("Use either --force (keep entries the CSV has no row for) or --replace (drop them), not both.");
         if (!existsSync(file)) throw new Error(`No such file: ${file}`);
         const result = codeMapFromCsv(readFileSync(file, "utf8"));
+        const ignoredCols = result.ignoredColumns.length
+          ? `Ignored column${result.ignoredColumns.length > 1 ? "s" : ""} Resolve does not use: ${result.ignoredColumns.join(", ")}.\n`
+          : "";
         if (result.errors.length) {
-          process.stdout.write(`Nothing written. Fix these rows in ${file}:\n${result.errors.slice(0, 20).map((e) => `  ${e}`).join("\n")}${result.errors.length > 20 ? `\n  +${result.errors.length - 20} more` : ""}\n`);
+          const fileLevel = result.errors.every((e) => !e.startsWith("row "));
+          process.stdout.write(`${ignoredCols}Nothing written. Fix ${fileLevel ? "this" : "these rows"} in ${file}:\n${result.errors.slice(0, 20).map((e) => `  ${e}`).join("\n")}${result.errors.length > 20 ? `\n  +${result.errors.length - 20} more` : ""}\n`);
           process.exitCode = 1;
           return;
         }
         if (!result.entries.length) {
-          process.stdout.write(`Nothing written: no filled-in rows in ${file} (${result.skipped} empty).\n`);
+          process.stdout.write(`${ignoredCols}Nothing written: no filled-in rows in ${file} (${result.skipped} empty).\n`);
           process.exitCode = 1;
           return;
         }
-        const json = `${JSON.stringify({ entries: result.entries }, null, 2)}\n`;
+        const exists = existsSync(mapPath);
+        if (exists && !force && !replace && !args.includes("--dry-run")) {
+          throw new Error(`${mapPath} already exists. Add --force to update it (entries the CSV has no row for are kept), --replace to write only the CSV's entries, or --dry-run to see the result.`);
+        }
+        const old = exists ? existingEntries(mapPath) : [];
+        const merged = mergeCodeMap(old, result, replace);
+        const json = `${JSON.stringify({ entries: merged.entries }, null, 2)}\n`;
+        const list = (items: unknown[]) => items.slice(0, 12).map((e) => `  ${entryLabel(e)}`).join("\n") + (items.length > 12 ? `\n  +${items.length - 12} more` : "");
+        const notes = [
+          merged.untouched.length
+            ? `${replace ? "Dropped" : "Kept"} ${merged.untouched.length} existing entr${merged.untouched.length === 1 ? "y" : "ies"} the CSV has no row for${replace ? " (--replace)" : " (use --replace to drop them)"}:\n${list(merged.untouched)}\n`
+            : "",
+          merged.cleared.length
+            ? `Removed ${merged.cleared.length} entr${merged.cleared.length === 1 ? "y" : "ies"} whose row was left empty:\n${list(merged.cleared)}\n`
+            : "",
+          merged.replaced.length
+            ? `Replaced ${merged.replaced.length} existing entr${merged.replaced.length === 1 ? "y" : "ies"} with the CSV row for the same component:\n${list(merged.replaced)}\n`
+            : "",
+        ].join("");
         if (args.includes("--dry-run")) {
           process.stdout.write(json);
+          if (ignoredCols || notes) process.stderr.write(`${ignoredCols}${notes}`);
           return;
         }
-        if (existsSync(mapPath) && !force) throw new Error(`${mapPath} already exists. Add --force to replace it, or --dry-run to see the result.`);
+        const index = requireGraph(args).index;
+        mkdirSync(dirname(mapPath), { recursive: true });
         writeFileSync(mapPath, json);
-        process.stdout.write(`Wrote ${mapPath}: ${result.entries.length} entries (${result.skipped} empty rows skipped).\n`);
-        const report = codeMapCard(() => requireGraph(args).index);
+        process.stdout.write(
+          `${ignoredCols}Wrote ${mapPath}: ${merged.entries.length} entries (${result.entries.length} from the CSV, ${result.skipped} empty rows skipped).\n${notes}`,
+        );
+        const report = codeMapCard(() => index);
         process.stdout.write(`${formatCodeMapReport(report)}\n`);
         return;
       }
       const report = codeMapCard(() => requireGraph(args).index);
       if (args.includes("--json")) printJson(report);
       else process.stdout.write(`${formatCodeMapReport(report, args.includes("--retired"))}\n`);
+      return;
+    }
+
+    case "handoff": {
+      const VALUE_FLAGS = ["--out", "--recipe", "--depth", "--rules", "--pack", "--product", "--journey", "--domain", "--packs", "--id"];
+      const frames: string[] = [];
+      for (let i = 0; i < args.length; i += 1) {
+        const arg = args[i]!;
+        if (arg === "--json" || arg === "--draft" || arg === "--force") continue;
+        if (VALUE_FLAGS.includes(arg)) {
+          const value = args[i + 1];
+          if (value === undefined || value.startsWith("--")) throw new Error(`${arg} needs a value.`);
+          i += 1;
+          continue;
+        }
+        if (arg.startsWith("--")) throw new Error(`Unknown handoff option "${arg}". Use --draft, --json, --out, --recipe, --depth, --force, --rules or ${PACK_BIND_FLAGS}.`);
+        frames.push(arg);
+      }
+      if (!frames.length) {
+        throw new Error('Usage: resolve handoff "<frame>" ["<frame>" ...] [--draft] [--json] [--out <dir>] [--recipe <id>] [--depth 1-3]');
+      }
+      const rawDepth = flag(args, "depth");
+      const depth = rawDepth === undefined ? 3 : Number(rawDepth);
+      if (!Number.isInteger(depth) || depth < 1 || depth > 3) throw new Error("--depth must be 1, 2 or 3.");
+      const bind = bindFromFlags(args);
+      const pack = packForRecommend(bind);
+      const index = requireGraph(args).index;
+      const result = handoffSheet(index, frames, {
+        draft: args.includes("--draft"),
+        recipe: flag(args, "recipe"),
+        recipes: loadRecipes(),
+        ...(pack ? { context: pack } : {}),
+        bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
+        sock: readSock(),
+        workspace: bind.workspace ?? readWorkspace(),
+        placeholders: readPlaceholders(),
+        rules: readLibraryRules(flag(args, "rules")),
+        decisions: readApprovedDecisions(),
+        depth,
+      });
+      const json = args.includes("--json");
+      if (!result.ok) {
+        if (json) printJson(result);
+        else process.stdout.write(`${formatHandoffRefusal(result)}\n`);
+        process.exitCode = 1;
+        return;
+      }
+      const out = flag(args, "out");
+      if (out) {
+        const target = resolve(out);
+        const force = args.includes("--force");
+        if (existsSync(target) && !statSync(target).isDirectory()) throw new Error(`${target} is a file, not a folder. Pass a folder for --out.`);
+        // Our files only: handoff.md, handoff.json, ingredients.md and screen-*.md. Anything else in the folder is left alone.
+        const ours = (f: string) => ["handoff.md", "handoff.json", "ingredients.md"].includes(f) || /^screen-.+\.md$/.test(f);
+        const existing = existsSync(target) ? readdirSync(target).filter(ours) : [];
+        if (existing.length && !force) {
+          throw new Error(`${target} already has handoff files (${existing.slice(0, 3).join(", ")}${existing.length > 3 ? ", …" : ""}). Add --force to replace them.`);
+        }
+        const used = new Set<string>();
+        const files = result.screens.map((sheet) => {
+          let name = `screen-${screenSlug(sheet.screen.name)}`;
+          for (let n = 2; used.has(name); n += 1) name = `screen-${screenSlug(sheet.screen.name)}-${n}`;
+          used.add(name);
+          return `${name}.md`;
+        });
+        const stale = existing.filter((f) => f.startsWith("screen-") && !files.includes(f));
+        try {
+          mkdirSync(target, { recursive: true });
+          accessSync(target, fsConstants.W_OK);
+          result.screens.forEach((sheet, n) => writeFileSync(join(target, files[n]!), formatHandoffScreen(sheet, result.draft)));
+          writeFileSync(join(target, "ingredients.md"), formatHandoffIngredients(result));
+          writeFileSync(join(target, "handoff.json"), `${JSON.stringify(result, null, 2)}\n`);
+          writeFileSync(join(target, "handoff.md"), formatHandoffIndex(result, files));
+          for (const f of stale) rmSync(join(target, f), { force: true });
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          const why =
+            code === "EACCES" || code === "EPERM"
+              ? "no permission to write there"
+              : code === "EEXIST" || code === "ENOTDIR"
+                ? "part of that path is a file, not a folder"
+                : code === "EROFS"
+                  ? "the file system is read-only"
+                  : code === "ENOSPC"
+                    ? "the disk is full"
+                    : String((error as Error).message ?? error).split("\n")[0];
+          throw new Error(`Cannot write the handoff files to ${target}: ${why}. Pass another --out folder.`);
+        }
+        process.stdout.write(
+          `Wrote ${target}: handoff.md, ${files.join(", ")}, ingredients.md, handoff.json${result.draft ? " (DRAFT, not for build)" : ""}.\n${stale.length ? `Removed ${stale.length} older screen file${stale.length === 1 ? "" : "s"} from an earlier handoff there: ${stale.join(", ")}.\n` : ""}`,
+        );
+        return;
+      }
+      if (json) {
+        printJson(result);
+        return;
+      }
+      const sheets = result.screens.map((sheet) => formatHandoffScreen(sheet, result.draft));
+      process.stdout.write(sheets.join("\n---\n\n"));
+      if (result.screens.length > 1) process.stdout.write(`\n---\n\n${formatHandoffIngredients(result)}`);
       return;
     }
 

@@ -66,10 +66,11 @@ describe("Angular fields in the code map", () => {
     put(angularMap);
     const report = codeMapCard(() => acme());
     expect(report.counts).toMatchObject({ masters: 6, mapped: 3, retired: 1, unmapped: 2, ignored: 0, conflict: 0 });
-    expect(report.angular).toEqual({ mapped: 4, standalone: 2, module: 2, inputsOrOutputs: 3 });
+    expect(report.angular).toEqual({ mapped: 4, standalone: 2, module: 2, inputsOrOutputs: 3, retired: 1 });
+    expect(report).not.toHaveProperty("angularIgnored");
     const text = formatCodeMapReport(report);
-    expect(text).toContain("Angular: 4 mapped components have a selector (2 standalone, 2 with a module, 3 list inputs or outputs).");
-    expect(text).toContain("Retired: Old Button [ACMEUI 30:50] -> use Button (code: AcmeOldButtonComponent from '@acme/ui-angular-legacy', <acme-old-button>, AcmeLegacyModule)");
+    expect(text).toContain("Angular: 4 components have a selector (incl. 1 retired): 2 standalone, 2 with a module, 3 list inputs or outputs.");
+    expect(text).toContain("Retired: Old Button [ACMEUI 30:50] -> use Button (old code: AcmeOldButtonComponent from '@acme/ui-angular-legacy', <acme-old-button>, AcmeLegacyModule)");
     expect(report.retired[0]?.angular).toMatchObject({ selector: "acme-old-button", module: "AcmeLegacyModule" });
   });
 
@@ -86,34 +87,66 @@ describe("Angular fields in the code map", () => {
     expect(recommendMasters(acme(), "primary button")).not.toHaveProperty("angular");
   });
 
-  it("bad Angular values are refused with a reason, never changed", () => {
+  it("bad Angular values are dropped with a reason, never changed; the entry keeps its code line", () => {
     const ng = (extra: object) => ({
       fileKey: "ACMEUI",
       id: "30:10",
       code: { import: "import { AcmeButtonComponent } from '@acme/ui-angular'", component: "AcmeButtonComponent", ...extra },
     });
+    const SELECTOR = "selector must look like acme-button, [acmeTooltip] or button[mat-button], a[mat-button]";
     const cases: [object, string][] = [
       [{ framework: "vue" }, "framework must be angular or react"],
       [{ framework: "angular" }, "an angular entry needs a selector"],
       [{ framework: "react", selector: "acme-button" }, "'selector' is an Angular field; set framework to angular"],
       [{ module: "AcmeButtonModule" }, "'module' needs an Angular selector"],
-      [{ selector: "AcmeButton" }, "selector must look like acme-button or [acmeTooltip]"],
-      [{ selector: "acme" }, "selector must look like acme-button or [acmeTooltip]"],
-      [{ selector: "<acme-button>" }, "selector must look like acme-button or [acmeTooltip]"],
+      [{ selector: "AcmeButton" }, SELECTOR],
+      [{ selector: "acme" }, SELECTOR],
+      [{ selector: "<acme-button>" }, SELECTOR],
+      [{ selector: "acme-button,," }, SELECTOR],
+      [{ selector: "acme-button > span" }, SELECTOR],
       [{ selector: "acme-button", module: "Acme.Module" }, "module must be a plain name like AcmeButtonModule"],
       [{ selector: "acme-button", standalone: "yes" }, "standalone must be true or false"],
       [{ selector: "acme-button", module: "AcmeButtonModule", standalone: true }, "use module or standalone: true, not both"],
-      [{ selector: "acme-button", inputs: "variant" }, "inputs must be a list of plain names like variant"],
-      [{ selector: "acme-button", outputs: ["on click"] }, "outputs must be a list of plain names like pressed"],
-      [{ selector: "acme-button", props: ["x"] }, "unsupported field 'code.props'"],
+      [{ selector: "acme-button", inputs: "variant" }, "inputs must be a list of names like variant or label: ariaLabel"],
+      [{ selector: "acme-button", outputs: ["on click"] }, "outputs must be a list of names like pressed"],
     ];
-    put({ entries: cases.map(([extra]) => ng(extra)) });
+    put({ entries: [...cases.map(([extra]) => ng(extra)), ng({ selector: "acme-button", props: ["x"] })] });
     const report = codeMapCard(() => acme());
-    expect(report.ignored.map((i) => i.reason)).toEqual(cases.map(([, why]) => why));
-    // Attribute and element+attribute selectors are fine.
-    put({ entries: [ng({ selector: "[acmeTooltip]" }), { ...ng({ selector: "button[acme-button]" }), id: "30:20" }] });
-    expect(codeMapCard(() => acme()).counts).toMatchObject({ mapped: 2, ignored: 0 });
+    // Only a non-Angular problem drops the whole entry.
+    expect(report.ignored).toEqual([{ entry: cases.length + 1, reason: "unsupported field 'code.props'" }]);
+    expect(report.angularIgnored?.map((i) => i.reason)).toEqual(cases.map(([, why]) => why));
+    expect(report.angularIgnored?.[0]).toEqual({ entry: 1, name: "Button", fileKey: "ACMEUI", id: "30:10", reason: "framework must be angular or react" });
+    expect(report.counts).toMatchObject({ mapped: 1, conflict: 0 });
+    expect(report).not.toHaveProperty("angular");
+    const text = formatCodeMapReport(report);
+    expect(text).toContain("Angular fields ignored (code line still used): entry 1 Button [ACMEUI 30:10] - framework must be angular or react;");
+    // The code line still shows wherever code links appear.
+    expect(componentUsageCard(acme(), "Button")).toMatchObject({ code: "AcmeButtonComponent from '@acme/ui-angular'" });
+  });
+
+  it("real Angular selector forms and input aliases are accepted and kept as written", () => {
+    const ng = (id: string, extra: object) => ({
+      fileKey: "ACMEUI",
+      id,
+      code: { import: "import { X } from '@acme/ui-angular'", component: "X", framework: "angular", ...extra },
+    });
+    put({
+      entries: [
+        ng("30:10", { selector: "button[mat-button],a[mat-button]", inputs: ["label: ariaLabel", "label:ariaLabel", "size"], outputs: ["pressed"] }),
+        ng("30:20", { selector: '[type="submit"]' }),
+        ng("30:30", { selector: ".acme-card" }),
+        ng("30:40", { selector: "input[acmeField]:not([readonly])" }),
+        ng("30:60", { selector: "[acmeTooltip], acme-tip[mode='dark']" }),
+      ],
+    });
+    const report = codeMapCard(() => acme());
+    expect(report).not.toHaveProperty("angularIgnored");
+    expect(report.counts).toMatchObject({ mapped: 5, ignored: 0 });
+    expect(componentUsageCard(acme(), "Button")).toMatchObject({
+      angular: { selector: "button[mat-button], a[mat-button]", inputs: ["label: ariaLabel", "size"], outputs: ["pressed"] },
+    });
     expect(angularText({ selector: "[acmeTooltip]", importPath: "x" })).toBe("[acmeTooltip]");
+    expect(angularText({ selector: "button[mat-button], a[mat-button]", importPath: "x" })).toBe("button[mat-button], a[mat-button]");
   });
 
   it("a React and an Angular entry for one component is a conflict that says why", () => {
@@ -170,7 +203,7 @@ describe("Angular fields in the code map", () => {
     expect(rec).toMatchObject({ code: "AcmeButtonComponent from '@acme/ui-angular'", angular: "<acme-button>, AcmeButtonModule" });
     expect(rec.cost.chars).toBeLessThanOrEqual(600);
     const verify = verifyFrame(acme(), { components: ["Old Button"] }) as { retired?: string[] };
-    expect(verify.retired).toEqual(["retired Old Button -> use Button (code: AcmeOldButtonComponent from '@acme/ui-angular-legacy', <acme-old-button>, AcmeLegacyModule)"]);
+    expect(verify.retired).toEqual(["retired Old Button -> use Button (old code: AcmeOldButtonComponent from '@acme/ui-angular-legacy', <acme-old-button>, AcmeLegacyModule)"]);
   });
 
   it("CSV: the template lists every component, filled where the map knows it; the Acme CSV imports to the Acme JSON", () => {
@@ -183,6 +216,8 @@ describe("Angular fields in the code map", () => {
     const imported = codeMapFromCsv(readFileSync(CSV, "utf8"));
     expect(imported).toMatchObject({ skipped: 2, errors: [] });
     expect({ entries: imported.entries }).toEqual(angularMap);
+    // Same key order as the example file too (status and replacedBy before code).
+    expect(JSON.stringify({ entries: imported.entries })).toBe(JSON.stringify(angularMap));
   });
 
   it("CSV: bad rows are reported by row number; quoted cells and React rows work", () => {
@@ -191,13 +226,23 @@ describe("Angular fields in the code map", () => {
       [head, "ACMEUI,30:10,Button,AcmeButtonComponent,@acme/ui-angular,angular,AcmeButton,,,,,,", "ACMEUI,30:20,Text field,AcmeTextField,,,,,,,,,", "ACMEUI,30:30,Payee picker,P,@acme/x,,,,maybe,,,,"].join("\n"),
     );
     expect(bad.errors).toEqual([
-      "row 2: selector must look like acme-button or [acmeTooltip]",
+      "row 2: selector must look like acme-button, [acmeTooltip] or button[mat-button], a[mat-button]",
       "row 3: needs both component and importPath",
       "row 4: standalone must be true or false",
     ]);
+    // Row numbers are spreadsheet rows: blank and all-comma rows still count.
+    const gappy = codeMapFromCsv([head, "", ",,,,,,,,,,,,", "ACMEUI,30:10,Button,AcmeButtonComponent,not a path,,,,,,,,"].join("\n"));
+    expect(gappy.errors).toEqual(["row 4: importPath must be a package path like @acme/ui"]);
+    // Columns Resolve does not use (notes, owner) are ignored, never refused.
+    const notes = codeMapFromCsv("fileKey,id,component,importPath,notes,owner\nACMEUI,30:10,Button,@acme/ui,\"keep, please\",Ana\n");
+    expect(notes).toMatchObject({ errors: [], ignoredColumns: ["notes", "owner"] });
+    expect(notes.entries).toEqual([{ fileKey: "ACMEUI", id: "30:10", code: { import: "import { Button } from '@acme/ui'", component: "Button" } }]);
     expect(codeMapFromCsv("fileKey,id,colour\nA,1,red").errors).toEqual([
-      "unknown column 'colour'; columns are fileKey, id, name, component, importPath, framework, selector, module, standalone, inputs, outputs, status, replacedBy",
+      "missing column 'component'; columns are fileKey, id, name, component, importPath, framework, selector, module, standalone, inputs, outputs, status, replacedBy",
     ]);
+    // Aliases survive the CSV's space-or-comma list.
+    const alias = codeMapFromCsv(`${head}\nACMEUI,30:20,Text field,T,@acme/ui-angular,angular,acme-text-field,,true,"label: ariaLabel value",,,\n`);
+    expect(alias.entries[0]).toMatchObject({ code: { inputs: ["label: ariaLabel", "value"] } });
     const ok = codeMapFromCsv(`${head}\r\nACMEUI,30:10,Button,Button,@acme/ui,,,,,,,,\r\nACMEUI,30:20,Text field,AcmeTextFieldComponent,@acme/ui-angular,angular,acme-text-field,,true,"label, value",,,\r\n`);
     expect(ok.errors).toEqual([]);
     expect(ok.entries[0]).toEqual({ fileKey: "ACMEUI", id: "30:10", code: { import: "import { Button } from '@acme/ui'", component: "Button" } });
@@ -249,8 +294,8 @@ describe("code-map --init / --import and MCP size guard", () => {
     expect(JSON.parse(dry)).toEqual(angularMap);
     expect(existsSync(join(home, "code-map.json"))).toBe(false);
     const wrote = await cli(["code-map", "--import", CSV]);
-    expect(wrote).toContain("4 entries (2 empty rows skipped)");
-    expect(wrote).toContain("Angular: 4 mapped components have a selector");
+    expect(wrote).toContain("4 entries (4 from the CSV, 2 empty rows skipped)");
+    expect(wrote).toContain("Angular: 4 components have a selector (incl. 1 retired)");
     await expect(cli(["code-map", "--import", CSV])).rejects.toThrow("already exists. Add --force");
     const bad = join(home, "bad.csv");
     writeFileSync(bad, "fileKey,id,component,importPath,selector\nACMEUI,30:10,AcmeButtonComponent,@acme/ui-angular,Bad\n");
@@ -258,6 +303,93 @@ describe("code-map --init / --import and MCP size guard", () => {
     expect(process.exitCode).toBe(1);
     expect(JSON.parse(readFileSync(join(home, "code-map.json"), "utf8"))).toEqual(angularMap);
     await expect(cli(["code-map", "--import"])).rejects.toThrow("Usage: resolve code-map --import");
+    await expect(cli(["code-map", "--init", "--import", CSV])).rejects.toThrow("Use either --init or --import");
+    await expect(cli(["code-map", "--import", CSV, "--json"])).rejects.toThrow("--json is not used with --import");
+    await expect(cli(["code-map", "--init", "--out"])).rejects.toThrow("--out needs a file name");
+  });
+
+  it("--import --force keeps and lists entries the CSV has no row for; --replace drops and lists them; an emptied row removes its entry", async () => {
+    const other = { fileKey: "OTHERLIB", id: "1:1", code: { import: "import { Chip } from '@other/ui'", component: "Chip" } };
+    const stale = { name: "Gone", code: { import: "import { Gone } from '@acme/ui'", component: "Gone" } };
+    const avatar = { fileKey: "ACMEUI", id: "30:40", code: { import: "import { Avatar } from '@acme/ui'", component: "Avatar" } };
+    writeFileSync(join(home, "code-map.json"), JSON.stringify({ entries: [other, stale, avatar] }));
+    const csv = join(home, "partial.csv");
+    // Button filled, Avatar row left empty, nothing for OTHERLIB or Gone.
+    writeFileSync(csv, "fileKey,id,name,component,importPath\nACMEUI,30:10,Button,Button,@acme/ui\nACMEUI,30:40,Avatar,,\n");
+    const kept = await cli(["code-map", "--import", csv, "--force"]);
+    expect(kept).toContain("Wrote");
+    expect(kept).toContain("3 entries (1 from the CSV, 1 empty rows skipped)");
+    expect(kept).toContain("Kept 2 existing entries the CSV has no row for (use --replace to drop them):\n  OTHERLIB 1:1\n  Gone\n");
+    expect(kept).toContain("Removed 1 entry whose row was left empty:\n  ACMEUI 30:40\n");
+    const map = JSON.parse(readFileSync(join(home, "code-map.json"), "utf8")) as { entries: unknown[] };
+    expect(map.entries).toEqual([{ fileKey: "ACMEUI", id: "30:10", code: { import: "import { Button } from '@acme/ui'", component: "Button" } }, other, stale]);
+    const dropped = await cli(["code-map", "--import", csv, "--replace"]);
+    expect(dropped).toContain("Dropped 2 existing entries the CSV has no row for (--replace):\n  OTHERLIB 1:1\n  Gone\n");
+    expect((JSON.parse(readFileSync(join(home, "code-map.json"), "utf8")) as { entries: unknown[] }).entries).toHaveLength(1);
+    await expect(cli(["code-map", "--import", csv, "--force", "--replace"])).rejects.toThrow("Use either --force");
+    // A name-only entry and a row with that name are the same component: replaced, not kept twice.
+    writeFileSync(join(home, "code-map.json"), JSON.stringify({ entries: [{ name: "Button", code: { import: "import { Old } from '@acme/ui'", component: "Old" } }] }));
+    expect(await cli(["code-map", "--import", csv, "--force"])).not.toContain("Kept");
+  });
+
+  it("H1: a row never deletes another file's entry, or a stale id, that shares its name; every entry not written back is listed", async () => {
+    const btn = (component: string, from = "@acme/ui") => ({ import: `import { ${component} } from '${from}'`, component });
+    const otherId = { fileKey: "OTHERLIB", id: "5:5", name: "Button", code: btn("OtherButton", "@other/ui") };
+    const otherName = { fileKey: "OTHERLIB", name: "Button", code: btn("OtherButton2", "@other/ui") };
+    const staleId = { fileKey: "ACMEUI", id: "99:99", name: "Button", code: btn("StaleButton") };
+    const sameName = { fileKey: "ACMEUI", name: "Button", code: btn("NamedButton") };
+    writeFileSync(join(home, "code-map.json"), JSON.stringify({ entries: [otherId, otherName, staleId, sameName] }));
+    // Michigan's repro: --init then --import --force of the template with Button filled in.
+    const init = join(home, "init.csv");
+    await cli(["code-map", "--init", "--out", init, "--force"]);
+    // The template comes pre-filled from the name-only ACMEUI entry; the designer changes that row.
+    const filled = readFileSync(init, "utf8").replace(/^ACMEUI,30:10,Button,.*$/m, "ACMEUI,30:10,Button,AcmeButton,@acme/ui,,,,,,,,");
+    writeFileSync(init, filled);
+    const kept = await cli(["code-map", "--import", init, "--force"]);
+    expect(kept).toContain("Kept 3 existing entries the CSV has no row for (use --replace to drop them):\n  OTHERLIB 5:5 Button\n  OTHERLIB Button\n  ACMEUI 99:99 Button\n");
+    expect(kept).toContain("Replaced 1 existing entry with the CSV row for the same component:\n  ACMEUI Button\n");
+    const map = JSON.parse(readFileSync(join(home, "code-map.json"), "utf8")) as { entries: unknown[] };
+    expect(map.entries).toEqual([{ fileKey: "ACMEUI", id: "30:10", code: btn("AcmeButton") }, otherId, otherName, staleId]);
+    // --replace drops them, and says so.
+    writeFileSync(join(home, "code-map.json"), JSON.stringify({ entries: [otherId, otherName, staleId, sameName] }));
+    const dropped = await cli(["code-map", "--import", init, "--replace"]);
+    expect(dropped).toContain("Dropped 3 existing entries the CSV has no row for (--replace):\n  OTHERLIB 5:5 Button\n  OTHERLIB Button\n  ACMEUI 99:99 Button\n");
+    // Emptying the ACMEUI Button row removes only ACMEUI's own entries, never OTHERLIB's.
+    writeFileSync(join(home, "code-map.json"), JSON.stringify({ entries: [otherId, { fileKey: "ACMEUI", id: "30:10", code: btn("AcmeButton") }] }));
+    const emptied = join(home, "emptied.csv");
+    writeFileSync(emptied, "fileKey,id,name,component,importPath\nACMEUI,30:10,Button,,\nACMEUI,30:20,Avatar,AcmeAvatar,@acme/ui\n");
+    const removed = await cli(["code-map", "--import", emptied, "--force"]);
+    expect(removed).toContain("Removed 1 entry whose row was left empty:\n  ACMEUI 30:10\n");
+    expect(removed).toContain("Kept 1 existing entry the CSV has no row for (use --replace to drop them):\n  OTHERLIB 5:5 Button\n");
+    expect((JSON.parse(readFileSync(join(home, "code-map.json"), "utf8")) as { entries: unknown[] }).entries).toContainEqual(otherId);
+  });
+
+  it("CSV: duplicate header names and unnamed columns with values are refused; unknown code-map flags are one-line errors", async () => {
+    const dup = join(home, "dup.csv");
+    writeFileSync(dup, "fileKey,id,name,component,importPath,,component\nACMEUI,30:10,Button,B,@acme/ui,,C\n");
+    const out = await cli(["code-map", "--import", dup, "--dry-run"]);
+    expect(out).toContain("column 'component' appears more than once in the header (columns 4 and 7); keep one");
+    expect(process.exitCode).toBe(1);
+    process.exitCode = undefined;
+    const unnamed = join(home, "unnamed.csv");
+    writeFileSync(unnamed, "fileKey,id,component,importPath,\nACMEUI,30:10,B,@acme/ui,x\n");
+    expect(await cli(["code-map", "--import", unnamed, "--dry-run"])).toContain("column 5 holds values but has no header name");
+    process.exitCode = undefined;
+    // A trailing empty header cell with no values is harmless.
+    const trailing = join(home, "trailing.csv");
+    writeFileSync(trailing, "fileKey,id,component,importPath,\nACMEUI,30:10,B,@acme/ui,\n");
+    expect(JSON.parse(await cli(["code-map", "--import", trailing, "--dry-run"])).entries).toHaveLength(1);
+    await expect(cli(["code-map", "--init", "--bogus", "--out", join(home, "x.csv")])).rejects.toThrow('Unknown code-map option "--bogus"');
+    await expect(cli(["code-map", "--import", trailing, "--dry-run", "--bogus"])).rejects.toThrow('Unknown code-map option "--bogus"');
+    expect(existsSync(join(home, "x.csv"))).toBe(false);
+  });
+
+  it("--import with no learned library says so instead of a raw file error", async () => {
+    const empty = mkdtempSync(join(tmpdir(), "resolve-angular-none-"));
+    process.env["RESOLVE_HOME"] = join(empty, "nothing-here");
+    clearCache();
+    await expect(cli(["code-map", "--import", CSV])).rejects.toThrow(/ingest/i);
+    expect(existsSync(join(empty, "nothing-here", "code-map.json"))).toBe(false);
   });
 
   it("MCP get_ingredients cuts a big card (less deep first) and says so; the default surface stays at 7", () => {
@@ -270,7 +402,7 @@ describe("code-map --init / --import and MCP size guard", () => {
     const big = ingredientCard(acme(), "Payee picker", { depth: 2, maxChars: 300 });
     if (!big.found) throw new Error("not found");
     expect(big.cut).toMatchObject({ maxChars: 300, askedDepth: 2, depth: 1 });
-    expect(big.note).toContain("Cut to stay small: the full card is over 300 characters, so it shows only the parts directly inside (asked for 2). Ask a part by its name or id for its own card.");
+    expect(big.note).toContain("Cut to stay small: the full card is over 300 characters, so it shows only the parts directly inside (asked for 2) (still over the limit at its smallest). Ask a part by its name or id for its own card.");
     expect(big.parts.length).toBeGreaterThan(0);
     // Without maxChars (the CLI), nothing is cut.
     expect(found(ingredientCard(acme(), "Payee picker", { depth: 2 }))).not.toHaveProperty("cut");

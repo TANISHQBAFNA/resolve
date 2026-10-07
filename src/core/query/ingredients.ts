@@ -247,7 +247,7 @@ interface Walk {
  * A copy of a library part seen from another file is a stub with no insides. When the library itself is
  * learned, the same published component key finds the real part (exact key, one match only; never a name).
  */
-function realByKey(index: GraphIndex): (node: GraphNode) => GraphNode {
+export function realByKey(index: GraphIndex): (node: GraphNode) => GraphNode {
   let byKey: Map<string, GraphNode | null> | undefined;
   return (node) => {
     if (!node.isRemote) return node;
@@ -495,7 +495,8 @@ export function buildIngredientCard(index: GraphIndex, ask: string, hooks: Ingre
   const shown = [depth < asked ? `${depth === 1 ? "only the parts directly inside" : `${depth} levels`} (asked for ${asked})` : "", limit < fullLimit ? `at most ${limit} parts per level` : ""]
     .filter(Boolean)
     .join(", ");
-  const reason = `the full card is over ${max.toLocaleString("en-US")} characters, so it shows ${shown || "what fits"}. Ask a part by its name or id for its own card${depth > 1 ? `, or ask with depth ${depth}` : ""}.`;
+  const still = JSON.stringify(card).length > max;
+  const reason = `the full card is over ${max.toLocaleString("en-US")} characters, so it shows ${shown || "what fits"}${still ? " (still over the limit at its smallest)" : ""}. Ask a part by its name or id for its own card${depth > 1 ? `, or ask with depth ${depth}` : ""}.`;
   return {
     ...card,
     cut: { maxChars: max, depth, askedDepth: asked, ...(limit < fullLimit ? { partsPerLevel: limit } : {}), reason },
