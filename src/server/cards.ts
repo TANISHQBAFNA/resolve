@@ -26,11 +26,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function stripHintSentence(text: string): string {
-  return text
-    .replace(GRAPH_HINT, "")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/\s+([.,])/g, "$1")
-    .trim();
+  return text.replace(GRAPH_HINT, "").replace(/[ \t]{2,}/g, " ").trim();
 }
 
 function isCostBlock(value: unknown): boolean {

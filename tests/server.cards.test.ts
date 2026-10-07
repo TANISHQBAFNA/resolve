@@ -53,11 +53,7 @@ function fixedAcmeFile(): unknown {
  */
 function specStrip(value: unknown): unknown {
   if (typeof value === "string") {
-    return value
-      .replace(/ ?Do not Read (?:`\.resolve\/graph\.json`|graph\.json)\.?/g, "")
-      .replace(/[ \t]{2,}/g, " ")
-      .replace(/\s+([.,])/g, "$1")
-      .trim();
+    return value.replace(/ ?Do not Read (?:`\.resolve\/graph\.json`|graph\.json)\.?/g, "").replace(/[ \t]{2,}/g, " ").trim();
   }
   if (Array.isArray(value)) return value.map((item) => specStrip(item));
   if (!value || typeof value !== "object") return value;
@@ -154,7 +150,7 @@ describe("Acme markdown cards", () => {
     // Tokens are ceil(chars/4), the same count as cost.approxTokens, summed per card.
     // Before is today's JSON.stringify. Filler is that JSON with cost, score, duplicate
     // node: ids, the graph.json hint, and the repeated parts list removed. After is Markdown.
-    expect({ before, filler, after, cards: set.length }).toEqual({ before: 4434, filler: 3876, after: 3268, cards: 14 });
+    expect({ before, filler, after, cards: set.length }).toEqual({ before: 4434, filler: 3876, after: 3269, cards: 14 });
     const removed = before - after;
     const fromFiller = before - filler;
     expect(fromFiller).toBeGreaterThan(removed * 0.35);
@@ -254,6 +250,12 @@ describe("Acme markdown cards", () => {
     expect(markdown).toContain("other-library");
     expect(markdown).toContain("code: unknown");
     expect(markdown).not.toMatch(/Brand mark[\s\S]{0,80}unmapped/);
+  });
+
+  it("keeps a .resolve path when the graph hint shares the string", () => {
+    const text = "Add the shared DS to .resolve/workspace.json. Do not Read graph.json.";
+    expect(stripFiller(text)).toBe("Add the shared DS to .resolve/workspace.json.");
+    expect(presentToolResult({ hint: text }, "markdown")).toContain(".resolve/workspace.json");
   });
 
   it("drops learn save-state and the repeated graph hint in both formats", () => {
