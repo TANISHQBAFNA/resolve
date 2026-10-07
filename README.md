@@ -217,6 +217,17 @@ Then run `npm run resolve -- score phrases`. The first lines are plain English, 
 
 To test your own library, put a `.json` file of your phrases in the `scoreboard/phrases` folder inside your store (`resolve where` prints the store). You do not need to change the Resolve repo. When that folder has phrases, only your phrases are scored. The 118 built-in phrases are written for the sample library, so they only run on it; on your library with no phrases of your own yet, Resolve says so instead of giving a score. The file format is under [score](#score).
 
+Resolve also keeps a list of what designers really asked for that it could not answer well. Each time `recommend` finds nothing, or only a weak match, it adds the ask to `scoreboard/gaps.jsonl` in your store. This file stays on your machine and is not committed. Run `npm run resolve -- gaps` to see the list, most asked first. Say Acme designers asked for "date range picker" four times and nothing was found:
+
+```
+Designers asked for 1 thing(s) Resolve could not answer well (4 ask(s) in all). Most asked first.
+Each one needs a team word (synonyms.json), a recipe, or a part the design system does not have yet.
+
+4x "date range picker": nothing found (last 2026-10-07)
+```
+
+Each row tells you what to fix: a team word for a part Acme already has, a recipe, or a part the design system team should build.
+
 ## Questions designers ask
 
 **Does it change my Figma file?** No. Resolve only reads, and only when you ask it to learn a file. Your AI tool does the drawing.
@@ -666,6 +677,8 @@ Runs a set of asks with known right answers through `recommend`, `resolve`, `rec
 
 `npm run resolve -- score phrases [--phrases <path>] [--json]` scores designer-worded phrases against `recommend`. It reads the team's own `<store>/scoreboard/phrases/*.json` when there are any. Otherwise it reads the built-in `scoreboard/phrases/*.json` in the checkout, but only when the store holds the sample library (`scoreboard/fixture`); on any other library it stops and asks for team phrases. The two sets are never added together. `--phrases` reads only that path. `score phrase` and `score Phrases` work too; any other word after `score` is an error. Each phrase has an `id`, a `phrase`, a `type` and an `expect`: part names, `"none"`, or `"weak"` (empty, or a pick named in `accept`). It reports top-1, top-3, correct-empty, false-empty, wrong-cousin, retired-recommended and invent, per type. It exits non-zero on any invent or retired-recommended. A phrase naming a part the library lacks is skipped and listed, and a run where nothing could be scored fails. Details in [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md#designer-phrase-set).
 
+`npm run resolve -- gaps [--json]` lists what designers asked `recommend` for (MCP tool or CLI) that came back empty or as a weak match, from `<store>/scoreboard/gaps.jsonl`. The same ask, ignoring letter case and spacing, is one row with a count and the last date, most asked first. `score phrases`, `recipe` and `resolve` do not add to it. Writing the file never fails a `recommend`. The file is under `scoreboard/`, which the `resolve-setup` ignore block already keeps out of git. Delete it to start over.
+
 #### The seven MCP tools
 
 The same abilities are offered to AI tools as seven MCP tools: `learn_library`, `recommend`, `check_cousins`, `resolve`, `get_example`, `verify_frame` and `recipe`. They return the same cards as the command line. Two more tools, `get_ingredients` (see [ingredients](#ingredients)) and `get_handoff` (see [handoff](#handoff)), are off by default. The six [slash commands](#slash-commands) are also offered as MCP prompts (`prompts/list`, `prompts/get`); prompts are not tools and do not change the count.
@@ -873,6 +886,7 @@ The same 14 Acme cards (three recommends, three resolves, one example, two verif
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
+- **Oct 7, 2026 — finder gaps (branch `stage4-finder-gaps`).** New `resolve gaps` lists what designers asked `recommend` for that found nothing or only a weak match, most asked first, from a local, git-ignored `<store>/scoreboard/gaps.jsonl`. If Acme designers ask for "date range picker" twice, it shows `2x "date range picker": nothing found`. Ranking is unchanged. Default tools stay 7. 823 tests.
 - **Oct 7, 2026 — Markdown cards (branch `stage3-markdown-cards`, not yet merged).** MCP tools return a Markdown card. `format` `json` is the same card as compact JSON, without the `cost` block, rank `score`, duplicate `node:` ids, the graph.json hint, learn's save-state dump, or a handoff parts list sent twice. `fileKey`, `figmaNodeId`, `componentKey`, `ex`, PASS/FAIL, replacements, slot status, `textChecked`, name guesses, other-library, the context echo, and code-map check sentences stay. The CLI prints compact JSON; `--pretty` indents it. Exit codes are unchanged. On the Acme set (14 cards) tokens go from 4,434 to 3,269. Ranking is unchanged. Default tools stay 7. 818 tests.
 - **Oct 7, 2026 — component check and context-pack check (branch `stage2-resolve-checks`, stacks on #39 and #38, not yet merged).** `resolve code-map --check` answers from the committed handoff and code map only (no learned cache). It matches file key and node id. On the shipped Acme map, `AcmeOldButtonComponent` is retired (`Don't use. Use Button.`). A part from another library with no code twin is `other-library` (exit 6). `resolve pack validate` stays strict. Loading a pack skips a bad pack or field and warns once. Ranking is unchanged. Audience, a11y, and density are echoed and do not change the pick. 806 tests.
 - **Oct 7, 2026 — context-pack slot fill (branch `stage2-resolve-fixes`, merges after #38, not yet merged).** Linking a context pack to a recipe no longer leaves that recipe's slots empty in handoff or on the recipe card. On the Acme library, a payments pack that points at Confirm dialog still fills the button slots with Button. A slot that already stores a default master keeps that master. An extra intent is ranked with the slot words; the pack phrase stays out of that query. A product name that is itself a component name can outrank the slot words; the pack is not only a tie-break. Setup's `.gitignore` markers are `# resolve-setup:begin` and `# resolve-setup:end`. Between them, git ignores the learned cache and scoreboard run history, and leaves phrase sets (`scoreboard/phrases/`) and golden files (`scoreboard/golden/`) committable, along with recipes, context packs, the code map, decisions, bind rules and synonyms. Resolve's ticket add-on for AIDLC, if your team uses it, uses `design-handoff`. It calls `/handoff`. Ranking of a plain recommend is unchanged. 769 tests.
