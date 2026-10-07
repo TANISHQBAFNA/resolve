@@ -342,8 +342,8 @@ Resolve needs to know *which pack goes with which screen job*. First match wins:
 1. **You name the pack** — `--pack storefront-checkout-summary` (or the same `pack` field in the AI tool).
 2. **The recipe names a pack** — `"contextPackId": "storefront-checkout-summary"` on the recipe. Prefer putting `recipeIds` on the pack instead, so one product/journey file owns the bind.
 3. **The pack lists the recipe** — `"recipeIds": ["checkout-summary"]`. This is the usual designer path.
-4. **You pass product / journey / domain** — `--product Storefront --journey summary --domain checkout` (or the same fields in the AI tool). Resolve picks the best matching pack.
-5. **The file’s `active` pack** — used when it lists this recipe, or when it lists none.
+4. **You pass product / journey / domain** — `--product Storefront --journey summary --domain checkout` (or the same fields in the AI tool), plus optional `--audience` and `--a11y`. Resolve uses a pack only when the product matches exactly. When a journey is passed, the journey must match exactly too. A shared word is not a match. Audience, a11y, and density are shown on the card and do not change the pick.
+5. **The file’s `active` pack** — used only when the document did not name a product, and the pack lists this recipe or lists none. The example file does not set `active`.
 
 Recommend uses the same pack (or the active pack, or the product / journey / domain flags) **on top of** its usual ranking: name, variants, where it is already used, live over stale, retired last.
 

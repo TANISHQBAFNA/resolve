@@ -6,6 +6,8 @@ Resolve is for AI tools (Cursor, Claude). Turn on Figma’s connector and Resolv
 
 Resolve works best when the Figma connection is active and there is a design system, library, or existing screens for it to learn from. If either is missing, the agent should tell you in plain words what is missing and how to add it. It should not invent a component.
 
+On a screen, the agent reads the requirements or FSD and may pass `product`, `journey`, `domain`, `audience`, and `a11y`. A context pack is optional and matches only an exact product, and an exact journey when the document gives one. Audience, a11y, and density are shown on the card and do not change the pick.
+
 Claude Code cuts each MCP server’s instructions at 2,048 characters. Resolve keeps that text under 1,500 so the “call Resolve first” trigger survives. The longer workflow is an MCP resource, `resolve://workflow`.
 
 Learning a library needs **one** of:
