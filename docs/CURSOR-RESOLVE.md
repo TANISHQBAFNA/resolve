@@ -100,4 +100,5 @@ Designers add screen packs in JSON — see [`docs/RECIPES.md`](RECIPES.md). Over
 
 - Skill: `skills/resolve/SKILL.md`
 - Always-on rule: `rules/resolve.mdc`
+- Slash commands: `commands/*.md` (installed to `.cursor/commands/` and `.claude/commands/` by `resolve-setup`)
 - Drop into `AGENTS.md`: copy from `AGENTS-RESOLVE-SECTION.md`

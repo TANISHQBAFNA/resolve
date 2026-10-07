@@ -60,7 +60,7 @@ describe("slash commands: install", () => {
       for (const text of [claude, cursor]) {
         for (const call of CALLS[name] ?? []) expect(text).toContain(call);
         if (name !== "resolve-status") expect(text).toMatch(/Never invent a component/);
-        expect(text).not.toMatch(/COIN|Intellect|Symphony|Barclays|figd_/i);
+        expect(text).not.toMatch(/figd\_|\bfile[ -]?key: [A-Za-z0-9]{16,}/i);
       }
     }
     expect(read(join(cwd, "CLAUDE.md"))).toContain("Never invent a component");

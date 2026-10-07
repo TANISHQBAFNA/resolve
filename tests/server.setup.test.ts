@@ -215,6 +215,7 @@ describe("resolve-setup", () => {
     mkdirSync(packDir, { recursive: true });
     cpSync(join(root, "bin"), join(packDir, "bin"), { recursive: true });
     cpSync(join(root, "rules"), join(packDir, "rules"), { recursive: true });
+    cpSync(join(root, "commands"), join(packDir, "commands"), { recursive: true });
     cpSync(join(root, "skills"), join(packDir, "skills"), { recursive: true });
     writeFileSync(
       join(packDir, "package.json"),
@@ -222,7 +223,7 @@ describe("resolve-setup", () => {
         name: "resolve-setup-fixture",
         version: "0.0.0",
         bin: { "resolve-setup": "./bin/resolve-setup.mjs" },
-        files: ["bin", "rules", "skills"],
+        files: ["bin", "rules", "skills", "commands"],
       }),
     );
     const packed = spawnSync("npm", ["pack", "--json"], { cwd: packDir, encoding: "utf8" });
@@ -243,6 +244,8 @@ describe("resolve-setup", () => {
     expect(existsSync(join(installDir, ".cursor/rules/resolve.mdc"))).toBe(true);
     expect(existsSync(join(installDir, ".claude/skills/resolve/SKILL.md"))).toBe(true);
     expect(readFileSync(join(installDir, "CLAUDE.md"), "utf8")).toContain("call Resolve before drawing");
+    expect(existsSync(join(installDir, ".claude/commands/handoff.md"))).toBe(true);
+    expect(existsSync(join(installDir, ".cursor/commands/find.md"))).toBe(true);
   }, 60_000);
 
   it("the published package includes the rule and the skill", () => {

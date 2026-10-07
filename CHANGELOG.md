@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — slash commands
+
+Oct 7, 2026 IST. `resolve-setup` installs `/design-system`, `/find`, `/check`, `/parts`, `/handoff` and `/resolve-status` as Claude Code commands (`.claude/commands/`) and Cursor commands (`.cursor/commands/`), plus the same six as MCP prompts. Resolve-owned files carry begin/end markers; a file you wrote is kept, and `resolve-setup --uninstall` removes only Resolve's own. New `resolve status`. A pasted Figma link with `node-id` works as a frame. Handoff: selector-pinned attributes no longer contradict a variant's suggested input, recipe slots are `placed` / `inside` / `missing` (one copy per slot), a not-found part inside a library component's definition refuses, and other-library or not-found parts are `code: "unknown"`. Ranking is unchanged.
+
 ## Unreleased — RESOLVE_HOME
 
 Oct 3, 2026 IST. `RESOLVE_HOME` is now the documented name of the store-folder setting. The old setting name and the old project store folder still work as fallbacks, and the new names win when both exist (see the upgrade note in the README). Nothing is moved or deleted. The old names are gone from commands, help text, cards and docs.

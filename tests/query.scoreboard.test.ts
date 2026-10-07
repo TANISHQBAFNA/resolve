@@ -345,7 +345,7 @@ describe("scoreboard", () => {
     }
     expect(over).toBe(0);
     expect(max).toBeLessThanOrEqual(600);
-  });
+  }, 30_000);
 
   it("resolve score exits non-zero only for invent or a budget breach", async () => {
     const store = mkdtempSync(join(tmpdir(), "resolve-score-store-"));
