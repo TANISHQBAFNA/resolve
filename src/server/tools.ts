@@ -70,6 +70,7 @@ import {
   loadGraph,
   readApprovedDecisions,
 } from "./store";
+import { recordGap } from "./gaps";
 
 /**
  * Optional MCP tools. Agents: recommend / recipe / resolve / verify_frame / check_frame.
@@ -931,7 +932,8 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const resolvedContext = pack || screenType
         ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
         : undefined;
-      return recommendMasters(index, asString(args["intent"] ?? args["question"] ?? args["query"], "intent"), {
+      const intent = asString(args["intent"] ?? args["question"] ?? args["query"], "intent");
+      const card = recommendMasters(index, intent, {
         budgetChars: budget,
         ...(resolvedContext ? { context: resolvedContext } : {}),
         workspace: bind.workspace,
@@ -939,6 +941,8 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
         placeholders: readPlaceholders(),
       });
+      recordGap(intent, card);
+      return card;
     }
 
     case "check_cousins": {

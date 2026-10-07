@@ -125,3 +125,14 @@ Measures, per type and overall: top-1 and top-3 (phrases that expect a part), co
 **Which set runs.** `--phrases <path>` runs only that path. Without it: if `<store>/scoreboard/phrases/` holds `.json` files, only those run (the team's own). If not, the shipped set runs, but only when every local component in the store comes from the sample library (file key `SCOREFIX`, `scoreboard/fixture/library.json`). On any other library the command stops with "No team phrases yet" rather than score the sample-library expectations against it. The shipped set and team phrases are never added into one total.
 
 **Your own phrases.** Put `.json` files (same shape, `{ "version": 1, "cases": [...] }`) in `<store>/scoreboard/phrases/`. A repeated id is an error. A file in the wrong shape is reported in one line naming the first problem. Nothing in the repo changes. These runs are not saved to the history that `resolve score` writes. Phrase sets (`<store>/scoreboard/phrases/`) and the golden file from `score --init` (`<store>/scoreboard/golden/`) are team files. Setup's gitignore block leaves them committable and ignores only scoreboard run history.
+
+## Finder gaps
+
+The phrase set is fixed. `resolve gaps` shows what designers really asked. Each `recommend` (MCP tool or CLI) that comes back empty or as a weak match adds one line to `<store>/scoreboard/gaps.jsonl`. `score phrases`, `recipe` and `resolve` do not add to it.
+
+```bash
+npm run resolve -- gaps          # most asked first
+npm run resolve -- gaps --json
+```
+
+The same ask and result (letter case and spacing ignored) is one row, with a count and the last date. Each row needs one of three things: a team word in `synonyms.json` for a part the library has, a recipe, or a part the design system does not have yet. A row that keeps coming back is worth adding to your phrase set, so the scoreboard checks it from then on. The file is run history, so setup's gitignore block keeps it out of git. Delete it to start over.

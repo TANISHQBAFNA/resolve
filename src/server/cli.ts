@@ -93,6 +93,7 @@ import {
   storeRoot,
   workspacePath,
 } from "./store";
+import { formatGaps, readGaps, recordGap } from "./gaps";
 import { learnLibrary } from "./learn";
 import { DESIGNER, designerFailure } from "./designerMessages";
 import { formatStatus, statusReport } from "./status";
@@ -223,6 +224,8 @@ function usage(): void {
       "      Uses your own <store>/scoreboard/phrases/*.json when there are any. Otherwise the built-in ./scoreboard/phrases,",
       "      but only on the sample library. Never mixes the two. --phrases <path> uses only that path.",
       "      Exits non-zero when a part is invented or a retired/private part is recommended.",
+      "  resolve gaps [--json]        What designers asked recommend for that found nothing or only a weak match, most asked first.",
+      "      Read from <store>/scoreboard/gaps.jsonl (local, git-ignored). Each row needs a team word, a recipe, or a new part.",
       "  resolve status [--json]      One short answer: learned files, when, version, Figma token, always-on rule, code map, and what to do next",
       "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
       "",
@@ -581,16 +584,23 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const context = pack || screenType
         ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
         : undefined;
-      printJson(
-        recommendMasters(requireGraph(args).index, intent, {
-          budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
-          ...(context ? { context } : {}),
-          workspace: bind.workspace,
-          sock: readSock(),
-          bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
-          placeholders: readPlaceholders(),
-        }),
-      );
+      const card = recommendMasters(requireGraph(args).index, intent, {
+        budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
+        ...(context ? { context } : {}),
+        workspace: bind.workspace,
+        sock: readSock(),
+        bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
+        placeholders: readPlaceholders(),
+      });
+      recordGap(intent, card);
+      printJson(card);
+      return;
+    }
+
+    case "gaps": {
+      const rows = readGaps();
+      if (args.includes("--json")) printJson(rows);
+      else process.stdout.write(`${formatGaps(rows)}\n`);
       return;
     }
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — finder gaps
+
+Oct 7, 2026 IST. New `resolve gaps [--json]` lists what designers asked `recommend` for (MCP tool or CLI) that came back empty or as a weak match, most asked first, with a count and the last date. Asks are kept in `<store>/scoreboard/gaps.jsonl`, which setup's gitignore block already keeps out of git. `score phrases`, `recipe` and `resolve` do not add to it, and a failed write never breaks `recommend`. Ranking is unchanged. Default MCP tools stay 7.
+
 ## Unreleased — Markdown cards
 
 Oct 7, 2026 IST. MCP tools return a Markdown card by default. `format: "json"` returns the same card as compact JSON. Both drop filler: the `cost` block, rank `score`, duplicate `node:` ids, the "Do not Read graph.json" hint, learn's save-state dump, and the handoff parts list sent twice. Cards keep `fileKey`, `figmaNodeId`, `componentKey`, the `ex` example id, a PASS/FAIL line, replacements for invented, deprecated and retired names, slot status with the next `recommend`, `textChecked`, name-guess and other-library flags, the context echo, and code-map statuses with their sentences and exit codes. A part from another library in the screen's parts card is `code: "unknown"`, `status: "other-library"`. The CLI prints compact JSON; `--pretty` indents it. Exit codes are unchanged. On the Acme set (14 cards) tokens go from 4,434 to 3,269. Ranking is unchanged. Default MCP tools stay 7.
