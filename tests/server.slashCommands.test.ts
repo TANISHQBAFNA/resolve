@@ -1,10 +1,13 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
+import { PassThrough } from "node:stream";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { getPrompt, listPrompts } from "@/server/commands";
+import { DESIGNER } from "@/server/designerMessages";
+import { attachMcpStdio } from "@/server/mcpSession";
 import { listToolDefinitions } from "@/server/tools";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -13,12 +16,12 @@ const BEGIN = "<!-- resolve-setup:begin -->";
 const NAMES = ["check", "design-system", "find", "handoff", "parts", "resolve-status"];
 /** What each command must tell the agent to call. */
 const CALLS: Record<string, string[]> = {
-  "design-system": ["learn_library", "get_metadata", "page by page", "50,000"],
-  find: ["recommend", "resolve"],
+  "design-system": ["learn_library", "get_metadata", "page by page", "50,000", "report.told"],
+  find: ["recommend", "resolve", "weak match"],
   check: ["verify_frame", "check_cousins", "node-id"],
-  parts: ["resolve-figma ingredients", "get_ingredients"],
-  handoff: ["resolve-figma handoff", "get_handoff", "node-id"],
-  "resolve-status": ["resolve-figma status"],
+  parts: ["what's on this screen and its code twin (or unmapped)", "resolve-figma handoff", "unmapped"],
+  handoff: ["developer build sheet", "resolve-figma handoff", "get_handoff", "node-id"],
+  "resolve-status": ["resolve-figma status", "version", "always-on rule"],
 };
 
 const temp = (name: string) => {
@@ -60,6 +63,10 @@ describe("slash commands: install", () => {
       for (const text of [claude, cursor]) {
         for (const call of CALLS[name] ?? []) expect(text).toContain(call);
         if (name !== "resolve-status") expect(text).toMatch(/Never invent a component/);
+        expect(text).toContain("Never show a stack trace");
+        for (const key of ["badLink", "token", "viewSeat", "nothingLearned", "notInstalled"] as const) {
+          expect(text).toContain(DESIGNER[key]);
+        }
         expect(text).not.toMatch(/figd\_|\bfile[ -]?key: [A-Za-z0-9]{16,}/i);
       }
     }
@@ -113,6 +120,26 @@ describe("slash commands: install", () => {
     expect(again.stdout).toContain("kept your own file");
     setup(["--force"], cwd, home);
     expect(read(join(cwd, ".claude/commands/find.md"))).toContain(BEGIN);
+  });
+
+  it("gitignore ignores only the learned cache and keeps a team's own lines", () => {
+    const cwd = temp("gitignore");
+    const home = temp("gitignore-home");
+    writeFileSync(join(cwd, ".gitignore"), ".resolve/\nnode_modules\n");
+    const first = setup([], cwd, home);
+    expect(first.status).toBe(0);
+    const git = read(join(cwd, ".gitignore"));
+    expect(git).toContain(".resolve/\n");
+    expect(git).toContain("node_modules");
+    expect(git).toContain(".resolve/graph.json");
+    expect(git).toContain(".resolve/files/");
+    expect(git).toContain("recipes.json");
+    expect(first.stdout).toContain("ignores the whole .resolve folder");
+    const before = read(join(cwd, ".gitignore"));
+    setup([], cwd, home);
+    expect(read(join(cwd, ".gitignore"))).toBe(before);
+    setup(["--uninstall"], cwd, home);
+    expect(read(join(cwd, ".gitignore"))).toBe(".resolve/\nnode_modules\n");
   });
 
   it("--global puts the Claude commands in ~/.claude/commands and writes no Cursor files", () => {
@@ -193,18 +220,29 @@ describe("slash commands: MCP prompts and status", () => {
     expect(listPrompts().find((p) => p.name === "resolve-status")!.arguments).toEqual([]);
   });
 
-  it("the stdio server answers prompts/list and prompts/get", () => {
-    const built = join(root, "dist-server", "mcp.mjs");
-    if (!existsSync(built)) return; // built by npm run build; checked there
+  it("the stdio server answers prompts/list and prompts/get without a prior build", async () => {
     const lines = [
       { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "0" } } },
       { jsonrpc: "2.0", id: 2, method: "prompts/list" },
       { jsonrpc: "2.0", id: 3, method: "prompts/get", params: { name: "check", arguments: { input: "https://www.figma.com/design/ACMEUI/Acme?node-id=20-40" } } },
     ];
-    const r = spawnSync(process.execPath, [built], { input: `${lines.map((l) => JSON.stringify(l)).join("\n")}\n`, encoding: "utf8", cwd: temp("stdio") });
-    const replies = r.stdout.split("\n").filter(Boolean).map((l) => JSON.parse(l) as { id: number; result: any });
-    expect(replies.find((m) => m.id === 1)!.result.capabilities.prompts).toEqual({ listChanged: false });
-    expect(replies.find((m) => m.id === 2)!.result.prompts.map((p: { name: string }) => p.name)).toEqual(NAMES);
-    expect(replies.find((m) => m.id === 3)!.result.messages[0].content.text).toContain("node-id=20-40");
+    const input = new PassThrough();
+    const replies: Array<{ id: number; result: { capabilities?: { prompts?: unknown }; prompts?: Array<{ name: string }>; messages?: Array<{ content: { text: string } }> } }> = [];
+    let done = () => {};
+    const closed = new Promise<void>((resolve) => {
+      done = resolve;
+    });
+    attachMcpStdio({
+      input,
+      write: (line) => {
+        replies.push(JSON.parse(line) as (typeof replies)[number]);
+      },
+      onClose: () => done(),
+    });
+    input.end(`${lines.map((line) => JSON.stringify(line)).join("\n")}\n`);
+    await closed;
+    expect(replies.find((message) => message.id === 1)!.result.capabilities!.prompts).toEqual({ listChanged: false });
+    expect(replies.find((message) => message.id === 2)!.result.prompts!.map((prompt) => prompt.name)).toEqual(NAMES);
+    expect(replies.find((message) => message.id === 3)!.result.messages![0]!.content.text).toContain("node-id=20-40");
   });
 });

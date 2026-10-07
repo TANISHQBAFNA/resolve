@@ -603,6 +603,10 @@ describe("handoff fixes after PR #37 UAT", () => {
     expect(status).toContain("Learned files:");
     expect(status).toContain("last learned 2026-01-01 00:00 UTC");
     expect(status).toContain("Code map: none yet");
+    expect(status).toMatch(/version /);
+    expect(status).toMatch(/Figma token: (missing|set)/);
+    expect(status).toMatch(/Always-on rule: (installed|not installed)/);
+    expect(status).toContain("Next:");
     expect(JSON.parse(await cli(["status", "--json"])).files).toHaveLength(1);
   });
 

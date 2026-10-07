@@ -103,26 +103,60 @@ function useEnding(text, ending) {
   return ending === "\n" ? text : text.replace(/\n/g, ending);
 }
 
-/** @returns {{ action: "create" | "update" | "unchanged" | "skip", text: string, note?: string }} */
-export function installClaude(current, block = CLAUDE_BLOCK) {
+/**
+ * @param {string | null} current
+ * @param {string} block
+ * @param {string} begin
+ * @param {string} end
+ * @param {string} label
+ * @returns {{ action: "create" | "update" | "unchanged" | "skip", text: string, note?: string }}
+ */
+export function installMarked(current, block, begin, end, label) {
   const ending = current != null && current.includes("\r\n") ? "\r\n" : "\n";
-  const owned = useEnding(`${BEGIN}\n${block.trim()}\n${END}`, ending);
+  const owned = useEnding(`${begin}\n${block.trim()}\n${end}`, ending);
   if (current == null || current.trim() === "") return { action: "create", text: `${owned}\n` };
-  const start = current.indexOf(BEGIN);
-  const end = current.indexOf(END);
-  if ((start === -1) !== (end === -1)) {
+  const start = current.indexOf(begin);
+  const finish = current.indexOf(end);
+  if ((start === -1) !== (finish === -1)) {
     return {
       action: "skip",
       text: current,
-      note: " (left CLAUDE.md; it has only one Resolve marker, so nothing was changed)",
+      note: ` (left ${label}; it has only one Resolve marker, so nothing was changed)`,
     };
   }
   if (start === -1) {
     const sep = current.endsWith(ending + ending) ? "" : current.endsWith(ending) ? ending : ending + ending;
     return { action: "update", text: `${current}${sep}${owned}${ending}` };
   }
-  const text = `${current.slice(0, start)}${owned}${current.slice(end + END.length)}`;
+  const text = `${current.slice(0, start)}${owned}${current.slice(finish + end.length)}`;
   return { action: text === current ? "unchanged" : "update", text };
+}
+
+/** @returns {{ action: "create" | "update" | "unchanged" | "skip", text: string, note?: string }} */
+export function installClaude(current, block = CLAUDE_BLOCK) {
+  return installMarked(current, block, BEGIN, END, "CLAUDE.md");
+}
+
+/** Learned cache only. Team files in .resolve/ stay committable. */
+export const GIT_BEGIN = "# resolve-setup:begin";
+export const GIT_END = "# resolve-setup:end";
+export const GIT_BLOCK = [
+  "# Learned cache. Rebuild it with /design-system. Commit team files in .resolve/: recipes.json, code-map.json, bind-rules.json, bind-rules.audit.jsonl, synonyms.json, icon-libraries.json.",
+  ".resolve/graph.json",
+  ".resolve/files/",
+  ".resolve/learn/",
+  ".resolve/ingest/",
+].join("\n");
+
+/** @param {string} text */
+export function ignoresWholeResolveStore(text) {
+  const start = text.indexOf(GIT_BEGIN);
+  const finish = text.indexOf(GIT_END);
+  const outside = start === -1 || finish === -1 || finish < start ? text : text.slice(0, start) + text.slice(finish + GIT_END.length);
+  return outside.split(/\r?\n/).some((line) => {
+    const trimmed = line.trim();
+    return trimmed === ".resolve" || trimmed === ".resolve/";
+  });
 }
 
 /** The one server entry Resolve adds. Same command everywhere (Cursor, Claude Code, Codex). */
@@ -190,11 +224,11 @@ export function cursorCommand(text) {
 }
 
 /** The part of a Resolve-owned file left after its marked block is cut out. Null: the file has no complete block. */
-function withoutBlock(text) {
-  const start = text.indexOf(BEGIN);
-  const end = text.indexOf(END);
-  if (start === -1 || end === -1 || end < start) return null;
-  return text.slice(0, start) + text.slice(end + END.length).replace(/^\r?\n/, "");
+function withoutBlock(text, begin = BEGIN, end = END) {
+  const start = text.indexOf(begin);
+  const finish = text.indexOf(end);
+  if (start === -1 || finish === -1 || finish < start) return null;
+  return text.slice(0, start) + text.slice(finish + end.length).replace(/^\r?\n/, "");
 }
 
 const onlyFrontmatter = (text) => splitFrontmatter(text).body === "" && (text.trim() === "" || text.startsWith("---"));
@@ -213,12 +247,14 @@ export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot 
     ...names.map((n) => join(base, ".claude", "commands", `${n}.md`)),
     ...(isGlobal ? [] : names.map((n) => join(cwd, ".cursor", "commands", `${n}.md`))),
     isGlobal ? join(home, ".claude", "CLAUDE.md") : join(cwd, "CLAUDE.md"),
+    ...(isGlobal ? [] : [join(cwd, ".gitignore")]),
   ];
   const plan = [];
   for (const path of owned) {
     const current = readOrNull(path);
     if (current == null) continue;
-    const rest = withoutBlock(current);
+    const git = path.endsWith(".gitignore");
+    const rest = withoutBlock(current, git ? GIT_BEGIN : BEGIN, git ? GIT_END : END);
     if (rest == null) {
       plan.push({ action: "skip", path, note: " (not written by Resolve, kept)" });
     } else if (rest.trim() === "" || onlyFrontmatter(rest)) plan.push({ action: "remove", path });
@@ -294,6 +330,15 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
     { path: skillPath, ...installOwned(readOrNull(skillPath), skillSrc, force) },
     { path: claudePath, ...installClaude(readOrNull(claudePath)) },
   );
+  if (!isGlobal) {
+    const gitPath = join(cwd, ".gitignore");
+    const gitCurrent = readOrNull(gitPath);
+    const gitItem = { path: gitPath, ...installMarked(gitCurrent, GIT_BLOCK, GIT_BEGIN, GIT_END, ".gitignore") };
+    if (ignoresWholeResolveStore(gitItem.text) && !gitItem.note) {
+      gitItem.note = " (your .gitignore also ignores the whole .resolve folder, so recipes and the code map stay uncommitted until that line is removed)";
+    }
+    planned.push(gitItem);
+  }
   if (!dryRun) {
     for (const item of planned) {
       if (item.action === "skip" || item.action === "unchanged") continue;

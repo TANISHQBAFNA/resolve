@@ -14,3 +14,13 @@ Check that the screen only uses approved components. Resolve only reads; it does
 6. Report in plain words, three short lists: **Retired** (old components still on the screen, with the current replacement), **Wrong** (a lookalike from another family, with the right one), **Unknown** (not in the learned design system). Say PASS when all three are empty. Quote component names and ids exactly as Resolve gave them.
 
 Do not fix anything unless the designer asks. Never invent a component, name or node id.
+
+## If this fails
+
+Tell the designer in one or two plain sentences, then stop. Never show a stack trace, a path inside node_modules, or a dump of code.
+
+- That does not look like a Figma link. Copy the link from the browser address bar. It contains figma.com/design/. A screen link also contains node-id.
+- Figma needs you to sign in again. The token is missing or has expired. Connect Figma in this app, then run this command again.
+- This Figma seat can only view the file. Learning a library needs a Dev or Full seat. Ask someone with that seat to run /design-system, or change the seat, then try again.
+- Resolve has not learned a design system yet. Run /design-system and paste the Figma link to the library.
+- Resolve is not installed in this project. In the chat, paste: Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md. Do not create the files yourself.

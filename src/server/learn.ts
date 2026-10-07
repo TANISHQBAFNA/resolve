@@ -1,4 +1,6 @@
-import type { DesignGraph } from "@/core/model";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import type { DesignGraph, GraphNode } from "@/core/model";
 import { applyLearnedText } from "@/core/ingestion/textStamps";
 import { applyLearnedIdentity } from "@/core/ingestion/designContextIds";
 import {
@@ -10,6 +12,7 @@ import {
   LEARN_ZERO_COMPONENTS,
   learnGaps,
   learnProgressLine,
+  type LearnReport,
   realLearnedComponentCount,
   markRemovedByAbsence,
   mergeDesignGraphs,
@@ -33,6 +36,45 @@ import {
   saveSock,
   storeInfo,
 } from "./store";
+
+function iconLibraryNames(root: string): string[] {
+  const path = join(root, "icon-libraries.json");
+  if (!existsSync(path)) return [];
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, "")) as unknown;
+    const list = Array.isArray(raw)
+      ? raw
+      : raw && typeof raw === "object"
+        ? (raw as { libraries?: unknown }).libraries
+        : undefined;
+    if (!Array.isArray(list)) return [];
+    return list.flatMap((item) => {
+      if (typeof item === "string" && item.trim()) return [item.trim()];
+      if (item && typeof item === "object" && typeof (item as { name?: unknown }).name === "string") {
+        const name = (item as { name: string }).name.trim();
+        return name ? [name] : [];
+      }
+      return [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+function learnReport(graph: DesignGraph, fileKey: string): LearnReport {
+  const components = graph.nodes.filter((node: GraphNode) => {
+    if ((node.fileKey ?? graph.fileKey).trim() !== fileKey) return false;
+    if (node.metadata?.["identity"] === "inferred-from-name") return false;
+    if (`${node.id} ${node.figmaNodeId ?? ""}`.includes("mcp-name:")) return false;
+    return node.type === "COMPONENT_SET" || node.type === "MAIN_COMPONENT";
+  });
+  const retired = components.filter((node) => node.status === "deprecated").length;
+  const savedIn = storeInfo().path;
+  const iconLibraries = iconLibraryNames(savedIn);
+  const icons = iconLibraries.length ? iconLibraries.join(", ") : "none";
+  const told = `Learned ${components.length} components (${retired} retired) from ${graph.fileName}. Icon libraries: ${icons}. Saved in ${savedIn}. Running /design-system again is safe. It updates this learned copy and leaves your recipes, code map and decisions alone.`;
+  return { components: components.length, retired, iconLibraries, savedIn, safeToRunAgain: true, told };
+}
 
 function uniqueRemovedMasters(items: RemovedMaster[]): RemovedMaster[] {
   const out: RemovedMaster[] = [];
@@ -273,5 +315,6 @@ export function learnLibrary(input: LearnInput): LearnResult {
     next,
     progress: progressLine,
     hint,
+    report: learnReport(graph, fileKey),
   };
 }

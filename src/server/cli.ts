@@ -89,6 +89,7 @@ import {
   workspacePath,
 } from "./store";
 import { learnLibrary } from "./learn";
+import { designerFailure } from "./designerMessages";
 import { formatStatus, statusReport } from "./status";
 import { warnDeprecated } from "./deprecations";
 import {
@@ -208,7 +209,7 @@ function usage(): void {
       "      Uses your own <store>/scoreboard/phrases/*.json when there are any. Otherwise the built-in ./scoreboard/phrases,",
       "      but only on the sample library. Never mixes the two. --phrases <path> uses only that path.",
       "      Exits non-zero when a part is invented or a retired/private part is recommended.",
-      "  resolve status [--json]      Which files are learned, when, and how much of the library links to code",
+      "  resolve status [--json]      One short answer: learned files, when, version, Figma token, always-on rule, code map, and what to do next",
       "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
       "",
       "  npm run resolve -- <command>     primary",
@@ -1154,7 +1155,8 @@ export async function runCli(argv: string[]): Promise<void> {
 
 if (!process.env["VITEST"]) {
   runCli(process.argv.slice(2)).catch((error) => {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    const raw = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`${designerFailure(raw)}\n`);
     process.exit(1);
   });
 }
