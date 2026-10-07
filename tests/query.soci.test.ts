@@ -23,6 +23,7 @@ import {
   type WorkspaceManifest,
 } from "@/core/query";
 import { governanceView } from "@/server/governance";
+import { runCli } from "@/server/cli";
 import { callTool } from "@/server/tools";
 import {
   clearCache,
@@ -907,6 +908,40 @@ describe("verify_frame feeds the screen-job approach", () => {
       ["node:card", 2],
     ]);
     expect(card.approaches[0]?.masters.every((row) => row.fileKey === "LIB")).toBe(true);
+  });
+
+  async function quietCli(argv: string[]): Promise<void> {
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (() => true) as typeof process.stdout.write;
+    try {
+      await runCli(argv);
+    } finally {
+      process.stdout.write = write;
+    }
+  }
+
+  it("CLI verify saves a real frame to SOCK like verify_frame, so the AIDLC design-check feeds screen jobs", async () => {
+    saveGraph(checkoutFrameGraph(3));
+    for (let i = 1; i <= 3; i += 1) await quietCli(["verify", `node:frame-${i}`]);
+    const facts = loadSock()?.facts ?? [];
+    expect(facts.filter((fact) => fact.countsTowardThreshold && fact.job === "payment").length).toBeGreaterThan(0);
+    const card = callTool("recommend", { intent: "payment screen" }) as { approaches: Array<{ mappedScreens: number; masters: Array<{ id: string }> }> };
+    expect(card.approaches[0]?.mappedScreens).toBe(3);
+    expect(card.approaches[0]?.masters.map((row) => row.id)).toEqual(["node:stepper", "node:card"]);
+  });
+
+  it("a frame whose name names no job takes it from the domain (Acme Send money, domain payments)", async () => {
+    const graph = checkoutFrameGraph(3);
+    for (const node of graph.nodes) if (node.type === "FRAME") node.name = node.name.replace("Checkout", "Send money");
+    saveGraph(graph);
+    await quietCli(["verify", "node:frame-1", "--journey", "send", "--domain", "payments"]);
+    callTool("verify_frame", { frame: "node:frame-2", journey: "send", domain: "payments" });
+    callTool("verify_frame", { frame: "node:frame-3", journey: "send" });
+    const jobs = (loadSock()?.facts ?? []).filter((fact) => fact.countsTowardThreshold).map((fact) => [fact.screenName, fact.job ?? null]);
+    expect(new Set(jobs.filter(([name]) => name === "Send money 1" || name === "Send money 2").map(([, job]) => job))).toEqual(new Set(["payment"]));
+    expect(new Set(jobs.filter(([name]) => name === "Send money 3").map(([, job]) => job))).toEqual(new Set([null]));
+    const card = callTool("recommend", { intent: "payment screen" }) as { approaches: Array<{ mappedScreens: number; confidence: string }> };
+    expect(card.approaches[0]).toMatchObject({ mappedScreens: 2, confidence: "low" });
   });
 });
 

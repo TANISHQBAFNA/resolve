@@ -95,6 +95,7 @@ import {
   workspacePath,
 } from "./store";
 import { formatGaps, readGaps, recordGap } from "./gaps";
+import { recordVerifyUsage } from "./tools";
 import { learnLibrary } from "./learn";
 import { DESIGNER, designerFailure } from "./designerMessages";
 import { formatStatus, statusReport } from "./status";
@@ -158,7 +159,7 @@ function usage(): void {
       "      Optional screen type / journey / domain, same as recommend, breaks ties between cousins.",
       "      Deprecated names come back flagged, with the live replacement. Private (_ / .) names only on an exact match.",
       "      One-line why from SOCK facts. Miss: says so and points at recommend. Not an empty list.",
-      `  resolve verify "<frame>" [--id] [--components a,b] [--rules <file>] [--design-context <file>] [--texts <json>] ${PACK_BIND_FLAGS}`,
+      `  resolve verify "<frame>" [--id] [--components a,b] [--rules <file>] [--design-context <file>] [--texts <json>] [--slot <role>] ${PACK_BIND_FLAGS}`,
       "      After drawing: pass/fail, invents, deprecated, unresolved, bind-rule misses.",
       "      Before verify, fetch the frame's design context so Resolve can read the text. Pass that file as --design-context.",
       "      --texts fills empty layers in the frame only (JSON). It does not replace stored copy.",
@@ -166,6 +167,8 @@ function usage(): void {
       "      Bind rules: .resolve/bind-rules.json (require / forbid / prefer). A miss names the rule and the correct master id.",
       "      Optional .resolve/library-rules.json { allow, deny }. Else in-graph + not deprecated = approved.",
       "      Same pack flags as recommend. Wrong-cousin drift: resolve cousins.",
+      "      A passing check of a real frame is saved to SOCK, the same as MCP verify_frame (--slot <role> tags its top-level parts).",
+      "      Its screen job comes from --journey, else --domain, else the frame name, so \"payment screen\" can answer from it.",
       "  resolve code-map [--json | --retired]   Report on .resolve/code-map.json: Figma component -> code component",
       "  resolve code-map --check \"<name>\" [--handoff <handoff.json>] [--json]",
       "      One answer from the committed handoff and code map only. No learned cache, and nothing is guessed.",
@@ -1035,7 +1038,8 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const texts = textsRaw ? parseTextsFlag(textsRaw) : undefined;
       const bind = bindFromFlags(args);
       const pack = packForRecommend(bind);
-      const verified = verifyFrame(requireGraph(args).index, {
+      const index = requireGraph(args).index;
+      const verified = verifyFrame(index, {
         frame,
         components,
         rules: readLibraryRules(rulesPath),
@@ -1046,6 +1050,16 @@ async function dispatchCli(argv: string[]): Promise<void> {
         placeholders: readPlaceholders(),
         ...(designContext !== undefined ? { designContext } : {}),
         ...(texts !== undefined ? { texts } : {}),
+      });
+      recordVerifyUsage(index, verified, {
+        frame,
+        components,
+        bind,
+        slot: flag(args, "slot"),
+        journey: flag(args, "journey"),
+        product: flag(args, "product"),
+        pack: flag(args, "pack"),
+        domain: flag(args, "domain"),
       });
       printJson(verified);
       if (verified.pass === false) process.exitCode = 1;

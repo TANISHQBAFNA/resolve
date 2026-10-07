@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — command-line verify feeds SOCK
+
+Oct 7, 2026 IST. `resolve verify` on a real frame now saves usage to SOCK exactly like MCP `verify_frame`: facts, cousin corrections, SOCI proposals. Before, only the MCP tool did, so screens checked from the command line (the AIDLC add-on's design-check) never became mapped screens. New `--slot <role>` flag, same as the tool's `slot`. A frame's screen job now comes from the journey, else the domain, else the frame name, so Acme's "Send money" (domain `payments`) is a payment screen. Ranking is unchanged.
+
 ## Unreleased — screen jobs from SOCK
 
 Oct 7, 2026 IST. `recommend` and `recipe` answer a bare screen ask ("inquiry screen", "summary screen", "approval screen", "payment screen") from mapped screens in SOCK. `src/data/screen-jobs.json` gives each job a meaning and its words only. `verify_frame` writes the job on each fact, from the journey or frame name, and marks parts nested inside other components so they are not part of the screen. Facts written earlier are classified when read. Masters rank by how many distinct screens of the job used them (`strong` from 3 screens, `low` below), with `fileKey`, `figmaNodeId` and `ex`. No mapped screen of the job gives an empty card, never a look-alike part or a starter recipe, and `resolve gaps` lists it as "no mapped <job> screen yet". Two job words return both approaches. An exact recipe id, title or alias that is not a bare single job still answers with that recipe ("checkout summary"). Component ranking is unchanged. Default MCP tools stay 7.
