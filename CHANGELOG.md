@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — code-map check fixes
+
+Oct 7, 2026 IST. Found by testing the AIDLC add-on against `code-map --check`. An HTML tag (`<button mat-raised-button>`, `<button>`) matches a code-map selector only, never a display name. A bare module name (`AcmeButtonModule`) matches like its class. `--import` keeps a row's `name` next to its `id`, so a retired part is refused by its design name (`Old Button`: retired, use Button); the Acme example map carries the names. A recipe slot's part counts as on the screen only when it is placed. A part with no code twin (`code: null`) is `unmapped` when its status is `current` and `other-library` only when its status says so. Ranking is unchanged.
+
 ## Unreleased — finder gaps
 
 Oct 7, 2026 IST. New `resolve gaps [--json]` lists what designers asked `recommend` for (MCP tool or CLI) that came back empty or as a weak match, most asked first, with a count and the last date. Asks are kept in `<store>/scoreboard/gaps.jsonl`, which setup's gitignore block already keeps out of git. `score phrases`, `recipe` and `resolve` do not add to it, and a failed write never breaks `recommend`. Ranking is unchanged. Default MCP tools stay 7.

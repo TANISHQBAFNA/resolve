@@ -65,6 +65,8 @@ interface Asked {
   text: string;
   specs: string[];
   pkg?: string;
+  /** Asked as an HTML tag (`<button mat-raised-button>`): only a selector can match, never a design name. */
+  tag?: true;
 }
 
 interface Candidate {
@@ -129,9 +131,11 @@ function parseImport(text: string): { specs: string[]; pkg: string } | undefined
 
 function parseAsked(query: string): Asked {
   const original = query.trim();
-  const text = stripVariant(stripHtml(original)).trim();
+  const untagged = stripHtml(original);
+  const text = stripVariant(untagged).trim();
   const imported = parseImport(text);
-  return imported ? { original, text, specs: imported.specs, pkg: imported.pkg } : { original, text, specs: [] };
+  if (imported) return { original, text, specs: imported.specs, pkg: imported.pkg };
+  return { original, text, specs: [], ...(untagged !== original ? { tag: true as const } : {}) };
 }
 
 function queryForms(text: string): string[] {
@@ -211,8 +215,9 @@ function mentionOf(record: Record<string, unknown>): Mention {
     ...(className ? { className } : {}),
     ...(status ? { status } : {}),
     ...(identity ? { identity } : {}),
-    unmapped: code === "unmapped",
-    otherLibrary: code === null || code === "unknown" || status === "other-library",
+    // A part with no twin has code null; its status says why ("current" = same library, no code-map entry).
+    unmapped: code === "unmapped" || (code === null && status === "current"),
+    otherLibrary: code === "unknown" || status === "other-library",
   };
 }
 
@@ -235,7 +240,8 @@ function mentionsIn(handoff: Record<string, unknown>): Mention[] {
     const recipe = screen["recipe"];
     if (isRecord(recipe) && Array.isArray(recipe["slots"])) {
       for (const slot of recipe["slots"]) {
-        if (isRecord(slot) && isRecord(slot["component"])) out.push(mentionOf(slot["component"]));
+        // A slot bound to a master the designer did not place (onScreen false, "missing") is not on the screen.
+        if (isRecord(slot) && isRecord(slot["component"]) && slot["onScreen"] !== false) out.push(mentionOf(slot["component"]));
       }
     }
   }
@@ -282,12 +288,17 @@ function candidatesFor(asked: Asked, entries: CodeMapListed[]): Candidate[] {
         by = "selector";
         break;
       }
+      if (asked.tag) continue;
       if (sameName(form, entry.component)) {
         by = "class";
         break;
       }
       const short = classAlias(entry.component);
       if (short && sameName(form, short)) {
+        by = "class";
+        break;
+      }
+      if (entry.module && sameName(form, entry.module)) {
         by = "class";
         break;
       }
@@ -306,7 +317,7 @@ function mentionsForName(asked: Asked): string[] {
 }
 
 function linkFromSheet(asked: Asked, entries: CodeMapListed[], mentions: Mention[], found: Map<number, Candidate>): void {
-  if (asked.pkg) return;
+  if (asked.pkg || asked.tag) return;
   const forms = mentionsForName(asked);
   for (const mention of mentions) {
     if (mention.identity === "name-guess" || !mention.name || !mention.fileKey || !mention.figmaNodeId) continue;
@@ -321,15 +332,15 @@ function skippedHit(asked: Asked, skipped: CodeMapSkipped[]): CodeMapSkipped | u
   return skipped.find((row) =>
     forms.some(
       (form) =>
-        (row.name && namesEqual(form, row.name)) ||
-        (row.component && (sameName(form, row.component) || namesEqual(form, row.component))) ||
+        (!asked.tag && row.name && namesEqual(form, row.name)) ||
+        (!asked.tag && row.component && (sameName(form, row.component) || namesEqual(form, row.component))) ||
         (row.selector && selectorHit(form, row.selector)),
     ),
   );
 }
 
 function sheetOnly(asked: Asked, mentions: Mention[]): Mention | undefined {
-  if (asked.pkg) return undefined;
+  if (asked.pkg || asked.tag) return undefined;
   const forms = queryForms(asked.text);
   const hits = mentions.filter((mention) => mention.identity !== "name-guess" && mention.name && forms.some((form) => namesEqual(form, mention.name!)));
   return hits.find((mention) => mention.otherLibrary) ?? hits.find((mention) => mention.unmapped);
