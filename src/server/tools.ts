@@ -87,15 +87,15 @@ const graphIdProperty = {
   },
 };
 
-/** Who the screen is for, and the accessibility bar. From the designer or the context pack. */
+/** Who the screen is for, and the accessibility bar. From the requirements or FSD, or the context pack. */
 const screenContextProperties = {
   audience: {
     type: "string",
-    description: "Who the screen is for, in the designer's words. Overrides the context pack for this call.",
+    description: "Who the screen is for, taken from the requirements or FSD. Overrides the context pack for this call. Leave off when the document does not say.",
   },
   a11y: {
     type: "string",
-    description: 'Accessibility bar, e.g. "wcag-aa". Overrides the context pack for this call. Does not run an audit.',
+    description: 'Accessibility bar from the requirements or FSD, e.g. "wcag-aa". Overrides the context pack for this call. Leave off when the document does not say. Does not run an audit.',
   },
 };
 
@@ -161,7 +161,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "recommend",
     description:
-      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.resolve/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (SOCK facts, 'used N× in file', or 'not verified on a screen yet') and, when a real populated instance is known, ex: that node id or 'fileKey:nodeId' when it lives in another file. No example is omitted (no 'ex: none'). Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Set context first: pack, or product, journey, audience, and a11y from the designer. The card echoes that context. Pass the same context on recipe and verify_frame. Returns figmaNodeId. Cap 600 chars. Empty candidates means stop. Do not invent a component. Do not Read graph.json.",
+      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.resolve/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (SOCK facts, 'used N× in file', or 'not verified on a screen yet') and, when a real populated instance is known, ex: that node id or 'fileKey:nodeId' when it lives in another file. No example is omitted (no 'ex: none'). Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. The card echoes that context. Pass the same context on recipe and verify_frame. Returns figmaNodeId. Cap 600 chars. Empty candidates means stop. Do not invent a component. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -393,7 +393,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "list_recipes",
     description:
-      "List screen recipes (composition packs). When a graph is ingested, slots bind to live masters (fill or suggest figmaNodeIds from recommend). Overlay .resolve/recipes.json still wins. Set context first: pack, or product, journey, audience, and a11y. That scopes slot fills and nextRecommend. Unbound slots include the next recommend query. Never invents node ids. Next: recipe \"<id or intent>\". Do not Read graph.json.",
+      "List screen recipes (composition packs). When a graph is ingested, slots bind to live masters (fill or suggest figmaNodeIds from recommend). Overlay .resolve/recipes.json still wins. Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. That scopes slot fills and nextRecommend. Unbound slots include the next recommend query. Never invents node ids. Next: recipe \"<id or intent>\". Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -409,7 +409,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "recipe",
     description:
-      "Get a screen recipe by id, title, or intent. After ingest, slots resolve against live masters (overlay .resolve/recipes.json still wins). Set context first: pack, or product, journey, audience, and a11y. That scopes slot fills and nextRecommend. The card echoes audience and a11y. Unbound slots include the next recommend query. Never invents node ids. After placing: verify_frame with the same context. Do not Read graph.json.",
+      "Get a screen recipe by id, title, or intent. After ingest, slots resolve against live masters (overlay .resolve/recipes.json still wins). Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. That scopes slot fills and nextRecommend. The card echoes audience and a11y. Unbound slots include the next recommend query. Never invents node ids. After placing: verify_frame with the same context. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {

@@ -77,6 +77,9 @@ describe("MCP instructions stay a short trigger", () => {
       expect(text).toContain("verify_frame");
       expect(text).toContain("check_cousins");
       expect(text).toContain("Set context before any component pick");
+      expect(text).toContain("requirements or FSD");
+      expect(text).toContain("Do not ask for those four");
+      expect(text).not.toContain("ask once");
       expect(text).toContain("audience");
       expect(text).toContain("a11y");
       expect(text).not.toMatch(/npm run resolve/);
