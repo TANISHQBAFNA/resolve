@@ -11,7 +11,7 @@ Check that the screen only uses approved components. Resolve only reads; it does
 3. Call the Resolve tool `verify_frame` with `frame` (the link) and `designContext`.
 4. If a library file and a product file are both learned, also call `check_cousins` with `frame` (the link).
 5. If Resolve says the frame or the design system is not learned, tell the designer to run `/design-system <link>` for that file first. Stop.
-6. Report one line per layer. Every layer has exactly one status: **pass**, **name-only** (a guess from the layer name), **retired**, **invented**, **wrong cousin**, or **missing required state**. A pass line names the layer and stops. Each problem names the layer and says what to use instead (the replacement for retired, the real component for invented or name-only, the library cousin for a wrong cousin, the required component for a missing state). Do not leave a layer off the list. Do not give a layer two statuses.
+6. The card's first line is PASS, FAIL, NAME-ONLY, or NOTHING CHECKED. `textChecked` is on the card. Report one line per layer. Every layer has exactly one status: **pass**, **name-only** (a guess from the layer name), **retired**, **invented**, **wrong cousin**, or **missing required state**. A pass line names the layer and stops. Each problem names the layer and says what to use instead (the replacement for retired, the real component for invented or name-only, the library cousin for a wrong cousin, the required component for a missing state). Do not leave a layer off the list. Do not give a layer two statuses.
 
 Do not fix anything unless the designer asks. Never invent a component, name or node id.
 

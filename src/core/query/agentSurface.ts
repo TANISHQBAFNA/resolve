@@ -2636,8 +2636,11 @@ export function screenPartsCard(index: GraphIndex, ask: string) {
   const seen = new Set<string>();
   const parts: Array<{
     name: string;
+    fileKey?: string;
     figmaNodeId?: string;
     code: string;
+    /** Set when the component lives in a library file that is not learned. Code is "unknown", not "unmapped". */
+    status?: "other-library";
     retired?: true;
     replacement?: string;
     replacementCode?: string;
@@ -2648,13 +2651,16 @@ export function screenPartsCard(index: GraphIndex, ask: string) {
     if (seen.has(main.id)) continue;
     seen.add(main.id);
     const retired = isRetired(index, main) || Boolean(view?.retired(main));
+    const remote = Boolean(main.isRemote);
     const twin = view?.twin(main);
     const replacement = retired ? replacementOf(index, main, view?.twin) : undefined;
     const useTwin = replacement ? view?.twin(replacement.node) : undefined;
     parts.push({
       name: variantCardName(index, main),
+      ...(main.fileKey ? { fileKey: main.fileKey } : {}),
       ...(main.figmaNodeId ? { figmaNodeId: main.figmaNodeId } : {}),
-      code: twin?.line ? codeText(twin) : "unmapped",
+      code: remote ? "unknown" : twin?.line ? codeText(twin) : "unmapped",
+      ...(remote ? { status: "other-library" as const } : {}),
       ...(retired
         ? {
             retired: true as const,

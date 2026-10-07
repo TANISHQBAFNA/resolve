@@ -13,6 +13,7 @@ import {
   formatHandoffScreen,
   handoffSheet,
   indexGraph,
+  screenPartsCard,
   inputHints,
   starterRecipes,
   type HandoffDecisionInput,
@@ -602,8 +603,15 @@ describe("handoff fixes after PR #37 UAT", () => {
     const sheet = ok(handoffSheet(indexGraph(fixedGraph()), ["Payment methods"])).screens[0]!;
     const unknown = sheet.components.filter((c) => c.code === "unknown");
     expect(unknown.map((c) => c.name)).toEqual(["Brand mark"]);
+    expect(unknown.map((c) => c.status)).toEqual(["other-library"]);
     expect(sheet.summary.unmapped).toBe(sheet.components.filter((c) => c.code === "unmapped").length);
     expect(sheet.summary.linkedToCode + sheet.summary.unmapped + unknown.length).toBe(sheet.summary.components);
+    const parts = screenPartsCard(indexGraph(fixedGraph()), "Payment methods");
+    expect(parts.ok).toBe(true);
+    if (!parts.ok) return;
+    const brand = parts.parts.find((part) => part.name === "Brand mark");
+    expect(brand).toMatchObject({ code: "unknown", status: "other-library" });
+    expect(brand?.code).not.toBe("unmapped");
   });
 
   it("a pasted Figma link with node-id works wherever a frame is asked for; status shows what is learned", async () => {

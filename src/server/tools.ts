@@ -49,6 +49,7 @@ import {
   type Recipe,
   type ViewMode,
 } from "@/core/query";
+import { presentToolResult, type ToolCardFormat } from "./cards";
 import { learnLibrary } from "./learn";
 import { withDeprecation } from "./deprecations";
 import {
@@ -110,10 +111,32 @@ export const DEFAULT_TOOL_NAMES = [
   "check_cousins",
 ] as const;
 
+const formatProperty = {
+  format: {
+    type: "string",
+    enum: ["markdown", "json"],
+    description:
+      'Card the AI reads. Default markdown. "json" is the same card as compact JSON, without the cost block, duplicate node ids, score, or the graph.json hint.',
+  },
+};
+
 export function listToolDefinitions(advanced = process.env["RESOLVE_MCP_ADVANCED"] === "1"): ToolDefinition[] {
-  if (advanced) return TOOLS;
   const allowed = new Set<string>(DEFAULT_TOOL_NAMES);
-  return TOOLS.filter((tool) => allowed.has(tool.name));
+  const tools = advanced ? TOOLS : TOOLS.filter((tool) => allowed.has(tool.name));
+  return tools.map((tool) => {
+    const schema = tool.inputSchema;
+    const properties = schema["properties"];
+    return {
+      ...tool,
+      inputSchema: {
+        ...schema,
+        properties: {
+          ...(properties && typeof properties === "object" ? properties : {}),
+          ...formatProperty,
+        },
+      },
+    };
+  });
 }
 
 const freshnessProperties = {
@@ -162,7 +185,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "recommend",
     description:
-      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.resolve/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (SOCK facts, 'used N× in file', or 'not verified on a screen yet') and, when a real populated instance is known, ex: that node id or 'fileKey:nodeId' when it lives in another file. No example is omitted (no 'ex: none'). Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. The card echoes that context. Pass the same context on recipe and verify_frame. Returns figmaNodeId. Cap 600 chars. Empty candidates means stop. Do not invent a component. Do not Read graph.json.",
+      "Intent in, ranked library masters out. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.resolve/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (SOCK facts, 'used N× in file', or 'not verified on a screen yet') and, when a real populated instance is known, an ex id (or fileKey:nodeId when it lives in another file). No example is omitted. Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. The card echoes that context with its source (document, pack <id>, or active pack). Pass the same context on recipe and verify_frame. Every pick shows fileKey and figmaNodeId. The structured card is capped at 600 characters; Markdown is shorter. Empty candidates means stop. Do not invent a component. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -180,7 +203,7 @@ export const TOOLS: ToolDefinition[] = [
         domain: { type: "string", description: 'Product domain, e.g. "checkout" or "onboarding".' },
         ...screenContextProperties,
         screenType: { type: "string", description: 'Screen kind, e.g. "settings" or "checkout". Same tie-break as domain.' },
-        budgetChars: { type: "number", description: "Hard cap on JSON chars. Default 600." },
+        budgetChars: { type: "number", description: "Hard cap on the structured card, in characters. Default 600. Markdown is shorter." },
         ...freshnessProperties,
       },
       required: ["intent"],
@@ -217,7 +240,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "resolve",
     description:
-      "I know the name, give me the id. Exact master name or id always returns id + fileKey + figmaNodeId even when unused (zero instances). One-line why from SOCK facts. Pass the same context as recommend (pack, or product, journey, audience, a11y). screenType/journey/domain break cousin ties. A deprecated master comes back flagged, plus its live replacement. Names starting with _ or . return only on an exact name; a fuzzy ask does not. Unknown name: found=false + call recommend \"<intent>\", not an empty list. Frame names return a screen inventory. Cap ~2000 chars.",
+      "I know the name, give me the id. Exact master name or id always returns fileKey and figmaNodeId even when unused (zero instances). One-line why from SOCK facts. Pass the same context as recommend (pack, or product, journey, audience, a11y). The card echoes that context with its source. screenType/journey/domain break cousin ties. A deprecated master comes back flagged, plus its live replacement. Names starting with _ or . return only on an exact name; a fuzzy ask does not. Unknown name: the card says it was not found and to call recommend, not an empty list. Frame names return a screen inventory. The structured card is capped at about 2000 characters; Markdown is shorter.",
     inputSchema: {
       type: "object",
       properties: {
@@ -232,7 +255,7 @@ export const TOOLS: ToolDefinition[] = [
         domain: { type: "string", description: 'Product domain, e.g. "checkout" or "settings".' },
         ...screenContextProperties,
         screenType: { type: "string", description: 'Screen kind, e.g. "settings" or "checkout".' },
-        budgetChars: { type: "number", description: "Hard cap on JSON chars. Default 2000." },
+        budgetChars: { type: "number", description: "Hard cap on the structured card, in characters. Default 2000. Markdown is shorter." },
         ...freshnessProperties,
       },
       required: ["name"],
@@ -241,7 +264,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_example",
     description:
-      "Full config for the real populated instance behind a pick. The recommend card puts ex on the top pick only; call this for the others. Returns file key, node id, screen name, variant props, child structure (tabs, dividers, row count), and sizing. instruction: Clone this instance and replace content; do not start from the default variant. When none is known, ex is 'none' and exWhy says why (bare defaults only, not on any screen, use the live replacement, or no such component — call recommend). The long sentence stays here. Never invents a node. Retired and private masters are not examples.",
+      "Full config for the real populated instance behind a pick. The recommend card puts ex on the top pick only; call this for the others. Returns file key, node id, screen name, variant props, child structure (tabs, dividers, row count), and sizing. Clone this instance and replace content; do not start from the default variant. When none is known, the card says there is no example and why (bare defaults only, not on any screen, use the live replacement, or no such component — call recommend). The long sentence stays here. Never invents a node. Retired and private masters are not examples.",
     inputSchema: {
       type: "object",
       properties: {
@@ -272,7 +295,7 @@ export const TOOLS: ToolDefinition[] = [
       properties: {
         ...graphIdProperty,
         question: { type: "string", description: 'e.g. "where is Input Field used"' },
-        budgetChars: { type: "number", description: "Hard cap on JSON chars. Default 8000." },
+        budgetChars: { type: "number", description: "Hard cap on the structured card, in characters. Default 8000. Markdown is shorter." },
       },
       required: ["question"],
     },
@@ -457,7 +480,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_ingredients",
     description:
-      "What is inside a component: the library parts placed directly in it (from the graph's NESTS links), for a developer handoff. Follows one variant: pass variant (\"Size=Medium\"), else the first in the set; a placed instance id reads that copy's own parts at every level (insideFrom / partsFrom = 'from the main component, not checked on this screen' or '... on the copy inside this component' where the copy's insides were not learned; variant is refused for an instance id). Each part has its code component from .resolve/code-map.json or code null (no code link; never guessed), plus angular {selector, module | standalone, importPath, inputs, outputs} when the map entry is Angular. A card over 12,000 characters is shown less deep (then fewer parts per level) with cut.reason; ask a part by name for its own card. status: current | retired (code = its old code, with use and useCode) | unconfirmed (guess from layer name) | other-library | not-found. Exact name or id only; unknown name → found=false, call recommend. Advanced surface. Do not Read graph.json.",
+      "What is inside a component: the library parts placed directly in it, for a developer handoff. Follows one variant: pass variant (\"Size=Medium\"), else the first in the set. A placed instance id reads that copy's own parts at every level. Where the copy's insides were not learned, the card says the parts are from the main component (not checked on this screen, or not checked on the copy inside this component). Variant is refused for an instance id. Each part shows fileKey and figmaNodeId, its code component from .resolve/code-map.json, or that there is no code link (never guessed), plus Angular selector, module or standalone, import path, inputs and outputs when the map entry is Angular. A structured card over 12,000 characters is shown less deep, then fewer parts per level, and says what was cut. Ask a part by name for its own card. Status is current, retired (old code, and what to use instead), unconfirmed (a guess from the layer name), other-library, or not-found. Exact name or id only. An unknown name says it was not found and to call recommend. Markdown by default. Advanced surface. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -472,7 +495,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_handoff",
     description:
-      "Developer handoff sheet for one or more designed screens (frames): recipe slots, each component placed on the screen with fileKey + figmaNodeId and its code from .resolve/code-map.json ('unmapped' when there is no entry; never guessed), Angular selector/module/inputs/outputs, suggested inputs from Figma variant properties (Variant=Primary -> variant=\"primary\") and a suggested template line, the parts inside each component (ingredients), verify result, approved decisions (who/when/why), and open questions. Refuses (ok=false, refused[]) when a retired component is on a screen (always), or when a component is only a guess from its layer name ('MCP metadata insufficient for component X. Use Figma REST or design_context.'). allowWeak: true makes a draft instead (draft: true, identity 'name-guess'); drafts are not for build. Over 40,000 characters, parts are shown one level less deep at a time until it fits (cut says how many parts are listed); open questions and summary always come from the full sheet. A copy whose component is in no learned file refuses with kind 'not-found'; a component from a library file that is not learned is status 'other-library' (no Figma id, code 'unknown', not counted in summary.unmapped; a not-found component is 'unknown' too). `states` on a component lists the OTHER values of each Figma property (the placed one is left out). Recipe slots have state placed | inside (a part of a placed component; insideOf names it) | missing, and recipe.coverage counts placed + inside; one copy fills one slot. A frame can be a pasted Figma link with node-id. Advanced surface. Do not Read graph.json.",
+      "Developer handoff sheet for one or more designed screens (frames): recipe slots, each component placed on the screen with fileKey and figmaNodeId and its code from .resolve/code-map.json (unmapped when there is no entry; never guessed), Angular selector, module, inputs and outputs, suggested inputs from Figma variant properties (Variant=Primary becomes variant=\"primary\") and a suggested template line, the parts inside each component, a PASS or FAIL line, approved decisions (who, when, why), and open questions. Refuses when a retired component is on a screen (always), or when a component is only a guess from its layer name ('MCP metadata insufficient for component X. Use Figma REST or design_context.'). allowWeak makes a draft instead, labelled name-guess; drafts are not for build. Over 40,000 characters of the structured card, parts are shown one level less deep at a time until it fits, and the card says how many parts are listed. Open questions and the summary counts always come from the full sheet. Markdown lists each part once, on its component, not again as a second parts table. A copy whose component is in no learned file is refused as not-found. A component from a library file that is not learned is other-library (no Figma id of this file, code unknown, not counted as unmapped). A not-found component is code unknown too. The card lists the other values of each Figma property (the placed one is left out). A recipe slot is placed, inside another component (the card names it), or missing. Placed and inside both count as covered. One copy fills one slot. A frame can be a pasted Figma link with node-id. Markdown by default. Advanced surface. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -576,14 +599,19 @@ export const TOOLS: ToolDefinition[] = [
 
 /* ------------------------------------------------------------------ */
 
-/** Compact JSON for MCP tool results. Pretty-print wastes agent context. */
-/** MCP size guard for get_ingredients (about 3k tokens). The CLI prints the full card. */
+/** MCP size guard for get_ingredients (about 3k tokens of the structured card). The CLI prints the full card. Markdown is shorter. */
 export const INGREDIENTS_MCP_MAX_CHARS = 12_000;
-/** MCP size guard for get_handoff (about 10k tokens). Over it, parts are shown one level less deep at a time until it fits. The CLI prints everything. */
+/** MCP size guard for get_handoff (about 10k tokens of the structured card). Over it, parts are shown one level less deep at a time until it fits. The CLI prints everything. Markdown is shorter. */
 export const HANDOFF_MCP_MAX_CHARS = 40_000;
 
-export function encodeToolResult(result: unknown): string {
-  return JSON.stringify(result);
+export function encodeToolResult(result: unknown, format: ToolCardFormat = "markdown", tool?: string): string {
+  return presentToolResult(result, format, tool);
+}
+
+export function toolCardFormat(value: unknown): ToolCardFormat {
+  if (value === undefined || value === "markdown") return "markdown";
+  if (value === "json") return "json";
+  throw new ToolError('`format` must be "markdown" or "json".');
 }
 
 export class ToolError extends Error {}

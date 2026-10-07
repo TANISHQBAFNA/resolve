@@ -168,11 +168,15 @@ describe("agent tools", () => {
     expect(Array.isArray(result.candidates)).toBe(true);
   });
 
-  it("encodes MCP tool results as compact JSON", () => {
-    const payload = { pass: true, approved: 1 };
+  it("encodes MCP tool results as Markdown, with compact JSON on format json", () => {
+    const payload = { pass: true, approved: 1, textChecked: "n/a", cost: { chars: 20, approxTokens: 5 } };
     const text = encodeToolResult(payload);
-    expect(text).toBe(JSON.stringify(payload));
-    expect(text).not.toContain("\n");
+    expect(text.startsWith("PASS")).toBe(true);
+    expect(text).toContain("textChecked: n/a");
+    expect(text).not.toContain("approxTokens");
+    const json = encodeToolResult(payload, "json");
+    expect(json).toBe(JSON.stringify({ pass: true, approved: 1, textChecked: "n/a" }));
+    expect(json).not.toContain("\n");
   });
 
   it("recipe, list_recipes, and verify_frame accept the same pack-bind fields as recommend", () => {

@@ -119,6 +119,7 @@ function usage(): void {
   process.stdout.write(
     [
       "Resolve — Figma rules. Agents resolve.",
+      "JSON commands print one compact line. --pretty prints indented JSON. Exit codes stay the same.",
       "",
       "  resolve ingest <file.json | file.xml | figma-url | file-key> [--id <graphId>] [--file-key <key>] [--name <fileName>] [--from-metadata] [--scope node|screens|file] [--role library|product|client] [--force-role] [--label <name>]",
       "      Build a graph and add it to the workspace. JSON: REST body, MCP capture, or a graph.",
@@ -419,8 +420,11 @@ function existingEntries(path: string): unknown[] {
   }
 }
 
+let jsonPretty = false;
+
 function printJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+  const text = jsonPretty ? JSON.stringify(value, null, 2) : JSON.stringify(value);
+  process.stdout.write(`${text}\n`);
 }
 
 function defaultGoldenDir(): string {
@@ -430,6 +434,16 @@ function defaultGoldenDir(): string {
 }
 
 export async function runCli(argv: string[]): Promise<void> {
+  const previous = jsonPretty;
+  jsonPretty = argv.includes("--pretty");
+  try {
+    await dispatchCli(jsonPretty ? argv.filter((arg) => arg !== "--pretty") : argv);
+  } finally {
+    jsonPretty = previous;
+  }
+}
+
+async function dispatchCli(argv: string[]): Promise<void> {
   if (process.env["npm_lifecycle_event"] === "keyline") warnDeprecated("npm run keyline");
   const [command, ...args] = argv;
 

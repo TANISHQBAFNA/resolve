@@ -11,7 +11,7 @@ Teach Resolve this Figma file so it can recommend and check real components. Res
 3. Call Figma `get_metadata` for that file or node. Also call `get_design_context` for the same node when you can, so component text is stored. Pass the file `version` into `learn_library` when Figma gives one.
 4. Call the Resolve tool `learn_library` with `fileKey`, `metadataXml` (the `get_metadata` output), `designContext`, `version` when you have it, and `role`: `library` for a design system (default), `product` or `client` when the designer says these are screens.
 5. A big file hits Resolve's 50,000 node cap and the rest is skipped. Then learn it page by page: `get_metadata` on each page node, one `learn_library` call per page, same `fileKey`. Still too big: frame by frame. Progress is saved; use `resume: true` to continue.
-6. Tell the designer the `report.told` sentence from `learn_library`, in those words. It says how many components, how many are retired, which icon libraries are known (or none), and where it was saved. If `report.told` is missing, say those four facts from the result yourself. Then say what is still left (pages not learned). Next: `/find <phrase>`.
+6. Tell the designer the `report.told` sentence from `learn_library`, in those words. On the Markdown card that sentence is the `told` line. `format` `json` keeps it at `report.told`. It says how many components, how many are retired, which icon libraries are known (or none), and where it was saved. If `report.told` is missing, say those four facts from the result yourself. Then say what is still left (pages not learned). Next: `/find <phrase>`.
 
 Never invent a component, name or node id. Do not read `.resolve/graph.json`.
 

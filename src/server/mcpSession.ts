@@ -2,7 +2,7 @@ import { createInterface } from "node:readline";
 import type { Readable } from "node:stream";
 import { MCP_INSTRUCTIONS, listResources, readResource } from "./instructions";
 import { getPrompt, listPrompts } from "./commands";
-import { listToolDefinitions, ToolError, callTool, encodeToolResult } from "./tools";
+import { listToolDefinitions, ToolError, callTool, encodeToolResult, toolCardFormat } from "./tools";
 import { designerFailure } from "./designerMessages";
 
 /**
@@ -96,9 +96,11 @@ export function attachMcpStdio(streams: McpStreams): void {
           return;
         }
         try {
+          const args = (call.arguments ?? {}) as Record<string, unknown>;
+          const format = toolCardFormat(args["format"]);
           const result = callTool(call.name, call.arguments);
           reply(id, {
-            content: [{ type: "text", text: encodeToolResult(result) }],
+            content: [{ type: "text", text: encodeToolResult(result, format, call.name) }],
           });
         } catch (error) {
           const message = designerFailure(error instanceof Error ? error.message : String(error));
