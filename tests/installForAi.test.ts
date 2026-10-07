@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -63,7 +63,7 @@ describe("INSTALL-FOR-AI.md", () => {
   });
 
   it("the Cursor path works as written: setup, merge the Figma line, setup again", () => {
-    const cwd = join(tmpdir(), `install-guide-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    const cwd = join(realpathSync(tmpdir()), `install-guide-${Date.now()}-${Math.random().toString(16).slice(2)}`);
     const home = `${cwd}-home`;
     mkdirSync(join(cwd, ".cursor"), { recursive: true });
     mkdirSync(home, { recursive: true });

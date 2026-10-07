@@ -1,5 +1,6 @@
 import { createInterface } from "node:readline";
 import { MCP_INSTRUCTIONS, listResources, readResource } from "./instructions";
+import { getPrompt, listPrompts } from "./commands";
 import { listToolDefinitions, ToolError, callTool, encodeToolResult } from "./tools";
 
 /**
@@ -45,7 +46,7 @@ function handle(request: Request): void {
     case "initialize":
       reply(id, {
         protocolVersion: PROTOCOL_VERSION,
-        capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
+        capabilities: { tools: { listChanged: false }, resources: { listChanged: false }, prompts: { listChanged: false } },
         serverInfo: SERVER_INFO,
         instructions: MCP_INSTRUCTIONS,
       });
@@ -58,6 +59,21 @@ function handle(request: Request): void {
     case "tools/list":
       reply(id, { tools: listToolDefinitions() });
       return;
+
+    case "prompts/list":
+      reply(id, { prompts: listPrompts() });
+      return;
+
+    case "prompts/get": {
+      const p = (params ?? {}) as { name?: string; arguments?: unknown };
+      const prompt = p.name ? getPrompt(p.name, p.arguments) : undefined;
+      if (!prompt) {
+        fail(id, -32602, `Unknown prompt \`${p.name ?? ""}\`. Known: ${listPrompts().map((x) => x.name).join(", ")}.`);
+        return;
+      }
+      reply(id, prompt);
+      return;
+    }
 
     case "resources/list":
       reply(id, { resources: listResources() });

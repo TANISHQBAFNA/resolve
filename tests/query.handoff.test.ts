@@ -586,6 +586,26 @@ describe("handoff fixes after PR #37 UAT", () => {
     expect(sheet.summary.linkedToCode + sheet.summary.unmapped + unknown.length).toBe(sheet.summary.components);
   });
 
+  it("a pasted Figma link with node-id works wherever a frame is asked for; status shows what is learned", async () => {
+    saveGraph(fixedGraph());
+    const link = "https://www.figma.com/design/ACMEUI/Acme-UI?node-id=20-40&t=abc";
+    const byName = ok(handoffSheet(indexGraph(fixedGraph()), ["Send money"])).screens[0]!;
+    const byLink = ok(handoffSheet(indexGraph(fixedGraph()), [link])).screens[0]!;
+    expect(byLink).toEqual(byName);
+    expect(byLink.screen.figmaNodeId).toBe("20:40");
+    expect(byLink.matchedFrame).toBeUndefined();
+    expect(callTool("verify_frame", { frame: link })).toMatchObject({ frame: { name: "Send money" } });
+    expect(JSON.parse(await cli(["cousins", link]))).toBeTruthy();
+    expect(await cli(["handoff", link])).toContain("# Handoff: Send money");
+    // The node is in another file: not found, never a loose match on the link text.
+    expect(handoffSheet(indexGraph(fixedGraph()), ["https://www.figma.com/design/OTHERFILE/X?node-id=999-1"]).ok).toBe(false);
+    const status = await cli(["status"]);
+    expect(status).toContain("Learned files:");
+    expect(status).toContain("last learned 2026-01-01 00:00 UTC");
+    expect(status).toContain("Code map: none yet");
+    expect(JSON.parse(await cli(["status", "--json"])).files).toHaveLength(1);
+  });
+
   it("L5, L6: a selector attribute is written once; non-ASCII values keep their letters; boolean hints read the same in text and template", () => {
     const ng = { selector: 'acme-button[variant="primary"]', importPath: "x", inputs: ["variant", "size", "disabled", "größe"] };
     const hints = inputHints({ Variant: "Secondary", Size: "Größe Ärger", Disabled: "Yes", Größe: "Groß" }, ng);

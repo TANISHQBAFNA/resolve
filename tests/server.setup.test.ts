@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,7 +11,7 @@ const BEGIN = "<!-- resolve-setup:begin -->";
 const END = "<!-- resolve-setup:end -->";
 
 function tempDir(name: string): string {
-  return join(tmpdir(), `resolve-setup-${name}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  return join(realpathSync(tmpdir()), `resolve-setup-${name}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
 }
 
 function setup(args: string[], cwd: string, home?: string): { status: number | null; stdout: string; stderr: string } {

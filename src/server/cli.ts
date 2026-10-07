@@ -89,6 +89,7 @@ import {
   workspacePath,
 } from "./store";
 import { learnLibrary } from "./learn";
+import { formatStatus, statusReport } from "./status";
 import { warnDeprecated } from "./deprecations";
 import {
   previousScore,
@@ -207,6 +208,7 @@ function usage(): void {
       "      Uses your own <store>/scoreboard/phrases/*.json when there are any. Otherwise the built-in ./scoreboard/phrases,",
       "      but only on the sample library. Never mixes the two. --phrases <path> uses only that path.",
       "      Exits non-zero when a part is invented or a retired/private part is recommended.",
+      "  resolve status [--json]      Which files are learned, when, and how much of the library links to code",
       "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
       "",
       "  npm run resolve -- <command>     primary",
@@ -1038,6 +1040,13 @@ export async function runCli(argv: string[]): Promise<void> {
     case "where":
       printJson(storeInfo());
       return;
+
+    case "status": {
+      const report = statusReport();
+      if (args.includes("--json")) printJson(report);
+      else process.stdout.write(`${formatStatus(report)}\n`);
+      return;
+    }
 
     case "score": {
       const namedWorkspace = flag(args, "workspace");

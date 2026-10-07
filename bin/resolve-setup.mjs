@@ -11,9 +11,10 @@ if (nodeVersionTooOld(process.version)) {
  * In a project: the Cursor rule, the Claude skill, and a marked CLAUDE.md block.
  * --global is Claude only (~/.claude skill and ~/.claude/CLAUDE.md). Cursor has no
  * global rules folder; its rule stays in the project.
- * Re-runs only change a complete marked block. Does not read tokens or other secrets.
+ * Also the slash commands (commands/*.md): .claude/commands for Claude Code, .cursor/commands for Cursor.
+ * Re-runs only change a complete marked block. --uninstall removes only what Resolve wrote. Does not read tokens or other secrets.
  */
-import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,6 +31,8 @@ export const CLAUDE_BLOCK = [
   "For ANY Figma design, screen, or component task, call Resolve before drawing.",
   "",
   "Resolve works best when the Figma MCP connection is active and a design system, library, or existing screens are learned. If either is missing, tell the user in plain words what is missing and how to add it. Connect Figma in this app, then map the file with learn_library. Do not guess. Do not invent components.",
+  "",
+  "Before you pick any component for a screen, ask Resolve. Never invent a component.",
   "",
   "Map the file first. Then recipe when the job matches, recommend, get_example, verify_frame, and check_cousins when a library and a product file are linked. Resolve is read-only.",
   "",
@@ -170,6 +173,93 @@ export function installMcp(current, { claude = false, force = false } = {}) {
   return { action: blank ? "create" : "update", text };
 }
 
+/** Slash commands shipped in the package: [{ name, text }] from commands/*.md (front matter + body with $ARGUMENTS). */
+export function shippedCommands(root = packageRoot) {
+  const dir = join(root, "commands");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((file) => file.endsWith(".md"))
+    .sort()
+    .map((file) => ({ name: file.replace(/\.md$/, ""), text: readFileSync(join(dir, file), "utf8") }));
+}
+
+/** Cursor commands are plain markdown with no front matter; the designer's words follow the command. */
+export function cursorCommand(text) {
+  const { body } = splitFrontmatter(text);
+  return `${body.replace(/\$ARGUMENTS/g, "the words the designer typed after the command")}\n`;
+}
+
+/** The part of a Resolve-owned file left after its marked block is cut out. Null: the file has no complete block. */
+function withoutBlock(text) {
+  const start = text.indexOf(BEGIN);
+  const end = text.indexOf(END);
+  if (start === -1 || end === -1 || end < start) return null;
+  return text.slice(0, start) + text.slice(end + END.length).replace(/^\r?\n/, "");
+}
+
+const onlyFrontmatter = (text) => splitFrontmatter(text).body === "" && (text.trim() === "" || text.startsWith("---"));
+
+/**
+ * Remove what setup wrote: marked blocks (and the file when nothing else is left in it), and the resolve entry of the
+ * project MCP files when it is exactly ours. Files without Resolve markers are never touched.
+ * @returns {Array<{ action: "remove" | "update" | "skip", path: string, text?: string, note?: string }>}
+ */
+export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot }) {
+  const base = isGlobal ? home : cwd;
+  const names = shippedCommands(root).map((c) => c.name);
+  const owned = [
+    ...(isGlobal ? [] : [join(cwd, ".cursor", "rules", "resolve.mdc")]),
+    join(base, ".claude", "skills", "resolve", "SKILL.md"),
+    ...names.map((n) => join(base, ".claude", "commands", `${n}.md`)),
+    ...(isGlobal ? [] : names.map((n) => join(cwd, ".cursor", "commands", `${n}.md`))),
+    isGlobal ? join(home, ".claude", "CLAUDE.md") : join(cwd, "CLAUDE.md"),
+  ];
+  const plan = [];
+  for (const path of owned) {
+    const current = readOrNull(path);
+    if (current == null) continue;
+    const rest = withoutBlock(current);
+    if (rest == null) {
+      plan.push({ action: "skip", path, note: " (not written by Resolve, kept)" });
+    } else if (rest.trim() === "" || onlyFrontmatter(rest)) plan.push({ action: "remove", path });
+    else plan.push({ action: "update", path, text: rest.replace(/\s+$/, "") + "\n" });
+  }
+  if (!isGlobal) {
+    for (const [path, claude] of [[join(cwd, ".cursor", "mcp.json"), false], [join(cwd, ".mcp.json"), true]]) {
+      const current = readOrNull(path);
+      if (current == null) continue;
+      let doc;
+      try {
+        doc = JSON.parse(current.replace(/^\uFEFF/, ""));
+      } catch {
+        continue;
+      }
+      if (!isPlainObject(doc) || !isPlainObject(doc.mcpServers) || !sameEntry(doc.mcpServers.resolve)) continue;
+      const { resolve: _gone, ...others } = doc.mcpServers;
+      const next = { ...doc, mcpServers: others };
+      const empty = Object.keys(others).length === 0 && Object.keys(doc).length === 1;
+      const indent = /^\t/m.test(current) ? "\t" : (current.match(/^( +)"/m)?.[1].length ?? 2);
+      plan.push(empty ? { action: "remove", path } : { action: "update", path, text: `${JSON.stringify(next, null, indent)}\n` });
+    }
+  }
+  return plan;
+}
+
+export function runUninstall(opts) {
+  const plan = planUninstall(opts);
+  if (!opts.dryRun) {
+    for (const item of plan) {
+      try {
+        if (item.action === "remove") rmSync(item.path);
+        else if (item.action === "update") writeFileSync(item.path, item.text);
+      } catch (error) {
+        throw writeError(item.path, error);
+      }
+    }
+  }
+  return plan;
+}
+
 export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, packageRoot: root = packageRoot }) {
   const base = isGlobal ? home : cwd;
   const claudePath = isGlobal ? join(home, ".claude", "CLAUDE.md") : join(cwd, "CLAUDE.md");
@@ -189,6 +279,15 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
       { path: cursorMcp, ...installMcp(readOrNull(cursorMcp), { force }) },
       { path: claudeMcp, ...installMcp(readOrNull(claudeMcp), { claude: true, force }) },
     );
+  }
+  // Slash commands. A command file you wrote yourself (no Resolve markers) is kept unless --force.
+  for (const command of shippedCommands(root)) {
+    const claudeCommand = join(base, ".claude", "commands", `${command.name}.md`);
+    planned.push({ path: claudeCommand, command: true, ...installOwned(readOrNull(claudeCommand), command.text, force) });
+    if (!isGlobal) {
+      const cursorPath = join(cwd, ".cursor", "commands", `${command.name}.md`);
+      planned.push({ path: cursorPath, command: true, ...installOwned(readOrNull(cursorPath), cursorCommand(command.text), force) });
+    }
   }
   const skillPath = join(base, ".claude", "skills", "resolve", "SKILL.md");
   planned.push(
@@ -291,14 +390,16 @@ function main() {
   let isGlobal = false;
   let force = false;
   let yes = false;
+  let uninstall = false;
   for (const arg of process.argv.slice(2)) {
     if (arg === "--dry-run") dryRun = true;
     else if (arg === "--global") isGlobal = true;
     else if (arg === "--force") force = true;
     else if (arg === "--yes" || arg === "-y") yes = true;
+    else if (arg === "--uninstall") uninstall = true;
     else if (arg === "--help" || arg === "-h") {
       process.stdout.write(
-        "Usage: resolve-setup [--dry-run] [--global] [--yes] [--force]\nInstalls the Cursor rule, the Claude skill, a marked CLAUDE.md block, and adds the Resolve server to this project's .cursor/mcp.json and .mcp.json (other servers are kept; a file that is not valid JSON is left alone).\n--global writes into the home folder (~/.claude). It prints the paths and exits unless you pass --yes. It does not write MCP files.\n--force replaces a file that has no Resolve markers, or a different resolve entry in an MCP file.\nIt never writes ~/.claude.json, ~/.cursor or ~/.codex.\n",
+        "Usage: resolve-setup [--dry-run] [--global] [--yes] [--force] [--uninstall]\nInstalls the Cursor rule, the Claude skill, a marked CLAUDE.md block, the slash commands (.claude/commands and .cursor/commands: /design-system /find /check /parts /handoff /resolve-status), and adds the Resolve server to this project's .cursor/mcp.json and .mcp.json (other servers are kept; a file that is not valid JSON is left alone).\n--global writes into the home folder (~/.claude). It prints the paths and exits unless you pass --yes. It does not write MCP files.\n--force replaces a file that has no Resolve markers, or a different resolve entry in an MCP file.\nIt never writes ~/.claude.json, ~/.cursor or ~/.codex.\nRun it again to update: only files and blocks Resolve wrote are rewritten. A command or rule file you wrote yourself is kept.\n--uninstall removes only what Resolve wrote (its marked blocks and files, and its own resolve entry in the MCP files). Your own files and text stay.\n",
       );
       return;
     } else {
@@ -309,6 +410,24 @@ function main() {
   const cwd = process.cwd();
   const home = homedir();
   const target = isGlobal ? home : cwd;
+  if (uninstall) {
+    if (isGlobal && !dryRun && !yes) {
+      process.stdout.write(`This removes Resolve files from the home folder (${home}). Re-run with --global --uninstall --yes to confirm.\n`);
+      for (const item of runUninstall({ cwd, home, global: true, dryRun: true })) process.stdout.write(`  ${item.action} ${item.path}\n`);
+      process.exit(1);
+    }
+    process.stdout.write(`Removing Resolve from ${target}\n`);
+    let plan;
+    try {
+      plan = runUninstall({ cwd, home, global: isGlobal, dryRun });
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+      process.exit(1);
+    }
+    for (const item of plan) process.stdout.write(`${item.action} ${item.path}${item.note ?? ""}\n`);
+    if (!plan.length) process.stdout.write("Nothing from Resolve was found.\n");
+    return;
+  }
   if (isGlobal && !dryRun && !yes) {
     process.stdout.write(
       `This writes into the home folder (${home}), not this project.\nPaths:\n`,
@@ -344,7 +463,7 @@ function main() {
   let claudeSkipped = false;
   const mcpSkipped = [];
   for (const item of planned) {
-    const note = item.note ?? (item.action === "skip" ? " (left existing file; no Resolve markers)" : "");
+    const note = item.note ?? (item.action === "skip" ? (item.command ? " (kept your own file; Resolve did not write this command. --force replaces it)" : " (left existing file; no Resolve markers)") : "");
     process.stdout.write(`${item.action} ${item.path}${note}\n`);
     if (item.action === "skip" && item.path.endsWith(`${join(".cursor", "rules", "resolve.mdc")}`)) ruleSkipped = true;
     if (item.action === "skip" && item.path.endsWith(`${join("CLAUDE.md")}`)) claudeSkipped = true;
