@@ -194,13 +194,50 @@ export function installClaude(current, block = CLAUDE_BLOCK) {
 /** Learned cache only. Team files in .resolve/ stay committable. */
 export const GIT_BEGIN = "# resolve-setup:begin";
 export const GIT_END = "# resolve-setup:end";
-export const GIT_BLOCK = [
-  "# Learned cache. Rebuild it with /design-system. Commit team files in .resolve/: recipes.json, code-map.json, bind-rules.json, bind-rules.audit.jsonl, synonyms.json, icon-libraries.json.",
+/** Rebuildable cache. These are the only .resolve paths the block ignores. */
+export const GIT_CACHE = [
   ".resolve/graph.json",
   ".resolve/files/",
+  ".resolve/GRAPH_REPORT.md",
+  ".resolve/index.json",
+  ".resolve/scoreboard/*",
+  "!.resolve/scoreboard/phrases/",
+  "!.resolve/scoreboard/phrases/**",
+  "!.resolve/scoreboard/golden/",
+  "!.resolve/scoreboard/golden/**",
   ".resolve/learn/",
   ".resolve/ingest/",
+];
+/** Team knowledge. Never an ignore path. */
+export const GIT_TEAM = [
+  "recipes.json",
+  "context-packs.json",
+  "code-map.json",
+  "bind-rules.json",
+  "bind-rules.audit.jsonl",
+  "synonyms.json",
+  "icon-libraries.json",
+  "library-rules.json",
+  "workspace.json",
+  "sock.json",
+];
+export const GIT_BLOCK = [
+  `# Learned cache. Rebuild it with /design-system. Commit team files in .resolve/: ${GIT_TEAM.join(", ")}. sock.json holds decisions. Also commit scoreboard/phrases/ and scoreboard/golden/ (team phrase sets and the golden file from score --init). Run history under scoreboard/ stays ignored.`,
+  ...GIT_CACHE,
 ].join("\n");
+
+/** Lines that ignore the whole store, including globs. Our own cache paths inside the marker block do not count. */
+const WHOLE_STORE = new Set([
+  ".resolve",
+  ".resolve/",
+  ".resolve/*",
+  ".resolve/**",
+  ".resolve/**/*",
+  "**/.resolve",
+  "**/.resolve/**",
+  "*/.resolve",
+  "*/.resolve/**",
+]);
 
 /** @param {string} text */
 export function ignoresWholeResolveStore(text) {
@@ -209,7 +246,8 @@ export function ignoresWholeResolveStore(text) {
   const outside = start === -1 || finish === -1 || finish < start ? text : text.slice(0, start) + text.slice(finish + GIT_END.length);
   return outside.split(/\r?\n/).some((line) => {
     const trimmed = line.trim();
-    return trimmed === ".resolve" || trimmed === ".resolve/";
+    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("!")) return false;
+    return WHOLE_STORE.has(trimmed);
   });
 }
 
