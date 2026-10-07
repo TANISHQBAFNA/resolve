@@ -33,7 +33,7 @@ describe("MCP instructions stay a short trigger", () => {
     expect(read?.contents[0]?.text).toBe(WORKFLOW_MARKDOWN);
     expect(readResource("resolve://nope")).toBeUndefined();
 
-    const server = readFileSync(join(root, "src/server/mcp.ts"), "utf8");
+    const server = readFileSync(join(root, "src/server/mcpSession.ts"), "utf8");
     expect(server).toContain("instructions: MCP_INSTRUCTIONS");
     expect(server).toContain("resources/read");
     expect(server).not.toContain("Forced path: learn_library");
