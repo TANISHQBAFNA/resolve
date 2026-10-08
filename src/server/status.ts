@@ -55,7 +55,7 @@ export function statusReport(): StatusReport {
     for (const file of workspace.files) {
       const graph = loadFileGraph(file.key);
       files.push({
-        name: graph?.fileName ?? file.label ?? file.key,
+        name: file.label?.trim() || graph?.fileName || file.key,
         fileKey: file.key,
         role: file.role,
         nodes: graph?.nodes.length ?? 0,

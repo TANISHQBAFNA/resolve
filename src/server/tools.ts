@@ -1,4 +1,5 @@
 import type { GraphNode } from "@/core/model";
+import { hiddenUnder } from "@/core/query/placed";
 import { TextInputError } from "@/core/ingestion/textStamps";
 import {
   advanceSoci,
@@ -1316,6 +1317,7 @@ export function recordVerifyUsage(
   }
   if (result.frame) {
     for (const instance of index.getNestedInstances(result.frame.id)) {
+      if (hiddenUnder(index, instance, result.frame.id)) continue;
       const main = index.getMainComponent(instance.id);
       if (!main || masters.some((row) => row.id === main.id)) continue;
       masters.push({

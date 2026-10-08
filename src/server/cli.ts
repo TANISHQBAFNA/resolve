@@ -94,6 +94,7 @@ import {
   storeRoot,
   workspacePath,
 } from "./store";
+import { stripFiller } from "./cards";
 import { formatGaps, readGaps, recordGap } from "./gaps";
 import { recordVerifyUsage } from "./tools";
 import { learnLibrary } from "./learn";
@@ -515,17 +516,19 @@ async function dispatchCli(argv: string[]): Promise<void> {
         metadataXml = readFileSync(resolved, "utf8");
       }
       printJson(
-        learnLibrary({
-          fileKey,
-          role: ingestRole(args),
-          fileName: flag(args, "name"),
-          label: flag(args, "label") ?? flag(args, "name"),
-          metadataXml,
-          ...(designContextPath ? { designContext: readDesignContextFile(designContextPath) } : {}),
-          lastModified: flag(args, "last-modified"),
-          version: flag(args, "version"),
-          resume: args.includes("--resume"),
-        }),
+        stripFiller(
+          learnLibrary({
+            fileKey,
+            role: ingestRole(args),
+            fileName: flag(args, "name"),
+            label: flag(args, "label") ?? flag(args, "name"),
+            metadataXml,
+            ...(designContextPath ? { designContext: readDesignContextFile(designContextPath) } : {}),
+            lastModified: flag(args, "last-modified"),
+            version: flag(args, "version"),
+            resume: args.includes("--resume"),
+          }),
+        ),
       );
       return;
     }

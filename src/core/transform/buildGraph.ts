@@ -272,6 +272,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
     if (source.minHeight !== undefined) metadata["minHeight"] = source.minHeight;
     if (source.minWidth !== undefined) metadata["minWidth"] = source.minWidth;
     if (source.visible === false) metadata["hidden"] = true;
+    if (source.type === "SLOT") metadata["slot"] = true;
     if (source.children?.length) metadata["sourceChildCount"] = source.children.length;
     if (source.componentProperties) metadata["componentProperties"] = source.componentProperties;
     if (source.overrides?.length) metadata["overrides"] = source.overrides;

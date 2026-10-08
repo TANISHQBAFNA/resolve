@@ -27,6 +27,7 @@ import { placeReady } from "./placeReady";
 import { buildIngredientCard, buildIngredientCoverage, type IngredientHooks, type IngredientOptions } from "./ingredients";
 import synonymFile from "@/data/synonyms.json";
 import modifierFile from "@/data/ui-modifiers.json";
+import { hiddenUnder } from "./placed";
 import { isRemovedByAbsence, patternFor, staleRefreshHint, type SockState } from "./sock";
 import {
   bindRuleHit,
@@ -1915,11 +1916,22 @@ interface TokenHits {
   specific: number;
 }
 
-/** Family name only. `Type=Primary` is a variant layer, not a component name. */
+/** `base/`, `ingredients/` and `recipes/` are tiers, not part of the component name. */
+function stripTier(name: string): string {
+  return name.replace(/^(?:base|ingredients|recipes)\//i, "");
+}
+
+function tierOf(name: string): "base" | "ingredients" | "recipes" | undefined {
+  const tier = /^(base|ingredients|recipes)\//i.exec(name.trim())?.[1]?.toLowerCase();
+  if (tier === "base" || tier === "ingredients" || tier === "recipes") return tier;
+  return undefined;
+}
+
+/** Family name only. `Type=Primary` is a variant layer, not a component name. A tier prefix is not part of the name. */
 function familyHaystack(node: GraphNode, set: GraphNode | undefined): string {
-  if (VARIANT_PROP_NAME.test(node.name)) return set?.name ?? "";
-  if (set && set.id !== node.id) return `${set.name} ${node.name}`;
-  return node.name;
+  if (VARIANT_PROP_NAME.test(node.name)) return stripTier(set?.name ?? "");
+  if (set && set.id !== node.id) return `${stripTier(set.name)} ${stripTier(node.name)}`;
+  return stripTier(node.name);
 }
 
 /** Variant values only. Property names (State, Type, Size) are not words. */
@@ -1970,8 +1982,8 @@ function setCoversAsk(ask: string, setName: string): boolean {
 function namesThisNode(ask: string, node: GraphNode, index: GraphIndex): boolean {
   const needle = ask.trim().toLowerCase();
   if (!needle) return false;
-  if (node.name.toLowerCase() === needle) return true;
-  if (collapsedName(node.name) === collapsedName(needle)) return true;
+  if (node.name.toLowerCase() === needle || stripTier(node.name).toLowerCase() === needle) return true;
+  if (collapsedName(node.name) === collapsedName(needle) || collapsedName(stripTier(node.name)) === collapsedName(needle)) return true;
   if (phraseNamesMatch(needle, node.name)) return true;
   return variantCardName(index, node).toLowerCase() === needle;
 }
@@ -2809,6 +2821,8 @@ export function recommendMasters(
         collapsedName(node.name) === collapsedAsk ||
         phraseNamesMatch(intentNeedle, node.name) ||
         phraseNamesMatch(intentNeedle, familyLabel) ||
+        collapsedName(stripTier(node.name)) === collapsedAsk ||
+        (Boolean(set) && collapsedName(stripTier(set?.name ?? "")) === collapsedAsk) ||
         phraseFamilyHit(intentNeedle, familyLabel) ||
         (Boolean(set) &&
           node.type === "COMPONENT_SET" &&
@@ -2945,7 +2959,7 @@ export function recommendMasters(
       covered: hits.covered + (extraHits?.covered ?? 0),
       weak:
         !exactName &&
-        !setCoversAsk(intentNeedle, set?.name ?? node.name) &&
+        !setCoversAsk(intentNeedle, stripTier(set?.name ?? node.name)) &&
         hits.specific === 0 &&
         (extraHits?.specific ?? 0) === 0 &&
         hits.name + hits.synonym + (extraHits?.name ?? 0) + (extraHits?.synonym ?? 0) > 0,
@@ -3242,6 +3256,24 @@ export function recommendMasters(
   };
   if (kept.some((entry) => !demotedPart(entry))) {
     kept = kept.filter((entry) => !demotedPart(entry));
+  }
+  // A tier is a path. ingredients/text-area beats base/text-area for "text area". Asking for base/ keeps the base part.
+  if (!askedBase && kept.length > 1) {
+    const bareKey = (entry: Scored) => collapsedName(stripTier(setOf(index, entry.node)?.name ?? entry.node.name));
+    const exposed = new Set(
+      kept
+        .filter((entry) => {
+          const tier = tierOf(setOf(index, entry.node)?.name ?? entry.node.name);
+          return tier === "ingredients" || tier === "recipes";
+        })
+        .map(bareKey),
+    );
+    if (exposed.size) {
+      kept = kept.filter((entry) => {
+        const tier = tierOf(setOf(index, entry.node)?.name ?? entry.node.name);
+        return tier !== "base" || !exposed.has(bareKey(entry));
+      });
+    }
   }
 
   // A retired part stays mapped and flagged, and is never the pick to place.
@@ -3994,6 +4026,7 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
       }
     } else {
       for (const instance of index.getNestedInstances(frameNode.id)) {
+        if (hiddenUnder(index, instance, frameNode.id)) continue;
         const main = index.getMainComponent(instance.id);
         if (!main) {
           pushUnique(

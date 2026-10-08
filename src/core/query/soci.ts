@@ -31,6 +31,7 @@ import {
   type BindRulesFile,
 } from "./bindRules";
 import type { WorkspaceManifest } from "./workspace";
+import { designerPlacedInstances } from "./placed";
 import { nodeFileKey } from "./workspaceMerge";
 
 /**
@@ -411,24 +412,16 @@ function detectRecipeUpdates(
   return { drafts, closedSlots };
 }
 
-/** Masters of instances directly on the frame. Descendants inside an instance are not included. */
+/** Masters the designer placed on the frame, including instances sitting in a component slot. Hidden instances and a component's own parts are not included. */
 export function topLevelMasterIds(index: GraphIndex, frameId: string): string[] {
   const ids: string[] = [];
   const seen = new Set<string>();
-  const walk = (parentId: string) => {
-    for (const child of index.getChildren(parentId)) {
-      if (child.type === "COMPONENT_INSTANCE") {
-        const main = index.getMainComponent(child.id);
-        if (main && !seen.has(main.id)) {
-          seen.add(main.id);
-          ids.push(main.id);
-        }
-        continue;
-      }
-      walk(child.id);
-    }
-  };
-  walk(frameId);
+  for (const instance of designerPlacedInstances(index, frameId)) {
+    const main = index.getMainComponent(instance.id);
+    if (!main || seen.has(main.id)) continue;
+    seen.add(main.id);
+    ids.push(main.id);
+  }
   return ids;
 }
 
