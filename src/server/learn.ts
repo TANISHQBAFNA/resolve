@@ -16,7 +16,7 @@ import {
   type LearnReport,
   realLearnedComponentCount,
   markRemovedByAbsence,
-  mergeDesignGraphs,
+  replaceResentSubtrees,
   remainingLearnUnits,
   removedMastersByAbsence,
   resolveMastersAgainstGraph,
@@ -191,7 +191,7 @@ export function learnLibrary(input: LearnInput): LearnResult {
     );
     const existing = loadFileGraph(fileKey);
     const before = existing?.nodes.length ?? 0;
-    graph = existing ? mergeDesignGraphs(existing, incoming) : incoming;
+    graph = existing ? replaceResentSubtrees(existing, incoming) : incoming;
     added = Math.max(0, graph.nodes.length - before);
   } else {
     graph = loadFileGraph(fileKey);

@@ -239,6 +239,26 @@ describe("resolve ingest --role", () => {
     process.exitCode = undefined;
   });
 
+  it("learn omits the save-state checkpoint", async () => {
+    const xml = join(process.env["RESOLVE_HOME"]!, "learn.xml");
+    writeFileSync(xml, `<frame id="1:1" name="Kit"><component id="9:9" name="Button" /></frame>\n`);
+    const chunks: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await runCli(["learn", "--file-key", "LIB", "--role", "library", "--from-metadata", xml]);
+    } finally {
+      process.stdout.write = write;
+    }
+    const text = chunks.join("");
+    expect(text).not.toContain("mastersByUnit");
+    expect(text).not.toContain("completedHashes");
+    expect(text).toContain("Learned");
+  });
+
   it("learn_library rejects a bad role as a tool error", () => {
     expect(() => callTool("learn_library", { fileKey: "LIB", role: "nope" })).toThrow(
       /Unknown --role "nope"/,

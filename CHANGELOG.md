@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — re-learn, slots, hidden layers, tier names
+
+Oct 8, 2026 IST. Re-learning a page or frame replaces that subtree, so a part that left the file does not stay beside its replacement. A Figma slot stays a slot: an instance the designer placed in it counts as on the screen for handoff, verify, and SOCK, not as the component's own insides. `hidden="true"` is kept, and a hidden instance is left out of verify, handoff, and SOCK. Finder reads `base/`, `ingredients/`, and `recipes/` as a path prefix, so "input field" is an exact match for `ingredients/input-field` and is not a weak match. `ingredients/` wins over `base/` for the same part unless the ask says `base/`. `resolve status` shows the workspace label. `resolve learn` omits the save-state checkpoint, same as the MCP card. Ranking of an unprefixed name is unchanged.
+
 ## Unreleased — command-line verify feeds SOCK
 
 Oct 7, 2026 IST. `resolve verify` on a real frame now saves usage to SOCK exactly like MCP `verify_frame`: facts, cousin corrections, SOCI proposals. Before, only the MCP tool did, so screens checked from the command line (the AIDLC add-on's design-check) never became mapped screens. New `--slot <role>` flag, same as the tool's `slot`. A frame's screen job now comes from the journey, else the domain, else the frame name, so Acme's "Send money" (domain `payments`) is a payment screen. Ranking is unchanged.

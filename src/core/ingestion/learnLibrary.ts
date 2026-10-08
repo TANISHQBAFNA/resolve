@@ -430,6 +430,89 @@ function nodeMergeKey(node: GraphNode): string {
   return node.figmaNodeId ? `${node.type}:${node.figmaNodeId}` : node.id;
 }
 
+function containsIndex(graph: DesignGraph): { children: Map<string, string[]>; parent: Map<string, string> } {
+  const children = new Map<string, string[]>();
+  const parent = new Map<string, string>();
+  for (const edge of graph.edges) {
+    if (edge.type !== "CONTAINS") continue;
+    const list = children.get(edge.source) ?? [];
+    list.push(edge.target);
+    children.set(edge.source, list);
+    parent.set(edge.target, edge.source);
+  }
+  return { children, parent };
+}
+
+/** A page, section, or frame that this payload is re-learning. Its old subtree is replaced. */
+function resentRoot(node: GraphNode, parent?: GraphNode): boolean {
+  if (node.type === "PAGE" || node.type === "SECTION") return true;
+  if (node.type !== "FRAME") return false;
+  return !parent || parent.type === "FILE" || parent.type === "PAGE" || parent.type === "SECTION";
+}
+
+/**
+ * Re-learning a page or frame replaces its subtree. Nodes that were under that
+ * page or frame and are absent from the new payload are dropped. An inferred
+ * master with no remaining instance is dropped with them. Other pages stay.
+ */
+export function replaceResentSubtrees(base: DesignGraph, incoming: DesignGraph): DesignGraph {
+  const baseTree = containsIndex(base);
+  const incomingById = new Map(incoming.nodes.map((node) => [node.id, node]));
+  const incomingParent = new Map<string, GraphNode>();
+  for (const edge of incoming.edges) {
+    if (edge.type !== "CONTAINS") continue;
+    const child = incomingById.get(edge.target);
+    const parent = incomingById.get(edge.source);
+    if (child && parent) incomingParent.set(child.id, parent);
+  }
+  const byFigma = new Map<string, GraphNode>();
+  for (const node of base.nodes) {
+    if (!node.figmaNodeId) continue;
+    const scoped = `${node.fileKey ?? base.fileKey}:${node.figmaNodeId}`;
+    byFigma.set(scoped, node);
+    if (!byFigma.has(node.figmaNodeId)) byFigma.set(node.figmaNodeId, node);
+  }
+  const byId = new Map(base.nodes.map((node) => [node.id, node]));
+  const incomingFigma = new Set(
+    incoming.nodes.flatMap((node) => (node.figmaNodeId ? [node.figmaNodeId] : [])),
+  );
+  const drop = new Set<string>();
+  const isMaster = (node: GraphNode | undefined) =>
+    node?.type === "MAIN_COMPONENT" || node?.type === "COMPONENT_SET" || node?.type === "VARIANT";
+  // Instances, slots and groups under the re-learned page or frame go.
+  // A master that left the file stays so absence can mark it retired. A master
+  // that is in the new payload keeps its node; its old definition children go.
+  const collect = (id: string) => {
+    for (const childId of baseTree.children.get(id) ?? []) {
+      if (drop.has(childId)) continue;
+      const node = byId.get(childId);
+      const resentMaster = Boolean(isMaster(node) && node?.figmaNodeId && incomingFigma.has(node.figmaNodeId));
+      if (isMaster(node) && !resentMaster) continue;
+      if (!isMaster(node)) drop.add(childId);
+      collect(childId);
+    }
+  };
+  for (const node of incoming.nodes) {
+    if (!node.figmaNodeId || !resentRoot(node, incomingParent.get(node.id))) continue;
+    const key = node.fileKey ?? incoming.fileKey;
+    const prior = byFigma.get(`${key}:${node.figmaNodeId}`) ?? byFigma.get(node.figmaNodeId);
+    if (prior) collect(prior.id);
+  }
+  let nodes = base.nodes.filter((node) => !drop.has(node.id));
+  let edges = base.edges.filter((edge) => !drop.has(edge.source) && !drop.has(edge.target));
+  const stillUsed = new Set(edges.filter((edge) => edge.type === "INSTANCE_OF").map((edge) => edge.target));
+  const orphan = new Set(
+    nodes
+      .filter((node) => node.metadata?.["identity"] === "inferred-from-name" && !stillUsed.has(node.id))
+      .map((node) => node.id),
+  );
+  if (orphan.size) {
+    nodes = nodes.filter((node) => !orphan.has(node.id));
+    edges = edges.filter((edge) => !orphan.has(edge.source) && !orphan.has(edge.target));
+  }
+  return mergeDesignGraphs({ ...base, nodes, edges }, incoming);
+}
+
 export function mergeDesignGraphs(base: DesignGraph, incoming: DesignGraph): DesignGraph {
   const nodes = new Map<string, GraphNode>();
   for (const node of base.nodes) nodes.set(nodeMergeKey(node), node);
