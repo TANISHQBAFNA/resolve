@@ -43,12 +43,25 @@ describe("AI graph context", () => {
     expect(small.meta.truncated).toBe(true);
   });
 
-  it("always includes explicitly selected nodes", () => {
+  it("includes a selected node when the budget still has room", () => {
     const withSelection = buildAiGraphContext(index, ids.frameWelcome, {
       selectedNodeIds: [ids.banner],
       nodeBudget: 20,
     })!;
     expect(withSelection.neighbors.map((n) => n.id)).toContain(ids.banner);
+    expect(withSelection.meta.omittedSelectionIds).toBeUndefined();
+  });
+
+  it("omits selected nodes that would pass the node budget", () => {
+    const tight = buildAiGraphContext(index, ids.frameWelcome, {
+      selectedNodeIds: [ids.banner, ids.card, ids.avatar],
+      nodeBudget: 1,
+    })!;
+    expect(tight.neighbors).toHaveLength(0);
+    expect(tight.focusNode.id).toBe(ids.frameWelcome);
+    expect(tight.meta.truncated).toBe(true);
+    expect(tight.meta.omittedSelectionIds).toEqual(expect.arrayContaining([ids.banner, ids.card, ids.avatar]));
+    expect(toMarkdownPrompt(tight)).toContain("omitted:");
   });
 
   it("omits materialised inverse edges from the payload", () => {

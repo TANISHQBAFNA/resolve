@@ -25,6 +25,9 @@ export interface AtlasSettings {
   minDegree: number;
 }
 
+/** Later loads win. An older load must not publish over a newer source. */
+let loadTicket = 0;
+
 interface GraphState {
   status: LoadStatus;
   error?: string;
@@ -86,9 +89,11 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
   },
 
   async loadSource(source) {
+    const ticket = ++loadTicket;
     set({ status: "loading", error: undefined, sourceLabel: source.label });
     try {
       const document = await source.load();
+      if (ticket !== loadTicket) return;
       const graph = buildGraph(document);
       const index = indexGraph(graph);
       const analytics = computeAnalytics(index);
@@ -109,6 +114,7 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
         atlas: { ...get().atlas, hiddenCommunities: [] },
       });
     } catch (error) {
+      if (ticket !== loadTicket) return;
       set({ status: "error", error: error instanceof Error ? error.message : String(error) });
     }
   },

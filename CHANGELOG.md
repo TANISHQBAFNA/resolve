@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — setup secrets, cross-file links, budgets
+
+Oct 9, 2026 IST. Setup no longer writes the previous MCP configuration into `.resolve/setup-record.json`, and that file is in the cache ignore list. A Figma link becomes an internal edge only when its file key is the ingested file. Selected AI context stays inside the node budget and names the selections that did not fit. The plugin stops walking at `maxNodes`, marks truncation only when a node was skipped, and downloads the JSON when a POST fails. A slower source load cannot overwrite a newer one.
+
 ## Unreleased — command-line verify feeds SOCK
 
 Oct 7, 2026 IST. `resolve verify` on a real frame now saves usage to SOCK exactly like MCP `verify_frame`: facts, cousin corrections, SOCI proposals. Before, only the MCP tool did, so screens checked from the command line (the AIDLC add-on's design-check) never became mapped screens. New `--slot <role>` flag, same as the tool's `slot`. A frame's screen job now comes from the journey, else the domain, else the frame name, so Acme's "Send money" (domain `payments`) is a payment screen. Ranking is unchanged.

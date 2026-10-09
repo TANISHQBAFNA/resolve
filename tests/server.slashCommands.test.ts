@@ -156,6 +156,7 @@ describe("slash commands: install", () => {
       "!.resolve/scoreboard/golden/**",
       ".resolve/learn/",
       ".resolve/ingest/",
+      ".resolve/setup-record.json",
     ];
     const team = [
       "recipes.json",

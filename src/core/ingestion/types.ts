@@ -35,6 +35,8 @@ export const SourceLinkSchema = z.object({
   label: z.string().optional(),
   /** Populated when the link points at a node inside this file. */
   targetFigmaNodeId: z.string().optional(),
+  /** File key parsed from a figma.com URL. An internal edge needs this to match the ingested file. */
+  targetFileKey: z.string().optional(),
 });
 export type SourceLink = z.infer<typeof SourceLinkSchema>;
 

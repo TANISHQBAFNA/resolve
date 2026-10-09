@@ -109,7 +109,7 @@
       message.stats.styles + " styles · " +
       message.stats.variables + " variables";
 
-    if (pick("target") === "download") {
+    function downloadJson() {
       var blob = new Blob([message.json], { type: "application/json" });
       var url = URL.createObjectURL(blob);
       var link = document.createElement("a");
@@ -118,6 +118,10 @@
       link.click();
       URL.revokeObjectURL(url);
       say("Downloaded. " + summary);
+    }
+
+    if (pick("target") === "download") {
+      downloadJson();
       return;
     }
 
@@ -134,6 +138,7 @@
       })
       .catch(function (error) {
         say("POST failed: " + error.message + " — falling back to download.", true);
+        downloadJson();
       });
   };
 </script>
