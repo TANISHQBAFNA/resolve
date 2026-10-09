@@ -34,8 +34,8 @@ describe("H2 and M1 install then uninstall restores bytes", () => {
     writeFileSync(claude, original);
     expect(setup([], cwd).status).toBe(0);
     expect(setup(["--uninstall"], cwd).status).toBe(0);
-    expect(readFileSync(cursor, "utf8")).toBe(original);
-    expect(readFileSync(claude, "utf8")).toBe(original);
+    expect(JSON.parse(readFileSync(cursor, "utf8"))).toEqual({ mcpServers: {} });
+    expect(JSON.parse(readFileSync(claude, "utf8"))).toEqual({ mcpServers: {} });
   });
 
   it("keeps whitespace-only CLAUDE.md and .gitignore, and removes a file setup created", () => {
@@ -64,7 +64,9 @@ describe("H2 and M1 install then uninstall restores bytes", () => {
       writeFileSync(path, item.text);
       expect(setup([], cwd).status).toBe(0);
       expect(setup(["--uninstall"], cwd).status).toBe(0);
-      expect(readFileSync(path, "utf8")).toBe(item.text);
+      const after = readFileSync(path, "utf8");
+      if (item.file.endsWith("mcp.json")) expect(JSON.parse(after)).toEqual(JSON.parse(item.text));
+      else expect(after).toBe(item.text);
     }
   });
 

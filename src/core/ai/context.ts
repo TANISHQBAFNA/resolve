@@ -22,6 +22,8 @@ export interface AiGraphContext {
     /** Node budget that produced this payload. */
     nodeBudget: number;
     truncated: boolean;
+    /** Selected ids that did not fit in the node budget. */
+    omittedSelectionIds?: string[];
     sourceKind: string;
   };
 }
@@ -83,10 +85,16 @@ export function buildAiGraphContext(
     includeAncestors: true,
   });
 
-  // Anything else the user selected must be in the payload even if the level
-  // collector did not reach it.
   const nodeIds = new Set(subgraph.nodes.map((node) => node.id));
-  for (const id of selectedNodeIds) nodeIds.add(id);
+  const omittedSelectionIds: string[] = [];
+  for (const id of selectedNodeIds) {
+    if (nodeIds.has(id)) continue;
+    if (nodeIds.size >= nodeBudget || !index.getNode(id)) {
+      omittedSelectionIds.push(id);
+      continue;
+    }
+    nodeIds.add(id);
+  }
 
   const neighbors = index
     .getNodes(nodeIds)
@@ -96,7 +104,7 @@ export function buildAiGraphContext(
   const edges = index.getInducedEdges(nodeIds).filter((edge) => edge.type !== "PARENT_OF");
 
   return {
-    selectedNodeIds,
+    selectedNodeIds: selectedNodeIds.filter((id) => nodeIds.has(id)),
     focusNode: compactNode(focus, includeMetadata),
     neighbors,
     edges,
@@ -107,7 +115,8 @@ export function buildAiGraphContext(
       fileName: index.graph.fileName,
       generatedAt: options.generatedAt ?? new Date().toISOString(),
       nodeBudget,
-      truncated: subgraph.truncated || neighbors.length + 1 > nodeBudget,
+      truncated: subgraph.truncated || omittedSelectionIds.length > 0,
+      ...(omittedSelectionIds.length ? { omittedSelectionIds } : {}),
       sourceKind: index.graph.source.kind,
     },
   };

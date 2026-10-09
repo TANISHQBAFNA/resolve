@@ -638,7 +638,9 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
   for (const { sourceGraphId, link } of pendingLinks) {
     const node = builder.nodes.get(sourceGraphId);
     if (!node) continue;
-    const targetGraphId = link.targetFigmaNodeId ? makeNodeId(link.targetFigmaNodeId) : undefined;
+    const otherFile = Boolean(link.targetFileKey && link.targetFileKey !== doc.fileKey);
+    const targetGraphId =
+      !otherFile && link.targetFigmaNodeId ? makeNodeId(link.targetFigmaNodeId) : undefined;
     if (targetGraphId && builder.nodes.has(targetGraphId)) {
       builder.addEdge("LINKS_TO", sourceGraphId, targetGraphId, link.label ?? "links to", {
         url: link.url,
@@ -650,7 +652,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
       ? (node.metadata!["externalLinks"] as SourceLink[])
       : [];
     node.metadata = { ...node.metadata, externalLinks: [...existing, link] };
-    if (link.targetFigmaNodeId) {
+    if (link.targetFigmaNodeId && !otherFile) {
       builder.warn({
         code: "UNRESOLVED_LINK_TARGET",
         message: `Link from "${node.name}" points at ${link.targetFigmaNodeId}, which is not in this payload.`,
