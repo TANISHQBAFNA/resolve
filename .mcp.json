@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "resolve": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"],
+      "env": {
+        "FIGMA_ACCESS_TOKEN": "${user_config.FIGMA_ACCESS_TOKEN}",
+        "RESOLVE_LIBRARY_FILE_KEY": "${user_config.RESOLVE_LIBRARY_FILE_KEY}"
+      }
+    }
+  }
+}

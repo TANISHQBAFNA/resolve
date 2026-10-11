@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "resolve",
+  "description": "Resolve, the Figma component checker for Claude Code.",
+  "owner": {
+    "name": "Tanishk",
+    "url": "https://github.com/TANISHQBAFNA"
+  },
+  "plugins": [
+    {
+      "name": "resolve",
+      "source": "./",
+      "description": "Asks Resolve before any Figma screen is drawn, and places only real library components."
+    }
+  ]
+}

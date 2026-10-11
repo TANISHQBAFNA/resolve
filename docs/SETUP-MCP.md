@@ -99,7 +99,7 @@ claude mcp add --transport http figma https://mcp.figma.com/mcp -s user
 
 Then in Claude Code run `/mcp` and log in to Figma.
 
-Plugin installs read the server from `.claude-plugin/plugin.json`. If you write a Claude Code project config that lists Figma, set `"type": "http"`:
+A Claude Code plugin install reads the server from `.mcp.json`. A Cursor plugin install reads it from `mcp.json`. Both start `resolve-mcp` with the same npx command as project setup. The Figma token and library file key come from the plugin settings (`FIGMA_ACCESS_TOKEN`, `RESOLVE_LIBRARY_FILE_KEY`), not from a file in the repo. If you write a Claude Code project config that lists Figma, set `"type": "http"`:
 
 ```json
 {

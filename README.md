@@ -8,6 +8,35 @@ Every example in this file is made up. "Acme" is a pretend company, the "Payment
 
 **Quick start:** open your project in Claude Code, Cursor or Codex and paste: *Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md*. The AI-facing checklist is [`INSTALL-FOR-AI.md`](INSTALL-FOR-AI.md); the plain steps are under [Set it up](#set-it-up).
 
+## Install as a plugin
+
+Install Resolve once. After that, every chat in every project asks Resolve before it draws in Figma. You do not paste the install note again.
+
+You still do two things by hand. Connect Figma in the app (sign in when it asks). Then fill in the two settings the plugin asks for: a Figma token, and the library file key. The file key is the id in a link such as `https://www.figma.com/design/ACMEUI/Acme` (here the key is `ACMEUI`). Do not type the token into a file.
+
+### Claude Code
+
+In Claude Code, type these two lines:
+
+```
+/plugin marketplace add TANISHQBAFNA/resolve
+/plugin install resolve@resolve
+```
+
+When it asks, fill in **Figma token** and **Library file key**. To change them later, type `/plugin configure resolve@resolve`.
+
+### Cursor
+
+In the Cursor chat, type:
+
+```
+/add-plugin https://github.com/TANISHQBAFNA/resolve
+```
+
+Install **resolve**. Then open **Plugins**, choose **Resolve**, then **Configure**, and fill in the same two settings.
+
+The older per-project setup (`resolve-setup`, under [Set it up](#set-it-up)) still works. Use the plugin when you want Resolve in every project without running setup in each one.
+
 You can read this file from top to bottom without knowing any code. The first half is for designers. The second half, under **For engineers and testers**, is reference detail that you can skip.
 
 ## The story in one minute
@@ -886,6 +915,7 @@ The same 14 Acme cards (three recommends, three resolves, one example, two verif
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
+- **Oct 11, 2026 — [PR #50](https://github.com/TANISHQBAFNA/resolve/pull/50).** Resolve installs once, as a plugin, in Claude Code and in Cursor. After that, every chat in every project asks Resolve before it draws. The slash commands, the always-on rule, and the skill are the same files as before. The Figma token and the library file key are plugin settings. An example link is `figma.com/design/ACMEUI/Acme`. If either setting is missing, the first reply says how to set it. Ranking is unchanged. Default tools stay 7. 851 tests.
 - **Oct 7, 2026 — [PR #47](https://github.com/TANISHQBAFNA/resolve/pull/47).** A frame checked with `resolve verify` (the AIDLC add-on's design-check) now counts as a mapped screen, the same as one checked by the agent. Acme's "Send money" frame with domain `payments` is a payment screen, so "payment screen" answers from it. Ranking is unchanged. Default tools stay 7.
 - **Oct 7, 2026 — [PR #46](https://github.com/TANISHQBAFNA/resolve/pull/46).** Ask the agent for an "inquiry screen" and it answers from Acme's mapped inquiry screens: Search and List, in the order those screens use them, with their Figma ids. Nobody writes a recipe or a synonym for it. With no mapped screen of that job, the answer is empty and says so. Component ranking is unchanged. Default tools stay 7.
 - **Oct 7, 2026 — [PR #45](https://github.com/TANISHQBAFNA/resolve/pull/45).** `code-map --check` answers like the AIDLC add-on's own lookup. `<button mat-raised-button>` is `not-found`, not Acme's Button. `Old Button` is `retired, use Button`: `--import` now keeps the design name, and the Acme example map has it. `AcmeButtonModule` is `ok`. Avatar inside Acme's Payee picker is `unmapped`, not `other-library`. Text field in a recipe slot the designer did not place is `not-in-handoff`. Ranking is unchanged. Default tools stay 7.
