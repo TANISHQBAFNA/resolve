@@ -127,6 +127,7 @@ export function formatStatus(report: StatusReport): string {
     report.rule === "installed" ? "Always-on rule: installed." : "Always-on rule: not installed. Run resolve-setup in this project.",
     !c ? "Code map: none." : c.configured ? `Code map: ${c.mapped} of ${c.components} components link to code (${c.retired} retired, ${c.unmapped} unmapped).` : "Code map: none yet (resolve code-map --init writes a spreadsheet to fill).",
     `Next: ${report.next}`,
+    "Accuracy: `resolve score phrases` (right part in the top 3). `resolve score` only checks that a golden set did not break.",
   );
   return lines.join("\n");
 }

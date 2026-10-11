@@ -1,3 +1,4 @@
+import { sameFamily } from "@/core/identity";
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import {
   isNameInferredMaster,
@@ -58,20 +59,6 @@ const asMaster = (index: GraphIndex, node: GraphNode): GraphNode | undefined => 
   if (node.type === "COMPONENT_INSTANCE") return index.getMainComponent(node.id);
   return undefined;
 };
-
-function familyKey(node: GraphNode): string {
-  if (node.componentSetId) return `set:${node.componentSetId}`;
-  return `id:${node.id}`;
-}
-
-function sameFamily(a: GraphNode, b: GraphNode): boolean {
-  if (a.id === b.id) return true;
-  if (familyKey(a) === familyKey(b)) return true;
-  if (a.figmaNodeId && a.figmaNodeId === b.figmaNodeId && a.fileKey && a.fileKey === b.fileKey) {
-    return true;
-  }
-  return false;
-}
 
 function stamp(node: GraphNode, fallback?: string) {
   const fileKey = nodeFileKey(node, fallback);

@@ -12,6 +12,7 @@ import {
   elementComponentIds,
   masterByIdOrKey,
 } from "@/core/ingestion/designContextIds";
+import { idVariants, sameFamily } from "@/core/identity";
 import { COMPONENT_DEFINITION_TYPES, descriptionIsRetired, type GraphNode } from "@/core/model";
 import { computeAnalytics, computeComponentUsage, type GraphAnalytics } from "./analytics";
 import { detectCommunitiesForIndex } from "./communities";
@@ -27,6 +28,16 @@ import { placeReady } from "./placeReady";
 import { buildIngredientCard, buildIngredientCoverage, type IngredientHooks, type IngredientOptions } from "./ingredients";
 import synonymFile from "@/data/synonyms.json";
 import modifierFile from "@/data/ui-modifiers.json";
+import {
+  DEMOTE_UNASKED,
+  GENERIC_NAME_TOKENS,
+  LABEL_FILLER,
+  RETIRED_NAME_TOKENS,
+  SCENE_TAIL_WORDS,
+  SLOT_QUALIFIERS,
+  SLOT_ROLE_TOKENS,
+  STOPWORDS,
+} from "./finderLexicon";
 import { isRemovedByAbsence, patternFor, staleRefreshHint, type SockState } from "./sock";
 import {
   bindRuleHit,
@@ -92,51 +103,6 @@ export function costOf(value: unknown): AgentCost {
 export function withCost<T extends object>(payload: T): T & { cost: AgentCost } {
   return { ...payload, cost: costOf(payload) };
 }
-
-const STOPWORDS = new Set([
-  "a",
-  "an",
-  "the",
-  "page",
-  "screen",
-  "frame",
-  "what",
-  "which",
-  "kind",
-  "of",
-  "to",
-  "for",
-  "should",
-  "use",
-  "uses",
-  "using",
-  "i",
-  "im",
-  "am",
-  "building",
-  "build",
-  "requires",
-  "require",
-  "need",
-  "needs",
-  "this",
-  "that",
-  "our",
-  "new",
-  "and",
-  "or",
-  "not",
-  "how",
-  "does",
-  "with",
-  "from",
-  "between",
-  "find",
-  "while",
-  "during",
-  "via",
-  "in",
-]);
 
 const tokensOf = (text: string): string[] =>
   text
@@ -957,10 +923,6 @@ export function variantCardName(index: GraphIndex, node: GraphNode): string {
   return `${setName} / ${label}`;
 }
 
-function idVariants(value: string): string[] {
-  return [...new Set([value, value.replace(/-/g, ":"), value.replace(/:/g, "-")])];
-}
-
 function matchesFigmaId(node: GraphNode, raw: string): boolean {
   const figmaId = node.figmaNodeId;
   if (!figmaId) return false;
@@ -1461,13 +1423,6 @@ export interface RecommendAlternate {
 
 export type RecommendHit = RecommendCandidate | RecommendAlternate;
 
-function sameFamily(a: GraphNode, b: GraphNode): boolean {
-  if (a.id === b.id) return true;
-  if (a.componentSetId && (a.componentSetId === b.id || a.componentSetId === b.componentSetId)) return true;
-  if (b.componentSetId && b.componentSetId === a.id) return true;
-  return false;
-}
-
 function variantHaystack(node: GraphNode): string {
   const props = node.variantProperties;
   if (!props) return "";
@@ -1557,12 +1512,6 @@ for (const group of synonymFile.groups) {
   if (terms.length) SYNONYM_GROUPS.push(terms);
   for (const term of terms) SYNONYM_OF.set(term, terms);
 }
-
-/** Label words that can sit beside a control. They match, and the card is partial. */
-const LABEL_FILLER = new Set(["sign", "terms", "submit", "submitting", "phone", "number", "country", "edit"]);
-
-/** Unasked position words. "app bar" is the top bar, not the bottom bar. */
-const DEMOTE_UNASKED = new Set(["bottom", "secondary", "right"]);
 
 interface SynonymGroup {
   terms: string[];
@@ -1829,34 +1778,6 @@ const TRAILING_AFTER = new Map<string, ReadonlySet<string>>(
   ]),
 );
 
-/** Slot words that pick a variant, not a different component family. */
-const SLOT_QUALIFIERS = new Set(["primary", "secondary", "tertiary", "danger", "ghost"]);
-
-/**
- * Words that mark journey.step as a component slot (primary-cta, input, message).
- * A pack step such as "summary" or "form" stays screen context.
- */
-const SLOT_ROLE_TOKENS = new Set([
-  "cta",
-  "button",
-  "message",
-  "input",
-  "row",
-  "card",
-  "icon",
-  "header",
-  "field",
-  "chip",
-  "badge",
-  "label",
-  "search",
-  "avatar",
-  "banner",
-  "toast",
-  "modal",
-  "switch",
-]);
-
 function slotIsComponentRole(slotTokens: string[]): boolean {
   return slotTokens.some((token) => SLOT_ROLE_TOKENS.has(token));
 }
@@ -1871,8 +1792,6 @@ function intentNamesMaster(index: GraphIndex, askedTokens: string[]): boolean {
   }
   return false;
 }
-
-const RETIRED_NAME_TOKENS = new Set(["legacy", "old", "deprecated", "retired"]);
 
 function synonymIn(token: string, names: Set<string>, allowClip = false): boolean {
   const group = termsFor(token, allowClip);
@@ -1933,23 +1852,6 @@ function variantValueText(node: GraphNode): string {
     .filter(Boolean)
     .join(" ");
 }
-
-/** Shared UI nouns. One of these alone must not steal a more specific ask. */
-const GENERIC_NAME_TOKENS = new Set([
-  "button",
-  "bar",
-  "field",
-  "icon",
-  "label",
-  "box",
-  "item",
-  "text",
-  "row",
-  "card",
-  "message",
-  "input",
-  "picker",
-]);
 
 function collapsedName(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "");
@@ -2063,6 +1965,34 @@ function phraseAliasBonus(ask: string, familyName: string): number {
     if (short) return 500;
   }
   return 0;
+}
+
+/**
+ * A multi-word team synonym inside a longer ask. "card on file row" contains
+ * "card on file". The whole ask does not have to equal the synonym.
+ */
+function containedPhraseHit(ask: string, familyName: string): boolean {
+  const rawTokens = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  if (rawTokens.length < 2 || !familyName.trim()) return false;
+  const familyCollapsed = collapsedName(familyName);
+  const familyTokens = tokensOf(familyName);
+  return allSynonymGroups().some((group) => {
+    const namesFamily = group.terms.some((term) => {
+      if (collapsedName(term) === familyCollapsed) return true;
+      const parts = tokensOf(term);
+      return parts.length > 0 && parts.length === familyTokens.length && parts.every((token) => familyTokens.includes(token));
+    });
+    if (!namesFamily) return false;
+    return group.terms.some((term) => {
+      if (!term.includes(" ")) return false;
+      const parts = term.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+      if (parts.length < 2) return false;
+      for (let i = 0; i <= rawTokens.length - parts.length; i += 1) {
+        if (parts.every((part, offset) => rawTokens[i + offset] === part)) return true;
+      }
+      return false;
+    });
+  });
 }
 
 function liveNameSets(index: GraphIndex): Set<string>[] {
@@ -2375,6 +2305,21 @@ function splitBrief(
     if (!roleHits && sceneHits) return { role: intent.trim(), scene: "" };
   }
   return { scene, role };
+}
+
+/**
+ * Drop a purpose clause once the part is named. "snackbar after saving" is a snackbar.
+ * Left side must already name a part, so "price of gold" is unchanged ("of" is not a tail).
+ */
+function roleBeforeScene(intent: string, componentWord: (token: string) => boolean): string {
+  const scene = new RegExp(`\\s+(?:${SCENE_TAIL_WORDS.join("|")})\\s+`, "i");
+  const match = scene.exec(intent);
+  if (!match || match.index <= 0) return intent.trim();
+  const left = intent.slice(0, match.index).trim();
+  if (!left) return intent.trim();
+  const tokens = tokensOf(left);
+  if (tokens.some(componentWord) || phraseCoversAsk(left)) return left;
+  return intent.trim();
 }
 
 function replacedByName(node: GraphNode): string | undefined {
@@ -2743,17 +2688,18 @@ export function recommendMasters(
   loadSynonymOverlay();
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
   const echoIntent = intent.length > 200 ? `${intent.slice(0, 199)}…` : intent;
-  const analog = similarUsage(index, intent);
-  const analogById = new Map(analog.variants.map((variant) => [variant.id, variant]));
-  const slotRaw = options.context?.journey?.step?.trim() ?? "";
-  const slotTokens = tokensOf(slotRaw.replace(/-/g, " "));
-  const slotRole = slotIsComponentRole(slotTokens);
   const publicNameSets = liveNameSets(index);
   const namesHit = (token: string) =>
     publicNameSets.some(
       (names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false),
     );
-  const brief = splitBrief(intent, namesHit);
+  const query = roleBeforeScene(intent, namesHit);
+  const analog = similarUsage(index, query);
+  const analogById = new Map(analog.variants.map((variant) => [variant.id, variant]));
+  const slotRaw = options.context?.journey?.step?.trim() ?? "";
+  const slotTokens = tokensOf(slotRaw.replace(/-/g, " "));
+  const slotRole = slotIsComponentRole(slotTokens);
+  const brief = splitBrief(query, namesHit);
   const askedTokens = tokensOf(brief.role);
   if (xMeansClose(brief.role) && !askedTokens.includes("close")) askedTokens.push("close");
   // Exclusive family only when the slot is a component role and the intent is a
@@ -2778,7 +2724,7 @@ export function recommendMasters(
   const libraryWarnings = iconLibraryWarnings(index, workspace);
   emitIconLibraryWarningsOnce(libraryWarnings);
   const graphFileKey = index.graph.fileKey;
-  const intentNeedle = intent.trim().toLowerCase();
+  const intentNeedle = query.trim().toLowerCase();
   const allowClip = askedTokens.length >= 2;
   const componentWord = (token: string): boolean =>
     publicNameSets.some(
@@ -2821,6 +2767,7 @@ export function recommendMasters(
     const extraHits = extraTokens.length ? tokenHits(nameHaystack, variantText, extraTokens, allowClip) : undefined;
     // A screen-job slot names the family ("sign in" + primary-cta → buttons).
     // When the intent already names a master, that gate stays off.
+    let phraseHit = false;
     let lexical: number;
     if (exactName) {
       lexical = lexicalScore(hits, true);
@@ -2835,10 +2782,12 @@ export function recommendMasters(
     } else {
       lexical = lexicalScore(hits, false);
       const aliasBonus = phraseAliasBonus(intentNeedle, familyLabel);
-      if (lexical === 0 && aliasBonus === 0) return undefined;
+      phraseHit = containedPhraseHit(intentNeedle, familyLabel);
+      if (lexical === 0 && aliasBonus === 0 && !phraseHit) return undefined;
       lexical += aliasBonus;
+      if (phraseHit) lexical += 500;
       lexical += repeatedSynonym(familyLabel, tokens, allowClip) * 20;
-      if (genericOnlyMiss(familyLabel, tokens, allowClip, componentWord)) return undefined;
+      if (!phraseHit && genericOnlyMiss(familyLabel, tokens, allowClip, componentWord)) return undefined;
       const nameTokens = tokensOf(familyLabel);
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
       if (nameTokens.length > 0 && matched === nameTokens.length) lexical += 25;
@@ -2878,7 +2827,7 @@ export function recommendMasters(
     const stale = instances === 0;
     const why: string[] = [];
     if (hits.name > 0 || (extraHits?.name ?? 0) > 0 || exactName) why.push("name");
-    if (hits.synonym > 0 || (extraHits?.synonym ?? 0) > 0) why.push("synonym");
+    if (hits.synonym > 0 || (extraHits?.synonym ?? 0) > 0 || phraseHit) why.push("synonym");
     if (hits.variant > 0 || (extraHits?.variant ?? 0) > 0) why.push("variant");
     if (analogHit) why.push("similar-screen");
     if (whereUsedScore > 0) why.push("where-used");
@@ -2928,8 +2877,8 @@ export function recommendMasters(
         collapsedName(node.name) === collapsedAsk);
     const nameHasIcon =
       tokensOf(node.name).includes("icon") || tokensOf(set?.name ?? "").includes("icon");
-    if (shouldDemoteIcon(index, node, set, tokens, askedExact, workspace, intent)) score -= 500_000;
-    if (asksIcon(tokens, intent) && !iconLike && !nameHasIcon && !askedExact) score -= 500_000;
+    if (shouldDemoteIcon(index, node, set, tokens, askedExact, workspace, query)) score -= 500_000;
+    if (asksIcon(tokens, query) && !iconLike && !nameHasIcon && !askedExact) score -= 500_000;
     if (internal && !tokens.includes("base") && !askedExact) score -= 500_000;
 
     return {
@@ -3107,7 +3056,7 @@ export function recommendMasters(
 
   if (options.bindRules?.rules.length) {
     kept = filterAndScoreByBindRules(kept, options.bindRules, {
-      intent,
+      intent: query,
       domain: options.context?.domain,
       journey: options.context?.journey?.screenJob || options.context?.journey?.step,
       product: options.context?.product?.name || options.context?.product?.id,
@@ -3204,7 +3153,7 @@ export function recommendMasters(
   }
   kept = collapsed.filter((entry) => {
     const namesakes = realMastersNamed(index, entry.node.name);
-    const preferred = preferNamedMaster(index, namesakes, workspace, intent);
+    const preferred = preferNamedMaster(index, namesakes, workspace, query);
     if (!preferred || preferred.id === entry.node.id) return true;
     return !isWeakerNameStub(index, entry.node, preferred);
   });
@@ -3216,7 +3165,7 @@ export function recommendMasters(
         index,
         same.map((entry) => entry.node),
         workspace,
-        intent,
+        query,
       );
       const chosen = preferred ? same.find((entry) => entry.node.id === preferred.id) : undefined;
       if (chosen) kept = [chosen, ...kept.filter((entry) => entry.node.id !== preferred!.id)];
@@ -3224,7 +3173,7 @@ export function recommendMasters(
   }
 
   const askedBase = askedTokens.includes("base") || intentNeedle.startsWith("base/");
-  const askedIcon = asksIcon(askedTokens, intent);
+  const askedIcon = asksIcon(askedTokens, query);
   const demotedPart = (entry: Scored): boolean => {
     const set = setOf(index, entry.node);
     const askedExact =
@@ -3238,7 +3187,7 @@ export function recommendMasters(
     if (namesThisNode(intentNeedle, entry.node, index)) return false;
     if (set && namesThisNode(intentNeedle, set, index)) return false;
     if (isInternalPart(index, entry.node) && !askedBase && !askedExact) return true;
-    return shouldDemoteIcon(index, entry.node, set, askedTokens, askedExact, workspace, intent);
+    return shouldDemoteIcon(index, entry.node, set, askedTokens, askedExact, workspace, query);
   };
   if (kept.some((entry) => !demotedPart(entry))) {
     kept = kept.filter((entry) => !demotedPart(entry));
@@ -3284,16 +3233,16 @@ export function recommendMasters(
   // Same rule as resolve: a live master whose name matches the ask (letter case ignored)
   // is the top pick, ahead of a similar name that only shares collapsed letters.
   // A listed icon still loses a generic ask ("search" → Search field, not the Search icon).
-  const exactLive = realMastersNamed(index, intent.trim()).filter((node) => {
+  const exactLive = realMastersNamed(index, query.trim()).filter((node) => {
     if (isPrivateMaster(index, node) || isRetired(index, node) || view?.retired(node)) return false;
     const set = setOf(index, node);
     const askedExact =
       node.name.toLowerCase() === intentNeedle ||
       variantCardName(index, node).trim().toLowerCase() === intentNeedle ||
       Boolean(set && set.name.toLowerCase() === intentNeedle);
-    return !shouldDemoteIcon(index, node, set, askedTokens, askedExact, workspace, intent);
+    return !shouldDemoteIcon(index, node, set, askedTokens, askedExact, workspace, query);
   });
-  const exactPick = preferNamedMaster(index, exactLive, workspace, intent.trim());
+  const exactPick = preferNamedMaster(index, exactLive, workspace, query.trim());
   if (exactPick) {
     const existing = kept.find((entry) => entry.node.id === exactPick.id);
     const lead: Scored = existing
@@ -3339,7 +3288,7 @@ export function recommendMasters(
 
   const packJourney = packJourneyPhrase(options.context);
   const bindQuery = {
-    intent,
+    intent: query,
     domain: options.context?.domain,
     journey: options.context?.journey?.screenJob || options.context?.journey?.step,
     product: options.context?.product?.name || options.context?.product?.id,
@@ -3413,7 +3362,7 @@ export function recommendMasters(
       /used \d+× in file/.test(full.why) &&
       !/bind rule|used on \d+ real screen/.test(full.why)
     ) {
-      full.why = weakMatchWhy(intent, familyCardName(entry));
+      full.why = weakMatchWhy(query, familyCardName(entry));
     }
     const pointer = examplePointer(index, entry.node, exQuery, tight ? "id" : "screen");
     const next: RecommendCandidate = {
@@ -3466,7 +3415,7 @@ export function recommendMasters(
     !(leadSetName && setCoversAsk(intentNeedle, leadSetName));
   const leadClashes = leadNode ? realMastersNamed(index, leadNode.name) : [];
   const clashNote = leadNode ? sameNameNote(index, leadClashes, leadNode) : undefined;
-  const subNote = substitutionNote(index, intent, leadNode);
+  const subNote = substitutionNote(index, query, leadNode);
   const extraNote = [clashNote, subNote].filter(Boolean).join(" ") || undefined;
   const payloadOf = () => {
     const base = {

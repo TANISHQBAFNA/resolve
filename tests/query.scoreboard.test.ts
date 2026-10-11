@@ -166,7 +166,8 @@ describe("scoreboard", () => {
     expect(table).toMatch(/on screen cases/);
     expect(table).toMatch(/n\/a \(N=0\)/);
     expect(table).not.toMatch(/n\/a \(1 candidate\)/);
-    expect(table).toMatch(/Run top-1: \d+\/\d+ \(verify excluded\)/);
+    expect(table).toMatch(/Regression top-1: \d+\/\d+ \(verify excluded\)/);
+    expect(table).toMatch(/accuracy number is `resolve score phrases`/);
     expect(table).toMatch(/Compared with/);
     const compared = table.split("\n").find((line) => line.startsWith("Compared"));
     expect(compared).toBeTruthy();

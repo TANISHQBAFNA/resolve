@@ -218,6 +218,18 @@ describe("phrase match and typos", () => {
     expect(topName(index, "table row").candidates[0]?.name).toBe("List Row");
   });
 
+  it("maps team words and a purpose clause without guessing a private or unrelated part", () => {
+    expect(topName(index, "main button").candidates[0]?.name).toBe("Button");
+    expect(topName(index, "card on file row").candidates[0]?.name).toBe("Payment Row");
+    expect(topName(index, "tick box for terms and conditions").candidates[0]?.name).toBe("Checkbox");
+    expect(topName(index, "empty state for no transactions").candidates[0]?.name).toBe("Empty Message");
+    expect(topName(index, "destructive delete button").candidates[0]?.name).toBe("Button");
+    expect(topName(index, "amount slider").candidates).toEqual([]);
+    expect(topName(index, "card carousel").candidates).toEqual([]);
+    expect(topName(index, "hidden badge").candidates).toEqual([]);
+    expect(topName(index, "price of gold").candidates).toEqual([]);
+  });
+
   it("keeps a component that is the head noun, and marks the modifier as low confidence", () => {
     const login = topName(index, "login field");
     expect(login.candidates[0]?.name).toBe("Text Field");

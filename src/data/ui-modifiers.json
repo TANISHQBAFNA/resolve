@@ -42,7 +42,13 @@
     { "term": "number", "reason": "Number is the kind of value in a text field." },
     { "term": "country", "reason": "Country is a qualifier on a phone field." },
     { "term": "edit", "reason": "Edit is the action on a button." },
-    { "term": "save", "reason": "Save is the action on a button." }
+    { "term": "save", "reason": "Save is the action on a button." },
+    { "term": "control", "reason": "A control is the widget itself, as in a quantity control." },
+    { "term": "display", "reason": "A display is the surface a value is shown on." },
+    { "term": "entry", "reason": "An entry is a field you type into." },
+    { "term": "line", "reason": "A line is the hairline of a separator." },
+    { "term": "menu", "reason": "A menu is the list of entries in navigation." },
+    { "term": "strip", "reason": "A strip is the chrome of a banner or a bar." }
   ],
   "trailing": [
     {

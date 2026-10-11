@@ -1,3 +1,4 @@
+import { idVariants } from "@/core/identity";
 import {
   COMPONENT_DEFINITION_TYPES,
   edgeId,
@@ -301,10 +302,6 @@ export function elementComponentIds(raw: unknown): ElementBindings {
 export function contextIdentityFor(bindings: ElementBindings, nodeId: string | undefined): string | undefined {
   if (!nodeId || bindings.conflicted.has(nodeId)) return undefined;
   return bindings.ids.get(nodeId);
-}
-
-function idVariants(value: string): string[] {
-  return [...new Set([value, value.replace(/-/g, ":"), value.replace(/:/g, "-")])];
 }
 
 function isInferredMaster(node: GraphNode): boolean {

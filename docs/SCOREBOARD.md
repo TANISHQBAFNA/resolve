@@ -2,13 +2,13 @@
 
 **Figma rules. Agents resolve.**
 
-The scoreboard is a repeatable check: when an agent asks for a component, does Resolve hand back the right library master?
+Two checks. **`resolve score phrases` is the accuracy number**: designer wording, right part in the top 3. **`resolve score` is a regression check**: a golden set of known cases, to see that nothing broke. A perfect golden run is not the accuracy number. Its top-3 line can rest on a handful of cards.
 
-It does not call Figma. It does not need a token. It scores the library that is already in the store. The sample library in this repo is the offline stand-in. A library you learned from Figma uses the same command later. Nothing in the scorer changes.
+Neither check calls Figma or needs a token. Both score the library already in the store. The sample library in this repo is the offline stand-in. A library you learned from Figma uses the same commands later. Nothing in the scorer changes.
 
-## What a case is
+## What a golden case is
 
-Cases live in `scoreboard/golden/*.json`. Each file is a list:
+Golden cases are the regression check. They live in `scoreboard/golden/*.json`. Each file is a list:
 
 ```json
 {
@@ -97,9 +97,9 @@ Overview and Rules show the newest saved run across workspaces, and a picker whe
 
 The dev server and `vite preview` both serve it at `/api/scoreboard`. Preview does not open a websocket for that.
 
-## Designer phrase set
+## Designer phrase set (the accuracy number)
 
-`scoreboard/phrases/*.json` is a second set, written the way a designer asks ("empty state for no transactions", "6 digit OTP box") rather than with component names. It is scored against `recommend` only. It sits next to the golden set and does not replace it. It was written after the ranker, to see how it does on loose wording, so weak numbers are findings. Do not tune weights to lift them.
+`scoreboard/phrases/*.json` is how a designer asks ("empty state for no transactions", "6 digit OTP box"), not the component's name. It is scored against `recommend` only. This is the number to quote. The golden set below it only checks that known cases still pass. Weak phrase numbers are findings. Do not add a hack for one phrase to lift them. Add a team word in `synonyms.json` or a modifier in `ui-modifiers.json`.
 
 ```bash
 npm run resolve -- score phrases            # your own phrases, or the shipped set on the sample library

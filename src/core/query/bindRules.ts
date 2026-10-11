@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { idVariants } from "@/core/identity";
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import { placeReady } from "./placeReady";
@@ -292,10 +293,6 @@ export function parseBindRulesFile(raw: unknown): BindRulesFile {
 
 function isMaster(node: GraphNode): boolean {
   return MASTER_TYPES.has(node.type);
-}
-
-function idVariants(value: string): string[] {
-  return [...new Set([value, value.replace(/-/g, ":"), value.replace(/:/g, "-")])];
 }
 
 function matchesId(node: GraphNode, raw: string): boolean {

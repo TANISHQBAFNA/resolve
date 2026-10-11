@@ -46,7 +46,7 @@ Two kinds of files live in `.resolve/` on your computer. **Team files** are the 
 ## What Resolve does, one piece at a time
 
 - **It learns your library.** You give it your design system file once. It reads the file and writes down what is in it: every component, its variants (for example Primary and Secondary), and where each one is used on real screens. You can repeat this whenever the library changes. This step has two names: **learn** (when your AI tool does it) and **ingest** (when you do it by hand). They mean the same thing: read a Figma file and remember it.
-- **It sets the context from the requirements or FSD.** The agent reads that document. Resolve does not. The agent passes which product, which journey step, who the screen is for, and the accessibility bar (for example wcag-aa) only when the document states them. A context pack is optional and is used only on an exact product match, and an exact journey match when the document gives one. Audience, a11y, and density are shown on the card and do not change which component is picked.
+- **It sets the context from the requirements or FSD.** The agent reads that document. Resolve does not. The agent passes which product, which journey step, who the screen is for, and the accessibility bar (for example wcag-aa) only when the document states them. A context pack is optional, still supported, and is used only on an exact product match, and an exact journey match when the document gives one. Audience, a11y, and density are shown on the card and do not change which component is picked.
 - **It recommends.** You describe what you need in plain words ("payee picker", "primary button"). Resolve picks the best matching component for that context. It looks at the name and your words first. If the match is only partial, it says "weak match" and offers up to three options, instead of pretending to be sure. An empty answer means stop. It does not draw a stand-in.
 - **It shows a real example.** With the pick, Resolve points to a real, filled-in copy of that component on a real screen. The AI tool clones it and swaps the content, which looks far better than starting from a bare default.
 - **It checks the finished screen.** Resolve looks at every piece on the screen and answers pass or fail. It flags parts that are not in the library, parts that are retired, and leftover template text such as "Lorem ipsum". It checks by each component's real Figma id (a hidden number every component has), not just by its layer name (the label you see in Figma's layers list), because a layer called "Button" can be anything.
@@ -213,7 +213,7 @@ You give it a list of phrases, and for each one the part you expect. Say Acme's 
 - "6 digit OTP box" should find **nothing**, because Acme has no such part yet.
 - "old style button" should never offer the retired **Old Button**.
 
-Then run `npm run resolve -- score phrases`. The first lines are plain English, for example "Resolve tried 118 designer phrases against your library. It put the right part first for 66/88 (75%)." Below that is a table by kind of phrase, so you can see which wording it understands least. A part that is made up, or a retired part that is offered, fails the run.
+Then run `npm run resolve -- score phrases`. That command is the accuracy number. The first lines are plain English, for example "Resolve tried 118 designer phrases against your library. It put the right part in the top 3 for 87/88 (99%)." Below that is a table by kind of phrase, so you can see which wording it understands least. A part that is made up, or a retired part that is offered, fails the run. `npm run resolve -- score` is a separate regression check on a golden set. A perfect golden run does not mean the finder is done.
 
 To test your own library, put a `.json` file of your phrases in the `scoreboard/phrases` folder inside your store (`resolve where` prints the store). You do not need to change the Resolve repo. When that folder has phrases, only your phrases are scored. The 118 built-in phrases are written for the sample library, so they only run on it; on your library with no phrases of your own yet, Resolve says so instead of giving a score. The file format is under [score](#score).
 
@@ -834,16 +834,15 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 | Check | Result |
 | --- | --- |
-| Repo golden set (top-1) | 118/118, invent 0, leak 0 |
-| Phrase set (regression) | 96/96 |
-| Designer phrase set (118 phrases, written after the ranker) | top-1 66/88 (75%), top-3 68/88 (77%), honest no-match 30/30, invent 0, retired offered 0. Weakest: paraphrase, 20/39 right first, 14 got nothing back |
+| Designer phrase set (the accuracy number, 118 phrases) | top-3 87/88 (99%), top-1 86/88 (98%), honest no-match 30/30, invent 0, retired offered 0. Paraphrase top-3 39/39. One top-1 miss: "confirm payment action" leads with Payment Row. "hidden badge" stays empty because a private part is never offered. |
+| Golden set (regression only: nothing broke) | run top-1 118/118, invent 0, leak 0. Top-3 is 1/1. Not the accuracy number. |
 | 8-screen Material-like library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
 | Ingredient card (Acme example library) | Payee picker = Avatar + Button, Payment method row = Avatar + Button; invented parts 0; unmapped parts shown as unmapped |
 | Angular code map (Acme example) | 4 Angular entries load with 0 ignored; the CSV example imports to the same map; 14 bad Angular values dropped with a reason while the code line stays; 5 real selector forms and input aliases accepted |
 | Handoff sheet (Acme example) | Send money refused for the retired Old Button (draft or not); after the fix, 3 components, 3 linked to code, 2 parts, verify PASS, matches the golden file; 0 invented code lines. Receipt refused as `not-found` (Legacy badge's component is in no learned file); Payment methods' Brand mark labelled `other-library` |
-| Tests | 818 passing |
+| Tests | 848 passing |
 
-**Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
+**Top-3** is the accuracy number: the right part is one of the three offered. **Top-1** means it is the first. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. Quote `resolve score phrases`. The golden set only checks that known cases still pass. How the sets are built: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
 ### Limits: what is not tested yet
 
@@ -944,7 +943,7 @@ npm test          # the full test suite
 npm run build     # typecheck + browser build + server build
 ```
 
-`npm run dev` opens the library and rules pages in a browser (sample data, no login). There is no graph canvas. `npm run keyline` still works and prints a deprecation warning.
+`npm run dev` opens the library and rules pages in a browser (sample data, no login). There is no graph canvas.
 
 - Plug-and-play next to Figma: [`docs/SETUP-MCP.md`](docs/SETUP-MCP.md)
 - Designer guide: [`docs/GUIDE.md`](docs/GUIDE.md)

@@ -16,8 +16,6 @@ export const DEPRECATED_INSTEAD: Record<string, string> = {
   get_screen_inventory: "resolve",
   get_component_usage: "resolve",
   get_recipe: "recipe",
-  "context packs": "recipe fields (product, journey, domain)",
-  "npm run keyline": "npm run resolve",
   communities: "recommend",
 };
 

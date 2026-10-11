@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { z } from "zod";
+import { sameFamily } from "@/core/identity";
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import synonymFile from "@/data/synonyms.json";
@@ -249,15 +250,7 @@ function specificTokens(name: string): Set<string> {
   );
 }
 
-/** Same node, or a variant and its component set (or two variants of one set). */
-export function sameFamily(a: GraphNode, b: GraphNode): boolean {
-  if (a.id === b.id) return true;
-  if (a.componentSetId && (a.componentSetId === b.id || a.componentSetId === b.componentSetId)) {
-    return true;
-  }
-  if (b.componentSetId && b.componentSetId === a.id) return true;
-  return false;
-}
+export { sameFamily };
 
 function isGraphCousin(expected: GraphNode, pick: GraphNode): boolean {
   if (sameFamily(expected, pick)) return false;
@@ -1202,13 +1195,14 @@ export function formatScoreTable(report: ScoreReport, delta?: ScoreDelta): strin
   const runTop1 = report.top1Base ? `${report.top1Count}/${report.top1Base}` : "n/a";
   const runTop3 = report.top3Base ? `${report.top3Count}/${report.top3Base}` : "n/a (N=0)";
   const notes = [
-    `Run top-1: ${runTop1} (verify excluded). Run top-3: ${runTop3}.`,
+    `Regression top-1: ${runTop1} (verify excluded). Regression top-3: ${runTop3}.`,
+    "This golden run checks that nothing broke. The accuracy number is `resolve score phrases`.",
     recipe ? `Recipe: ${recipe.top1Count}/${recipe.scored} on screen cases.` : "",
     "Verify top-1 is a did-you-mean hit, scored only on name-like intents. It is not part of the run-level figures.",
     "Top-3 counts only cards with three or more candidates.",
   ].filter(Boolean);
   return [
-    `Scoreboard — ${report.cases} cases${library}`,
+    `Regression check — ${report.cases} cases${library}`,
     "",
     header,
     ...lines,

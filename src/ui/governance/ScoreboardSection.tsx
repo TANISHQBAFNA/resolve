@@ -105,6 +105,7 @@ export function ScoreboardSection({ compact = false }: { compact?: boolean }) {
   return (
     <section className={compact ? "scoreboard scoreboard--compact" : "scoreboard"} aria-label="Scoreboard">
       <h3>Scoreboard</h3>
+      <p className="muted">Regression check. The accuracy number is resolve score phrases.</p>
       {!data ? (
         <p className="muted">Loading the latest scoreboard run.</p>
       ) : !latest ? (

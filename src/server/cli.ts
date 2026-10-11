@@ -215,7 +215,7 @@ function usage(): void {
       "  resolve rm --yes             Delete the learned graph and the workspace file list",
       "  resolve score [--golden <path>] [--workspace <name>] [--json]",
       "  resolve score --init [--out <file>]   Write a starter golden set from the learned library",
-      "      Accuracy of recommend / resolve / recipe / verify against a golden set.",
+      "      Regression check: recommend / resolve / recipe / verify against a golden set. Not the accuracy number.",
       "      Expected masters are names, resolved to ids in the current graph. Never invents an id.",
       "      --init skips names that still have two populated masters and prints them.",
       "      Default --out is RESOLVE_HOME/scoreboard/golden/from-library.json (the store folder), never the Resolve checkout.",
@@ -224,7 +224,7 @@ function usage(): void {
       "      Default golden path: <store>/scoreboard/golden when that folder exists, else ./scoreboard/golden.",
       "      Default workspace name: default (or RESOLVE_WORKSPACE).",
       "  resolve score phrases [--phrases <path>] [--json]",
-      "      Designer phrases (\"payee picker\", \"6 digit OTP box\") against recommend. Plain summary first, details below.",
+      "      The accuracy number. Designer phrases (\"payee picker\", \"6 digit OTP box\") against recommend. Plain summary first.",
       "      Uses your own <store>/scoreboard/phrases/*.json when there are any. Otherwise the built-in ./scoreboard/phrases,",
       "      but only on the sample library. Never mixes the two. --phrases <path> uses only that path.",
       "      Exits non-zero when a part is invented or a retired/private part is recommended.",
@@ -234,7 +234,6 @@ function usage(): void {
       "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
       "",
       "  npm run resolve -- <command>     primary",
-      "  npm run keyline -- <command>     Deprecated alias. Use npm run resolve. Removed after a quarter.",
       "",
     ].join("\n"),
   );
@@ -451,7 +450,6 @@ export async function runCli(argv: string[]): Promise<void> {
 }
 
 async function dispatchCli(argv: string[]): Promise<void> {
-  if (process.env["npm_lifecycle_event"] === "keyline") warnDeprecated("npm run keyline");
   const [command, ...args] = argv;
 
   switch (command) {
