@@ -15,9 +15,10 @@ jobs:
           node-version: 22
           cache: npm
       # prepare skips the server build when CI is set. build typechecks, then builds each bundle once.
+      # Tests that spawn the MCP server need dist-server, so the build comes first.
       - run: npm ci
-      - run: npm test
       - run: npm run build
+      - run: npm test
       - name: Score the fixture library
         env:
           RESOLVE_WORKSPACE: fixture
