@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline";
 import type { Readable } from "node:stream";
 import { MCP_INSTRUCTIONS, listResources, readResource } from "./instructions";
+import { pluginSetupSuffix } from "./pluginSettings";
 import { getPrompt, listPrompts } from "./commands";
 import { listToolDefinitions, ToolError, callTool, encodeToolResult, toolCardFormat } from "./tools";
 import { designerFailure } from "./designerMessages";
@@ -47,7 +48,7 @@ export function attachMcpStdio(streams: McpStreams): void {
           protocolVersion: PROTOCOL_VERSION,
           capabilities: { tools: { listChanged: false }, resources: { listChanged: false }, prompts: { listChanged: false } },
           serverInfo: SERVER_INFO,
-          instructions: MCP_INSTRUCTIONS,
+          instructions: MCP_INSTRUCTIONS + pluginSetupSuffix(),
         });
         return;
 

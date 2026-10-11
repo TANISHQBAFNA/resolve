@@ -1,11 +1,28 @@
 {
-  "name": "resolve-figma",
-  "description": "Resolve — Figma rules. Agents resolve. Ingest a node, then resolve a component name for a usage card. Do not dump graph.json.",
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "resolve",
+  "displayName": "Resolve",
   "version": "0.1.0",
-  "mcpServers": {
-    "resolve": {
-      "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist-server/mcp.mjs"]
+  "description": "Asks Resolve before any Figma screen is drawn, and places only real library components.",
+  "author": {
+    "name": "Tanishk",
+    "url": "https://github.com/TANISHQBAFNA"
+  },
+  "homepage": "https://github.com/TANISHQBAFNA/resolve",
+  "repository": "https://github.com/TANISHQBAFNA/resolve",
+  "license": "MIT",
+  "keywords": ["figma", "design-system"],
+  "userConfig": {
+    "FIGMA_ACCESS_TOKEN": {
+      "type": "string",
+      "title": "Figma token",
+      "description": "A Figma personal access token for your library, for example the Acme design system. Claude Code stores it. Do not paste it into a project file.",
+      "sensitive": true
+    },
+    "RESOLVE_LIBRARY_FILE_KEY": {
+      "type": "string",
+      "title": "Library file key",
+      "description": "The id in the Figma link for the design system. In https://www.figma.com/design/ACMEUI/Acme the key is ACMEUI."
     }
   }
 }
