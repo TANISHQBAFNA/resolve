@@ -327,6 +327,9 @@ export function formatPhraseTable(report: PhraseReport): string {
     return lines.join("\n");
   }
   lines.push(
+    `Phrase scoreboard — ${report.phrases} phrases (${t.matchCases} expected a part + ${t.emptyCases} expected empty)`,
+    `top-1 ${cell(t.top1, t.matchCases)} · top-3 ${cell(t.top3, t.matchCases)} · empty-correct ${cell(t.correctEmpty, t.emptyCases)} · invented ${t.invented} · retired ${t.retiredRecommended}`,
+    "",
     `Resolve tried ${report.phrases} designer phrases against your library.`,
     `It put the right part first for ${cell(t.top1, t.matchCases)} (${pct(t.top1, t.matchCases)}) and in the top 3 for ${cell(t.top3, t.matchCases)} (${pct(t.top3, t.matchCases)}).`,
   );

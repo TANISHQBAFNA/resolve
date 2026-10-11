@@ -30,6 +30,7 @@ function copyText(value: string): boolean {
 
 export function LibraryOverview() {
   const graph = useGraphStore((state) => state.graph);
+  const example = useGraphStore((state) => state.example);
   const analytics = useGraphStore((state) => state.analytics);
   const [copied, setCopied] = useState(false);
 
@@ -48,9 +49,11 @@ export function LibraryOverview() {
   return (
     <section className="overview" aria-label="Library overview">
       <div className="overview__identity">
-        <p className="overview__kicker">Loaded library</p>
+        <p className="overview__kicker">{example ? "Example" : "Loaded library"}</p>
         <h2 className="overview__title">{graph.fileName}</h2>
-        <p className="overview__meta">{graph.source.kind}</p>
+        <p className="overview__meta">
+          {example ? `Example · ${graph.source.kind} · not a live Figma file` : graph.source.kind}
+        </p>
       </div>
 
       <div className="overview__health">

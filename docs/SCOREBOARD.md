@@ -2,6 +2,8 @@
 
 **Figma rules. Agents resolve.**
 
+The headline number is the phrase scoreboard (`resolve score phrases`): how many designer phrases put the right part first, in the top 3, or correctly come back empty, and whether anything was invented or retired. The golden set below is a secondary regression check on named cases. It is not that headline.
+
 The scoreboard is a repeatable check: when an agent asks for a component, does Resolve hand back the right library master?
 
 It does not call Figma. It does not need a token. It scores the library that is already in the store. The sample library in this repo is the offline stand-in. A library you learned from Figma uses the same command later. Nothing in the scorer changes.
@@ -58,8 +60,8 @@ Every case is sent through recommend, resolve, recipe, and verify. A tool is sco
 | --- | --- |
 | Invent rate | An id in a card, including hint and why text, that is not in the current graph. A component name counts only if it is a real component or component set. A frame name such as “Checkout Payment” does not. Target is 0. Above 0, the run fails. |
 | Wrong-cousin rate | The top pick is a listed “must not” cousin, or another master that shares a specific name with the expected one (Pay vs a different Pay, not the generic word “button”). |
-| Top-1 | The right master is the first pick. The run-level figure adds recommend, resolve, and recipe only. Verify is not in it. |
-| Top-3 | Only cards that offered three or more candidates. Shown as `x/N`, or `n/a (N=0)` when no card held three. The change-since-last-run line leaves top-3 out until that N is at least 10. |
+| Top-1 | The right master is the first pick, shown as a count (`56/56`), not a percent. The tool-row total adds recommend, resolve, and recipe only. Verify is not in it. That total is not the phrase scoreboard and not the case count. |
+| Top-3 | Only cards that offered three or more candidates. Shown as `x/N` when that count is at least 10. Below that, including a single card, it is `n/a (N=…)`, not a rate. The change-since-last-run line leaves top-3 out until that N is at least 10. |
 | Empty-when-weak | For no-answer cases, the card is empty. A tool with no such cases shows `n/a`, not 0%. |
 | Deprecated or private leak | A retired master, or a private `_` / `.` master, was **offered as a pick** (a recommend candidate, a filled recipe slot, or a master verify approves). A master verify only flags does not count. The same pick is not both a leak and a wrong cousin. |
 | Recipe | Scored only on cases marked `"tools": ["recipe"]` that also name a slot. A marked case whose recipe card is missing is a miss, so a broken recipe tool scores `0/3`, not a skip. Reported as `hits/cases` on screen cases. No slot means that case is not scored. The first slot is not used as a stand-in. |
@@ -99,7 +101,7 @@ The dev server and `vite preview` both serve it at `/api/scoreboard`. Preview do
 
 ## Designer phrase set
 
-`scoreboard/phrases/*.json` is a second set, written the way a designer asks ("empty state for no transactions", "6 digit OTP box") rather than with component names. It is scored against `recommend` only. It sits next to the golden set and does not replace it. It was written after the ranker, to see how it does on loose wording, so weak numbers are findings. Do not tune weights to lift them.
+`scoreboard/phrases/*.json` is the headline set, written the way a designer asks ("empty state for no transactions", "6 digit OTP box") rather than with component names. It is scored against `recommend` only. The golden set stays a secondary regression check and is not added into this total. It was written after the ranker, to see how it does on loose wording, so weak numbers are findings. Do not tune weights to lift them.
 
 ```bash
 npm run resolve -- score phrases            # your own phrases, or the shipped set on the sample library
