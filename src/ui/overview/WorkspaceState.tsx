@@ -5,10 +5,12 @@ export type WorkspaceKind = "empty" | "loading" | "error";
 export function WorkspaceState({
   kind,
   error,
+  next,
   onIngest,
 }: {
   kind: WorkspaceKind;
   error?: string;
+  next?: string;
   onIngest: () => void;
 }) {
   switch (kind) {
@@ -29,6 +31,7 @@ export function WorkspaceState({
             <p className="workspace-state__kicker workspace-state__kicker--danger">Could not load</p>
             <h2>Library did not ingest</h2>
             <p className="workspace-state__error">{error ?? "Unknown error"}</p>
+            {next ? <p>Next: {next}</p> : null}
             <div className="workspace-state__actions">
               <button type="button" className="button--primary" onClick={onIngest}>
                 Load Figma

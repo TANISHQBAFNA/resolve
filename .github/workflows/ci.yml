@@ -14,8 +14,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # prepare skips the server build when CI is set. build typechecks, then builds each bundle once.
       - run: npm ci
-      - run: npm run typecheck
       - run: npm test
       - run: npm run build
       - name: Score the fixture library
@@ -23,4 +23,17 @@ jobs:
           RESOLVE_WORKSPACE: fixture
         run: |
           npm run resolve -- ingest scoreboard/fixture/library.json --role library --name "Scoreboard fixture"
+          npm run resolve -- score phrases --phrases scoreboard/phrases
           npm run resolve -- score --golden scoreboard/golden --workspace fixture
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

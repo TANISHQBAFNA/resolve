@@ -8,6 +8,7 @@ import { LibraryOverview } from "@/ui/overview/LibraryOverview";
 import { WorkspaceState } from "@/ui/overview/WorkspaceState";
 import { HealthChip, Stat } from "@/ui/overview/Stat";
 import { libraryHealth } from "@/ui/overview/health";
+import { LIBRARY_LOAD_NEXT } from "@/ui/liveCall";
 import { RulesPage } from "@/ui/governance/RulesPage";
 import { ScoreboardSection } from "@/ui/governance/ScoreboardSection";
 import type { ViewSurface } from "@/state/graphStore";
@@ -18,6 +19,7 @@ export function App() {
   const status = useGraphStore((state) => state.status);
   const error = useGraphStore((state) => state.error);
   const graph = useGraphStore((state) => state.graph);
+  const example = useGraphStore((state) => state.example);
   const analytics = useGraphStore((state) => state.analytics);
   const loadSource = useGraphStore((state) => state.loadSource);
   const mode = useGraphStore((state) => state.mode);
@@ -27,7 +29,7 @@ export function App() {
   const [loadFigmaOpen, setLoadFigmaOpen] = useState(false);
 
   useEffect(() => {
-    void loadSource(DEFAULT_SOURCE);
+    void loadSource(DEFAULT_SOURCE).catch(() => undefined);
   }, [loadSource]);
 
   const health = analytics ? libraryHealth(analytics) : undefined;
@@ -41,7 +43,7 @@ export function App() {
           </span>
           <div>
             <h1>Resolve</h1>
-            <p>{graph ? graph.fileName : "Figma rules. Agents resolve."}</p>
+            <p>{status === "ready" && graph ? graph.fileName : "Figma rules. Agents resolve."}</p>
           </div>
         </div>
 
@@ -84,14 +86,16 @@ export function App() {
           </select>
         </label>
 
-        {graph && analytics && health && (
+        {status === "ready" && graph && analytics && health && (
           <div className="app__stats" aria-label="Library counts">
             <Stat value={analytics.totals.frames} label="Frames" />
             <Stat value={analytics.totals.componentDefinitions} label="Components" />
             <Stat value={analytics.totals.instances} label="Instances" />
             <Stat value={RECIPE_COUNT} label="Recipes" />
             <HealthChip tone={health.tone} label={health.label} />
-            <span className="app__source">source: {graph.source.kind}</span>
+            <span className="app__source">
+              {example ? `Example · ${graph.source.kind} · not a live Figma file` : `source: ${graph.source.kind}`}
+            </span>
           </div>
         )}
 
@@ -142,7 +146,7 @@ function renderWorkspace(
     case "loading":
       return <WorkspaceState kind="loading" onIngest={onIngest} />;
     case "error":
-      return <WorkspaceState kind="error" error={error} onIngest={onIngest} />;
+      return <WorkspaceState kind="error" error={error} next={LIBRARY_LOAD_NEXT} onIngest={onIngest} />;
     case "ready":
       return (
         <div className="app__body">

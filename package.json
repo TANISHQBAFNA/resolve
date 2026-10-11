@@ -29,7 +29,9 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && vite build --config vite.server.config.ts",
+    "build:browser": "vite build",
+    "build:server": "vite build --config vite.server.config.ts",
+    "build": "tsc --noEmit && npm run build:browser && npm run build:server",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -37,8 +39,7 @@
     "test:e2e": "playwright test",
     "test:all": "vitest run && playwright test",
     "test:watch": "vitest",
-    "build:server": "vite build --config vite.server.config.ts",
-    "prepare": "vite build --config vite.server.config.ts",
+    "prepare": "node scripts/prepare-server.mjs",
     "resolve": "node dist-server/cli.mjs",
     "mcp": "node dist-server/mcp.mjs",
     "keyline": "node dist-server/cli.mjs"

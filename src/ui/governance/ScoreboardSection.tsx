@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { top1Label, top3Label } from "@/core/query/scoreLabels";
+import { SCOREBOARD_LOAD_FAILURE, dataIfLive, viewFromLiveResponse, type LiveView } from "@/ui/liveCall";
 
 interface ToolRow {
   tool: string;
@@ -63,15 +65,11 @@ function when(iso: string): string {
 }
 
 function top1Cell(tool: ToolRow): string {
-  if (tool.tool === "recipe") return tool.scored ? `${tool.top1Count}/${tool.scored}` : "n/a";
-  return pct(tool.top1);
+  return top1Label(tool.top1Count, tool.scored);
 }
 
 function top3Cell(tool: ToolRow): string {
-  if (typeof tool.top3Base === "number") {
-    if (!tool.top3Base) return "n/a (N=0)";
-    return `${tool.top3Count ?? 0}/${tool.top3Base}`;
-  }
+  if (typeof tool.top3Base === "number") return top3Label(tool.top3Count ?? 0, tool.top3Base);
   if (!tool.top3Applicable) return "n/a (N=0)";
   return pct(tool.top3);
 }
@@ -84,19 +82,31 @@ function trendBit(point: TrendPoint): string {
 }
 
 export function ScoreboardSection({ compact = false }: { compact?: boolean }) {
-  const [data, setData] = useState<ScoreboardPayload | undefined>(undefined);
+  const [view, setView] = useState<LiveView<ScoreboardPayload>>({ status: "loading" });
   const [workspace, setWorkspace] = useState<string | undefined>(undefined);
 
   useEffect(() => {
+    let cancelled = false;
+    setView({ status: "loading" });
     const query = workspace ? `?workspace=${encodeURIComponent(workspace)}` : "";
     void fetch(`/api/scoreboard${query}`)
-      .then((response) => (response.ok ? response.json() : undefined))
-      .then((payload: ScoreboardPayload | undefined) => {
-        if (payload) setData(payload);
+      .then(async (response) => {
+        if (!response.ok) return viewFromLiveResponse<ScoreboardPayload>(false, undefined, SCOREBOARD_LOAD_FAILURE);
+        const body = (await response.json()) as ScoreboardPayload;
+        return viewFromLiveResponse(true, body, SCOREBOARD_LOAD_FAILURE);
       })
-      .catch(() => undefined);
+      .then((next) => {
+        if (!cancelled) setView(next);
+      })
+      .catch(() => {
+        if (!cancelled) setView({ status: "error", failure: SCOREBOARD_LOAD_FAILURE });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [workspace]);
 
+  const data = dataIfLive(view);
   const latest = data?.latest;
   const trend = data?.trend ?? [];
   const workspaces = data?.workspaces ?? [];
@@ -104,9 +114,17 @@ export function ScoreboardSection({ compact = false }: { compact?: boolean }) {
 
   return (
     <section className={compact ? "scoreboard scoreboard--compact" : "scoreboard"} aria-label="Scoreboard">
-      <h3>Scoreboard</h3>
-      {!data ? (
-        <p className="muted">Loading the latest scoreboard run.</p>
+      <h3>Golden regression</h3>
+      <p className="muted">
+        Secondary check. The headline number is the phrase scoreboard: npm run resolve -- score phrases.
+      </p>
+      {view.status === "error" ? (
+        <div role="alert">
+          <p>{view.failure.message}</p>
+          <p>Next: {view.failure.next}</p>
+        </div>
+      ) : !data ? (
+        <p className="muted">Loading the latest golden regression run.</p>
       ) : !latest ? (
         <p className="muted">{data.hint}</p>
       ) : (

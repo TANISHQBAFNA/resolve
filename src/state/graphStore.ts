@@ -6,6 +6,7 @@ import { computeAnalytics, type GraphAnalytics } from "@/core/query/analytics";
 import { defaultFilterState, type FilterState } from "@/core/query/filters";
 import { indexGraph, type GraphIndex } from "@/core/query/GraphIndex";
 import type { GraphLevel, ViewMode } from "@/core/query/subgraph";
+import { isExampleSource } from "@/state/sources";
 
 export type LoadStatus = "idle" | "loading" | "ready" | "error";
 
@@ -32,6 +33,8 @@ interface GraphState {
   status: LoadStatus;
   error?: string;
   sourceLabel?: string;
+  /** True when the loaded file is a shipped fixture, not a live Figma file. */
+  example: boolean;
   graph?: DesignGraph;
   index?: GraphIndex;
   analytics?: GraphAnalytics;
@@ -71,6 +74,7 @@ interface GraphState {
 
 export const useGraphStore = create<GraphState>()((set, get) => ({
   status: "idle",
+  example: false,
   selectedIds: [],
   expandedIds: [],
   viewMode: "hierarchy",
@@ -90,7 +94,16 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
 
   async loadSource(source) {
     const ticket = ++loadTicket;
-    set({ status: "loading", error: undefined, sourceLabel: source.label });
+    const example = isExampleSource(source.id);
+    set({
+      status: "loading",
+      error: undefined,
+      sourceLabel: source.label,
+      // A live load must not keep the example library on screen while it runs or if it fails.
+      ...(example
+        ? {}
+        : { graph: undefined, index: undefined, analytics: undefined, example: false, focusId: undefined }),
+    });
     try {
       const document = await source.load();
       if (ticket !== loadTicket) return;
@@ -100,6 +113,7 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
       const fileNode = index.getFileNode();
       set({
         status: "ready",
+        example,
         graph,
         index,
         analytics,
@@ -115,7 +129,18 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
       });
     } catch (error) {
       if (ticket !== loadTicket) return;
-      set({ status: "error", error: error instanceof Error ? error.message : String(error) });
+      const message = error instanceof Error ? error.message : String(error);
+      set({
+        status: "error",
+        error: message,
+        example: false,
+        graph: undefined,
+        index: undefined,
+        analytics: undefined,
+        focusId: undefined,
+        selectedIds: [],
+      });
+      throw error instanceof Error ? error : new Error(message);
     }
   },
 

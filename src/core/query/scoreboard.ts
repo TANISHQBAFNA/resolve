@@ -18,6 +18,7 @@ import {
 } from "./agentSurface";
 import type { BindRulesFile } from "./bindRules";
 import { recipeCard, starterRecipes, type Recipe } from "./recipes";
+import { TOP3_REPORT_MIN, top1Label, top3Label } from "./scoreLabels";
 import type { SockState } from "./sock";
 import type { WorkspaceManifest } from "./workspace";
 
@@ -1147,13 +1148,11 @@ function pad(value: string, width: number): string {
 }
 
 function top1Cell(tool: ToolRollup): string {
-  if (tool.tool === "recipe") return tool.scored ? `${tool.top1Count}/${tool.scored}` : "n/a";
-  return pct(tool.top1);
+  return top1Label(tool.top1Count, tool.scored);
 }
 
 function top3Cell(tool: ToolRollup): string {
-  if (!tool.top3Base) return "n/a (N=0)";
-  return `${tool.top3Count}/${tool.top3Base}`;
+  return top3Label(tool.top3Count, tool.top3Base);
 }
 
 export function formatScoreTable(report: ScoreReport, delta?: ScoreDelta): string {
@@ -1199,16 +1198,21 @@ export function formatScoreTable(report: ScoreReport, delta?: ScoreDelta): strin
   const compared = !delta?.hasPrevious
     ? "No earlier run to compare."
     : `Compared with ${delta.previousAt}: ${deltaBits.join(", ")} (points).`;
-  const runTop1 = report.top1Base ? `${report.top1Count}/${report.top1Base}` : "n/a";
-  const runTop3 = report.top3Base ? `${report.top3Count}/${report.top3Base}` : "n/a (N=0)";
+  const runTop1 = top1Label(report.top1Count, report.top1Base);
+  const top3Note =
+    report.top3Base >= TOP3_REPORT_MIN
+      ? `Top-3: ${report.top3Count}/${report.top3Base}.`
+      : `Top-3 is not reported (${report.top3Base} card${report.top3Base === 1 ? "" : "s"} with 3 or more candidates; needs ${TOP3_REPORT_MIN}).`;
   const notes = [
-    `Run top-1: ${runTop1} (verify excluded). Run top-3: ${runTop3}.`,
+    `Golden tool rows, verify excluded: ${runTop1}. These rows are recommend, resolve, and recipe added together. Not the phrase scoreboard, and not ${report.cases} cases.`,
+    top3Note,
     recipe ? `Recipe: ${recipe.top1Count}/${recipe.scored} on screen cases.` : "",
-    "Verify top-1 is a did-you-mean hit, scored only on name-like intents. It is not part of the run-level figures.",
-    "Top-3 counts only cards with three or more candidates.",
+    "Verify top-1 is a did-you-mean hit, scored only on name-like intents. It is not part of the golden tool-row total.",
+    "Top-3 counts only cards with three or more candidates, and only when that count is at least 10.",
   ].filter(Boolean);
   return [
-    `Scoreboard — ${report.cases} cases${library}`,
+    `Golden regression — ${report.cases} cases${library}`,
+    "Secondary check. The headline number is the phrase scoreboard: resolve score phrases.",
     "",
     header,
     ...lines,

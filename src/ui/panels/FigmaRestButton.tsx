@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FigmaRestIngestionSource } from "@/core/ingestion/adapters/figmaRestSource";
 import { useGraphStore } from "@/state/graphStore";
+import { LIBRARY_LOAD_NEXT } from "@/ui/liveCall";
 
 const TOKEN_KEY = "figma-resolve.pat";
 const FILE_KEY = "figma-resolve.file";
@@ -114,7 +115,12 @@ export function FigmaRestButton({
               Token stays in this tab (sessionStorage). Proxied to api.figma.com — not written into
               the graph.
             </p>
-            {error && <p className="modal__hint modal__hint--error">{error}</p>}
+            {error && (
+              <div role="alert">
+                <p className="modal__hint modal__hint--error">{error}</p>
+                <p className="modal__hint">Next: {LIBRARY_LOAD_NEXT}</p>
+              </div>
+            )}
             <footer className="modal__footer">
               <button type="submit" disabled={busy || !fileInput.trim() || !token.trim()}>
                 {busy ? "Ingesting…" : "Ingest"}

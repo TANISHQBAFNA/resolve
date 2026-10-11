@@ -80,7 +80,9 @@ describe("designer phrase scoreboard", () => {
     expect(report.totals.phrases).toBe(sum("phrases"));
     expect(report.totals.top1).toBe(sum("top1"));
     const text = formatPhraseTable(report);
-    expect(text.split("\n")[0]).toMatch(/^Resolve tried \d+ designer phrases/);
+    expect(text.split("\n")[0]).toMatch(/^Phrase scoreboard — \d+ phrases \(\d+ expected a part \+ \d+ expected empty\)$/);
+    expect(text.split("\n")[1]).toMatch(/^top-1 \d+\/\d+ · top-3 \d+\/\d+ · empty-correct \d+\/\d+ · invented \d+ · retired \d+$/);
+    expect(text).toMatch(/^Resolve tried \d+ designer phrases/m);
     expect(text).toMatch(/\nDetails\n/);
     expect(text).toMatch(/\nSkipped\nteam-x: No part named "Teleport Pad" in this library/);
     expect(text).not.toMatch(/golden/i);
