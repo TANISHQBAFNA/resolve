@@ -177,20 +177,24 @@ export function parseComponentPropertyDefinitions(
  * The default and the description are not in the metadata, so they stay unknown.
  * Boolean, text, and instance-swap properties are not guessed.
  */
+export function eachEqualsPart(text: string, visit: (key: string, value: string) => void): void {
+  for (const part of text.split(",")) {
+    const idx = part.indexOf("=");
+    if (idx <= 0) continue;
+    visit(part.slice(0, idx).trim(), part.slice(idx + 1).trim());
+  }
+}
+
 export function variantPropertiesFromNames(names: string[]): ComponentProperty[] {
   const grouped = new Map<string, string[]>();
   for (const name of names) {
     if (!name.includes("=")) continue;
-    for (const part of name.split(",")) {
-      const idx = part.indexOf("=");
-      if (idx <= 0) continue;
-      const key = part.slice(0, idx).trim();
-      const value = part.slice(idx + 1).trim();
-      if (!key || !value) continue;
+    eachEqualsPart(name, (key, value) => {
+      if (!key || !value) return;
       const list = grouped.get(key) ?? [];
       if (!list.includes(value)) list.push(value);
       grouped.set(key, list);
-    }
+    });
   }
   if (!grouped.size) return [];
   return [...grouped.entries()].map(([name, options]) => {

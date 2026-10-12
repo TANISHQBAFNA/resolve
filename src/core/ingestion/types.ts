@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ComponentPropertySchema, type ComponentProperty } from "@/core/model/componentProperties";
+import { BoundsSchema } from "@/core/model/graph";
 
 /**
  * The ingestion contract.
@@ -13,12 +14,7 @@ import { ComponentPropertySchema, type ComponentProperty } from "@/core/model/co
  * the tree into nodes + edges is the job of `core/transform`.
  */
 
-export const SourceBoundsSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-  width: z.number(),
-  height: z.number(),
-});
+export const SourceBoundsSchema = BoundsSchema;
 
 export const SourceTransitionSchema = z.object({
   destinationId: z.string(),

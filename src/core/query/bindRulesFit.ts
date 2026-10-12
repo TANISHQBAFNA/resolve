@@ -241,18 +241,7 @@ export function loadBindRulesLenient(
   return { version: 1, rules: kept, ...(warnings.length ? { warnings } : {}) };
 }
 
-export function applyProposalDecision(
-  sock: SockState,
-  rules: BindRulesFile,
-  proposalId: string,
-  action: "approve" | "reject",
-  who: string,
-  when: string,
-  options: {
-    index?: GraphIndex;
-    workspace?: WorkspaceManifest;
-  } = {},
-): { sock: SockState; rules: BindRulesFile; audit: AuditLine } {
+export function requirePendingProposal(sock: SockState, proposalId: string): SociProposal {
   const proposal = sock.proposals.find((row) => row.id === proposalId);
   if (!proposal) {
     throw new BindRuleError(`Proposal "${proposalId}" not found.`);
@@ -260,6 +249,15 @@ export function applyProposalDecision(
   if (proposal.status !== "pending") {
     throw new BindRuleError(`Proposal "${proposalId}" is already ${proposal.status}.`);
   }
+  return proposal;
+}
+
+export function applyProposalDecision(
+  sock: SockState, rules: BindRulesFile, proposalId: string,
+  action: "approve" | "reject", who: string, when: string,
+  options: { index?: GraphIndex; workspace?: WorkspaceManifest } = {},
+): { sock: SockState; rules: BindRulesFile; audit: AuditLine } {
+  const proposal = requirePendingProposal(sock, proposalId);
   const before = rules.rules;
   let after = before;
   let nextRules = rules;

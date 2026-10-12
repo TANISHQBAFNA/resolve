@@ -275,14 +275,6 @@ export function extractLearnOutline(xml: string): {
   return { units, mastersByUnit };
 }
 
-export function extractLearnUnits(xml: string): LearnUnit[] {
-  return extractLearnOutline(xml).units;
-}
-
-export function mastersByUnitFromXml(xml: string): Record<string, LearnUnitMaster[]> {
-  return extractLearnOutline(xml).mastersByUnit;
-}
-
 export function sameLearnMaster(a: LearnUnitMaster, b: LearnUnitMaster): boolean {
   if (a.id && b.id && a.id === b.id) return true;
   return Boolean(a.figmaNodeId && b.figmaNodeId && a.figmaNodeId === b.figmaNodeId);
@@ -362,17 +354,6 @@ export function learnProgressLine(
     return `learned ${learned} of ${total} pages; library complete`;
   }
   return `learned ${learned} of ${total} pages; next: pass next get_metadata page/frame`;
-}
-
-export function mastersFromGraph(graph: DesignGraph, fileKey?: string): LearnUnitMaster[] {
-  const want = fileKey?.trim();
-  return graph.nodes
-    .filter((node) => {
-      if (!isCatalogMaster(node)) return false;
-      if (!want) return true;
-      return fileOfNode(node, graph) === want;
-    })
-    .map((node) => ({ id: node.id, name: node.name, figmaNodeId: node.figmaNodeId }));
 }
 
 function isInferredMasterId(value: string | undefined): boolean {
@@ -511,6 +492,3 @@ export function learnGaps(graph: DesignGraph, hadCatalog: boolean): LearnGap[] {
     },
   ];
 }
-
-export const LEARN_EMPTY_HINT =
-  "No library in SOCK. Call learn_library with Figma MCP get_metadata XML + fileKey + role=library.";

@@ -81,6 +81,16 @@ export function recommendMasters(
   const libraryWarnings = iconLibraryWarnings(index, workspace);
   emitIconLibraryWarningsOnce(libraryWarnings);
   const graphFileKey = index.graph.fileKey;
+  const bindQuery = {
+    intent,
+    domain: options.context?.domain,
+    journey: options.context?.journey?.screenJob || options.context?.journey?.step,
+    product: options.context?.product?.name || options.context?.product?.id,
+    pack: options.context?.id,
+    workspace,
+    graphFileKey,
+    sock: options.sock,
+  };
   const intentNeedle = intent.trim().toLowerCase();
   const allowClip = askedTokens.length >= 2;
   const componentWord = (token: string): boolean =>
@@ -399,25 +409,17 @@ export function recommendMasters(
     return !entry.node.componentSetId || !setIds.has(entry.node.componentSetId);
   });
 
-  kept.sort(
-    (a, b) =>
-      Number(b.exactName) - Number(a.exactName) ||
-      (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
-      b.score - a.score ||
-      Number(a.deprecated) - Number(b.deprecated) ||
-      a.node.name.localeCompare(b.node.name),
-  );
+  const byMasterRank = (a: Scored, b: Scored) =>
+    Number(b.exactName) - Number(a.exactName) ||
+    (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
+    b.score - a.score ||
+    Number(a.deprecated) - Number(b.deprecated) ||
+    a.node.name.localeCompare(b.node.name);
+  kept.sort(byMasterRank);
 
   if (options.bindRules?.rules.length) {
     kept = filterAndScoreByBindRules(kept, options.bindRules, {
-      intent,
-      domain: options.context?.domain,
-      journey: options.context?.journey?.screenJob || options.context?.journey?.step,
-      product: options.context?.product?.name || options.context?.product?.id,
-      pack: options.context?.id,
-      workspace,
-      graphFileKey,
-      sock: options.sock,
+      ...bindQuery,
       index,
       inject: (node) => {
         const set = setOf(index, node);
@@ -435,14 +437,7 @@ export function recommendMasters(
         };
       },
     });
-    kept.sort(
-      (a, b) =>
-        Number(b.exactName) - Number(a.exactName) ||
-        (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
-        b.score - a.score ||
-        Number(a.deprecated) - Number(b.deprecated) ||
-        a.node.name.localeCompare(b.node.name),
-    );
+    kept.sort(byMasterRank);
   }
 
   kept = withoutGenericCousins(
@@ -641,16 +636,6 @@ export function recommendMasters(
   };
 
   const packJourney = packJourneyPhrase(options.context);
-  const bindQuery = {
-    intent,
-    domain: options.context?.domain,
-    journey: options.context?.journey?.screenJob || options.context?.journey?.step,
-    product: options.context?.product?.name || options.context?.product?.id,
-    pack: options.context?.id,
-    workspace,
-    graphFileKey,
-    sock: options.sock,
-  };
 
   const toCandidate = (
     entry: Scored,

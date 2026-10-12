@@ -10,7 +10,7 @@ One module owns each shared rule. Call it. Do not copy it.
 |---|---|
 | Same family (a variant and its set) | `src/core/rules/family.ts` — `sameFamily`, `setOf`. The cousin check and the scoreboard both use this. |
 | Retired / deprecated | `src/core/rules/retired.ts` — `isRetired`, `retiredNameKind`, `descriptionIsRetired`. Ingest (`parseGovernance`) calls `retiredNameKind` and still records whether the tag came from the name or from a legacy keyword. |
-| Name folding | `src/core/rules/names.ts` — `collapseName`, `foldLibName`, `isPrivateMasterName`, `isNameInferredMaster`, `nameTokens`. Rankers keep their own stopword lists (`queryTokens.ts`, `recipes.ts`). Do not merge those lists. |
+| Name folding | `src/core/rules/names.ts` — `collapseName`, `foldLibName`, `isPrivateMasterName`, `isNameInferredMaster`, `nameTokens`, `GENERIC_UI_NOUNS`. Rankers keep their own stopword lists (`queryTokens.ts`, `recipes.ts`). Do not merge those lists. Cousin check, SOCI, and the scoreboard share `GENERIC_UI_NOUNS` only. |
 | Id spelling (`12:34` and `12-34`) | `src/core/rules/ids.ts` — `idVariants`. |
 | Card text for people and for slash commands | `src/server/cards.ts` — `presentToolResult`. CLI `ingredients`, `handoff` (stdout), `parts`, and `status` print that Markdown. `--json` stays compact JSON (`--pretty` indents it). |
 

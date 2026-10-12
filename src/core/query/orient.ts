@@ -193,12 +193,7 @@ export function queryQuestion(
     focus: briefNode(focus),
     matches: hits.map((hit) => ({ ...briefNode(hit.node), matchedOn: hit.matchedOn })),
     truncated: subgraph.truncated,
-    nodes: subgraph.nodes.map(briefNode),
-    edges: subgraph.edges.map((edge) => ({
-      source: edge.source,
-      target: edge.target,
-      type: edge.type,
-    })),
+    ...briefSubgraph(subgraph),
   };
 
   // ponytail: shrink neighbourhood until under budget; add paging if agents need more
@@ -213,17 +208,23 @@ export function queryQuestion(
     payload = {
       ...payload,
       truncated: true,
-      nodes: subgraph.nodes.map(briefNode),
-      edges: subgraph.edges.map((edge) => ({
-        source: edge.source,
-        target: edge.target,
-        type: edge.type,
-      })),
+      ...briefSubgraph(subgraph),
     };
   }
 
   return withCost(payload);
 }
+function briefSubgraph(subgraph: { nodes: Parameters<typeof briefNode>[0][]; edges: Array<{ source: string; target: string; type: string }> }) {
+  return {
+    nodes: subgraph.nodes.map(briefNode),
+    edges: subgraph.edges.map((edge) => ({
+      source: edge.source,
+      target: edge.target,
+      type: edge.type,
+    })),
+  };
+}
+
 export function pathBetween(index: GraphIndex, from: string, to: string) {
   const start = resolveNode(index, from);
   const end = resolveNode(index, to);

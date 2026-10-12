@@ -1,7 +1,6 @@
 import { TextInputError } from "@/core/ingestion/textStamps";
 import {
   applyFreshness,
-  applySociDecision,
   BindRuleError,
   componentUsageCard,
   freshnessSummary,
@@ -21,11 +20,13 @@ import {
   checkCousins,
   appliedContext,
   packForRecommend,
+  withScreenType,
   parseIngestRole,
   ingredientCard,
   handoffSheet,
   type HandoffPack,
 } from "@/core/query";
+import { trimmedStrings } from "@/core/query/recommendSupport";
 import { presentToolResult, type ToolCardFormat } from "./cards";
 import { learnLibrary } from "./learn";
 import { DEPRECATED_INSTEAD, withDeprecation } from "./deprecations";
@@ -42,10 +43,9 @@ import {
   storeInfo,
   readBindRules,
   readPlaceholders,
-  readRecipeOverlay,
-  commitProposalDecision,
-  loadGraph,
+  proposalDecisionBody,
   readApprovedDecisions,
+  runProposalDecision,
 } from "./store";
 import { recordGap } from "./gaps";
 import { recordVerifyUsage } from "./verifyRecord";
@@ -465,10 +465,29 @@ const asStringList = (value: unknown): string[] | undefined => {
       .filter(Boolean);
     return items.length ? items : undefined;
   }
-  if (!Array.isArray(value)) return undefined;
-  const items = value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
-  return items.length ? items.map((item) => item.trim()) : undefined;
+  return trimmedStrings(value);
 };
+
+function recommendContextFromArgs(args: Record<string, unknown>) {
+  const bind = contextBindFromArgs(args);
+  const pack = packForRecommend(bind);
+  const screenType = typeof args["screenType"] === "string" ? args["screenType"] : undefined;
+  return { bind, pack, context: withScreenType(pack, screenType) };
+}
+
+function listedRecipes(args: Record<string, unknown>) {
+  const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
+  return capRecipePayload(
+    listRecipes(
+      loadRecipes(),
+      resolveGraph(graphId)?.index,
+      contextBindFromArgs(args),
+      readSock(),
+      loadBindRulesSafe(),
+      readPlaceholders(),
+    ),
+  );
+}
 
 function loadBindRulesSafe() {
   return readBindRules();
@@ -625,23 +644,8 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const who = requireConfirmedBy(args);
       const action = name === "approve_proposal" ? "approve" : "reject";
       try {
-        const loaded = loadGraph();
-        const decided = applySociDecision(
-          readSock(),
-          readBindRules(),
-          proposalId,
-          action,
-          who,
-          new Date().toISOString(),
-          {
-            index: loaded?.index,
-            workspace: readWorkspace(),
-            recipes: loadRecipes(),
-            overlay: readRecipeOverlay(),
-            note: typeof args["note"] === "string" ? args["note"] : undefined,
-          },
-        );
-        commitProposalDecision(decided);
+        const note = typeof args["note"] === "string" ? args["note"] : undefined;
+        const decided = runProposalDecision(proposalId, action, who, note);
         const hint =
           action === "reject"
             ? "Proposal rejected. Audit line appended. SOCI never auto-applies."
@@ -650,16 +654,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
               : decided.writesRules
                 ? "Rule written to bind-rules.json. Audit line appended. Agents now rank/verify with it."
                 : "Decision recorded for the design team. bind-rules.json and Figma were not edited. Audit line appended.";
-        return {
-          ok: true,
-          action,
-          proposalId,
-          who: decided.audit.who,
-          when: decided.audit.when,
-          rules: decided.rules.rules,
-          ...(decided.writesRecipes ? { recipesWritten: true } : {}),
-          hint,
-        };
+        return { ...proposalDecisionBody(decided, action, proposalId), hint };
       } catch (error) {
         if (error instanceof BindRuleError) throw new ToolError(error.message);
         throw error;
@@ -668,12 +663,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
 
     case "get_example": {
       const { index } = context(args);
-      const bind = contextBindFromArgs(args);
-      const pack = packForRecommend(bind);
-      const screenType = typeof args["screenType"] === "string" ? args["screenType"] : undefined;
-      const resolvedContext = pack || screenType
-        ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
-        : undefined;
+      const { bind, context: resolvedContext } = recommendContextFromArgs(args);
       return exampleCard(index, asString(args["name"] ?? args["id"] ?? args["query"], "name"), {
         ...(resolvedContext ? { context: resolvedContext } : {}),
         workspace: bind.workspace,
@@ -685,12 +675,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
     case "resolve": {
       const { index } = context(args);
       const budget = typeof args["budgetChars"] === "number" ? args["budgetChars"] : undefined;
-      const bind = contextBindFromArgs(args);
-      const pack = packForRecommend(bind);
-      const screenType = typeof args["screenType"] === "string" ? args["screenType"] : undefined;
-      const resolvedContext = pack || screenType
-        ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
-        : undefined;
+      const { bind, pack, context: resolvedContext } = recommendContextFromArgs(args);
       const card = componentUsageCard(index, asString(args["name"] ?? args["query"], "name"), {
         budgetChars: budget,
         sock: readSock(),
@@ -708,12 +693,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
     case "recommend": {
       const { index } = context(args);
       const budget = typeof args["budgetChars"] === "number" ? args["budgetChars"] : undefined;
-      const bind = contextBindFromArgs(args);
-      const pack = packForRecommend(bind);
-      const screenType = typeof args["screenType"] === "string" ? args["screenType"] : undefined;
-      const resolvedContext = pack || screenType
-        ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
-        : undefined;
+      const { bind, pack, context: resolvedContext } = recommendContextFromArgs(args);
       const intent = asString(args["intent"] ?? args["question"] ?? args["query"], "intent");
       const screen = screenAskCard(intent, { sock: readSock(), index, recipes: loadRecipes() });
       if (screen) {
@@ -793,36 +773,13 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       return withPendingImprovements(result, readSock());
     }
 
-    case "list_recipes": {
-      const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
-      return capRecipePayload(
-        listRecipes(
-          loadRecipes(),
-          resolveGraph(graphId)?.index,
-          contextBindFromArgs(args),
-          readSock(),
-          loadBindRulesSafe(),
-          readPlaceholders(),
-        ),
-      );
-    }
+    case "list_recipes":
+      return listedRecipes(args);
 
     case "recipe": {
       const rawQuery = args["query"] ?? args["name"] ?? args["recipe"] ?? args["intent"];
       const query = typeof rawQuery === "string" ? rawQuery.trim() : "";
-      if (!query || query === "list") {
-        const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
-        return capRecipePayload(
-          listRecipes(
-            loadRecipes(),
-            resolveGraph(graphId)?.index,
-            contextBindFromArgs(args),
-            readSock(),
-            loadBindRulesSafe(),
-            readPlaceholders(),
-          ),
-        );
-      }
+      if (!query || query === "list") return listedRecipes(args);
       const intent = typeof args["intent"] === "string" ? args["intent"].trim() : "";
       const extra = intent && intent !== query ? intent : undefined;
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;

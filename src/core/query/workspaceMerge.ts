@@ -1,6 +1,7 @@
 import {
   COMPONENT_DEFINITION_TYPES,
   edgeId,
+  emptyGraph,
   type DesignGraph,
   type GraphEdge,
   type GraphNode,
@@ -77,7 +78,7 @@ export function namespaceGraph(graph: DesignGraph): DesignGraph {
   };
 }
 
-function componentKeyOf(node: GraphNode): string | undefined {
+export function componentKeyOf(node: GraphNode): string | undefined {
   const key = node.metadata?.["key"];
   return typeof key === "string" && key.trim() ? key.trim() : undefined;
 }
@@ -249,17 +250,7 @@ export function mergeWorkspaceGraphs(
     ...input,
     graph: stampFileKey(input.graph),
   }));
-  if (stamped.length === 0) {
-    return {
-      fileKey: "",
-      fileName: "Resolve workspace",
-      builtAt: new Date(0).toISOString(),
-      source: { kind: "json", ingestedAt: new Date(0).toISOString() },
-      nodes: [],
-      edges: [],
-      warnings: [],
-    };
-  }
+  if (stamped.length === 0) return emptyGraph("", "Resolve workspace");
   if (stamped.length === 1) {
     return relinkRemoteLibraries(stamped[0]!.graph, workspace);
   }

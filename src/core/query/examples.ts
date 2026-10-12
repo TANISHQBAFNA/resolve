@@ -7,6 +7,7 @@ import {
   TEXT_NO_FRAME,
   TEXT_NO_LAYERS,
   TEXT_UNCHECKED_REASON,
+  storedText,
 } from "@/core/ingestion/textStamps";
 import type { GraphIndex } from "./GraphIndex";
 import type { SockState, UsageFact } from "./sock";
@@ -410,19 +411,22 @@ function summaryOf(parts: Parts): string {
   return bits.join("; ");
 }
 
+function defaultVariantOf(variants: GraphNode[]): GraphNode | undefined {
+  const named = variants.find(
+    (variant) =>
+      /default/i.test(variant.name) ||
+      Object.values(variant.variantProperties ?? {}).some((value) => /default/i.test(value)),
+  );
+  return named ?? variants[0];
+}
+
 function masterTexts(index: GraphIndex, main: GraphNode): Set<string> {
   const cached = active?.masterText.get(main.id);
   if (cached) return cached;
   const texts = new Set(ownTexts(index, main.id).map((text) => text.toLowerCase()));
   const setId = main.type === "COMPONENT_SET" ? main.id : main.componentSetId;
   if (setId) {
-    const variants = index.getVariantsOf(setId);
-    const named = variants.find(
-      (variant) =>
-        /default/i.test(variant.name) ||
-        Object.values(variant.variantProperties ?? {}).some((value) => /default/i.test(value)),
-    );
-    const fallback = named ?? variants[0];
+    const fallback = defaultVariantOf(index.getVariantsOf(setId));
     if (fallback) {
       for (const text of ownTexts(index, fallback.id)) texts.add(text.toLowerCase());
     }
@@ -832,12 +836,6 @@ export function instanceTextLayers(index: GraphIndex, frameId: string): GraphNod
   return out;
 }
 
-function storedText(node: GraphNode): string | undefined {
-  const meta = node.metadata?.["text"];
-  if (typeof meta === "string" && meta.trim()) return meta.trim();
-  return undefined;
-}
-
 function definitionHasUnreadText(index: GraphIndex, rootId: string): boolean {
   let unread = false;
   const walk = (id: string) => {
@@ -861,13 +859,7 @@ function defaultsRead(index: GraphIndex, main: GraphNode): boolean {
   if (definitionHasUnreadText(index, definition.id)) return false;
   const setId = definition.type === "COMPONENT_SET" ? definition.id : definition.componentSetId;
   if (!setId) return true;
-  const variants = index.getVariantsOf(setId);
-  const named = variants.find(
-    (variant) =>
-      /default/i.test(variant.name) ||
-      Object.values(variant.variantProperties ?? {}).some((value) => /default/i.test(value)),
-  );
-  const fallback = named ?? variants[0];
+  const fallback = defaultVariantOf(index.getVariantsOf(setId));
   if (fallback && definitionHasUnreadText(index, fallback.id)) return false;
   return true;
 }

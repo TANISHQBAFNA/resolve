@@ -229,14 +229,18 @@ export interface ScoreDelta {
 
 
 
-export function loadGoldenCases(path: string): GoldenCase[] {
+function jsonFilesIn(path: string): string[] {
   const stat = statSync(path);
-  const files = stat.isDirectory()
+  return stat.isDirectory()
     ? readdirSync(path)
         .filter((name) => name.endsWith(".json"))
         .sort()
         .map((name) => join(path, name))
     : [path];
+}
+
+export function loadGoldenCases(path: string): GoldenCase[] {
+  const files = jsonFilesIn(path);
   if (!files.length) throw new Error(`No golden JSON in ${path}.`);
   const cases: GoldenCase[] = [];
   const seen = new Set<string>();
@@ -299,26 +303,38 @@ export interface ScoreRunOptions {
   storePath?: string;
 }
 
-function leakPicksFor(
-  tool: ScoreTool,
-  card: unknown,
-  vocab: GraphVocab,
-  row: BoundCase,
-): ScorePick[] {
+function rankPicks(tool: "recommend" | "resolve", card: unknown, vocab: GraphVocab): ScorePick[] {
   switch (tool) {
     case "recommend":
       return recommendPicks(card, vocab);
     case "resolve":
       return resolvePicks(card, vocab);
-    case "recipe":
-      return row.slot ? recipePicks(card, vocab, row.slot) : [];
-    case "verify":
-      return verifyApproved(card, vocab);
     default: {
       const _exhaustive: never = tool;
       return _exhaustive;
     }
   }
+}
+
+function toolPicks(tool: ScoreTool, card: unknown, vocab: GraphVocab, row: BoundCase, leak: boolean): ScorePick[] {
+  switch (tool) {
+    case "recommend":
+    case "resolve":
+      return rankPicks(tool, card, vocab);
+    case "recipe":
+      if (leak && !row.slot) return [];
+      return recipePicks(card, vocab, row.slot);
+    case "verify":
+      return leak ? verifyApproved(card, vocab) : verifyNameHits(card, vocab);
+    default: {
+      const _exhaustive: never = tool;
+      return _exhaustive;
+    }
+  }
+}
+
+function leakPicksFor(tool: ScoreTool, card: unknown, vocab: GraphVocab, row: BoundCase): ScorePick[] {
+  return toolPicks(tool, card, vocab, row, true);
 }
 
 function candidateCount(tool: ScoreTool, card: unknown, picks: ScorePick[]): number {
@@ -329,26 +345,8 @@ function candidateCount(tool: ScoreTool, card: unknown, picks: ScorePick[]): num
   return picks.length;
 }
 
-function picksFor(
-  tool: ScoreTool,
-  card: unknown,
-  vocab: GraphVocab,
-  row: BoundCase,
-): ScorePick[] {
-  switch (tool) {
-    case "recommend":
-      return recommendPicks(card, vocab);
-    case "resolve":
-      return resolvePicks(card, vocab);
-    case "recipe":
-      return recipePicks(card, vocab, row.slot);
-    case "verify":
-      return verifyNameHits(card, vocab);
-    default: {
-      const _exhaustive: never = tool;
-      return _exhaustive;
-    }
-  }
+function picksFor(tool: ScoreTool, card: unknown, vocab: GraphVocab, row: BoundCase): ScorePick[] {
+  return toolPicks(tool, card, vocab, row, false);
 }
 
 function runTool(
@@ -406,13 +404,7 @@ function runTool(
 }
 
 export function hashGoldenSet(path: string): string {
-  const stat = statSync(path);
-  const files = stat.isDirectory()
-    ? readdirSync(path)
-        .filter((name) => name.endsWith(".json"))
-        .sort()
-        .map((name) => join(path, name))
-    : [path];
+  const files = jsonFilesIn(path);
   const hash = createHash("sha256");
   for (const file of files) {
     hash.update(basename(file));

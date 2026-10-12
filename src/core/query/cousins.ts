@@ -1,6 +1,6 @@
 import type { GraphNode } from "@/core/model";
 import { sameFamily } from "@/core/rules/family";
-import { isNameInferredMaster, nameTokens as tokensOf } from "@/core/rules/names";
+import { isNameInferredMaster, nameTokens as tokensOf, sharedNameTokens } from "@/core/rules/names";
 import {
   resolveNode,
   resolveNodeExact,
@@ -25,26 +25,6 @@ import { nodeFileKey } from "./workspaceMerge";
  * the shared DS library. Refuse-over-guess — no invented expected masters.
  */
 
-const GENERIC = new Set([
-  "button",
-  "btn",
-  "cta",
-  "input",
-  "field",
-  "card",
-  "row",
-  "icon",
-  "avatar",
-  "banner",
-  "text",
-  "label",
-  "header",
-  "title",
-  "primary",
-  "secondary",
-  "tertiary",
-]);
-
 function stamp(node: GraphNode, fallback?: string) {
   const fileKey = nodeFileKey(node, fallback);
   return {
@@ -58,10 +38,7 @@ function stamp(node: GraphNode, fallback?: string) {
 }
 
 function nameOverlap(a: GraphNode, b: GraphNode, extra: string[] = []): { shared: string[]; specific: string[] } {
-  const left = new Set([...tokensOf(a.name), ...extra]);
-  const right = new Set(tokensOf(`${b.name} ${b.componentSetId ?? ""}`));
-  const shared = [...left].filter((token) => right.has(token));
-  return { shared, specific: shared.filter((token) => !GENERIC.has(token)) };
+  return sharedNameTokens([...tokensOf(a.name), ...extra], tokensOf(`${b.name} ${b.componentSetId ?? ""}`));
 }
 
 function isLibraryMaster(

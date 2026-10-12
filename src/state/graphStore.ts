@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
+import type { DesignGraph, NodeType } from "@/core/model";
 import type { IngestionSource } from "@/core/ingestion/types";
 import { buildGraph } from "@/core/transform";
 import { computeAnalytics, type GraphAnalytics } from "@/core/query/analytics";
@@ -262,8 +262,3 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
     set({ atlas: { ...atlas, hiddenCommunities: visible ? [] : [...ids] } });
   },
 }));
-
-/** Convenience selector: the currently focused node, if any. */
-export function useFocusNode(): GraphNode | undefined {
-  return useGraphStore((state) => (state.focusId ? state.index?.getNode(state.focusId) : undefined));
-}

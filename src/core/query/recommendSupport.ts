@@ -1,5 +1,6 @@
 /** Recommend card types, library rules, and where-used rows. */
 import type { GraphNode } from "@/core/model";
+import type { PlaceFields } from "./placeReady";
 import type { PropertyHint, PropertyRow } from "./componentProperties";
 import type { ExampleReason } from "./examples";
 import type { GraphIndex } from "./GraphIndex";
@@ -77,15 +78,16 @@ export interface RecommendContext {
   };
   warning?: string;
 }
+export function trimmedStrings(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items = value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  return items.length ? items.map((item) => item.trim()) : undefined;
+}
+
 export function parseLibraryRules(raw: unknown): LibraryRules {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const record = raw as Record<string, unknown>;
-  const list = (value: unknown): string[] | undefined => {
-    if (!Array.isArray(value)) return undefined;
-    const items = value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
-    return items.length ? items.map((item) => item.trim()) : undefined;
-  };
-  return { allow: list(record["allow"]), deny: list(record["deny"]) };
+  return { allow: trimmedStrings(record["allow"]), deny: trimmedStrings(record["deny"]) };
 }
 export const REFRESH_HINT = "If stale, learn_library. Do not Read graph.json.";
 export function refreshHintFor(sock?: SockState, fileKey?: string): string {
@@ -97,7 +99,7 @@ export function refreshHintFor(sock?: SockState, fileKey?: string): string {
   return staleRefreshHint(stale);
 }
 /** Place-ready top hit. These fields stay present on candidate 1. */
-export interface RecommendCandidate {
+export interface RecommendCandidate extends PlaceFields {
   id: string;
   name: string;
   why: string;
@@ -111,13 +113,6 @@ export interface RecommendCandidate {
   confidence?: "low";
   /** Set when the only words that matched are shared (button, bar, field, picker). */
   weak?: true;
-  figmaNodeId?: string;
-  nodeId?: string;
-  fileKey?: string;
-  componentKey?: string;
-  published?: boolean;
-  publishState?: "published" | "local-only";
-  variantProperties?: Record<string, string>;
   /** Compact set settings, e.g. `3 variants · Style, Size`. */
   settings?: string;
   set?: string;

@@ -11,7 +11,7 @@ import type {
   SourceLibrary,
   SourceKind,
 } from "../types";
-import { componentNameIndex, parseComponentPropertyDefinitions, type ComponentNameIndex } from "../componentProperties";
+import { componentNameIndex, eachEqualsPart, parseComponentPropertyDefinitions, type ComponentNameIndex } from "../componentProperties";
 
 /**
  * Figma REST -> SourceDocument.
@@ -77,13 +77,9 @@ const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 export function parseVariantName(name: string): Record<string, string> | undefined {
   if (!name.includes("=")) return undefined;
   const props: Record<string, string> = {};
-  for (const part of name.split(",")) {
-    const idx = part.indexOf("=");
-    if (idx <= 0) continue;
-    const key = part.slice(0, idx).trim();
-    const value = part.slice(idx + 1).trim();
+  eachEqualsPart(name, (key, value) => {
     if (key) props[key] = value;
-  }
+  });
   return Object.keys(props).length ? props : undefined;
 }
 

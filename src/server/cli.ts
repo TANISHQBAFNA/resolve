@@ -22,13 +22,13 @@ import { dirname, join, resolve } from "node:path";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
 import {
-  applySociDecision,
   componentUsageCard,
   listRecipes,
   listSoci,
   mergeBindRules,
   appliedContext,
   packForRecommend,
+  withScreenType,
   recipeCard,
   checkCousins,
   recommendMasters,
@@ -64,21 +64,20 @@ import {
 } from "@/core/query/scoreboard";
 import { formatPhraseTable, isSampleLibrary, loadPhraseCases, phraseExitCode, scorePhrases } from "@/core/query/phraseScore";
 import {
-  commitProposalDecision,
   clearCache,
   deleteGraph,
   graphPath,
   listGraphs,
-  loadGraph,
   loadRecipes,
   missingGraphMessage,
   readBindRules,
   readLibraryRules,
+  proposalDecisionBody,
   readPlaceholders,
-  readRecipeOverlay,
   readSock,
   readApprovedDecisions,
   readWorkspace,
+  runProposalDecision,
   contextPacksPath,
   rebuildIndex,
   resolveGraph,
@@ -98,6 +97,19 @@ import {
   scoreboardWorkspaceName,
   writeScoreHistory,
 } from "./scoreboardView";
+
+function csvFlag(args: string[], name: string): string[] | undefined {
+  const raw = flag(args, name);
+  if (!raw) return undefined;
+  return raw.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function recommendContextFromFlags(args: string[]) {
+  const bind = bindFromFlags(args);
+  const pack = packForRecommend(bind);
+  const screenType = flag(args, "screen-type");
+  return { bind, pack, context: withScreenType(pack, screenType) };
+}
 
 /**
  * Resolve CLI — ingest each linked file into the workspace
@@ -232,12 +244,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
     case "example": {
       const name = positionals(args)[0];
       if (!name) throw new Error('Usage: resolve example "<name>"');
-      const bind = bindFromFlags(args);
-      const pack = packForRecommend(bind);
-      const screenType = flag(args, "screen-type");
-      const context = pack || screenType
-        ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
-        : undefined;
+      const { bind, context } = recommendContextFromFlags(args);
       printJson(
         exampleCard(requireGraph(args).index, name, {
           ...(context ? { context } : {}),
@@ -253,12 +260,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const intent = positionals(args)[0];
       if (!intent) throw new Error('Usage: resolve recommend "<intent>"');
       const budget = Number(flag(args, "budget"));
-      const bind = bindFromFlags(args);
-      const pack = packForRecommend(bind);
-      const screenType = flag(args, "screen-type");
-      const context = pack || screenType
-        ? { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) }
-        : undefined;
+      const { bind, pack, context } = recommendContextFromFlags(args);
       const index = requireGraph(args).index;
       const screen = screenAskCard(intent, { sock: readSock(), index, recipes: loadRecipes() });
       if (screen) {
@@ -290,17 +292,13 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const name = positionals(args)[0];
       if (!name) throw new Error('Usage: resolve resolve "<name>"');
       const budget = Number(flag(args, "budget"));
-      const bind = bindFromFlags(args);
-      const pack = packForRecommend(bind);
-      const screenType = flag(args, "screen-type");
+      const { bind, pack, context } = recommendContextFromFlags(args);
       const card = componentUsageCard(requireGraph(args).index, name, {
         budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
         sock: readSock(),
         placeholders: readPlaceholders(),
         workspace: bind.workspace ?? readWorkspace(),
-        ...((pack || screenType)
-          ? { context: { ...(pack ?? {}), ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}) } }
-          : {}),
+        ...(context ? { context } : {}),
       });
       const echo = pack ? appliedContext(pack) : undefined;
       const cap = Number.isFinite(budget) && budget > 0 ? budget : 2000;
@@ -321,13 +319,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
     case "cousins":
     case "cousin": {
       const frame = positionals(args)[0];
-      const componentsRaw = flag(args, "components");
-      const components = componentsRaw
-        ? componentsRaw
-            .split(",")
-            .map((item) => item.trim())
-            .filter(Boolean)
-        : undefined;
+      const components = csvFlag(args, "components");
       const fileKey = flag(args, "file-key");
       if (!frame && !components?.length && !flag(args, "job") && !fileKey) {
         throw new Error(
@@ -644,13 +636,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
 
     case "verify": {
       const frame = positionals(args)[0];
-      const componentsRaw = flag(args, "components");
-      const components = componentsRaw
-        ? componentsRaw
-            .split(",")
-            .map((item) => item.trim())
-            .filter(Boolean)
-        : undefined;
+      const components = csvFlag(args, "components");
       if (!frame && !components?.length) {
         throw new Error(
           `Usage: resolve verify "<frame>" [--components a,b] [--rules file] ${PACK_BIND_FLAGS}`,
@@ -716,31 +702,8 @@ async function dispatchCli(argv: string[]): Promise<void> {
         throw new Error(`Usage: resolve ${command} <proposal-id> --who <name>`);
       }
       const action = command === "approve" ? "approve" : "reject";
-      const loaded = loadGraph();
-      const decided = applySociDecision(
-        readSock(),
-        readBindRules(),
-        proposalId,
-        action,
-        who,
-        new Date().toISOString(),
-        {
-          index: loaded?.index,
-          workspace: readWorkspace(),
-          recipes: loadRecipes(),
-          overlay: readRecipeOverlay(),
-        },
-      );
-      commitProposalDecision(decided);
-      printJson({
-        ok: true,
-        action,
-        proposalId,
-        who: decided.audit.who,
-        when: decided.audit.when,
-        rules: decided.rules.rules,
-        ...(decided.writesRecipes ? { recipesWritten: true } : {}),
-      });
+      const decided = runProposalDecision(proposalId, action, who);
+      printJson(proposalDecisionBody(decided, action, proposalId));
       return;
     }
 

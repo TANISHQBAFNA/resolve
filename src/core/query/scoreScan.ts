@@ -1,28 +1,9 @@
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
 import { sameFamily } from "@/core/rules/family";
+import { GENERIC_UI_NOUNS } from "@/core/rules/names";
 import type { GraphIndex } from "./GraphIndex";
 import { isPrivateMasterName, preferNamedMaster, variantCardName, type RecommendContext } from "./agentSurface";
 import type { GoldenCase, ScorePick, ScoreTool, ToolCaseResult, ToolSpec } from "./scoreboard";
-
-const GENERIC_NAME_TOKENS = new Set([
-  "button",
-  "btn",
-  "cta",
-  "input",
-  "field",
-  "card",
-  "row",
-  "icon",
-  "avatar",
-  "banner",
-  "text",
-  "label",
-  "header",
-  "title",
-  "primary",
-  "secondary",
-  "tertiary",
-]);
 
 export interface BoundCase extends GoldenCase {
   expectedIds: Set<string>;
@@ -46,7 +27,7 @@ function specificTokens(name: string): Set<string> {
     name
       .toLowerCase()
       .split(/[^a-z0-9]+/)
-      .filter((part) => part.length > 1 && !GENERIC_NAME_TOKENS.has(part)),
+      .filter((part) => part.length > 1 && !GENERIC_UI_NOUNS.has(part)),
   );
 }
 
