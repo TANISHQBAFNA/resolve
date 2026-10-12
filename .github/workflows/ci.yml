@@ -19,6 +19,8 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+      - run: npm run check:size
+      - run: npm run check:dupes
       - name: Score the fixture library
         env:
           RESOLVE_WORKSPACE: fixture

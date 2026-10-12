@@ -131,4 +131,4 @@ npm run resolve -- verify "Checkout Summary"
 npm run resolve -- cousins "Checkout Summary" --job "checkout summary"
 ```
 
-MCP: `list_recipes`, `recipe` / `get_recipe` (query = id, title, or intent), `recommend` (optional `pack` / `product` / `journey` / `domain`). After ingest, recipe slots bind to live masters. Context packs scope those fills.
+MCP: `list_recipes`, `recipe` (query = id, title, or intent), `recommend` (optional `pack` / `product` / `journey` / `domain`). `get_recipe` was removed; call `recipe`. After ingest, recipe slots bind to live masters. Context packs stay: they are where a team adds its own words and property hints, and they scope those fills.

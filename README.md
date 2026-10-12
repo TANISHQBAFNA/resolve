@@ -75,7 +75,7 @@ Two kinds of files live in `.resolve/` on your computer. **Team files** are the 
 ## What Resolve does, one piece at a time
 
 - **It learns your library.** You give it your design system file once. It reads the file and writes down what is in it: every component, its variants (for example Primary and Secondary), and where each one is used on real screens. You can repeat this whenever the library changes. This step has two names: **learn** (when your AI tool does it) and **ingest** (when you do it by hand). They mean the same thing: read a Figma file and remember it.
-- **It sets the context from the requirements or FSD.** The agent reads that document. Resolve does not. The agent passes which product, which journey step, who the screen is for, and the accessibility bar (for example wcag-aa) only when the document states them. A context pack is optional and is used only on an exact product match, and an exact journey match when the document gives one. Audience, a11y, and density are shown on the card and do not change which component is picked.
+- **It sets the context from the requirements or FSD.** The agent reads that document. Resolve does not. The agent passes which product, which journey step, who the screen is for, and the accessibility bar (for example wcag-aa) only when the document states them. A context pack is optional and stays: it is where a team adds its own words and property hints. It is used only on an exact product match, and an exact journey match when the document gives one. Audience, a11y, and density are shown on the card and do not change which component is picked.
 - **It recommends.** You describe what you need in plain words ("payee picker", "primary button"). Resolve picks the best matching component for that context. It looks at the name and your words first. If the match is only partial, it says "weak match" and offers up to three options, instead of pretending to be sure. An empty answer means stop. It does not draw a stand-in.
 - **It shows a real example.** With the pick, Resolve points to a real, filled-in copy of that component on a real screen. The AI tool clones it and swaps the content, which looks far better than starting from a bare default.
 - **It checks the finished screen.** Resolve looks at every piece on the screen and answers pass or fail. It flags parts that are not in the library, parts that are retired, and leftover template text such as "Lorem ipsum". It checks by each component's real Figma id (a hidden number every component has), not just by its layer name (the label you see in Figma's layers list), because a layer called "Button" can be anything.
@@ -299,6 +299,7 @@ These are explained where they first appear. This list is a reminder, and you do
 Everything below is reference detail: setup options, every command and flag, config files, exact rules, limits, accuracy numbers and version history. You do not need it to use Resolve.
 
 - [Upgrading from the old names](#upgrading-from-the-old-names)
+- [Removed MCP tools](#removed-mcp-tools)
 - [Setup in detail](#setup-in-detail)
 - [Every command](#every-command)
 - [Team config files](#team-config-files)
@@ -313,6 +314,28 @@ Everything below is reference detail: setup options, every command and flag, con
 ### Upgrading from the old names
 
 Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.graphify/`. Both still work: if the new `RESOLVE_HOME` / `.resolve/` exist they win, otherwise the old ones are read. Nothing is moved or deleted for you. To switch, rename the whole old folder to `.resolve/` (for example `mv .graphify .resolve`) and set `RESOLVE_HOME` if you used the old setting. Do not keep both folders. Resolve reads each file from the new folder first. For some files it falls back to the old folder when the new one does not have them: `code-map.json`, `synonyms.json`, `icon-libraries.json`, and the learned library itself. A stale old file of those kinds could keep applying. The other team files (`recipes.json`, `bind-rules.json`, `context-packs.json`, `library-rules.json`) are read only from the folder that holds the learned library, so once `.resolve` has one, the old copies are ignored.
+
+### Removed MCP tools
+
+These tools are gone. A call throws one line that names the replacement. The default MCP list is unchanged: `learn_library`, `recipe`, `recommend`, `resolve`, `get_example`, `verify_frame`, `check_cousins`.
+
+| Removed | Use instead |
+|---|---|
+| `orient`, `query` | `recommend` or `resolve` |
+| `path`, `explain` | the why line on a recommend card |
+| `check`, `check_frame` | `verify` / `verify_frame` |
+| `get_recipe` | `recipe` |
+| `find_nodes`, `get_node`, `get_screen_inventory`, `get_component_usage` | `recommend` or `resolve` |
+| `get_related`, `get_subgraph` | `recommend` |
+| `get_health` | `learn_library` (`list_graphs` still returns the store path) |
+
+`resolve orient`, `query`, `path`, `explain`, and `check` throw the same kind of line.
+
+Context packs stay. `.resolve/context-packs.json` is where a team adds its own words and property hints. They are not deprecated.
+
+`ingredients`, `handoff` (the text printed to the terminal, not the files `--out` writes), `parts`, and `status` print the same Markdown card as the MCP tools, so `/handoff`, `/parts`, and `/resolve-status` read the same as the agent. `--json` is still one compact line for machines. `--pretty` indents that JSON. Exit codes are unchanged.
+
+Where each shared rule lives: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#where-a-rule-lives).
 
 ### Setup in detail
 
@@ -894,7 +917,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 ### What the AI receives
 
-MCP tools answer in Markdown. `format` `json` is the same card as one compact JSON line. Both leave out filler: the `cost` block, the rank `score`, a graph id `node:…` sitting next to `figmaNodeId` or `nodeId`, the repeated "Do not Read graph.json" sentence, `learn_library`'s save-state dump, and a handoff parts table that repeats the parts already listed on each component. File writes (`handoff.json` and the screen sheets) stay indented. The CLI prints compact JSON; `--pretty` indents it. Exit codes are unchanged.
+MCP tools answer in Markdown. `format` `json` is the same card as one compact JSON line. Both leave out filler: the `cost` block, the rank `score`, a graph id `node:…` sitting next to `figmaNodeId` or `nodeId`, the repeated "Do not Read graph.json" sentence, `learn_library`'s save-state dump, and a handoff parts table that repeats the parts already listed on each component. File writes (`handoff.json` and the screen sheets) stay indented. `ingredients`, `handoff` (terminal text), `parts`, and `status` print that same Markdown. Other commands, and those four with `--json`, print compact JSON; `--pretty` indents it. Exit codes are unchanged.
 
 Every pick, part, and placed copy still carries `fileKey` and `figmaNodeId`. A published master keeps `componentKey`. A real example keeps `ex`. A check starts with PASS, FAIL, NAME-ONLY, or NOTHING CHECKED, and keeps `textChecked`. A retired or deprecated name keeps its replacement. A recipe slot says placed, inside another component, or missing, and an unbound slot keeps the next `recommend` query. Name guesses and other-library parts stay labelled. Audience and a11y are echoed with a source (`document`, `pack <id>`, or `active pack`). A code-map name check keeps the status, the designer sentence, and the exit code.
 
@@ -934,6 +957,7 @@ To apply: set Variant=Secondary, Has icon=true
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
+- **Oct 12, 2026 — architecture cleanup.** No new feature. Thirteen deprecated MCP tools are removed. A call names the replacement (see [Removed MCP tools](#removed-mcp-tools)). The default list stays the same seven tools. Same-family, retired, name folding, and id spelling each live in one module. `ingredients`, `handoff`, `parts`, and `status` print the same Markdown card as the MCP. `--json` stays compact. Context packs stay: a team adds its own words and property hints there. The phrase scoreboard is unchanged: 118 phrases (88 expected a part + 30 expected empty), top-1 66/88, top-3 68/88, empty-correct 30/30, invented 0, retired 0. The golden set stays 75 cases. Ranking is unchanged.
 - **Oct 12, 2026 — [PR #53](https://github.com/TANISHQBAFNA/resolve/pull/53).** Resolve reads Figma component properties when a library is learned: variant, boolean, text, and instance swap, with the default, the allowed values, and a rename note for a placeholder name like `Property 1`. The usage card, the ingredient card, handoff, and recommend show a Properties section and, when the request names an allowed value, one line `To apply: set X=Y`. Words such as outline, disabled, compact, and with icon map only onto values the component actually allows. A placed value outside that list fails verify. A label left on its default is a note, not a failure. The phrase scoreboard is unchanged: 118 phrases (88 expected a part + 30 expected empty), top-1 66/88, top-3 68/88, empty-correct 30/30, invented 0, retired 0. The golden set stays 75 cases. Ranking is unchanged. Default tools stay 7. 867 tests.
 - **Oct 11, 2026 — [PR #52](https://github.com/TANISHQBAFNA/resolve/pull/52).** CI builds once: `prepare` still builds the server for a git or npx install, and skips that when CI is set, so the workflow no longer typechecks on its own or builds the server twice. Browser end-to-end checks are a required headless Chromium job. A failed live call shows an error and a next step, and does not show the example library or the example bind rules as a live result. The phrase scoreboard is the headline: 118 phrases (88 expected a part + 30 expected empty), top-1 66/88, top-3 68/88, empty-correct 30/30, invented 0, retired 0. The golden set (75 cases) is a secondary regression check. The personal caveman Cursor rule is removed. Ranking is unchanged. Default tools stay 7. 857 tests.
 - **Oct 11, 2026 — [PR #50](https://github.com/TANISHQBAFNA/resolve/pull/50).** Resolve installs once, as a plugin, in Claude Code and in Cursor. After that, every chat in every project asks Resolve before it draws. The slash commands, the always-on rule, and the skill are the same files as before. The Figma token and the library file key are plugin settings. An example link is `figma.com/design/ACMEUI/Acme`. If either setting is missing, the first reply says how to set it. Ranking is unchanged. Default tools stay 7. 851 tests.

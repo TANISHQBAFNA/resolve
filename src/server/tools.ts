@@ -1,42 +1,21 @@
-import type { GraphNode } from "@/core/model";
 import { TextInputError } from "@/core/ingestion/textStamps";
 import {
-  advanceSoci,
   applyFreshness,
   applySociDecision,
   BindRuleError,
-  buildOrientBrief,
-  checkFrame,
-  computeAnalytics,
   componentUsageCard,
-  explainNode,
-  extractSubgraph,
   freshnessSummary,
-  harvestOverrideKeysForFrame,
-  isPrivateMasterName,
-  isRealVerifiedFrame,
   listSoci,
   mergeBindRules,
   parseLibraryRules,
   capRecipePayload,
   listRecipes,
-  pathBetween,
   rankRecipes,
-  queryQuestion,
   recipeCard,
   recommendMasters,
-  recordCousinCorrections,
-  recordVerifiedUsage,
   screenAskCard,
-  jobOfName,
-  screenInventory,
-  topLevelMasterIds,
-  searchNodes,
-  usageCardForComponent,
-  usageSummaryFor,
   verifyFrame,
   exampleCard,
-  exampleFactForMasterOnFrame,
   withCost,
   withPendingImprovements,
   checkCousins,
@@ -45,16 +24,11 @@ import {
   parseIngestRole,
   ingredientCard,
   handoffSheet,
-  type GraphIndex,
-  type GraphLevel,
   type HandoffPack,
-  type ContextBind,
-  type Recipe,
-  type ViewMode,
 } from "@/core/query";
 import { presentToolResult, type ToolCardFormat } from "./cards";
 import { learnLibrary } from "./learn";
-import { withDeprecation } from "./deprecations";
+import { DEPRECATED_INSTEAD, withDeprecation } from "./deprecations";
 import {
   listGraphs,
   loadContextBind,
@@ -74,9 +48,13 @@ import {
   readApprovedDecisions,
 } from "./store";
 import { recordGap } from "./gaps";
+import { recordVerifyUsage } from "./verifyRecord";
+
+export { recordVerifyUsage };
 
 /**
- * Optional MCP tools. Agents: recommend / recipe / resolve / verify_frame / check_frame.
+ * Optional MCP tools. The default surface is learn_library, recipe, recommend, resolve,
+ * get_example, verify_frame, and check_cousins. Set RESOLVE_MCP_ADVANCED=1 for the rest.
  * Do not Read graph.json. Graph stays on disk.
  */
 
@@ -285,67 +263,6 @@ export const TOOLS: ToolDefinition[] = [
     },
   },
   {
-    name: "orient",
-    description:
-      "Deprecated. This will be removed after a quarter. Use recommend or recipe. God nodes and communities.",
-    inputSchema: { type: "object", properties: { ...graphIdProperty } },
-  },
-  {
-    name: "query",
-    description:
-      "Deprecated. This will be removed after a quarter. Use recommend or resolve. One-hop answer: similar screens and which component variants they nest.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ...graphIdProperty,
-        question: { type: "string", description: 'e.g. "where is Input Field used"' },
-        budgetChars: { type: "number", description: "Hard cap on the structured card, in characters. Default 8000. Markdown is shorter." },
-      },
-      required: ["question"],
-    },
-  },
-  {
-    name: "path",
-    description:
-      "Deprecated. This will be removed after a quarter. Use recommend. Shortest relationship path between two nodes, by name or id.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ...graphIdProperty,
-        from: { type: "string" },
-        to: { type: "string" },
-      },
-      required: ["from", "to"],
-    },
-  },
-  {
-    name: "explain",
-    description:
-      "Deprecated. This will be removed after a quarter. Use the why line on a recommend or resolve card. Bounded markdown brief for one node.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ...graphIdProperty,
-        name: { type: "string", description: "Node name or id." },
-        task: { type: "string" },
-      },
-      required: ["name"],
-    },
-  },
-  {
-    name: "check_frame",
-    description:
-      "Deprecated. This will be removed after a quarter. Use verify_frame. Analog shortcut: pick the variant similar screens nest and list deprecated ones to avoid.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ...graphIdProperty,
-        intent: { type: "string", description: 'e.g. "approval summary buttons"' },
-      },
-      required: ["intent"],
-    },
-  },
-  {
     name: "verify_frame",
     description:
       "After drawing, check a frame or a proposed component list against the library graph and bind rules. Pass iff every placement is an in-graph master, not deprecated, and bind require/forbid rules hold. Before verify, fetch the frame's design context so Resolve can read the text — pass it as designContext. texts fills empty layers inside this frame only and cannot replace stored copy or component defaults. textChecked is true only when instance text and the component default were both read; otherwise it is partial, false, or n/a. A component list with no frame is textChecked false. Warnings (not failures) for leftover default text and a fixed height that clearly exceeds the content. Known placeholder strings fail. A bind-rule fail names the rule and returns the required master id + place hint. Optional allow/deny. Deterministic — no LLM.",
@@ -457,31 +374,6 @@ export const TOOLS: ToolDefinition[] = [
     },
   },
   {
-    name: "get_recipe",
-    description:
-      "Deprecated. This will be removed after a quarter. Use recipe. Alias of recipe. After ingest: slots bound/filled from live masters.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ...graphIdProperty,
-        query: {
-          type: "string",
-          description: 'Recipe id, title, or intent, e.g. "checkout summary"',
-        },
-        intent: {
-          type: "string",
-          description: "Optional extra brief mixed into unbound-slot ranking.",
-        },
-        pack: { type: "string" },
-        product: { type: "string" },
-        journey: { type: "string" },
-        domain: { type: "string" },
-        ...screenContextProperties,
-      },
-      required: ["query"],
-    },
-  },
-  {
     name: "get_ingredients",
     description:
       "What is inside a component: the library parts placed directly in it, for a developer handoff. Follows one variant: pass variant (\"Size=Medium\"), else the first in the set. A placed instance id reads that copy's own parts at every level. Where the copy's insides were not learned, the card says the parts are from the main component (not checked on this screen, or not checked on the copy inside this component). Variant is refused for an instance id. Each part shows fileKey and figmaNodeId, its code component from .resolve/code-map.json, or that there is no code link (never guessed), plus Angular selector, module or standalone, import path, inputs and outputs when the map entry is Angular. A structured card over 12,000 characters is shown less deep, then fewer parts per level, and says what was cut. Ask a part by name for its own card. Status is current, retired (old code, and what to use instead), unconfirmed (a guess from the layer name), other-library, or not-found. Exact name or id only. An unknown name says it was not found and to call recommend. Markdown by default. Advanced surface. Do not Read graph.json.",
@@ -523,82 +415,6 @@ export const TOOLS: ToolDefinition[] = [
       "List stored graphs and the store this server is reading (path, graph.json, builtAt). RESOLVE_HOME wins; else the nearest .resolve walking up from cwd. Call this to confirm MCP and CLI share one folder.",
     inputSchema: { type: "object", properties: {} },
   },
-  {
-    name: "find_nodes",
-    description:
-      "Deprecated. This will be removed after a quarter. Use recommend or resolve. Search a graph by name, type and relationship.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ...graphIdProperty,
-        query: { type: "string", description: 'e.g. "type:main Input Field" or "unused-components"' },
-        limit: { type: "number", description: "Default 25." },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "get_node",
-    description:
-      "Deprecated. This will be removed after a quarter. Use resolve. Everything known about one node: type, location, path, counts, and its Figma deep link.",
-    inputSchema: {
-      type: "object",
-      properties: { ...graphIdProperty, nodeId: { type: "string" } },
-      required: ["nodeId"],
-    },
-  },
-  {
-    name: "get_screen_inventory",
-    description:
-      "Deprecated. This will be removed after a quarter. Use resolve on a frame name. Which components are used on a screen, frame or section.",
-    inputSchema: {
-      type: "object",
-      properties: { ...graphIdProperty, nodeId: { type: "string" } },
-      required: ["nodeId"],
-    },
-  },
-  {
-    name: "get_component_usage",
-    description:
-      "Deprecated. This will be removed after a quarter. Use resolve. Where a component is used: instance count, frames, pages, and a risk score.",
-    inputSchema: {
-      type: "object",
-      properties: { ...graphIdProperty, nodeId: { type: "string" } },
-      required: ["nodeId"],
-    },
-  },
-  {
-    name: "get_related",
-    description:
-      "Deprecated. This will be removed after a quarter. Use recommend. Shortest relationship path between two nodes.",
-    inputSchema: {
-      type: "object",
-      properties: { ...graphIdProperty, fromId: { type: "string" }, toId: { type: "string" } },
-      required: ["fromId", "toId"],
-    },
-  },
-  {
-    name: "get_subgraph",
-    description:
-      "Deprecated. This will be removed after a quarter. Use recommend. A bounded neighbourhood around a node.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ...graphIdProperty,
-        nodeId: { type: "string" },
-        level: { type: "string" },
-        viewMode: { type: "string" },
-        maxNodes: { type: "number", description: "Default 60, hard cap 300." },
-      },
-      required: ["nodeId"],
-    },
-  },
-  {
-    name: "get_health",
-    description:
-      "Deprecated. This will be removed after a quarter. Use learn_library. Design-system health: most reused components, unused components, frames with no component usage, orphaned screens, unresolved instances.",
-    inputSchema: { type: "object", properties: { ...graphIdProperty } },
-  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -625,12 +441,6 @@ const asString = (value: unknown, name: string): string => {
   return value;
 };
 
-const asNumber = (value: unknown, fallback: number, cap: number): number => {
-  const parsed = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return Math.min(parsed, cap);
-};
-
 function parseLearnOutline(value: unknown): Array<{ id: string; name: string; kind: "page" | "frame" }> | undefined {
   if (!Array.isArray(value)) return undefined;
   const units: Array<{ id: string; name: string; kind: "page" | "frame" }> = [];
@@ -646,13 +456,6 @@ function parseLearnOutline(value: unknown): Array<{ id: string; name: string; ki
   return units.length ? units : undefined;
 }
 
-function recipeAlreadyEncodes(pattern: { masterId: string; name: string }, recipes: Recipe[]): boolean {
-  return recipes.some((recipe) =>
-    recipe.slots.some(
-      (slot) => slot.defaultMasterId === pattern.masterId || slot.defaultMasterId === pattern.name,
-    ),
-  );
-}
 
 const asStringList = (value: unknown): string[] | undefined => {
   if (typeof value === "string") {
@@ -721,23 +524,6 @@ function context(args: Record<string, unknown>) {
   return resolved;
 }
 
-function requireNode(index: GraphIndex, nodeId: string): GraphNode {
-  const node = index.getNode(nodeId);
-  if (!node) throw new ToolError(`Node \`${nodeId}\` is not in this graph.`);
-  return node;
-}
-
-/** Small projection — an agent does not need the raw metadata bag. */
-const brief = (node: GraphNode) => ({
-  id: node.id,
-  name: node.name,
-  type: node.type,
-  figmaNodeId: node.figmaNodeId,
-  ...(node.fileKey ? { fileKey: node.fileKey } : {}),
-  status: node.status,
-  owner: node.owner,
-});
-
 function attachCardMeta(result: unknown, args: Record<string, unknown>): unknown {
   if (!result || typeof result !== "object" || Array.isArray(result)) return result;
   const fileKey =
@@ -761,7 +547,27 @@ function attachCardMeta(result: unknown, args: Record<string, unknown>): unknown
   return freshness ? { ...result, freshness } : result;
 }
 
+const REMOVED_MCP_TOOLS = new Set([
+  "orient",
+  "query",
+  "path",
+  "explain",
+  "check_frame",
+  "get_recipe",
+  "find_nodes",
+  "get_node",
+  "get_screen_inventory",
+  "get_component_usage",
+  "get_related",
+  "get_subgraph",
+  "get_health",
+]);
+
 export function callTool(name: string, rawArgs: unknown): unknown {
+  if (REMOVED_MCP_TOOLS.has(name)) {
+    const instead = DEPRECATED_INSTEAD[name] ?? "the current tools";
+    throw new ToolError(`Tool "${name}" was removed. Use ${instead}.`);
+  }
   const advanced = process.env["RESOLVE_MCP_ADVANCED"] === "1";
   const allowed = new Set(listToolDefinitions(advanced).map((tool) => tool.name));
   if (!allowed.has(name)) {
@@ -899,33 +705,6 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       return JSON.stringify(shown).length <= cap ? shown : card;
     }
 
-    case "orient": {
-      const { index, graphId } = context(args);
-      return withCost({ graphId, ...buildOrientBrief(index) });
-    }
-
-    case "query": {
-      const { index } = context(args);
-      const question = asString(args["question"] ?? args["query"], "question");
-      const budget = typeof args["budgetChars"] === "number" ? args["budgetChars"] : undefined;
-      return queryQuestion(index, question, { budgetChars: budget });
-    }
-
-    case "path": {
-      const { index } = context(args);
-      return pathBetween(
-        index,
-        asString(args["from"] ?? args["fromId"], "from"),
-        asString(args["to"] ?? args["toId"], "to"),
-      );
-    }
-
-    case "explain": {
-      const { index } = context(args);
-      const task = typeof args["task"] === "string" ? args["task"] : undefined;
-      return explainNode(index, asString(args["name"] ?? args["nodeId"], "name"), task);
-    }
-
     case "recommend": {
       const { index } = context(args);
       const budget = typeof args["budgetChars"] === "number" ? args["budgetChars"] : undefined;
@@ -972,11 +751,6 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         context: packForRecommend(bind),
         workspace: bind.workspace ?? readWorkspace(),
       });
-    }
-
-    case "check_frame": {
-      const { index } = context(args);
-      return checkFrame(index, asString(args["intent"] ?? args["question"], "intent"));
     }
 
     case "verify_frame": {
@@ -1033,8 +807,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       );
     }
 
-    case "recipe":
-    case "get_recipe": {
+    case "recipe": {
       const rawQuery = args["query"] ?? args["name"] ?? args["recipe"] ?? args["intent"];
       const query = typeof rawQuery === "string" ? rawQuery.trim() : "";
       if (!query || query === "list") {
@@ -1154,250 +927,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       };
     }
 
-    case "find_nodes": {
-      const { index, graphId } = context(args);
-      const query = asString(args["query"], "query");
-      const limit = asNumber(args["limit"], 25, 100);
-      const results = searchNodes(index, query, { limit });
-      return {
-        graphId,
-        query,
-        count: results.length,
-        results: results.map((result) => ({
-          ...brief(result.node),
-          matchedOn: result.matchedOn,
-          isMainComponent: result.node.isMainComponent || undefined,
-          isInstance: result.node.isInstance || undefined,
-        })),
-      };
-    }
-
-    case "get_node": {
-      const { index, graphId } = context(args);
-      const node = requireNode(index, asString(args["nodeId"], "nodeId"));
-      const main = node.mainComponentId ? index.getNode(node.mainComponentId) : undefined;
-
-      return {
-        graphId,
-        node: {
-          ...brief(node),
-          description: node.description,
-          isMainComponent: node.isMainComponent,
-          isInstance: node.isInstance,
-          isRemote: node.isRemote,
-          variantProperties: node.variantProperties,
-          figmaUrl: node.figmaUrl,
-          identity: node.metadata?.["identity"],
-          platforms: node.platforms,
-        },
-        path: index.getHierarchyPath(node.id).map(brief),
-        summary: usageSummaryFor(index, node.id),
-        mainComponent: main ? brief(main) : undefined,
-        children: index.getChildren(node.id).slice(0, 25).map(brief),
-        styles: index.getNodes(node.styleIds ?? []).map(brief),
-        variables: index.getNodes(node.variableIds ?? []).map(brief),
-      };
-    }
-
-    case "get_screen_inventory": {
-      const { index, graphId } = context(args);
-      const node = requireNode(index, asString(args["nodeId"], "nodeId"));
-      const inventory = screenInventory(index, node.id);
-      return { graphId, ...inventory };
-    }
-
-    case "get_component_usage": {
-      const { index, graphId } = context(args);
-      const node = requireNode(index, asString(args["nodeId"], "nodeId"));
-      return { graphId, ...usageCardForComponent(index, node) };
-    }
-
-    case "get_related": {
-      const { index, graphId } = context(args);
-      const fromId = asString(args["fromId"], "fromId");
-      const toId = asString(args["toId"], "toId");
-      requireNode(index, fromId);
-      requireNode(index, toId);
-      return { graphId, ...pathBetween(index, fromId, toId) };
-    }
-
-    case "get_subgraph": {
-      const { index, graphId } = context(args);
-      const nodeId = asString(args["nodeId"], "nodeId");
-      requireNode(index, nodeId);
-
-      const subgraph = extractSubgraph(index, {
-        focusId: nodeId,
-        level: args["level"] as GraphLevel | undefined,
-        viewMode: (args["viewMode"] as ViewMode | undefined) ?? "hierarchy",
-        maxNodes: asNumber(args["maxNodes"], 60, 300),
-      });
-
-      return {
-        graphId,
-        focusId: subgraph.focusId,
-        level: subgraph.level,
-        viewMode: subgraph.viewMode,
-        truncated: subgraph.truncated,
-        hiddenCount: subgraph.hiddenCount,
-        nodes: subgraph.nodes.map(brief),
-        edges: subgraph.edges.map((edge) => ({
-          source: edge.source,
-          target: edge.target,
-          type: edge.type,
-        })),
-      };
-    }
-
-    case "get_health": {
-      const { index, graphId } = context(args);
-      const analytics = computeAnalytics(index);
-      return {
-        graphId,
-        store: storeInfo(),
-        totals: analytics.totals,
-        mostReused: analytics.componentUsage
-          .slice(0, 10)
-          .map((usage) => ({ ...brief(usage.component), instances: usage.instanceCount })),
-        unusedComponents: analytics.unusedComponents.map(brief),
-        framesWithoutComponents: analytics.framesWithoutComponents.map(brief),
-        orphanedFrames: analytics.orphanedFrames.map(brief),
-        unresolvedInstances: analytics.unresolvedInstances.map(brief),
-      };
-    }
-
     default:
       throw new ToolError(`Unknown tool \`${name}\`.`);
-  }
-}
-
-/**
- * Save a passing verify to SOCK: usage facts, cousin corrections, SOCI proposals. MCP verify_frame and CLI verify both
- * call this, so a frame checked from the command line (the AIDLC add-on's design-check) counts as a mapped screen too.
- * Only real frames count toward patterns. The screen job comes from the journey, else the domain, else the frame name.
- */
-export function recordVerifyUsage(
-  index: GraphIndex,
-  result: ReturnType<typeof verifyFrame>,
-  input: {
-    frame?: string;
-    components?: string[];
-    bind: ContextBind;
-    slot?: string;
-    journey?: string;
-    product?: string;
-    pack?: string;
-    domain?: string;
-  },
-): void {
-  if (!result.pass) return;
-  const { frame, components, bind } = input;
-  const pack = packForRecommend(bind);
-  const masters: Array<{
-    id: string;
-    name: string;
-    fileKey?: string;
-    figmaNodeId?: string;
-    deprecated?: boolean;
-    private?: boolean;
-  }> = [];
-  for (const row of result.resolved) {
-    if (!row.id) continue;
-    const node = index.getNode(row.id);
-    if (!node) continue;
-    masters.push({
-      id: node.id,
-      name: node.name,
-      fileKey: row.fileKey,
-      figmaNodeId: node.figmaNodeId,
-      deprecated: node.status === "deprecated",
-      private: isPrivateMasterName(node.name),
-    });
-  }
-  if (result.frame) {
-    for (const instance of index.getNestedInstances(result.frame.id)) {
-      const main = index.getMainComponent(instance.id);
-      if (!main || masters.some((row) => row.id === main.id)) continue;
-      masters.push({
-        id: main.id,
-        name: main.name,
-        fileKey: main.fileKey,
-        figmaNodeId: main.figmaNodeId,
-        deprecated: main.status === "deprecated",
-        private: isPrivateMasterName(main.name),
-      });
-    }
-  }
-  if (masters.length) {
-    const realFrame = isRealVerifiedFrame(result.frame);
-    const frameId = result.frame?.figmaNodeId ?? result.frame?.id;
-    const screenId = realFrame
-      ? `${result.frame!.fileKey}:${frameId}`
-      : `obs:${(components ?? []).slice().sort().join(",") || "list"}`;
-    const harvested =
-      realFrame && result.frame?.id ? harvestOverrideKeysForFrame(index, result.frame.id) : new Map<string, string[]>();
-    const slotArg = input.slot;
-    const topLevel = result.frame?.id ? new Set(topLevelMasterIds(index, result.frame.id)) : undefined;
-    const mastersWithOverrides = masters.map((master) => {
-      const keys = harvested.get(master.id);
-      const withKeys = keys?.length ? { ...master, overrideKeys: keys } : master;
-      const example = result.frame?.id
-        ? exampleFactForMasterOnFrame(index, result.frame.id, master.id, readPlaceholders())
-        : undefined;
-      const withExample = example ? { ...withKeys, ...example } : withKeys;
-      const placed = topLevel && !topLevel.has(master.id) ? { ...withExample, nested: true } : withExample;
-      if (!slotArg) return placed;
-      if (topLevel) {
-        return topLevel.has(master.id) ? { ...placed, slot: slotArg } : placed;
-      }
-      return { ...placed, slot: slotArg };
-    });
-    const journeyArg = input.journey;
-    const screenName = result.frame?.name ?? frame ?? "observation";
-    const job = realFrame ? (jobOfName(journeyArg) ?? jobOfName(input.domain) ?? jobOfName(screenName)) : undefined;
-    let next = recordVerifiedUsage(readSock(), {
-      screenId,
-      screenName,
-      masters: mastersWithOverrides,
-      ...(job ? { job } : {}),
-      journey: journeyArg,
-      product: input.product,
-      pack: input.pack,
-      frameId: realFrame ? frameId : undefined,
-      countsTowardThreshold: realFrame,
-    });
-    if (realFrame && result.frame) {
-      const cousinReport = checkCousins(index, {
-        frame: result.frame.id,
-        recipes: loadRecipes(),
-        context: pack,
-        workspace: bind.workspace ?? readWorkspace(),
-      });
-      const hits = (cousinReport.cousins ?? [])
-        .filter((hit) => hit.confidence === "cousin" && hit.expected)
-        .map((hit) => ({
-          fromId: hit.placed.id,
-          fromName: hit.placed.name,
-          fromFileKey: hit.placed.fileKey,
-          toId: hit.expected!.id,
-          toName: hit.expected!.name,
-          toFileKey: hit.expected!.fileKey,
-        }));
-      next = recordCousinCorrections(next, {
-        screenId,
-        screenName: result.frame.name ?? frame ?? "frame",
-        frameId,
-        fileKey: result.frame.fileKey,
-        hits,
-      });
-    }
-    saveSock(
-      advanceSoci(next, {
-        recipes: loadRecipes(),
-        index,
-        workspace: bind.workspace ?? readWorkspace(),
-        alreadyEncoded: (pattern) => recipeAlreadyEncodes(pattern, loadRecipes()),
-      }),
-    );
   }
 }

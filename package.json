@@ -35,6 +35,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "check:size": "node scripts/check-file-length.mjs",
+    "check:dupes": "jscpd src --pattern \"**/*.ts\" --min-lines 5 --min-tokens 40 --threshold 2 --reporters console",
     "bench": "vitest run --config vitest.bench.config.ts --reporter=verbose",
     "test:e2e": "playwright test",
     "test:all": "vitest run && playwright test",
@@ -62,6 +64,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
+    "jscpd": "^4.0.5",
     "typescript": "~5.9.3",
     "vite": "^8.3.0",
     "vitest": "^5.0.1"

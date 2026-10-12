@@ -1,5 +1,7 @@
 import type { GraphNode } from "@/core/model";
 import { COMPONENT_DEFINITION_TYPES } from "@/core/model";
+import { isNameInferredMaster, isPrivateMasterName } from "@/core/rules/names";
+import { isRetired } from "@/core/rules/retired";
 import {
   TEXT_DEFAULT_UNKNOWN,
   TEXT_NO_FRAME,
@@ -169,17 +171,10 @@ function enter(cache: ExampleCache, overlay?: ReadonlyMap<string, string>): () =
   };
 }
 
-function isPrivateName(name: string): boolean {
-  const trimmed = name.trim();
-  if (trimmed.startsWith(".") || trimmed.startsWith("_")) return true;
-  const variant = trimmed.split(" / ").at(-1)?.trim() ?? "";
-  return variant !== trimmed && (variant.startsWith(".") || variant.startsWith("_"));
-}
-
 function blocked(index: GraphIndex, node: GraphNode): boolean {
-  if (node.status === "deprecated" || isPrivateName(node.name)) return true;
+  if (isRetired(index, node) || isPrivateMasterName(node.name)) return true;
   const set = node.componentSetId ? index.getNode(node.componentSetId) : undefined;
-  return Boolean(set && (set.status === "deprecated" || isPrivateName(set.name)));
+  return Boolean(set && isPrivateMasterName(set.name));
 }
 
 function screenOf(index: GraphIndex, nodeId: string): GraphNode | undefined {
@@ -221,20 +216,14 @@ function textOf(node: GraphNode): string | undefined {
   return undefined;
 }
 
-function isInferredMaster(node: GraphNode): boolean {
-  if (node.metadata?.["identity"] === "inferred-from-name") return true;
-  return `${node.id} ${node.figmaNodeId ?? ""}`.includes("mcp-name:");
-}
-
-/** Name-inferred MCP stubs have no default copy. The real master of that name does. */
 function definitionFor(index: GraphIndex, main: GraphNode): GraphNode {
   const cached = active?.definition.get(main.id);
   if (cached) return cached;
   let resolved = main;
-  if (isInferredMaster(main)) {
+  if (isNameInferredMaster(main)) {
     const needle = main.name.trim().toLowerCase();
     const hits = index.getNodesByType("MAIN_COMPONENT", "COMPONENT_SET", "VARIANT").filter((node) => {
-      if (node.id === main.id || isInferredMaster(node)) return false;
+      if (node.id === main.id || isNameInferredMaster(node)) return false;
       return node.name.trim().toLowerCase() === needle;
     });
     if (hits.length === 1 && hits[0]) resolved = hits[0];

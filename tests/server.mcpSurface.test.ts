@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ToolError, TOOLS, callTool, listToolDefinitions } from "@/server/tools";
+import { DEFAULT_TOOL_NAMES, ToolError, TOOLS, callTool, listToolDefinitions } from "@/server/tools";
 import { clearCache, graphPath, loadGraph, readSock, storeRoot } from "@/server/store";
 import { saveGraph } from "@/server/store";
 import { graph, ids } from "./fixture";
@@ -33,17 +33,41 @@ describe("MCP default surface + SOCK loop", () => {
 
   it("default tool list is the agent tools", () => {
     const names = listToolDefinitions(false).map((tool) => tool.name);
-    expect(names).toHaveLength(7);
-    expect(new Set(names)).toEqual(
-      new Set(["learn_library", "recipe", "recommend", "resolve", "get_example", "verify_frame", "check_cousins"]),
-    );
+    expect([...names]).toEqual([...DEFAULT_TOOL_NAMES]);
+    expect(names).toEqual([
+      "learn_library",
+      "recipe",
+      "recommend",
+      "resolve",
+      "get_example",
+      "verify_frame",
+      "check_cousins",
+    ]);
     expect(names).not.toContain("approve_proposal");
     expect(names).not.toContain("reject_proposal");
-    expect(TOOLS.length).toBeGreaterThan(6);
+    const removed = [
+      "orient",
+      "query",
+      "path",
+      "explain",
+      "check_frame",
+      "get_recipe",
+      "find_nodes",
+      "get_node",
+      "get_screen_inventory",
+      "get_component_usage",
+      "get_related",
+      "get_subgraph",
+      "get_health",
+    ];
+    for (const name of removed) expect(TOOLS.map((tool) => tool.name)).not.toContain(name);
+    expect(TOOLS).toHaveLength(14);
     expect(listToolDefinitions(true).map((tool) => tool.name)).toEqual(
       expect.arrayContaining(["approve_proposal", "reject_proposal", "list_soci"]),
     );
     expect(listToolDefinitions(true).length).toBe(TOOLS.length);
+    expect(() => callTool("get_recipe", { query: "sign-in" })).toThrow(/was removed[\s\S]*recipe/);
+    expect(() => callTool("check_frame", { intent: "button" })).toThrow(/was removed[\s\S]*verify/);
   });
 
   it("missing-graph error names the path and the one learn step", () => {

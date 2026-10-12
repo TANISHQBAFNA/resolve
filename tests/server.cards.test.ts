@@ -157,6 +157,12 @@ describe("Acme markdown cards", () => {
     expect(fromFiller).toBeLessThan(removed * 0.65);
   });
 
+  it("locks the Acme Markdown cards", () => {
+    for (const card of set) {
+      expect(presentToolResult(card.value, "markdown", card.tool)).toMatchSnapshot(card.name);
+    }
+  });
+
   it("keeps every required id on each Markdown card", () => {
     for (const card of set) {
       const markdown = presentToolResult(card.value, "markdown", card.tool);
@@ -274,9 +280,9 @@ describe("Acme markdown cards", () => {
   });
 
   it("advertises format on every tool and adds no tool", () => {
-    expect(TOOLS).toHaveLength(27);
+    expect(TOOLS).toHaveLength(14);
     expect(listToolDefinitions(false)).toHaveLength(7);
-    expect(listToolDefinitions(true)).toHaveLength(27);
+    expect(listToolDefinitions(true)).toHaveLength(14);
     for (const tool of listToolDefinitions(true)) {
       const properties = (tool.inputSchema["properties"] ?? {}) as Record<string, { enum?: string[] }>;
       expect(properties["format"]?.enum, tool.name).toEqual(["markdown", "json"]);
