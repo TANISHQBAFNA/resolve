@@ -1,48 +1,45 @@
 import { accessSync, constants as fsConstants, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { DesignGraphSchema, type DesignGraph } from "@/core/model";
-import { SourceDocumentSchema } from "@/core/ingestion/types";
-import { adaptFigmaRestFile } from "@/core/ingestion/adapters/figmaRest";
-import { adaptFigmaMcpMetadata } from "@/core/ingestion/adapters/figmaMcp";
+import { PACK_BIND_FLAGS, usage } from "./cliUsage";
 import {
-  fetchFigmaRestDocument,
-  figmaAccessToken,
-} from "@/core/ingestion/adapters/figmaRestSource";
+  bindFromFlags,
+  defaultGoldenDir,
+  existingEntries,
+  flag,
+  graphFromMetadataXml,
+  ingestLive,
+  ingestRole,
+  looksLikeMetadataXml,
+  parseTextsFlag,
+  positionals,
+  printJson,
+  readDesignContextFile,
+  requireGraph,
+  setJsonPretty,
+  toGraph,
+  writeStored,
+} from "./cliArgs";
+import { dirname, join, resolve } from "node:path";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
-import { buildGraph } from "@/core/transform";
 import { overlayFile } from "@/core/query/overlayFile";
 import {
   applySociDecision,
-  buildOrientBrief,
-  checkFrame,
   componentUsageCard,
-  explainNode,
   listRecipes,
   listSoci,
   mergeBindRules,
   appliedContext,
   packForRecommend,
-  pathBetween,
-  queryQuestion,
   recipeCard,
   checkCousins,
-  describeRole,
-  parseIngestRole,
   recommendMasters,
   screenAskCard,
   exampleCard,
-  iconLibraryWarnings,
-  indexGraph,
-  toGraphReportMarkdown,
   verifyFrame,
-  WORKSPACE_FILE_ROLES,
-  type WorkspaceFileRole,
   codeMapCard,
   codeMapFromCsv,
   entryLabel,
   formatHandoffIndex,
   formatHandoffIngredients,
-  formatHandoffRefusal,
   formatHandoffScreen,
   handoffSheet,
   screenSlug,
@@ -52,8 +49,6 @@ import {
   formatCodeMapReport,
   checkComponentFiles,
   packValidation,
-  formatIngredientCard,
-  formatIngredientCoverage,
   ingredientCard,
   ingredientCoverage,
   screenPartsCard,
@@ -74,7 +69,6 @@ import {
   deleteGraph,
   graphPath,
   listGraphs,
-  loadContextBind,
   loadGraph,
   loadRecipes,
   missingGraphMessage,
@@ -88,18 +82,16 @@ import {
   contextPacksPath,
   rebuildIndex,
   resolveGraph,
-  saveIngestedFile,
-  fsIngestCheckpointStore,
   storeInfo,
   storeRoot,
-  workspacePath,
 } from "./store";
 import { formatGaps, readGaps, recordGap } from "./gaps";
 import { recordVerifyUsage } from "./tools";
 import { learnLibrary } from "./learn";
 import { DESIGNER, designerFailure } from "./designerMessages";
-import { formatStatus, statusReport } from "./status";
-import { warnDeprecated } from "./deprecations";
+import { presentToolResult } from "./cards";
+import { statusReport } from "./status";
+import { DEPRECATED_INSTEAD, warnDeprecated } from "./deprecations";
 import {
   previousScore,
   scoreboardHistoryDir,
@@ -114,339 +106,13 @@ import {
  * Agents call resolve / cousins (usage cards), then Figma. Do not Read graph.json.
  */
 
-/** Same flags `bindFromFlags` reads — keep help + usage errors in lockstep. */
-const PACK_BIND_FLAGS =
-  "[--pack <id>] [--product <name>] [--journey <step>] [--domain <domain>] [--audience <who>] [--a11y <bar>]";
-
-function usage(): void {
-  process.stdout.write(
-    [
-      "Resolve — Figma rules. Agents resolve.",
-      "JSON commands print one compact line. --pretty prints indented JSON. Exit codes stay the same.",
-      "",
-      "  resolve ingest <file.json | file.xml | figma-url | file-key> [--id <graphId>] [--file-key <key>] [--name <fileName>] [--from-metadata] [--scope node|screens|file] [--role library|product|client] [--force-role] [--label <name>]",
-      "      Build a graph and add it to the workspace. JSON: REST body, MCP capture, or a graph.",
-      "      --from-metadata: raw Figma MCP get_metadata XML (no REST token). Same as wrapping { metadataXml }.",
-      "      RESOLVE_HOME wins for the store folder; else nearest .resolve walking up from cwd. MCP and CLI must share it.",
-      "      Live Figma: pass the shared screen/frame/section URL (node-id in the link).",
-      "      No node-id → each top-level FRAME/SECTION/COMPONENT/COMPONENT_SET, one request at a time.",
-      "      --scope file is one request — safer on a low API tier. Section walks honor Retry-After and resume.",
-      "      Token from FIGMA_ACCESS_TOKEN (live URL only). Writes .resolve/files/<key>.json + workspace.json.",
-      "      First file defaults to role library; later files default to product. Re-run to refresh.",
-      "      Changing --role on a file already in the workspace is refused unless --force-role.",
-      "      Agents call resolve / cousins — do not Read graph.json.",
-      "",
-      "  resolve learn --file-key <key> [--role library|product|client] [--from-metadata <file.xml>] [--design-context <file>] [--name <fileName>]",
-      "      Same as MCP learn_library. Figma get_metadata XML. Pass design context so master default text is stored. No REST token. Resumable.",
-      "",
-      `  resolve recipe [list | "<name or intent>"] [--id] [--intent "<brief>"] ${PACK_BIND_FLAGS}`,
-      "      Screen packs. Overlay .resolve/recipes.json still wins.",
-      "      After ingest, list/get bind slots to live masters (or next recommend query).",
-      "      Matching .resolve/context-packs.json scopes slot fills + nextRecommend.",
-      "      Never invents node ids. Unbound: recommend then verify_frame.",
-      `  resolve recommend "<intent>" [--id] [--budget <chars>] ${PACK_BIND_FLAGS} [--screen-type <kind>]`,
-      "      Ranked masters: name/intent first (exact, token, synonym). Context and usage break ties.",
-      "      Context cannot pull in a name-irrelevant master. Deprecated names return the live replacement.",
-      "      Top hit is place-ready and carries ex. Hits 2–3 are name, id, and a short reason. Cap 600 chars.",
-      "      ex is a real instance node id, fileKey:nodeId when the example file differs, or none plus a short reason.",
-      "      Call resolve example for the full config and for hits 2–3. Clone ex; do not start from the default.",
-      "      Why line: SOCK facts, 'used N× in file', or 'not verified on a screen yet'.",
-      `  resolve example "<name>" [--id] ${PACK_BIND_FLAGS}`,
-      "      Full config for ex: file key, node id, screen, variant, structure, sizing.",
-      "      Clone this instance and replace content; do not start from the default variant.",
-      `  resolve resolve "<name>" [--id] [--budget <chars>] ${PACK_BIND_FLAGS} [--screen-type <kind>]`,
-      "      I know the name, give me the id. Exact master always returns id + fileKey + figmaNodeId, even with zero usage.",
-      "      Optional screen type / journey / domain, same as recommend, breaks ties between cousins.",
-      "      Deprecated names come back flagged, with the live replacement. Private (_ / .) names only on an exact match.",
-      "      One-line why from SOCK facts. Miss: says so and points at recommend. Not an empty list.",
-      `  resolve verify "<frame>" [--id] [--components a,b] [--rules <file>] [--design-context <file>] [--texts <json>] [--slot <role>] ${PACK_BIND_FLAGS}`,
-      "      After drawing: pass/fail, invents, deprecated, unresolved, bind-rule misses.",
-      "      Before verify, fetch the frame's design context so Resolve can read the text. Pass that file as --design-context.",
-      "      --texts fills empty layers in the frame only (JSON). It does not replace stored copy.",
-      "      Component list: exact name or id only (fileKey:nodeId ok). Near match = unresolved + did you mean. Private (. / _) fails.",
-      "      Bind rules: .resolve/bind-rules.json (require / forbid / prefer). A miss names the rule and the correct master id.",
-      "      Optional .resolve/library-rules.json { allow, deny }. Else in-graph + not deprecated = approved.",
-      "      Same pack flags as recommend. Wrong-cousin drift: resolve cousins.",
-      "      A passing check of a real frame is saved to SOCK, the same as MCP verify_frame (--slot <role> tags its top-level parts).",
-      "      Its screen job comes from --journey, else --domain, else the frame name, so \"payment screen\" can answer from it.",
-      "  resolve code-map [--json | --retired]   Report on .resolve/code-map.json: Figma component -> code component",
-      "  resolve code-map --check \"<name>\" [--handoff <handoff.json>] [--json]",
-      "      One answer from the committed handoff and code map only. No learned cache, and nothing is guessed.",
-      "      --handoff defaults to ./handoff.json. OK, retired, not on this screen, unmapped, other library, or not found.",
-      "      Exit 0 ok, 2 retired, 3 not-in-handoff, 4 unmapped, 5 not-found, 6 other-library, 1 when a file or the name is unusable.",
-      "  resolve pack validate [path] [--json]",
-      "      Check a context pack: id is a slug, accessibility is wcag-a, wcag-aa, or wcag-aaa, every recipe id exists,",
-      "      and the file has no Figma file key, token, or node id. Errors name the field and how to fix it.",
-      "      Unknown fields are warnings. Exit 0 when there are no errors, 1 when there are. Loading a pack skips a bad field instead.",
-      "  resolve code-map --init [--out <file.csv>] [--force]   Write a CSV with one row per component, to fill in a spreadsheet",
-      "  resolve code-map --import <file.csv> [--dry-run] [--force | --replace]   Turn the filled CSV into code-map.json (same checks as the loader)",
-      "      --force keeps (and lists) existing entries the CSV has no row for; --replace drops them (and lists them). Extra columns are ignored.",
-      "      Counts mapped / retired / unmapped / ambiguous / conflict / stale / ignored. Keyed by file key + id; a name works only when unique.",
-      "      status retired keeps a part mapped but never recommends it. --retired lists every retired part with its code and replacement. No map: one-line hint.",
-      "  resolve ingredients \"<component>\" [--variant \"<Prop=Value, ...>\"] [--depth 1-3] [--json] [--id <graphId>]",
-      "      What is inside a component: the library parts placed directly in it, from the graph's nests links.",
-      "      Follows one variant: the one you name, else the first in the set. A placed instance id reads that copy's own parts at every level;",
-      "      where a copy's insides were not learned, the main component's parts are shown and labelled so.",
-      "      Each part shows its code component from .resolve/code-map.json, or 'no code link yet'. Never guessed.",
-      "      A part known only from a layer name is labelled as a guess. Retired parts show their code and their replacement. Exact name or id only.",
-      "  resolve ingredients --all [--json]   Library-wide counts: composites, parts inside them, and how many link to code.",
-      `  resolve handoff "<frame>" ["<frame>" ...] [--draft] [--json] [--out <dir>] [--recipe <id>] [--depth 1-3] [--force] ${PACK_BIND_FLAGS}`,
-      "      Developer handoff sheet for a designed screen: recipe slots, each placed component with its Figma id and code (React or Angular),",
-      "      the parts inside it, suggested inputs from Figma variant properties, verify result, approved decisions, open questions.",
-      "      Refuses when a retired component is on the screen (always) or a component is only a layer-name guess (unless --draft).",
-      "      --out writes handoff.md, screen-<name>.md, ingredients.md and handoff.json. Never guesses code: unmapped says unmapped.",
-      "  resolve rules                  List human-authored bind rules",
-      "  resolve soci                   List pending SOCI proposals (never auto-applied)",
-      "  resolve approve <proposal-id> --who <name>   Approve: bind-rules, recipe overlay, or a recorded decision",
-      "  resolve reject <proposal-id> --who <name>    Reject + audit line. SOCI never auto-applies.",
-      `  resolve cousins ["<frame>"] [--file-key <key>] [--job "<screen job>"] [--components a,b] ${PACK_BIND_FLAGS}`,
-      "      Wrong-cousin report: same role / weak name, different master family than the shared DS library.",
-      "      Needs a library-role file in .resolve/workspace.json. Unsure → says so. Never invents a master.",
-      "  resolve workspace              Linked files + store path / builtAt (same as MCP list_graphs.store)",
-      "  resolve orient [--id <graphId>]     Deprecated. God-node summary. Use recommend or recipe.",
-      "  resolve query \"<question>\" [--id] [--budget <chars>]",
-      "      Deprecated. Scoped subgraph. Use recommend or resolve.",
-      "  resolve path \"<A>\" \"<B>\" [--id]     Deprecated. Shortest relationship path. Use recommend.",
-      "  resolve explain \"<name>\" [--id]      Deprecated. Use the why line on a recommend or resolve card.",
-      "  resolve check \"<intent>\" [--id]      Deprecated. Analog variant. Use verify.",
-      "",
-      "  resolve list                 Show the stored graph",
-      "  resolve reindex              Confirm graph.json loads",
-      "  resolve rm --yes             Delete the learned graph and the workspace file list",
-      "  resolve score [--golden <path>] [--workspace <name>] [--json]",
-      "  resolve score --init [--out <file>]   Write a starter golden set from the learned library",
-      "      Secondary regression check against a golden set. The headline number is resolve score phrases.",
-      "      Expected masters are names, resolved to ids in the current graph. Never invents an id.",
-      "      --init skips names that still have two populated masters and prints them.",
-      "      Default --out is RESOLVE_HOME/scoreboard/golden/from-library.json (the store folder), never the Resolve checkout.",
-      "      Prints a short table. Exits non-zero when invent rate is above 0 or a card exceeds its budget.",
-      "      Saves the run to RESOLVE_HOME/scoreboard when set, else ~/.resolve/<workspace>/scoreboard.",
-      "      Default golden path: <store>/scoreboard/golden when that folder exists, else ./scoreboard/golden.",
-      "      Default workspace name: default (or RESOLVE_WORKSPACE).",
-      "  resolve score phrases [--phrases <path>] [--json]",
-      "      Headline scoreboard. Designer phrases against recommend: top-1, top-3, empty-correct, invented, retired.",
-      "      Uses your own <store>/scoreboard/phrases/*.json when there are any. Otherwise the built-in ./scoreboard/phrases,",
-      "      but only on the sample library. Never mixes the two. --phrases <path> uses only that path.",
-      "      Exits non-zero when a part is invented or a retired/private part is recommended.",
-      "  resolve gaps [--json]        What designers asked recommend for that found nothing or only a weak match, most asked first.",
-      "      Read from <store>/scoreboard/gaps.jsonl (local, git-ignored). Each row needs a team word, a recipe, or a new part.",
-      "  resolve status [--json]      One short answer: learned files, when, version, Figma token, always-on rule, code map, and what to do next",
-      "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
-      "",
-      "  npm run resolve -- <command>     primary",
-      "  npm run keyline -- <command>     Deprecated alias. Use npm run resolve. Removed after a quarter.",
-      "",
-    ].join("\n"),
-  );
-}
-
-function readDesignContextFile(path: string): string {
-  if (!existsSync(path)) {
-    throw new Error(
-      `Design context file not found: ${path}. Pass the path to the frame's get_design_context output.`,
-    );
-  }
-  try {
-    return readFileSync(path, "utf8");
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`Could not read design context file ${path}. ${detail}`);
-  }
-}
-
-function parseTextsFlag(raw: string): unknown {
-  try {
-    return JSON.parse(raw) as unknown;
-  } catch {
-    throw new Error(`--texts must be JSON, for example '{"1:3":"Pay now"}'.`);
-  }
-}
-
-function flag(args: string[], name: string): string | undefined {
-  const at = args.indexOf(`--${name}`);
-  return at >= 0 ? args[at + 1] : undefined;
-}
-
-export function looksLikeMetadataXml(text: string): boolean {
-  const trimmed = text.trim();
-  if (!trimmed || trimmed.startsWith("{") || trimmed.startsWith("[")) return false;
-  return /<(frame|component|component-set|component_set|componentSet|symbol|instance|section|canvas|page)\b/i.test(
-    trimmed,
-  );
-}
-
-function graphFromMetadataXml(xml: string, args: string[]): DesignGraph {
-  return buildGraph(
-    adaptFigmaMcpMetadata({
-      fileKey: flag(args, "file-key") ?? "local-file",
-      fileName: flag(args, "name") ?? flag(args, "file-key") ?? "file",
-      metadataXml: xml,
-    }),
-  );
-}
-
-function toGraph(payload: unknown, args: string[]): DesignGraph {
-  const asGraph = DesignGraphSchema.safeParse(payload);
-  if (asGraph.success) return asGraph.data;
-
-  const asSource = SourceDocumentSchema.safeParse(payload);
-  if (asSource.success) return buildGraph(asSource.data);
-
-  const record = (payload ?? {}) as Record<string, unknown>;
-  const fileKey = flag(args, "file-key") ?? (record["fileKey"] as string) ?? "local-file";
-  const fileName = flag(args, "name") ?? (record["fileName"] as string) ?? "Untitled";
-
-  if (record["metadataXml"] || record["captures"]) {
-    return buildGraph(
-      adaptFigmaMcpMetadata({
-        fileKey,
-        fileName,
-        metadataXml: record["metadataXml"] as string | undefined,
-        variableDefs: record["variableDefs"] as Record<string, unknown> | undefined,
-        captures: record["captures"] as never,
-      }),
-    );
-  }
-
-  if (record["document"]) {
-    return buildGraph(
-      adaptFigmaRestFile({ fileKey, file: payload, variables: record["variables"] }),
-    );
-  }
-
-  throw new Error(
-    "Unrecognised JSON. Expected a Figma REST file body, an MCP capture, or a graph.",
-  );
-}
-
-function ingestRole(args: string[]): WorkspaceFileRole | undefined {
-  const at = args.indexOf("--role");
-  if (at < 0) return undefined;
-  const named = args[at + 1];
-  if (!named || named.startsWith("--")) {
-    throw new Error(`Unknown --role. Valid roles: ${WORKSPACE_FILE_ROLES.join(", ")}.`);
-  }
-  return parseIngestRole(named);
-}
-
-function writeStored(graph: DesignGraph, args: string[], target?: string): void {
-  const summary = saveIngestedFile(graph, {
-    graphId: flag(args, "id"),
-    role: ingestRole(args),
-    forceRole: args.includes("--force-role"),
-    url: target && /^https?:\/\//.test(target) ? target : flag(args, "url"),
-    label: flag(args, "label") ?? flag(args, "name"),
-  });
-  process.stdout.write(
-    [
-      `Stored ${summary.graphId}`,
-      `  file      ${summary.fileName} (${summary.fileKey})`,
-      summary.role ? `  role      ${summary.role} — ${describeRole(summary.role)}` : "",
-      `  source    ${summary.sourceKind}`,
-      `  graph     ${summary.nodes} nodes, ${summary.edges} edges`,
-      summary.warnings ? `  warnings  ${summary.warnings}` : "",
-      ...iconLibraryWarnings(indexGraph(graph)).map((line) => `  ${line}`),
-      `  entry     ${summary.entryPoints.map((entry) => entry.name).join(", ") || "(none)"}`,
-      `  workspace ${workspacePath()}`,
-      `  graph     ${graphPath()}`,
-      "",
-    ]
-      .filter(Boolean)
-      .join("\n"),
-  );
-}
-
-function ingestScope(args: string[]): "auto" | "node" | "screens" | "file" {
-  const named = flag(args, "scope");
-  if (named === "node" || named === "screens" || named === "file" || named === "auto") return named;
-  if (args.includes("--whole-file")) return "file";
-  return "auto";
-}
-
-async function ingestLive(target: string, args: string[]): Promise<void> {
-  const token = figmaAccessToken();
-  if (!token) {
-    throw new Error("Set FIGMA_ACCESS_TOKEN to ingest a live Figma file.");
-  }
-  const document = await fetchFigmaRestDocument(target, {
-    token,
-    scope: ingestScope(args),
-    checkpoint: fsIngestCheckpointStore(),
-    onProgress: (info) => {
-      if (info.phase === "outline") {
-        process.stderr.write(`Outlining ${info.name}\n`);
-        return;
-      }
-      if (info.total <= 1 && info.done === 0) return;
-      process.stderr.write(`  ${info.done}/${info.total} ${info.name}\n`);
-    },
-  });
-  writeStored(buildGraph(document), args, target);
-}
-
-function requireGraph(args: string[]) {
-  const resolved = resolveGraph(flag(args, "id"));
-  if (!resolved) {
-    throw new Error(missingGraphMessage());
-  }
-  return resolved;
-}
-
-function positionals(args: string[]): string[] {
-  const out: string[] = [];
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i]!;
-    if (arg.startsWith("--")) {
-      i += 1;
-      continue;
-    }
-    out.push(arg);
-  }
-  return out;
-}
-
-function bindFromFlags(args: string[]) {
-  return loadContextBind({
-    pack: flag(args, "pack"),
-    product: flag(args, "product"),
-    journey: flag(args, "journey"),
-    domain: flag(args, "domain"),
-    audience: flag(args, "audience"),
-    a11y: flag(args, "a11y"),
-    packsFile: flag(args, "packs"),
-  });
-}
-
-/** Entries of the code map on disk, as written (good or bad). A file that is not a map gives none. */
-function existingEntries(path: string): unknown[] {
-  try {
-    const raw = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, "").trim() || "{}") as { entries?: unknown };
-    return Array.isArray(raw.entries) ? raw.entries : [];
-  } catch {
-    return [];
-  }
-}
-
-let jsonPretty = false;
-
-function printJson(value: unknown): void {
-  const text = jsonPretty ? JSON.stringify(value, null, 2) : JSON.stringify(value);
-  process.stdout.write(`${text}\n`);
-}
-
-function defaultGoldenDir(): string {
-  const stored = join(storeRoot(), "scoreboard", "golden");
-  if (existsSync(stored)) return stored;
-  return resolve("scoreboard/golden");
-}
-
 export async function runCli(argv: string[]): Promise<void> {
-  const previous = jsonPretty;
-  jsonPretty = argv.includes("--pretty");
+  const pretty = argv.includes("--pretty");
+  const previous = setJsonPretty(pretty);
   try {
-    await dispatchCli(jsonPretty ? argv.filter((arg) => arg !== "--pretty") : argv);
+    await dispatchCli(pretty ? argv.filter((arg) => arg !== "--pretty") : argv);
   } finally {
-    jsonPretty = previous;
+    setJsonPretty(previous);
   }
 }
 
@@ -643,53 +309,13 @@ async function dispatchCli(argv: string[]): Promise<void> {
       return;
     }
 
-    case "orient": {
-      warnDeprecated("orient");
-      warnDeprecated("communities");
-      const { index, graphId } = requireGraph(args);
-      const brief = buildOrientBrief(index);
-      process.stdout.write(`# ${graphId}\n\n${toGraphReportMarkdown(brief)}`);
-      return;
-    }
-
-    case "query": {
-      warnDeprecated("query");
-      const question = positionals(args)[0];
-      if (!question) throw new Error('Usage: resolve query "<question>"');
-      const budget = Number(flag(args, "budget"));
-      const { index } = requireGraph(args);
-      printJson(
-        queryQuestion(index, question, {
-          budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
-        }),
-      );
-      return;
-    }
-
-    case "path": {
-      warnDeprecated("path");
-      const names = positionals(args);
-      const from = names[0];
-      const to = names[1];
-      if (!from || !to) throw new Error('Usage: resolve path "<A>" "<B>"');
-      printJson(pathBetween(requireGraph(args).index, from, to));
-      return;
-    }
-
-    case "explain": {
-      warnDeprecated("explain");
-      const name = positionals(args)[0];
-      if (!name) throw new Error('Usage: resolve explain "<name>"');
-      printJson(explainNode(requireGraph(args).index, name));
-      return;
-    }
-
+    case "orient":
+    case "query":
+    case "path":
+    case "explain":
     case "check": {
-      warnDeprecated("check");
-      const intent = positionals(args)[0];
-      if (!intent) throw new Error('Usage: resolve check "<intent>"');
-      printJson(checkFrame(requireGraph(args).index, intent));
-      return;
+      const instead = DEPRECATED_INSTEAD[command] ?? "recommend";
+      throw new Error(`\`${command}\` was removed. Use ${instead}.`);
     }
 
     case "cousins":
@@ -884,7 +510,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const json = args.includes("--json");
       if (!result.ok) {
         if (json) printJson(result);
-        else process.stdout.write(`${formatHandoffRefusal(result)}\n`);
+        else process.stdout.write(`${presentToolResult(result, "markdown", "get_handoff")}\n`);
         process.exitCode = 1;
         return;
       }
@@ -941,9 +567,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
         printJson(result);
         return;
       }
-      const sheets = result.screens.map((sheet) => formatHandoffScreen(sheet, result.draft));
-      process.stdout.write(sheets.join("\n---\n\n"));
-      if (result.screens.length > 1) process.stdout.write(`\n---\n\n${formatHandoffIngredients(result)}`);
+      process.stdout.write(`${presentToolResult(result, "markdown", "get_handoff")}\n`);
       return;
     }
 
@@ -951,7 +575,8 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const ask = positionals(args).join(" ").trim();
       if (!ask) throw new Error('Usage: resolve parts "<screen link or frame name>" [--json]');
       const card = screenPartsCard(requireGraph(args).index, ask);
-      printJson(card);
+      if (args.includes("--json")) printJson(card);
+      else process.stdout.write(`${presentToolResult(card, "markdown", "parts")}\n`);
       if (!card.ok) process.exitCode = 1;
       return;
     }
@@ -974,7 +599,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
         if (words.length) throw new Error('Use either --all or a component name, not both.');
         const coverage = ingredientCoverage(requireGraph(args).index);
         if (json) printJson(coverage);
-        else process.stdout.write(`${formatIngredientCoverage(coverage)}\n`);
+        else process.stdout.write(`${presentToolResult(coverage, "markdown", "ingredients")}\n`);
         return;
       }
       const name = words.join(" ").trim();
@@ -991,7 +616,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       }
       const card = ingredientCard(requireGraph(args).index, name, { variant, depth });
       if (json) printJson(card);
-      else process.stdout.write(`${formatIngredientCard(card)}\n`);
+      else process.stdout.write(`${presentToolResult(card, "markdown", "get_ingredients")}\n`);
       if (!card.found) process.exitCode = 1;
       return;
     }
@@ -1162,7 +787,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
     case "status": {
       const report = statusReport();
       if (args.includes("--json")) printJson(report);
-      else process.stdout.write(`${formatStatus(report)}\n`);
+      else process.stdout.write(`${presentToolResult(report, "markdown", "status")}\n`);
       return;
     }
 

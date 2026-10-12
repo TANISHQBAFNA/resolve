@@ -1,5 +1,6 @@
 import type { GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
+import { idVariants as idForms } from "@/core/rules/ids";
 import { missingNodeSentence, readFigmaLink } from "./learnedLink";
 import { nodeFileKey } from "./workspaceMerge";
 import { angularText, codeText, type AngularTwin } from "./codeMap";
@@ -108,7 +109,6 @@ const DEFAULT_LIMIT = 40;
 const DEF_TYPES = new Set(["COMPONENT_SET", "MAIN_COMPONENT", "VARIANT"]);
 
 const clean = (s: string) => s.replace(/\p{Cc}|[\u2028\u2029]/gu, " ").trim();
-const idForms = (value: string) => [...new Set([value, value.replace(/-/g, ":"), value.replace(/:/g, "-")])];
 
 function matchesId(index: GraphIndex, node: GraphNode, raw: string): boolean {
   const forms = new Set(idForms(raw));

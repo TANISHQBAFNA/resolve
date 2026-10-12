@@ -2,10 +2,13 @@ import {
   formatHandoffRefusal,
   formatHandoffScreen,
   formatIngredientCard,
+  formatIngredientCoverage,
   type HandoffPack,
   type IngredientCard,
+  type IngredientCoverage,
 } from "@/core/query";
 import { formatPropertyLines, type PropertyRow } from "@/core/query/componentProperties";
+import { formatStatus, type StatusReport } from "./status";
 
 /**
  * What an MCP tool shows the model.
@@ -79,6 +82,16 @@ function isHandoff(value: unknown): value is HandoffPack {
 function isIngredient(value: unknown): value is IngredientCard {
   if (!isRecord(value) || value["found"] !== true) return false;
   return isRecord(value["component"]) && Array.isArray(value["parts"]) && typeof value["note"] === "string";
+}
+
+function isIngredientCoverage(value: unknown): value is IngredientCoverage {
+  if (!isRecord(value)) return false;
+  return typeof value["composites"] === "number" && typeof value["components"] === "number" && typeof value["linkedToCode"] === "number";
+}
+
+function isStatusReport(value: unknown): value is StatusReport {
+  if (!isRecord(value)) return false;
+  return typeof value["store"] === "string" && Array.isArray(value["files"]) && typeof value["next"] === "string" && (value["token"] === "set" || value["token"] === "missing");
 }
 
 function isCodeMapCheck(value: unknown): value is { status: string; message: string; exitCode: number; query?: string; use?: string } {
@@ -306,6 +319,8 @@ export function markdownCard(result: unknown, tool?: string): string {
     const text = formatIngredientCard(result as IngredientCard).replace(GRAPH_HINT, "").trim();
     return withRequiredIds(text, result);
   }
+  if (isIngredientCoverage(result)) return formatIngredientCoverage(result);
+  if (isStatusReport(result)) return formatStatus(result);
   if (isCodeMapCheck(result)) return codeMapMarkdown(result);
   return genericMarkdown(result);
 }

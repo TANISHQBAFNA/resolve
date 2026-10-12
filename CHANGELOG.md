@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — architecture cleanup
+
+No new feature. Thirteen deprecated MCP tools are removed; a call names the replacement. The default MCP list stays seven tools. Same-family, retired, name folding, and id spelling each have one module. CLI `ingredients`, `handoff` (stdout), `parts`, and `status` print the same Markdown card as the MCP. `--json` stays compact. Context packs stay. They are where a team adds its own words and property hints. Ranking is unchanged.
+
 ## Unreleased — setup secrets, cross-file links, budgets
 
 Oct 9, 2026 IST. Setup no longer writes the previous MCP configuration into `.resolve/setup-record.json`, and that file is in the cache ignore list. A Figma link becomes an internal edge only when its file key is the ingested file. Selected AI context stays inside the node budget and names the selections that did not fit. The plugin stops walking at `maxNodes`, marks truncation only when a node was skipped, and downloads the JSON when a POST fails. A slower source load cannot overwrite a newer one.

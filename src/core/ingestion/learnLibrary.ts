@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { buildGraph } from "@/core/transform";
 import { DesignGraphSchema, type DesignGraph, type GraphNode } from "@/core/model";
+import { isNameInferredMaster as identityIsInferred } from "@/core/rules/names";
 import {
   adaptFigmaMcpMetadata,
   inferredComponentId,
@@ -399,11 +400,6 @@ export function markRemovedByAbsence(graph: DesignGraph, missing: LearnUnitMaste
     }
   }
   return marked;
-}
-
-function identityIsInferred(node: GraphNode): boolean {
-  if (node.metadata?.["identity"] === "inferred-from-name") return true;
-  return `${node.id} ${node.figmaNodeId ?? ""}`.includes("mcp-name:");
 }
 
 function mergeGraphNode(prev: GraphNode, incoming: GraphNode): GraphNode {

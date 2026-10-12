@@ -4,7 +4,6 @@ import { dirname, join, resolve } from "node:path";
 import type { IngestCheckpointStore, ScreensCheckpoint } from "@/core/ingestion/adapters/figmaRestSource";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import { pinnedHome, STORE_DIRS } from "@/core/query/overlayFile";
-import { warnDeprecated } from "./deprecations";
 import {
   assertIngestRoleChange,
   defaultIngestRole,
@@ -511,7 +510,6 @@ export function readContextPacks(explicitPath?: string): ContextPackFile {
   if (softened.skipped) warnPackFile(path);
   else warnedPackFiles.delete(path);
   const file = parseContextPackFile(softened.raw);
-  if (file.packs.length > 0) warnDeprecated("context packs");
   return file;
 }
 

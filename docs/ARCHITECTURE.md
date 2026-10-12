@@ -2,6 +2,30 @@
 
 Building Resolve? See this file. Using Resolve as a designer? Start at [GUIDE.md](GUIDE.md).
 
+## Where a rule lives
+
+One module owns each shared rule. Call it. Do not copy it.
+
+| Rule | Owner |
+|---|---|
+| Same family (a variant and its set) | `src/core/rules/family.ts` — `sameFamily`, `setOf`. The cousin check and the scoreboard both use this. |
+| Retired / deprecated | `src/core/rules/retired.ts` — `isRetired`, `retiredNameKind`, `descriptionIsRetired`. Ingest (`parseGovernance`) calls `retiredNameKind` and still records whether the tag came from the name or from a legacy keyword. |
+| Name folding | `src/core/rules/names.ts` — `collapseName`, `foldLibName`, `isPrivateMasterName`, `isNameInferredMaster`, `nameTokens`. Rankers keep their own stopword lists (`queryTokens.ts`, `recipes.ts`). Do not merge those lists. |
+| Id spelling (`12:34` and `12-34`) | `src/core/rules/ids.ts` — `idVariants`. |
+| Card text for people and for slash commands | `src/server/cards.ts` — `presentToolResult`. CLI `ingredients`, `handoff` (stdout), `parts`, and `status` print that Markdown. `--json` stays compact JSON (`--pretty` indents it). |
+
+`src/core/query/agentSurface.ts` re-exports the recommend, resolve, verify, and orient helpers. The implementations live next to it (`recommendMasters.ts`, `verifyFrame.ts`, `cardCopy.ts`, and the other query modules). Do not grow a file past about 1,000 lines. CI fails the build when `src/**/*.ts` does, except a generated file (`*.generated.ts`, `*.gen.ts`, `*.d.ts`).
+
+### Adding a feature without a second copy
+
+1. If the feature is a new way to ask for a component, add it to the tool family that already answers that ask (`recommend`, `resolve`, `recipe`, `verify`). Do not add a second MCP tool that returns the same card.
+2. If two modules need the same helper, put the helper in `src/core/rules/` or next to the feature, and delete the copy.
+3. Print the card through `presentToolResult`. Do not write a second formatter for the CLI.
+4. Context packs stay. They are where a team adds its own words and property hints (`.resolve/context-packs.json`). Do not mark them deprecated.
+5. The default MCP list is exactly the seven names in `DEFAULT_TOOL_NAMES`. A new tool is off that list unless a product decision says otherwise. A test locks the seven names.
+
+`query/communities.ts` and `core/layout/force.ts` still exist for tests. They do not draw a screen. The old `orient` MCP tool is gone; use `recommend` or `recipe`.
+
 ## 1. The problem, restated
 
 A Figma file is a tree that nobody can see. The structure that matters —
@@ -191,4 +215,4 @@ The dependency rule is one-directional: `ui` → `state` → `core`, and within
 core `ai`/`query` → `transform` → `ingestion` → `model`. Nothing in `core`
 imports React.
 
-`query/communities.ts` and `core/layout/force.ts` still exist for tests and the deprecated `orient` summary. They do not draw a screen.
+`query/communities.ts` and `core/layout/force.ts` still exist for tests. They do not draw a screen. The `orient` MCP tool was removed; see [Where a rule lives](#where-a-rule-lives).

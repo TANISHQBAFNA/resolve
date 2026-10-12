@@ -1,11 +1,13 @@
-import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
+import type { GraphNode } from "@/core/model";
+import { sameFamily } from "@/core/rules/family";
+import { isNameInferredMaster, nameTokens as tokensOf } from "@/core/rules/names";
 import {
-  isNameInferredMaster,
   resolveNode,
   resolveNodeExact,
   withCost,
   type RecommendContext,
 } from "./agentSurface";
+import { asMaster } from "./recommendSupport";
 import { missingNodeSentence, readFigmaLink } from "./learnedLink";
 import type { GraphIndex } from "./GraphIndex";
 import {
@@ -22,8 +24,6 @@ import { nodeFileKey } from "./workspaceMerge";
  * Wrong-cousin report. Same role / weak name, different master family than
  * the shared DS library. Refuse-over-guess — no invented expected masters.
  */
-
-const MASTER_TYPES = new Set<string>(COMPONENT_DEFINITION_TYPES);
 
 const GENERIC = new Set([
   "button",
@@ -44,34 +44,6 @@ const GENERIC = new Set([
   "secondary",
   "tertiary",
 ]);
-
-const tokensOf = (text: string): string[] =>
-  text
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((part) => part.length > 1);
-
-const isMaster = (node: GraphNode): boolean => MASTER_TYPES.has(node.type);
-
-const asMaster = (index: GraphIndex, node: GraphNode): GraphNode | undefined => {
-  if (isMaster(node)) return node;
-  if (node.type === "COMPONENT_INSTANCE") return index.getMainComponent(node.id);
-  return undefined;
-};
-
-function familyKey(node: GraphNode): string {
-  if (node.componentSetId) return `set:${node.componentSetId}`;
-  return `id:${node.id}`;
-}
-
-function sameFamily(a: GraphNode, b: GraphNode): boolean {
-  if (a.id === b.id) return true;
-  if (familyKey(a) === familyKey(b)) return true;
-  if (a.figmaNodeId && a.figmaNodeId === b.figmaNodeId && a.fileKey && a.fileKey === b.fileKey) {
-    return true;
-  }
-  return false;
-}
 
 function stamp(node: GraphNode, fallback?: string) {
   const fileKey = nodeFileKey(node, fallback);

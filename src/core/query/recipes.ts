@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
+import { type GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import packagedRecipes from "@/data/recipes.json";
+import { asMaster } from "./recommendSupport";
 import {
   isNameInferredMaster,
   isPrivateMasterName,
@@ -139,12 +140,6 @@ const tokensOf = (text: string): string[] =>
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter((part) => part.length > 1 && !STOPWORDS.has(part));
-
-function asMaster(index: GraphIndex, node: GraphNode): GraphNode | undefined {
-  if ((COMPONENT_DEFINITION_TYPES as readonly string[]).includes(node.type)) return node;
-  if (node.type === "COMPONENT_INSTANCE") return index.getMainComponent(node.id);
-  return undefined;
-}
 
 function parseOne(raw: unknown): Recipe[] {
   const parsed = RecipeSchema.safeParse(raw);

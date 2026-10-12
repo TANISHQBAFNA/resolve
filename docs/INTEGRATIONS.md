@@ -140,7 +140,7 @@ npm run resolve -- ingest screen.xml --from-metadata --file-key KEY --name "Libr
 
 No REST token. JSON captures with a `metadataXml` field still work the same way. The adapter is `adaptFigmaMcpMetadata({ fileKey, fileName, metadataXml, variableDefs })`. `CapturedMcpIngestionSource` wraps a stored capture so the same path runs in tests and in the browser.
 
-MCP and CLI must read the same store. `RESOLVE_HOME` wins. Else Resolve walks up from the process working directory (then `INIT_CWD`) looking for `.resolve/graph.json` or `workspace.json`. After a CLI ingest, the next MCP call reloads from disk — no server restart. If a tool says “No graph stored,” the message includes the exact path it looked in. `list_graphs` and `get_health` include `store.path` and `store.builtAt`.
+MCP and CLI must read the same store. `RESOLVE_HOME` wins. Else Resolve walks up from the process working directory (then `INIT_CWD`) looking for `.resolve/graph.json` or `workspace.json`. After a CLI ingest, the next MCP call reloads from disk — no server restart. If a tool says “No graph stored,” the message includes the exact path it looked in. `list_graphs` includes `store.path` and `store.builtAt`.
 
 ### What MCP metadata cannot tell you
 
@@ -164,20 +164,15 @@ traverse it instead of re-reading the file. Each tool is a thin wrapper over
 | Tool | Implementation |
 |---|---|
 | `list_recipes()` | starter pack + `.resolve/recipes.json` overlay |
-| `recipe(query)` / `get_recipe` | `recipeCard` — slots with `fileKey` + `figmaNodeId`, unbound → recommend query |
+| `recipe(query)` | `recipeCard` — slots with `fileKey` + `figmaNodeId`, unbound → recommend query |
 | `recommend(intent)` | `recommendMasters(index, intent)` — ranked library masters, deprecated demoted. Prefers library-role files when the workspace has one. `ex` points at a real instance. |
 | `get_example(name)` | Full config for that instance: screen, variant, structure, sizing. |
 | `resolve(name)` | `componentUsageCard(index, name)` — usage card when the name is known |
 | `verify_frame(frame\|components)` | `verifyFrame(index, …)` — invents / deprecated / unresolved. Cards stamp `fileKey` + `figmaNodeId` when known. |
 | `check_cousins(frame\|job)` | `checkCousins` — wrong-cousin report. Needs a library-role file in `.resolve/workspace.json`. |
 | `list_graphs()` | Linked workspace files (`library` / `product` / `client`) |
-| `check_frame(intent)` | `checkFrame(index, intent)` — analog variant on similar screens |
-| `find_nodes(query)` | `searchNodes(index, query)` — the same query language as the UI |
-| `get_node(id)` | `index.getNode(id)` + `usageSummaryFor` |
-| `get_component_usage(id)` | `computeComponentUsage(index, node)` |
-| `get_subgraph(id, level, viewMode)` | `extractSubgraph(index, {...})` — deprecated; use `recommend` |
 
-`get_subgraph` stays callable for a quarter, then goes. The why line on a `recommend` card is the brief agents should read.
+These MCP tools were removed. Calling one throws a message that names the replacement: `orient` and `query` → `recommend` or `resolve`; `path` and `explain` → the why line on a recommend card; `check_frame` → `verify_frame`; `get_recipe` → `recipe`; `find_nodes`, `get_node`, `get_screen_inventory`, and `get_component_usage` → `recommend` or `resolve`; `get_related` and `get_subgraph` → `recommend`; `get_health` → `learn_library` (`list_graphs` still returns `store.path`). The why line on a `recommend` card is the brief agents should read.
 
 ### Why this is the point of the product
 
