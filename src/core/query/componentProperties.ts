@@ -273,7 +273,7 @@ function seenOnInstance(index: GraphIndex, instance: GraphNode): Map<string, str
     }
   }
   for (const child of index.getChildren(instance.id)) {
-    if (child.type !== "TEXT" && child.metadata?.["figmaType"] !== "TEXT") continue;
+    if (child.type !== "TEXT_LAYER" && child.metadata?.["figmaType"] !== "TEXT") continue;
     const text = child.metadata?.["text"];
     if (typeof text !== "string" || !text) continue;
     const name = cleanPropertyName(child.name).name;
