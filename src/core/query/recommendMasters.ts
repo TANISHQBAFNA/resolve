@@ -7,7 +7,7 @@ import { computeComponentUsage } from "./analytics";
 import { bindRuleHit, type BindRulesFile, filterAndScoreByBindRules, fitBindRuleWarnings, packJourneyPhrase, whyLineForMaster } from "./bindRules";
 import { fitEcho, shedEcho, shrinkNameFields } from "./cardFit";
 import { angularText, useText } from "./codeMap";
-import { propertyBlock } from "./componentProperties";
+import { BUILTIN_PROPERTY_HINTS, hintsFromFile, propertyBlock } from "./componentProperties";
 import { withCost } from "./cost";
 import { examplePointer } from "./examples";
 import type { GraphIndex } from "./GraphIndex";
@@ -15,10 +15,11 @@ import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RE
 import { placeReady } from "./placeReady";
 import { tokensOf } from "./queryTokens";
 import { appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
-import { askGate, asksIcon, contextWords, distinctiveIconName, familyHaystack, genericOnlyMiss, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, lexicalScore, liveNameSets, looksLikeIcon, modifierWord, namesThisNode, nameTokenFor, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, synonymIn, tokenHits, tokenMatchesName, variantValueText, weakMatchWhy, wholeNameTypo, withoutGenericCousins, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, contextWords, distinctiveIconName, familyHaystack, genericOnlyMiss, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, matchHaystack, modifierWord, namesThisNode, nameTokenFor, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, synonymIn, tokenHits, tokenMatchesName, weakMatchWhy, wholeNameTypo, withoutGenericCousins, xMeansClose } from "./recommendLexicon";
 import { type RecommendAlternate, type RecommendCandidate, type RecommendContext, type RecommendHit, refreshHintFor, slotsForComponent, whereUsedRows } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
 import { inflectionStems, overlap, similarUsage } from "./screenInventory";
+import { usePropertyHints } from "./synonymLayer";
 import { isRemovedByAbsence, patternFor, type SockState } from "./sock";
 import { exampleQuery } from "./usageCard";
 import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
@@ -44,6 +45,7 @@ export function recommendMasters(
   } = {},
 ) {
   loadSynonymOverlay();
+  usePropertyHints([...BUILTIN_PROPERTY_HINTS, ...hintsFromFile(), ...(options.context?.propertyHints ?? [])]);
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
   const echoIntent = intent.length > 200 ? `${intent.slice(0, 199)}…` : intent;
   const analog = similarUsage(index, intent);
@@ -129,9 +131,11 @@ export function recommendMasters(
             collapsedName(set!.name) === collapsedAsk ||
             phraseNamesMatch(intentNeedle, set!.name))));
     const nameHaystack = familyLabel;
-    const variantText = variantValueText(node);
-    const hits = tokenHits(nameHaystack, variantText, tokens, allowClip);
-    const extraHits = extraTokens.length ? tokenHits(nameHaystack, variantText, extraTokens, allowClip) : undefined;
+    const matched = matchHaystack(node, set);
+    const hits = tokenHits(nameHaystack, matched.variant, tokens, allowClip, matched.describe);
+    const extraHits = extraTokens.length
+      ? tokenHits(nameHaystack, matched.variant, extraTokens, allowClip, matched.describe)
+      : undefined;
     // A screen-job slot names the family ("sign in" + primary-cta → buttons).
     // When the intent already names a master, that gate stays off.
     let lexical: number;
@@ -139,12 +143,13 @@ export function recommendMasters(
       lexical = lexicalScore(hits, true);
     } else if (exclusiveSlot) {
       if (hits.name === 0 && hits.synonym === 0 && hits.variant === 0) return undefined;
-      const familyLexical = hits.name > 0 || hits.synonym > 0 ? 100 : 40;
+      const familyLexical = hits.name > 0 || hits.synonym > 0 ? LEXICAL_WEIGHT.name : LEXICAL_WEIGHT.variant;
       lexical =
         familyLexical +
-        (extraHits?.name ?? 0) * 100 +
-        (extraHits?.synonym ?? 0) * 70 +
-        (extraHits?.variant ?? 0) * 40;
+        (extraHits?.name ?? 0) * LEXICAL_WEIGHT.name +
+        (extraHits?.synonym ?? 0) * LEXICAL_WEIGHT.synonym +
+        (extraHits?.variant ?? 0) * LEXICAL_WEIGHT.variant +
+        (hits.describe + (extraHits?.describe ?? 0)) * LEXICAL_WEIGHT.describe;
     } else {
       lexical = lexicalScore(hits, false);
       const aliasBonus = phraseAliasBonus(intentNeedle, familyLabel);
@@ -193,6 +198,7 @@ export function recommendMasters(
     if (hits.name > 0 || (extraHits?.name ?? 0) > 0 || exactName) why.push("name");
     if (hits.synonym > 0 || (extraHits?.synonym ?? 0) > 0) why.push("synonym");
     if (hits.variant > 0 || (extraHits?.variant ?? 0) > 0) why.push("variant");
+    if (hits.describe > 0 || (extraHits?.describe ?? 0) > 0) why.push("description");
     if (analogHit) why.push("similar-screen");
     if (whereUsedScore > 0) why.push("where-used");
     if (coOccur > 0) why.push("co-occur");
@@ -223,7 +229,7 @@ export function recommendMasters(
     if (stale) context -= 30;
     if (slotRole) {
       const names = new Set(tokensOf(nameHaystack));
-      const variants = new Set(tokensOf(variantText));
+      const variants = new Set(tokensOf(matched.variant));
       for (const token of slotTokens) {
         if (!SLOT_QUALIFIERS.has(token)) continue;
         if (names.has(token) || variants.has(token)) context += 40;
@@ -261,7 +267,8 @@ export function recommendMasters(
         !setCoversAsk(intentNeedle, set?.name ?? node.name) &&
         hits.specific === 0 &&
         (extraHits?.specific ?? 0) === 0 &&
-        hits.name + hits.synonym + (extraHits?.name ?? 0) + (extraHits?.synonym ?? 0) > 0,
+        (hits.name + hits.synonym + (extraHits?.name ?? 0) + (extraHits?.synonym ?? 0) > 0 ||
+          hits.describe + (extraHits?.describe ?? 0) > 0),
     };
   };
 
@@ -399,6 +406,7 @@ export function recommendMasters(
     if (
       entry.why.includes("name") ||
       entry.why.includes("synonym") ||
+      entry.why.includes("description") ||
       entry.why.includes("variant") ||
       entry.why.includes("typo") ||
       entry.why.includes("where-used") ||
@@ -453,6 +461,7 @@ export function recommendMasters(
     Boolean(entry.whyOverride) ||
     entry.why.includes("name") ||
     entry.why.includes("synonym") ||
+    entry.why.includes("description") ||
     entry.why.includes("typo") ||
     entry.why.includes("bind-rule");
   const variantWordOnly =

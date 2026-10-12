@@ -126,6 +126,13 @@ describe("component properties", () => {
     });
   });
 
+  it("a disabled button lands on Button and names State=Disabled", () => {
+    const card = recommendMasters(acmeIndex(), "disabled button");
+    expect(card.candidates[0]?.name).toBe("Button");
+    const lead = card.candidates[0];
+    expect(lead && "apply" in lead ? lead.apply : "").toMatch(/State=Disabled/);
+  });
+
   it("ingests every property type and does not invent swap names", () => {
     const index = acmeIndex();
     expect(index.graph.schemaVersion).toBe(GRAPH_SCHEMA_VERSION);
