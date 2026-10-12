@@ -218,6 +218,22 @@ describe("phrase match and typos", () => {
     expect(topName(index, "table row").candidates[0]?.name).toBe("List Row");
   });
 
+  it("ranks a property value from the same hint list as the property card", () => {
+    const danger = topName(index, "destructive delete button");
+    expect(danger.candidates[0]?.name).toBe("Button");
+    expect(topName(index, "main button").candidates[0]?.name).toBe("Button");
+    expect(topName(index, "main card").candidates[0]?.name).toBe("Main Card");
+  });
+
+  it("matches a word that appears only in the component description", () => {
+    const index = fixtureIndex();
+    const avatar = index.allNodes.find((node) => node.name === "Avatar");
+    expect(avatar).toBeTruthy();
+    avatar!.description = "Rounded portrait of the account holder.";
+    expect(recommendMasters(index, "account holder portrait").candidates[0]?.name).toBe("Avatar");
+    expect(recommendMasters(index, "kelp forest gauge").candidates).toEqual([]);
+  });
+
   it("keeps a component that is the head noun, and marks the modifier as low confidence", () => {
     const login = topName(index, "login field");
     expect(login.candidates[0]?.name).toBe("Text Field");

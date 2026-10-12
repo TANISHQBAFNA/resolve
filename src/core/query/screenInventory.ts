@@ -5,14 +5,25 @@ import { briefNode, EXACT_COMPONENT_HINT, LAYER_NAME_GUESS } from "./cardCopy";
 import type { GraphIndex } from "./GraphIndex";
 import { tokensOf } from "./queryTokens";
 
-/** Stems of a real inflection: plural s/es, -ing, -ed. Not a prefix of an unrelated word. */
+/** Stems of a real inflection: plural s/es, -ing, -ed, plus a dropped e. Not a prefix of an unrelated word. */
 export function inflectionStems(word: string): string[] {
   const stems: string[] = [];
-  if (word.length >= 5 && word.endsWith("es")) stems.push(word.slice(0, -2));
-  if (word.length >= 4 && word.endsWith("s")) stems.push(word.slice(0, -1));
-  if (word.length >= 6 && word.endsWith("ing")) stems.push(word.slice(0, -3));
-  if (word.length >= 5 && word.endsWith("ed")) stems.push(word.slice(0, -2));
-  return stems.filter((stem) => stem.length >= 3);
+  const add = (stem: string) => {
+    if (stem.length >= 3) stems.push(stem);
+  };
+  if (word.length >= 5 && word.endsWith("es")) add(word.slice(0, -2));
+  if (word.length >= 4 && word.endsWith("s") && !word.endsWith("ss")) add(word.slice(0, -1));
+  if (word.length >= 6 && word.endsWith("ing")) {
+    const base = word.slice(0, -3);
+    add(base);
+    add(`${base}e`);
+  }
+  if (word.length >= 5 && word.endsWith("ed")) {
+    const base = word.slice(0, -2);
+    add(base);
+    add(`${base}e`);
+  }
+  return stems;
 }
 function familyKey(token: string, names: readonly string[]): string | undefined {
   if (names.some((name) => name.includes(token))) return token;

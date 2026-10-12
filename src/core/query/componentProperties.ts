@@ -59,8 +59,8 @@ const ALIASES: Record<string, string[]> = {
   disabled: ["state"],
 };
 
-/** Built-in words. The first value that is actually allowed wins. */
-const BUILTIN: PropertyHint[] = [
+/** Shipped words for property values. Ranking uses this same list. The first allowed value wins. */
+export const BUILTIN_PROPERTY_HINTS: PropertyHint[] = [
   { says: "secondary", value: "Secondary" },
   { says: "outline", value: "Secondary" },
   { says: "outlined", value: "Secondary" },
@@ -81,6 +81,7 @@ const BUILTIN: PropertyHint[] = [
   { says: "large", value: "Large" },
   { says: "medium", value: "Medium" },
   { says: "primary", value: "Primary" },
+  { says: "main", value: "Primary" },
   { says: "tertiary", value: "Tertiary" },
   { says: "ghost", value: "Tertiary" },
   { says: "ghost", value: "Ghost" },
@@ -216,7 +217,7 @@ export function propertyBlock(
 ): PropertyBlock | undefined {
   const defs = definitionHost(index, node).propertyDefinitions;
   if (!defs?.length) return undefined;
-  const hints = [...(extraHints ?? []), ...hintsFromFile(), ...BUILTIN];
+  const hints = [...(extraHints ?? []), ...hintsFromFile(), ...BUILTIN_PROPERTY_HINTS];
   const ask = request?.trim() ?? "";
   const properties: PropertyRow[] = defs.map((prop) => {
     const matched = ask ? matchHint(prop, ask, hints) : undefined;

@@ -50,6 +50,16 @@ describe("designer phrase scoreboard", () => {
     expect(report.phrases).toBe(cases.length);
   });
 
+  it("puts the right part in the top 3 for at least 90 percent and stays empty when nothing fits", () => {
+    const report = scorePhrases(fixtureIndex(), loadPhraseCases([phrasesDir]));
+    expect(report.totals.matchCases).toBe(88);
+    expect(report.totals.emptyCases).toBe(30);
+    expect(report.totals.top3).toBeGreaterThanOrEqual(80);
+    expect(report.totals.correctEmpty).toBe(30);
+    expect(report.totals.invented).toBe(0);
+    expect(report.totals.retiredRecommended).toBe(0);
+  });
+
   // The gate: a made-up part or a retired/private recommendation fails the suite.
   it("never invents a part and never recommends a retired or private one", () => {
     const report = scorePhrases(fixtureIndex(), loadPhraseCases([phrasesDir]));

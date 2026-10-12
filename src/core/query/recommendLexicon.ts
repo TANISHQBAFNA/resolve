@@ -10,7 +10,13 @@ import { GENERIC_NAME_TOKENS, tokensOf } from "./queryTokens";
 import { allSynonymGroups, extraSynonym, fromIconLibrary, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems, isScreen } from "./screenInventory";
+import { propertyAliases } from "./synonymLayer";
 import type { WorkspaceManifest } from "./workspace";
+
+/** Name / synonym / variant / description. One name token outranks any amount of context. */
+export const LEXICAL_WEIGHT = { name: 100, synonym: 70, variant: 80, describe: 50 } as const;
+
+const DESCRIBE_META = new Set(["status", "deprecated", "replacedby", "replaced", "legacy"]);
 
 /** Property row (`Style=Primary`) or `{Set} Primary` — not a named cousin like Pay CTA. */
 export function isSetModifierVariant(node: GraphNode, set?: GraphNode): boolean {
@@ -104,12 +110,17 @@ function clippingGroup(token: string): readonly string[] | undefined {
   return found;
 }
 function termsFor(token: string, allowClip: boolean): readonly string[] | undefined {
-  return extraSynonym.get(token) ?? SYNONYM_OF.get(token) ?? (allowClip ? clippingGroup(token) : undefined);
+  const base = extraSynonym.get(token) ?? SYNONYM_OF.get(token) ?? (allowClip ? clippingGroup(token) : undefined);
+  const alias = propertyAliases(token);
+  if (!alias) return base;
+  if (!base) return alias;
+  return [...new Set([...base, ...alias])];
 }
 interface TokenHits {
   name: number;
   synonym: number;
   variant: number;
+  describe: number;
   covered: number;
   /** Name or synonym hits that are not a shared word like button, bar, or field. */
   specific: number;
@@ -120,16 +131,29 @@ export function familyHaystack(node: GraphNode, set: GraphNode | undefined): str
   if (set && set.id !== node.id) return `${set.name} ${node.name}`;
   return node.name;
 }
-/** Variant values only. Property names (State, Type, Size) are not words. */
+/** Variant values and property options. Property names (State, Type, Size) are not words. */
 export function variantValueText(node: GraphNode): string {
   const props = node.variantProperties;
-  if (props && Object.keys(props).length) return Object.values(props).join(" ");
-  if (!VARIANT_PROP_NAME.test(node.name)) return "";
-  return node.name
-    .split(",")
-    .map((part) => part.split("=").slice(1).join("=").trim())
-    .filter(Boolean)
+  const fromProps = props && Object.keys(props).length ? Object.values(props).join(" ") : "";
+  const fromName =
+    !fromProps && VARIANT_PROP_NAME.test(node.name)
+      ? node.name
+          .split(",")
+          .map((part) => part.split("=").slice(1).join("=").trim())
+          .filter(Boolean)
+          .join(" ")
+      : "";
+  const fromDefs = (node.propertyDefinitions ?? []).flatMap((prop) => prop.options ?? []).join(" ");
+  return [fromProps, fromName, fromDefs].filter(Boolean).join(" ");
+}
+
+/** Variant values, property options, and the description, for one master and its set. */
+export function matchHaystack(node: GraphNode, set?: GraphNode): { variant: string; describe: string } {
+  const variant = [variantValueText(node), set ? variantValueText(set) : ""].filter(Boolean).join(" ");
+  const describe = [node.description, set?.description]
+    .filter((value): value is string => Boolean(value))
     .join(" ");
+  return { variant, describe };
 }
 /** Set name equals the ask, or the set name is a whole-word/phrase inside the ask. */
 export function setCoversAsk(ask: string, setName: string): boolean {
@@ -431,17 +455,42 @@ export function nameTokenFor(token: string, names: Set<string>, used: Set<string
   }
   return undefined;
 }
-export function tokenHits(nameHaystack: string, variantText: string, tokens: string[], allowClip: boolean): TokenHits {
+export function tokenHits(
+  nameHaystack: string,
+  variantText: string,
+  tokens: string[],
+  allowClip: boolean,
+  describeText = "",
+): TokenHits {
   const names = new Set(tokensOf(nameHaystack));
   const variants = new Set(tokensOf(variantText));
+  const described = new Set(tokensOf(describeText).filter((token) => !DESCRIBE_META.has(token) && !GENERIC_NAME_TOKENS.has(token)));
   const used = new Set<string>();
   let name = 0;
   let synonym = 0;
   let variant = 0;
+  let describe = 0;
   let covered = 0;
   let specific = 0;
+  const coveredQuery = new Set<string>();
+  for (const group of allSynonymGroups()) {
+    const said = group.terms.filter(
+      (term) => term.includes(" ") && tokensOf(term).every((token) => tokens.includes(token)),
+    );
+    if (!said.length) continue;
+    const phraseTokens = [...new Set(said.flatMap((term) => tokensOf(term)))];
+    if (phraseTokens.some((token) => names.has(token))) continue;
+    const familyWord = group.terms.find((term) => !term.includes(" ") && names.has(term) && !used.has(term));
+    if (!familyWord) continue;
+    used.add(familyWord);
+    synonym += 1;
+    covered += 1;
+    if (!GENERIC_NAME_TOKENS.has(familyWord)) specific += 1;
+    for (const token of phraseTokens) coveredQuery.add(token);
+  }
   const pending: string[] = [];
   for (const token of tokens) {
+    if (coveredQuery.has(token)) continue;
     const hit = nameTokenFor(token, names, used);
     if (hit) {
       name += 1;
@@ -461,6 +510,7 @@ export function tokenHits(nameHaystack: string, variantText: string, tokens: str
       used.add(hit);
     } else still.push(token);
   }
+  const afterVariant: string[] = [];
   for (const token of still) {
     const syn = termsFor(token, allowClip);
     const hit = [...variants].find(
@@ -470,9 +520,20 @@ export function tokenHits(nameHaystack: string, variantText: string, tokens: str
       variant += 1;
       covered += 1;
       used.add(hit);
+    } else afterVariant.push(token);
+  }
+  for (const token of afterVariant) {
+    const syn = termsFor(token, allowClip);
+    const hit = [...described].find(
+      (part) => !used.has(part) && (part === token || Boolean(syn?.includes(part) && part !== token)),
+    );
+    if (hit) {
+      describe += 1;
+      covered += 1;
+      used.add(hit);
     }
   }
-  return { name, synonym, variant, covered, specific };
+  return { name, synonym, variant, describe, covered, specific };
 }
 /** "header title" restates header. A second word for a name already matched still counts. */
 export function repeatedSynonym(nameHaystack: string, tokens: string[], allowClip: boolean): number {
@@ -490,10 +551,15 @@ export function repeatedSynonym(nameHaystack: string, tokens: string[], allowCli
   }
   return extra;
 }
-/** Name / synonym / variant. One name token outranks any amount of context. */
+/** Name / synonym / variant / description. One name token outranks any amount of context. */
 export function lexicalScore(hits: TokenHits, exactName: boolean): number {
   if (exactName) return 1_000_000;
-  return hits.name * 100 + hits.synonym * 70 + hits.variant * 40;
+  return (
+    hits.name * LEXICAL_WEIGHT.name +
+    hits.synonym * LEXICAL_WEIGHT.synonym +
+    hits.variant * LEXICAL_WEIGHT.variant +
+    hits.describe * LEXICAL_WEIGHT.describe
+  );
 }
 function iconOnlyTail(role: string): boolean {
   const tokens = role

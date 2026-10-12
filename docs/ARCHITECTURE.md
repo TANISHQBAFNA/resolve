@@ -13,6 +13,7 @@ One module owns each shared rule. Call it. Do not copy it.
 | Name folding | `src/core/rules/names.ts` — `collapseName`, `foldLibName`, `isPrivateMasterName`, `isNameInferredMaster`, `nameTokens`, `GENERIC_UI_NOUNS`. Rankers keep their own stopword lists (`queryTokens.ts`, `recipes.ts`). Do not merge those lists. Cousin check, SOCI, and the scoreboard share `GENERIC_UI_NOUNS` only. |
 | Id spelling (`12:34` and `12-34`) | `src/core/rules/ids.ts` — `idVariants`. |
 | Card text for people and for slash commands | `src/server/cards.ts` — `presentToolResult`. CLI `ingredients`, `handoff` (stdout), `parts`, and `status` print that Markdown. `--json` stays compact JSON (`--pretty` indents it). |
+| Synonym words and property-hint aliases | `src/data/synonyms.json` and `BUILTIN_PROPERTY_HINTS` in `componentProperties.ts`. `synonymLayer.ts` builds one alias map from those hints (plus a context pack or `property-hints.json` on that ask). Ranking does not keep a second copy. |
 
 `src/core/query/agentSurface.ts` re-exports the recommend, resolve, verify, and orient helpers. The implementations live next to it (`recommendMasters.ts`, `verifyFrame.ts`, `cardCopy.ts`, and the other query modules). Do not grow a file past about 1,000 lines. CI fails the build when `src/**/*.ts` does, except a generated file (`*.generated.ts`, `*.gen.ts`, `*.d.ts`).
 
