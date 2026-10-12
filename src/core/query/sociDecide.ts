@@ -3,7 +3,7 @@ import { exactRecipe } from "./recipes";
 import type { Recipe } from "./recipes";
 import { jobById, jobsInAsk } from "./screenJobs";
 import { emptySock, isRemovedByAbsence, screenPatternFor, type SockState, type UsageConfidence } from "./sock";
-import { applyProposalDecision, BindRuleError, type BindRulesFile } from "./bindRules";
+import { applyProposalDecision, BindRuleError, requirePendingProposal, type BindRulesFile } from "./bindRules";
 import type { WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
 import { applyRecipeSlotChange, overlayWithRecipe, proposalTypeOf, type SociDecision } from "./soci";
@@ -33,6 +33,52 @@ function assertCurrentMaster(
   }
 }
 
+function ruleDecision(
+  sock: SockState,
+  rules: BindRulesFile,
+  proposalId: string,
+  action: "approve" | "reject",
+  who: string,
+  when: string,
+  options: { index?: GraphIndex; workspace?: WorkspaceManifest },
+): SociDecision {
+  const decided = applyProposalDecision(sock, rules, proposalId, action, who, when, options);
+  return { ...decided, writesRules: true, writesRecipes: false };
+}
+
+function recordedDecision(
+  sock: SockState,
+  rules: BindRulesFile,
+  proposalId: string,
+  action: "approve" | "reject",
+  who: string,
+  when: string,
+  note: string | undefined,
+  patch?: {
+    writesRecipes: true;
+    recipeOverlay: Recipe[];
+    recipeBefore: Recipe;
+    recipeAfter: Recipe;
+  },
+): SociDecision {
+  return {
+    sock: markProposal(sock, proposalId, action, note),
+    rules,
+    audit: {
+      who,
+      when,
+      proposalId,
+      action,
+      before: rules.rules,
+      after: rules.rules,
+      ...(patch ? { recipeBefore: patch.recipeBefore, recipeAfter: patch.recipeAfter } : {}),
+    },
+    ...(patch ? { recipeOverlay: patch.recipeOverlay } : {}),
+    writesRules: false,
+    writesRecipes: Boolean(patch),
+  };
+}
+
 function markProposal(
   sock: SockState,
   proposalId: string,
@@ -54,68 +100,32 @@ function markProposal(
 }
 
 export function applySociDecision(
-  sock: SockState,
-  rules: BindRulesFile,
-  proposalId: string,
-  action: "approve" | "reject",
-  who: string,
-  when: string,
+  sock: SockState, rules: BindRulesFile, proposalId: string,
+  action: "approve" | "reject", who: string, when: string,
   options: {
-    index?: GraphIndex;
-    workspace?: WorkspaceManifest;
-    recipes?: Recipe[];
-    overlay?: Recipe[];
-    note?: string;
+    index?: GraphIndex; workspace?: WorkspaceManifest; recipes?: Recipe[]; overlay?: Recipe[]; note?: string;
   } = {},
 ): SociDecision {
-  const proposal = sock.proposals.find((row) => row.id === proposalId);
-  if (!proposal) {
-    throw new BindRuleError(`Proposal "${proposalId}" not found.`);
-  }
-  if (proposal.status !== "pending") {
-    throw new BindRuleError(`Proposal "${proposalId}" is already ${proposal.status}.`);
-  }
+  const proposal = requirePendingProposal(sock, proposalId);
   const type = proposalTypeOf(proposal);
   const note = options.note?.trim();
+  const ruled = () => ruleDecision(sock, rules, proposalId, action, who, when, options);
 
   switch (type) {
-    case "require-rule": {
-      const decided = applyProposalDecision(sock, rules, proposalId, action, who, when, {
-        index: options.index,
-        workspace: options.workspace,
-      });
-      return { ...decided, writesRules: true, writesRecipes: false };
-    }
+    case "require-rule":
+      return ruled();
     case "wrong-cousin": {
       if (action === "approve" && proposal.suggestedRule?.prefer && proposal.suggestedRule.over) {
         const rule = proposal.suggestedRule;
         if (rule.masterId) assertCurrentMaster(options.index, sock, rule.masterId, "preferred master");
         if (rule.overMasterId) assertCurrentMaster(options.index, sock, rule.overMasterId, "cousin");
-        const decided = applyProposalDecision(sock, rules, proposalId, action, who, when, {
-          index: options.index,
-          workspace: options.workspace,
-        });
-        return { ...decided, writesRules: true, writesRecipes: false };
+        return ruled();
       }
-      const nextSock = markProposal(sock, proposalId, action, note ?? proposal.namingFix);
-      return {
-        sock: nextSock,
-        rules,
-        audit: { who, when, proposalId, action, before: rules.rules, after: rules.rules },
-        writesRules: false,
-        writesRecipes: false,
-      };
+      return recordedDecision(sock, rules, proposalId, action, who, when, note ?? proposal.namingFix);
     }
     case "recipe-update": {
       if (action === "reject") {
-        const nextSock = markProposal(sock, proposalId, action, note);
-        return {
-          sock: nextSock,
-          rules,
-          audit: { who, when, proposalId, action, before: rules.rules, after: rules.rules },
-          writesRules: false,
-          writesRecipes: false,
-        };
+        return recordedDecision(sock, rules, proposalId, action, who, when, note);
       }
       const change = proposal.suggestedRecipe;
       if (!change) {
@@ -130,25 +140,12 @@ export function applySociDecision(
         );
       }
       const updated = applyRecipeSlotChange(current, change);
-      const overlay = overlayWithRecipe(options.overlay ?? [], updated);
-      const nextSock = markProposal(sock, proposalId, action, note);
-      return {
-        sock: nextSock,
-        rules,
-        audit: {
-          who,
-          when,
-          proposalId,
-          action,
-          before: rules.rules,
-          after: rules.rules,
-          recipeBefore: current,
-          recipeAfter: updated,
-        },
-        recipeOverlay: overlay,
-        writesRules: false,
+      return recordedDecision(sock, rules, proposalId, action, who, when, note, {
         writesRecipes: true,
-      };
+        recipeOverlay: overlayWithRecipe(options.overlay ?? [], updated),
+        recipeBefore: current,
+        recipeAfter: updated,
+      });
     }
     case "variant-candidate":
     case "deprecation-candidate": {
@@ -162,14 +159,7 @@ export function applySociDecision(
         type === "variant-candidate"
           ? proposal.suggestedVariant?.note ?? "Recorded for the design team. Figma masters were not edited."
           : "Recorded for the design team. Figma masters were not edited.";
-      const nextSock = markProposal(sock, proposalId, action, note ?? fallback);
-      return {
-        sock: nextSock,
-        rules,
-        audit: { who, when, proposalId, action, before: rules.rules, after: rules.rules },
-        writesRules: false,
-        writesRecipes: false,
-      };
+      return recordedDecision(sock, rules, proposalId, action, who, when, note ?? fallback);
     }
     default: {
       const _exhaustive: never = type;

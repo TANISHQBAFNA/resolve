@@ -394,3 +394,15 @@ export function packForRecipe(
 export function packForRecommend(bind: ContextBind = { packs: [] }): ContextPack | undefined {
   return decidePack(bind);
 }
+
+/** Screen type fills `id` when the pack has none. Recommend, resolve, and example share this. */
+export function withScreenType<T extends { id?: string }>(
+  pack: T | undefined,
+  screenType: string | undefined,
+): (T & { screenType?: string; id?: string }) | undefined {
+  if (!pack && !screenType) return undefined;
+  return {
+    ...(pack ?? ({} as T)),
+    ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}),
+  };
+}

@@ -36,7 +36,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check:size": "node scripts/check-file-length.mjs",
-    "check:dupes": "jscpd src --pattern \"**/*.ts\" --min-lines 5 --min-tokens 40 --threshold 2 --reporters console",
+    "check:dupes": "jscpd src --pattern \"**/*.ts\" --min-lines 5 --min-tokens 40 --threshold 0.75 --reporters console",
     "bench": "vitest run --config vitest.bench.config.ts --reporter=verbose",
     "test:e2e": "playwright test",
     "test:all": "vitest run && playwright test",

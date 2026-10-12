@@ -1,5 +1,5 @@
 import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
-import { nameTokens as tokensOf } from "@/core/rules/names";
+import { nameTokens as tokensOf, sharedNameTokens } from "@/core/rules/names";
 import type { GraphIndex } from "./GraphIndex";
 import type { Recipe } from "./recipes";
 import { matchRecipe } from "./recipes";
@@ -17,6 +17,7 @@ import {
   type SociSuggestedRecipe,
   type SociSuggestedVariant,
   type SockState,
+  evidenceFromFact,
   type UsageFact,
   type UsagePattern,
 } from "./sock";
@@ -52,26 +53,6 @@ export const DEFAULT_SOCI_CAP = 12;
 export const SOCI_EVIDENCE_CAP = 8;
 export const SOCI_CORRECTION_CAP = 200;
 
-const GENERIC_NAME_TOKENS = new Set([
-  "button",
-  "btn",
-  "cta",
-  "input",
-  "field",
-  "card",
-  "row",
-  "icon",
-  "avatar",
-  "banner",
-  "text",
-  "label",
-  "header",
-  "title",
-  "primary",
-  "secondary",
-  "tertiary",
-]);
-
 const MASTER_TYPES = new Set<string>(COMPONENT_DEFINITION_TYPES);
 
 export interface SociDraft {
@@ -89,10 +70,7 @@ export interface SociDraft {
 }
 
 function nameOverlap(a: string, b: string): { shared: string[]; specific: string[] } {
-  const left = new Set(tokensOf(a));
-  const right = new Set(tokensOf(b));
-  const shared = [...left].filter((token) => right.has(token));
-  return { shared, specific: shared.filter((token) => !GENERIC_NAME_TOKENS.has(token)) };
+  return sharedNameTokens(tokensOf(a), tokensOf(b));
 }
 
 function uniqueKey(value: string): string {
@@ -170,14 +148,7 @@ function evidenceFromFacts(facts: UsageFact[], note?: string): SociEvidenceItem[
       existing.count = (existing.count ?? 1) + 1;
       continue;
     }
-    byScreen.set(key, {
-      frameId: fact.frameId ?? fact.screenId,
-      screenId: fact.screenId,
-      screenName: fact.screenName,
-      ...(fact.fileKey ? { fileKey: fact.fileKey } : {}),
-      count: 1,
-      ...(note ? { note } : {}),
-    });
+    byScreen.set(key, evidenceFromFact(fact, note));
   }
   return [...byScreen.values()].slice(0, SOCI_EVIDENCE_CAP);
 }
@@ -202,6 +173,16 @@ function mergeEvidence(left: SociEvidenceItem[], right: SociEvidenceItem[]): Soc
     .slice(0, SOCI_EVIDENCE_CAP);
 }
 
+function suggestedFields(draft: SociDraft) {
+  return {
+    ...(draft.suggestedRule ? { suggestedRule: draft.suggestedRule } : {}),
+    ...(draft.suggestedRecipe ? { suggestedRecipe: draft.suggestedRecipe } : {}),
+    ...(draft.suggestedVariant ? { suggestedVariant: draft.suggestedVariant } : {}),
+    ...(draft.suggestedDeprecation ? { suggestedDeprecation: draft.suggestedDeprecation } : {}),
+    ...(draft.namingFix ? { namingFix: draft.namingFix } : {}),
+  };
+}
+
 function upsertDraft(state: SockState, draft: SociDraft, now: string): SockState {
   const id = proposalIdFor(draft.type, draft.fingerprint);
   const existing = state.proposals.find((row) => row.id === id);
@@ -217,11 +198,7 @@ function upsertDraft(state: SockState, draft: SociDraft, now: string): SockState
       evidence: merged,
       confidence: draft.confidence,
       updatedAt: now,
-      ...(draft.suggestedRule ? { suggestedRule: draft.suggestedRule } : {}),
-      ...(draft.suggestedRecipe ? { suggestedRecipe: draft.suggestedRecipe } : {}),
-      ...(draft.suggestedVariant ? { suggestedVariant: draft.suggestedVariant } : {}),
-      ...(draft.suggestedDeprecation ? { suggestedDeprecation: draft.suggestedDeprecation } : {}),
-      ...(draft.namingFix ? { namingFix: draft.namingFix } : {}),
+      ...suggestedFields(draft),
     };
     return {
       ...state,
@@ -239,11 +216,7 @@ function upsertDraft(state: SockState, draft: SociDraft, now: string): SockState
     evidence: draft.evidence.slice(0, SOCI_EVIDENCE_CAP),
     confidence: draft.confidence,
     ...(draft.scope ? { scope: draft.scope } : {}),
-    ...(draft.suggestedRule ? { suggestedRule: draft.suggestedRule } : {}),
-    ...(draft.suggestedRecipe ? { suggestedRecipe: draft.suggestedRecipe } : {}),
-    ...(draft.suggestedVariant ? { suggestedVariant: draft.suggestedVariant } : {}),
-    ...(draft.suggestedDeprecation ? { suggestedDeprecation: draft.suggestedDeprecation } : {}),
-    ...(draft.namingFix ? { namingFix: draft.namingFix } : {}),
+    ...suggestedFields(draft),
   };
   return { ...state, proposals: [...state.proposals, created] };
 }

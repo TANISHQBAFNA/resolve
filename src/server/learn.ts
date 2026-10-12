@@ -28,6 +28,7 @@ import {
   type LearnUnit,
   type LearnUnitMaster,
 } from "@/core/ingestion/learnLibrary";
+import { unwrapLibraryList } from "@/core/query/recommendContext";
 import { applyFreshness, emptySock, type RemovedMaster } from "@/core/query/sock";
 import {
   loadFileGraph,
@@ -44,12 +45,8 @@ function iconLibraryNames(root: string): string[] {
   if (!existsSync(path)) return [];
   try {
     const raw = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, "")) as unknown;
-    const list = Array.isArray(raw)
-      ? raw
-      : raw && typeof raw === "object"
-        ? (raw as { libraries?: unknown }).libraries
-        : undefined;
-    if (!Array.isArray(list)) return [];
+    const list = unwrapLibraryList(raw);
+    if (!list) return [];
     return list.flatMap((item) => {
       if (typeof item === "string" && item.trim()) return [item.trim()];
       if (item && typeof item === "object" && typeof (item as { name?: unknown }).name === "string") {

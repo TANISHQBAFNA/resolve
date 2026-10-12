@@ -38,3 +38,37 @@ export function nameTokens(text: string): string[] {
     .split(/[^a-z0-9]+/)
     .filter((part) => part.length > 1);
 }
+
+/**
+ * Nouns that do not name a specific component.
+ * Cousin check, SOCI, and the scoreboard share this set.
+ * Recommend and recipe keep their own stopword lists.
+ */
+export function sharedNameTokens(
+  left: Iterable<string>,
+  right: Iterable<string>,
+): { shared: string[]; specific: string[] } {
+  const rightSet = right instanceof Set ? right : new Set(right);
+  const shared = [...left].filter((token) => rightSet.has(token));
+  return { shared, specific: shared.filter((token) => !GENERIC_UI_NOUNS.has(token)) };
+}
+
+export const GENERIC_UI_NOUNS: ReadonlySet<string> = new Set([
+  "button",
+  "btn",
+  "cta",
+  "input",
+  "field",
+  "card",
+  "row",
+  "icon",
+  "avatar",
+  "banner",
+  "text",
+  "label",
+  "header",
+  "title",
+  "primary",
+  "secondary",
+  "tertiary",
+]);

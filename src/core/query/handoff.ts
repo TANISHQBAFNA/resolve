@@ -26,7 +26,6 @@ import { nodeFileKey } from "./workspaceMerge";
 
 export const HANDOFF_VERSION = 1;
 export const NAME_GUESS = "name-guess";
-export const SUGGESTED = "suggested from the Figma variant properties; check the values against the code";
 export const SCREEN_TYPES = new Set(["FRAME", "SECTION", "GROUP", "AUTO_LAYOUT_CONTAINER"]);
 export const clean = (s: string) => s.replace(/\p{Cc}|[\u2028\u2029]/gu, " ").trim();
 
@@ -257,18 +256,19 @@ const setOf = (index: GraphIndex, n: GraphNode) =>
   n.type === "COMPONENT_SET" ? n : n.componentSetId ? index.getNode(n.componentSetId) : undefined;
 const familyKey = (index: GraphIndex, n: GraphNode) => setOf(index, n)?.id ?? n.id;
 
+function pushDirectInstances(index: GraphIndex, parentId: string, out: GraphNode[]): void {
+  for (const child of index.getChildren(parentId)) {
+    if (child.type === "COMPONENT_INSTANCE") out.push(child);
+    else pushDirectInstances(index, child.id, out);
+  }
+}
+
 /** Instances placed on the screen itself (not the parts inside them). A screen that is one copy is its own single placed copy. */
 function placedCopies(index: GraphIndex, frameId: string): GraphNode[] {
   const self = index.getNode(frameId);
   if (self?.type === "COMPONENT_INSTANCE") return [self];
   const out: GraphNode[] = [];
-  const walk = (parentId: string) => {
-    for (const child of index.getChildren(parentId)) {
-      if (child.type === "COMPONENT_INSTANCE") out.push(child);
-      else walk(child.id);
-    }
-  };
-  walk(frameId);
+  pushDirectInstances(index, frameId, out);
   return out;
 }
 
@@ -276,13 +276,7 @@ function placedCopies(index: GraphIndex, frameId: string): GraphNode[] {
 function directCopies(index: GraphIndex, frame: GraphNode): GraphNode[] {
   if (frame.type !== "COMPONENT_INSTANCE") return placedCopies(index, frame.id);
   const out: GraphNode[] = [frame];
-  const walk = (parentId: string) => {
-    for (const child of index.getChildren(parentId)) {
-      if (child.type === "COMPONENT_INSTANCE") out.push(child);
-      else walk(child.id);
-    }
-  };
-  walk(frame.id);
+  pushDirectInstances(index, frame.id, out);
   return out;
 }
 

@@ -11,6 +11,15 @@ import { type LibraryRules, type RecommendContext, ruleMatches } from "./recomme
 import { isScreen, screenOf } from "./screenInventory";
 import type { WorkspaceManifest } from "./workspace";
 
+export function unwrapLibraryList(raw: unknown): unknown[] | undefined {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object"
+      ? (raw as { libraries?: unknown }).libraries
+      : undefined;
+  return Array.isArray(list) ? list : undefined;
+}
+
 export function variantHaystack(node: GraphNode): string {
   const props = node.variantProperties;
   if (!props) return "";
@@ -174,12 +183,8 @@ function loadIconLibraries(): void {
     iconLibraryMalformed = true;
     return;
   }
-  const list = Array.isArray(raw)
-    ? raw
-    : raw && typeof raw === "object"
-      ? (raw as { libraries?: unknown }).libraries
-      : undefined;
-  if (!Array.isArray(list)) {
+  const list = unwrapLibraryList(raw);
+  if (!list) {
     iconLibraryMalformed = true;
     return;
   }

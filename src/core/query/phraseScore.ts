@@ -322,8 +322,7 @@ export function formatPhraseTable(report: PhraseReport): string {
     );
     if (report.note) lines.push(report.note);
     lines.push("Result: FAIL");
-    if (report.skipped.length) lines.push("", "Skipped");
-    for (const row of report.skipped) lines.push(`${row.id}: ${row.reason}`);
+    appendSkipped(lines, report.skipped);
     return lines.join("\n");
   }
   lines.push(
@@ -375,9 +374,13 @@ export function formatPhraseTable(report: PhraseReport): string {
       lines.push(`"${miss.phrase}" (${miss.id}): ${MISS_WORDS[miss.kind]}.${extra}`);
     }
   }
-  if (report.skipped.length) lines.push("", "Skipped");
-  for (const row of report.skipped) lines.push(`${row.id}: ${row.reason}`);
+  appendSkipped(lines, report.skipped);
   return lines.join("\n");
+}
+
+function appendSkipped(lines: string[], skipped: PhraseReport["skipped"]): void {
+  if (skipped.length) lines.push("", "Skipped");
+  for (const row of skipped) lines.push(`${row.id}: ${row.reason}`);
 }
 
 function capital(text: string): string {

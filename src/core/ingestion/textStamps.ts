@@ -191,7 +191,7 @@ export function textOverlay(nodes: readonly GraphNode[], stamps: readonly TextSt
   return overlay;
 }
 
-function storedText(node: GraphNode): string | undefined {
+export function storedText(node: GraphNode): string | undefined {
   const meta = node.metadata?.["text"];
   if (typeof meta === "string" && meta.trim()) return meta.trim();
   return undefined;

@@ -629,6 +629,20 @@ export function scopeFromUsageFacts(facts: UsageFact[]): {
   };
 }
 
+export function evidenceFromFact(
+  fact: Pick<UsageFact, "frameId" | "screenId" | "screenName" | "fileKey">,
+  note?: string,
+): SociEvidenceItem {
+  return {
+    frameId: fact.frameId ?? fact.screenId,
+    screenId: fact.screenId,
+    screenName: fact.screenName,
+    ...(fact.fileKey ? { fileKey: fact.fileKey } : {}),
+    count: 1,
+    ...(note ? { note } : {}),
+  };
+}
+
 export function proposeStrongPatterns(
   state: SockState,
   patterns: UsagePattern[],
@@ -646,13 +660,7 @@ export function proposeStrongPatterns(
     const summary = `Promote ${pattern.name} for ${scopeLabel} (strong on ${pattern.screens.length} screens)`;
     const evidence = facts
       .filter((fact) => fact.countsTowardThreshold !== false)
-      .map((fact) => ({
-        frameId: fact.frameId ?? fact.screenId,
-        screenId: fact.screenId,
-        screenName: fact.screenName,
-        ...(fact.fileKey ? { fileKey: fact.fileKey } : {}),
-        count: 1,
-      }));
+      .map((fact) => evidenceFromFact(fact));
     next = proposeRuleChange(next, summary, evidence.length ? evidence : `Verified on distinct screens: ${pattern.screens.join(", ") || "(none)"}.`, {
       require: pattern.masterId,
       ...scope,

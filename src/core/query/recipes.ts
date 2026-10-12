@@ -16,7 +16,7 @@ import {
 } from "./agentSurface";
 import { computeComponentUsage } from "./analytics";
 import { examplePointer, type ExampleQuery, type ExampleReason } from "./examples";
-import { placeReady } from "./placeReady";
+import { placeReady, type PlaceFields } from "./placeReady";
 import { usageAllowsRecipeFill, type SockState } from "./sock";
 import { whyLineForMaster, mergeBindRules, type BindRulesFile } from "./bindRules";
 import {
@@ -52,17 +52,10 @@ export interface Recipe {
 
 export type RecipeSlotStatus = "bound" | "filled" | "missing" | "deprecated" | "unbound";
 
-export interface RecipeMaster {
+export interface RecipeMaster extends PlaceFields {
   id: string;
   name: string;
   type: string;
-  figmaNodeId?: string;
-  nodeId?: string;
-  fileKey?: string;
-  componentKey?: string;
-  published?: boolean;
-  publishState?: "published" | "local-only";
-  variantProperties?: Record<string, string>;
   set?: string;
   status?: GraphNode["status"];
   deprecated: boolean;
@@ -702,6 +695,16 @@ function fillSlot(
   };
 }
 
+function recipeBody(recipe: Recipe, slots: FilledSlot[], pack: ContextPack | undefined, hint: string): FilledRecipe {
+  const context = pack ? appliedContext(pack) : undefined;
+  return {
+    recipe: { id: recipe.id, title: recipe.title, notes: recipe.notes },
+    slots,
+    ...(context ? { context } : {}),
+    hint,
+  };
+}
+
 export function fillRecipe(
   index: GraphIndex,
   recipe: Recipe,
@@ -720,16 +723,14 @@ export function fillRecipe(
     .map((slot) => slot.nextRecommend)
     .filter((item): item is string => Boolean(item));
   const placed = slots.filter((slot) => slot.master?.figmaNodeId && slot.status !== "deprecated").length;
-  const context = pack ? appliedContext(pack) : undefined;
-  return {
-    recipe: { id: recipe.id, title: recipe.title, notes: recipe.notes },
+  return recipeBody(
+    recipe,
     slots,
-    ...(context ? { context } : {}),
-    hint:
-      next.length > 0
-        ? `Place ${placed} bound/filled figmaNodeId(s). Next: recommend "${next[0]}". Then verify_frame. Do not Read graph.json.`
-        : `Place these figmaNodeIds, then verify_frame. Do not invent one-offs. Do not Read graph.json.`,
-  };
+    pack,
+    next.length > 0
+      ? `Place ${placed} bound/filled figmaNodeId(s). Next: recommend "${next[0]}". Then verify_frame. Do not Read graph.json.`
+      : `Place these figmaNodeIds, then verify_frame. Do not invent one-offs. Do not Read graph.json.`,
+  );
 }
 
 function unboundCard(recipe: Recipe, extraIntent?: string, pack?: ContextPack): FilledRecipe {
@@ -744,13 +745,12 @@ function unboundCard(recipe: Recipe, extraIntent?: string, pack?: ContextPack): 
       hint: `Ingest a library, then recipe "${recipe.id}" again — or call recommend "${nextRecommend}".`,
     };
   });
-  const context = pack ? appliedContext(pack) : undefined;
-  return {
-    recipe: { id: recipe.id, title: recipe.title, notes: recipe.notes },
+  return recipeBody(
+    recipe,
     slots,
-    ...(context ? { context } : {}),
-    hint: `No graph yet. Ingest first, then recipe "${recipe.id}" to fill slots from the library. Do not Read graph.json.`,
-  };
+    pack,
+    `No graph yet. Ingest first, then recipe "${recipe.id}" to fill slots from the library. Do not Read graph.json.`,
+  );
 }
 
 export function recipeCard(

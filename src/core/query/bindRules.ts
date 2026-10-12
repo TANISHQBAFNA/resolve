@@ -184,6 +184,12 @@ const PreferPhraseShape = z.object({
 
 export class BindRuleError extends Error {}
 
+function rejectShape(index: number, kind: string, error: z.ZodError): never {
+  throw new BindRuleError(
+    `Bind rule ${index + 1} ${kind} is invalid: ${error.issues.map((issue) => issue.message).join("; ")}. Never guessing.`,
+  );
+}
+
 export function parseOne(raw: unknown, index: number): BindRule {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new BindRuleError(`Bind rule ${index + 1} is not an object. Never guessing.`);
@@ -191,11 +197,7 @@ export function parseOne(raw: unknown, index: number): BindRule {
   const record = raw as Record<string, unknown>;
   if ("require" in record) {
     const parsed = RequireShape.safeParse(record);
-    if (!parsed.success) {
-      throw new BindRuleError(
-        `Bind rule ${index + 1} require is invalid: ${parsed.error.issues.map((issue) => issue.message).join("; ")}. Never guessing.`,
-      );
-    }
+    if (!parsed.success) rejectShape(index, "require", parsed.error);
     const data = parsed.data;
     if (!requireHasScope(data)) {
       throw new BindRuleError(
@@ -218,11 +220,7 @@ export function parseOne(raw: unknown, index: number): BindRule {
   }
   if ("forbid" in record) {
     const parsed = ForbidShape.safeParse(record);
-    if (!parsed.success) {
-      throw new BindRuleError(
-        `Bind rule ${index + 1} forbid is invalid: ${parsed.error.issues.map((issue) => issue.message).join("; ")}. Never guessing.`,
-      );
-    }
+    if (!parsed.success) rejectShape(index, "forbid", parsed.error);
     return {
       kind: "forbid",
       id: asId(parsed.data.id, `forbid:${parsed.data.forbid}`),
@@ -231,11 +229,7 @@ export function parseOne(raw: unknown, index: number): BindRule {
   }
   if ("prefer" in record && "over" in record) {
     const parsed = PreferPairShape.safeParse(record);
-    if (!parsed.success) {
-      throw new BindRuleError(
-        `Bind rule ${index + 1} prefer is invalid: ${parsed.error.issues.map((issue) => issue.message).join("; ")}. Never guessing.`,
-      );
-    }
+    if (!parsed.success) rejectShape(index, "prefer", parsed.error);
     return {
       kind: "prefer",
       id: asId(parsed.data.id, `prefer:${parsed.data.prefer}>${parsed.data.over}`),
@@ -249,11 +243,7 @@ export function parseOne(raw: unknown, index: number): BindRule {
   }
   if ("prefer" in record) {
     const parsed = PreferPhraseShape.safeParse(record);
-    if (!parsed.success) {
-      throw new BindRuleError(
-        `Bind rule ${index + 1} prefer is invalid: ${parsed.error.issues.map((issue) => issue.message).join("; ")}. Never guessing.`,
-      );
-    }
+    if (!parsed.success) rejectShape(index, "prefer", parsed.error);
     const split = splitPrefer(parsed.data.prefer);
     if (!split) {
       throw new BindRuleError(
@@ -388,6 +378,18 @@ export function mergeBindRules(base: BindRulesFile, overlay?: BindRulesFile): Bi
   return { version: 1, rules: [...base.rules, ...overlay.rules] };
 }
 
+interface BindContext {
+  intent?: string;
+  domain?: string;
+  journey?: string;
+  product?: string;
+  frameName?: string;
+  pack?: string;
+  workspace?: WorkspaceManifest;
+  graphFileKey?: string;
+  sock?: SockState;
+}
+
 function haystackOf(parts: Array<string | undefined>): string {
   return parts
     .filter((part): part is string => Boolean(part?.trim()))
@@ -396,28 +398,20 @@ function haystackOf(parts: Array<string | undefined>): string {
     .replace(/-/g, " ");
 }
 
-function scopeNeedleMatches(
-  rule: { screenType?: string; slot?: string },
-  input: {
-    intent?: string;
-    domain?: string;
-    journey?: string;
-    product?: string;
-    frameName?: string;
-    pack?: string;
-  },
-): boolean {
-  const hay = haystackOf([input.intent, input.domain, input.journey, input.product, input.frameName, input.pack]);
-  if (rule.screenType) {
-    const needle = rule.screenType.toLowerCase().replace(/-/g, " ");
-    if (!hay.includes(needle)) return false;
-  }
-  if (rule.slot) {
-    const needle = rule.slot.toLowerCase().replace(/-/g, " ");
-    const tokens = needle.split(/\s+/).filter(Boolean);
-    if (!tokens.some((token) => hay.includes(token))) return false;
-  }
-  return true;
+function contextHay(input: BindContext): string {
+  return haystackOf([input.intent, input.domain, input.journey, input.product, input.frameName, input.pack]);
+}
+
+function needleIn(hay: string, value: string | undefined, tokens: boolean): boolean {
+  if (!value) return true;
+  const needle = value.toLowerCase().replace(/-/g, " ");
+  if (!tokens) return hay.includes(needle);
+  return needle.split(/\s+/).filter(Boolean).some((token) => hay.includes(token));
+}
+
+function scopeNeedleMatches(rule: { screenType?: string; slot?: string }, input: BindContext): boolean {
+  const hay = contextHay(input);
+  return needleIn(hay, rule.screenType, false) && needleIn(hay, rule.slot, true);
 }
 
 function preferIsScoped(rule: PreferBindRule): boolean {
@@ -429,20 +423,7 @@ function preferIsScoped(rule: PreferBindRule): boolean {
  * A scoped rule (master id plus screenType and/or slot) moves only those masters,
  * and only when the recommend context matches. A half-scoped rule applies to nobody.
  */
-function preferBoost(
-  rule: PreferBindRule,
-  node: GraphNode,
-  options: {
-    intent?: string;
-    domain?: string;
-    journey?: string;
-    product?: string;
-    frameName?: string;
-    pack?: string;
-    workspace?: WorkspaceManifest;
-    graphFileKey?: string;
-  },
-): 48 | -48 | 0 {
+function preferBoost(rule: PreferBindRule, node: GraphNode, options: BindContext): 48 | -48 | 0 {
   if (!preferIsScoped(rule)) {
     if (fileMatchesLibrary(node, rule.preferKey ?? rule.prefer, options.workspace, options.graphFileKey)) return 48;
     if (fileMatchesLibrary(node, rule.overKey ?? rule.over, options.workspace, options.graphFileKey)) return -48;
@@ -455,48 +436,16 @@ function preferBoost(
   return 0;
 }
 
-export function requireRuleApplies(
-  rule: RequireBindRule,
-  input: {
-    intent?: string;
-    domain?: string;
-    journey?: string;
-    product?: string;
-    frameName?: string;
-    pack?: string;
-  },
-): boolean {
+export function requireRuleApplies(rule: RequireBindRule, input: BindContext): boolean {
   if (!requireHasScope(rule)) return false;
-  const hay = haystackOf([
-    input.intent,
-    input.domain,
-    input.journey,
-    input.product,
-    input.frameName,
-    input.pack,
-  ]);
-  if (rule.screenType) {
-    const needle = rule.screenType.toLowerCase().replace(/-/g, " ");
-    if (!hay.includes(needle)) return false;
-  }
-  if (rule.slot) {
-    const needle = rule.slot.toLowerCase().replace(/-/g, " ");
-    const tokens = needle.split(/\s+/).filter(Boolean);
-    if (!tokens.some((token) => hay.includes(token))) return false;
-  }
-  if (rule.journey) {
-    const needle = rule.journey.toLowerCase().replace(/-/g, " ");
-    if (!hay.includes(needle)) return false;
-  }
-  if (rule.product) {
-    const needle = rule.product.toLowerCase().replace(/-/g, " ");
-    if (!hay.includes(needle)) return false;
-  }
-  if (rule.pack) {
-    const needle = rule.pack.toLowerCase().replace(/-/g, " ");
-    if (!hay.includes(needle)) return false;
-  }
-  return true;
+  const hay = contextHay(input);
+  return (
+    needleIn(hay, rule.screenType, false) &&
+    needleIn(hay, rule.slot, true) &&
+    needleIn(hay, rule.journey, false) &&
+    needleIn(hay, rule.product, false) &&
+    needleIn(hay, rule.pack, false)
+  );
 }
 
 function forbidMatches(rule: ForbidBindRule, node: GraphNode, sock?: SockState): boolean {
@@ -522,17 +471,7 @@ function fileMatchesLibrary(
   return Boolean(mapped && fileKey && mapped.toLowerCase() === fileKey.toLowerCase());
 }
 
-export function bindRuleHit(rules: BindRulesFile, node: GraphNode, options: {
-  intent?: string;
-  domain?: string;
-  journey?: string;
-  product?: string;
-  frameName?: string;
-  pack?: string;
-  workspace?: WorkspaceManifest;
-  graphFileKey?: string;
-  sock?: SockState;
-}): string | undefined {
+export function bindRuleHit(rules: BindRulesFile, node: GraphNode, options: BindContext): string | undefined {
   for (const rule of rules.rules) {
     switch (rule.kind) {
       case "require":
@@ -561,16 +500,7 @@ export function bindRuleHit(rules: BindRulesFile, node: GraphNode, options: {
 export function filterAndScoreByBindRules<T extends { node: GraphNode; score: number }>(
   entries: T[],
   rules: BindRulesFile,
-  options: {
-    intent?: string;
-    domain?: string;
-    journey?: string;
-    product?: string;
-    frameName?: string;
-    pack?: string;
-    workspace?: WorkspaceManifest;
-    graphFileKey?: string;
-    sock?: SockState;
+  options: BindContext & {
     index?: GraphIndex;
     inject?: (node: GraphNode) => T;
   },
@@ -824,6 +754,7 @@ export function serializeBindRulesFile(file: BindRulesFile): { version: 1; rules
 export {
   actorName,
   applyProposalDecision,
+  requirePendingProposal,
   assertRuleWritable,
   fitBindRuleWarnings,
   loadBindRulesLenient,

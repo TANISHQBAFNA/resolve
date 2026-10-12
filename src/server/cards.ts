@@ -8,6 +8,7 @@ import {
   type IngredientCoverage,
 } from "@/core/query";
 import { formatPropertyLines, type PropertyRow } from "@/core/query/componentProperties";
+import { isRecord } from "./isRecord";
 import { formatStatus, type StatusReport } from "./status";
 
 /**
@@ -23,10 +24,6 @@ const GRAPH_HINT = / ?Do not Read (?:`\.resolve\/graph\.json`|graph\.json)\.?/g;
 
 export function cardTokens(text: string): number {
   return Math.ceil(text.length / 4);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function stripHintSentence(text: string): string {
