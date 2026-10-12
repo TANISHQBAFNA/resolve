@@ -5,6 +5,7 @@ import type { IngredientPart } from "./ingredients";
 import type { FilledRecipe, Recipe } from "./recipes";
 import type { ContextPack } from "./contextPacks";
 import type { SociProposal } from "./sock";
+import { formatPropertyLines, propertyBlock, type PropertyRow } from "./componentProperties";
 import { nodeFileKey } from "./workspaceMerge";
 
 /**
@@ -137,6 +138,8 @@ export interface HandoffComponent {
   template?: string;
   /** Other values each Figma property can take on this component (the placed value is left out; despite the name, these are the OTHER states to build). */
   states?: Record<string, string[]>;
+  /** Allowed values from the component definition. No apply line: a handoff has no property request. */
+  properties?: PropertyRow[];
   use?: string;
   partsFrom?: string;
   /** Set when the parts list was cut to stay under the size guard (MCP). */
@@ -688,6 +691,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     const parts = card.found ? trimParts(card.parts) : [];
     const guess = !main ? !missing : hooks.nameGuess(main);
     const states = main && !remote ? statesOf(index, main) : undefined;
+    const definitions = main && !remote ? propertyBlock(index, set ?? main, undefined, twin?.angular) : undefined;
     components.push({
       name,
       ...(props ? { variant: Object.entries(props).map(([k, v]) => `${k}=${v}`).join(", ") } : {}),
@@ -704,6 +708,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
       ...(hints.length ? { inputs: hints } : {}),
       ...(template ? { template } : {}),
       ...(states ? { states } : {}),
+      ...(definitions ? { properties: definitions.properties } : {}),
       ...(card.found && card.instance?.partsFrom ? { partsFrom: card.instance.partsFrom } : {}),
       ...(card.found && card.cut ? { partsCut: card.cut.reason } : {}),
       parts,
@@ -963,6 +968,10 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
     if (c.figmaProps) {
       const hints = c.inputs?.length ? ` → inputs (suggested): ${c.inputs.map(inputText).map(md).join(", ")}` : "";
       out.push(`- Figma properties: ${Object.entries(c.figmaProps).map(([k, v]) => `${md(k)}=${md(v)}`).join(", ")}${hints}`);
+    }
+    if (c.properties?.length) {
+      out.push("- Properties:");
+      for (const line of formatPropertyLines(c.properties)) out.push(`  ${line}`);
     }
     if (c.template) out.push(`- Template (suggested): \`${c.template.replace(/`/g, "'")}\``);
     if (c.states) out.push(`- Other variants in Figma (states to build): ${Object.entries(c.states).map(([k, vs]) => `${md(k)}: ${vs.map(md).join(", ")}`).join("; ")}`);

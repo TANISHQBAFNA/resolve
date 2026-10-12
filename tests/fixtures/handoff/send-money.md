@@ -25,6 +25,8 @@ No recipe matched this screen's name. Pass --recipe and a recipe id (see resolve
 - Code: `AcmeButtonComponent from '@acme/ui-angular'`
 - Angular: `<acme-button>, AcmeButtonModule; inputs: variant, size, disabled; outputs: pressed` (import `AcmeButtonModule` from '@acme/ui-angular')
 - Figma properties: Variant=Primary, Size=Medium → inputs (suggested): variant="primary", size="medium"
+- Properties:
+  - Label · TEXT · Button (default) · unmapped
 - Template (suggested): `<acme-button variant="primary" size="medium" [disabled]="…" (pressed)="…"></acme-button>`
 - Other variants in Figma (states to build): Variant: Secondary, Danger; Size: Large
 - Parts inside: none (a base part)
@@ -35,6 +37,8 @@ No recipe matched this screen's name. Pass --recipe and a recipe id (see resolve
 - Code: `AcmeButtonComponent from '@acme/ui-angular'`
 - Angular: `<acme-button>, AcmeButtonModule; inputs: variant, size, disabled; outputs: pressed` (import `AcmeButtonModule` from '@acme/ui-angular')
 - Figma properties: Variant=Secondary, Size=Medium → inputs (suggested): variant="secondary", size="medium"
+- Properties:
+  - Label · TEXT · Button (default) · unmapped
 - Template (suggested): `<acme-button variant="secondary" size="medium" [disabled]="…" (pressed)="…"></acme-button>`
 - Other variants in Figma (states to build): Variant: Primary, Danger; Size: Large
 - Parts inside: none (a base part)

@@ -25,6 +25,7 @@ import { overlayFile } from "./overlayFile";
 import { angularText, codeMapReport, codeMapTargets, codeText, codeView, useText, type Hooks, type Twin } from "./codeMap";
 import { placeReady } from "./placeReady";
 import { buildIngredientCard, buildIngredientCoverage, type IngredientHooks, type IngredientOptions } from "./ingredients";
+import { framePropertyFindings, propertyBlock, type PropertyHint, type PropertyRow } from "./componentProperties";
 import synonymFile from "@/data/synonyms.json";
 import modifierFile from "@/data/ui-modifiers.json";
 import { isRemovedByAbsence, patternFor, staleRefreshHint, type SockState } from "./sock";
@@ -530,10 +531,12 @@ export function componentUsageCard(
     sameNameNote(index, realMastersNamed(index, node.name), node),
     substitutionNote(index, name, node),
   ].filter((part): part is string => Boolean(part));
+  const block = propertyBlock(index, node, name, twin?.angular, options.context?.propertyHints);
   const withReplacement = {
     found: true as const,
     kind: "component" as const,
     ...body,
+    ...(block ?? {}),
     ...(retired ? { deprecated: true as const } : {}),
     ...(clashes.length
       ? {
@@ -1380,6 +1383,8 @@ export interface RecommendContext {
   constraints?: { density?: string; a11y?: string };
   files?: string[];
   libraryRules?: LibraryRules;
+  /** Designer words mapped onto real property values. Ranking ignores these. */
+  propertyHints?: PropertyHint[];
   /** Echo labels. Ranking ignores these. */
   sources?: {
     product?: string;
@@ -1441,6 +1446,10 @@ export interface RecommendCandidate {
   set?: string;
   status?: GraphNode["status"];
   slots?: string[];
+  /** Top pick only. Allowed values, the Angular input, and designer-word hints. */
+  properties?: PropertyRow[];
+  /** Top pick only. `To apply: set X=Y` when the request names an allowed value. */
+  apply?: string;
   /** Top pick only. Node id, or `fileKey:nodeId` when the example file differs. Omitted when none. */
   ex?: string;
   exFileKey?: string;
@@ -2616,7 +2625,13 @@ export function retiredHooks(index: GraphIndex) {
 
 /** "What is inside this component?" Parts from NESTS links, each with its code component or none. */
 export function ingredientCard(index: GraphIndex, name: string, options: IngredientOptions = {}) {
-  return withCost(buildIngredientCard(index, name, ingredientHooks(index), options));
+  const card = buildIngredientCard(index, name, ingredientHooks(index), options);
+  if (!card.found || !card.component.id) return withCost(card);
+  const node = index.getNode(card.component.id);
+  const block = node
+    ? propertyBlock(index, node, name, codeMapView(index)?.twin(node)?.angular)
+    : undefined;
+  return withCost(block ? { ...card, ...block } : card);
 }
 
 /**
@@ -3398,6 +3413,10 @@ export function recommendMasters(
   let truncated = kept.length > limit;
   let dropExtras = false;
   let dropVariant = false;
+  let shedPlaceNoise = false;
+  let shedLeadDetail = false;
+  /** `all` keeps the catalog. `matched` keeps rows the request named. `none` is the last resort. */
+  let propertyKeep: "all" | "matched" | "none" = "all";
   const exQuery = exampleQuery(index, options);
 
   const shortReason = (why: string): string => {
@@ -3405,7 +3424,7 @@ export function recommendMasters(
     return cut.length > 64 ? `${cut.slice(0, 61)}…` : cut;
   };
 
-  const leadCandidate = (entry: Scored): RecommendCandidate => {
+  const leadCandidate = (entry: Scored, top: boolean): RecommendCandidate => {
     const full = toCandidate(entry, false, 0);
     if (
       entry.weak &&
@@ -3416,13 +3435,45 @@ export function recommendMasters(
       full.why = weakMatchWhy(intent, familyCardName(entry));
     }
     const pointer = examplePointer(index, entry.node, exQuery, tight ? "id" : "screen");
+    const block = top
+      ? propertyBlock(index, entry.node, intent, view?.twin(entry.node)?.angular, options.context?.propertyHints)
+      : undefined;
+    const keptRows = !block || propertyKeep === "none"
+      ? []
+      : propertyKeep === "matched"
+        ? block.properties.filter((row) => row.designerSays)
+        : block.properties;
     const next: RecommendCandidate = {
       ...full,
+      ...(keptRows.length
+        ? {
+            properties: keptRows,
+            ...(block?.apply && keptRows.some((row) => row.designerSays) ? { apply: block.apply } : {}),
+          }
+        : {}),
       whereUsed: [],
       ...pointer,
       hint: full.deprecated ? "Deprecated — do not place." : "Place fileKey + nodeId.",
     };
-    if (lowConfidence) next.confidence = "low";
+    if (top && shedPlaceNoise) {
+      const loose = next as unknown as Record<string, unknown>;
+      delete loose["score"];
+      if (loose["nodeId"] === loose["figmaNodeId"]) delete loose["nodeId"];
+      delete loose["whereUsed"];
+      delete loose["publishState"];
+      if (typeof next.why === "string" && next.why.length > 48) next.why = `${next.why.slice(0, 47)}…`;
+    }
+    if (lowConfidence && !shedLeadDetail) next.confidence = "low";
+    if (top && shedLeadDetail) {
+      const loose = next as unknown as Record<string, unknown>;
+      delete loose["confidence"];
+      delete loose["why"];
+      delete loose["componentKey"];
+      delete loose["published"];
+      delete loose["publishState"];
+      delete loose["instances"];
+      delete loose["hint"];
+    }
     delete next.slots;
     if (dropExtras) {
       delete next.set;
@@ -3447,8 +3498,8 @@ export function recommendMasters(
   };
 
   const listed = (): RecommendHit[] =>
-    kept.slice(0, limit).map((entry, index) =>
-      index === 0 || !tight ? leadCandidate(entry) : altCandidate(entry),
+    kept.slice(0, limit).map((entry, position) =>
+      position === 0 || !tight ? leadCandidate(entry, position === 0) : altCandidate(entry),
     );
 
   let candidates = listed();
@@ -3513,6 +3564,13 @@ export function recommendMasters(
     payload = payloadOf();
   }
   const overBudget = () => JSON.stringify(payload).length > budgetChars;
+  if (overBudget()) {
+    const lead = candidates[0];
+    if (lead && "properties" in lead && Array.isArray(lead.properties) && lead.properties.length) {
+      shedPlaceNoise = true;
+      shrink();
+    }
+  }
   if (overBudget()) {
     dropExtras = true;
     shrink();
@@ -3605,9 +3663,33 @@ export function recommendMasters(
     payload = payloadOf();
     if (JSON.stringify(payload).length > budgetChars) shrinkNameFields(payload, budgetChars);
   }
+  if (overBudget() && candidates[0] && "properties" in candidates[0]) {
+    shedLeadDetail = true;
+    shrink();
+  }
+  if (overBudget() && candidates[0] && "properties" in candidates[0]) {
+    propertyKeep = "matched";
+    shrink();
+  }
+  if (overBudget() && candidates[0] && "properties" in candidates[0]) {
+    propertyKeep = "none";
+    shrink();
+  }
 
   const lead = kept[0];
   const leadTwin = lead && !weakLead && !lead.deprecated ? view?.twin(lead.node) : undefined;
+  const codeLine = leadTwin && !leadTwin.retired ? leadTwin.line : undefined;
+  const ngLine = codeLine ? leadTwin?.angular : undefined;
+  if (
+    codeLine &&
+    candidates[0] &&
+    "properties" in candidates[0] &&
+    JSON.stringify({ ...payload, code: codeLine, ...(ngLine ? { angular: angularText(ngLine) } : {}) }).length > budgetChars
+  ) {
+    shedPlaceNoise = true;
+    dropExtras = true;
+    shrink();
+  }
   const extra: { retired?: string; code?: string; angular?: string } = {};
   const append = <K extends keyof typeof extra>(key: K, value?: (typeof extra)[K]) => {
     if (value && JSON.stringify({ ...payload, ...extra, [key]: value }).length <= budgetChars) extra[key] = value;
@@ -4130,6 +4212,7 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
   const content = frameNode
     ? frameContentWarnings(index, frameNode.id, input.placeholders, { overlay: applied?.overlay })
     : { warnings: [] as ContentWarning[], blocking: false, textChecked: false as const, textReason: TEXT_NO_FRAME };
+  const propertyFindings = frameNode ? framePropertyFindings(index, frameNode) : { flags: [], notes: [] };
   const clean = invents.length === 0 && deprecatedHits.length === 0 && unresolved.length === 0;
   const placed: GraphNode[] = [...approvedIds]
     .map((id) => index.getNode(id))
@@ -4149,7 +4232,8 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
       })
     : undefined;
   const bindPass = !ruleFailure;
-  const ok = clean && bindPass && !content.blocking;
+  const propertyFail = propertyFindings.flags.length > 0;
+  const ok = clean && bindPass && !content.blocking && !propertyFail;
   const nameOnlyPass = ok && nameOnly;
   const verified = ok && idChecked > 0 && !nameOnly;
   const nothingChecked = ok && idChecked === 0 && !nameOnly;
@@ -4181,10 +4265,12 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
         ? librarySubject
           ? "This is a library node, not a product screen. Run verify on a product frame."
           : ["Nothing checked.", lookalikeNote, "No component id or key."].filter(Boolean).join(" ")
-        : content.blocking && clean && bindPass
+          : content.blocking && clean && bindPass
           ? `Fail — placeholder text left in a placed instance. ${REFRESH_HINT}`
-          : bindHint ??
-            `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`;
+          : propertyFail && clean && bindPass
+            ? `Fail — a property value is not allowed. ${REFRESH_HINT}`
+            : bindHint ??
+              `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`;
   const pendingHint = pending ? `pending improvements: ${pending}.` : undefined;
   const fullHint = pendingHint ? `${hint} ${pendingHint}` : hint;
   const base = {
@@ -4203,6 +4289,8 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
     invents,
     deprecated: deprecatedHits,
     unresolved,
+    ...(propertyFindings.flags.length ? { propertyFlags: propertyFindings.flags } : {}),
+    ...(propertyFindings.notes.length ? { propertyNotes: propertyFindings.notes } : {}),
     ...(ruleFailure ? { ruleFailure } : {}),
     frame: frameNode
       ? {
@@ -4292,6 +4380,7 @@ function stampTextCheck<T extends { hint: string }>(
     unchecked?: { count?: number; names?: string[] };
     renamedNote?: string;
     labelDiffers?: true;
+    propertyNotes?: unknown;
     frame?: { name?: string };
   };
   delete seed.cost;
@@ -4344,6 +4433,11 @@ function stampTextCheck<T extends { hint: string }>(
   if (fits(card)) return card;
   if (seed.renamedNote) {
     delete seed.renamedNote;
+    card = build();
+    if (fits(card)) return card;
+  }
+  if (seed.propertyNotes) {
+    delete seed.propertyNotes;
     card = build();
     if (fits(card)) return card;
   }
@@ -4408,7 +4502,7 @@ function collectNameSlots(
   }
   const record = value as Record<string, unknown>;
   for (const [key, child] of Object.entries(record)) {
-    if (key === "hint" || key === "why" || key === "cost" || key === "ex") continue;
+    if (key === "hint" || key === "why" || key === "cost" || key === "ex" || key === "properties" || key === "apply") continue;
     if ((key === "name" || key === "given") && typeof child === "string") slots.push({ parent: record, key });
     else collectNameSlots(child, slots);
   }

@@ -11,6 +11,7 @@ import type {
   SourceLibrary,
   SourceKind,
 } from "../types";
+import { componentNameIndex, parseComponentPropertyDefinitions, type ComponentNameIndex } from "../componentProperties";
 
 /**
  * Figma REST -> SourceDocument.
@@ -241,6 +242,7 @@ function collectAnnotations(raw: AnyRecord): SourceNode["annotations"] {
 interface WalkOptions {
   maxDepth: number;
   fileKey: string;
+  names: ComponentNameIndex;
   onTruncate: () => void;
 }
 
@@ -274,6 +276,11 @@ function walkNode(
 
   const componentProperties = asRecord(raw["componentProperties"]);
   if (Object.keys(componentProperties).length) node.componentProperties = componentProperties;
+
+  if ((type === "COMPONENT_SET" || type === "COMPONENT") && raw["componentPropertyDefinitions"]) {
+    const parsed = parseComponentPropertyDefinitions(raw["componentPropertyDefinitions"], options.names, "rest");
+    if (parsed) node.propertyDefinitions = parsed;
+  }
 
   const overrides = asArray(raw["overrides"])
     .map((item) => {
@@ -441,6 +448,7 @@ export function adaptFigmaRestFile(
   const root = walkNode(asRecord(file.document), undefined, 0, {
     maxDepth,
     fileKey: input.fileKey,
+    names: componentNameIndex(file.components, file.componentSets),
     onTruncate: () => {
       truncated = true;
     },
