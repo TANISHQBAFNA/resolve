@@ -1,0 +1,313 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > cousins Send money 1`] = `
+"reason: no-library-file
+ok: 0
+hint: No library-role file in this workspace. Add the shared DS to .resolve/workspace.json and ingest it. Do not guess cousins."
+`;
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > example Payee picker 1`] = `
+"found: true
+name: Payee picker
+exampleId: node:20:31
+fileKey: ACMEUI
+nodeId: 20:31
+screen: Receipt
+summary: sizing: unknown h:240
+sizing: unknown
+height: 240
+instruction: Clone this instance and replace content; do not start from the default variant."
+`;
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > handoff Send money 1`] = `
+"# Handoff: Send money
+
+- Screen: Send money [ACMEUI 20:40] (https://www.figma.com/design/ACMEUI/?node-id=20-40)
+- 3 components placed (3 copies), 3 linked to code, 0 unmapped. 2 parts inside, 1 linked to code.
+
+## Recipe
+
+No recipe matched this screen's name. Pass --recipe and a recipe id (see resolve recipe list) to check the screen against one.
+
+## Components (3)
+
+### Payee picker
+
+- Figma: ACMEUI 30:30 (placed: 20:41)
+- Code: \`AcmePayeePickerComponent from '@acme/payments-angular'\`
+- Angular: \`<acme-payee-picker>, standalone; inputs: payees, selected; outputs: selectedChange\` (add the component to \`imports\`)
+- Template (suggested): \`<acme-payee-picker [payees]="…" [(selected)]="…"></acme-payee-picker>\`
+- Parts inside (from the main component, not checked on this screen):
+  - Avatar [ACMEUI 30:40] (unmapped)
+  - Button / Variant=Primary, Size=Medium [ACMEUI 30:11] (code: \`AcmeButtonComponent from '@acme/ui-angular'\`, \`<acme-button>, AcmeButtonModule\`)
+
+### Button / Variant=Primary, Size=Medium
+
+- Figma: ACMEUI 30:11 (placed: 20:42)
+- Code: \`AcmeButtonComponent from '@acme/ui-angular'\`
+- Angular: \`<acme-button>, AcmeButtonModule; inputs: variant, size, disabled; outputs: pressed\` (import \`AcmeButtonModule\` from '@acme/ui-angular')
+- Figma properties: Variant=Primary, Size=Medium → inputs (suggested): variant="primary", size="medium"
+- Properties:
+  - Label · TEXT · Button (default) · unmapped
+- Template (suggested): \`<acme-button variant="primary" size="medium" [disabled]="…" (pressed)="…"></acme-button>\`
+- Other variants in Figma (states to build): Variant: Secondary, Danger; Size: Large
+- Parts inside: none (a base part)
+
+### Button / Variant=Secondary, Size=Medium
+
+- Figma: ACMEUI 30:13 (placed: 20:43)
+- Code: \`AcmeButtonComponent from '@acme/ui-angular'\`
+- Angular: \`<acme-button>, AcmeButtonModule; inputs: variant, size, disabled; outputs: pressed\` (import \`AcmeButtonModule\` from '@acme/ui-angular')
+- Figma properties: Variant=Secondary, Size=Medium → inputs (suggested): variant="secondary", size="medium"
+- Properties:
+  - Label · TEXT · Button (default) · unmapped
+- Template (suggested): \`<acme-button variant="secondary" size="medium" [disabled]="…" (pressed)="…"></acme-button>\`
+- Other variants in Figma (states to build): Variant: Primary, Danger; Size: Large
+- Parts inside: none (a base part)
+
+## Code to import
+
+- \`AcmePayeePickerComponent from '@acme/payments-angular'\` (standalone)
+- \`AcmeButtonComponent from '@acme/ui-angular'\` (module \`AcmeButtonModule\`)
+
+
+## Verify
+
+PASS: 3 approved components.
+
+## Decisions
+
+None approved for this screen yet.
+
+## Open questions
+
+- Part Avatar [ACMEUI 30:40] (inside Payee picker) has no code link."
+`;
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > ingredients Payee picker 1`] = `
+"Payee picker [ACMEUI 30:30]
+Code: AcmePayeePickerComponent from '@acme/payments-angular'
+Angular: <acme-payee-picker>, standalone; inputs: payees, selected; outputs: selectedChange
+Inside it:
+  - Avatar [30:40] (code: no code link yet)
+  - Button / Variant=Primary, Size=Medium [30:11] (code: AcmeButtonComponent from '@acme/ui-angular', <acme-button>, AcmeButtonModule)
+Payee picker is built from 2 parts. 1 linked to code, 1 with no code link yet."
+`;
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > recipe confirm-dialog 1`] = `
+"found: true
+query: confirm-dialog
+recipe: (id: confirm-dialog, title: Confirm dialog)
+slots:
+  - role: body | status: unbound | nextRecommend: card | hint: Required slot empty. Call recommend "card". Do not invent a component.
+  - role: primary-cta | status: filled | master: (name: Button, figmaNodeId: 30:10, fileKey: ACMEUI, componentKey: button-set-key, hint: Place fileKey + nodeId., why: used 12× in file)
+  - role: secondary-cta | status: filled | master: (name: Button, figmaNodeId: 30:10, fileKey: ACMEUI, componentKey: button-set-key, hint: Place fileKey + nodeId., why: used 12× in file)
+hint: Place bound figmaNodeIds, then verify_frame."
+`;
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > recipe list 1`] = `
+"recipes:
+  -
+    id: checkout-summary
+    title: Checkout summary
+    intentAliases: checkout, order summary, cart, pay now
+    notes: Totals and line items plus a primary pay action. The primary button slot defaults to Pay CTA when that master is in the library. Optional field for promo or email.
+    slots:
+      - role: header | status: unbound | nextRecommend: header title nav
+      - role: line-list | required: true | status: filled | master: (name: Payment method row, figmaNodeId: 30:60, fileKey: ACMEUI)
+      - role: primary-cta | required: true | status: missing | nextRecommend: button primary
+      - role: input | status: unbound | nextRecommend: input
+  -
+    id: confirm-dialog
+    title: Confirm dialog
+    intentAliases: confirm, dialog, modal, are you sure, alert
+    notes: Short body with a primary confirm and optional secondary cancel.
+    slots:
+      - role: body | required: true | status: unbound | nextRecommend: card
+      - role: primary-cta | required: true | status: filled | master: (name: Button, figmaNodeId: 30:10, fileKey: ACMEUI)
+      - role: secondary-cta | status: filled | master: (name: Button, figmaNodeId: 30:10, fileKey: ACMEUI)
+  -
+    id: empty-state
+    title: Empty state
+    intentAliases: empty, zero state, no results, blank
+    notes: Message plus one action. Do not place deprecated banners; recommend a live master.
+    slots:
+      - role: message | status: unbound | nextRecommend: empty message banner
+      - role: primary-cta | required: true | status: filled | master: (name: Button, figmaNodeId: 30:10, fileKey: ACMEUI)
+  -
+    id: list-detail
+    title: List and detail
+    intentAliases: list detail, master detail, split view, inbox
+    notes: Collection row plus a detail card and an action.
+    slots:
+      - role: list | required: true | status: filled | master: (name: Payment method row, figmaNodeId: 30:60, fileKey: ACMEUI)
+      - role: detail | required: true | status: unbound | nextRecommend: card
+      - role: primary-cta | required: true | status: filled | master: (name: Button, figmaNodeId: 30:10, fileKey: ACMEUI)
+  -
+    id: nav-content-shell
+    title: Nav and content shell
+    intentAliases: shell, app shell, navigation, layout, nav content
+    notes: Page chrome around a content master. Optional page action.
+    slots:
+      - role: header | status: unbound | nextRecommend: header nav title
+      - role: content | required: true | status: unbound | nextRecommend: card
+      - role: primary-cta | status: filled | master: (name: Button, figmaNodeId: 30:10, fileKey: ACMEUI)
+  -
+    id: search-results
+    title: Search results
+    intentAliases: search results, search results list, results list, search page
+    notes: Search bar, a results list, and an empty / no-results state.
+    slots:
+      - role: search | required: true | status: filled | master: (name: Text field, figmaNodeId: 30:20, fileKey: ACMEUI)
+      - role: results | required: true | status: unbound | nextRecommend: list row
+      - role: empty | status: unbound | nextRecommend: empty message
+  -
+    id: settings-form
+    title: Settings form
+    intentAliases: settings, preferences, account form, profile form
+    notes: Labeled fields with a save action. Bind defaultMasterId after ingest if your Input/Button ids are stable.
+    slots:
+      - role: input | required: true | status: filled | master: (name: Text field, figmaNodeId: 30:20, fileKey: ACMEUI)
+      - role: primary-cta | required: true | status: filled | master: (name: Button, figmaNodeId: 30:10, fileKey: ACMEUI)
+  -
+    id: sign-in
+    title: Sign in
+    intentAliases: sign in, login, log in, auth, authenticate
+    notes: Identifier and secret fields plus submit. Same Input master may fill both field slots.
+    slots:
+      - role: identifier | required: true | status: unbound | nextRecommend: input
+      - role: secret | required: true | status: unbound | nextRecommend: input
+      - role: primary-cta | required: true | status: filled | master: (name: Button, figmaNodeId: 30:10, fileKey: ACMEUI)
+hint: Slots bound/filled from live masters. Overlay .resolve/recipes.json still wins. Context packs (.resolve/context-packs.json) scope recommend. Unbound: recommend the nextRecommend query. After draw: verify_frame. Do not invent node ids."
+`;
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > recommend old button 1`] = `
+"intent: old button
+candidates:
+  -
+    name: Button
+    type: COMPONENT_SET
+    figmaNodeId: 30:10
+    fileKey: ACMEUI
+    componentKey: button-set-key
+    published: true
+    instances: 12
+    why: replaces Old Button (deprecated)
+    hint: Place fileKey + nodeId.
+    Properties:
+    - Label · TEXT · Button (default) · unmapped
+hint: Place fileKey+nodeId. If stale, learn_library.
+retired: Old Button is retired, use Button.
+code: AcmeButtonComponent from '@acme/ui-angular'"
+`;
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > recommend payee picker 1`] = `
+"intent: payee picker
+candidates:
+  - name: Payee picker | type: MAIN_COMPONENT | figmaNodeId: 30:30 | fileKey: ACMEUI | componentKey: payee-picker-key | published: true | publishState: published | instances: 4 | why: used 4× in file | hint: Place fileKey + nodeId. | ex: 20:31
+hint: Place fileKey+nodeId. If stale, learn_library.
+code: AcmePayeePickerComponent from '@acme/payments-angular'
+angular: <acme-payee-picker>, standalone"
+`;
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > recommend primary button 1`] = `
+"intent: primary button
+candidates:
+  -
+    name: Button
+    type: COMPONENT_SET
+    figmaNodeId: 30:10
+    fileKey: ACMEUI
+    componentKey: button-set-key
+    published: true
+    instances: 12
+    why: used 12× in file
+    hint: Place fileKey + nodeId.
+    Properties:
+    - Label · TEXT · Button (default) · unmapped
+hint: Place fileKey+nodeId. If stale, learn_library.
+code: AcmeButtonComponent from '@acme/ui-angular'
+angular: <acme-button>, AcmeButtonModule"
+`;
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > resolve Button 1`] = `
+"found: true
+kind: component
+component: (name: Button, type: COMPONENT_SET, figmaNodeId: 30:10, fileKey: ACMEUI, componentKey: button-set-key, published: true, publishState: published)
+instances: 12
+variants: 4
+riskScore: 25
+pages:
+  - name: Onboarding | figmaNodeId: 10:1
+  - name: Payments | figmaNodeId: 20:1
+  - name: Design System | figmaNodeId: 30:1
+hint: Instance this figmaNodeId in Figma. Do not get_design_context on a parent FRAME.
+why: used 12× in file
+byScreen:
+  - name: Confirm payment | type: FRAME | figmaNodeId: 20:20 | count: 2
+  - name: Payment methods | type: FRAME | figmaNodeId: 20:10 | count: 2
+  - name: Send money | type: FRAME | figmaNodeId: 20:40 | count: 2
+  - name: Create account | type: FRAME | figmaNodeId: 10:20 | count: 1
+  - name: Receipt | type: FRAME | figmaNodeId: 20:30 | count: 1
+  - name: Verify email | type: FRAME | figmaNodeId: 10:30 | count: 1
+  - name: Welcome | type: FRAME | figmaNodeId: 10:10 | count: 1
+Properties:
+- Label · TEXT · Button (default) · unmapped
+code: AcmeButtonComponent from '@acme/ui-angular'
+angular: (selector: acme-button, module: AcmeButtonModule, importPath: @acme/ui-angular, inputs: variant, size, disabled, outputs: pressed)"
+`;
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > resolve Old Button 1`] = `
+"found: true
+kind: component
+component: (name: Old Button, type: MAIN_COMPONENT, figmaNodeId: 30:50, status: deprecated, fileKey: ACMEUI, componentKey: old-button-key, published: true, publishState: published)
+instances: 0
+variants: 0
+riskScore: 0
+hint: Master is in the graph with this id even with zero instances. Place this figmaNodeId. Usage is additive.
+why: not verified on a screen yet; deprecated
+deprecated: true
+replacement: (name: Button, figmaNodeId: 30:10, fileKey: ACMEUI, componentKey: button-set-key, published: true, publishState: published, why: replaces Old Button (deprecated))"
+`;
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > resolve Payee picker 1`] = `
+"found: true
+kind: component
+component: (name: Payee picker, type: MAIN_COMPONENT, figmaNodeId: 30:30, fileKey: ACMEUI, componentKey: payee-picker-key, published: true, publishState: published)
+instances: 4
+variants: 0
+riskScore: 12
+pages:
+  - name: Onboarding | figmaNodeId: 10:1
+  - name: Payments | figmaNodeId: 20:1
+hint: Instance this figmaNodeId in Figma. Do not get_design_context on a parent FRAME.
+why: used 4× in file
+ex: 20:31@Receipt
+byScreen:
+  - name: Confirm payment | type: FRAME | figmaNodeId: 20:20 | count: 1 | slots: Avatar, Variant=Primary, Size=Medium
+  - name: Receipt | type: FRAME | figmaNodeId: 20:30 | count: 1 | slots: Avatar, Variant=Primary, Size=Medium
+  - name: Send money | type: FRAME | figmaNodeId: 20:40 | count: 1
+  - name: Verify email | type: FRAME | figmaNodeId: 10:30 | count: 1 | slots: Avatar, Variant=Primary, Size=Medium
+code: AcmePayeePickerComponent from '@acme/payments-angular'
+angular: (selector: acme-payee-picker, standalone: true, importPath: @acme/payments-angular, inputs: payees, selected, outputs: selectedChange)"
+`;
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > verify Confirm payment 1`] = `
+"PASS
+approved: 4
+frame: (name: Confirm payment, type: FRAME, figmaNodeId: 20:20, fileKey: ACMEUI)
+builtAt: 2026-01-01T00:00:00.000Z
+hint: Verified. If stale, learn_library.
+textChecked: true"
+`;
+
+exports[`Acme markdown cards > locks the Acme Markdown cards > verify Send money 1`] = `
+"FAIL
+approved: 2
+deprecated:
+  - name: Old Button | figmaNodeId: 30:50 | fileKey: ACMEUI | status: deprecated
+frame: (name: Send money)
+hint: Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. If stale, learn_library.
+textChecked: n/a
+retired: retired Old Button -> use Button (old code: AcmeOldButtonComponent from '@acme/ui-angular-legacy', <acme-old-button>, AcmeLegacyModule)"
+`;

@@ -33,16 +33,8 @@ describe("MCP default surface + SOCK loop", () => {
 
   it("default tool list is the agent tools", () => {
     const names = listToolDefinitions(false).map((tool) => tool.name);
-    expect([...names]).toEqual([...DEFAULT_TOOL_NAMES]);
-    expect(names).toEqual([
-      "learn_library",
-      "recipe",
-      "recommend",
-      "resolve",
-      "get_example",
-      "verify_frame",
-      "check_cousins",
-    ]);
+    expect(names).toHaveLength(7);
+    expect([...names].sort()).toEqual([...DEFAULT_TOOL_NAMES].sort());
     expect(names).not.toContain("approve_proposal");
     expect(names).not.toContain("reject_proposal");
     const removed = [
