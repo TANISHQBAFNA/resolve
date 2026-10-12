@@ -448,10 +448,13 @@ export function mergeDesignGraphs(base: DesignGraph, incoming: DesignGraph): Des
       warnings.push(warning);
     }
   }
+  const versions = [base.schemaVersion, incoming.schemaVersion].filter((version): version is number => typeof version === "number");
+  const schemaVersion = versions.length ? Math.max(...versions) : undefined;
   return settleInstanceBindings(
     DesignGraphSchema.parse({
       fileKey: incoming.fileKey || base.fileKey,
       fileName: incoming.fileName || base.fileName,
+      ...(schemaVersion ? { schemaVersion } : {}),
       builtAt: incoming.builtAt || new Date().toISOString(),
       source: {
         kind: incoming.source.kind,

@@ -5,6 +5,7 @@ import {
   type HandoffPack,
   type IngredientCard,
 } from "@/core/query";
+import { formatPropertyLines, type PropertyRow } from "@/core/query/componentProperties";
 
 /**
  * What an MCP tool shows the model.
@@ -156,6 +157,10 @@ function scalar(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function isPropertyRows(value: unknown): value is PropertyRow[] {
+  return Array.isArray(value) && value.every((item) => isRecord(item) && typeof item["property"] === "string" && typeof item["type"] === "string");
+}
+
 function isScalar(value: unknown): boolean {
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
 }
@@ -244,6 +249,31 @@ function render(value: unknown, indent: string): string[] {
   const lines: string[] = [];
   for (const [key, item] of Object.entries(folded)) {
     if (skipMarkdownValue(key, item)) continue;
+    if (key === "properties" && isPropertyRows(item)) {
+      lines.push(`${indent}Properties:`);
+      for (const line of formatPropertyLines(item)) lines.push(`${indent}${line}`);
+      continue;
+    }
+    if (key === "apply" && typeof item === "string") {
+      lines.push(`${indent}${item}`);
+      continue;
+    }
+    if (key === "propertyFlags" && Array.isArray(item)) {
+      for (const flag of item) {
+        if (!isRecord(flag)) continue;
+        const allowed = Array.isArray(flag["allowed"]) ? flag["allowed"].map((part) => scalar(part)).join(", ") : "";
+        lines.push(`${indent}- ${scalar(flag["property"])} is "${scalar(flag["value"])}", which is not allowed${allowed ? ` (${allowed})` : ""}.`);
+      }
+      continue;
+    }
+    if (key === "propertyNotes" && Array.isArray(item)) {
+      for (const note of item) {
+        if (!isRecord(note)) continue;
+        const text = typeof note["note"] === "string" ? note["note"] : scalar(note["note"]);
+        if (text) lines.push(`${indent}- ${text}`);
+      }
+      continue;
+    }
     const text = inline(item);
     if (text !== undefined) lines.push(`${indent}${key}: ${isShallow(item) ? `(${text})` : text}`);
     else if (Array.isArray(item) || isRecord(item)) {

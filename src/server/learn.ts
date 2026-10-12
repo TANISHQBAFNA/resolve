@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { parseFigmaTarget } from "@/core/ingestion/figmaFileKey";
 import { join } from "node:path";
 import type { DesignGraph, GraphNode } from "@/core/model";
+import { applyLearnedProperties } from "@/core/ingestion/componentProperties";
 import { applyLearnedText } from "@/core/ingestion/textStamps";
 import { applyLearnedIdentity } from "@/core/ingestion/designContextIds";
 import {
@@ -210,6 +211,7 @@ export function learnLibrary(input: LearnInput): LearnResult {
   if (input.designContext != null) {
     applyLearnedText(graph, input.designContext);
     applyLearnedIdentity(graph, input.designContext);
+    applyLearnedProperties(graph, input.designContext);
   }
 
   const removed: RemovedMaster[] = [];

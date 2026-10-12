@@ -909,12 +909,32 @@ code: AcmePayeePickerComponent from '@acme/payments-angular'
 angular: <acme-payee-picker>, standalone
 ```
 
-The same 14 Acme cards (three recommends, three resolves, one example, two verifies, one recipe, the recipe list, cousins, one ingredient card, and the Send money handoff) are 4,434 tokens as today's JSON and 3,269 as Markdown. Tokens are `ceil(characters / 4)`, summed per card. Removing the filler accounts for about half of that drop (the stripped JSON is 3,876). The count is locked in `tests/server.cards.test.ts`.
+The same 14 Acme cards (three recommends, three resolves, one example, two verifies, one recipe, the recipe list, cousins, one ingredient card, and the Send money handoff) are 4,518 tokens as today's JSON and 3,337 as Markdown. Tokens are `ceil(characters / 4)`, summed per card. Removing the filler accounts for about half of that drop (the stripped JSON is 3,966). The count is locked in `tests/server.cards.test.ts`.
+
+### How Resolve tells the AI about properties
+
+When a library is learned, Resolve reads each component's Figma property definitions and puts them on the card. The AI sees the property, its type, the allowed values (the default is marked), the Angular input when one matches, and a "designer says" hint when the request uses a word that maps onto an allowed value. A value that is not in the list is never suggested.
+
+Acme Button, asked as "outline button with icon":
+
+```
+Properties:
+- Variant · VARIANT · Primary (default), Secondary, Tertiary · variant · designer says: outline → Secondary
+- Size · VARIANT · Medium (default), Small, Large · size
+- State · VARIANT · Enabled (default), Disabled · disabled
+- Has icon · BOOLEAN · false (default), true · unmapped · designer says: with icon → true
+- Icon · INSTANCE_SWAP · Check (default), Close · 1 preferred value unknown · unmapped
+- Label · TEXT · Button (default) · unmapped
+To apply: set Variant=Secondary, Has icon=true
+```
+
+`variant`, `size`, and `disabled` are the Angular inputs. Label, Has icon, and Icon have no matching input, so they say unmapped. A name like `Property 1` is kept and flagged so someone renames it in Figma. On a placed instance, a value outside the allowed list fails verify. A text property left on its default, such as a label that still says "Button", is a note and does not fail.
 
 ### Version history
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
+- **Oct 12, 2026 — [PR #53](https://github.com/TANISHQBAFNA/resolve/pull/53).** Resolve reads Figma component properties when a library is learned: variant, boolean, text, and instance swap, with the default, the allowed values, and a rename note for a placeholder name like `Property 1`. The usage card, the ingredient card, handoff, and recommend show a Properties section and, when the request names an allowed value, one line `To apply: set X=Y`. Words such as outline, disabled, compact, and with icon map only onto values the component actually allows. A placed value outside that list fails verify. A label left on its default is a note, not a failure. The phrase scoreboard is unchanged: 118 phrases (88 expected a part + 30 expected empty), top-1 66/88, top-3 68/88, empty-correct 30/30, invented 0, retired 0. The golden set stays 75 cases. Ranking is unchanged. Default tools stay 7. 867 tests.
 - **Oct 11, 2026 — [PR #52](https://github.com/TANISHQBAFNA/resolve/pull/52).** CI builds once: `prepare` still builds the server for a git or npx install, and skips that when CI is set, so the workflow no longer typechecks on its own or builds the server twice. Browser end-to-end checks are a required headless Chromium job. A failed live call shows an error and a next step, and does not show the example library or the example bind rules as a live result. The phrase scoreboard is the headline: 118 phrases (88 expected a part + 30 expected empty), top-1 66/88, top-3 68/88, empty-correct 30/30, invented 0, retired 0. The golden set (75 cases) is a secondary regression check. The personal caveman Cursor rule is removed. Ranking is unchanged. Default tools stay 7. 857 tests.
 - **Oct 11, 2026 — [PR #50](https://github.com/TANISHQBAFNA/resolve/pull/50).** Resolve installs once, as a plugin, in Claude Code and in Cursor. After that, every chat in every project asks Resolve before it draws. The slash commands, the always-on rule, and the skill are the same files as before. The Figma token and the library file key are plugin settings. An example link is `figma.com/design/ACMEUI/Acme`. If either setting is missing, the first reply says how to set it. Ranking is unchanged. Default tools stay 7. 851 tests.
 - **Oct 7, 2026 — [PR #47](https://github.com/TANISHQBAFNA/resolve/pull/47).** A frame checked with `resolve verify` (the AIDLC add-on's design-check) now counts as a mapped screen, the same as one checked by the agent. Acme's "Send money" frame with domain `payments` is a payment screen, so "payment screen" answers from it. Ranking is unchanged. Default tools stay 7.

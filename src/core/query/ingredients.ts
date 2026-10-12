@@ -3,6 +3,7 @@ import type { GraphIndex } from "./GraphIndex";
 import { missingNodeSentence, readFigmaLink } from "./learnedLink";
 import { nodeFileKey } from "./workspaceMerge";
 import { angularText, codeText, type AngularTwin } from "./codeMap";
+import { formatPropertyLines, type PropertyRow } from "./componentProperties";
 
 /**
  * Ingredient card: "what is inside this component?"
@@ -846,6 +847,13 @@ export function formatIngredientCard(card: IngredientCard): string {
       : `Code: ${code}`,
   );
   if (card.angular) lines.push(`Angular: ${angularText(card.angular, true)}`);
+  const props = (card as { properties?: PropertyRow[]; apply?: string }).properties;
+  const apply = (card as { apply?: string }).apply;
+  if (props?.length) {
+    lines.push("Properties:");
+    lines.push(...formatPropertyLines(props));
+  }
+  if (apply) lines.push(apply);
   if (card.parts.length) {
     lines.push("Inside it:");
     for (const p of card.parts) lines.push(...partLine(p, "  ", c.fileKey));

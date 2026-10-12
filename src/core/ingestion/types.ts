@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ComponentPropertySchema, type ComponentProperty } from "@/core/model/componentProperties";
 
 /**
  * The ingestion contract.
@@ -67,6 +68,7 @@ export const SourceNodeSchema: z.ZodType<SourceNode> = z.lazy(() =>
     componentSetId: z.string().optional(),
     variantProperties: z.record(z.string()).optional(),
     componentProperties: z.record(z.unknown()).optional(),
+    propertyDefinitions: z.array(ComponentPropertySchema).optional(),
     overrides: z
       .array(
         z.object({
@@ -114,6 +116,7 @@ export interface SourceNode {
   componentSetId?: string;
   variantProperties?: Record<string, string>;
   componentProperties?: Record<string, unknown>;
+  propertyDefinitions?: ComponentProperty[];
   overrides?: Array<{ id?: string; overriddenFields?: string[] }>;
   bounds?: z.infer<typeof SourceBoundsSchema>;
   layoutMode?: string;
