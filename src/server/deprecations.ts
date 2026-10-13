@@ -6,7 +6,6 @@ export const DEPRECATED_INSTEAD: Record<string, string> = {
   query: "recommend or resolve",
   path: "recommend",
   explain: "the why line on a recommend or resolve card",
-  check: "verify",
   check_frame: "verify_frame",
   get_related: "recommend",
   get_subgraph: "recommend",

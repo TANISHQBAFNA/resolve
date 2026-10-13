@@ -280,6 +280,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
     if (source.componentProperties) metadata["componentProperties"] = source.componentProperties;
     if (source.overrides?.length) metadata["overrides"] = source.overrides;
     if (source.annotations?.length) metadata["annotations"] = source.annotations;
+    if (source.paint) metadata["paint"] = source.paint;
     node.metadata = metadata;
 
     const added = builder.addNode(node);

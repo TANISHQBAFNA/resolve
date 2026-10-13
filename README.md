@@ -231,6 +231,43 @@ These use the made-up Acme library. Type them into your AI tool once Step 2 is d
 
 The exact, word-for-word answers for both are shown further down, under [recommend](#recommend) and [verify](#verify).
 
+## Check that a screen uses the library properly
+
+A check already says whether the parts on a screen are real library components. It also says whether they are used properly. The same check does this: `/check`, `resolve check`, and `verify_frame`. There is no extra tool.
+
+On the made-up Acme library, the frame **Misused** (file key `ACMEUSE`) passes the component check and still has proper-use errors. The first line says both. Proper use fails, so the screen is not fine, and the process exits 7. A crowded card keeps every error, then says how to see the rest:
+
+```
+Components: PASS · Proper use: FAIL (5 errors, 7 warnings)
+approved: 4
+frame: (name: Misused, type: FRAME, figmaNodeId: 80:1, fileKey: ACMEUSE)
+textChecked: n/a
+Proper use: 2 detached, 3 hard-coded colours, 2 hard-coded spacing, 1 hard-coded radius, 1 hard-coded effect, 1 contrast fail, 1 tap target, 1 icon-only button, 2 unknown
+Errors:
+- Button (80:11): This frame looks like Button but is not a library instance. Re-insert the instance.
+  component: Button (ACMEUSE, acme-button-set)
+- Pasted status (80:61): This frame looks like Status row but is not a library instance. Re-insert the instance.
+  component: Status row (ACMEUSE, acme-status-row)
+- Hint (80:31): Text contrast is 1.7:1, below 4.5:1 for wcag-aa. Use a darker text colour or a lighter background so the contrast reaches 4.5:1.
+- Button (80:41): This control is 30×30, under the 44×44 tap target for wcag-aa. Resize it to at least 44×44.
+- Icon button (80:51): This icon-only button has no label or description. Add a text label, or a description a screen reader can read.
++9 more. resolve check --all, or verify_frame all:true
+proper-use exit: 7
+```
+
+A hard-coded fill on that frame is a warning, not an error: `Fill #1A73E8 is not bound to a library variable or style. Nearest token is color/primary/600.` Resolve only names a token that exists in the library. Warnings alone leave the line as PASS, with the warning count. A clean Acme frame, **Paid screen**, prints `Components: PASS · Proper use: PASS` and exits 0.
+
+What it looks for:
+
+1. **Detached.** A frame or group that matches a library component by name, or by the same child structure, and is not an instance. High confidence only. The card names the component, its file key and component key, and says to re-insert the instance. A frame named "Buttons", or a "Status row" that already contains the Status row instance, is left alone.
+2. **Hard-coded values.** Fills, strokes, effects, and text that are not bound to a library variable or style. Auto-layout padding, gap, and corner radius that match a spacing or radius variable but are not bound to it. Values inside a component instance are ignored unless that instance overrides them.
+3. **Property misuse.** A value that is not in the allowed list fails the check. Text left as "Button" or "Label" is a warning.
+4. **Accessibility.** Default is WCAG AA: text contrast, a 44×44 tap target, and an icon-only button with no label or description. The requirements can set AAA, A, or AA-minimum (24×24). A check that cannot be computed is **unknown**, with the reason. It is not a failure. A Figma metadata capture that has no `boundVariables` says unknown and does not flag colours.
+
+Exit 0 means the check passed. Exit 1 means a component is missing, retired, or not allowed (unchanged). Exit 7 means that component check passed and proper use still has an error. Warnings do not change the exit code.
+
+On the Acme fixture, all 14 findings on Misused are known defects (precision 1). Paid screen has 0 errors. The same file read as Figma metadata, with no binding fields, does not flag a hard-coded colour.
+
 ## Check that Resolve understands your words
 
 Designers do not ask for "Button Primary". They say "payee picker" or "6 digit OTP box". Resolve can test itself on phrases like that.
@@ -495,7 +532,7 @@ npm run resolve -- verify "Send money"
 npm run resolve -- verify "Send money" --components Button,Gold
 ```
 
-Checks a frame, or a list of component names/ids, after drawing. `pass` is true only when at least one placed piece was checked by its own component id or key and nothing failed. It reports `invents` (not in the library), `deprecated` (retired parts), `unresolved` (with a "did you mean"), bind-rule misses, lorem-ipsum filler, and leftover template text. Matching by layer name alone is labelled `name-only` and is not a pass. With `--components Button,Gold`, "Gold" is reported as an invent because there is no such component. A failed check exits non-zero.
+Checks a frame, or a list of component names/ids, after drawing. `pass` is true only when at least one placed piece was checked by its own component id or key and nothing failed. It reports `invents` (not in the library), `deprecated` (retired parts), `unresolved` (with a "did you mean"), bind-rule misses, lorem-ipsum filler, and leftover template text. Matching by layer name alone is labelled `name-only` and is not a pass. With `--components Button,Gold`, "Gold" is reported as an invent because there is no such component. A failed component check exits 1. A component check that passed, with a proper-use error still on the frame, exits 7. See [Check that a screen uses the library properly](#check-that-a-screen-uses-the-library-properly).
 
 Card size: a check that finds a problem aims for 600 characters (the largest in the repo's test set is 559). A check that passes many components, or a frame with many warnings, can be longer (about 760 characters for five components). That is how it behaved before the code map and it has not changed.
 
@@ -917,9 +954,9 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 ### What the AI receives
 
-MCP tools answer in Markdown. `format` `json` is the same card as one compact JSON line. Both leave out filler: the `cost` block, the rank `score`, a graph id `node:…` sitting next to `figmaNodeId` or `nodeId`, the repeated "Do not Read graph.json" sentence, `learn_library`'s save-state dump, and a handoff parts table that repeats the parts already listed on each component. File writes (`handoff.json` and the screen sheets) stay indented. `ingredients`, `handoff` (terminal text), `parts`, and `status` print that same Markdown. Other commands, and those four with `--json`, print compact JSON; `--pretty` indents it. Exit codes are unchanged.
+MCP tools answer in Markdown. `format` `json` is the same card as one compact JSON line. Both leave out filler: the `cost` block, the rank `score`, a graph id `node:…` sitting next to `figmaNodeId` or `nodeId`, the repeated "Do not Read graph.json" sentence, `learn_library`'s save-state dump, and a handoff parts table that repeats the parts already listed on each component. File writes (`handoff.json` and the screen sheets) stay indented. `ingredients`, `handoff` (terminal text), `parts`, and `status` print that same Markdown. Other commands, and those four with `--json`, print compact JSON; `--pretty` indents it. A proper-use error on a passing component check exits 7. Every other exit code is unchanged.
 
-Every pick, part, and placed copy still carries `fileKey` and `figmaNodeId`. A published master keeps `componentKey`. A real example keeps `ex`. A check starts with PASS, FAIL, NAME-ONLY, or NOTHING CHECKED, and keeps `textChecked`. A retired or deprecated name keeps its replacement. A recipe slot says placed, inside another component, or missing, and an unbound slot keeps the next `recommend` query. Name guesses and other-library parts stay labelled. Audience and a11y are echoed with a source (`document`, `pack <id>`, or `active pack`). A code-map name check keeps the status, the designer sentence, and the exit code.
+Every pick, part, and placed copy still carries `fileKey` and `figmaNodeId`. A published master keeps `componentKey`. A real example keeps `ex`. A check with no proper-use section starts with PASS, FAIL, NAME-ONLY, or NOTHING CHECKED. When proper use ran, the first line states both (`Components: PASS · Proper use: PASS`, or `Components: PASS · Proper use: FAIL (N errors, M warnings)`). It keeps `textChecked`. A retired or deprecated name keeps its replacement. A recipe slot says placed, inside another component, or missing, and an unbound slot keeps the next `recommend` query. Name guesses and other-library parts stay labelled. Audience and a11y are echoed with a source (`document`, `pack <id>`, or `active pack`). A code-map name check keeps the status, the designer sentence, and the exit code.
 
 On the Acme library (file key `ACMEUI`, the Angular example map), `recommend` for "payee picker" is:
 
@@ -932,7 +969,7 @@ code: AcmePayeePickerComponent from '@acme/payments-angular'
 angular: <acme-payee-picker>, standalone
 ```
 
-The same 14 Acme cards (three recommends, three resolves, one example, two verifies, one recipe, the recipe list, cousins, one ingredient card, and the Send money handoff) are 4,518 tokens as today's JSON and 3,337 as Markdown. Tokens are `ceil(characters / 4)`, summed per card. Removing the filler accounts for about half of that drop (the stripped JSON is 3,966). The count is locked in `tests/server.cards.test.ts`.
+The same 14 Acme cards (three recommends, three resolves, one example, two verifies, one recipe, the recipe list, cousins, one ingredient card, and the Send money handoff) are 4,547 tokens as today's JSON and 3,350 as Markdown. Tokens are `ceil(characters / 4)`, summed per card. Removing the filler accounts for about half of that drop (the stripped JSON is 3,995). The count is locked in `tests/server.cards.test.ts`.
 
 ### How Resolve tells the AI about properties
 
@@ -957,6 +994,7 @@ To apply: set Variant=Secondary, Has icon=true
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
+- **Oct 13, 2026 — [PR #57](https://github.com/TANISHQBAFNA/resolve/pull/57).** `verify_frame`, `/check`, and `resolve check` now say when a frame uses the library badly: a detached copy of a component, a hard-coded colour, spacing, radius, or effect, a property value that is not allowed, placeholder text ("Button", "Label"), text contrast, a tap target under the bar, or an icon-only button with no label. The section is on the same card. The first line states both results, and proper-use errors make that line FAIL. Warnings alone stay PASS, with the count. A crowded card keeps every error and points at `resolve check --all` (or `verify_frame` `all: true`). Exit 1 is unchanged. Exit 7 means the component check passed and proper use still has an error. A capture with no `boundVariables` says unknown and does not flag a colour. On the Acme fixture, Misused is 14/14 known defects (precision 1) and Paid screen has 0 errors. The phrase scoreboard is unchanged: 118 phrases (88 expected a part + 30 expected empty), top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0. Held-out top-3 stays 18/19. The fresh Acme set stays top-3 14/14 and empty 7/7. The golden set stays 75 cases. Default tools stay 7. 883 tests.
 - **Oct 12, 2026 — [PR #56](https://github.com/TANISHQBAFNA/resolve/pull/56).** Same 118 phrases. top-1 83/88 (was 66/88), top-3 85/88 (was 68/88), empty-correct 30/30, invented 0, retired 0. One synonym map covers `synonyms.json` and the property-hint words, so a value word such as disabled or danger can rank the component that owns that value. Stemming, component descriptions, and property values count in the match. Teams still add their own words in a context pack. A held-out fifth of the phrases (seed 90) scores top-3 18/19. A fresh Acme set of 21 phrases scores top-3 14/14 and empty 7/7. The golden set stays 75 cases. Default tools stay 7. No scoreboard sentence was added as a synonym. 875 tests.
 - **Oct 12, 2026 — [PR #55](https://github.com/TANISHQBAFNA/resolve/pull/55).** No new feature. Repeated blocks now live in the module that already owns the rule. Cousin check, SOCI, and the scoreboard share one generic-noun set. Recommend and recipe keep their own stopword lists. Duplicate checking in CI fails above 0.75%. The phrase scoreboard is unchanged: 118 phrases (88 expected a part + 30 expected empty), top-1 66/88, top-3 68/88, empty-correct 30/30, invented 0, retired 0. The golden set stays 75 cases. Ranking is unchanged. 868 tests.
 - **Oct 12, 2026 — [PR #54](https://github.com/TANISHQBAFNA/resolve/pull/54).** No new feature. Thirteen deprecated MCP tools are removed. A call names the replacement (see [Removed MCP tools](#removed-mcp-tools)). The default list stays the same seven tools. Same-family, retired, name folding, and id spelling each live in one module. `ingredients`, `handoff`, `parts`, and `status` print the same Markdown card as the MCP. `--json` stays compact. Context packs stay: a team adds its own words and property hints there. The phrase scoreboard is unchanged: 118 phrases (88 expected a part + 30 expected empty), top-1 66/88, top-3 68/88, empty-correct 30/30, invented 0, retired 0. The golden set stays 75 cases. Ranking is unchanged. 868 tests.

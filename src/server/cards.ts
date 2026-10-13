@@ -146,11 +146,30 @@ function codeMapMarkdown(row: { status: string; message: string; exitCode: numbe
   return lines.join("\n");
 }
 
-function verifyHeadline(record: Record<string, unknown>): string | undefined {
+function componentVerdict(record: Record<string, unknown>): string | undefined {
   if (typeof record["pass"] !== "boolean") return undefined;
   if (record["result"] === "name-only") return "NAME-ONLY";
   if (record["result"] === "nothing checked") return "NOTHING CHECKED";
   return record["pass"] ? "PASS" : "FAIL";
+}
+
+function tally(count: number, singular: string): string {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
+}
+
+/** Both results on one line. Proper-use errors fail it. Warnings stay a pass, with the count. */
+function verifyHeadline(record: Record<string, unknown>): string | undefined {
+  const components = componentVerdict(record);
+  if (!components) return undefined;
+  const proper = record["properUse"];
+  if (!isRecord(proper) || typeof proper["errors"] !== "number") return components;
+  const errors = proper["errors"];
+  const warnings = typeof proper["warnings"] === "number" ? proper["warnings"] : 0;
+  if (errors > 0) {
+    return `Components: ${components} · Proper use: FAIL (${tally(errors, "error")}, ${tally(warnings, "warning")})`;
+  }
+  if (warnings > 0) return `Components: ${components} · Proper use: PASS (${tally(warnings, "warning")})`;
+  return `Components: ${components} · Proper use: PASS`;
 }
 
 function skipMarkdownValue(key: string, value: unknown): boolean {
@@ -235,6 +254,30 @@ function oneLine(record: Record<string, unknown>): string {
     .join(" | ");
 }
 
+function properUseLines(value: Record<string, unknown>, indent: string): string[] {
+  const lines = [`${indent}Proper use: ${typeof value["summary"] === "string" ? value["summary"] : ""}`];
+  const findings = Array.isArray(value["findings"]) ? value["findings"] : [];
+  for (const severity of ["error", "warning", "info"] as const) {
+    const rows = findings.filter((row) => isRecord(row) && row["severity"] === severity);
+    if (!rows.length) continue;
+    const heading = severity === "error" ? "Errors" : severity === "warning" ? "Warnings" : "Info";
+    lines.push(`${indent}${heading}:`);
+    for (const row of rows) {
+      if (!isRecord(row)) continue;
+      const id = typeof row["figmaNodeId"] === "string" ? ` (${row["figmaNodeId"]})` : "";
+      lines.push(`${indent}- ${scalar(row["name"])}${id}: ${scalar(row["problem"])} ${scalar(row["fix"])}`);
+      if (typeof row["token"] === "string") lines.push(`${indent}  token: ${row["token"]}`);
+      if (typeof row["component"] === "string") {
+        const where = [row["fileKey"], row["componentKey"]].filter((part) => typeof part === "string").join(", ");
+        lines.push(`${indent}  component: ${row["component"]}${where ? ` (${where})` : ""}`);
+      }
+    }
+  }
+  if (typeof value["truncated"] === "string") lines.push(`${indent}${value["truncated"]}`);
+  if (value["exitCode"] === 7) lines.push(`${indent}proper-use exit: 7`);
+  return lines;
+}
+
 function fitsOneLine(value: unknown): boolean {
   if (!isRecord(value)) return false;
   return Object.entries(value).every(([key, item]) => skipMarkdownValue(key, item) || inline(item) !== undefined);
@@ -274,6 +317,10 @@ function render(value: unknown, indent: string): string[] {
         const allowed = Array.isArray(flag["allowed"]) ? flag["allowed"].map((part) => scalar(part)).join(", ") : "";
         lines.push(`${indent}- ${scalar(flag["property"])} is "${scalar(flag["value"])}", which is not allowed${allowed ? ` (${allowed})` : ""}.`);
       }
+      continue;
+    }
+    if (key === "properUse" && isRecord(item)) {
+      lines.push(...properUseLines(item, indent));
       continue;
     }
     if (key === "propertyNotes" && Array.isArray(item)) {
