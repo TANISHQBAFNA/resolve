@@ -169,8 +169,8 @@ describe("component properties", () => {
     const defs = parseComponentPropertyDefinitions({ "content area#198:0": { type: "SLOT" } }, undefined, "mcp");
     expect(defs).toEqual([{ name: "content area", type: "SLOT", descriptionUnknown: true }]);
     const graph = DesignGraphSchema.parse({
-      fileKey: "COIN",
-      fileName: "COIN",
+      fileKey: "ACMECORE",
+      fileName: "Acme Core",
       builtAt: "2026-01-01T00:00:00.000Z",
       source: { kind: "mock", ingestedAt: "2026-01-01T00:00:00.000Z" },
       warnings: [],

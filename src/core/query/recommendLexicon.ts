@@ -139,7 +139,7 @@ export function tierOf(name: string): "base" | "ingredients" | "recipes" | undef
 /**
  * The literal-name pick, unless a bind-rule prefer ranks the same part from another file
  * (same name once tier prefix, case and punctuation are dropped) strictly higher.
- * "input field" with COIN preferred → `ingredients/input-field`, not CBX `Input Field`.
+ * "input field" with Acme Core preferred → `ingredients/input-field`, not Globex Mobile's `Input Field`.
  */
 export function ruleNamesake(
   picked: GraphNode,
