@@ -146,11 +146,30 @@ function codeMapMarkdown(row: { status: string; message: string; exitCode: numbe
   return lines.join("\n");
 }
 
-function verifyHeadline(record: Record<string, unknown>): string | undefined {
+function componentVerdict(record: Record<string, unknown>): string | undefined {
   if (typeof record["pass"] !== "boolean") return undefined;
   if (record["result"] === "name-only") return "NAME-ONLY";
   if (record["result"] === "nothing checked") return "NOTHING CHECKED";
   return record["pass"] ? "PASS" : "FAIL";
+}
+
+function tally(count: number, singular: string): string {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
+}
+
+/** Both results on one line. Proper-use errors fail it. Warnings stay a pass, with the count. */
+function verifyHeadline(record: Record<string, unknown>): string | undefined {
+  const components = componentVerdict(record);
+  if (!components) return undefined;
+  const proper = record["properUse"];
+  if (!isRecord(proper) || typeof proper["errors"] !== "number") return components;
+  const errors = proper["errors"];
+  const warnings = typeof proper["warnings"] === "number" ? proper["warnings"] : 0;
+  if (errors > 0) {
+    return `Components: ${components} · Proper use: FAIL (${tally(errors, "error")}, ${tally(warnings, "warning")})`;
+  }
+  if (warnings > 0) return `Components: ${components} · Proper use: PASS (${tally(warnings, "warning")})`;
+  return `Components: ${components} · Proper use: PASS`;
 }
 
 function skipMarkdownValue(key: string, value: unknown): boolean {

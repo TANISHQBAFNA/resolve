@@ -108,6 +108,7 @@ export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
         workspace: input.workspace,
         designContext: input.designContext,
       }),
+      { all: input.all === true },
     );
   if (!view) return withUse(card);
   const names = new Set<string>();
@@ -170,6 +171,8 @@ type VerifyInput = {
   designContext?: unknown;
   /** Agent-passed text: `{ nodeId, characters }` list, id→string map, or `{ texts }`. */
   texts?: unknown;
+  /** Every proper-use finding. The card may exceed 600 characters. */
+  all?: boolean;
 };
 function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[], view?: ReturnType<typeof codeMapView>) {
   assertVerifyTextInput(input.designContext, "designContext");

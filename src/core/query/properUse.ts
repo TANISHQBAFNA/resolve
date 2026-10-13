@@ -853,10 +853,22 @@ function shedProperUseHost(host: Record<string, unknown>, step: number): boolean
   }
 }
 
-/** Shrink the proper-use list until the card fits. Highest severity stays. Counts and exit code stay. */
-export function attachProperUse<T extends object>(card: T, report: ProperUseReport | undefined): T & { properUse?: ProperUseReport; cost?: AgentCost } {
+function moreLine(hidden: number): string | undefined {
+  if (hidden <= 0) return undefined;
+  const count = hidden === 1 ? "+1 more" : `+${hidden} more`;
+  return `${count}. resolve check --all, or verify_frame all:true`;
+}
+
+/**
+ * Shrink the proper-use list until the card fits. Every error stays, ahead of `+N more`.
+ * `all` returns the full list. Counts and the exit code stay either way.
+ */
+export function attachProperUse<T extends object>(
+  card: T,
+  report: ProperUseReport | undefined,
+  options: { all?: boolean } = {},
+): T & { properUse?: ProperUseReport; cost?: AgentCost } {
   if (!report) return card;
-  const budget = 600;
   const price = (value: object) => {
     const next = { ...value } as { cost?: unknown };
     delete next.cost;
@@ -865,13 +877,15 @@ export function attachProperUse<T extends object>(card: T, report: ProperUseRepo
   const full = sortFindings(report.findings);
   const host = { ...card } as Record<string, unknown>;
   delete host["cost"];
+  if (options.all) {
+    const properUse: ProperUseReport = { ...report, findings: full };
+    delete properUse.truncated;
+    return price({ ...host, properUse }) as T & { properUse?: ProperUseReport; cost?: AgentCost };
+  }
+  const budget = 600;
   let shown = full;
   let truncated: string | undefined;
   let shed = 0;
-  const markTruncation = () => {
-    const hidden = full.length - shown.length;
-    truncated = hidden === 0 ? undefined : hidden === 1 ? "+1 more" : `+${hidden} more`;
-  };
   const build = () =>
     price({
       ...host,
@@ -883,18 +897,16 @@ export function attachProperUse<T extends object>(card: T, report: ProperUseRepo
     });
   let priced = build();
   while (JSON.stringify(priced).length > budget) {
-    if (shown.some((finding) => finding.severity !== "error")) {
+    const last = shown[shown.length - 1];
+    if (last && last.severity !== "error") {
       shown = shown.slice(0, -1);
-      markTruncation();
+      truncated = moreLine(full.length - shown.length);
     } else if (report.errors > 0 && shed <= 8) {
       shedProperUseHost(host, shed);
       shed += 1;
-    } else if (shown.length) {
-      shown = shown.slice(0, -1);
-      markTruncation();
     } else break;
     priced = build();
   }
-  if (JSON.stringify(priced).length > budget) return report.errors > 0 ? (priced as T & { properUse?: ProperUseReport; cost?: AgentCost }) : card;
+  if (JSON.stringify(priced).length > budget && report.errors === 0) return card;
   return priced as T & { properUse?: ProperUseReport; cost?: AgentCost };
 }

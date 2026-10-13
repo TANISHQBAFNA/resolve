@@ -293,7 +293,7 @@ angular: (selector: acme-payee-picker, standalone: true, importPath: @acme/payme
 `;
 
 exports[`Acme markdown cards > locks the Acme Markdown cards > verify Confirm payment 1`] = `
-"PASS
+"Components: PASS · Proper use: PASS
 approved: 4
 frame: (name: Confirm payment, type: FRAME, figmaNodeId: 20:20, fileKey: ACMEUI)
 builtAt: 2026-01-01T00:00:00.000Z

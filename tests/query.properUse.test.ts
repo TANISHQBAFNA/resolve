@@ -5,7 +5,7 @@ import { buildGraph } from "@/core/transform";
 import { indexGraph, verifyFrame } from "@/core/query";
 import { checkProperUse, verifyExitCode } from "@/core/query/properUse";
 import { presentToolResult } from "@/server/cards";
-import { DEFAULT_TOOL_NAMES } from "@/server/tools";
+import { DEFAULT_TOOL_NAMES, TOOLS } from "@/server/tools";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
 
@@ -142,14 +142,25 @@ describe("Acme proper use", () => {
     expect(misused.properUse?.exitCode).toBe(7);
     expect(misused.properUse?.summary).toMatch(/^2 detached/);
     expect(verifyExitCode(misused)).toBe(7);
-    expect(JSON.stringify(misused).length).toBeLessThanOrEqual(600);
     const shown = misused.properUse?.findings ?? [];
     const ranks = { error: 0, warning: 1, info: 2 };
     for (let i = 1; i < shown.length; i += 1) {
       expect(ranks[shown[i]!.severity]).toBeGreaterThanOrEqual(ranks[shown[i - 1]!.severity]);
     }
     expect(misused.properUse?.errors).toBe(5);
-    if (shown.length && misused.properUse?.truncated) expect(shown[0]?.severity).toBe("error");
+    expect(shown.filter((finding) => finding.severity === "error").map((finding) => finding.figmaNodeId)).toEqual([
+      "80:11",
+      "80:61",
+      "80:31",
+      "80:41",
+      "80:51",
+    ]);
+    expect(misused.properUse?.truncated).toBe("+9 more. resolve check --all, or verify_frame all:true");
+    const markdown = presentToolResult(misused, "markdown", "verify_frame");
+    expect(markdown.startsWith("Components: PASS · Proper use: FAIL (5 errors, 7 warnings)")).toBe(true);
+    const moreAt = markdown.indexOf("+9 more");
+    expect(moreAt).toBeGreaterThan(markdown.indexOf("80:51"));
+    expect(markdown.indexOf("80:51")).toBeGreaterThan(markdown.indexOf("80:11"));
 
     const bad = verifyFrame(index, { frame: "Bad props" });
     expect(bad.pass).toBe(false);
@@ -185,8 +196,29 @@ describe("Acme proper use", () => {
   it("prints a Proper use section on the check card", () => {
     const card = verifyFrame(index, { frame: "Paid screen" });
     const markdown = presentToolResult(card, "markdown", "verify_frame");
+    expect(markdown.startsWith("Components: PASS · Proper use: PASS")).toBe(true);
     expect(markdown).toContain("Proper use: 0 errors");
-    const json = JSON.parse(presentToolResult(card, "json", "verify_frame")) as { properUse?: { summary?: string } };
+    const json = JSON.parse(presentToolResult(card, "json", "verify_frame")) as { pass?: boolean; properUse?: { summary?: string } };
+    expect(json.pass).toBe(true);
     expect(json.properUse?.summary).toBe("0 errors");
+  });
+
+  it("keeps a warnings-only line as PASS and lists every finding when all is set", () => {
+    const noted = presentToolResult(
+      {
+        pass: true,
+        properUse: { errors: 0, warnings: 2, unknown: 0, exitCode: 0, summary: "2 placeholders", level: "wcag-aa", findings: [] },
+      },
+      "markdown",
+      "verify_frame",
+    );
+    expect(noted.startsWith("Components: PASS · Proper use: PASS (2 warnings)")).toBe(true);
+    const schema = TOOLS.find((tool) => tool.name === "verify_frame")?.inputSchema as { properties: Record<string, unknown> };
+    expect(schema.properties).toHaveProperty("all");
+    const full = verifyFrame(index, { frame: "Misused", all: true });
+    expect(full.properUse?.findings).toHaveLength(14);
+    expect(full.properUse?.truncated).toBeUndefined();
+    expect(full.pass).toBe(true);
+    expect(verifyExitCode(full)).toBe(7);
   });
 });

@@ -662,6 +662,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
         placeholders: readPlaceholders(),
         ...(designContext !== undefined ? { designContext } : {}),
         ...(texts !== undefined ? { texts } : {}),
+        ...(args.includes("--all") ? { all: true } : {}),
       });
       recordVerifyUsage(index, verified, {
         frame,

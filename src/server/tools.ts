@@ -265,7 +265,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "verify_frame",
     description:
-      "After drawing, check a frame or a proposed component list against the library graph and bind rules. Pass iff every placement is an in-graph master, not deprecated, and bind require/forbid rules hold. Before verify, fetch the frame's design context so Resolve can read the text — pass it as designContext. texts fills empty layers inside this frame only and cannot replace stored copy or component defaults. textChecked is true only when instance text and the component default were both read; otherwise it is partial, false, or n/a. A component list with no frame is textChecked false. Warnings (not failures) for leftover default text and a fixed height that clearly exceeds the content. Known placeholder strings fail. A bind-rule fail names the rule and returns the required master id + place hint. Optional allow/deny. The card also has a Proper use section: detached frames that match a library component, unbound colours and spacing, property values, contrast, tap size, and icon-only buttons. A check with no boundVariables or styles is unknown, not a failure. Deterministic — no LLM.",
+      "After drawing, check a frame or a proposed component list against the library graph and bind rules. Pass iff every placement is an in-graph master, not deprecated, and bind require/forbid rules hold. Before verify, fetch the frame's design context so Resolve can read the text — pass it as designContext. texts fills empty layers inside this frame only and cannot replace stored copy or component defaults. textChecked is true only when instance text and the component default were both read; otherwise it is partial, false, or n/a. A component list with no frame is textChecked false. Warnings (not failures) for leftover default text and a fixed height that clearly exceeds the content. Known placeholder strings fail. A bind-rule fail names the rule and returns the required master id + place hint. Optional allow/deny. The card also has a Proper use section: detached frames that match a library component, unbound colours and spacing, property values, contrast, tap size, and icon-only buttons. A check with no boundVariables or styles is unknown, not a failure. The first line states both results; proper-use errors fail that line. Pass all: true to list every finding. The default card keeps every error and says how to see the rest. Deterministic — no LLM.",
     inputSchema: {
       type: "object",
       properties: {
@@ -294,6 +294,11 @@ export const TOOLS: ToolDefinition[] = [
         texts: {
           description:
             "Fill empty text layers inside this frame only: { \"1:3\": \"Pay now\" } or [{ nodeId, characters }]. Does not replace stored copy and does not change component defaults. At most 2000 entries, 2000 characters each. Never a layer name.",
+        },
+        all: {
+          type: "boolean",
+          description:
+            "List every proper-use finding. The card may exceed 600 characters. Omit it to keep every error and a line that says how to see the rest.",
         },
         ...freshnessProperties,
       },
@@ -755,6 +760,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           placeholders: readPlaceholders(),
           designContext: args["designContext"],
           texts: args["texts"],
+          ...(args["all"] === true ? { all: true } : {}),
         });
       } catch (error) {
         if (error instanceof TextInputError) throw new ToolError(error.message);
