@@ -15,7 +15,7 @@ import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RE
 import { placeReady } from "./placeReady";
 import { tokensOf } from "./queryTokens";
 import { appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
-import { askGate, asksIcon, contextWords, distinctiveIconName, familyHaystack, genericOnlyMiss, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, matchHaystack, modifierWord, namesThisNode, nameTokenFor, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, synonymIn, tokenHits, tokenMatchesName, weakMatchWhy, wholeNameTypo, withoutGenericCousins, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, genericOnlyMiss, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, matchHaystack, modifierWord, namesThisNode, nameTokenFor, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakMatchWhy, wholeNameTypo, withoutGenericCousins, xMeansClose } from "./recommendLexicon";
 import { type RecommendAlternate, type RecommendCandidate, type RecommendContext, type RecommendHit, refreshHintFor, slotsForComponent, whereUsedRows } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
 import { inflectionStems, overlap, similarUsage } from "./screenInventory";
@@ -122,9 +122,11 @@ export function recommendMasters(
       Boolean(intentNeedle) &&
       (node.name.toLowerCase() === intentNeedle ||
         collapsedName(node.name) === collapsedAsk ||
+        collapsedName(stripTier(node.name)) === collapsedAsk ||
         phraseNamesMatch(intentNeedle, node.name) ||
         phraseNamesMatch(intentNeedle, familyLabel) ||
         phraseFamilyHit(intentNeedle, familyLabel) ||
+        (set !== undefined && collapsedName(stripTier(set.name)) === collapsedAsk) ||
         (Boolean(set) &&
           node.type === "COMPONENT_SET" &&
           (set!.name.toLowerCase() === intentNeedle ||
@@ -264,7 +266,7 @@ export function recommendMasters(
       covered: hits.covered + (extraHits?.covered ?? 0),
       weak:
         !exactName &&
-        !setCoversAsk(intentNeedle, set?.name ?? node.name) &&
+        !setCoversAsk(intentNeedle, stripTier(set?.name ?? node.name)) &&
         hits.specific === 0 &&
         (extraHits?.specific ?? 0) === 0 &&
         (hits.name + hits.synonym + (extraHits?.name ?? 0) + (extraHits?.synonym ?? 0) > 0 ||
@@ -550,6 +552,7 @@ export function recommendMasters(
   if (kept.some((entry) => !demotedPart(entry))) {
     kept = kept.filter((entry) => !demotedPart(entry));
   }
+  kept = dropShadowedBaseTier(kept, askedBase, (entry) => setOf(index, entry.node)?.name ?? entry.node.name);
 
   // A retired part stays mapped and flagged, and is never the pick to place.
   const view = codeMapView(index);

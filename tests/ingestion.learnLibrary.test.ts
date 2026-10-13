@@ -3,6 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { learnLibrary } from "@/server/learn";
+import { statusReport } from "@/server/status";
 import { clearCache, loadGraph, loadLearnCheckpoint, readSock, readWorkspace } from "@/server/store";
 import { placeReady } from "@/core/query/placeReady";
 import {
@@ -558,5 +559,35 @@ describe("learn_library from Figma MCP get_metadata", () => {
     expect(JSON.stringify(index.graph.nodes.map((node) => node.figmaNodeId)).toLowerCase()).not.toContain(
       "mcp-name:",
     );
+  });
+
+  it("replaces a re-learned frame and drops instances that are gone", () => {
+    learnLibrary({
+      fileKey: "APP",
+      role: "product",
+      fileName: "Screens",
+      metadataXml: `<frame id="1:1" name="Details"><instance id="2:1" name="old-field" /><instance id="2:2" name="shell" /></frame>`,
+    });
+    learnLibrary({
+      fileKey: "APP",
+      role: "product",
+      fileName: "Screens",
+      metadataXml: `<frame id="1:1" name="Details"><instance id="2:2" name="shell" /><instance id="2:3" name="ingredients/input-field" /></frame>`,
+    });
+    const names = loadGraph()?.graph.nodes.map((node) => node.name) ?? [];
+    expect(names).not.toContain("old-field");
+    expect(names).toContain("shell");
+    expect(names).toContain("ingredients/input-field");
+  });
+
+  it("status shows the workspace label when the learned file name is Untitled", () => {
+    learnLibrary({
+      fileKey: "LIB",
+      role: "library",
+      fileName: "Untitled",
+      label: "Library",
+      metadataXml: SCREEN_XML,
+    });
+    expect(statusReport().files[0]?.name).toBe("Library");
   });
 });

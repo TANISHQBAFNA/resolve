@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — re-learn, slots, hidden layers, tier names
+
+Oct 13, 2026 IST. Re-learning a page or frame replaces that subtree, so a part that left the file does not stay beside its replacement. A master that left is still marked removed-by-absence. A Figma slot stays a slot: an instance the designer placed in it counts as on the screen for handoff, verify, and SOCK, not as the component's own insides. `hidden="true"` is kept, and a hidden instance is left out of verify, handoff, and SOCK. Finder reads `base/`, `ingredients/`, and `recipes/` as a path prefix, so "input field" is an exact match for `ingredients/input-field` and is not a weak match. `ingredients/` wins over `base/` for the same part unless the ask says `base/`. `resolve status` shows the workspace label. `resolve learn` omits the save-state checkpoint, same as the MCP card. Ranking of an unprefixed name is unchanged.
+
 ## Unreleased — architecture cleanup
 
 No new feature. Thirteen deprecated MCP tools are removed; a call names the replacement. The default MCP list stays seven tools. Same-family, retired, name folding, and id spelling each have one module. CLI `ingredients`, `handoff` (stdout), `parts`, and `status` print the same Markdown card as the MCP. `--json` stays compact. Context packs stay. They are where a team adds its own words and property hints. Ranking is unchanged.

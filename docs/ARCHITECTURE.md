@@ -15,6 +15,9 @@ One module owns each shared rule. Call it. Do not copy it.
 | Card text for people and for slash commands | `src/server/cards.ts` — `presentToolResult`. CLI `ingredients`, `handoff` (stdout), `parts`, and `status` print that Markdown. `--json` stays compact JSON (`--pretty` indents it). |
 | Synonym words and property-hint aliases | `src/data/synonyms.json` and `BUILTIN_PROPERTY_HINTS` in `componentProperties.ts`. `synonymLayer.ts` builds one alias map from those hints (plus a context pack or `property-hints.json` on that ask). Ranking does not keep a second copy. |
 | Proper use on a frame (detached, unbound values, property misuse, contrast, tap size, icon-only) | `src/core/query/properUse.ts` — `checkProperUse`. `verify_frame`, `/check`, and `resolve check` call it. No extra default MCP tool. |
+| Hidden layers and instances placed in a Figma slot | `src/core/query/placed.ts` — `hiddenUnder`, `designerPlacedInstances`. Verify, handoff, and SOCK call these. A hidden instance is left out. An instance in a slot counts as on the screen. |
+| Tier path prefixes (`base/`, `ingredients/`, `recipes/`) | `src/core/query/recommendLexicon.ts` — `stripTier`, `dropShadowedBaseTier`. The finder strips the prefix. `ingredients/` and `recipes/` beat `base/` for the same part unless the ask says `base/`. |
+| Re-learning a page or frame | `src/core/ingestion/learnLibrary.ts` — `replaceResentSubtrees`. The new subtree replaces the old one. A master that left stays so absence can mark it removed. |
 
 `src/core/query/agentSurface.ts` re-exports the recommend, resolve, verify, and orient helpers. The implementations live next to it (`recommendMasters.ts`, `verifyFrame.ts`, `cardCopy.ts`, and the other query modules). Do not grow a file past about 1,000 lines. CI fails the build when `src/**/*.ts` does, except a generated file (`*.generated.ts`, `*.gen.ts`, `*.d.ts`).
 

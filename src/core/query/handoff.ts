@@ -5,6 +5,7 @@ import type { IngredientPart } from "./ingredients";
 import type { FilledRecipe, Recipe } from "./recipes";
 import type { ContextPack } from "./contextPacks";
 import type { SociProposal } from "./sock";
+import { designerPlacedInstances, hiddenUnder } from "./placed";
 import { propertyBlock, type PropertyRow } from "./componentProperties";
 import { nodeFileKey } from "./workspaceMerge";
 
@@ -258,18 +259,15 @@ const familyKey = (index: GraphIndex, n: GraphNode) => setOf(index, n)?.id ?? n.
 
 function pushDirectInstances(index: GraphIndex, parentId: string, out: GraphNode[]): void {
   for (const child of index.getChildren(parentId)) {
+    if (hiddenUnder(index, child, parentId)) continue;
     if (child.type === "COMPONENT_INSTANCE") out.push(child);
     else pushDirectInstances(index, child.id, out);
   }
 }
 
-/** Instances placed on the screen itself (not the parts inside them). A screen that is one copy is its own single placed copy. */
+/** Instances placed on the screen itself, including what the designer put in a slot. Hidden instances are left out. A screen that is one copy is its own single placed copy. */
 function placedCopies(index: GraphIndex, frameId: string): GraphNode[] {
-  const self = index.getNode(frameId);
-  if (self?.type === "COMPONENT_INSTANCE") return [self];
-  const out: GraphNode[] = [];
-  pushDirectInstances(index, frameId, out);
-  return out;
+  return designerPlacedInstances(index, frameId);
 }
 
 /** Copies placed directly on the screen: the placed copies, and for a screen that is one copy, the copies directly inside it too. */
@@ -474,7 +472,9 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
 
   // Gates look at every copy on the screen, including the copies inside placed components.
   // Every copy under the screen: the NESTS links plus a walk of the tree (a screen that is one copy has no NESTS of its own).
-  const nested = [...new Set([...(isCopy(frame) ? [frame] : []), ...index.getNestedInstances(frame.id), ...index.getDescendants(frame.id).filter(isCopy)])];
+  const nested = [...new Set([...(isCopy(frame) ? [frame] : []), ...index.getNestedInstances(frame.id), ...index.getDescendants(frame.id).filter(isCopy)])].filter(
+    (copy) => !hiddenUnder(index, copy, frame.id),
+  );
   const seenRetired = new Set<string>();
   const seenGuess = new Set<string>();
   const seenMissing = new Set<string>();

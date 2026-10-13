@@ -17,6 +17,7 @@ import type { GraphIndex } from "./GraphIndex";
 import { missingNodeSentence, readFigmaLink } from "./learnedLink";
 import { isMasterType, MASTER_TYPES, placeableMasterByName, realMastersNamed, variantCardName } from "./masterNames";
 import { matchesFigmaId, matchesStampedId, resolveNode, resolveNodeExact } from "./nodeLookup";
+import { hiddenUnder } from "./placed";
 import { isPrivateMaster, wholeNameTypo } from "./recommendLexicon";
 import { asMaster, type LibraryRules, type RecommendContext, REFRESH_HINT, ruleMatches } from "./recommendSupport";
 import { codeMapView, replacementOf } from "./replacements";
@@ -309,6 +310,7 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
       }
     } else {
       for (const instance of index.getNestedInstances(frameNode.id)) {
+        if (hiddenUnder(index, instance, frameNode.id)) continue;
         const main = index.getMainComponent(instance.id);
         if (!main) {
           pushUnique(

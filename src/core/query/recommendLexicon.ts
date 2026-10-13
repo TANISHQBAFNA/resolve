@@ -125,11 +125,41 @@ interface TokenHits {
   /** Name or synonym hits that are not a shared word like button, bar, or field. */
   specific: number;
 }
-/** Family name only. `Type=Primary` is a variant layer, not a component name. */
+/** `base/`, `ingredients/` and `recipes/` are tiers, not part of the component name. */
+export function stripTier(name: string): string {
+  return name.replace(/^(?:base|ingredients|recipes)\//i, "");
+}
+
+export function tierOf(name: string): "base" | "ingredients" | "recipes" | undefined {
+  const tier = /^(base|ingredients|recipes)\//i.exec(name.trim())?.[1]?.toLowerCase();
+  if (tier === "base" || tier === "ingredients" || tier === "recipes") return tier;
+  return undefined;
+}
+
+/**
+ * `ingredients/` and `recipes/` beat `base/` for the same part.
+ * An ask that says `base/` keeps the base part.
+ */
+export function dropShadowedBaseTier<T>(rows: T[], askedBase: boolean, nameOf: (row: T) => string): T[] {
+  if (askedBase || rows.length < 2) return rows;
+  const bareKey = (row: T) => collapsedName(stripTier(nameOf(row)));
+  const exposed = new Set(
+    rows
+      .filter((row) => {
+        const tier = tierOf(nameOf(row));
+        return tier === "ingredients" || tier === "recipes";
+      })
+      .map(bareKey),
+  );
+  if (!exposed.size) return rows;
+  return rows.filter((row) => tierOf(nameOf(row)) !== "base" || !exposed.has(bareKey(row)));
+}
+
+/** Family name only. `Type=Primary` is a variant layer, not a component name. A tier prefix is not part of the name. */
 export function familyHaystack(node: GraphNode, set: GraphNode | undefined): string {
-  if (VARIANT_PROP_NAME.test(node.name)) return set?.name ?? "";
-  if (set && set.id !== node.id) return `${set.name} ${node.name}`;
-  return node.name;
+  if (VARIANT_PROP_NAME.test(node.name)) return stripTier(set?.name ?? "");
+  if (set && set.id !== node.id) return `${stripTier(set.name)} ${stripTier(node.name)}`;
+  return stripTier(node.name);
 }
 /** Variant values and property options. Property names (State, Type, Size) are not words. */
 export function variantValueText(node: GraphNode): string {
@@ -169,8 +199,8 @@ export function setCoversAsk(ask: string, setName: string): boolean {
 export function namesThisNode(ask: string, node: GraphNode, index: GraphIndex): boolean {
   const needle = ask.trim().toLowerCase();
   if (!needle) return false;
-  if (node.name.toLowerCase() === needle) return true;
-  if (collapsedName(node.name) === collapsedName(needle)) return true;
+  if (node.name.toLowerCase() === needle || stripTier(node.name).toLowerCase() === needle) return true;
+  if (collapsedName(node.name) === collapsedName(needle) || collapsedName(stripTier(node.name)) === collapsedName(needle)) return true;
   if (phraseNamesMatch(needle, node.name)) return true;
   return variantCardName(index, node).toLowerCase() === needle;
 }

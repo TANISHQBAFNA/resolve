@@ -15,6 +15,7 @@ import {
   type GraphIndex,
   type Recipe,
 } from "@/core/query";
+import { hiddenUnder } from "@/core/query/placed";
 import { loadRecipes, readPlaceholders, readSock, readWorkspace, saveSock } from "./store";
 
 function recipeAlreadyEncodes(pattern: { masterId: string; name: string }, recipes: Recipe[]): boolean {
@@ -70,6 +71,7 @@ export function recordVerifyUsage(
   }
   if (result.frame) {
     for (const instance of index.getNestedInstances(result.frame.id)) {
+      if (hiddenUnder(index, instance, result.frame.id)) continue;
       const main = index.getMainComponent(instance.id);
       if (!main || masters.some((row) => row.id === main.id)) continue;
       masters.push({
