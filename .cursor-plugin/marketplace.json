@@ -1,0 +1,16 @@
+{
+  "name": "resolve",
+  "owner": {
+    "name": "Tanishk"
+  },
+  "metadata": {
+    "description": "Resolve, the Figma component checker for Cursor."
+  },
+  "plugins": [
+    {
+      "name": "resolve",
+      "source": ".",
+      "description": "Asks Resolve before any Figma screen is drawn, and places only real library components."
+    }
+  ]
+}

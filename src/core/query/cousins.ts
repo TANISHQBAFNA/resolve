@@ -1,11 +1,13 @@
-import { COMPONENT_DEFINITION_TYPES, type GraphNode } from "@/core/model";
+import type { GraphNode } from "@/core/model";
+import { sameFamily } from "@/core/rules/family";
+import { isNameInferredMaster, nameTokens as tokensOf, sharedNameTokens } from "@/core/rules/names";
 import {
-  isNameInferredMaster,
   resolveNode,
   resolveNodeExact,
   withCost,
   type RecommendContext,
 } from "./agentSurface";
+import { asMaster } from "./recommendSupport";
 import { missingNodeSentence, readFigmaLink } from "./learnedLink";
 import type { GraphIndex } from "./GraphIndex";
 import {
@@ -23,56 +25,6 @@ import { nodeFileKey } from "./workspaceMerge";
  * the shared DS library. Refuse-over-guess — no invented expected masters.
  */
 
-const MASTER_TYPES = new Set<string>(COMPONENT_DEFINITION_TYPES);
-
-const GENERIC = new Set([
-  "button",
-  "btn",
-  "cta",
-  "input",
-  "field",
-  "card",
-  "row",
-  "icon",
-  "avatar",
-  "banner",
-  "text",
-  "label",
-  "header",
-  "title",
-  "primary",
-  "secondary",
-  "tertiary",
-]);
-
-const tokensOf = (text: string): string[] =>
-  text
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((part) => part.length > 1);
-
-const isMaster = (node: GraphNode): boolean => MASTER_TYPES.has(node.type);
-
-const asMaster = (index: GraphIndex, node: GraphNode): GraphNode | undefined => {
-  if (isMaster(node)) return node;
-  if (node.type === "COMPONENT_INSTANCE") return index.getMainComponent(node.id);
-  return undefined;
-};
-
-function familyKey(node: GraphNode): string {
-  if (node.componentSetId) return `set:${node.componentSetId}`;
-  return `id:${node.id}`;
-}
-
-function sameFamily(a: GraphNode, b: GraphNode): boolean {
-  if (a.id === b.id) return true;
-  if (familyKey(a) === familyKey(b)) return true;
-  if (a.figmaNodeId && a.figmaNodeId === b.figmaNodeId && a.fileKey && a.fileKey === b.fileKey) {
-    return true;
-  }
-  return false;
-}
-
 function stamp(node: GraphNode, fallback?: string) {
   const fileKey = nodeFileKey(node, fallback);
   return {
@@ -86,10 +38,7 @@ function stamp(node: GraphNode, fallback?: string) {
 }
 
 function nameOverlap(a: GraphNode, b: GraphNode, extra: string[] = []): { shared: string[]; specific: string[] } {
-  const left = new Set([...tokensOf(a.name), ...extra]);
-  const right = new Set(tokensOf(`${b.name} ${b.componentSetId ?? ""}`));
-  const shared = [...left].filter((token) => right.has(token));
-  return { shared, specific: shared.filter((token) => !GENERIC.has(token)) };
+  return sharedNameTokens([...tokensOf(a.name), ...extra], tokensOf(`${b.name} ${b.componentSetId ?? ""}`));
 }
 
 function isLibraryMaster(

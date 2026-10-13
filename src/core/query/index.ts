@@ -15,6 +15,7 @@ export * from "./placeReady";
 export * from "./sock";
 export * from "./bindRules";
 export * from "./soci";
+export * from "./sociDecide";
 export * from "./screenJobs";
 export * from "./examples";
 export {
@@ -46,16 +47,18 @@ export { codeMapFromCsv, codeMapTemplate, CSV_COLUMNS, entryKeys, entryLabel, me
 export {
   angularTemplate,
   figmaLink,
-  formatHandoffIndex,
-  formatHandoffIngredients,
-  formatHandoffRefusal,
-  formatHandoffScreen,
   HANDOFF_VERSION,
   inputHints,
-  screenSlug,
   type HandoffComponent,
   type HandoffDecisionInput,
   type HandoffPack,
   type HandoffScreen,
 } from "./handoff";
+export {
+  formatHandoffIndex,
+  formatHandoffIngredients,
+  formatHandoffRefusal,
+  formatHandoffScreen,
+  screenSlug,
+} from "./handoffFormat";
 export { handoffSheet, type HandoffInput } from "./handoffCard";

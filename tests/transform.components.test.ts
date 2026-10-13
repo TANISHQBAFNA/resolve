@@ -110,8 +110,8 @@ describe("design system relationships", () => {
     expect(graph.edges.filter((edge) => edge.type === "PROTOTYPES_TO")).toHaveLength(6);
   });
 
-  it("resolves an in-file documentation link into a LINKS_TO edge", () => {
-    expect(hasEdge("LINKS_TO", ids.card, ids.frameUsageGuide)).toBe(true);
+  it("does not turn a documentation link from another Figma file into an internal edge", () => {
+    expect(hasEdge("LINKS_TO", ids.card, ids.frameUsageGuide)).toBe(false);
   });
 
   it("keeps external URLs on the node instead of inventing a target node", () => {

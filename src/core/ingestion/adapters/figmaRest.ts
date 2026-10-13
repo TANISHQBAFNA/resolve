@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseFigmaFileKey } from "../figmaFileKey";
 import type {
   SourceDocument,
   SourceLink,
@@ -10,6 +11,8 @@ import type {
   SourceLibrary,
   SourceKind,
 } from "../types";
+import { componentNameIndex, eachEqualsPart, parseComponentPropertyDefinitions, type ComponentNameIndex } from "../componentProperties";
+import { captureRestPaint } from "../restPaint";
 
 /**
  * Figma REST -> SourceDocument.
@@ -75,13 +78,9 @@ const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 export function parseVariantName(name: string): Record<string, string> | undefined {
   if (!name.includes("=")) return undefined;
   const props: Record<string, string> = {};
-  for (const part of name.split(",")) {
-    const idx = part.indexOf("=");
-    if (idx <= 0) continue;
-    const key = part.slice(0, idx).trim();
-    const value = part.slice(idx + 1).trim();
+  eachEqualsPart(name, (key, value) => {
     if (key) props[key] = value;
-  }
+  });
   return Object.keys(props).length ? props : undefined;
 }
 
@@ -116,6 +115,17 @@ function collectStyleIds(raw: AnyRecord): Record<string, string> | undefined {
     }
     const id = asString(value);
     if (id) out[slot] = id;
+  }
+  const legacy: Array<[string, string]> = [
+    ["fill", "fillStyleId"],
+    ["fill", "backgroundStyleId"],
+    ["stroke", "strokeStyleId"],
+    ["effect", "effectStyleId"],
+    ["text", "textStyleId"],
+  ];
+  for (const [slot, key] of legacy) {
+    const id = asString(raw[key]);
+    if (id && !out[slot]) out[slot] = id;
   }
   return Object.keys(out).length ? out : undefined;
 }
@@ -164,29 +174,43 @@ function collectTransitions(raw: AnyRecord): SourceNode["transitions"] {
 
 const FIGMA_NODE_ID_IN_URL = /node-id=([0-9]+[-:][0-9]+)/i;
 
-function normaliseLink(url: string, label?: string): SourceLink {
+function linkedFileKey(url: string): string | undefined {
+  if (!/figma\.com\//i.test(url)) return undefined;
+  try {
+    return parseFigmaFileKey(url);
+  } catch {
+    return undefined;
+  }
+}
+
+/** A node id is internal only when the URL names this file, or names no file at all. */
+function normaliseLink(url: string, ingestedFileKey: string, label?: string): SourceLink {
   const match = FIGMA_NODE_ID_IN_URL.exec(url);
   const link: SourceLink = { url };
   if (label) link.label = label;
-  if (match?.[1]) link.targetFigmaNodeId = match[1].replace("-", ":");
+  const fileKey = linkedFileKey(url);
+  if (fileKey) link.targetFileKey = fileKey;
+  if (match?.[1] && (!fileKey || fileKey === ingestedFileKey)) {
+    link.targetFigmaNodeId = match[1].replace("-", ":");
+  }
   return link;
 }
 
-function collectLinks(raw: AnyRecord): SourceLink[] | undefined {
+function collectLinks(raw: AnyRecord, ingestedFileKey: string): SourceLink[] | undefined {
   const links: SourceLink[] = [];
 
   const nodeHyperlink = asRecord(asRecord(raw["style"])["hyperlink"]);
   const nodeUrl = asString(nodeHyperlink["url"]);
-  if (nodeUrl) links.push(normaliseLink(nodeUrl));
+  if (nodeUrl) links.push(normaliseLink(nodeUrl, ingestedFileKey));
 
   for (const override of Object.values(asRecord(raw["styleOverrideTable"]))) {
     const url = asString(asRecord(asRecord(override)["hyperlink"])["url"]);
-    if (url) links.push(normaliseLink(url));
+    if (url) links.push(normaliseLink(url, ingestedFileKey));
   }
 
   for (const entry of asArray(raw["documentationLinks"])) {
     const url = asString(asRecord(entry)["uri"]) ?? asString(asRecord(entry)["url"]);
-    if (url) links.push(normaliseLink(url, "Documentation"));
+    if (url) links.push(normaliseLink(url, ingestedFileKey, "Documentation"));
   }
 
   const deduped = new Map(links.map((l) => [l.url, l]));
@@ -225,6 +249,8 @@ function collectAnnotations(raw: AnyRecord): SourceNode["annotations"] {
 
 interface WalkOptions {
   maxDepth: number;
+  fileKey: string;
+  names: ComponentNameIndex;
   onTruncate: () => void;
 }
 
@@ -258,6 +284,11 @@ function walkNode(
 
   const componentProperties = asRecord(raw["componentProperties"]);
   if (Object.keys(componentProperties).length) node.componentProperties = componentProperties;
+
+  if ((type === "COMPONENT_SET" || type === "COMPONENT") && raw["componentPropertyDefinitions"]) {
+    const parsed = parseComponentPropertyDefinitions(raw["componentPropertyDefinitions"], options.names, "rest");
+    if (parsed) node.propertyDefinitions = parsed;
+  }
 
   const overrides = asArray(raw["overrides"])
     .map((item) => {
@@ -311,11 +342,14 @@ function walkNode(
   const transitions = collectTransitions(raw);
   if (transitions) node.transitions = transitions;
 
-  const links = collectLinks(raw);
+  const links = collectLinks(raw, options.fileKey);
   if (links) node.links = links;
 
   const annotations = collectAnnotations(raw);
   if (annotations) node.annotations = annotations;
+
+  const paint = captureRestPaint(raw);
+  if (paint) node.paint = paint;
 
   const rawChildren = asArray(raw["children"]);
   if (rawChildren.length) {
@@ -331,7 +365,7 @@ function walkNode(
   return node;
 }
 
-function mapComponentMeta(id: string, raw: unknown): SourceComponentMeta {
+function mapComponentMeta(id: string, raw: unknown, fileKey: string): SourceComponentMeta {
   const r = asRecord(raw);
   const meta: SourceComponentMeta = { id, name: asString(r["name"]) ?? "(unnamed component)" };
   const key = asString(r["key"]);
@@ -345,7 +379,7 @@ function mapComponentMeta(id: string, raw: unknown): SourceComponentMeta {
   const links = asArray(r["documentationLinks"])
     .map((entry) => asString(asRecord(entry)["uri"]) ?? asString(asRecord(entry)["url"]))
     .filter((url): url is string => Boolean(url))
-    .map((url) => normaliseLink(url, "Documentation"));
+    .map((url) => normaliseLink(url, fileKey, "Documentation"));
   if (links.length) meta.documentationLinks = links;
   return meta;
 }
@@ -424,6 +458,8 @@ export function adaptFigmaRestFile(
   let truncated = false;
   const root = walkNode(asRecord(file.document), undefined, 0, {
     maxDepth,
+    fileKey: input.fileKey,
+    names: componentNameIndex(file.components, file.componentSets),
     onTruncate: () => {
       truncated = true;
     },
@@ -431,11 +467,11 @@ export function adaptFigmaRestFile(
 
   const components: Record<string, SourceComponentMeta> = {};
   for (const [id, raw] of Object.entries(file.components ?? {})) {
-    components[id] = mapComponentMeta(id, raw);
+    components[id] = mapComponentMeta(id, raw, input.fileKey);
   }
   const componentSets: Record<string, SourceComponentMeta> = {};
   for (const [id, raw] of Object.entries(file.componentSets ?? {})) {
-    componentSets[id] = mapComponentMeta(id, raw);
+    componentSets[id] = mapComponentMeta(id, raw, input.fileKey);
   }
   const styles: Record<string, SourceStyle> = {};
   for (const [id, raw] of Object.entries(file.styles ?? {})) {

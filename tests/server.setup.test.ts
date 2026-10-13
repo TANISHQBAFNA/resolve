@@ -295,6 +295,32 @@ describe("resolve-setup", () => {
       expect(readFileSync(join(cwd, ".cursor/mcp.json"), "utf8")).toBe(before);
     });
 
+    it("does not store MCP credentials in the setup record, and ignores that file", () => {
+      const cwd = project("mcp-secret");
+      mkdirSync(join(cwd, ".cursor"), { recursive: true });
+      const secret = "figd_secret_token_value";
+      writeFileSync(
+        join(cwd, ".cursor/mcp.json"),
+        JSON.stringify({
+          mcpServers: { figma: { url: "https://mcp.figma.com/mcp", headers: { Authorization: `Bearer ${secret}` } } },
+        }),
+      );
+      const result = setup([], cwd, home());
+      expect(result.status).toBe(0);
+      const recordPath = join(cwd, ".resolve/setup-record.json");
+      const record = readFileSync(recordPath, "utf8");
+      expect(record).not.toContain(secret);
+      expect(record).not.toContain("Authorization");
+      expect(readFileSync(join(cwd, ".gitignore"), "utf8")).toContain(".resolve/setup-record.json");
+      const uninstalled = setup(["--uninstall"], cwd, home());
+      expect(uninstalled.status).toBe(0);
+      const left = JSON.parse(readFileSync(join(cwd, ".cursor/mcp.json"), "utf8")) as {
+        mcpServers: Record<string, { headers?: { Authorization?: string } }>;
+      };
+      expect(left.mcpServers["resolve"]).toBeUndefined();
+      expect(left.mcpServers["figma"]?.headers?.Authorization).toBe(`Bearer ${secret}`);
+    });
+
     it("keeps other servers and other keys when adding to an existing file", () => {
       const cwd = project("mcp-merge");
       mkdirSync(join(cwd, ".cursor"), { recursive: true });

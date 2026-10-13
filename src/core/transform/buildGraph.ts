@@ -6,6 +6,7 @@ import {
   nodeId as makeNodeId,
   styleId as makeStyleId,
   variableId as makeVariableId,
+  GRAPH_SCHEMA_VERSION,
   type DesignGraph,
   type EdgeType,
   type GraphEdge,
@@ -26,6 +27,7 @@ import type {
 import { classifySourceNode, styleKindFromSlot } from "./classify";
 import { figmaFileUrl, figmaNodeUrl } from "./figmaUrl";
 import { settleInstanceBindings } from "@/core/ingestion/designContextIds";
+import { variantPropertiesFromNames } from "@/core/ingestion/componentProperties";
 
 export interface BuildGraphOptions {
   /** See `ClassifyOptions.classifyAutoLayout`. */
@@ -262,6 +264,8 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
       if (source.variantProperties) node.variantProperties = source.variantProperties;
     }
 
+    if (source.propertyDefinitions?.length) node.propertyDefinitions = source.propertyDefinitions;
+
     const metadata: Record<string, unknown> = { figmaType: source.type };
     if (source.layoutMode) metadata["layoutMode"] = source.layoutMode;
     if (source.characters) metadata["text"] = source.characters;
@@ -277,6 +281,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
     if (source.componentProperties) metadata["componentProperties"] = source.componentProperties;
     if (source.overrides?.length) metadata["overrides"] = source.overrides;
     if (source.annotations?.length) metadata["annotations"] = source.annotations;
+    if (source.paint) metadata["paint"] = source.paint;
     node.metadata = metadata;
 
     const added = builder.addNode(node);
@@ -639,7 +644,9 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
   for (const { sourceGraphId, link } of pendingLinks) {
     const node = builder.nodes.get(sourceGraphId);
     if (!node) continue;
-    const targetGraphId = link.targetFigmaNodeId ? makeNodeId(link.targetFigmaNodeId) : undefined;
+    const otherFile = Boolean(link.targetFileKey && link.targetFileKey !== doc.fileKey);
+    const targetGraphId =
+      !otherFile && link.targetFigmaNodeId ? makeNodeId(link.targetFigmaNodeId) : undefined;
     if (targetGraphId && builder.nodes.has(targetGraphId)) {
       builder.addEdge("LINKS_TO", sourceGraphId, targetGraphId, link.label ?? "links to", {
         url: link.url,
@@ -651,7 +658,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
       ? (node.metadata!["externalLinks"] as SourceLink[])
       : [];
     node.metadata = { ...node.metadata, externalLinks: [...existing, link] };
-    if (link.targetFigmaNodeId) {
+    if (link.targetFigmaNodeId && !otherFile) {
       builder.warn({
         code: "UNRESOLVED_LINK_TARGET",
         message: `Link from "${node.name}" points at ${link.targetFigmaNodeId}, which is not in this payload.`,
@@ -687,9 +694,21 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
     if (!node.fileKey) node.fileKey = doc.fileKey;
   }
 
+  if (doc.source.kind === "figma-mcp") {
+    for (const node of builder.nodes.values()) {
+      if (node.type !== "COMPONENT_SET" || node.propertyDefinitions?.length) continue;
+      const names = [...builder.nodes.values()]
+        .filter((child) => child.parentId === node.id && child.type === "VARIANT")
+        .map((child) => child.name);
+      const defs = variantPropertiesFromNames(names);
+      if (defs.length) node.propertyDefinitions = defs;
+    }
+  }
+
   return settleInstanceBindings({
     fileKey: doc.fileKey,
     fileName: doc.fileName,
+    schemaVersion: GRAPH_SCHEMA_VERSION,
     builtAt: options.builtAt ?? new Date().toISOString(),
     source: {
       kind: doc.source.kind,

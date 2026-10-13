@@ -150,11 +150,17 @@ describe("Acme markdown cards", () => {
     // Tokens are ceil(chars/4), the same count as cost.approxTokens, summed per card.
     // Before is today's JSON.stringify. Filler is that JSON with cost, score, duplicate
     // node: ids, the graph.json hint, and the repeated parts list removed. After is Markdown.
-    expect({ before, filler, after, cards: set.length }).toEqual({ before: 4434, filler: 3876, after: 3269, cards: 14 });
+    expect({ before, filler, after, cards: set.length }).toEqual({ before: 4547, filler: 3995, after: 3350, cards: 14 });
     const removed = before - after;
     const fromFiller = before - filler;
     expect(fromFiller).toBeGreaterThan(removed * 0.35);
     expect(fromFiller).toBeLessThan(removed * 0.65);
+  });
+
+  it("locks the Acme Markdown cards", () => {
+    for (const card of set) {
+      expect(presentToolResult(card.value, "markdown", card.tool)).toMatchSnapshot(card.name);
+    }
   });
 
   it("keeps every required id on each Markdown card", () => {
@@ -193,7 +199,7 @@ describe("Acme markdown cards", () => {
     const send = presentToolResult(verifyFrame(original, { frame: "Send money" }), "markdown", "verify_frame");
     const confirm = presentToolResult(verifyFrame(fixed, { frame: "Confirm payment" }), "markdown", "verify_frame");
     expect(send.startsWith("FAIL")).toBe(true);
-    expect(confirm.startsWith("PASS")).toBe(true);
+    expect(confirm.startsWith("Components: PASS · Proper use: PASS")).toBe(true);
     expect(send).toMatch(/textChecked: /);
     expect(confirm).toMatch(/textChecked: /);
   });
@@ -274,9 +280,9 @@ describe("Acme markdown cards", () => {
   });
 
   it("advertises format on every tool and adds no tool", () => {
-    expect(TOOLS).toHaveLength(27);
+    expect(TOOLS).toHaveLength(14);
     expect(listToolDefinitions(false)).toHaveLength(7);
-    expect(listToolDefinitions(true)).toHaveLength(27);
+    expect(listToolDefinitions(true)).toHaveLength(14);
     for (const tool of listToolDefinitions(true)) {
       const properties = (tool.inputSchema["properties"] ?? {}) as Record<string, { enum?: string[] }>;
       expect(properties["format"]?.enum, tool.name).toEqual(["markdown", "json"]);

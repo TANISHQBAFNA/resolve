@@ -42,7 +42,15 @@
     { "term": "number", "reason": "Number is the kind of value in a text field." },
     { "term": "country", "reason": "Country is a qualifier on a phone field." },
     { "term": "edit", "reason": "Edit is the action on a button." },
-    { "term": "save", "reason": "Save is the action on a button." }
+    { "term": "save", "reason": "Save is the action on a button." },
+    { "term": "control", "reason": "A control is the thing you operate, as in a quantity control." },
+    { "term": "display", "reason": "A display is the readout of a value." },
+    { "term": "menu", "reason": "A menu is the list a nav entry sits in." },
+    { "term": "entry", "reason": "An entry is one item in a menu, or the box you type into." },
+    { "term": "overlay", "reason": "An overlay is the layer a dialog sits on." },
+    { "term": "line", "reason": "A line is the stroke of a separator." },
+    { "term": "thumbnail", "reason": "A thumbnail is a small preview of a photo." },
+    { "term": "fade", "reason": "A fade is a transient motion on a notice." }
   ],
   "trailing": [
     {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { adaptFigmaRestFile, parseVariantName } from "@/core/ingestion";
+import { buildGraph } from "@/core/transform";
 import { sourceDocument } from "./fixture";
 
 const findNode = (id: string) => {
@@ -98,10 +99,52 @@ describe("figma REST adapter", () => {
     expect(findNode("10:20")?.layoutMode).toBeUndefined();
   });
 
+  it("links a node only when the figma URL names this file", () => {
+    const ingested = "THISFILEKEY0001";
+    const doc = adaptFigmaRestFile({
+      fileKey: ingested,
+      kind: "mock",
+      ingestedAt: "2026-01-01T00:00:00.000Z",
+      file: {
+        name: "A",
+        document: {
+          id: "0:0",
+          type: "DOCUMENT",
+          children: [
+            {
+              id: "1:1",
+              name: "Screen",
+              type: "FRAME",
+              documentationLinks: [{ uri: `https://www.figma.com/design/${ingested}/A?node-id=1-9` }],
+            },
+            { id: "1:9", name: "Guide", type: "FRAME" },
+            {
+              id: "1:2",
+              name: "Elsewhere",
+              type: "FRAME",
+              documentationLinks: [{ uri: "https://www.figma.com/design/OTHERFILEKEY0001/Other?node-id=1-9" }],
+            },
+          ],
+        },
+      },
+    });
+    const same = doc.root.children?.[0]?.links?.[0];
+    const other = doc.root.children?.[2]?.links?.[0];
+    expect(same?.targetFigmaNodeId).toBe("1:9");
+    expect(same?.targetFileKey).toBe(ingested);
+    expect(other?.targetFigmaNodeId).toBeUndefined();
+    expect(other?.targetFileKey).toBe("OTHERFILEKEY0001");
+    const built = buildGraph(doc, { builtAt: "2026-01-01T00:00:00.000Z" });
+    const links = built.edges.filter((edge) => edge.type === "LINKS_TO");
+    expect(links).toHaveLength(1);
+    expect(links[0]?.source).toBe("node:1:1");
+    expect(links[0]?.target).toBe("node:1:9");
+  });
+
   it("resolves figma links to node ids and keeps external links raw", () => {
-    expect(sourceDocument.components["30:30"]?.documentationLinks?.[0]?.targetFigmaNodeId).toBe(
-      "30:70",
-    );
+    const docLink = sourceDocument.components["30:30"]?.documentationLinks?.[0];
+    expect(docLink?.targetFileKey).toBe("DemoPay0000DemoFileKey");
+    expect(docLink?.targetFigmaNodeId).toBeUndefined();
     expect(findNode("10:26")?.links?.[0]).toEqual({
       url: "https://demo.example.com/legal/terms",
     });

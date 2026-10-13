@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { ComponentPropertySchema, type ComponentProperty } from "@/core/model/componentProperties";
+import { BoundsSchema } from "@/core/model/graph";
 
 /**
  * The ingestion contract.
@@ -12,12 +14,7 @@ import { z } from "zod";
  * the tree into nodes + edges is the job of `core/transform`.
  */
 
-export const SourceBoundsSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-  width: z.number(),
-  height: z.number(),
-});
+export const SourceBoundsSchema = BoundsSchema;
 
 export const SourceTransitionSchema = z.object({
   destinationId: z.string(),
@@ -35,6 +32,8 @@ export const SourceLinkSchema = z.object({
   label: z.string().optional(),
   /** Populated when the link points at a node inside this file. */
   targetFigmaNodeId: z.string().optional(),
+  /** File key parsed from a figma.com URL. An internal edge needs this to match the ingested file. */
+  targetFileKey: z.string().optional(),
 });
 export type SourceLink = z.infer<typeof SourceLinkSchema>;
 
@@ -44,6 +43,30 @@ export const SourceAnnotationSchema = z.object({
   properties: z.record(z.string()).optional(),
 });
 export type SourceAnnotation = z.infer<typeof SourceAnnotationSchema>;
+
+const SolidPaintSchema = z.object({
+  hex: z.string(),
+  bound: z.boolean(),
+  opacity: z.number().optional(),
+});
+
+/** Colours, spacing, and radius copied off a REST node so a later check can see bindings. */
+export const SourcePaintSchema = z.object({
+  fills: z.array(SolidPaintSchema).optional(),
+  strokes: z.array(SolidPaintSchema).optional(),
+  effectUnbound: z.literal(true).optional(),
+  textHex: z.string().optional(),
+  textBound: z.boolean().optional(),
+  fontSize: z.number().optional(),
+  fontWeight: z.number().optional(),
+  padding: z.array(z.number()).max(4).optional(),
+  paddingBound: z.array(z.boolean()).max(4).optional(),
+  gap: z.number().optional(),
+  gapBound: z.boolean().optional(),
+  radius: z.number().optional(),
+  radiusBound: z.boolean().optional(),
+});
+export type SourcePaint = z.infer<typeof SourcePaintSchema>;
 
 /**
  * The raw Figma node `type` string, kept as a plain string on purpose: Figma
@@ -65,6 +88,7 @@ export const SourceNodeSchema: z.ZodType<SourceNode> = z.lazy(() =>
     componentSetId: z.string().optional(),
     variantProperties: z.record(z.string()).optional(),
     componentProperties: z.record(z.unknown()).optional(),
+    propertyDefinitions: z.array(ComponentPropertySchema).optional(),
     overrides: z
       .array(
         z.object({
@@ -95,6 +119,7 @@ export const SourceNodeSchema: z.ZodType<SourceNode> = z.lazy(() =>
     transitions: z.array(SourceTransitionSchema).optional(),
     links: z.array(SourceLinkSchema).optional(),
     annotations: z.array(SourceAnnotationSchema).optional(),
+    paint: SourcePaintSchema.optional(),
 
     /** Anything a source wants to keep without inventing a first-class field. */
     raw: z.record(z.unknown()).optional(),
@@ -112,6 +137,7 @@ export interface SourceNode {
   componentSetId?: string;
   variantProperties?: Record<string, string>;
   componentProperties?: Record<string, unknown>;
+  propertyDefinitions?: ComponentProperty[];
   overrides?: Array<{ id?: string; overriddenFields?: string[] }>;
   bounds?: z.infer<typeof SourceBoundsSchema>;
   layoutMode?: string;
@@ -128,6 +154,7 @@ export interface SourceNode {
   transitions?: SourceTransition[];
   links?: SourceLink[];
   annotations?: SourceAnnotation[];
+  paint?: SourcePaint;
   raw?: Record<string, unknown>;
 }
 

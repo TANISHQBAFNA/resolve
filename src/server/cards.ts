@@ -2,9 +2,14 @@ import {
   formatHandoffRefusal,
   formatHandoffScreen,
   formatIngredientCard,
+  formatIngredientCoverage,
   type HandoffPack,
   type IngredientCard,
+  type IngredientCoverage,
 } from "@/core/query";
+import { formatPropertyLines, type PropertyRow } from "@/core/query/componentProperties";
+import { isRecord } from "./isRecord";
+import { formatStatus, type StatusReport } from "./status";
 
 /**
  * What an MCP tool shows the model.
@@ -19,10 +24,6 @@ const GRAPH_HINT = / ?Do not Read (?:`\.resolve\/graph\.json`|graph\.json)\.?/g;
 
 export function cardTokens(text: string): number {
   return Math.ceil(text.length / 4);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function stripHintSentence(text: string): string {
@@ -80,6 +81,16 @@ function isIngredient(value: unknown): value is IngredientCard {
   return isRecord(value["component"]) && Array.isArray(value["parts"]) && typeof value["note"] === "string";
 }
 
+function isIngredientCoverage(value: unknown): value is IngredientCoverage {
+  if (!isRecord(value)) return false;
+  return typeof value["composites"] === "number" && typeof value["components"] === "number" && typeof value["linkedToCode"] === "number";
+}
+
+function isStatusReport(value: unknown): value is StatusReport {
+  if (!isRecord(value)) return false;
+  return typeof value["store"] === "string" && Array.isArray(value["files"]) && typeof value["next"] === "string" && (value["token"] === "set" || value["token"] === "missing");
+}
+
 function isCodeMapCheck(value: unknown): value is { status: string; message: string; exitCode: number; query?: string; use?: string } {
   if (!isRecord(value)) return false;
   return typeof value["status"] === "string" && typeof value["message"] === "string" && typeof value["exitCode"] === "number" && typeof value["query"] === "string";
@@ -135,11 +146,30 @@ function codeMapMarkdown(row: { status: string; message: string; exitCode: numbe
   return lines.join("\n");
 }
 
-function verifyHeadline(record: Record<string, unknown>): string | undefined {
+function componentVerdict(record: Record<string, unknown>): string | undefined {
   if (typeof record["pass"] !== "boolean") return undefined;
   if (record["result"] === "name-only") return "NAME-ONLY";
   if (record["result"] === "nothing checked") return "NOTHING CHECKED";
   return record["pass"] ? "PASS" : "FAIL";
+}
+
+function tally(count: number, singular: string): string {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
+}
+
+/** Both results on one line. Proper-use errors fail it. Warnings stay a pass, with the count. */
+function verifyHeadline(record: Record<string, unknown>): string | undefined {
+  const components = componentVerdict(record);
+  if (!components) return undefined;
+  const proper = record["properUse"];
+  if (!isRecord(proper) || typeof proper["errors"] !== "number") return components;
+  const errors = proper["errors"];
+  const warnings = typeof proper["warnings"] === "number" ? proper["warnings"] : 0;
+  if (errors > 0) {
+    return `Components: ${components} · Proper use: FAIL (${tally(errors, "error")}, ${tally(warnings, "warning")})`;
+  }
+  if (warnings > 0) return `Components: ${components} · Proper use: PASS (${tally(warnings, "warning")})`;
+  return `Components: ${components} · Proper use: PASS`;
 }
 
 function skipMarkdownValue(key: string, value: unknown): boolean {
@@ -154,6 +184,10 @@ function scalar(value: unknown): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   return JSON.stringify(value);
+}
+
+function isPropertyRows(value: unknown): value is PropertyRow[] {
+  return Array.isArray(value) && value.every((item) => isRecord(item) && typeof item["property"] === "string" && typeof item["type"] === "string");
 }
 
 function isScalar(value: unknown): boolean {
@@ -220,6 +254,30 @@ function oneLine(record: Record<string, unknown>): string {
     .join(" | ");
 }
 
+function properUseLines(value: Record<string, unknown>, indent: string): string[] {
+  const lines = [`${indent}Proper use: ${typeof value["summary"] === "string" ? value["summary"] : ""}`];
+  const findings = Array.isArray(value["findings"]) ? value["findings"] : [];
+  for (const severity of ["error", "warning", "info"] as const) {
+    const rows = findings.filter((row) => isRecord(row) && row["severity"] === severity);
+    if (!rows.length) continue;
+    const heading = severity === "error" ? "Errors" : severity === "warning" ? "Warnings" : "Info";
+    lines.push(`${indent}${heading}:`);
+    for (const row of rows) {
+      if (!isRecord(row)) continue;
+      const id = typeof row["figmaNodeId"] === "string" ? ` (${row["figmaNodeId"]})` : "";
+      lines.push(`${indent}- ${scalar(row["name"])}${id}: ${scalar(row["problem"])} ${scalar(row["fix"])}`);
+      if (typeof row["token"] === "string") lines.push(`${indent}  token: ${row["token"]}`);
+      if (typeof row["component"] === "string") {
+        const where = [row["fileKey"], row["componentKey"]].filter((part) => typeof part === "string").join(", ");
+        lines.push(`${indent}  component: ${row["component"]}${where ? ` (${where})` : ""}`);
+      }
+    }
+  }
+  if (typeof value["truncated"] === "string") lines.push(`${indent}${value["truncated"]}`);
+  if (value["exitCode"] === 7) lines.push(`${indent}proper-use exit: 7`);
+  return lines;
+}
+
 function fitsOneLine(value: unknown): boolean {
   if (!isRecord(value)) return false;
   return Object.entries(value).every(([key, item]) => skipMarkdownValue(key, item) || inline(item) !== undefined);
@@ -244,6 +302,35 @@ function render(value: unknown, indent: string): string[] {
   const lines: string[] = [];
   for (const [key, item] of Object.entries(folded)) {
     if (skipMarkdownValue(key, item)) continue;
+    if (key === "properties" && isPropertyRows(item)) {
+      lines.push(`${indent}Properties:`);
+      for (const line of formatPropertyLines(item)) lines.push(`${indent}${line}`);
+      continue;
+    }
+    if (key === "apply" && typeof item === "string") {
+      lines.push(`${indent}${item}`);
+      continue;
+    }
+    if (key === "propertyFlags" && Array.isArray(item)) {
+      for (const flag of item) {
+        if (!isRecord(flag)) continue;
+        const allowed = Array.isArray(flag["allowed"]) ? flag["allowed"].map((part) => scalar(part)).join(", ") : "";
+        lines.push(`${indent}- ${scalar(flag["property"])} is "${scalar(flag["value"])}", which is not allowed${allowed ? ` (${allowed})` : ""}.`);
+      }
+      continue;
+    }
+    if (key === "properUse" && isRecord(item)) {
+      lines.push(...properUseLines(item, indent));
+      continue;
+    }
+    if (key === "propertyNotes" && Array.isArray(item)) {
+      for (const note of item) {
+        if (!isRecord(note)) continue;
+        const text = typeof note["note"] === "string" ? note["note"] : scalar(note["note"]);
+        if (text) lines.push(`${indent}- ${text}`);
+      }
+      continue;
+    }
     const text = inline(item);
     if (text !== undefined) lines.push(`${indent}${key}: ${isShallow(item) ? `(${text})` : text}`);
     else if (Array.isArray(item) || isRecord(item)) {
@@ -276,6 +363,8 @@ export function markdownCard(result: unknown, tool?: string): string {
     const text = formatIngredientCard(result as IngredientCard).replace(GRAPH_HINT, "").trim();
     return withRequiredIds(text, result);
   }
+  if (isIngredientCoverage(result)) return formatIngredientCoverage(result);
+  if (isStatusReport(result)) return formatStatus(result);
   if (isCodeMapCheck(result)) return codeMapMarkdown(result);
   return genericMarkdown(result);
 }

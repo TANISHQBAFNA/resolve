@@ -1,0 +1,1011 @@
+{
+  "file": {
+    "name": "Acme Proper Use",
+    "lastModified": "2026-10-13T00:00:00Z",
+    "document": {
+      "id": "0:0",
+      "name": "Document",
+      "type": "DOCUMENT",
+      "children": [
+        {
+          "id": "30:1",
+          "name": "Library",
+          "type": "CANVAS",
+          "children": [
+            {
+              "id": "30:10",
+              "name": "Button",
+              "type": "COMPONENT_SET",
+              "absoluteBoundingBox": {
+                "x": 0,
+                "y": 0,
+                "width": 200,
+                "height": 120
+              },
+              "componentPropertyDefinitions": {
+                "Variant#1:1": {
+                  "type": "VARIANT",
+                  "defaultValue": "Primary",
+                  "variantOptions": [
+                    "Primary",
+                    "Secondary"
+                  ]
+                },
+                "Label#1:0": {
+                  "type": "TEXT",
+                  "defaultValue": "Button"
+                }
+              },
+              "children": [
+                {
+                  "id": "30:11",
+                  "name": "Variant=Primary",
+                  "type": "COMPONENT",
+                  "componentSetId": "30:10",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 200,
+                    "height": 48
+                  },
+                  "children": [
+                    {
+                      "id": "30:111",
+                      "name": "Label",
+                      "type": "TEXT",
+                      "characters": "Button",
+                      "absoluteBoundingBox": {
+                        "x": 0,
+                        "y": 0,
+                        "width": 160,
+                        "height": 20
+                      },
+                      "style": {
+                        "fontSize": 16
+                      },
+                      "fontSize": 16
+                    }
+                  ]
+                },
+                {
+                  "id": "30:12",
+                  "name": "Variant=Secondary",
+                  "type": "COMPONENT",
+                  "componentSetId": "30:10",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 200,
+                    "height": 48
+                  },
+                  "children": [
+                    {
+                      "id": "30:121",
+                      "name": "Label",
+                      "type": "TEXT",
+                      "characters": "Button",
+                      "absoluteBoundingBox": {
+                        "x": 0,
+                        "y": 0,
+                        "width": 160,
+                        "height": 20
+                      },
+                      "style": {
+                        "fontSize": 16
+                      },
+                      "fontSize": 16
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "30:40",
+              "name": "Icon button",
+              "type": "COMPONENT",
+              "absoluteBoundingBox": {
+                "x": 0,
+                "y": 0,
+                "width": 48,
+                "height": 48
+              },
+              "children": [
+                {
+                  "id": "30:41",
+                  "name": "Icon",
+                  "type": "RECTANGLE",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 24,
+                    "height": 24
+                  }
+                }
+              ]
+            },
+            {
+              "id": "30:50",
+              "name": "Status row",
+              "type": "COMPONENT",
+              "absoluteBoundingBox": {
+                "x": 0,
+                "y": 0,
+                "width": 320,
+                "height": 48
+              },
+              "children": [
+                {
+                  "id": "30:51",
+                  "name": "Title",
+                  "type": "TEXT",
+                  "characters": "Status",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 160,
+                    "height": 20
+                  },
+                  "style": {
+                    "fontSize": 16
+                  },
+                  "fontSize": 16
+                },
+                {
+                  "id": "30:52",
+                  "name": "Row",
+                  "type": "TEXT",
+                  "characters": "Ready",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 160,
+                    "height": 20
+                  },
+                  "style": {
+                    "fontSize": 16
+                  },
+                  "fontSize": 16
+                }
+              ]
+            },
+            {
+              "id": "30:60",
+              "name": "Card",
+              "type": "COMPONENT",
+              "absoluteBoundingBox": {
+                "x": 0,
+                "y": 0,
+                "width": 200,
+                "height": 80
+              },
+              "children": [
+                {
+                  "id": "30:61",
+                  "name": "Blob",
+                  "type": "RECTANGLE",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 20,
+                    "height": 20
+                  },
+                  "fills": [
+                    {
+                      "type": "SOLID",
+                      "color": {
+                        "r": 1,
+                        "g": 0,
+                        "b": 0.6666666666666666,
+                        "a": 1
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "80:0",
+          "name": "Screens",
+          "type": "CANVAS",
+          "children": [
+            {
+              "id": "80:1",
+              "name": "Misused",
+              "type": "FRAME",
+              "absoluteBoundingBox": {
+                "x": 0,
+                "y": 0,
+                "width": 390,
+                "height": 844
+              },
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                  }
+                }
+              ],
+              "boundVariables": {
+                "fills": [
+                  {
+                    "type": "VARIABLE_ALIAS",
+                    "id": "VariableID:acme:4"
+                  }
+                ]
+              },
+              "children": [
+                {
+                  "id": "80:11",
+                  "name": "Button",
+                  "type": "FRAME",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 200,
+                    "height": 48
+                  },
+                  "children": [
+                    {
+                      "id": "80:12",
+                      "name": "Label",
+                      "type": "TEXT",
+                      "characters": "Pay",
+                      "absoluteBoundingBox": {
+                        "x": 0,
+                        "y": 0,
+                        "width": 160,
+                        "height": 20
+                      },
+                      "style": {
+                        "fontSize": 16
+                      },
+                      "fontSize": 16
+                    }
+                  ]
+                },
+                {
+                  "id": "80:21",
+                  "name": "Swatch",
+                  "type": "RECTANGLE",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 40,
+                    "height": 40
+                  },
+                  "fills": [
+                    {
+                      "type": "SOLID",
+                      "color": {
+                        "r": 0.10196078431372549,
+                        "g": 0.45098039215686275,
+                        "b": 0.9098039215686274,
+                        "a": 1
+                      }
+                    }
+                  ],
+                  "strokes": [
+                    {
+                      "type": "SOLID",
+                      "color": {
+                        "r": 0.10196078431372549,
+                        "g": 0.10196078431372549,
+                        "b": 0.10196078431372549,
+                        "a": 1
+                      }
+                    }
+                  ],
+                  "cornerRadius": 8,
+                  "effects": [
+                    {
+                      "type": "DROP_SHADOW",
+                      "visible": true,
+                      "radius": 4,
+                      "color": {
+                        "r": 0,
+                        "g": 0,
+                        "b": 0,
+                        "a": 0.2
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "80:31",
+                  "name": "Hint",
+                  "type": "TEXT",
+                  "characters": "Pay now",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 160,
+                    "height": 20
+                  },
+                  "style": {
+                    "fontSize": 16
+                  },
+                  "fontSize": 16,
+                  "fills": [
+                    {
+                      "type": "SOLID",
+                      "color": {
+                        "r": 0.7843137254901961,
+                        "g": 0.7843137254901961,
+                        "b": 0.7843137254901961,
+                        "a": 1
+                      }
+                    }
+                  ],
+                  "boundVariables": {
+                    "fills": [
+                      {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:acme:3"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "80:32",
+                  "name": "Fine print",
+                  "type": "TEXT",
+                  "characters": "Terms apply",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 160,
+                    "height": 20
+                  },
+                  "style": {
+                    "fontSize": 16
+                  },
+                  "fontSize": 16,
+                  "fills": [
+                    {
+                      "type": "SOLID",
+                      "opacity": 0.5,
+                      "color": {
+                        "r": 0.10196078431372549,
+                        "g": 0.10196078431372549,
+                        "b": 0.10196078431372549,
+                        "a": 1
+                      }
+                    }
+                  ],
+                  "boundVariables": {
+                    "fills": [
+                      {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:acme:2"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "80:41",
+                  "name": "Button",
+                  "type": "INSTANCE",
+                  "componentId": "30:11",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "componentProperties": {
+                    "Variant#1:1": {
+                      "type": "VARIANT",
+                      "value": "Primary"
+                    },
+                    "Label#1:0": {
+                      "type": "TEXT",
+                      "value": "Pay"
+                    }
+                  }
+                },
+                {
+                  "id": "80:51",
+                  "name": "Icon button",
+                  "type": "INSTANCE",
+                  "componentId": "30:40",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 48,
+                    "height": 48
+                  }
+                },
+                {
+                  "id": "80:61",
+                  "name": "Pasted status",
+                  "type": "GROUP",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 320,
+                    "height": 48
+                  },
+                  "children": [
+                    {
+                      "id": "80:62",
+                      "name": "Title",
+                      "type": "TEXT",
+                      "characters": "Pending",
+                      "absoluteBoundingBox": {
+                        "x": 0,
+                        "y": 0,
+                        "width": 160,
+                        "height": 20
+                      },
+                      "style": {
+                        "fontSize": 16
+                      },
+                      "fontSize": 16
+                    },
+                    {
+                      "id": "80:63",
+                      "name": "Row",
+                      "type": "TEXT",
+                      "characters": "Review",
+                      "absoluteBoundingBox": {
+                        "x": 0,
+                        "y": 0,
+                        "width": 160,
+                        "height": 20
+                      },
+                      "style": {
+                        "fontSize": 16
+                      },
+                      "fontSize": 16
+                    }
+                  ]
+                },
+                {
+                  "id": "80:71",
+                  "name": "Buttons",
+                  "type": "FRAME",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 200,
+                    "height": 80
+                  },
+                  "children": [
+                    {
+                      "id": "80:72",
+                      "name": "Hello",
+                      "type": "TEXT",
+                      "characters": "Hello",
+                      "absoluteBoundingBox": {
+                        "x": 0,
+                        "y": 0,
+                        "width": 160,
+                        "height": 20
+                      },
+                      "style": {
+                        "fontSize": 16
+                      },
+                      "fontSize": 16
+                    },
+                    {
+                      "id": "80:73",
+                      "name": "There",
+                      "type": "TEXT",
+                      "characters": "There",
+                      "absoluteBoundingBox": {
+                        "x": 0,
+                        "y": 0,
+                        "width": 160,
+                        "height": 20
+                      },
+                      "style": {
+                        "fontSize": 16
+                      },
+                      "fontSize": 16
+                    }
+                  ]
+                },
+                {
+                  "id": "80:81",
+                  "name": "Button",
+                  "type": "INSTANCE",
+                  "componentId": "30:11",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 200,
+                    "height": 48
+                  },
+                  "componentProperties": {
+                    "Variant#1:1": {
+                      "type": "VARIANT",
+                      "value": "Primary"
+                    },
+                    "Label#1:0": {
+                      "type": "TEXT",
+                      "value": "Pay now"
+                    }
+                  }
+                },
+                {
+                  "id": "80:91",
+                  "name": "Button holder",
+                  "type": "GROUP",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 200,
+                    "height": 48
+                  },
+                  "children": [
+                    {
+                      "id": "80:92",
+                      "name": "Button",
+                      "type": "INSTANCE",
+                      "componentId": "30:11",
+                      "absoluteBoundingBox": {
+                        "x": 0,
+                        "y": 0,
+                        "width": 200,
+                        "height": 48
+                      },
+                      "componentProperties": {
+                        "Variant#1:1": {
+                          "type": "VARIANT",
+                          "value": "Primary"
+                        },
+                        "Label#1:0": {
+                          "type": "TEXT",
+                          "value": "Continue"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "80:101",
+                  "name": "Inset",
+                  "type": "FRAME",
+                  "layoutMode": "VERTICAL",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 200,
+                    "height": 80
+                  },
+                  "paddingTop": 16,
+                  "paddingRight": 0,
+                  "paddingBottom": 0,
+                  "paddingLeft": 0,
+                  "itemSpacing": 16
+                },
+                {
+                  "id": "80:110",
+                  "name": "Card",
+                  "type": "INSTANCE",
+                  "componentId": "30:60",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 200,
+                    "height": 80
+                  },
+                  "children": [
+                    {
+                      "id": "80:111",
+                      "name": "Blob",
+                      "type": "RECTANGLE",
+                      "absoluteBoundingBox": {
+                        "x": 0,
+                        "y": 0,
+                        "width": 20,
+                        "height": 20
+                      },
+                      "fills": [
+                        {
+                          "type": "SOLID",
+                          "color": {
+                            "r": 1,
+                            "g": 0,
+                            "b": 0.6666666666666666,
+                            "a": 1
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "80:130",
+                  "name": "Card",
+                  "type": "INSTANCE",
+                  "componentId": "30:60",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 200,
+                    "height": 80
+                  },
+                  "overrides": [
+                    {
+                      "id": "80:131",
+                      "overriddenFields": [
+                        "fills"
+                      ]
+                    }
+                  ],
+                  "children": [
+                    {
+                      "id": "80:131",
+                      "name": "Blob",
+                      "type": "RECTANGLE",
+                      "absoluteBoundingBox": {
+                        "x": 0,
+                        "y": 0,
+                        "width": 20,
+                        "height": 20
+                      },
+                      "fills": [
+                        {
+                          "type": "SOLID",
+                          "color": {
+                            "r": 0.10196078431372549,
+                            "g": 0.45098039215686275,
+                            "b": 0.9098039215686274,
+                            "a": 1
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "80:140",
+                  "name": "Link",
+                  "type": "INSTANCE",
+                  "componentId": "30:11",
+                  "componentProperties": {
+                    "Variant#1:1": {
+                      "type": "VARIANT",
+                      "value": "Primary"
+                    },
+                    "Label#1:0": {
+                      "type": "TEXT",
+                      "value": "Details"
+                    }
+                  }
+                },
+                {
+                  "id": "80:149",
+                  "name": "Status row",
+                  "type": "FRAME",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 320,
+                    "height": 48
+                  },
+                  "children": [
+                    {
+                      "id": "80:150",
+                      "name": "Status row",
+                      "type": "INSTANCE",
+                      "componentId": "30:50",
+                      "absoluteBoundingBox": {
+                        "x": 0,
+                        "y": 0,
+                        "width": 320,
+                        "height": 48
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "81:1",
+              "name": "Bad props",
+              "type": "FRAME",
+              "absoluteBoundingBox": {
+                "x": 0,
+                "y": 0,
+                "width": 390,
+                "height": 200
+              },
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                  }
+                }
+              ],
+              "boundVariables": {
+                "fills": [
+                  {
+                    "type": "VARIABLE_ALIAS",
+                    "id": "VariableID:acme:4"
+                  }
+                ]
+              },
+              "children": [
+                {
+                  "id": "81:2",
+                  "name": "Button",
+                  "type": "INSTANCE",
+                  "componentId": "30:11",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 200,
+                    "height": 48
+                  },
+                  "componentProperties": {
+                    "Variant#1:1": {
+                      "type": "VARIANT",
+                      "value": "Huge"
+                    },
+                    "Label#1:0": {
+                      "type": "TEXT",
+                      "value": "Button"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "90:1",
+              "name": "Paid screen",
+              "type": "FRAME",
+              "absoluteBoundingBox": {
+                "x": 0,
+                "y": 0,
+                "width": 390,
+                "height": 844
+              },
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                  }
+                }
+              ],
+              "boundVariables": {
+                "fills": [
+                  {
+                    "type": "VARIABLE_ALIAS",
+                    "id": "VariableID:acme:4"
+                  }
+                ]
+              },
+              "children": [
+                {
+                  "id": "90:2",
+                  "name": "Title",
+                  "type": "TEXT",
+                  "characters": "Paid",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 160,
+                    "height": 20
+                  },
+                  "style": {
+                    "fontSize": 16
+                  },
+                  "fontSize": 16,
+                  "fills": [
+                    {
+                      "type": "SOLID",
+                      "color": {
+                        "r": 0.10196078431372549,
+                        "g": 0.10196078431372549,
+                        "b": 0.10196078431372549,
+                        "a": 1
+                      }
+                    }
+                  ],
+                  "boundVariables": {
+                    "fills": [
+                      {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:acme:2"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "90:3",
+                  "name": "Button",
+                  "type": "INSTANCE",
+                  "componentId": "30:11",
+                  "absoluteBoundingBox": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 200,
+                    "height": 48
+                  },
+                  "componentProperties": {
+                    "Variant#1:1": {
+                      "type": "VARIANT",
+                      "value": "Primary"
+                    },
+                    "Label#1:0": {
+                      "type": "TEXT",
+                      "value": "Pay now"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "components": {
+      "30:11": {
+        "key": "acme-button-primary",
+        "name": "Variant=Primary",
+        "componentSetId": "30:10"
+      },
+      "30:12": {
+        "key": "acme-button-secondary",
+        "name": "Variant=Secondary",
+        "componentSetId": "30:10"
+      },
+      "30:40": {
+        "key": "acme-icon-button",
+        "name": "Icon button"
+      },
+      "30:50": {
+        "key": "acme-status-row",
+        "name": "Status row"
+      },
+      "30:60": {
+        "key": "acme-card",
+        "name": "Card"
+      }
+    },
+    "componentSets": {
+      "30:10": {
+        "key": "acme-button-set",
+        "name": "Button"
+      }
+    },
+    "styles": {
+      "S:acmeeffect": {
+        "key": "acme-effect-shadow",
+        "name": "Effect/Card shadow",
+        "styleType": "EFFECT"
+      }
+    }
+  },
+  "variables": {
+    "meta": {
+      "variableCollections": {
+        "VariableCollectionId:acme:0": {
+          "id": "VariableCollectionId:acme:0",
+          "name": "Acme",
+          "key": "acme-collection",
+          "modes": [
+            {
+              "modeId": "acme:0",
+              "name": "Value"
+            }
+          ],
+          "defaultModeId": "acme:0",
+          "remote": false,
+          "variableIds": [
+            "VariableID:acme:1",
+            "VariableID:acme:2",
+            "VariableID:acme:3",
+            "VariableID:acme:4",
+            "VariableID:acme:5",
+            "VariableID:acme:6"
+          ]
+        }
+      },
+      "variables": {
+        "VariableID:acme:1": {
+          "id": "VariableID:acme:1",
+          "name": "color/primary/600",
+          "key": "variableid:acme:1",
+          "variableCollectionId": "VariableCollectionId:acme:0",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "acme:0": {
+              "r": 0.10196078431372549,
+              "g": 0.45098039215686275,
+              "b": 0.9098039215686274,
+              "a": 1
+            }
+          },
+          "remote": false
+        },
+        "VariableID:acme:2": {
+          "id": "VariableID:acme:2",
+          "name": "color/text/strong",
+          "key": "variableid:acme:2",
+          "variableCollectionId": "VariableCollectionId:acme:0",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "acme:0": {
+              "r": 0.10196078431372549,
+              "g": 0.10196078431372549,
+              "b": 0.10196078431372549,
+              "a": 1
+            }
+          },
+          "remote": false
+        },
+        "VariableID:acme:3": {
+          "id": "VariableID:acme:3",
+          "name": "color/text/weak",
+          "key": "variableid:acme:3",
+          "variableCollectionId": "VariableCollectionId:acme:0",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "acme:0": {
+              "r": 0.7843137254901961,
+              "g": 0.7843137254901961,
+              "b": 0.7843137254901961,
+              "a": 1
+            }
+          },
+          "remote": false
+        },
+        "VariableID:acme:4": {
+          "id": "VariableID:acme:4",
+          "name": "color/surface",
+          "key": "variableid:acme:4",
+          "variableCollectionId": "VariableCollectionId:acme:0",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "acme:0": {
+              "r": 1,
+              "g": 1,
+              "b": 1,
+              "a": 1
+            }
+          },
+          "remote": false
+        },
+        "VariableID:acme:5": {
+          "id": "VariableID:acme:5",
+          "name": "space/16",
+          "key": "variableid:acme:5",
+          "variableCollectionId": "VariableCollectionId:acme:0",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "acme:0": 16
+          },
+          "remote": false
+        },
+        "VariableID:acme:6": {
+          "id": "VariableID:acme:6",
+          "name": "radius/8",
+          "key": "variableid:acme:6",
+          "variableCollectionId": "VariableCollectionId:acme:0",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "acme:0": 8
+          },
+          "remote": false
+        }
+      }
+    }
+  }
+}

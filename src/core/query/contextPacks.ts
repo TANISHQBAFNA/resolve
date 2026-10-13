@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { parseLibraryRules, type LibraryRules } from "./agentSurface";
+import { propertyHintsFrom, type PropertyHint } from "./componentProperties";
 import { parseBindRulesFile, type BindRulesFile } from "./bindRules";
 import type { WorkspaceManifest } from "./workspace";
 
@@ -32,6 +33,8 @@ export interface ContextPack {
   files?: string[];
   libraryRules?: LibraryRules;
   bindRules?: BindRulesFile;
+  /** Extra designer words for component properties. A value not in the allowed list is ignored. */
+  propertyHints?: PropertyHint[];
 }
 
 export interface ContextPackFile {
@@ -144,6 +147,11 @@ function stringList(raw: unknown): string[] | undefined {
 
 const PackIdSchema = z.string().trim().min(1);
 
+function hintBag(raw: unknown): { propertyHints: PropertyHint[] } | undefined {
+  const propertyHints = propertyHintsFrom(raw);
+  return propertyHints.length ? { propertyHints } : undefined;
+}
+
 function parseOne(raw: unknown): ContextPack[] {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
   const record = raw as Record<string, unknown>;
@@ -166,6 +174,7 @@ function parseOne(raw: unknown): ContextPack[] {
       files: stringList(record["files"]),
       ...(hasRules ? { libraryRules } : {}),
       ...(bindRules?.rules.length ? { bindRules } : {}),
+      ...hintBag(record["propertyHints"] ?? record["property-hints"]),
     },
   ];
 }
@@ -384,4 +393,16 @@ export function packForRecipe(
 /** Pack for recommend. Exact product, and exact journey when the document gives one. */
 export function packForRecommend(bind: ContextBind = { packs: [] }): ContextPack | undefined {
   return decidePack(bind);
+}
+
+/** Screen type fills `id` when the pack has none. Recommend, resolve, and example share this. */
+export function withScreenType<T extends { id?: string }>(
+  pack: T | undefined,
+  screenType: string | undefined,
+): (T & { screenType?: string; id?: string }) | undefined {
+  if (!pack && !screenType) return undefined;
+  return {
+    ...(pack ?? ({} as T)),
+    ...(screenType ? { screenType, id: pack?.id ?? screenType } : {}),
+  };
 }

@@ -123,6 +123,16 @@
               "Large"
             ]
           },
+          "properties": [
+            {
+              "property": "Label",
+              "type": "TEXT",
+              "values": [
+                "Button (default)"
+              ],
+              "angular": "unmapped"
+            }
+          ],
           "parts": []
         },
         {
@@ -176,6 +186,16 @@
               "Large"
             ]
           },
+          "properties": [
+            {
+              "property": "Label",
+              "type": "TEXT",
+              "values": [
+                "Button (default)"
+              ],
+              "angular": "unmapped"
+            }
+          ],
           "parts": []
         }
       ],

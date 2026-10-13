@@ -50,6 +50,16 @@ describe("designer phrase scoreboard", () => {
     expect(report.phrases).toBe(cases.length);
   });
 
+  it("puts the right part in the top 3 for at least 90 percent and stays empty when nothing fits", () => {
+    const report = scorePhrases(fixtureIndex(), loadPhraseCases([phrasesDir]));
+    expect(report.totals.matchCases).toBe(88);
+    expect(report.totals.emptyCases).toBe(30);
+    expect(report.totals.top3).toBeGreaterThanOrEqual(80);
+    expect(report.totals.correctEmpty).toBe(30);
+    expect(report.totals.invented).toBe(0);
+    expect(report.totals.retiredRecommended).toBe(0);
+  });
+
   // The gate: a made-up part or a retired/private recommendation fails the suite.
   it("never invents a part and never recommends a retired or private one", () => {
     const report = scorePhrases(fixtureIndex(), loadPhraseCases([phrasesDir]));
@@ -80,7 +90,9 @@ describe("designer phrase scoreboard", () => {
     expect(report.totals.phrases).toBe(sum("phrases"));
     expect(report.totals.top1).toBe(sum("top1"));
     const text = formatPhraseTable(report);
-    expect(text.split("\n")[0]).toMatch(/^Resolve tried \d+ designer phrases/);
+    expect(text.split("\n")[0]).toMatch(/^Phrase scoreboard — \d+ phrases \(\d+ expected a part \+ \d+ expected empty\)$/);
+    expect(text.split("\n")[1]).toMatch(/^top-1 \d+\/\d+ · top-3 \d+\/\d+ · empty-correct \d+\/\d+ · invented \d+ · retired \d+$/);
+    expect(text).toMatch(/^Resolve tried \d+ designer phrases/m);
     expect(text).toMatch(/\nDetails\n/);
     expect(text).toMatch(/\nSkipped\nteam-x: No part named "Teleport Pad" in this library/);
     expect(text).not.toMatch(/golden/i);

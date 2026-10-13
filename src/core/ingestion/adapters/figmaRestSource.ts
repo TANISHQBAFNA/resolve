@@ -4,6 +4,9 @@ import {
   collectTopLevelScreens,
   fileFromNodesResponse,
   resolveIngestScope,
+  asArray,
+  asRecord,
+  asString,
   type FigmaIngestScope,
   type ScreenRef,
 } from "../figmaScope";
@@ -27,7 +30,6 @@ export const FIGMA_API_ORIGIN = "https://api.figma.com";
 export const DEFAULT_MAX_RETRY_AFTER_MS = 30_000;
 export const DEFAULT_BACKOFF_MS = 1_000;
 export const DEFAULT_MAX_RATE_LIMIT_RETRIES = 5;
-export const DEFAULT_MAX_SERVER_ERROR_RETRIES = 3;
 export const DEFAULT_MAX_ATTEMPTS = 4;
 export const DEFAULT_SERVER_ERROR_BACKOFF_MS = 2_000;
 export const STUB_LOOKUP_RETRYABLE_BUDGET = 6;
@@ -747,16 +749,6 @@ export async function fetchFigmaRestDocument(
     options.signal,
     retry,
   );
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-}
-function asString(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
 }
 
 export class FigmaRestIngestionSource implements IngestionSource {

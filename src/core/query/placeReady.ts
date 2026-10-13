@@ -1,7 +1,18 @@
 import type { GraphNode } from "@/core/model";
-import { nodeFileKey } from "./workspaceMerge";
+import { componentKeyOf, nodeFileKey } from "./workspaceMerge";
 
 export type PublishState = "published" | "local-only";
+
+/** Fields a place-ready card and a recipe master share. */
+export interface PlaceFields {
+  figmaNodeId?: string;
+  nodeId?: string;
+  fileKey?: string;
+  componentKey?: string;
+  published?: boolean;
+  publishState?: PublishState;
+  variantProperties?: Record<string, string>;
+}
 
 /** Fields Figma MCP `use_figma` / `importComponentByKeyAsync` need to place a master. */
 export interface PlaceReady {
@@ -11,11 +22,6 @@ export interface PlaceReady {
   componentKey?: string;
   published: boolean;
   publishState: PublishState;
-}
-
-export function componentKeyOf(node: GraphNode): string | undefined {
-  const key = node.metadata?.["key"];
-  return typeof key === "string" && key.trim() ? key.trim() : undefined;
 }
 
 export function placeReady(node: GraphNode, graphFileKey?: string): PlaceReady {

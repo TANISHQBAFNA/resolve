@@ -322,11 +322,13 @@ export function formatPhraseTable(report: PhraseReport): string {
     );
     if (report.note) lines.push(report.note);
     lines.push("Result: FAIL");
-    if (report.skipped.length) lines.push("", "Skipped");
-    for (const row of report.skipped) lines.push(`${row.id}: ${row.reason}`);
+    appendSkipped(lines, report.skipped);
     return lines.join("\n");
   }
   lines.push(
+    `Phrase scoreboard — ${report.phrases} phrases (${t.matchCases} expected a part + ${t.emptyCases} expected empty)`,
+    `top-1 ${cell(t.top1, t.matchCases)} · top-3 ${cell(t.top3, t.matchCases)} · empty-correct ${cell(t.correctEmpty, t.emptyCases)} · invented ${t.invented} · retired ${t.retiredRecommended}`,
+    "",
     `Resolve tried ${report.phrases} designer phrases against your library.`,
     `It put the right part first for ${cell(t.top1, t.matchCases)} (${pct(t.top1, t.matchCases)}) and in the top 3 for ${cell(t.top3, t.matchCases)} (${pct(t.top3, t.matchCases)}).`,
   );
@@ -372,9 +374,13 @@ export function formatPhraseTable(report: PhraseReport): string {
       lines.push(`"${miss.phrase}" (${miss.id}): ${MISS_WORDS[miss.kind]}.${extra}`);
     }
   }
-  if (report.skipped.length) lines.push("", "Skipped");
-  for (const row of report.skipped) lines.push(`${row.id}: ${row.reason}`);
+  appendSkipped(lines, report.skipped);
   return lines.join("\n");
+}
+
+function appendSkipped(lines: string[], skipped: PhraseReport["skipped"]): void {
+  if (skipped.length) lines.push("", "Skipped");
+  for (const row of skipped) lines.push(`${row.id}: ${row.reason}`);
 }
 
 function capital(text: string): string {

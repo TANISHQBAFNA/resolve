@@ -1,11 +1,12 @@
 import { create } from "zustand";
-import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
+import type { DesignGraph, NodeType } from "@/core/model";
 import type { IngestionSource } from "@/core/ingestion/types";
 import { buildGraph } from "@/core/transform";
 import { computeAnalytics, type GraphAnalytics } from "@/core/query/analytics";
 import { defaultFilterState, type FilterState } from "@/core/query/filters";
 import { indexGraph, type GraphIndex } from "@/core/query/GraphIndex";
 import type { GraphLevel, ViewMode } from "@/core/query/subgraph";
+import { isExampleSource } from "@/state/sources";
 
 export type LoadStatus = "idle" | "loading" | "ready" | "error";
 
@@ -25,10 +26,15 @@ export interface AtlasSettings {
   minDegree: number;
 }
 
+/** Later loads win. An older load must not publish over a newer source. */
+let loadTicket = 0;
+
 interface GraphState {
   status: LoadStatus;
   error?: string;
   sourceLabel?: string;
+  /** True when the loaded file is a shipped fixture, not a live Figma file. */
+  example: boolean;
   graph?: DesignGraph;
   index?: GraphIndex;
   analytics?: GraphAnalytics;
@@ -68,6 +74,7 @@ interface GraphState {
 
 export const useGraphStore = create<GraphState>()((set, get) => ({
   status: "idle",
+  example: false,
   selectedIds: [],
   expandedIds: [],
   viewMode: "hierarchy",
@@ -86,15 +93,27 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
   },
 
   async loadSource(source) {
-    set({ status: "loading", error: undefined, sourceLabel: source.label });
+    const ticket = ++loadTicket;
+    const example = isExampleSource(source.id);
+    set({
+      status: "loading",
+      error: undefined,
+      sourceLabel: source.label,
+      // A live load must not keep the example library on screen while it runs or if it fails.
+      ...(example
+        ? {}
+        : { graph: undefined, index: undefined, analytics: undefined, example: false, focusId: undefined }),
+    });
     try {
       const document = await source.load();
+      if (ticket !== loadTicket) return;
       const graph = buildGraph(document);
       const index = indexGraph(graph);
       const analytics = computeAnalytics(index);
       const fileNode = index.getFileNode();
       set({
         status: "ready",
+        example,
         graph,
         index,
         analytics,
@@ -109,7 +128,19 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
         atlas: { ...get().atlas, hiddenCommunities: [] },
       });
     } catch (error) {
-      set({ status: "error", error: error instanceof Error ? error.message : String(error) });
+      if (ticket !== loadTicket) return;
+      const message = error instanceof Error ? error.message : String(error);
+      set({
+        status: "error",
+        error: message,
+        example: false,
+        graph: undefined,
+        index: undefined,
+        analytics: undefined,
+        focusId: undefined,
+        selectedIds: [],
+      });
+      throw error instanceof Error ? error : new Error(message);
     }
   },
 
@@ -231,8 +262,3 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
     set({ atlas: { ...atlas, hiddenCommunities: visible ? [] : [...ids] } });
   },
 }));
-
-/** Convenience selector: the currently focused node, if any. */
-export function useFocusNode(): GraphNode | undefined {
-  return useGraphStore((state) => (state.focusId ? state.index?.getNode(state.focusId) : undefined));
-}

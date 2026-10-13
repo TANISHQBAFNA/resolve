@@ -62,15 +62,15 @@ describe("agent tools", () => {
     expect(names).toContain("recommend");
     expect(names).toContain("verify_frame");
     expect(names).toContain("resolve");
-    expect(names).toContain("check_frame");
     expect(names).toContain("check_cousins");
+    expect(names).not.toContain("check_frame");
   });
 
   it("exposes list_recipes and recipe next to recommend", () => {
     const names = TOOLS.map((tool) => tool.name);
     expect(names).toContain("list_recipes");
     expect(names).toContain("recipe");
-    expect(names).toContain("get_recipe");
+    expect(names).not.toContain("get_recipe");
   });
 
   it("list_recipes returns the starter pack without a stored graph", () => {
@@ -180,7 +180,7 @@ describe("agent tools", () => {
   });
 
   it("recipe, list_recipes, and verify_frame accept the same pack-bind fields as recommend", () => {
-    for (const name of ["recommend", "resolve", "recipe", "get_recipe", "list_recipes", "get_handoff"] as const) {
+    for (const name of ["recommend", "resolve", "recipe", "list_recipes", "get_handoff"] as const) {
       const schema = TOOLS.find((tool) => tool.name === name)?.inputSchema as {
         properties: Record<string, unknown>;
       };

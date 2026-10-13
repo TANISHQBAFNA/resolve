@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { COMPONENT_DEFINITION_TYPES } from "@/core/model";
-import { parseBindRulesFile, ruleLabel, whyLine } from "@/core/query/bindRules";
+import { whyLine } from "@/core/query/bindRules";
 import { useGraphStore } from "@/state/graphStore";
-import exampleRules from "@/data/bind-rules.example.json";
 import { ScoreboardSection } from "@/ui/governance/ScoreboardSection";
+import { RULES_LOAD_FAILURE, dataIfLive, viewFromLiveResponse, type LiveView } from "@/ui/liveCall";
 
 const TYPE_LABELS: Record<string, string> = {
   "require-rule": "Require rules",
@@ -47,16 +47,6 @@ interface GovernancePayload {
   hint: string;
 }
 
-const parsedExample = parseBindRulesFile(exampleRules);
-const EXAMPLE: GovernancePayload = {
-  rules: parsedExample.rules.map((rule) => ({ ...rule, label: ruleLabel(rule) })),
-  proposals: [],
-  proposalGroups: [],
-  pendingImprovements: 0,
-  patterns: [],
-  hint: "Sample from src/data/bind-rules.example.json. Live file: npm run resolve -- rules. Pending proposals: npm run resolve -- soci. Approve: npm run resolve -- approve <id>.",
-};
-
 function evidenceText(evidence: ProposalRow["evidence"]): string {
   if (typeof evidence === "string") return evidence;
   if (!Array.isArray(evidence) || evidence.length === 0) return "";
@@ -72,18 +62,30 @@ function evidenceText(evidence: ProposalRow["evidence"]): string {
 }
 
 export function RulesPage() {
-  const [data, setData] = useState<GovernancePayload>(EXAMPLE);
+  const [view, setView] = useState<LiveView<GovernancePayload>>({ status: "loading" });
   const index = useGraphStore((state) => state.index);
   const [masterId, setMasterId] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     void fetch("/api/governance")
-      .then((response) => (response.ok ? response.json() : EXAMPLE))
-      .then((payload: GovernancePayload) => {
-        setData(payload);
+      .then(async (response) => {
+        if (!response.ok) return viewFromLiveResponse<GovernancePayload>(false, undefined, RULES_LOAD_FAILURE);
+        const body = (await response.json()) as GovernancePayload;
+        return viewFromLiveResponse(true, body, RULES_LOAD_FAILURE);
       })
-      .catch(() => undefined);
+      .then((next) => {
+        if (!cancelled) setView(next);
+      })
+      .catch(() => {
+        if (!cancelled) setView({ status: "error", failure: RULES_LOAD_FAILURE });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const data = dataIfLive(view);
 
   const masters = useMemo(() => {
     if (!index) return [];
@@ -97,7 +99,7 @@ export function RulesPage() {
     if (!masterId && masters[0]) setMasterId(masters[0].id);
   }, [masterId, masters]);
 
-  const pattern = data.patterns.find((row) => row.masterId === masterId);
+  const pattern = data?.patterns.find((row) => row.masterId === masterId);
   const selected = masters.find((node) => node.id === masterId);
   const why =
     pattern?.why ??
@@ -105,9 +107,9 @@ export function RulesPage() {
       deprecated: selected?.status === "deprecated",
     });
 
-  const pending = data.proposals.filter((row) => row.status === "pending");
+  const pending = data?.proposals.filter((row) => row.status === "pending") ?? [];
   const groups =
-    data.proposalGroups?.length
+    data?.proposalGroups?.length
       ? data.proposalGroups.map((group) => ({
           ...group,
           proposals: group.proposals.filter((row) => row.status === "pending"),
@@ -132,11 +134,21 @@ export function RulesPage() {
           Human-authored bind rules. Agents recommend and verify against them. Rules never change by
           themselves.
         </p>
-        <p className="muted">{data.hint}</p>
-        {typeof data.pendingImprovements === "number" && data.pendingImprovements > 0 ? (
+        {view.status === "error" ? (
+          <div role="alert">
+            <p className="workspace-state__kicker workspace-state__kicker--danger">Could not load</p>
+            <p>{view.failure.message}</p>
+            <p>Next: {view.failure.next}</p>
+          </div>
+        ) : view.status === "loading" || !data ? (
+          <p className="muted">Loading rules from this project.</p>
+        ) : (
+          <p className="muted">{data.hint}</p>
+        )}
+        {data && typeof data.pendingImprovements === "number" && data.pendingImprovements > 0 ? (
           <p className="rules-page__pending">pending improvements: {data.pendingImprovements}</p>
         ) : null}
-        {data.warnings && data.warnings.length > 0 ? (
+        {data?.warnings && data.warnings.length > 0 ? (
           <ul className="rules-page__warnings">
             {data.warnings.map((warning) => (
               <li key={`${warning.rule}:${warning.reason}`}>
@@ -149,8 +161,15 @@ export function RulesPage() {
 
       <section className="rules-page__block">
         <h3>Bind rules</h3>
-        {data.rules.length === 0 ? (
-          <p className="muted">None yet. Copy src/data/bind-rules.example.json to bind-rules.json.</p>
+        {view.status === "error" ? (
+          <p className="muted">No rules are shown, because the live call failed.</p>
+        ) : !data ? (
+          <p className="muted">Loading rules from this project.</p>
+        ) : data.rules.length === 0 ? (
+          <p className="muted">
+            None yet. Copy the example file src/data/bind-rules.example.json to bind-rules.json. That file is an
+            example, not this project's rules.
+          </p>
         ) : (
           <ul>
             {data.rules.map((rule) => (
@@ -167,7 +186,9 @@ export function RulesPage() {
 
       <section className="rules-page__block">
         <h3>Pending proposals</h3>
-        {groups.length === 0 ? (
+        {view.status !== "live" ? (
+          <p className="muted">Not loaded.</p>
+        ) : groups.length === 0 ? (
           <p className="muted">None. Strong usage can suggest a rule; you approve it on the command line.</p>
         ) : (
           groups.map((group) => (

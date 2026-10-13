@@ -4,11 +4,12 @@ import { dirname, join, resolve } from "node:path";
 import type { IngestCheckpointStore, ScreensCheckpoint } from "@/core/ingestion/adapters/figmaRestSource";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
 import { pinnedHome, STORE_DIRS } from "@/core/query/overlayFile";
-import { warnDeprecated } from "./deprecations";
+import { isRecord } from "./isRecord";
 import {
   assertIngestRoleChange,
   defaultIngestRole,
   emptyBindRules,
+  applySociDecision,
   emptySock,
   indexGraph,
   mergeRecipes,
@@ -251,10 +252,6 @@ export function sockPath(): string {
 
 export function learnCheckpointPath(fileKey: string): string {
   return join(storeRoot(), "learn", `${safeFileKey(fileKey)}.json`);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function sanitizeProposals(raw: unknown, warnings: string[]): SockState["proposals"] {
@@ -511,7 +508,6 @@ export function readContextPacks(explicitPath?: string): ContextPackFile {
   if (softened.skipped) warnPackFile(path);
   else warnedPackFiles.delete(path);
   const file = parseContextPackFile(softened.raw);
-  if (file.packs.length > 0) warnDeprecated("context packs");
   return file;
 }
 
@@ -674,6 +670,48 @@ export function commitProposalDecision(
   if (decided.writesRecipes && decided.recipeOverlay) writeRecipeOverlay(decided.recipeOverlay);
   saveSock(decided.sock);
   appendBindAudit(decided.audit);
+}
+
+export function runProposalDecision(
+  proposalId: string,
+  action: "approve" | "reject",
+  who: string,
+  note?: string,
+): SociDecision {
+  const loaded = loadGraph();
+  const decided = applySociDecision(
+    readSock(),
+    readBindRules(),
+    proposalId,
+    action,
+    who,
+    new Date().toISOString(),
+    {
+      index: loaded?.index,
+      workspace: readWorkspace(),
+      recipes: loadRecipes(),
+      overlay: readRecipeOverlay(),
+      ...(note !== undefined ? { note } : {}),
+    },
+  );
+  commitProposalDecision(decided);
+  return decided;
+}
+
+export function proposalDecisionBody(
+  decided: SociDecision,
+  action: "approve" | "reject",
+  proposalId: string,
+) {
+  return {
+    ok: true as const,
+    action,
+    proposalId,
+    who: decided.audit.who,
+    when: decided.audit.when,
+    rules: decided.rules.rules,
+    ...(decided.writesRecipes ? { recipesWritten: true } : {}),
+  };
 }
 
 /** Stable id derived from the file it came from. Display only — the file is always graph.json. */

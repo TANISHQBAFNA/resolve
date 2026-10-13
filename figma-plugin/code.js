@@ -137,6 +137,11 @@ function annotationsOf(node) {
 async function walk(node, context) {
   const { components, styleIds, variableIds, options, counters } = context;
 
+  if (counters.visited >= options.maxNodes) {
+    context.truncated = true;
+    return undefined;
+  }
+
   counters.visited += 1;
   if (counters.visited % 400 === 0) {
     figma.ui.postMessage({ type: "progress", visited: counters.visited });
@@ -239,7 +244,9 @@ async function walk(node, context) {
     context.depth += 1;
     out.children = [];
     for (const child of node.children) {
-      out.children.push(await walk(child, context));
+      const next = await walk(child, context);
+      if (!next) break;
+      out.children.push(next);
     }
     context.depth -= 1;
   }
@@ -366,6 +373,7 @@ async function buildSourceDocument(options) {
     options,
     depth: 0,
     counters: { visited: 0 },
+    truncated: false,
   };
 
   let roots = [];
@@ -383,7 +391,9 @@ async function buildSourceDocument(options) {
 
   const children = [];
   for (const root of roots) {
-    children.push(await walk(root, context));
+    const walked = await walk(root, context);
+    if (!walked) break;
+    children.push(walked);
   }
 
   figma.ui.postMessage({ type: "progress", visited: context.counters.visited });
@@ -428,7 +438,7 @@ async function buildSourceDocument(options) {
     source: {
       kind: "figma-plugin",
       ingestedAt: new Date().toISOString(),
-      truncated: context.counters.visited >= options.maxNodes,
+      truncated: context.truncated === true,
     },
   };
 }

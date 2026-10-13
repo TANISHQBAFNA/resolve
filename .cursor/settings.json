@@ -2,9 +2,6 @@
   "plugins": {
     "ponytail/ponytail": {
       "enabled": true
-    },
-    "caveman/caveman": {
-      "enabled": true
     }
   }
 }

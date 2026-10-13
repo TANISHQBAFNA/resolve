@@ -207,6 +207,7 @@ export const GIT_CACHE = [
   "!.resolve/scoreboard/golden/**",
   ".resolve/learn/",
   ".resolve/ingest/",
+  ".resolve/setup-record.json",
 ];
 /** Team knowledge. Never an ignore path. */
 export const GIT_TEAM = [
@@ -325,12 +326,21 @@ function emptyRecord() {
   return { created: [], originals: {}, createdDirs: [] };
 }
 
+function isMcpConfig(path) {
+  const base = path.split(/[/\\]/).pop();
+  return base === "mcp.json" || base === ".mcp.json";
+}
+
 function loadRecord(opts) {
   try {
     const raw = JSON.parse(readFileSync(recordPath(opts), "utf8"));
+    const originals = raw.originals && typeof raw.originals === "object" ? { ...raw.originals } : {};
+    for (const key of Object.keys(originals)) {
+      if (isMcpConfig(key)) delete originals[key];
+    }
     return {
       created: Array.isArray(raw.created) ? raw.created : [],
-      originals: raw.originals && typeof raw.originals === "object" ? raw.originals : {},
+      originals,
       createdDirs: Array.isArray(raw.createdDirs) ? raw.createdDirs : [],
     };
   } catch {
@@ -440,7 +450,6 @@ export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot 
       const empty = Object.keys(others).length === 0 && Object.keys(doc).length === 1;
       if (typeof original === "string" && sameOthers) plan.push({ action: "update", path, text: original });
       else if (empty && created) plan.push({ action: "remove", path });
-      else if (empty) plan.push({ action: "skip", path, note: " (kept; Resolve did not create this file)" });
       else {
         const indent = /^\t/m.test(current) ? "\t" : (current.match(/^( +)"/m)?.[1].length ?? 2);
         const ending = current.includes("\r\n") ? "\r\n" : "\n";
@@ -553,7 +562,7 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
           if (!record.createdDirs.includes(made)) record.createdDirs.push(made);
         }
         if (item.action === "create" && !record.created.includes(item.path)) record.created.push(item.path);
-        if (item.action === "update" && record.originals[item.path] === undefined) {
+        if (item.action === "update" && record.originals[item.path] === undefined && !isMcpConfig(item.path)) {
           const prior = readOrNull(item.path);
           if (prior != null) record.originals[item.path] = prior;
         }

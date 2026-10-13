@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { NodeTypeSchema, type NodeType } from "./nodeTypes";
 import { EdgeTypeSchema, type EdgeType } from "./edgeTypes";
+import { ComponentPropertySchema } from "./componentProperties";
+
+/** New graphs. A missing `schemaVersion` is an older graph (version 0). */
+export const GRAPH_SCHEMA_VERSION = 1;
 
 export const BoundsSchema = z.object({
   x: z.number(),
@@ -33,6 +37,8 @@ export const GraphNodeSchema = z.object({
   mainComponentId: z.string().optional(),
   componentSetId: z.string().optional(),
   variantProperties: z.record(z.string()).optional(),
+  /** Cleaned `componentPropertyDefinitions` for a set or a standalone component. */
+  propertyDefinitions: z.array(ComponentPropertySchema).optional(),
 
   styleIds: z.array(z.string()).optional(),
   variableIds: z.array(z.string()).optional(),
@@ -83,6 +89,11 @@ export type GraphWarning = z.infer<typeof GraphWarningSchema>;
 export const DesignGraphSchema = z.object({
   fileKey: z.string(),
   fileName: z.string(),
+  /**
+   * Graph shape version. Missing means 0 (a graph built before property definitions).
+   * Not defaulted to the current version, so an old file is not relabelled.
+   */
+  schemaVersion: z.number().int().nonnegative().optional(),
   /** ISO timestamp of when the graph was built. */
   builtAt: z.string(),
   source: z.object({

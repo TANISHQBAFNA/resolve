@@ -23,6 +23,9 @@ export function toMarkdownPrompt(context: AiGraphContext, task?: string): string
       `File: **${meta.fileName}**`,
       `Source: ${meta.sourceKind}`,
       meta.truncated ? "⚠️ truncated to fit the node budget" : undefined,
+      meta.omittedSelectionIds?.length
+        ? `omitted: ${meta.omittedSelectionIds.join(", ")}`
+        : undefined,
     ]),
   );
   out.push("");

@@ -28,15 +28,15 @@ type RawNode = {
 const SCREEN_TYPES = new Set(["FRAME", "SECTION", "COMPONENT", "COMPONENT_SET"]);
 const SKIP_INTO = new Set(["GROUP"]);
 
-function asRecord(value: unknown): Record<string, unknown> {
+export function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
-function asString(value: unknown): string | undefined {
+export function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function asArray(value: unknown): unknown[] {
+export function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 

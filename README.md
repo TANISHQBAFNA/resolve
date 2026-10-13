@@ -8,6 +8,35 @@ Every example in this file is made up. "Acme" is a pretend company, the "Payment
 
 **Quick start:** open your project in Claude Code, Cursor or Codex and paste: *Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md*. The AI-facing checklist is [`INSTALL-FOR-AI.md`](INSTALL-FOR-AI.md); the plain steps are under [Set it up](#set-it-up).
 
+## Install as a plugin
+
+Install Resolve once. After that, every chat in every project asks Resolve before it draws in Figma. You do not paste the install note again.
+
+You still do two things by hand. Connect Figma in the app (sign in when it asks). Then fill in the two settings the plugin asks for: a Figma token, and the library file key. The file key is the id in a link such as `https://www.figma.com/design/ACMEUI/Acme` (here the key is `ACMEUI`). Do not type the token into a file.
+
+### Claude Code
+
+In Claude Code, type these two lines:
+
+```
+/plugin marketplace add TANISHQBAFNA/resolve
+/plugin install resolve@resolve
+```
+
+When it asks, fill in **Figma token** and **Library file key**. To change them later, type `/plugin configure resolve@resolve`.
+
+### Cursor
+
+In the Cursor chat, type:
+
+```
+/add-plugin https://github.com/TANISHQBAFNA/resolve
+```
+
+Install **resolve**. Then open **Plugins**, choose **Resolve**, then **Configure**, and fill in the same two settings.
+
+The older per-project setup (`resolve-setup`, under [Set it up](#set-it-up)) still works. Use the plugin when you want Resolve in every project without running setup in each one.
+
 You can read this file from top to bottom without knowing any code. The first half is for designers. The second half, under **For engineers and testers**, is reference detail that you can skip.
 
 ## The story in one minute
@@ -41,12 +70,12 @@ Setup (`resolve-setup`) puts these files in your project: `.claude/commands/` fo
 
 If a command cannot finish, you get one plain sentence and what to do next. You never see a stack trace. That covers a bad Figma link, a missing or expired token, a View-only seat, no design system learned yet, and Resolve not installed.
 
-Two kinds of files live in `.resolve/` on your computer. **Team files** are the ones your team wrote: recipes, context packs, the code map, decisions, bind rules, synonyms, phrase sets (`scoreboard/phrases/`) and golden files (`scoreboard/golden/`, including the file `score --init` writes). Those belong in the project. The **learned cache** is rebuilt by `/design-system`. Setup ignores that cache (`.resolve/graph.json`, `.resolve/files/`, `.resolve/learn/`, `.resolve/ingest/`, `.resolve/GRAPH_REPORT.md`, `.resolve/index.json`) and scoreboard run history (`.resolve/scoreboard/*`). A line in `.gitignore` that ignores the whole `.resolve` folder (`.resolve`, `.resolve/`, `.resolve/*`, or the same idea with `**`) also hides the team files; remove that line if you want them saved with the project.
+Two kinds of files live in `.resolve/` on your computer. **Team files** are the ones your team wrote: recipes, context packs, the code map, decisions, bind rules, synonyms, phrase sets (`scoreboard/phrases/`) and golden files (`scoreboard/golden/`, including the file `score --init` writes). Those belong in the project. The **learned cache** is rebuilt by `/design-system`. Setup ignores that cache (`.resolve/graph.json`, `.resolve/files/`, `.resolve/learn/`, `.resolve/ingest/`, `.resolve/GRAPH_REPORT.md`, `.resolve/index.json`, `.resolve/setup-record.json`) and scoreboard run history (`.resolve/scoreboard/*`). A line in `.gitignore` that ignores the whole `.resolve` folder (`.resolve`, `.resolve/`, `.resolve/*`, or the same idea with `**`) also hides the team files; remove that line if you want them saved with the project.
 
 ## What Resolve does, one piece at a time
 
 - **It learns your library.** You give it your design system file once. It reads the file and writes down what is in it: every component, its variants (for example Primary and Secondary), and where each one is used on real screens. You can repeat this whenever the library changes. This step has two names: **learn** (when your AI tool does it) and **ingest** (when you do it by hand). They mean the same thing: read a Figma file and remember it.
-- **It sets the context from the requirements or FSD.** The agent reads that document. Resolve does not. The agent passes which product, which journey step, who the screen is for, and the accessibility bar (for example wcag-aa) only when the document states them. A context pack is optional and is used only on an exact product match, and an exact journey match when the document gives one. Audience, a11y, and density are shown on the card and do not change which component is picked.
+- **It sets the context from the requirements or FSD.** The agent reads that document. Resolve does not. The agent passes which product, which journey step, who the screen is for, and the accessibility bar (for example wcag-aa) only when the document states them. A context pack is optional and stays: it is where a team adds its own words and property hints. It is used only on an exact product match, and an exact journey match when the document gives one. Audience, a11y, and density are shown on the card and do not change which component is picked.
 - **It recommends.** You describe what you need in plain words ("payee picker", "primary button"). Resolve picks the best matching component for that context. It looks at the name and your words first. If the match is only partial, it says "weak match" and offers up to three options, instead of pretending to be sure. An empty answer means stop. It does not draw a stand-in.
 - **It shows a real example.** With the pick, Resolve points to a real, filled-in copy of that component on a real screen. The AI tool clones it and swaps the content, which looks far better than starting from a bare default.
 - **It checks the finished screen.** Resolve looks at every piece on the screen and answers pass or fail. It flags parts that are not in the library, parts that are retired, and leftover template text such as "Lorem ipsum". It checks by each component's real Figma id (a hidden number every component has), not just by its layer name (the label you see in Figma's layers list), because a layer called "Button" can be anything.
@@ -202,6 +231,43 @@ These use the made-up Acme library. Type them into your AI tool once Step 2 is d
 
 The exact, word-for-word answers for both are shown further down, under [recommend](#recommend) and [verify](#verify).
 
+## Check that a screen uses the library properly
+
+A check already says whether the parts on a screen are real library components. It also says whether they are used properly. The same check does this: `/check`, `resolve check`, and `verify_frame`. There is no extra tool.
+
+On the made-up Acme library, the frame **Misused** (file key `ACMEUSE`) passes the component check and still has proper-use errors. The first line says both. Proper use fails, so the screen is not fine, and the process exits 7. A crowded card keeps every error, then says how to see the rest:
+
+```
+Components: PASS · Proper use: FAIL (5 errors, 7 warnings)
+approved: 4
+frame: (name: Misused, type: FRAME, figmaNodeId: 80:1, fileKey: ACMEUSE)
+textChecked: n/a
+Proper use: 2 detached, 3 hard-coded colours, 2 hard-coded spacing, 1 hard-coded radius, 1 hard-coded effect, 1 contrast fail, 1 tap target, 1 icon-only button, 2 unknown
+Errors:
+- Button (80:11): This frame looks like Button but is not a library instance. Re-insert the instance.
+  component: Button (ACMEUSE, acme-button-set)
+- Pasted status (80:61): This frame looks like Status row but is not a library instance. Re-insert the instance.
+  component: Status row (ACMEUSE, acme-status-row)
+- Hint (80:31): Text contrast is 1.7:1, below 4.5:1 for wcag-aa. Use a darker text colour or a lighter background so the contrast reaches 4.5:1.
+- Button (80:41): This control is 30×30, under the 44×44 tap target for wcag-aa. Resize it to at least 44×44.
+- Icon button (80:51): This icon-only button has no label or description. Add a text label, or a description a screen reader can read.
++9 more. resolve check --all, or verify_frame all:true
+proper-use exit: 7
+```
+
+A hard-coded fill on that frame is a warning, not an error: `Fill #1A73E8 is not bound to a library variable or style. Nearest token is color/primary/600.` Resolve only names a token that exists in the library. Warnings alone leave the line as PASS, with the warning count. A clean Acme frame, **Paid screen**, prints `Components: PASS · Proper use: PASS` and exits 0.
+
+What it looks for:
+
+1. **Detached.** A frame or group that matches a library component by name, or by the same child structure, and is not an instance. High confidence only. The card names the component, its file key and component key, and says to re-insert the instance. A frame named "Buttons", or a "Status row" that already contains the Status row instance, is left alone.
+2. **Hard-coded values.** Fills, strokes, effects, and text that are not bound to a library variable or style. Auto-layout padding, gap, and corner radius that match a spacing or radius variable but are not bound to it. Values inside a component instance are ignored unless that instance overrides them.
+3. **Property misuse.** A value that is not in the allowed list fails the check. Text left as "Button" or "Label" is a warning.
+4. **Accessibility.** Default is WCAG AA: text contrast, a 44×44 tap target, and an icon-only button with no label or description. The requirements can set AAA, A, or AA-minimum (24×24). A check that cannot be computed is **unknown**, with the reason. It is not a failure. A Figma metadata capture that has no `boundVariables` says unknown and does not flag colours.
+
+Exit 0 means the check passed. Exit 1 means a component is missing, retired, or not allowed (unchanged). Exit 7 means that component check passed and proper use still has an error. Warnings do not change the exit code.
+
+On the Acme fixture, all 14 findings on Misused are known defects (precision 1). Paid screen has 0 errors. The same file read as Figma metadata, with no binding fields, does not flag a hard-coded colour.
+
 ## Check that Resolve understands your words
 
 Designers do not ask for "Button Primary". They say "payee picker" or "6 digit OTP box". Resolve can test itself on phrases like that.
@@ -213,7 +279,7 @@ You give it a list of phrases, and for each one the part you expect. Say Acme's 
 - "6 digit OTP box" should find **nothing**, because Acme has no such part yet.
 - "old style button" should never offer the retired **Old Button**.
 
-Then run `npm run resolve -- score phrases`. The first lines are plain English, for example "Resolve tried 118 designer phrases against your library. It put the right part first for 66/88 (75%)." Below that is a table by kind of phrase, so you can see which wording it understands least. A part that is made up, or a retired part that is offered, fails the run.
+Then run `npm run resolve -- score phrases`. The first lines are the headline, for example "Phrase scoreboard — 118 phrases (88 expected a part + 30 expected empty)" and "top-1 83/88 · top-3 85/88 · empty-correct 30/30 · invented 0 · retired 0". Below that is plain English, then a table by kind of phrase, so you can see which wording it understands least. A part that is made up, or a retired part that is offered, fails the run.
 
 To test your own library, put a `.json` file of your phrases in the `scoreboard/phrases` folder inside your store (`resolve where` prints the store). You do not need to change the Resolve repo. When that folder has phrases, only your phrases are scored. The 118 built-in phrases are written for the sample library, so they only run on it; on your library with no phrases of your own yet, Resolve says so instead of giving a score. The file format is under [score](#score).
 
@@ -270,6 +336,7 @@ These are explained where they first appear. This list is a reminder, and you do
 Everything below is reference detail: setup options, every command and flag, config files, exact rules, limits, accuracy numbers and version history. You do not need it to use Resolve.
 
 - [Upgrading from the old names](#upgrading-from-the-old-names)
+- [Removed MCP tools](#removed-mcp-tools)
 - [Setup in detail](#setup-in-detail)
 - [Every command](#every-command)
 - [Team config files](#team-config-files)
@@ -284,6 +351,28 @@ Everything below is reference detail: setup options, every command and flag, con
 ### Upgrading from the old names
 
 Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.graphify/`. Both still work: if the new `RESOLVE_HOME` / `.resolve/` exist they win, otherwise the old ones are read. Nothing is moved or deleted for you. To switch, rename the whole old folder to `.resolve/` (for example `mv .graphify .resolve`) and set `RESOLVE_HOME` if you used the old setting. Do not keep both folders. Resolve reads each file from the new folder first. For some files it falls back to the old folder when the new one does not have them: `code-map.json`, `synonyms.json`, `icon-libraries.json`, and the learned library itself. A stale old file of those kinds could keep applying. The other team files (`recipes.json`, `bind-rules.json`, `context-packs.json`, `library-rules.json`) are read only from the folder that holds the learned library, so once `.resolve` has one, the old copies are ignored.
+
+### Removed MCP tools
+
+These tools are gone. A call throws one line that names the replacement. The default MCP list is unchanged: `learn_library`, `recipe`, `recommend`, `resolve`, `get_example`, `verify_frame`, `check_cousins`.
+
+| Removed | Use instead |
+|---|---|
+| `orient`, `query` | `recommend` or `resolve` |
+| `path`, `explain` | the why line on a recommend card |
+| `check`, `check_frame` | `verify` / `verify_frame` |
+| `get_recipe` | `recipe` |
+| `find_nodes`, `get_node`, `get_screen_inventory`, `get_component_usage` | `recommend` or `resolve` |
+| `get_related`, `get_subgraph` | `recommend` |
+| `get_health` | `learn_library` (`list_graphs` still returns the store path) |
+
+`resolve orient`, `query`, `path`, `explain`, and `check` throw the same kind of line.
+
+Context packs stay. `.resolve/context-packs.json` is where a team adds its own words and property hints. They are not deprecated.
+
+`ingredients`, `handoff` (the text printed to the terminal, not the files `--out` writes), `parts`, and `status` print the same Markdown card as the MCP tools, so `/handoff`, `/parts`, and `/resolve-status` read the same as the agent. `--json` is still one compact line for machines. `--pretty` indents that JSON. Exit codes are unchanged.
+
+Where each shared rule lives: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#where-a-rule-lives).
 
 ### Setup in detail
 
@@ -443,7 +532,7 @@ npm run resolve -- verify "Send money"
 npm run resolve -- verify "Send money" --components Button,Gold
 ```
 
-Checks a frame, or a list of component names/ids, after drawing. `pass` is true only when at least one placed piece was checked by its own component id or key and nothing failed. It reports `invents` (not in the library), `deprecated` (retired parts), `unresolved` (with a "did you mean"), bind-rule misses, lorem-ipsum filler, and leftover template text. Matching by layer name alone is labelled `name-only` and is not a pass. With `--components Button,Gold`, "Gold" is reported as an invent because there is no such component. A failed check exits non-zero.
+Checks a frame, or a list of component names/ids, after drawing. `pass` is true only when at least one placed piece was checked by its own component id or key and nothing failed. It reports `invents` (not in the library), `deprecated` (retired parts), `unresolved` (with a "did you mean"), bind-rule misses, lorem-ipsum filler, and leftover template text. Matching by layer name alone is labelled `name-only` and is not a pass. With `--components Button,Gold`, "Gold" is reported as an invent because there is no such component. A failed component check exits 1. A component check that passed, with a proper-use error still on the frame, exits 7. See [Check that a screen uses the library properly](#check-that-a-screen-uses-the-library-properly).
 
 Card size: a check that finds a problem aims for 600 characters (the largest in the repo's test set is 559). A check that passes many components, or a frame with many warnings, can be longer (about 760 characters for five components). That is how it behaved before the code map and it has not changed.
 
@@ -673,9 +762,9 @@ npm run resolve -- ingest scoreboard/fixture/library.json --role library --name 
 npm run resolve -- score --golden scoreboard/golden --workspace fixture
 ```
 
-Runs a set of asks with known right answers through `recommend`, `resolve`, `recipe` and `verify` and prints a table. It scores the library that is in the store, so ingest the sample library first (as above); on an empty store, or on a library without the parts the set asks for, it stops with an error. `--workspace <name>` is only the name the run is saved under (`RESOLVE_HOME/scoreboard`). It exits non-zero if anything was invented or a card is over its size. `npm run resolve -- score --init` writes a starter set from the library you already learned. See [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
+The headline number is `npm run resolve -- score phrases` (designer phrases). The command above is the golden set, a secondary regression check on 75 cases. It scores the library that is in the store, so ingest the sample library first (as above); on an empty store, or on a library without the parts the set asks for, it stops with an error. `--workspace <name>` is only the name the run is saved under (`RESOLVE_HOME/scoreboard`). It exits non-zero if anything was invented or a card is over its size. `npm run resolve -- score --init` writes a starter set from the library you already learned. See [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
-`npm run resolve -- score phrases [--phrases <path>] [--json]` scores designer-worded phrases against `recommend`. It reads the team's own `<store>/scoreboard/phrases/*.json` when there are any. Otherwise it reads the built-in `scoreboard/phrases/*.json` in the checkout, but only when the store holds the sample library (`scoreboard/fixture`); on any other library it stops and asks for team phrases. The two sets are never added together. `--phrases` reads only that path. `score phrase` and `score Phrases` work too; any other word after `score` is an error. Each phrase has an `id`, a `phrase`, a `type` and an `expect`: part names, `"none"`, or `"weak"` (empty, or a pick named in `accept`). It reports top-1, top-3, correct-empty, false-empty, wrong-cousin, retired-recommended and invent, per type. It exits non-zero on any invent or retired-recommended. A phrase naming a part the library lacks is skipped and listed, and a run where nothing could be scored fails. Details in [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md#designer-phrase-set).
+`npm run resolve -- score phrases [--phrases <path>] [--json]` is the headline scoreboard. It scores designer-worded phrases against `recommend` and prints top-1, top-3, empty-correct, invented, and retired first. It reads the team's own `<store>/scoreboard/phrases/*.json` when there are any. Otherwise it reads the built-in `scoreboard/phrases/*.json` in the checkout, but only when the store holds the sample library (`scoreboard/fixture`); on any other library it stops and asks for team phrases. The two sets are never added together. `--phrases` reads only that path. `score phrase` and `score Phrases` work too; any other word after `score` is an error. Each phrase has an `id`, a `phrase`, a `type` and an `expect`: part names, `"none"`, or `"weak"` (empty, or a pick named in `accept`). The detail table also reports false-empty and wrong-cousin, per type. It exits non-zero on any invent or retired-recommended. A phrase naming a part the library lacks is skipped and listed, and a run where nothing could be scored fails. Details in [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md#designer-phrase-set).
 
 `npm run resolve -- gaps [--json]` lists what designers asked `recommend` for (MCP tool or CLI) that came back empty or as a weak match, and screen asks with no mapped screen of that job, from `<store>/scoreboard/gaps.jsonl`. The same ask, ignoring letter case and spacing, is one row with a count and the last date, most asked first. `score phrases`, `recipe` and `resolve` do not add to it. Writing the file never fails a `recommend`. The file is under `scoreboard/`, which the `resolve-setup` ignore block already keeps out of git. Delete it to start over.
 
@@ -834,14 +923,14 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 | Check | Result |
 | --- | --- |
-| Repo golden set (top-1) | 118/118, invent 0, leak 0 |
-| Phrase set (regression) | 96/96 |
-| Designer phrase set (118 phrases, written after the ranker) | top-1 66/88 (75%), top-3 68/88 (77%), honest no-match 30/30, invent 0, retired offered 0. Weakest: paraphrase, 20/39 right first, 14 got nothing back |
+| Phrase scoreboard (headline) | 118 phrases = 88 expected a part + 30 expected empty. top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0. Held-out top-3 18/19 (seed 90, 24 of 118). Fresh Acme set top-3 14/14 (21 phrases). Weakest type: retired, 6/7 right first. Paraphrase 36/39 right first, 1 got nothing back |
+| Golden scoreboard (secondary regression, 75 cases) | recommend 56/56, resolve 59/59, recipe 3/3, verify did-you-mean on its own row. Tool rows added together (recommend + resolve + recipe, verify excluded) are 118/118. That 118 is not 118 phrases and not 75 cases. Top-3 is not reported (1 card). Invent 0, leak 0 |
+| Phrase regression set | 96/96 |
 | 8-screen Material-like library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
 | Ingredient card (Acme example library) | Payee picker = Avatar + Button, Payment method row = Avatar + Button; invented parts 0; unmapped parts shown as unmapped |
 | Angular code map (Acme example) | 4 Angular entries load with 0 ignored; the CSV example imports to the same map; 14 bad Angular values dropped with a reason while the code line stays; 5 real selector forms and input aliases accepted |
 | Handoff sheet (Acme example) | Send money refused for the retired Old Button (draft or not); after the fix, 3 components, 3 linked to code, 2 parts, verify PASS, matches the golden file; 0 invented code lines. Receipt refused as `not-found` (Legacy badge's component is in no learned file); Payment methods' Brand mark labelled `other-library` |
-| Tests | 818 passing |
+| Tests | 875 passing |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
@@ -865,9 +954,9 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 
 ### What the AI receives
 
-MCP tools answer in Markdown. `format` `json` is the same card as one compact JSON line. Both leave out filler: the `cost` block, the rank `score`, a graph id `node:…` sitting next to `figmaNodeId` or `nodeId`, the repeated "Do not Read graph.json" sentence, `learn_library`'s save-state dump, and a handoff parts table that repeats the parts already listed on each component. File writes (`handoff.json` and the screen sheets) stay indented. The CLI prints compact JSON; `--pretty` indents it. Exit codes are unchanged.
+MCP tools answer in Markdown. `format` `json` is the same card as one compact JSON line. Both leave out filler: the `cost` block, the rank `score`, a graph id `node:…` sitting next to `figmaNodeId` or `nodeId`, the repeated "Do not Read graph.json" sentence, `learn_library`'s save-state dump, and a handoff parts table that repeats the parts already listed on each component. File writes (`handoff.json` and the screen sheets) stay indented. `ingredients`, `handoff` (terminal text), `parts`, and `status` print that same Markdown. Other commands, and those four with `--json`, print compact JSON; `--pretty` indents it. A proper-use error on a passing component check exits 7. Every other exit code is unchanged.
 
-Every pick, part, and placed copy still carries `fileKey` and `figmaNodeId`. A published master keeps `componentKey`. A real example keeps `ex`. A check starts with PASS, FAIL, NAME-ONLY, or NOTHING CHECKED, and keeps `textChecked`. A retired or deprecated name keeps its replacement. A recipe slot says placed, inside another component, or missing, and an unbound slot keeps the next `recommend` query. Name guesses and other-library parts stay labelled. Audience and a11y are echoed with a source (`document`, `pack <id>`, or `active pack`). A code-map name check keeps the status, the designer sentence, and the exit code.
+Every pick, part, and placed copy still carries `fileKey` and `figmaNodeId`. A published master keeps `componentKey`. A real example keeps `ex`. A check with no proper-use section starts with PASS, FAIL, NAME-ONLY, or NOTHING CHECKED. When proper use ran, the first line states both (`Components: PASS · Proper use: PASS`, or `Components: PASS · Proper use: FAIL (N errors, M warnings)`). It keeps `textChecked`. A retired or deprecated name keeps its replacement. A recipe slot says placed, inside another component, or missing, and an unbound slot keeps the next `recommend` query. Name guesses and other-library parts stay labelled. Audience and a11y are echoed with a source (`document`, `pack <id>`, or `active pack`). A code-map name check keeps the status, the designer sentence, and the exit code.
 
 On the Acme library (file key `ACMEUI`, the Angular example map), `recommend` for "payee picker" is:
 
@@ -880,12 +969,39 @@ code: AcmePayeePickerComponent from '@acme/payments-angular'
 angular: <acme-payee-picker>, standalone
 ```
 
-The same 14 Acme cards (three recommends, three resolves, one example, two verifies, one recipe, the recipe list, cousins, one ingredient card, and the Send money handoff) are 4,434 tokens as today's JSON and 3,269 as Markdown. Tokens are `ceil(characters / 4)`, summed per card. Removing the filler accounts for about half of that drop (the stripped JSON is 3,876). The count is locked in `tests/server.cards.test.ts`.
+The same 14 Acme cards (three recommends, three resolves, one example, two verifies, one recipe, the recipe list, cousins, one ingredient card, and the Send money handoff) are 4,547 tokens as today's JSON and 3,350 as Markdown. Tokens are `ceil(characters / 4)`, summed per card. Removing the filler accounts for about half of that drop (the stripped JSON is 3,995). The count is locked in `tests/server.cards.test.ts`.
+
+### How Resolve tells the AI about properties
+
+When a library is learned, Resolve reads each component's Figma property definitions and puts them on the card. The AI sees the property, its type, the allowed values (the default is marked), the Angular input when one matches, and a "designer says" hint when the request uses a word that maps onto an allowed value. A value that is not in the list is never suggested.
+
+Acme Button, asked as "outline button with icon":
+
+```
+Properties:
+- Variant · VARIANT · Primary (default), Secondary, Tertiary · variant · designer says: outline → Secondary
+- Size · VARIANT · Medium (default), Small, Large · size
+- State · VARIANT · Enabled (default), Disabled · disabled
+- Has icon · BOOLEAN · false (default), true · unmapped · designer says: with icon → true
+- Icon · INSTANCE_SWAP · Check (default), Close · 1 preferred value unknown · unmapped
+- Label · TEXT · Button (default) · unmapped
+To apply: set Variant=Secondary, Has icon=true
+```
+
+`variant`, `size`, and `disabled` are the Angular inputs. Label, Has icon, and Icon have no matching input, so they say unmapped. A name like `Property 1` is kept and flagged so someone renames it in Figma. On a placed instance, a value outside the allowed list fails verify. A text property left on its default, such as a label that still says "Button", is a note and does not fail.
 
 ### Version history
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
+- **Oct 13, 2026 — [PR #48](https://github.com/TANISHQBAFNA/resolve/pull/48).** Re-learning Acme's Home page replaces that page: a field that left is gone, and a master that left is marked removed. An input in a slot counts as on the screen, a hidden button is left out, and "input field" finds `ingredients/input-field` ahead of `base/` unless the ask says `base/`. `resolve status` shows the workspace label, and `resolve learn` leaves out the save-state checkpoint. Phrase score unchanged: top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0. Default tools stay 7. 888 tests.
+- **Oct 13, 2026 — [PR #57](https://github.com/TANISHQBAFNA/resolve/pull/57).** `verify_frame`, `/check`, and `resolve check` now say when a frame uses the library badly: a detached copy of a component, a hard-coded colour, spacing, radius, or effect, a property value that is not allowed, placeholder text ("Button", "Label"), text contrast, a tap target under the bar, or an icon-only button with no label. The section is on the same card. The first line states both results, and proper-use errors make that line FAIL. Warnings alone stay PASS, with the count. A crowded card keeps every error and points at `resolve check --all` (or `verify_frame` `all: true`). Exit 1 is unchanged. Exit 7 means the component check passed and proper use still has an error. A capture with no `boundVariables` says unknown and does not flag a colour. On the Acme fixture, Misused is 14/14 known defects (precision 1) and Paid screen has 0 errors. The phrase scoreboard is unchanged: 118 phrases (88 expected a part + 30 expected empty), top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0. Held-out top-3 stays 18/19. The fresh Acme set stays top-3 14/14 and empty 7/7. The golden set stays 75 cases. Default tools stay 7. 883 tests.
+- **Oct 12, 2026 — [PR #56](https://github.com/TANISHQBAFNA/resolve/pull/56).** Same 118 phrases. top-1 83/88 (was 66/88), top-3 85/88 (was 68/88), empty-correct 30/30, invented 0, retired 0. One synonym map covers `synonyms.json` and the property-hint words, so a value word such as disabled or danger can rank the component that owns that value. Stemming, component descriptions, and property values count in the match. Teams still add their own words in a context pack. A held-out fifth of the phrases (seed 90) scores top-3 18/19. A fresh Acme set of 21 phrases scores top-3 14/14 and empty 7/7. The golden set stays 75 cases. Default tools stay 7. No scoreboard sentence was added as a synonym. 875 tests.
+- **Oct 12, 2026 — [PR #55](https://github.com/TANISHQBAFNA/resolve/pull/55).** No new feature. Repeated blocks now live in the module that already owns the rule. Cousin check, SOCI, and the scoreboard share one generic-noun set. Recommend and recipe keep their own stopword lists. Duplicate checking in CI fails above 0.75%. The phrase scoreboard is unchanged: 118 phrases (88 expected a part + 30 expected empty), top-1 66/88, top-3 68/88, empty-correct 30/30, invented 0, retired 0. The golden set stays 75 cases. Ranking is unchanged. 868 tests.
+- **Oct 12, 2026 — [PR #54](https://github.com/TANISHQBAFNA/resolve/pull/54).** No new feature. Thirteen deprecated MCP tools are removed. A call names the replacement (see [Removed MCP tools](#removed-mcp-tools)). The default list stays the same seven tools. Same-family, retired, name folding, and id spelling each live in one module. `ingredients`, `handoff`, `parts`, and `status` print the same Markdown card as the MCP. `--json` stays compact. Context packs stay: a team adds its own words and property hints there. The phrase scoreboard is unchanged: 118 phrases (88 expected a part + 30 expected empty), top-1 66/88, top-3 68/88, empty-correct 30/30, invented 0, retired 0. The golden set stays 75 cases. Ranking is unchanged. 868 tests.
+- **Oct 12, 2026 — [PR #53](https://github.com/TANISHQBAFNA/resolve/pull/53).** Resolve reads Figma component properties when a library is learned: variant, boolean, text, and instance swap, with the default, the allowed values, and a rename note for a placeholder name like `Property 1`. The usage card, the ingredient card, handoff, and recommend show a Properties section and, when the request names an allowed value, one line `To apply: set X=Y`. Words such as outline, disabled, compact, and with icon map only onto values the component actually allows. A placed value outside that list fails verify. A label left on its default is a note, not a failure. The phrase scoreboard is unchanged: 118 phrases (88 expected a part + 30 expected empty), top-1 66/88, top-3 68/88, empty-correct 30/30, invented 0, retired 0. The golden set stays 75 cases. Ranking is unchanged. Default tools stay 7. 867 tests.
+- **Oct 11, 2026 — [PR #52](https://github.com/TANISHQBAFNA/resolve/pull/52).** CI builds once: `prepare` still builds the server for a git or npx install, and skips that when CI is set, so the workflow no longer typechecks on its own or builds the server twice. Browser end-to-end checks are a required headless Chromium job. A failed live call shows an error and a next step, and does not show the example library or the example bind rules as a live result. The phrase scoreboard is the headline: 118 phrases (88 expected a part + 30 expected empty), top-1 66/88, top-3 68/88, empty-correct 30/30, invented 0, retired 0. The golden set (75 cases) is a secondary regression check. The personal caveman Cursor rule is removed. Ranking is unchanged. Default tools stay 7. 857 tests.
+- **Oct 11, 2026 — [PR #50](https://github.com/TANISHQBAFNA/resolve/pull/50).** Resolve installs once, as a plugin, in Claude Code and in Cursor. After that, every chat in every project asks Resolve before it draws. The slash commands, the always-on rule, and the skill are the same files as before. The Figma token and the library file key are plugin settings. An example link is `figma.com/design/ACMEUI/Acme`. If either setting is missing, the first reply says how to set it. Ranking is unchanged. Default tools stay 7. 851 tests.
 - **Oct 7, 2026 — [PR #47](https://github.com/TANISHQBAFNA/resolve/pull/47).** A frame checked with `resolve verify` (the AIDLC add-on's design-check) now counts as a mapped screen, the same as one checked by the agent. Acme's "Send money" frame with domain `payments` is a payment screen, so "payment screen" answers from it. Ranking is unchanged. Default tools stay 7.
 - **Oct 7, 2026 — [PR #46](https://github.com/TANISHQBAFNA/resolve/pull/46).** Ask the agent for an "inquiry screen" and it answers from Acme's mapped inquiry screens: Search and List, in the order those screens use them, with their Figma ids. Nobody writes a recipe or a synonym for it. With no mapped screen of that job, the answer is empty and says so. Component ranking is unchanged. Default tools stay 7.
 - **Oct 7, 2026 — [PR #45](https://github.com/TANISHQBAFNA/resolve/pull/45).** `code-map --check` answers like the AIDLC add-on's own lookup. `<button mat-raised-button>` is `not-found`, not Acme's Button. `Old Button` is `retired, use Button`: `--import` now keeps the design name, and the Acme example map has it. `AcmeButtonModule` is `ok`. Avatar inside Acme's Payee picker is `unmapped`, not `other-library`. Text field in a recipe slot the designer did not place is `not-in-handoff`. Ranking is unchanged. Default tools stay 7.

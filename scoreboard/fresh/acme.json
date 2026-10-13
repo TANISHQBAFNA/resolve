@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "note": "Unseen Acme asks. Not part of the 118-phrase headline set, and not used as synonyms.",
+  "cases": [
+    { "id": "fresh-payer-photo", "type": "fresh", "phrase": "profile photo of the payer", "expect": ["Avatar"] },
+    { "id": "fresh-dismiss-mark", "type": "fresh", "phrase": "dismiss mark", "expect": ["Icon Close"] },
+    { "id": "fresh-secondary-control", "type": "fresh", "phrase": "secondary control", "expect": ["Button Secondary"], "accept": ["Button"] },
+    { "id": "fresh-query-box", "type": "fresh", "phrase": "query box", "expect": ["Search Field"] },
+    { "id": "fresh-wallet-bar", "type": "fresh", "phrase": "top bar of the acme wallet", "expect": ["Header Bar"] },
+    { "id": "fresh-voucher-entry", "type": "fresh", "phrase": "voucher entry", "expect": ["Coupon Field", "Promo Field"] },
+    { "id": "fresh-primary-action", "type": "fresh", "phrase": "primary action", "expect": ["Button"], "accept": ["Button Primary", "Pay CTA", "Save CTA"] },
+    { "id": "fresh-greyed-button", "type": "fresh", "phrase": "greyed out button", "expect": ["Button"], "accept": ["Button Primary", "Button Secondary"] },
+    { "id": "fresh-danger-control", "type": "fresh", "phrase": "danger control", "expect": ["Button Danger"], "accept": ["Button"] },
+    { "id": "fresh-saved-payment", "type": "fresh", "phrase": "saved payment line", "expect": ["Payment Row"] },
+    { "id": "fresh-blank-message", "type": "fresh", "phrase": "blank message", "expect": ["Empty Message"] },
+    { "id": "fresh-quantity-control", "type": "fresh", "phrase": "quantity control", "expect": ["Quantity Stepper"] },
+    { "id": "fresh-nav-entry", "type": "fresh", "phrase": "nav entry", "expect": ["Nav Item"] },
+    { "id": "fresh-hyperlink-footer", "type": "fresh", "phrase": "hyperlink in the footer", "expect": ["Link Button"] },
+    { "id": "fresh-week-calendar", "type": "fresh", "phrase": "calendar for picking a week", "expect": "none" },
+    { "id": "fresh-store-map", "type": "fresh", "phrase": "store map with pins", "expect": "none" },
+    { "id": "fresh-sparkline", "type": "fresh", "phrase": "spend sparkline", "expect": "none" },
+    { "id": "fresh-hologram", "type": "fresh", "phrase": "acme hologram seal", "expect": "none" },
+    { "id": "fresh-fingerprint", "type": "fresh", "phrase": "fingerprint gate", "expect": "none" },
+    { "id": "fresh-passcode", "type": "fresh", "phrase": "six box passcode", "expect": "none" },
+    { "id": "fresh-branch", "type": "fresh", "phrase": "branch locator", "expect": "none" }
+  ]
+}
