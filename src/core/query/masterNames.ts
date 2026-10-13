@@ -66,7 +66,7 @@ export function isWeakerNameStub(index: GraphIndex, node: GraphNode, picked: Gra
   return masterPopulation(index, node) < masterPopulation(index, picked);
 }
 /**
- * Same-name masters: asked-style variant hits, then more variants, then usage.
+ * Same-name masters: asked-style variant hits, then a bind-rule prefer, then more variants, then usage.
  * Populated local set beats a thin external stub. Library-role file breaks remaining ties.
  */
 export function preferNamedMaster(
@@ -74,6 +74,7 @@ export function preferNamedMaster(
   hits: readonly GraphNode[],
   workspace?: WorkspaceManifest,
   ask?: string,
+  ruleBonus?: (node: GraphNode) => number,
 ): GraphNode | undefined {
   if (!hits.length) return undefined;
   if (hits.length === 1) return hits[0];
@@ -82,6 +83,9 @@ export function preferNamedMaster(
     const aStyle = askedStyleHits(index, a, ask);
     const bStyle = askedStyleHits(index, b, ask);
     if (bStyle !== aStyle) return bStyle - aStyle;
+    const aRule = ruleBonus?.(a) ?? 0;
+    const bRule = ruleBonus?.(b) ?? 0;
+    if (bRule !== aRule) return bRule - aRule;
     const aPop = masterPopulation(index, a);
     const bPop = masterPopulation(index, b);
     const aFilled = aPop > 0 ? 1 : 0;

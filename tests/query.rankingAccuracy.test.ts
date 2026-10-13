@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { SourceDocumentSchema } from "@/core/ingestion/types";
 import { buildGraph } from "@/core/transform";
+import { DesignGraphSchema } from "@/core/model";
 import { indexGraph, starterRecipes } from "@/core/query";
 import { componentUsageCard, recommendMasters } from "@/core/query/agentSurface";
 import { recipeCard } from "@/core/query/recipes";
@@ -321,6 +322,38 @@ describe("deprecated names", () => {
     const result = recommendMasters(index, "Legacy Banner");
     expect(result.candidates[0]?.name).toBe("Alert");
     expect(result.candidates[0]?.why).toBe("replaces Legacy Banner (deprecated)");
+  });
+});
+
+describe("retired set matched by a variant", () => {
+  it("names the retired set in the why line, not the variant", () => {
+    const at = "2026-01-01T00:00:00.000Z";
+    const node = (id: string, type: string, name: string, extra: Record<string, unknown> = {}) => ({
+      id, type, name, parentId: "node:p", pageId: "node:p", fileKey: "LIB", figmaNodeId: id.slice(5), ...extra,
+    });
+    const index = indexGraph(
+      DesignGraphSchema.parse({
+        fileKey: "LIB",
+        fileName: "Kit",
+        builtAt: at,
+        source: { kind: "mock", ingestedAt: at },
+        warnings: [],
+        nodes: [
+          { id: "node:p", type: "PAGE", name: "Kit", pageId: "node:p", fileKey: "LIB" },
+          node("node:1:1", "COMPONENT_SET", "ingredients/toast", { status: "deprecated", metadata: { removedByAbsence: true } }),
+          node("node:1:2", "VARIANT", "tone=neutral", { parentId: "node:1:1", componentSetId: "node:1:1", variantProperties: { tone: "neutral" } }),
+          node("node:1:3", "VARIANT", "tone=success", { parentId: "node:1:1", componentSetId: "node:1:1", variantProperties: { tone: "success" } }),
+          node("node:2:1", "MAIN_COMPONENT", "ingredients/alert-toast", { isMainComponent: true }),
+        ],
+        edges: ["node:1:2", "node:1:3"].flatMap((variant) => [
+          { id: `c${variant}`, type: "CONTAINS", source: "node:1:1", target: variant },
+          { id: `v${variant}`, type: "VARIANT_OF", source: variant, target: "node:1:1" },
+        ]),
+      }),
+    );
+    const lead = recommendMasters(index, "toast").candidates[0];
+    expect(lead?.name).toBe("ingredients/alert-toast");
+    expect(lead?.why).toBe("replaces ingredients/toast (deprecated)");
   });
 });
 

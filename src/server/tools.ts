@@ -686,6 +686,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         sock: readSock(),
         workspace: bind.workspace ?? readWorkspace(),
         placeholders: readPlaceholders(),
+        bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
         ...(resolvedContext ? { context: resolvedContext } : {}),
       });
       const echo = pack ? appliedContext(pack) : undefined;

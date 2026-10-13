@@ -186,14 +186,19 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const target = args.find((arg) => !arg.startsWith("--"));
       const xmlPath = flag(args, "from-metadata") ?? target;
       const fileKey = flag(args, "file-key");
-      if (!fileKey) throw new Error("Usage: resolve learn --file-key <key> [--from-metadata <file.xml>] [--role library]");
-      const designContextPath = flag(args, "design-context");
-      let metadataXml: string | undefined;
-      if (xmlPath) {
-        const resolved = resolve(xmlPath);
-        if (!existsSync(resolved)) throw new Error(`No file at ${xmlPath}.`);
-        metadataXml = readFileSync(resolved, "utf8");
+      if (!fileKey) {
+        throw new Error(
+          "Usage: resolve learn --file-key <key> [--from-metadata <file.xml>] [--role library] [--design-context <file>] [--libraries <file.json>]",
+        );
       }
+      const designContextPath = flag(args, "design-context");
+      const librariesPath = flag(args, "libraries");
+      const readLearnFile = (path: string) => {
+        const resolved = resolve(path);
+        if (!existsSync(resolved)) throw new Error(`No file at ${path}.`);
+        return readFileSync(resolved, "utf8");
+      };
+      const metadataXml = xmlPath ? readLearnFile(xmlPath) : undefined;
       printJson(
         stripFiller(
           learnLibrary({
@@ -203,6 +208,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
             label: flag(args, "label") ?? flag(args, "name"),
             metadataXml,
             ...(designContextPath ? { designContext: readDesignContextFile(designContextPath) } : {}),
+            ...(librariesPath ? { libraries: readLearnFile(librariesPath) } : {}),
             lastModified: flag(args, "last-modified"),
             version: flag(args, "version"),
             resume: args.includes("--resume"),
@@ -302,6 +308,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
         sock: readSock(),
         placeholders: readPlaceholders(),
         workspace: bind.workspace ?? readWorkspace(),
+        bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
         ...(context ? { context } : {}),
       });
       const echo = pack ? appliedContext(pack) : undefined;

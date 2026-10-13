@@ -18,7 +18,7 @@ export interface ComponentNameIndex {
 
 export type PropertySource = "rest" | "mcp";
 
-const KNOWN_TYPES = new Set<ComponentPropertyType>(["VARIANT", "BOOLEAN", "TEXT", "INSTANCE_SWAP"]);
+const KNOWN_TYPES = new Set<ComponentPropertyType>(["VARIANT", "BOOLEAN", "TEXT", "INSTANCE_SWAP", "SLOT"]);
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -131,7 +131,8 @@ function parseOne(
     return prop;
   }
 
-  const fallback = resolveDefault(record["defaultValue"], type, names);
+  // A slot holds whatever parts the designer places; it has no default or value list.
+  const fallback = type === "SLOT" ? {} : resolveDefault(record["defaultValue"], type, names);
   if (fallback.defaultValue !== undefined) prop.defaultValue = fallback.defaultValue;
   if (fallback.defaultId) prop.defaultId = fallback.defaultId;
   if (fallback.defaultUnknown) prop.defaultUnknown = true;

@@ -4,7 +4,7 @@ import { sameFamily, setOf } from "@/core/rules/family";
 import { collapsedName, isNameInferredMaster } from "@/core/rules/names";
 import { isRetired } from "@/core/rules/retired";
 import { computeComponentUsage } from "./analytics";
-import { bindRuleHit, type BindRulesFile, filterAndScoreByBindRules, fitBindRuleWarnings, packJourneyPhrase, whyLineForMaster } from "./bindRules";
+import { bindRuleHit, type BindRulesFile, filterAndScoreByBindRules, fitBindRuleWarnings, packJourneyPhrase, preferDelta, whyLineForMaster } from "./bindRules";
 import { fitEcho, shedEcho, shrinkNameFields } from "./cardFit";
 import { angularText, useText } from "./codeMap";
 import { BUILTIN_PROPERTY_HINTS, hintsFromFile, propertyBlock } from "./componentProperties";
@@ -15,7 +15,7 @@ import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RE
 import { placeReady } from "./placeReady";
 import { tokensOf } from "./queryTokens";
 import { appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
-import { askGate, asksIcon, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, genericOnlyMiss, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, matchHaystack, modifierWord, namesThisNode, nameTokenFor, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakMatchWhy, wholeNameTypo, withoutGenericCousins, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, genericOnlyMiss, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, matchHaystack, modifierWord, namesThisNode, nameTokenFor, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakMatchWhy, wholeNameTypo, withoutGenericCousins, xMeansClose } from "./recommendLexicon";
 import { type RecommendAlternate, type RecommendCandidate, type RecommendContext, type RecommendHit, refreshHintFor, slotsForComponent, whereUsedRows } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
 import { inflectionStems, overlap, similarUsage } from "./screenInventory";
@@ -93,6 +93,10 @@ export function recommendMasters(
     graphFileKey,
     sock: options.sock,
   };
+  const bindRules = options.bindRules;
+  const ruleBonus = bindRules?.rules.length
+    ? (node: GraphNode) => preferDelta(bindRules, node, bindQuery)
+    : undefined;
   const intentNeedle = intent.trim().toLowerCase();
   const allowClip = askedTokens.length >= 2;
   const componentWord = (token: string): boolean =>
@@ -316,7 +320,7 @@ export function recommendMasters(
     if (askedSpecific.length > 0 && specificOverlap === 0) continue;
     const rank = askedSpecific.length > 0 ? specificOverlap : entry.covered;
     if (asksRetired && rank > 0 && entry.covered >= publicCovered) {
-      const reason = `replaces ${entry.node.name} (deprecated)`;
+      const reason = `replaces ${setOf(index, entry.node)?.name ?? entry.node.name} (deprecated)`;
       if (!redirect || rank > redirect.covered) {
         redirect = { id: replacement.id, reason, covered: rank };
       }
@@ -513,7 +517,7 @@ export function recommendMasters(
   }
   kept = collapsed.filter((entry) => {
     const namesakes = realMastersNamed(index, entry.node.name);
-    const preferred = preferNamedMaster(index, namesakes, workspace, intent);
+    const preferred = preferNamedMaster(index, namesakes, workspace, intent, ruleBonus);
     if (!preferred || preferred.id === entry.node.id) return true;
     return !isWeakerNameStub(index, entry.node, preferred);
   });
@@ -526,6 +530,7 @@ export function recommendMasters(
         same.map((entry) => entry.node),
         workspace,
         intent,
+        ruleBonus,
       );
       const chosen = preferred ? same.find((entry) => entry.node.id === preferred.id) : undefined;
       if (chosen) kept = [chosen, ...kept.filter((entry) => entry.node.id !== preferred!.id)];
@@ -573,13 +578,13 @@ export function recommendMasters(
     retiredNote = `${name} is retired${use ? `, ${useText(use, found?.guess)}` : ""}.`;
     if (useNode && best.exactName) {
       const existing = kept.find((entry) => entry.node.id === useNode.id);
-      if (existing) existing.whyOverride = `replaces ${best.node.name} (deprecated)`;
+      if (existing) existing.whyOverride = `replaces ${name} (deprecated)`;
       const lead: Scored = existing ?? {
         node: useNode,
         score: 1_000_000,
         lexical: 1_000,
         why: ["name"],
-        whyOverride: `replaces ${best.node.name} (deprecated)`,
+        whyOverride: `replaces ${name} (deprecated)`,
         analog: false,
         deprecated: false,
         instances: computeComponentUsage(index, useNode).instanceCount,
@@ -603,7 +608,8 @@ export function recommendMasters(
       Boolean(set && set.name.toLowerCase() === intentNeedle);
     return !shouldDemoteIcon(index, node, set, askedTokens, askedExact, workspace, intent);
   });
-  const exactPick = preferNamedMaster(index, exactLive, workspace, intent.trim());
+  const literalPick = preferNamedMaster(index, exactLive, workspace, intent.trim(), ruleBonus);
+  const exactPick = literalPick && ruleNamesake(literalPick, kept.map((entry) => entry.node), ruleBonus);
   if (exactPick) {
     const existing = kept.find((entry) => entry.node.id === exactPick.id);
     const lead: Scored = existing

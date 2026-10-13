@@ -9,6 +9,7 @@ import {
   whyLineForMaster,
 } from "@/core/query/bindRules";
 import {
+  componentUsageCard,
   indexGraph,
   recommendMasters,
   verifyFrame,
@@ -187,6 +188,51 @@ describe("recommend ranking with bind rules", () => {
       expect(cousin.score).toBeLessThan(lead.score);
     }
   });
+});
+
+describe("prefer between same-name masters", () => {
+  // The same part in two files. The Storefront one has more parts and the literal name,
+  // so without the rule it wins the exact-name tie.
+  function namesakes(libName: string) {
+    const master = (id: string, fileKey: string, parts: number, name = "Input Field"): GraphNode[] => [
+      n(id, "MAIN_COMPONENT", name, { parentId: "node:p", pageId: "node:p", isMainComponent: true, fileKey, figmaNodeId: id }),
+      ...Array.from({ length: parts }, (_, i) =>
+        n(`${id}:part${i}`, "TEXT_LAYER", `Part ${i}`, { parentId: id, pageId: "node:p", fileKey }),
+      ),
+    ];
+    const nodes = [
+      n("file:LIB", "FILE", "Shared DS", { fileKey: "LIB" }),
+      n("node:p", "PAGE", "Kit", { parentId: "file:LIB", pageId: "node:p", fileKey: "LIB" }),
+      ...master("node:lib-input", "LIB", 1, libName),
+      ...master("node:prod-input", "PROD", 3),
+    ];
+    const edges = nodes
+      .filter((node) => node.parentId)
+      .map((node) => e("CONTAINS", node.parentId!, node.id));
+    const graph: DesignGraph = {
+      fileKey: "LIB",
+      fileName: "Shared DS",
+      builtAt: FROZEN,
+      source: { kind: "mock", ingestedAt: FROZEN },
+      warnings: [],
+      nodes,
+      edges,
+    };
+    return indexGraph(graph);
+  }
+  const preferLib = () =>
+    resolveBindRules(parseBindRulesFile({ rules: [{ prefer: "Shared DS", over: "Storefront" }] }), { workspace });
+
+  for (const libName of ["Input Field", "ingredients/input-field"]) {
+    it(`recommend and resolve put the preferred file's ${libName} first`, () => {
+      const index = namesakes(libName);
+      expect(recommendMasters(index, "input field", { workspace }).candidates[0]?.id).toBe("node:prod-input");
+      const result = recommendMasters(index, "input field", { workspace, bindRules: preferLib() });
+      expect(result.candidates[0]?.id).toBe("node:lib-input");
+      const card = componentUsageCard(index, "Input Field", { workspace, bindRules: preferLib() });
+      expect(card).toMatchObject({ component: { id: "node:lib-input" } });
+    });
+  }
 });
 
 describe("verify_frame bind rules", () => {

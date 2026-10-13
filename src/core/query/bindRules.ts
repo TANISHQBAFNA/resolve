@@ -497,6 +497,15 @@ export function bindRuleHit(rules: BindRulesFile, node: GraphNode, options: Bind
   return undefined;
 }
 
+/** Net prefer-rule move for one master: +48 per rule that prefers it, −48 per rule it loses. */
+export function preferDelta(rules: BindRulesFile, node: GraphNode, options: BindContext): number {
+  let delta = 0;
+  for (const rule of rules.rules) {
+    if (rule.kind === "prefer") delta += preferBoost(rule, node, options);
+  }
+  return delta;
+}
+
 export function filterAndScoreByBindRules<T extends { node: GraphNode; score: number }>(
   entries: T[],
   rules: BindRulesFile,
@@ -512,13 +521,10 @@ export function filterAndScoreByBindRules<T extends { node: GraphNode; score: nu
     return true;
   });
 
-  for (const rule of rules.rules) {
-    if (rule.kind !== "prefer") continue;
-    next = next.map((entry) => {
-      const delta = preferBoost(rule, entry.node, options);
-      return delta ? { ...entry, score: entry.score + delta } : entry;
-    });
-  }
+  next = next.map((entry) => {
+    const delta = preferDelta(rules, entry.node, options);
+    return delta ? { ...entry, score: entry.score + delta } : entry;
+  });
 
   const requireRules = rules.rules.filter(
     (rule): rule is RequireBindRule => rule.kind === "require" && requireRuleApplies(rule, options),
