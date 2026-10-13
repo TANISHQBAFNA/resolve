@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — learn JSON files, prefer between namesakes, slot properties
+
+Oct 13, 2026 IST. `resolve learn --design-context` reads a JSON file as JSON, so a dump of `[{id, name, key, componentPropertyDefinitions}]` stores property definitions and published keys the way `learn_library` does. Other text stays text. A JSON string passed to `learn_library` is read the same way. New `resolve learn --libraries <file.json>`, same as the tool's `libraries`. A bind-rule `prefer` now decides between masters of the same part from different files before variant count and usage: with COIN preferred, "input field" gives `ingredients/input-field`, not CBX300 Mobile's `Input Field`, in `recommend` and `resolve`. A Figma `SLOT` property is stored and shown as `SLOT` ("slot: place parts inside"), not `UNKNOWN`. Re-learn the file to update a stored slot. A retired set matched by one of its variants is named by the set in the why line (`replaces ingredients/toast (deprecated)`, not `replaces tone=neutral`). Ranking without a prefer rule is unchanged.
+
 ## Unreleased — re-learn, slots, hidden layers, tier names
 
 Oct 13, 2026 IST. Re-learning a page or frame replaces that subtree, so a part that left the file does not stay beside its replacement. A master that left is still marked removed-by-absence. A Figma slot stays a slot: an instance the designer placed in it counts as on the screen for handoff, verify, and SOCK, not as the component's own insides. `hidden="true"` is kept, and a hidden instance is left out of verify, handoff, and SOCK. Finder reads `base/`, `ingredients/`, and `recipes/` as a path prefix, so "input field" is an exact match for `ingredients/input-field` and is not a weak match. `ingredients/` wins over `base/` for the same part unless the ask says `base/`. `resolve status` shows the workspace label. `resolve learn` omits the save-state checkpoint, same as the MCP card. Ranking of an unprefixed name is unchanged.

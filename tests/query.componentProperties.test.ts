@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { adaptFigmaMcpMetadata, adaptFigmaRestFile } from "@/core/ingestion";
+import { parseComponentPropertyDefinitions } from "@/core/ingestion/componentProperties";
 import { DesignGraphSchema, GRAPH_SCHEMA_VERSION } from "@/core/model";
 import { cleanPropertyName } from "@/core/model/componentProperties";
 import {
@@ -162,6 +163,23 @@ describe("component properties", () => {
     expect(defs.find((row) => row.name === "Property 1")?.rename).toMatch(/placeholder/);
     const variant = index.graph.nodes.find((node) => node.type === "VARIANT");
     expect(variant?.propertyDefinitions).toBeUndefined();
+  });
+
+  it("reads a Figma SLOT property as a slot, not UNKNOWN", () => {
+    const defs = parseComponentPropertyDefinitions({ "content area#198:0": { type: "SLOT" } }, undefined, "mcp");
+    expect(defs).toEqual([{ name: "content area", type: "SLOT", descriptionUnknown: true }]);
+    const graph = DesignGraphSchema.parse({
+      fileKey: "COIN",
+      fileName: "COIN",
+      builtAt: "2026-01-01T00:00:00.000Z",
+      source: { kind: "mock", ingestedAt: "2026-01-01T00:00:00.000Z" },
+      warnings: [],
+      nodes: [{ id: "node:1", type: "MAIN_COMPONENT", name: "section-container", propertyDefinitions: defs }],
+      edges: [],
+    });
+    const index = indexGraph(graph);
+    const lines = formatPropertyLines(propertyBlock(index, index.getNode("node:1")!)?.properties ?? []);
+    expect(lines[0]).toMatch(/^- content area · SLOT · slot: place parts inside · /);
   });
 
   it("keeps an older graph readable and does not call it the new version", () => {

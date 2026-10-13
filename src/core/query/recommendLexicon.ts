@@ -137,6 +137,31 @@ export function tierOf(name: string): "base" | "ingredients" | "recipes" | undef
 }
 
 /**
+ * The literal-name pick, unless a bind-rule prefer ranks the same part from another file
+ * (same name once tier prefix, case and punctuation are dropped) strictly higher.
+ * "input field" with COIN preferred → `ingredients/input-field`, not CBX `Input Field`.
+ */
+export function ruleNamesake(
+  picked: GraphNode,
+  others: Iterable<GraphNode>,
+  ruleBonus?: (node: GraphNode) => number,
+): GraphNode {
+  if (!ruleBonus) return picked;
+  const part = collapsedName(stripTier(picked.name));
+  let best = picked;
+  let bestBonus = ruleBonus(picked);
+  for (const node of others) {
+    if (collapsedName(stripTier(node.name)) !== part) continue;
+    const bonus = ruleBonus(node);
+    if (bonus > bestBonus) {
+      best = node;
+      bestBonus = bonus;
+    }
+  }
+  return best;
+}
+
+/**
  * `ingredients/` and `recipes/` beat `base/` for the same part.
  * An ask that says `base/` keeps the base part.
  */

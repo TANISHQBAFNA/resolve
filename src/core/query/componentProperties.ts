@@ -135,6 +135,7 @@ function valueAllowed(prop: ComponentProperty, value: string): boolean {
 
 function displayOf(prop: ComponentProperty): Pick<PropertyRow, "values" | "defaultUnknown" | "optionsUnknown" | "unresolvedPreferred"> {
   const unresolved = prop.unresolvedPreferred ? { unresolvedPreferred: prop.unresolvedPreferred } : {};
+  if (prop.type === "SLOT") return { values: ["slot: place parts inside"] };
   if (prop.type === "BOOLEAN" && !prop.optionsUnknown) {
     const fallback = prop.defaultValue === "true" ? "true" : "false";
     const other = fallback === "true" ? "false" : "true";

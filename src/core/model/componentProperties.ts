@@ -5,7 +5,7 @@ import { z } from "zod";
  * Stored on the component set or the standalone component.
  * Current values on a placed instance stay in `metadata.componentProperties`.
  */
-export const COMPONENT_PROPERTY_TYPES = ["VARIANT", "BOOLEAN", "TEXT", "INSTANCE_SWAP", "UNKNOWN"] as const;
+export const COMPONENT_PROPERTY_TYPES = ["VARIANT", "BOOLEAN", "TEXT", "INSTANCE_SWAP", "SLOT", "UNKNOWN"] as const;
 
 export const ComponentPropertyTypeSchema = z.enum(COMPONENT_PROPERTY_TYPES);
 export type ComponentPropertyType = z.infer<typeof ComponentPropertyTypeSchema>;

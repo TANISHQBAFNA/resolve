@@ -1,15 +1,17 @@
 /** Resolve a name to a node, then build the usage or example card. */
 import type { GraphNode } from "@/core/model";
+import { isNameInferredMaster } from "@/core/rules/names";
 import { isRetired } from "@/core/rules/retired";
+import { type BindRulesFile, preferDelta } from "./bindRules";
 import { propertyBlock } from "./componentProperties";
 import { withCost } from "./cost";
 import { type ExampleReason, exampleSentence, getExample } from "./examples";
 import type { GraphIndex } from "./GraphIndex";
-import { isMasterType, otherNamedMasters, placeableNode, preferNamedMaster, realMastersNamed, sameNameNote, substitutionNote, USAGE_CARD_BUDGET, variantCardName } from "./masterNames";
+import { isMasterType, MASTER_TYPES, otherNamedMasters, placeableNode, preferNamedMaster, realMastersNamed, sameNameNote, substitutionNote, USAGE_CARD_BUDGET, variantCardName } from "./masterNames";
 import { matchesFigmaId, matchesStampedId } from "./nodeLookup";
 import { placeReady } from "./placeReady";
 import { emitIconLibraryWarningsOnce, iconLibraryWarnings } from "./recommendContext";
-import { isPrivateMaster } from "./recommendLexicon";
+import { isPrivateMaster, ruleNamesake } from "./recommendLexicon";
 import { recommendMasters } from "./recommendMasters";
 import type { RecommendContext } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementFor } from "./replacements";
@@ -24,9 +26,14 @@ function pickResolveTarget(
   name: string,
   context?: RecommendContext,
   workspace?: WorkspaceManifest,
+  bindRules?: BindRulesFile,
 ): GraphNode | undefined {
   const trimmed = name.trim();
   if (!trimmed) return undefined;
+  const graphFileKey = index.graph.fileKey;
+  const ruleBonus = bindRules?.rules.length
+    ? (node: GraphNode) => preferDelta(bindRules, node, { intent: trimmed, workspace, graphFileKey })
+    : undefined;
 
   const direct = index.getNode(trimmed);
   if (direct) return placeableNode(index, asResolvedNode(index, direct), workspace);
@@ -43,7 +50,7 @@ function pickResolveTarget(
   const retiredHits = caseHits.filter(
     (node) => (isRetired(index, node) || Boolean(view?.retired(node))) && !isPrivateMaster(index, node),
   );
-  if (retiredHits.length) return preferNamedMaster(index, retiredHits, workspace, trimmed) ?? retiredHits[0];
+  if (retiredHits.length) return preferNamedMaster(index, retiredHits, workspace, trimmed, ruleBonus) ?? retiredHits[0];
 
   const foldedName = trimmed.toLowerCase();
   const frameHit = namedNode(
@@ -66,7 +73,17 @@ function pickResolveTarget(
   const liveExact = namedMasters.filter(
     (node) => !isRetired(index, node) && !view?.retired(node),
   );
-  if (liveExact.length) return preferNamedMaster(index, liveExact, workspace, trimmed) ?? liveExact[0];
+  if (liveExact.length) {
+    const picked = preferNamedMaster(index, liveExact, workspace, trimmed, ruleBonus) ?? liveExact[0]!;
+    if (!ruleBonus) return picked;
+    const live = index
+      .getNodesByType(...MASTER_TYPES)
+      .filter(
+        (node) =>
+          !isNameInferredMaster(node) && !isPrivateMaster(index, node) && !isRetired(index, node) && !view?.retired(node),
+      );
+    return ruleNamesake(picked, live, ruleBonus);
+  }
 
   const ranked = recommendMasters(index, trimmed, {
     context,
@@ -81,7 +98,7 @@ function pickResolveTarget(
 
   const reals = realMastersNamed(index, trimmed);
   if (reals.length >= 1) {
-    const chosen = preferNamedMaster(index, reals, workspace, trimmed) ?? reals[0]!;
+    const chosen = preferNamedMaster(index, reals, workspace, trimmed, ruleBonus) ?? reals[0]!;
     const card = variantCardName(index, chosen);
     const exactCase = chosen.name === trimmed || card === trimmed;
     if (!exactCase && isRetired(index, chosen) && !isPrivateMaster(index, chosen)) {
@@ -122,11 +139,12 @@ export function componentUsageCard(
     context?: RecommendContext;
     workspace?: WorkspaceManifest;
     placeholders?: string[];
+    bindRules?: BindRulesFile;
   } = {},
 ) {
   const libraryWarnings = iconLibraryWarnings(index, options.workspace);
   emitIconLibraryWarningsOnce(libraryWarnings);
-  const node = pickResolveTarget(index, name, options.context, options.workspace);
+  const node = pickResolveTarget(index, name, options.context, options.workspace, options.bindRules);
   if (!node) {
     return withCost({
       found: false as const,

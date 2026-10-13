@@ -130,11 +130,22 @@ export function fileKeyFromInput(raw: string): string {
   return trimmed;
 }
 
+/** A JSON string (CLI file, or an agent that stringified the payload) becomes the object the walkers read. */
+function parsedIfJson(raw: unknown): unknown {
+  if (typeof raw !== "string") return raw;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return raw;
+  }
+}
+
 export function learnLibrary(input: LearnInput): LearnResult {
   const fileKey = fileKeyFromInput(input.fileKey);
   if (!fileKey) throw new Error("learn_library needs fileKey.");
   const xml = input.metadataXml?.trim();
-  const catalog = input.libraries ?? input.designContext;
+  const designContext = parsedIfJson(input.designContext);
+  const catalog = parsedIfJson(input.libraries) ?? designContext;
   if (!xml && catalog == null) {
     throw new Error(
       "learn_library needs metadataXml from Figma MCP get_metadata, or libraries from search_design_system / get_libraries.",
@@ -205,10 +216,10 @@ export function learnLibrary(input: LearnInput): LearnResult {
   }
 
   if (catalog != null) applyPublishedCatalog(graph, catalog);
-  if (input.designContext != null) {
-    applyLearnedText(graph, input.designContext);
-    applyLearnedIdentity(graph, input.designContext);
-    applyLearnedProperties(graph, input.designContext);
+  if (designContext != null) {
+    applyLearnedText(graph, designContext);
+    applyLearnedIdentity(graph, designContext);
+    applyLearnedProperties(graph, designContext);
   }
 
   const removed: RemovedMaster[] = [];

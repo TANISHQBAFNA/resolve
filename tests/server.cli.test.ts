@@ -259,6 +259,34 @@ describe("resolve ingest --role", () => {
     expect(text).toContain("Learned");
   });
 
+  it("learn reads a JSON --design-context and --libraries file as JSON, like the MCP tool", async () => {
+    const home = process.env["RESOLVE_HOME"]!;
+    const xml = join(home, "learn.xml");
+    const context = join(home, "context.json");
+    const libraries = join(home, "libraries.json");
+    writeFileSync(xml, `<frame id="1:1" name="Kit"><component id="9:9" name="Button" /></frame>\n`);
+    writeFileSync(
+      context,
+      JSON.stringify([
+        { id: "9:9", name: "Button", componentPropertyDefinitions: { "Has icon#1:4": { type: "BOOLEAN", defaultValue: false } } },
+      ]),
+    );
+    writeFileSync(libraries, JSON.stringify([{ nodeId: "9:9", name: "Button", key: "abc123" }]));
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (() => true) as typeof process.stdout.write;
+    try {
+      await runCli([
+        "learn", "--file-key", "LIB", "--role", "library", "--from-metadata", xml,
+        "--design-context", context, "--libraries", libraries,
+      ]);
+    } finally {
+      process.stdout.write = write;
+    }
+    const button = loadGraph()?.graph.nodes.find((node) => node.figmaNodeId === "9:9");
+    expect(button?.propertyDefinitions?.map((row) => row.type)).toEqual(["BOOLEAN"]);
+    expect(button?.metadata?.["key"]).toBe("abc123");
+  });
+
   it("learn_library rejects a bad role as a tool error", () => {
     expect(() => callTool("learn_library", { fileKey: "LIB", role: "nope" })).toThrow(
       /Unknown --role "nope"/,

@@ -369,6 +369,7 @@ function runTool(
       return componentUsageCard(index, row.intent, {
         ...(context ? { context } : {}),
         ...(options.sock ? { sock: options.sock } : {}),
+        ...(options.bindRules ? { bindRules: options.bindRules } : {}),
       });
     case "recipe":
       return recipeCard(
