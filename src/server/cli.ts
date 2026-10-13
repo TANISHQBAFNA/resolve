@@ -21,6 +21,7 @@ import {
 import { dirname, join, resolve } from "node:path";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
+import { verifyExitCode } from "@/core/query/properUse";
 import {
   componentUsageCard,
   listRecipes,
@@ -310,8 +311,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
     case "orient":
     case "query":
     case "path":
-    case "explain":
-    case "check": {
+    case "explain": {
       const instead = DEPRECATED_INSTEAD[command] ?? "recommend";
       throw new Error(`\`${command}\` was removed. Use ${instead}.`);
     }
@@ -634,6 +634,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       return;
     }
 
+    case "check":
     case "verify": {
       const frame = positionals(args)[0];
       const components = csvFlag(args, "components");
@@ -672,8 +673,11 @@ async function dispatchCli(argv: string[]): Promise<void> {
         pack: flag(args, "pack"),
         domain: flag(args, "domain"),
       });
-      printJson(verified);
-      if (verified.pass === false) process.exitCode = 1;
+      const exitCode = verifyExitCode(verified);
+      if (command === "check" && !args.includes("--json")) {
+        process.stdout.write(`${presentToolResult(verified, "markdown", "verify_frame")}\n`);
+      } else printJson(verified);
+      if (exitCode !== 0) process.exitCode = exitCode;
       return;
     }
 

@@ -44,6 +44,30 @@ export const SourceAnnotationSchema = z.object({
 });
 export type SourceAnnotation = z.infer<typeof SourceAnnotationSchema>;
 
+const SolidPaintSchema = z.object({
+  hex: z.string(),
+  bound: z.boolean(),
+  opacity: z.number().optional(),
+});
+
+/** Colours, spacing, and radius copied off a REST node so a later check can see bindings. */
+export const SourcePaintSchema = z.object({
+  fills: z.array(SolidPaintSchema).optional(),
+  strokes: z.array(SolidPaintSchema).optional(),
+  effectUnbound: z.literal(true).optional(),
+  textHex: z.string().optional(),
+  textBound: z.boolean().optional(),
+  fontSize: z.number().optional(),
+  fontWeight: z.number().optional(),
+  padding: z.array(z.number()).max(4).optional(),
+  paddingBound: z.array(z.boolean()).max(4).optional(),
+  gap: z.number().optional(),
+  gapBound: z.boolean().optional(),
+  radius: z.number().optional(),
+  radiusBound: z.boolean().optional(),
+});
+export type SourcePaint = z.infer<typeof SourcePaintSchema>;
+
 /**
  * The raw Figma node `type` string, kept as a plain string on purpose: Figma
  * adds node types over time and an unknown type must degrade to `LAYER`
@@ -95,6 +119,7 @@ export const SourceNodeSchema: z.ZodType<SourceNode> = z.lazy(() =>
     transitions: z.array(SourceTransitionSchema).optional(),
     links: z.array(SourceLinkSchema).optional(),
     annotations: z.array(SourceAnnotationSchema).optional(),
+    paint: SourcePaintSchema.optional(),
 
     /** Anything a source wants to keep without inventing a first-class field. */
     raw: z.record(z.unknown()).optional(),
@@ -129,6 +154,7 @@ export interface SourceNode {
   transitions?: SourceTransition[];
   links?: SourceLink[];
   annotations?: SourceAnnotation[];
+  paint?: SourcePaint;
   raw?: Record<string, unknown>;
 }
 

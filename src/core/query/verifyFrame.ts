@@ -6,6 +6,7 @@ import { setOf } from "@/core/rules/family";
 import { isNameInferredMaster, isPrivateMasterName } from "@/core/rules/names";
 import { isRetired } from "@/core/rules/retired";
 import { type BindRulesFile, verifyBindRules } from "./bindRules";
+import { attachProperUse, checkProperUse } from "./properUse";
 import { briefNode, EXACT_COMPONENT_HINT, LAYER_NAME_GUESS } from "./cardCopy";
 import { fitCardAfterCost, NAME_FLOOR, shrinkNameFields, WARNING_OVERFLOW } from "./cardFit";
 import { codeText, useText } from "./codeMap";
@@ -99,7 +100,16 @@ export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
   const used: GraphNode[] = [];
   const view = codeMapView(index);
   const card = verifyFrameCard(index, input, used, view);
-  if (!view) return card;
+  const withUse = (value: typeof card) =>
+    attachProperUse(
+      value,
+      checkProperUse(index, input.frame, {
+        a11y: input.context?.constraints?.a11y,
+        workspace: input.workspace,
+        designContext: input.designContext,
+      }),
+    );
+  if (!view) return withUse(card);
   const names = new Set<string>();
   const rows = [...new Set(used)].flatMap((node) => {
     const name = setOf(index, node)?.name ?? node.name;
@@ -109,7 +119,7 @@ export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
     const twin = view.twin(node);
     return [`retired ${name} -> ${useText(use?.node.name, use?.guess)}${twin ? ` (old code: ${codeText(twin)})` : ""}`];
   });
-  return rows.length ? withRetiredRows(card, rows) : card;
+  return withUse(rows.length ? withRetiredRows(card, rows) : card);
 }
 /**
  * Show every retired part used (up to 3, then "+N more") inside 600 characters. Lower-value text goes first:

@@ -12,6 +12,7 @@ import type {
   SourceKind,
 } from "../types";
 import { componentNameIndex, eachEqualsPart, parseComponentPropertyDefinitions, type ComponentNameIndex } from "../componentProperties";
+import { captureRestPaint } from "../restPaint";
 
 /**
  * Figma REST -> SourceDocument.
@@ -114,6 +115,17 @@ function collectStyleIds(raw: AnyRecord): Record<string, string> | undefined {
     }
     const id = asString(value);
     if (id) out[slot] = id;
+  }
+  const legacy: Array<[string, string]> = [
+    ["fill", "fillStyleId"],
+    ["fill", "backgroundStyleId"],
+    ["stroke", "strokeStyleId"],
+    ["effect", "effectStyleId"],
+    ["text", "textStyleId"],
+  ];
+  for (const [slot, key] of legacy) {
+    const id = asString(raw[key]);
+    if (id && !out[slot]) out[slot] = id;
   }
   return Object.keys(out).length ? out : undefined;
 }
@@ -335,6 +347,9 @@ function walkNode(
 
   const annotations = collectAnnotations(raw);
   if (annotations) node.annotations = annotations;
+
+  const paint = captureRestPaint(raw);
+  if (paint) node.paint = paint;
 
   const rawChildren = asArray(raw["children"]);
   if (rawChildren.length) {

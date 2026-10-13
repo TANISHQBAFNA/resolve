@@ -235,6 +235,30 @@ function oneLine(record: Record<string, unknown>): string {
     .join(" | ");
 }
 
+function properUseLines(value: Record<string, unknown>, indent: string): string[] {
+  const lines = [`${indent}Proper use: ${typeof value["summary"] === "string" ? value["summary"] : ""}`];
+  const findings = Array.isArray(value["findings"]) ? value["findings"] : [];
+  for (const severity of ["error", "warning", "info"] as const) {
+    const rows = findings.filter((row) => isRecord(row) && row["severity"] === severity);
+    if (!rows.length) continue;
+    const heading = severity === "error" ? "Errors" : severity === "warning" ? "Warnings" : "Info";
+    lines.push(`${indent}${heading}:`);
+    for (const row of rows) {
+      if (!isRecord(row)) continue;
+      const id = typeof row["figmaNodeId"] === "string" ? ` (${row["figmaNodeId"]})` : "";
+      lines.push(`${indent}- ${scalar(row["name"])}${id}: ${scalar(row["problem"])} ${scalar(row["fix"])}`);
+      if (typeof row["token"] === "string") lines.push(`${indent}  token: ${row["token"]}`);
+      if (typeof row["component"] === "string") {
+        const where = [row["fileKey"], row["componentKey"]].filter((part) => typeof part === "string").join(", ");
+        lines.push(`${indent}  component: ${row["component"]}${where ? ` (${where})` : ""}`);
+      }
+    }
+  }
+  if (typeof value["truncated"] === "string") lines.push(`${indent}${value["truncated"]}`);
+  if (value["exitCode"] === 7) lines.push(`${indent}proper-use exit: 7`);
+  return lines;
+}
+
 function fitsOneLine(value: unknown): boolean {
   if (!isRecord(value)) return false;
   return Object.entries(value).every(([key, item]) => skipMarkdownValue(key, item) || inline(item) !== undefined);
@@ -274,6 +298,10 @@ function render(value: unknown, indent: string): string[] {
         const allowed = Array.isArray(flag["allowed"]) ? flag["allowed"].map((part) => scalar(part)).join(", ") : "";
         lines.push(`${indent}- ${scalar(flag["property"])} is "${scalar(flag["value"])}", which is not allowed${allowed ? ` (${allowed})` : ""}.`);
       }
+      continue;
+    }
+    if (key === "properUse" && isRecord(item)) {
+      lines.push(...properUseLines(item, indent));
       continue;
     }
     if (key === "propertyNotes" && Array.isArray(item)) {
