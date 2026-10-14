@@ -588,7 +588,9 @@ export function withoutGenericCousins<T extends { node: { name: string }; setNam
 }
 
 function familyNames(entry: { node: { name: string }; setName?: string }): Set<string> {
-  return new Set(tokensOf(familyNameOf(entry.node.name, entry.setName)));
+  const names = new Set(tokensOf(familyNameOf(entry.node.name, entry.setName)));
+  if (entry.setName) for (const token of tokensOf(entry.setName)) names.add(token);
+  return names;
 }
 
 function nounHit(noun: string, names: Set<string>, allowClip: boolean): boolean {

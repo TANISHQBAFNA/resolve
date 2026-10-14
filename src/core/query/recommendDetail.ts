@@ -2,7 +2,7 @@
 import type { GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import { VARIANT_PROP_NAME } from "./masterNames";
-import { setCoversAsk, variantValueText } from "./recommendLexicon";
+import { modifierWord, setCoversAsk, variantValueText } from "./recommendLexicon";
 
 const SKIP_HOST = new Set(["PAGE", "FILE", "DOCUMENT", "CANVAS"]);
 const PAGE_BUCKET = new Set(["components", "component", "library", "icons", "icon", "screens", "screen", "patterns", "foundations", "styles", "assets", "documentation", "pages", "symbols", "variants"]);
@@ -49,9 +49,12 @@ export function searchDetail(index: GraphIndex, node: GraphNode, set?: GraphNode
     const values = variantValueText(item);
     if (values) variant.push(values);
     const props = item.variantProperties;
-    if (props && Object.keys(props).length) variant.push(Object.keys(props).join(" "));
+    const propNames = [
+      ...Object.keys(props ?? {}),
+      ...(item.propertyDefinitions ?? []).map((def) => def.name),
+    ].filter((name) => !modifierWord(name.toLowerCase()));
+    if (propNames.length) variant.push(propNames.join(" "));
     for (const def of item.propertyDefinitions ?? []) {
-      describe.push(def.name);
       if (def.description) describe.push(def.description);
       if (def.options?.length) variant.push(def.options.join(" "));
     }
