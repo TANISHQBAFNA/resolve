@@ -285,8 +285,9 @@ export function installMcp(current, { claude = false, force = false } = {}) {
     if (!isPlainObject(doc) || (doc.mcpServers !== undefined && !isPlainObject(doc.mcpServers))) {
       return { action: "skip", text: current, note: " (left alone: it does not have the usual mcpServers shape)" };
     }
-    indent = /^\t/m.test(raw) ? "\t" : (raw.match(/^( +)"/m)?.[1].length ?? 2);
-    ending = raw.includes("\r\n") ? "\r\n" : "\n";
+    const style = jsonStyle(raw);
+    indent = style.indent;
+    ending = style.ending;
   }
   const servers = doc.mcpServers ?? {};
   if (servers.resolve !== undefined) {
@@ -296,8 +297,23 @@ export function installMcp(current, { claude = false, force = false } = {}) {
     }
   }
   const next = { ...doc, mcpServers: { ...servers, resolve: entry } };
-  const text = useEnding(`${JSON.stringify(next, null, indent)}\n`, ending);
+  const text = writeJson(next, { indent, ending });
   return { action: blank ? "create" : "update", text };
+}
+
+/** Compact JSON stays compact. A missing trailing newline stays missing. */
+function jsonStyle(raw) {
+  const tab = /^\t/m.test(raw);
+  const spaces = raw.match(/^( +)"/m)?.[1].length;
+  const compact = !tab && spaces === undefined;
+  const ending = raw.includes("\r\n") ? "\r\n" : raw.endsWith("\n") || raw.includes("\n") ? "\n" : "";
+  return { indent: compact ? undefined : tab ? "\t" : spaces, ending };
+}
+
+function writeJson(value, style) {
+  const body = JSON.stringify(value, null, style.indent);
+  if (!style.ending) return body;
+  return useEnding(body.endsWith("\n") ? body : `${body}\n`, style.ending);
 }
 
 /** Slash commands shipped in the package: [{ name, text }] from commands/*.md (front matter + body with $ARGUMENTS). */
@@ -326,18 +342,10 @@ function emptyRecord() {
   return { created: [], originals: {}, createdDirs: [] };
 }
 
-function isMcpConfig(path) {
-  const base = path.split(/[/\\]/).pop();
-  return base === "mcp.json" || base === ".mcp.json";
-}
-
 function loadRecord(opts) {
   try {
     const raw = JSON.parse(readFileSync(recordPath(opts), "utf8"));
     const originals = raw.originals && typeof raw.originals === "object" ? { ...raw.originals } : {};
-    for (const key of Object.keys(originals)) {
-      if (isMcpConfig(key)) delete originals[key];
-    }
     return {
       created: Array.isArray(raw.created) ? raw.created : [],
       originals,
@@ -451,9 +459,7 @@ export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot 
       if (typeof original === "string" && sameOthers) plan.push({ action: "update", path, text: original });
       else if (empty && created) plan.push({ action: "remove", path });
       else {
-        const indent = /^\t/m.test(current) ? "\t" : (current.match(/^( +)"/m)?.[1].length ?? 2);
-        const ending = current.includes("\r\n") ? "\r\n" : "\n";
-        plan.push({ action: "update", path, text: useEnding(`${JSON.stringify({ ...doc, mcpServers: others }, null, indent)}\n`, ending) });
+        plan.push({ action: "update", path, text: writeJson({ ...doc, mcpServers: others }, jsonStyle(current)) });
       }
     }
   }
@@ -562,7 +568,7 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
           if (!record.createdDirs.includes(made)) record.createdDirs.push(made);
         }
         if (item.action === "create" && !record.created.includes(item.path)) record.created.push(item.path);
-        if (item.action === "update" && record.originals[item.path] === undefined && !isMcpConfig(item.path)) {
+        if (item.action === "update" && record.originals[item.path] === undefined && !item.path.endsWith("mcp.json")) {
           const prior = readOrNull(item.path);
           if (prior != null) record.originals[item.path] = prior;
         }

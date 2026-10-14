@@ -53,6 +53,7 @@
               "name": "Button / Variant=Primary, Size=Medium",
               "fileKey": "ACMEUI",
               "figmaNodeId": "30:11",
+              "componentSetId": "30:10",
               "count": 1,
               "status": "current",
               "code": "AcmeButtonComponent from '@acme/ui-angular'",
@@ -77,6 +78,7 @@
           "variant": "Variant=Primary, Size=Medium",
           "fileKey": "ACMEUI",
           "figmaNodeId": "30:11",
+          "componentSetId": "30:10",
           "count": 1,
           "copies": [
             "20:42"
@@ -140,6 +142,7 @@
           "variant": "Variant=Secondary, Size=Medium",
           "fileKey": "ACMEUI",
           "figmaNodeId": "30:13",
+          "componentSetId": "30:10",
           "count": 1,
           "copies": [
             "20:43"
@@ -214,6 +217,7 @@
           "name": "Button / Variant=Primary, Size=Medium",
           "fileKey": "ACMEUI",
           "figmaNodeId": "30:11",
+          "componentSetId": "30:10",
           "status": "mapped",
           "code": "AcmeButtonComponent from '@acme/ui-angular'",
           "angular": {
@@ -276,6 +280,7 @@
       "name": "Button / Variant=Primary, Size=Medium",
       "fileKey": "ACMEUI",
       "figmaNodeId": "30:11",
+      "componentSetId": "30:10",
       "status": "mapped",
       "code": "AcmeButtonComponent from '@acme/ui-angular'",
       "angular": {

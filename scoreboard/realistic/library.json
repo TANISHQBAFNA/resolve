@@ -1,0 +1,110 @@
+{
+  "fileKey": "ACMELIB",
+  "fileName": "Acme realistic library",
+  "root": {
+    "id": "0:0",
+    "name": "Document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "p:ds",
+        "name": "Design System",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "s:core",
+            "name": "Core",
+            "type": "SECTION",
+            "children": [
+              {
+                "id": "c:button",
+                "name": "Button",
+                "type": "COMPONENT_SET",
+                "children": [
+                  {
+                    "id": "c:button-large",
+                    "name": "Size=Large, Style=Primary",
+                    "type": "COMPONENT",
+                    "componentSetId": "c:button",
+                    "variantProperties": { "Size": "Large", "Style": "Primary" }
+                  },
+                  {
+                    "id": "c:button-medium",
+                    "name": "Size=Medium, Style=Secondary",
+                    "type": "COMPONENT",
+                    "componentSetId": "c:button",
+                    "variantProperties": { "Size": "Medium", "Style": "Secondary" }
+                  },
+                  {
+                    "id": "c:button-small",
+                    "name": "Size=Small, Style=Primary",
+                    "type": "COMPONENT",
+                    "componentSetId": "c:button",
+                    "variantProperties": { "Size": "Small", "Style": "Primary" }
+                  }
+                ]
+              },
+              { "id": "c:kpi-large", "name": "KPI card large", "type": "COMPONENT" },
+              {
+                "id": "c:stepper",
+                "name": "Stepper",
+                "type": "COMPONENT_SET",
+                "children": [
+                  {
+                    "id": "c:stepper-small",
+                    "name": "Size=Small",
+                    "type": "COMPONENT",
+                    "componentSetId": "c:stepper",
+                    "variantProperties": { "Size": "Small" }
+                  }
+                ]
+              },
+              { "id": "c:users", "name": "Users", "type": "COMPONENT" },
+              { "id": "c:icon-plus", "name": "Icon plus", "type": "COMPONENT" },
+              { "id": "c:header", "name": "Header", "type": "COMPONENT" },
+              { "id": "c:bottom-bar", "name": "Bottom action bar", "type": "COMPONENT" },
+              { "id": "c:tooltip", "name": "Tooltip", "type": "COMPONENT" },
+              {
+                "id": "c:passcode",
+                "name": "Passcode",
+                "type": "COMPONENT_SET",
+                "children": [
+                  {
+                    "id": "c:passcode-error",
+                    "name": "State=Error",
+                    "type": "COMPONENT",
+                    "componentSetId": "c:passcode",
+                    "variantProperties": { "State": "Error" }
+                  }
+                ]
+              },
+              { "id": "c:sidenav", "name": "Side nav", "type": "COMPONENT" },
+              { "id": "c:dropdown", "name": "Dropdown", "type": "COMPONENT" },
+              { "id": "c:switch", "name": "Switch", "type": "COMPONENT" },
+              { "id": "c:alert", "name": "Alert", "type": "COMPONENT" },
+              { "id": "c:banner", "name": "Banner", "type": "COMPONENT" },
+              { "id": "c:steps", "name": "Step indicator", "type": "COMPONENT" },
+              { "id": "c:textarea", "name": "Textarea", "type": "COMPONENT" },
+              { "id": "c:navbar", "name": "Nav bar", "type": "COMPONENT" },
+              { "id": "c:kpi", "name": "KPI tile", "type": "COMPONENT" },
+              { "id": "c:field", "name": "Text field", "type": "COMPONENT" },
+              { "id": "c:cell", "name": "Table cell", "type": "COMPONENT" },
+              { "id": "c:accordion", "name": "Accordion", "type": "COMPONENT" },
+              { "id": "c:section", "name": "Section header", "type": "COMPONENT" },
+              { "id": "c:badge", "name": "Badge", "type": "COMPONENT" },
+              { "id": "c:toast", "name": "Toast", "type": "COMPONENT" },
+              { "id": "c:empty", "name": "Empty message", "type": "COMPONENT" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "components": {},
+  "componentSets": {},
+  "styles": {},
+  "variables": {},
+  "variableCollections": {},
+  "libraries": {},
+  "source": { "kind": "json", "ingestedAt": "2026-01-01T00:00:00.000Z" }
+}

@@ -309,7 +309,9 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
         );
       }
     } else {
-      for (const instance of index.getNestedInstances(frameNode.id)) {
+      const nested = index.getNestedInstances(frameNode.id);
+      const instances = frameNode.type === "COMPONENT_INSTANCE" ? [frameNode, ...nested] : nested;
+      for (const instance of instances) {
         if (hiddenUnder(index, instance, frameNode.id)) continue;
         const main = index.getMainComponent(instance.id);
         if (!main) {

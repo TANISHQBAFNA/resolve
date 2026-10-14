@@ -150,7 +150,7 @@ describe("Acme markdown cards", () => {
     // Tokens are ceil(chars/4), the same count as cost.approxTokens, summed per card.
     // Before is today's JSON.stringify. Filler is that JSON with cost, score, duplicate
     // node: ids, the graph.json hint, and the repeated parts list removed. After is Markdown.
-    expect({ before, filler, after, cards: set.length }).toEqual({ before: 4547, filler: 3995, after: 3350, cards: 14 });
+    expect({ before, filler, after, cards: set.length }).toEqual({ before: 4585, filler: 4019, after: 3350, cards: 14 });
     const removed = before - after;
     const fromFiller = before - filler;
     expect(fromFiller).toBeGreaterThan(removed * 0.35);

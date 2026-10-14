@@ -50,6 +50,8 @@ export interface IngredientPart {
   name: string;
   id?: string;
   figmaNodeId?: string;
+  /** Set id when figmaNodeId is a variant. Code maps key the set. */
+  componentSetId?: string;
   fileKey?: string;
   /** How many times this part sits directly inside. */
   count: number;
@@ -374,8 +376,11 @@ function describePart(walk: Walk, group: Group, level: number, seen: Set<string>
   if (!main) {
     return { name: clean(group.layer), ...base, status: "not-found", code: null, why: NOT_FOUND_WHY };
   }
+  const setNode = main.componentSetId ? index.getNode(main.componentSetId) : undefined;
+  const setFig = setNode?.figmaNodeId && setNode.figmaNodeId !== main.figmaNodeId ? setNode.figmaNodeId : undefined;
   const where = {
     ...(main.figmaNodeId ? { figmaNodeId: main.figmaNodeId } : {}),
+    ...(setFig ? { componentSetId: setFig } : {}),
     ...(nodeFileKey(main, index.graph.fileKey) ? { fileKey: nodeFileKey(main, index.graph.fileKey) } : {}),
   };
   const name = clean(hooks.cardName(main));

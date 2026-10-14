@@ -65,8 +65,7 @@ describe("H2 and M1 install then uninstall restores bytes", () => {
       expect(setup([], cwd).status).toBe(0);
       expect(setup(["--uninstall"], cwd).status).toBe(0);
       const after = readFileSync(path, "utf8");
-      if (item.file.endsWith("mcp.json")) expect(JSON.parse(after)).toEqual(JSON.parse(item.text));
-      else expect(after).toBe(item.text);
+      expect(after).toBe(item.text);
     }
   });
 

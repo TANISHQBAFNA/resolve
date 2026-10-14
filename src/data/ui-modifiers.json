@@ -31,7 +31,7 @@
     { "term": "style", "reason": "Style is a variant property." },
     { "term": "variant", "reason": "Variant names which option of a component." },
     { "term": "total", "reason": "Total is a quantity on a value." },
-    { "term": "count", "reason": "Count is a quantity on a badge or a value." },
+    { "term": "digit", "reason": "Digit is a length on a code field, as in a 6 digit box." },
     { "term": "user", "reason": "User is the person a profile or an avatar represents." },
     { "term": "code", "reason": "Code is the value typed into a promo, coupon, or access field." },
     { "term": "sign", "reason": "Sign is a label on a button, as in sign in." },
@@ -62,6 +62,21 @@
       "term": "mark",
       "after": ["close", "icon"],
       "reason": "A mark after close or icon is the symbol on that control."
+    },
+    {
+      "term": "banner",
+      "after": ["alert", "warning", "notice"],
+      "reason": "A banner after a warning or an alert is that notice."
+    },
+    {
+      "term": "account",
+      "after": ["dropdown", "select", "menu"],
+      "reason": "An account after a dropdown or a select is that picker."
+    },
+    {
+      "term": "count",
+      "after": ["badge", "pill", "bubble"],
+      "reason": "A count after a badge is that badge. It does not keep company with a different component."
     }
   ]
 }

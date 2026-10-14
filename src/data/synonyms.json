@@ -30,8 +30,8 @@
       "reason": "A blank state, or a nothing-here state, is an empty state."
     },
     {
-      "terms": ["alert", "notice", "warning", "notification"],
-      "reason": "A notice, a warning, or a notification is an alert."
+      "terms": ["alert", "notice", "warning", "notification", "error message"],
+      "reason": "A notice, a warning, a notification, or an error message is an alert."
     },
     {
       "terms": ["toggle", "switch"],
@@ -54,8 +54,8 @@
       "reason": "A separator, divider, and rule are the same hairline."
     },
     {
-      "terms": ["pill", "badge", "bubble"],
-      "reason": "A pill or a bubble is a badge."
+      "terms": ["pill", "badge", "count bubble"],
+      "reason": "A pill or a count bubble is a badge. A chat bubble is not."
     },
     {
       "terms": ["coupon", "promo", "discount", "voucher"],
@@ -116,6 +116,22 @@
     {
       "terms": ["banner", "announcement"],
       "reason": "An announcement across the page is a banner."
+    },
+    {
+      "terms": ["passcode", "otp", "one time passcode"],
+      "reason": "A one time passcode, or an OTP, is a passcode field."
+    },
+    {
+      "terms": ["accordion", "collapsible", "collapsible section", "disclosure", "expandable", "expandable section"],
+      "reason": "A collapsible or expandable section is an accordion."
+    },
+    {
+      "terms": ["textarea", "text area", "comment box"],
+      "reason": "A multi-line comment box is a text area."
+    },
+    {
+      "terms": ["tooltip", "hover tip"],
+      "reason": "A hover tip is a tooltip."
     }
   ]
 }

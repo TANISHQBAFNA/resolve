@@ -49,6 +49,7 @@ import {
   codeMapTemplate,
   formatCodeMapReport,
   checkComponentFiles,
+  checkNamesFromNodes,
   packValidation,
   ingredientCard,
   ingredientCoverage,
@@ -391,7 +392,8 @@ async function dispatchCli(argv: string[]): Promise<void> {
           throw new Error('Usage: resolve code-map --check "<name>" [--handoff <handoff.json>] [--json]');
         }
         const handoff = handoffGiven ?? handoffDefault;
-        const checked = checkComponentFiles(name, mapPath, handoff);
+        const learned = resolveGraph()?.index.getNodesByType("COMPONENT_SET", "MAIN_COMPONENT") ?? [];
+        const checked = checkComponentFiles(name, mapPath, handoff, checkNamesFromNodes(learned));
         if (args.includes("--json")) printJson(checked);
         else process.stdout.write(`${checked.message}\n`);
         if (checked.exitCode !== 0) process.exitCode = checked.exitCode;

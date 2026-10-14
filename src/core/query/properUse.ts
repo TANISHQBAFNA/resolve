@@ -129,7 +129,7 @@ function barsFor(level: A11yLevel): Bars {
     case "aa-minimum":
       return { level: "wcag-aa-minimum", normal: 4.5, large: 3, tap: 24, contrast: true };
     case "aa":
-      return { level: "wcag-aa", normal: 4.5, large: 3, tap: 44, contrast: true };
+      return { level: "wcag-aa", normal: 4.5, large: 3, tap: 24, contrast: true };
     default: {
       const unexpected: never = level;
       return unexpected;
@@ -792,11 +792,36 @@ export function verifyExitCode(result: { pass?: boolean; properUse?: { exitCode?
   return code === 0 ? 0 : code;
 }
 
+function skippedCopy(frame: GraphNode, level: string): ProperUseReport {
+  return {
+    summary: "Proper use was not run: this placed copy has no main component in the learned library.",
+    errors: 0,
+    warnings: 0,
+    unknown: 1,
+    exitCode: 0,
+    level,
+    findings: [
+      {
+        severity: "info",
+        check: "unknown",
+        name: frame.name,
+        ...(frame.figmaNodeId ? { figmaNodeId: frame.figmaNodeId } : {}),
+        problem: "Proper use was not run: this placed copy has no main component in the learned library.",
+        fix: "Learn the library file that holds this component, then check again.",
+      },
+    ],
+  };
+}
+
 export function checkProperUse(index: GraphIndex, frameName: string | undefined, options: ProperUseOptions = {}): ProperUseReport | undefined {
   const asked = frameName?.trim();
   if (!asked) return undefined;
-  const frame = resolveNode(index, asked);
-  if (!frame || frame.type === "COMPONENT_INSTANCE") return undefined;
+  const askedNode = resolveNode(index, asked);
+  if (!askedNode) return undefined;
+  const placed = askedNode.type === "COMPONENT_INSTANCE";
+  const main = placed ? index.getMainComponent(askedNode.id) : askedNode;
+  if (!main) return skippedCopy(askedNode, barsFor(a11yLevel(options.a11y)).level);
+  const frame = main;
   const bars = barsFor(a11yLevel(options.a11y));
   const overlay = options.designContext !== undefined ? paintsByNodeId(options.designContext) : new Map<string, SourcePaint>();
   const paintAt = (node: GraphNode) => paintOf(node, overlay);
@@ -907,6 +932,11 @@ export function attachProperUse<T extends object>(
     } else break;
     priced = build();
   }
-  if (JSON.stringify(priced).length > budget && report.errors === 0) return card;
+  if (JSON.stringify(priced).length > budget && report.errors === 0) {
+    shown = [];
+    truncated = full.length ? moreLine(full.length) : undefined;
+    priced = build();
+    if (JSON.stringify(priced).length > budget) return card;
+  }
   return priced as T & { properUse?: ProperUseReport; cost?: AgentCost };
 }
