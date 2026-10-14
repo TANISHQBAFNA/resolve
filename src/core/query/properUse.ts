@@ -880,7 +880,7 @@ function shedProperUseHost(host: Record<string, unknown>, step: number): boolean
 }
 
 function clipEnd(text: string): string {
-  if (text.length <= NAME_FLOOR) return text;
+  if (text.length <= 48) return text;
   return `${text.slice(0, NAME_FLOOR - 1)}…`;
 }
 
