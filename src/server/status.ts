@@ -41,10 +41,20 @@ function ruleInstalled(): StatusReport["rule"] {
   return "not installed";
 }
 
-function nextStep(files: number, rule: StatusReport["rule"]): string {
-  if (!files) return "Run /design-system and paste the Figma link to your library.";
-  if (rule === "not installed") return "Run resolve-setup in this project so the always-on rule is installed.";
-  return "Use /find for a component, /check for a screen, or /handoff for the developer build sheet.";
+function nextStep(files: number, rule: StatusReport["rule"], relearn: boolean): string {
+  const base = !files
+    ? "Run /design-system and paste the Figma link to your library."
+    : rule === "not installed"
+      ? "Run resolve-setup in this project so the always-on rule is installed."
+      : "Use /find for a component, /check for a screen, or /handoff for the developer build sheet.";
+  return relearn ? `${base} Learn this library again so Properties show up.` : base;
+}
+
+/** A store from before component properties: sets exist, variant names are Key=Value, and no properties were saved. */
+export function propertiesMissing(nodes: ReadonlyArray<{ type: string; name: string; propertyDefinitions?: readonly unknown[] }>): boolean {
+  if (!nodes.some((node) => node.type === "COMPONENT_SET")) return false;
+  if (nodes.some((node) => (node.propertyDefinitions?.length ?? 0) > 0)) return false;
+  return nodes.some((node) => node.type === "VARIANT" && node.name.includes("="));
 }
 
 /** Which files are learned, when, and how much of the library links to code. Read-only. */
@@ -87,7 +97,7 @@ export function statusReport(): StatusReport {
       : null,
     token,
     rule,
-    next: nextStep(files.length, rule),
+    next: nextStep(files.length, rule, propertiesMissing(resolved?.graph.nodes ?? [])),
   };
 }
 
@@ -96,9 +106,11 @@ function localWhen(iso?: string): string {
   const date = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
   const zone =
-    new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(date).find((part) => part.type === "timeZoneName")
-      ?.value ?? "";
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())} ${zone}`.trim();
+    new Intl.DateTimeFormat("en-US", { timeZoneName: "short" })
+      .formatToParts(date)
+      .find((part) => part.type === "timeZoneName")?.value ?? "";
+  const clock = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return zone ? `${clock} ${zone}` : clock;
 }
 
 /** Figma's version is often a long internal number. Say that it is recorded, in plain words. */

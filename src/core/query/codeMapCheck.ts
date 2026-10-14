@@ -43,6 +43,7 @@ const EXIT: Record<CodeMapCheckStatus, number> = {
 const CLASS_SUFFIX = "Component";
 const DRAFT_MESSAGE = "This handoff is a draft, not for a build. Run resolve handoff again without --draft.";
 const NOT_FOUND_MESSAGE = "Not in the design system or on this screen. Don't invent it.";
+const KNOWN_UNMAPPED_MESSAGE = "Real component, but no code link, and it is not on this screen.";
 const NOT_IN_HANDOFF_MESSAGE = "Real component, but not on this screen. Ask the designer.";
 const UNMAPPED_MESSAGE = "On the screen, no code yet. Build it or ask.";
 const OTHER_LIBRARY_MESSAGE = "On the screen, from another library, no code twin.";
@@ -52,6 +53,8 @@ interface Mention {
   name?: string;
   fileKey?: string;
   figmaNodeId?: string;
+  /** Component set id when figmaNodeId is a variant. The code map keys the set. */
+  componentSetId?: string;
   selector?: string;
   className?: string;
   status?: string;
@@ -140,8 +143,8 @@ function parseAsked(query: string): Asked {
 
 function queryForms(text: string): string[] {
   const forms = [text];
-  if (!text.includes(",")) return forms;
-  for (const part of text.split(",").map((item) => item.trim()).filter(Boolean)) {
+  if (!text.includes(",") && !text.includes("|")) return forms;
+  for (const part of text.split(/[|,]/).map((item) => item.trim()).filter(Boolean)) {
     if (!forms.includes(part)) forms.push(part);
   }
   return forms;
@@ -211,6 +214,7 @@ function mentionOf(record: Record<string, unknown>): Mention {
     ...(typeof record["name"] === "string" ? { name: record["name"] } : {}),
     ...(typeof record["fileKey"] === "string" ? { fileKey: record["fileKey"] } : {}),
     ...(typeof record["figmaNodeId"] === "string" ? { figmaNodeId: record["figmaNodeId"] } : {}),
+    ...(typeof record["componentSetId"] === "string" ? { componentSetId: record["componentSetId"] } : {}),
     ...(selector ? { selector } : {}),
     ...(className ? { className } : {}),
     ...(status ? { status } : {}),
@@ -250,7 +254,8 @@ function mentionsIn(handoff: Record<string, unknown>): Mention[] {
 }
 
 function samePart(entry: CodeMapListed, mention: Mention): boolean {
-  return Boolean(entry.fileKey && entry.id && mention.fileKey === entry.fileKey && mention.figmaNodeId === entry.id);
+  if (!entry.fileKey || !entry.id || mention.fileKey !== entry.fileKey) return false;
+  return mention.figmaNodeId === entry.id || mention.componentSetId === entry.id;
 }
 
 function confirmedMention(entry: CodeMapListed, mentions: Mention[]): Mention | undefined {
@@ -322,7 +327,9 @@ function linkFromSheet(asked: Asked, entries: CodeMapListed[], mentions: Mention
   for (const mention of mentions) {
     if (mention.identity === "name-guess" || !mention.name || !mention.fileKey || !mention.figmaNodeId) continue;
     if (!forms.some((form) => namesEqual(form, mention.name!))) continue;
-    const entry = entries.find((row) => row.fileKey === mention.fileKey && row.id === mention.figmaNodeId);
+    const entry = entries.find(
+      (row) => row.fileKey === mention.fileKey && (row.id === mention.figmaNodeId || row.id === mention.componentSetId),
+    );
     if (entry) addCandidate(found, entry, "name");
   }
 }
@@ -384,7 +391,32 @@ function answerOne(hit: Candidate, mentions: Mention[], entries: CodeMapListed[]
  * Classify one typed name. `query` is a display name, selector, class, module import, or HTML tag.
  * Package path alone never matches. The sheet's fileKey + figmaNodeId picks the entry when a name is shared.
  */
-export function checkComponentName(query: string, codeMap: unknown, handoff: unknown): CodeMapCheckResult {
+function knownUnmapped(asked: Asked, knownNames: readonly string[]): boolean {
+  if (asked.pkg || asked.tag || !knownNames.length) return false;
+  const forms = queryForms(asked.text);
+  return knownNames.some((name) => forms.some((form) => namesEqual(form, name)));
+}
+
+/** Names of learned sets and standalone components. Variants and remote stubs are left out. */
+export function checkNamesFromNodes(
+  nodes: ReadonlyArray<{ name: string; type: string; isRemote?: boolean; componentSetId?: string }>,
+): string[] {
+  const names: string[] = [];
+  for (const node of nodes) {
+    if (node.isRemote || node.componentSetId) continue;
+    if (node.type !== "COMPONENT_SET" && node.type !== "MAIN_COMPONENT") continue;
+    const name = node.name.trim();
+    if (name) names.push(name);
+  }
+  return names;
+}
+
+export function checkComponentName(
+  query: string,
+  codeMap: unknown,
+  handoff: unknown,
+  knownNames: readonly string[] = [],
+): CodeMapCheckResult {
   const asked = parseAsked(query);
   if (!asked.original) {
     return result("error", query, "The name was empty.");
@@ -430,6 +462,7 @@ export function checkComponentName(query: string, codeMap: unknown, handoff: unk
   if (skip) {
     return result("not-found", asked.original, `Entry ${skip.entry} was skipped (${skip.reason}). ${NOT_FOUND_MESSAGE}`);
   }
+  if (knownUnmapped(asked, knownNames)) return result("unmapped", asked.original, KNOWN_UNMAPPED_MESSAGE);
   return result("not-found", asked.original, NOT_FOUND_MESSAGE);
 }
 
@@ -455,7 +488,12 @@ export function handoffJsonPath(given: string): string {
 }
 
 /** File-backed check. Does not read or write a learned graph. */
-export function checkComponentFiles(query: string, codeMapPath: string, handoffPath: string): CodeMapCheckResult {
+export function checkComponentFiles(
+  query: string,
+  codeMapPath: string,
+  handoffPath: string,
+  knownNames: readonly string[] = [],
+): CodeMapCheckResult {
   const mapPath = resolve(codeMapPath);
   const sheetPath = handoffJsonPath(handoffPath);
   const paths = { codeMapPath: mapPath, handoffPath: sheetPath };
@@ -475,5 +513,5 @@ export function checkComponentFiles(query: string, codeMapPath: string, handoffP
   if (map.error || map.raw === undefined) return result("error", asked || query, map.error ?? "The code map could not be read.", paths);
   const sheet = readJson(sheetPath, "the handoff file");
   if (sheet.error || sheet.raw === undefined) return result("error", asked || query, sheet.error ?? "The handoff file could not be read.", paths);
-  return { ...checkComponentName(query, map.raw, sheet.raw), ...paths };
+  return { ...checkComponentName(query, map.raw, sheet.raw, knownNames), ...paths };
 }

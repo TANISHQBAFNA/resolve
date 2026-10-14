@@ -6,7 +6,7 @@ import { setOf } from "@/core/rules/family";
 import { isNameInferredMaster, isPrivateMasterName } from "@/core/rules/names";
 import { isRetired } from "@/core/rules/retired";
 import { type BindRulesFile, verifyBindRules } from "./bindRules";
-import { attachProperUse, checkProperUse } from "./properUse";
+import { attachProperUse, checkProperUse, type ProperUseReport } from "./properUse";
 import { briefNode, EXACT_COMPONENT_HINT, LAYER_NAME_GUESS } from "./cardCopy";
 import { fitCardAfterCost, NAME_FLOOR, shrinkNameFields, WARNING_OVERFLOW } from "./cardFit";
 import { codeText, useText } from "./codeMap";
@@ -17,7 +17,7 @@ import type { GraphIndex } from "./GraphIndex";
 import { missingNodeSentence, readFigmaLink } from "./learnedLink";
 import { isMasterType, MASTER_TYPES, placeableMasterByName, realMastersNamed, variantCardName } from "./masterNames";
 import { matchesFigmaId, matchesStampedId, resolveNode, resolveNodeExact } from "./nodeLookup";
-import { hiddenUnder } from "./placed";
+import { designerPlacedInstances, hiddenUnder } from "./placed";
 import { isPrivateMaster, wholeNameTypo } from "./recommendLexicon";
 import { asMaster, type LibraryRules, type RecommendContext, REFRESH_HINT, ruleMatches } from "./recommendSupport";
 import { codeMapView, replacementOf } from "./replacements";
@@ -101,16 +101,24 @@ export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
   const used: GraphNode[] = [];
   const view = codeMapView(index);
   const card = verifyFrameCard(index, input, used, view);
-  const withUse = (value: typeof card) =>
-    attachProperUse(
-      value,
-      checkProperUse(index, input.frame, {
-        a11y: input.context?.constraints?.a11y,
-        workspace: input.workspace,
-        designContext: input.designContext,
-      }),
-      { all: input.all === true },
-    );
+  const frameReport = checkProperUse(index, input.frame, {
+    a11y: input.context?.constraints?.a11y,
+    workspace: input.workspace,
+    designContext: input.designContext,
+  });
+  const listedOnly: ProperUseReport | undefined =
+    !input.frame?.trim() && (input.components ?? []).some((name) => name.trim())
+      ? {
+          summary: "0 errors",
+          errors: 0,
+          warnings: 0,
+          unknown: 0,
+          exitCode: 0,
+          level: input.context?.constraints?.a11y?.trim() || "wcag-aa",
+          findings: [],
+        }
+      : undefined;
+  const withUse = (value: typeof card) => attachProperUse(value, frameReport ?? listedOnly, { all: input.all === true });
   if (!view) return withUse(card);
   const names = new Set<string>();
   const rows = [...new Set(used)].flatMap((node) => {
@@ -309,7 +317,10 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
         );
       }
     } else {
-      for (const instance of index.getNestedInstances(frameNode.id)) {
+      const libraryNode =
+        isMasterType(frameNode.type) || frameNode.type === "PAGE" || frameNode.type === "SECTION";
+      const instances = libraryNode ? [] : designerPlacedInstances(index, frameNode.id);
+      for (const instance of instances) {
         if (hiddenUnder(index, instance, frameNode.id)) continue;
         const main = index.getMainComponent(instance.id);
         if (!main) {
@@ -497,7 +508,9 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
           .filter(Boolean)
           .join(" ")
       : nothingChecked
-        ? librarySubject
+        ? approvedIds.size > 0
+          ? "Named components are in the library. No placed screen was checked."
+          : librarySubject
           ? "This is a library node, not a product screen. Run verify on a product frame."
           : ["Nothing checked.", lookalikeNote, "No component id or key."].filter(Boolean).join(" ")
           : content.blocking && clean && bindPass
@@ -658,7 +671,8 @@ function stampTextCheck<T extends { hint: string }>(
     const overflow = JSON.stringify(card).length - budget;
     const nextLen = Math.max(NAME_FLOOR, frame.name.length - Math.max(1, overflow + 1));
     if (nextLen >= frame.name.length) break;
-    frame.name = `${frame.name.slice(0, nextLen - 1)}…`;
+    const keep = Math.max(1, nextLen - 1);
+    frame.name = `${frame.name.slice(0, keep)}…`;
     card = build();
   }
   if (fits(card)) return card;

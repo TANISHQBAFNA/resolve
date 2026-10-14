@@ -113,6 +113,11 @@ function collectNameSlots(
     else collectNameSlots(child, slots);
   }
 }
+function clipLabel(text: string, target: number): string {
+  if (text.length <= target) return text;
+  const keep = Math.max(1, target - 1);
+  return `${text.slice(0, keep)}…`;
+}
 /** Shorten the longest `name` / `given` fields until `size(payload)` fits. Ids stay intact. */
 export function shrinkNameFields(
   payload: object,
@@ -151,7 +156,7 @@ export function shrinkNameFields(
         }
         break;
       }
-      const next = `${text.slice(0, target - 1)}…`;
+      const next = clipLabel(text, target);
       if (next.length >= text.length) {
         if (!deepNames) {
           deepNames = true;

@@ -22,6 +22,9 @@ import {
  * current graph. No Figma calls. Ranking is read, never changed.
  */
 
+/** Top-3 rate that still counts as a pass. 50% is a fail. The shipped 85/88 set still passes. */
+export const PHRASE_TOP3_PASS = 0.8;
+
 /** File key of the sample library the shipped phrase set was written for (scoreboard/fixture/library.json). */
 export const SAMPLE_LIBRARY_FILE_KEY = "SCOREFIX";
 
@@ -274,6 +277,7 @@ export function scorePhrases(index: GraphIndex, cases: PhraseCase[], options: Ph
   const totals = emptyRollup("all");
   for (const row of rows) add(totals, row);
   const inventRate = totals.phrases ? totals.invented / totals.phrases : 0;
+  const top3Rate = totals.matchCases ? totals.top3 / totals.matchCases : 1;
   return {
     at: options.at ?? new Date().toISOString(),
     source: options.source ?? [],
@@ -283,7 +287,8 @@ export function scorePhrases(index: GraphIndex, cases: PhraseCase[], options: Ph
     byType: rows,
     inventRate,
     // A run that scored nothing proves nothing, so it does not pass.
-    pass: totals.phrases > 0 && totals.invented === 0 && totals.retiredRecommended === 0,
+    // Empty-only sets are not gated on a top-3 rate. A match set under 80% fails.
+    pass: totals.phrases > 0 && totals.invented === 0 && totals.retiredRecommended === 0 && top3Rate >= PHRASE_TOP3_PASS,
     misses,
     ...(options.note ? { note: options.note } : {}),
   };
@@ -350,6 +355,9 @@ export function formatPhraseTable(report: PhraseReport): string {
     }))
     .sort((a, b) => a.score - b.score)[0];
   if (weakest && weakest.score < 1) lines.push(`Weakest phrase type: ${weakest.type} (${Math.round(weakest.score * 100)}% right).`);
+  if (t.matchCases && t.top3 / t.matchCases < PHRASE_TOP3_PASS) {
+    lines.push(`Top-3 is under ${Math.round(PHRASE_TOP3_PASS * 100)}%. That is a failure.`);
+  }
   if (report.note) lines.push(report.note);
   lines.push(`Result: ${report.pass ? "pass" : "FAIL"}`, "", "Details");
   const head = ["type", "phrases", "top-1", "top-3", "empty ok", "false-empty", "wrong-cousin", "retired", "invent"];

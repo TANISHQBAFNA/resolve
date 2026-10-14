@@ -32,6 +32,7 @@
     { "term": "variant", "reason": "Variant names which option of a component." },
     { "term": "total", "reason": "Total is a quantity on a value." },
     { "term": "count", "reason": "Count is a quantity on a badge or a value." },
+    { "term": "figure", "reason": "A figure is a number, as in a price figure." },
     { "term": "user", "reason": "User is the person a profile or an avatar represents." },
     { "term": "code", "reason": "Code is the value typed into a promo, coupon, or access field." },
     { "term": "sign", "reason": "Sign is a label on a button, as in sign in." },

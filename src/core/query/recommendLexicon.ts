@@ -7,11 +7,12 @@ import modifierFile from "@/data/ui-modifiers.json";
 import type { GraphIndex } from "./GraphIndex";
 import { familyNameOf, MASTER_TYPES, VARIANT_PROP_NAME, variantCardName } from "./masterNames";
 import { GENERIC_NAME_TOKENS, tokensOf } from "./queryTokens";
-import { allSynonymGroups, extraSynonym, fromIconLibrary, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
+import { allSynonymGroups, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems, isScreen } from "./screenInventory";
 import { propertyAliases } from "./synonymLayer";
 import type { WorkspaceManifest } from "./workspace";
+import { componentKeyOf, nodeFileKey } from "./workspaceMerge";
 
 /** Name / synonym / variant / description. One name token outranks any amount of context. */
 export const LEXICAL_WEIGHT = { name: 100, synonym: 70, variant: 80, describe: 50 } as const;
@@ -28,16 +29,31 @@ export function isSetModifierVariant(node: GraphNode, set?: GraphNode): boolean 
   const rest = tokensOf(name.slice(setName.length));
   return rest.length > 0 && rest.every((token) => modifierWord(token));
 }
-/**
- * States, sizes, variants, roles, and common UI nouns.
- * A multi-word ask may keep one of these beside a real component word.
- * Reasons live in src/data/ui-modifiers.json.
- */
 const UI_MODIFIER = new Set(modifierFile.words.map((word) => word.term.toLowerCase()));
-/**
- * A word that only counts when it follows a component word or one of its synonyms.
- * "window" after modal. "mark" after close. Not a free-floating modifier.
- */
+/** Size and accessibility words describe a component. They do not name a different one. */
+const SIZE_OR_A11Y = new Set([
+  "large",
+  "larger",
+  "small",
+  "smaller",
+  "big",
+  "bigger",
+  "huge",
+  "compact",
+  "medium",
+  "mini",
+  "tiny",
+  "xl",
+  "xs",
+  "screen",
+  "reader",
+  "accessible",
+  "aria",
+  "wcag",
+  "a11y",
+]);
+const PURPOSE_WORD = new Set(["to", "for", "on", "when"]);
+
 const TRAILING_AFTER = new Map<string, ReadonlySet<string>>(
   modifierFile.trailing.map((row) => [
     row.term.toLowerCase(),
@@ -90,11 +106,7 @@ export function synonymIn(token: string, names: Set<string>, allowClip = false):
   return group.some((word) => word !== token && names.has(word));
 }
 const CLIP_GROUP = new Map<string, readonly string[] | undefined>();
-/**
- * A short token that is a unique prefix of one synonym, with at least four
- * letters left over. "pic" is picture. "head" is not, because it also starts header.
- * Single-word asks do not clip. The caller passes allowClip only for a multi-word ask.
- */
+/** Unique synonym prefix of at least four leftover letters. Single-word asks do not clip. */
 function clippingGroup(token: string): readonly string[] | undefined {
   if (CLIP_GROUP.has(token)) return CLIP_GROUP.get(token);
   let found: readonly string[] | undefined;
@@ -181,8 +193,10 @@ export function dropShadowedBaseTier<T>(rows: T[], askedBase: boolean, nameOf: (
 }
 
 /** Family name only. `Type=Primary` is a variant layer, not a component name. A tier prefix is not part of the name. */
-export function familyHaystack(node: GraphNode, set: GraphNode | undefined): string {
-  if (VARIANT_PROP_NAME.test(node.name)) return stripTier(set?.name ?? "");
+export function familyHaystack(node: GraphNode, set: GraphNode | undefined, host = ""): string {
+  const family = host.trim() || (set && !VARIANT_PROP_NAME.test(set.name) ? stripTier(set.name) : "");
+  if (VARIANT_PROP_NAME.test(node.name)) return family;
+  if (family && family !== node.name) return `${family} ${stripTier(node.name)}`;
   if (set && set.id !== node.id) return `${stripTier(set.name)} ${stripTier(node.name)}`;
   return stripTier(node.name);
 }
@@ -210,15 +224,18 @@ export function matchHaystack(node: GraphNode, set?: GraphNode): { variant: stri
     .join(" ");
   return { variant, describe };
 }
-/** Set name equals the ask, or the set name is a whole-word/phrase inside the ask. */
+/** Set name, or one path segment of it, is a whole phrase inside the ask. `Controls / Button` covers "button". */
 export function setCoversAsk(ask: string, setName: string): boolean {
   const askFold = ask.trim().toLowerCase();
   const nameFold = setName.trim().toLowerCase();
   if (!askFold || !nameFold) return false;
-  if (askFold === nameFold || collapsedName(askFold) === collapsedName(nameFold)) return true;
-  const nameTokens = tokensOf(nameFold);
   const askTokens = tokensOf(askFold);
-  return nameTokens.length > 0 && nameTokens.every((token) => askTokens.includes(token));
+  const covers = (label: string) => {
+    if (label === askFold || collapsedName(label) === collapsedName(askFold)) return true;
+    const nameTokens = tokensOf(label);
+    return nameTokens.length > 0 && nameTokens.every((token) => askTokens.includes(token));
+  };
+  return nameFold.split("/").some((part) => covers(part.trim()));
 }
 /** Query names this node, not merely its family. */
 export function namesThisNode(ask: string, node: GraphNode, index: GraphIndex): boolean {
@@ -229,17 +246,36 @@ export function namesThisNode(ask: string, node: GraphNode, index: GraphIndex): 
   if (phraseNamesMatch(needle, node.name)) return true;
   return variantCardName(index, node).toLowerCase() === needle;
 }
-/** Plural s/es or -ing/-ed, either way. "tablet" is not an inflection of "tab". */
+/** Plural s/es/ies or -ing/-ed, either way. "tablet" is not an inflection of "tab". */
 function inflectsName(query: string, nameToken: string): boolean {
   if (query === nameToken || query.length < 3 || nameToken.length < 3) return false;
   const [longer, shorter] = query.length >= nameToken.length ? [query, nameToken] : [nameToken, query];
+  if (longer.endsWith("ies") && shorter.endsWith("y") && longer.slice(0, -3) === shorter.slice(0, -1)) return true;
   if (!longer.startsWith(shorter)) return false;
   const rest = longer.slice(shorter.length);
   return rest === "s" || rest === "es" || rest === "ing" || rest === "ed";
 }
+/** One letter missing inside the word, or two neighbours swapped. Not a different word with an extra ending. */
+function tokenTypo(query: string, name: string): boolean {
+  if (query.length < 5 || name.length < 5 || query === name) return false;
+  if (query.length === name.length) return adjacentSwap(query, name);
+  const [shorter, longer] = query.length < name.length ? [query, name] : [name, query];
+  if (shorter.length + 1 !== longer.length) return false;
+  let i = 0;
+  while (i < shorter.length && shorter[i] === longer[i]) i += 1;
+  if (i === 0 || i === shorter.length) return false;
+  return shorter.slice(i) === longer.slice(i + 1);
+}
+/** A stopword that is itself a component synonym stays. "find box" keeps find. */
+export function withSynonymStopwords(text: string, tokens: string[]): string[] {
+  const raw = text.toLowerCase().split(/[^a-z0-9]+/).filter((part) => part.length > 1);
+  const extra = raw.filter((part) => !tokens.includes(part) && SYNONYM_OF.has(part));
+  return extra.length ? [...new Set([...extra, ...tokens])] : tokens;
+}
 export function tokenMatchesName(query: string, nameToken: string, allowClip = false): boolean {
   if (query === nameToken || inflectsName(query, nameToken)) return true;
-  return synonymIn(query, new Set([nameToken]), allowClip);
+  if (synonymIn(query, new Set([nameToken]), allowClip)) return true;
+  return tokenTypo(query, nameToken);
 }
 /** "x" means close only as the whole ask, or right beside icon/button. "x ray" does not. */
 export function xMeansClose(text: string): boolean {
@@ -358,8 +394,66 @@ export function modifierWord(token: string): boolean {
   if (UI_MODIFIER.has(token) || LABEL_FILLER.has(token)) return true;
   return inflectionStems(token).some((stem) => UI_MODIFIER.has(stem) || LABEL_FILLER.has(stem));
 }
+/** Words after to/for/on/when are why the part is used, not a different component. */
+export function purposeTailTokens(ask: string): Set<string> {
+  const parts = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const at = parts.findIndex((part) => PURPOSE_WORD.has(part));
+  if (at < 0) return new Set();
+  return new Set(tokensOf(parts.slice(at + 1).join(" ")));
+}
+
+function learnedLibrary(node: GraphNode, keys: Set<string> | undefined): boolean {
+  if (!keys) return false;
+  const key = nodeFileKey(node)?.toLowerCase();
+  if (key && keys.has(key)) return true;
+  const source = node.metadata?.["sourceFileKey"];
+  return typeof source === "string" && keys.has(source.trim().toLowerCase());
+}
+
+/** Learned files, including a remote master from one of them when no local twin exists. */
+export function mastersToRank(
+  index: GraphIndex,
+  workspace: WorkspaceManifest | undefined,
+  graphFileKey: string,
+  ask?: string,
+): GraphNode[] {
+  const keys =
+    workspace && workspace.files.length > 0
+      ? new Set(workspace.files.map((file) => file.key.toLowerCase()))
+      : undefined;
+  const iconAsk = Boolean(ask && asksIcon(tokensOf(ask), ask));
+  const nodes = index.getNodesByType(...MASTER_TYPES);
+  const localIds = new Set<string>();
+  const localKeys = new Set<string>();
+  for (const node of nodes) {
+    if (node.isRemote || isNameInferredMaster(node)) continue;
+    if (node.figmaNodeId) localIds.add(node.figmaNodeId);
+    const published = componentKeyOf(node);
+    if (published) localKeys.add(published);
+  }
+  return nodes.filter((node) => {
+    if (isNameInferredMaster(node)) return false;
+    const icon =
+      fromIconLibrary(index, node, workspace) ||
+      iconShelf(index, node, workspace) ||
+      looksLikeIcon(index, node, setOf(index, node), workspace);
+    if (node.isRemote && !icon && !iconAsk) {
+      if (!learnedLibrary(node, keys)) return false;
+      if (node.figmaNodeId && localIds.has(node.figmaNodeId)) return false;
+      const published = componentKeyOf(node);
+      if (published && localKeys.has(published)) return false;
+    }
+    if (!keys || node.isRemote || icon) return true;
+    const key = nodeFileKey(node, graphFileKey)?.toLowerCase();
+    if (!key || keys.has(key)) return true;
+    return learnedLibrary(node, keys);
+  });
+}
+
+export const CATEGORY_TAIL = new Set(["icon", "glyph", "symbol", "banner", "dropdown", "nav", "navigation"]);
+
 function keepsCompany(token: string, previous: string | undefined, exempt: ReadonlySet<string>): boolean {
-  if (modifierWord(token) || exempt.has(token)) return true;
+  if (modifierWord(token) || exempt.has(token) || CATEGORY_TAIL.has(token)) return true;
   if (!previous) return false;
   const after = TRAILING_AFTER.get(token);
   if (!after) return false;
@@ -367,13 +461,7 @@ function keepsCompany(token: string, previous: string | undefined, exempt: Reado
   const group = SYNONYM_OF.get(previous);
   return Boolean(group?.some((word) => after.has(word)));
 }
-/**
- * One component word plus words that are not the head is not a component ask.
- * The head is the last word, or a component word followed only by UI nouns.
- * "cart badge" keeps Badge. "card game" is empty, because game is the head.
- * "error alert" stays, because error is a status. A scene word is not junk.
- * An unknown word in front of the head is a noun modifier, and the pick is low confidence.
- */
+/** One component word, then a word that is not a UI noun, is not a component ask. */
 export function askGate(
   ask: string,
   tokens: string[],
@@ -383,6 +471,7 @@ export function askGate(
 ): { outOfDomain: boolean; lowConfidence: boolean } {
   const open = { outOfDomain: false, lowConfidence: false };
   if (phraseCoversAsk(ask)) return open;
+  const tail = purposeTailTokens(ask);
   const content = tokens.filter((token) => !RETIRED_NAME_TOKENS.has(token));
   if (content.length < 2) return open;
   const hit = content.map((token) =>
@@ -394,7 +483,10 @@ export function askGate(
   const head = hit.lastIndexOf(true);
   for (let i = head + 1; i < content.length; i += 1) {
     const token = content[i];
-    if (!token || !keepsCompany(token, content[i - 1], exempt)) return { outOfDomain: true, lowConfidence: false };
+    if (!token || !keepsCompany(token, content[i - 1], exempt)) {
+      if (tail.has(token)) continue;
+      return { outOfDomain: true, lowConfidence: false };
+    }
   }
   let unknown = 0;
   for (let i = 0; i < head; i += 1) {
@@ -438,18 +530,13 @@ function genericQuery(query: string): boolean {
   const group = SYNONYM_OF.get(query);
   return Boolean(group?.some((word) => word !== query && GENERIC_NAME_TOKENS.has(word)));
 }
-/**
- * A master that only shares a generic token (bar, button, input, cta, …)
- * drops out when another word names a different component, or when this
- * master still has a specific word the ask did not say.
- * "radio button" drops Button. "primary button" drops Pay CTA.
- * "login field" keeps Text Field.
- */
+/** Generic-only overlap drops when another word names a different part. */
 export function genericOnlyMiss(
   name: string,
   queryTokens: string[],
   allowClip: boolean,
   componentWord: (token: string) => boolean,
+  synonymWord: (token: string) => boolean = () => false,
 ): boolean {
   const nameTokens = tokensOf(name);
   if (!nameTokens.length || !queryTokens.length) return false;
@@ -464,7 +551,11 @@ export function genericOnlyMiss(
     return !nameTokens.some((token) => tokenMatchesName(query, token, allowClip));
   });
   if (!uncovered.length) return false;
-  if (uncovered.some((query) => componentWord(query))) return true;
+  // A size is not a second component. A modifier is, when it is a synonym of one ("warning" → alert).
+  if (uncovered.some((query) => {
+    if (SIZE_OR_A11Y.has(query) || !componentWord(query)) return false;
+    return !modifierWord(query) || synonymWord(query);
+  })) return true;
   const unknown = uncovered.filter((query) => !modifierWord(query));
   if (!unknown.length) return false;
   return nameTokens.some(
@@ -473,18 +564,16 @@ export function genericOnlyMiss(
       !queryTokens.some((query) => tokenMatchesName(query, token, allowClip)),
   );
 }
-/**
- * "primary button" drops Pay CTA when a master is actually named primary.
- * A library whose primary control is named Pay CTA keeps it, because primary
- * is only a variant there. Two real component words ("button and row") both stay.
- */
+/** A named modifier drops a generic cousin. The plain noun itself stays. */
 export function withoutGenericCousins<T extends { node: { name: string }; setName?: string }>(
   entries: T[],
   queryTokens: string[],
   allowClip: boolean,
 ): T[] {
   const familyOf = (entry: T): string => familyNameOf(entry.node.name, entry.setName);
-  const modifiers = queryTokens.filter((token) => modifierWord(token) && !GENERIC_NAME_TOKENS.has(token));
+  const modifiers = queryTokens.filter(
+    (token) => modifierWord(token) && !GENERIC_NAME_TOKENS.has(token) && !SIZE_OR_A11Y.has(token),
+  );
   const covered = modifiers.filter((token) =>
     entries.some((entry) => tokensOf(familyOf(entry)).some((name) => name === token || inflectsName(token, name))),
   );
@@ -493,6 +582,9 @@ export function withoutGenericCousins<T extends { node: { name: string }; setNam
     const names = tokensOf(familyOf(entry));
     const misses = covered.some((token) => !names.some((name) => name === token || inflectsName(token, name)));
     if (!misses) return true;
+    const tail = tokensOf(familyOf(entry).split("/").pop() ?? "");
+    const noun = queryTokens.find((token) => PLAIN_NOUN.has(token) || SYNONYM_OF.get(token)?.some((word) => PLAIN_NOUN.has(word)));
+    if (noun && tail.length === 1 && tail[0] && (tail[0] === noun || inflectsName(noun, tail[0]))) return true;
     return names.some((name) => {
       if (GENERIC_NAME_TOKENS.has(name)) return false;
       return queryTokens.some((query) => {
@@ -503,6 +595,157 @@ export function withoutGenericCousins<T extends { node: { name: string }; setNam
     });
   });
 }
+
+function familyNames(entry: { node: { name: string }; setName?: string }): Set<string> {
+  const names = new Set(tokensOf(familyNameOf(entry.node.name, entry.setName)));
+  if (entry.setName) for (const token of tokensOf(entry.setName)) names.add(token);
+  return names;
+}
+
+function nounHit(noun: string, names: Set<string>, allowClip: boolean): boolean {
+  if (nameTokenFor(noun, names, new Set())) return true;
+  if ([...names].some((name) => name === noun)) return true;
+  return synonymIn(noun, names, allowClip);
+}
+
+/** The component noun wins. A synonym counts. Cousins are already gone. */
+const CONTROL_NOUN = new Set(["button", "cta", "action", "icon"]);
+
+function controlNoun(token: string): boolean {
+  if (CONTROL_NOUN.has(token)) return true;
+  const group = SYNONYM_OF.get(token);
+  return Boolean(group?.some((word) => CONTROL_NOUN.has(word)));
+}
+
+export function nounBeatsExtras<T extends { node: { name: string }; setName?: string }>(
+  entries: T[],
+  queryTokens: string[],
+  allowClip: boolean,
+): T[] {
+  const nouns = queryTokens.filter((token) => controlNoun(token));
+  if (!nouns.length || entries.length < 2) return entries;
+  const other = queryTokens.some((token) => !controlNoun(token) && !modifierWord(token) && !SIZE_OR_A11Y.has(token));
+  // "radio button" and "payment row" name another part. A lone "large button" does not.
+  if (other) return entries;
+  const hits = entries.filter((entry) => nouns.some((noun) => nounHit(noun, familyNames(entry), allowClip)));
+  return hits.length ? hits : entries;
+}
+
+/** A weak pick that leaves a real word unmatched is not an offer. Purpose tails stay. */
+export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: string; weak?: boolean }>(
+  entries: T[],
+  queryTokens: string[],
+  allowClip: boolean,
+  purpose: ReadonlySet<string>,
+  componentWord: (token: string) => boolean,
+): T[] {
+  const content = queryTokens.filter((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token) && !purpose.has(token));
+  if (!content.length) return entries;
+  const next: T[] = [];
+  for (const entry of entries) {
+    if (!entry.weak) {
+      next.push(entry);
+      continue;
+    }
+    const unmatched = content.filter((token) => !nounHit(token, familyNames(entry), allowClip));
+    if (!unmatched.length) {
+      next.push({ ...entry, weak: false });
+      continue;
+    }
+    // Keep a weak lead that still names the control ("confirm payment action" → Pay CTA).
+    // Drop it when the leftover word is a different component and this lead is not that control.
+    const control = content.some((token) => controlNoun(token) && nounHit(token, familyNames(entry), allowClip));
+    if (control || unmatched.every((token) => !componentWord(token))) next.push(entry);
+  }
+  return next;
+}
+
+/** Tie-break for the last real word. It does not beat a name hit (100 vs 70). */
+export function headTokenBonus(familyName: string, tokens: string[], allowClip: boolean, exactName: boolean): number {
+  if (exactName) return 0;
+  const head = [...tokens].reverse().find((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token));
+  if (!head || !nounHit(head, new Set(tokensOf(familyName)), allowClip)) return 0;
+  return 15;
+}
+
+/** Last word is the kind of part. A family of that kind that also says the specific word gets a small lift. */
+export function categoryHeadBonus(familyName: string, tokens: string[], allowClip: boolean): number {
+  if (tokens.length < 2) return 0;
+  const tail = tokens[tokens.length - 1];
+  if (!tail || !CATEGORY_TAIL.has(tail)) return 0;
+  const names = new Set(tokensOf(familyName));
+  const tailHit = [...names].some((name) => name === tail || inflectsName(tail, name)) || synonymIn(tail, names, allowClip);
+  if (!tailHit) return 0;
+  const specific = tokens.slice(0, -1).filter((token) => token !== tail && !modifierWord(token) && !SIZE_OR_A11Y.has(token));
+  if (!specific.length || !specific.some((token) => nounHit(token, names, allowClip))) return 0;
+  return 40;
+}
+
+export const PLAIN_NOUN = new Set(["button", "cta", "action", "icon", "card", "banner", "dropdown", "nav", "navigation", "field", "input", "bar", "menu", "modal", "dialog", "badge", "tab", "link", "chip", "tag", "switch", "checkbox", "radio", "toast", "alert"]);
+
+function plainNounToken(token: string): boolean {
+  if (PLAIN_NOUN.has(token)) return true;
+  const group = SYNONYM_OF.get(token);
+  return Boolean(group?.some((word) => PLAIN_NOUN.has(word)));
+}
+
+const SHAPE_WORD = new Set(["group"]);
+
+/** Last path segment. `Controls / Button` is Button. */
+function bareSegment(label: string): string {
+  return label.split("/").map((part) => part.trim()).filter(Boolean).pop() ?? label;
+}
+
+/** "primary button" stays Button. "card" stays Card. "radio group" stays Radio, not a button group. */
+export function plainNounOverComposite<T extends { node: { name: string }; setName?: string }>(
+  entries: T[],
+  queryTokens: string[],
+): T[] {
+  const nouns = queryTokens.filter((token) => plainNounToken(token));
+  if (nouns.length !== 1 || entries.length < 2) return entries;
+  const noun = nouns[0]!;
+  const rest = queryTokens.filter((token) => token !== noun);
+  if (rest.some((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token) && !SHAPE_WORD.has(token))) return entries;
+  const plainLabel = (label: string): boolean => {
+    const names = new Set(tokensOf(bareSegment(label)));
+    if (![...names].some((name) => name === noun || inflectsName(noun, name))) return false;
+    for (const name of names) {
+      if (name === noun || inflectsName(noun, name)) continue;
+      // "save" is a modifier, but "cta" did not ask for it. Save CTA is not the plain control.
+      if (queryTokens.includes(name) && (modifierWord(name) || SIZE_OR_A11Y.has(name) || SHAPE_WORD.has(name))) continue;
+      return false;
+    }
+    return names.size > 0;
+  };
+  const literal = entries.filter((entry) => {
+    const labels = [familyNameOf(entry.node.name, entry.setName)];
+    if (entry.setName) labels.push(entry.setName);
+    return labels.some((label) => plainLabel(label));
+  });
+  if (!literal.length || literal.length === entries.length) return entries;
+  const chosen = new Set(literal);
+  return [...literal, ...entries.filter((entry) => !chosen.has(entry))];
+}
+
+/** Cousin filter, then the noun, then the plain name, then drop a weak pick that leaves a real word unmatched. */
+export function finishRank<T extends { node: { name: string }; setName?: string; weak?: boolean }>(
+  entries: T[],
+  queryTokens: string[],
+  allowClip: boolean,
+  ask: string,
+  componentWord: (token: string) => boolean,
+): T[] {
+  const purpose = purposeTailTokens(ask);
+  const cousins = withoutGenericCousins(
+    entries,
+    queryTokens.filter((token) => !purpose.has(token)),
+    allowClip,
+  );
+  const nouns = nounBeatsExtras(cousins, queryTokens, allowClip);
+  const plain = plainNounOverComposite(nouns, queryTokens);
+  return dropUnmatchedWeak(plain, queryTokens, allowClip, purpose, componentWord);
+}
+
 export function nameTokenFor(token: string, names: Set<string>, used: Set<string>): string | undefined {
   if (names.has(token) && !used.has(token)) return token;
   for (const name of names) {
@@ -625,12 +868,7 @@ function iconOnlyTail(role: string): boolean {
     tokens.length > 0 && tokens.every((token) => token === "icon" || token === "glyph" || token === "symbol")
   );
 }
-/**
- * "checkout summary with primary button" → scene + the component ask.
- * "field with icon" keeps the field — icon is a modifier, not the role.
- * "phone number input with country code" keeps the whole ask, because the
- * words after "with" are not a component and the words before are.
- */
+/** Words after "with" are the role, unless they are only a modifier. */
 export function splitBrief(
   intent: string,
   componentWord?: (token: string) => boolean,

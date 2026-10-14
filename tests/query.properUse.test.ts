@@ -112,7 +112,7 @@ describe("Acme proper use", () => {
     expect(findings.find((finding) => finding.check === "effect")?.token).toBe("Effect/Card shadow");
     expect(findings.filter((finding) => finding.check === "spacing").every((finding) => finding.token === "space/16")).toBe(true);
     expect(findings.find((finding) => finding.check === "contrast")?.problem).toMatch(/below 4\.5:1 for wcag-aa/);
-    expect(findings.find((finding) => finding.check === "tap")?.problem).toMatch(/30×30, under the 44×44/);
+    expect(findings.find((finding) => finding.check === "tap")?.problem).toMatch(/20×20, under the 24×24/);
     expect(findings.find((finding) => finding.check === "icon")?.problem).toMatch(/no label or description/);
     expect(findings.find((finding) => finding.figmaNodeId === "80:32")?.fix).toMatch(/translucent/);
     expect(findings.find((finding) => finding.figmaNodeId === "80:1")?.problem).toMatch(/no size/);
@@ -171,11 +171,13 @@ describe("Acme proper use", () => {
     expect(props?.findings.find((finding) => finding.check === "placeholder")?.problem).toMatch(/Button/);
   });
 
-  it("drops the tap error at the 24px AA-minimum bar", () => {
-    const report = checkProperUse(index, "Misused", { a11y: "wcag-aa-minimum" });
-    expect(report?.level).toBe("wcag-aa-minimum");
-    expect(report?.findings.some((finding) => finding.check === "tap")).toBe(false);
-    expect(report?.findings.some((finding) => finding.check === "contrast")).toBe(true);
+  it("uses 24px for AA and AA-minimum, and 44px for AAA", () => {
+    const aa = checkProperUse(index, "Misused");
+    expect(aa?.findings.find((finding) => finding.check === "tap")?.problem).toMatch(/under the 24×24 tap target for wcag-aa/);
+    const minimum = checkProperUse(index, "Misused", { a11y: "wcag-aa-minimum" });
+    expect(minimum?.findings.find((finding) => finding.check === "tap")?.problem).toMatch(/under the 24×24 tap target for wcag-aa-minimum/);
+    const aaa = checkProperUse(index, "Misused", { a11y: "wcag-aaa" });
+    expect(aaa?.findings.find((finding) => finding.check === "tap")?.problem).toMatch(/under the 44×44 tap target for wcag-aaa/);
   });
 
   it("says unknown on a Figma MCP capture that has no bindings", () => {

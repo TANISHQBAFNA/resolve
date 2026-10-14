@@ -76,7 +76,7 @@ export interface RealExample {
   height?: number;
   preferred: boolean;
   instruction: typeof CLONE_INSTRUCTION;
-  exNote?: "other product";
+  exNote?: "other product" | "default text";
 }
 
 export type ExampleLookup =
@@ -87,7 +87,7 @@ export interface ExamplePointer {
   ex?: string;
   exFileKey?: string;
   exWhy?: ExampleReason;
-  exNote?: "other product";
+  exNote?: "other product" | "default text";
 }
 
 export interface ContentWarning {
@@ -256,6 +256,7 @@ function isChromeLabel(text: string): boolean {
 export function exampleSentence(reason: ExampleReason): string {
   switch (reason) {
     case "bare defaults only":
+      return "Copies are on screens, but each one still shows the default text, so there is no filled example to clone.";
     case "not on any screen":
       return NO_EXAMPLE;
     case "use the live replacement":
@@ -560,6 +561,7 @@ function resolveExample(index: GraphIndex, master: GraphNode, query: ExampleQuer
     score: number;
     blob: string;
   }> = [];
+  const defaults: typeof ranked = [];
   let sawInstance = false;
   const cleanCache = new Map<string, boolean>();
   const screenClean = (screenId: string): boolean => {
@@ -580,7 +582,16 @@ function resolveExample(index: GraphIndex, master: GraphNode, query: ExampleQuer
     if (!screen) continue;
     sawInstance = true;
     const described = describeCached(index, instance, query.placeholders);
-    if (!described.populated) continue;
+    if (!described.populated) {
+      defaults.push({
+        instance,
+        screen,
+        described,
+        score: 0,
+        blob: "",
+      });
+      continue;
+    }
     const fileKey = fileKeyOf(index, screen, query);
     const facts = (query.sock?.facts ?? []).filter(
       (fact) => ids.includes(fact.masterId) && factMatchesScreen(fact, screen, fileKey),
@@ -595,6 +606,8 @@ function resolveExample(index: GraphIndex, master: GraphNode, query: ExampleQuer
     ranked.push({ instance, screen, described, score, blob: contextBlob(screen, facts) });
   }
 
+  const usingDefaults = ranked.length === 0 && defaults.length > 0;
+  if (!ranked.length && defaults.length) ranked.push(...defaults);
   if (!ranked.length) return miss(sawInstance ? "bare defaults only" : "not on any screen");
 
   let pool = ranked;
@@ -625,7 +638,7 @@ function resolveExample(index: GraphIndex, master: GraphNode, query: ExampleQuer
   const picked = pool[0];
   if (!picked) return miss("not on any screen");
   const fileKey = fileKeyOf(index, picked.instance, query) ?? fileKeyOf(index, picked.screen, query);
-  const note = otherProduct ? ("other product" as const) : undefined;
+  const note = otherProduct ? ("other product" as const) : usingDefaults ? ("default text" as const) : undefined;
   return {
     found: true,
     example: {
@@ -665,7 +678,7 @@ export function examplePointer(
   detail: "id" | "screen" = "id",
 ): ExamplePointer {
   const lookup = getExample(index, master, query);
-  if (!lookup.found) return {};
+  if (!lookup.found || lookup.example.exNote === "default text") return {};
   const pickFile = fileKeyOf(index, master, query);
   const file = lookup.example.fileKey;
   const cross = Boolean(file && pickFile && file !== pickFile);

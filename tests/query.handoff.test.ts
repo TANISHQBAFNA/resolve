@@ -629,7 +629,10 @@ describe("handoff fixes after PR #37 UAT", () => {
     expect(handoffSheet(indexGraph(fixedGraph()), ["https://www.figma.com/design/OTHERFILE/X?node-id=999-1"]).ok).toBe(false);
     const status = await cli(["status"]);
     expect(status).toContain("Learned files:");
-    expect(status).toContain("last learned 2026-01-01 00:00 UTC");
+    const learned = new Date("2026-01-01T00:00:00.000Z");
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const localClock = `${learned.getFullYear()}-${pad(learned.getMonth() + 1)}-${pad(learned.getDate())} ${pad(learned.getHours())}:${pad(learned.getMinutes())}`;
+    expect(status).toContain(`last learned ${localClock}`);
     expect(status).toContain("Code map: none yet");
     expect(status).toMatch(/version /);
     expect(status).toMatch(/Figma token: (missing|set)/);

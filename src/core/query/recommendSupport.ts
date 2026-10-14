@@ -126,7 +126,7 @@ export interface RecommendCandidate extends PlaceFields {
   ex?: string;
   exFileKey?: string;
   exWhy?: ExampleReason;
-  exNote?: "other product";
+  exNote?: "other product" | "default text";
 }
 /** Candidates 2–3. Place with fileKey + figmaNodeId; the rest stays on the top hit. */
 export interface RecommendAlternate {
