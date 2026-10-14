@@ -263,6 +263,156 @@ function sameEntry(entry) {
   return isPlainObject(entry) && entry.command === MCP_ENTRY.command && JSON.stringify(entry.args) === JSON.stringify(MCP_ENTRY.args);
 }
 
+function skipJsonString(raw, start) {
+  let i = start + 1;
+  while (i < raw.length) {
+    if (raw[i] === "\\") {
+      i += 2;
+      continue;
+    }
+    if (raw[i] === '"') return i + 1;
+    i += 1;
+  }
+  return raw.length;
+}
+
+function matchingBrace(raw, open) {
+  let depth = 0;
+  for (let i = open; i < raw.length; i += 1) {
+    const char = raw[i];
+    if (char === '"') {
+      i = skipJsonString(raw, i) - 1;
+      continue;
+    }
+    if (char === "{" || char === "[") depth += 1;
+    else if (char === "}" || char === "]") {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/** A top-level `"key"` and the index just after its colon. */
+function topLevelKey(raw, key) {
+  let depth = 0;
+  for (let i = 0; i < raw.length; i += 1) {
+    const char = raw[i];
+    if (char === '"') {
+      const end = skipJsonString(raw, i);
+      if (depth === 1 && raw.slice(i, end) === `"${key}"`) {
+        let j = end;
+        while (j < raw.length && /\s/.test(raw[j])) j += 1;
+        if (raw[j] === ":") return { keyStart: i, valueStart: j + 1 };
+      }
+      i = end - 1;
+      continue;
+    }
+    if (char === "{" || char === "[") depth += 1;
+    else if (char === "}" || char === "]") depth -= 1;
+  }
+  return undefined;
+}
+
+function keyInObject(raw, open, close, key) {
+  let depth = 0;
+  for (let i = open; i < close; i += 1) {
+    const char = raw[i];
+    if (char === '"') {
+      const end = skipJsonString(raw, i);
+      if (depth === 1 && raw.slice(i, end) === `"${key}"`) {
+        let j = end;
+        while (j < close && /\s/.test(raw[j])) j += 1;
+        if (raw[j] === ":") return { keyStart: i, valueStart: j + 1 };
+      }
+      i = end - 1;
+      continue;
+    }
+    if (char === "{" || char === "[") depth += 1;
+    else if (char === "}" || char === "]") depth -= 1;
+  }
+  return undefined;
+}
+
+function valueEnd(raw, valueStart) {
+  let i = valueStart;
+  while (i < raw.length && /\s/.test(raw[i])) i += 1;
+  if (raw[i] === "{") {
+    const close = matchingBrace(raw, i);
+    return close < 0 ? raw.length : close + 1;
+  }
+  if (raw[i] === "[") {
+    const close = matchingBrace(raw, i);
+    return close < 0 ? raw.length : close + 1;
+  }
+  if (raw[i] === '"') return skipJsonString(raw, i);
+  while (i < raw.length && raw[i] !== "," && raw[i] !== "}" && raw[i] !== "]") i += 1;
+  return i;
+}
+
+function mcpServersSpan(raw) {
+  const top = topLevelKey(raw, "mcpServers");
+  if (!top) return undefined;
+  let open = top.valueStart;
+  while (open < raw.length && /\s/.test(raw[open])) open += 1;
+  if (raw[open] !== "{") return undefined;
+  const close = matchingBrace(raw, open);
+  if (close < 0) return undefined;
+  return { open, close };
+}
+
+/** Drop the resolve server without reprinting the rest of the file. */
+function removeResolveText(raw) {
+  const bom = raw.startsWith("\uFEFF") ? "\uFEFF" : "";
+  const body = bom ? raw.slice(1) : raw;
+  const span = mcpServersSpan(body);
+  if (!span) return undefined;
+  const found = keyInObject(body, span.open, span.close, "resolve");
+  if (!found) return undefined;
+  const valueTo = valueEnd(body, found.valueStart);
+  let start = found.keyStart;
+  let end = valueTo;
+  let before = start - 1;
+  while (before > span.open && /\s/.test(body[before])) before -= 1;
+  if (body[before] === ",") start = before;
+  else {
+    let after = end;
+    while (after < span.close && /\s/.test(body[after])) after += 1;
+    if (body[after] === ",") end = after + 1;
+  }
+  const next = `${bom}${body.slice(0, start)}${body.slice(end)}`;
+  try {
+    const doc = JSON.parse(next.replace(/^\uFEFF/, ""));
+    if (!isPlainObject(doc) || (isPlainObject(doc.mcpServers) && doc.mcpServers.resolve !== undefined)) return undefined;
+    return next;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Insert the resolve server beside the other servers, leaving their bytes alone. */
+function insertResolveText(raw, entry) {
+  const bom = raw.startsWith("\uFEFF") ? "\uFEFF" : "";
+  const body = bom ? raw.slice(1) : raw;
+  const span = mcpServersSpan(body);
+  if (!span) return undefined;
+  if (keyInObject(body, span.open, span.close, "resolve")) return undefined;
+  const inner = body.slice(span.open + 1, span.close);
+  const pretty = inner.includes("\n");
+  const indent = inner.match(/\n([ \t]+)"/)?.[1] ?? (pretty ? "  " : "");
+  const rendered = indent
+    ? JSON.stringify(entry, null, indent)
+        .split("\n")
+        .map((line, index) => (index === 0 ? line : `${indent}${line}`))
+        .join("\n")
+    : JSON.stringify(entry);
+  const key = `"resolve":${pretty ? " " : ""}${rendered}`;
+  let at = span.close;
+  while (at > span.open && /\s/.test(body[at - 1])) at -= 1;
+  const piece = inner.trim() === "" ? (pretty ? `\n${indent}${key}` : key) : pretty ? `,\n${indent}${key}` : `,${key}`;
+  return `${bom}${body.slice(0, at)}${piece}${body.slice(at)}`;
+}
+
 /**
  * Add the "resolve" server to a project MCP file (.cursor/mcp.json or .mcp.json).
  * Keeps every other key and server. Never replaces a different "resolve" entry unless forced.
@@ -272,34 +422,35 @@ function sameEntry(entry) {
 export function installMcp(current, { claude = false, force = false } = {}) {
   const entry = claude ? { type: "stdio", ...MCP_ENTRY, env: {} } : { ...MCP_ENTRY };
   const blank = current == null || current.trim() === "";
-  let doc = {};
-  let indent = 2;
-  let ending = "\n";
-  if (!blank) {
-    const raw = current.replace(/^\uFEFF/, "");
-    try {
-      doc = JSON.parse(raw);
-    } catch {
-      return { action: "skip", text: current, note: " (left alone: it is not valid JSON, so Resolve did not touch it)" };
-    }
-    if (!isPlainObject(doc) || (doc.mcpServers !== undefined && !isPlainObject(doc.mcpServers))) {
-      return { action: "skip", text: current, note: " (left alone: it does not have the usual mcpServers shape)" };
-    }
-    const style = jsonStyle(raw);
-    indent = style.indent;
-    ending = style.ending;
+  if (blank) return { action: "create", text: writeJson({ mcpServers: { resolve: entry } }, { indent: 2, ending: "\n" }) };
+  const raw = current.replace(/^\uFEFF/, "");
+  let doc;
+  try {
+    doc = JSON.parse(raw);
+  } catch {
+    return { action: "skip", text: current, note: " (left alone: it is not valid JSON, so Resolve did not touch it)" };
   }
-  const servers = doc.mcpServers ?? {};
+  if (!isPlainObject(doc) || (doc.mcpServers !== undefined && !isPlainObject(doc.mcpServers))) {
+    return { action: "skip", text: current, note: " (left alone: it does not have the usual mcpServers shape)" };
+  }
+  const servers = isPlainObject(doc.mcpServers) ? doc.mcpServers : {};
   if (servers.resolve !== undefined) {
     if (sameEntry(servers.resolve)) return { action: "unchanged", text: current };
     if (!force) {
       return { action: "skip", text: current, note: " (left alone: it already has a different resolve entry; --force replaces only that entry)" };
     }
   }
+  let body = current;
+  if (servers.resolve !== undefined) {
+    const removed = removeResolveText(body);
+    if (removed) body = removed;
+  }
+  const spliced = isPlainObject(doc.mcpServers) ? insertResolveText(body, entry) : undefined;
+  if (spliced) return { action: "update", text: spliced };
+  const style = jsonStyle(raw);
   const nextServers = orderLike(servers, { ...servers, resolve: entry });
   const next = orderLike(doc, { ...doc, mcpServers: nextServers });
-  const text = writeJson(next, { indent, ending });
-  return { action: blank ? "create" : "update", text };
+  return { action: "update", text: writeJson(next, style) };
 }
 
 /** Compact JSON stays compact. A missing trailing newline stays missing. */
@@ -472,8 +623,10 @@ export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot 
         }
       }
       const empty = Object.keys(others).length === 0 && Object.keys(doc).length === 1;
+      const spliced = removeResolveText(current);
       if (typeof original === "string" && sameOthers) plan.push({ action: "update", path, text: original });
       else if (empty && created) plan.push({ action: "remove", path });
+      else if (spliced) plan.push({ action: "update", path, text: spliced });
       else {
         const stored = record.mcpStyle?.[path];
         const style = stored && typeof stored === "object" ? stored : jsonStyle(current);

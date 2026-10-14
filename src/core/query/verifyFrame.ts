@@ -6,7 +6,7 @@ import { setOf } from "@/core/rules/family";
 import { isNameInferredMaster, isPrivateMasterName } from "@/core/rules/names";
 import { isRetired } from "@/core/rules/retired";
 import { type BindRulesFile, verifyBindRules } from "./bindRules";
-import { attachProperUse, checkProperUse } from "./properUse";
+import { attachProperUse, checkProperUse, type ProperUseReport } from "./properUse";
 import { briefNode, EXACT_COMPONENT_HINT, LAYER_NAME_GUESS } from "./cardCopy";
 import { fitCardAfterCost, NAME_FLOOR, shrinkNameFields, WARNING_OVERFLOW } from "./cardFit";
 import { codeText, useText } from "./codeMap";
@@ -17,7 +17,7 @@ import type { GraphIndex } from "./GraphIndex";
 import { missingNodeSentence, readFigmaLink } from "./learnedLink";
 import { isMasterType, MASTER_TYPES, placeableMasterByName, realMastersNamed, variantCardName } from "./masterNames";
 import { matchesFigmaId, matchesStampedId, resolveNode, resolveNodeExact } from "./nodeLookup";
-import { hiddenUnder } from "./placed";
+import { designerPlacedInstances, hiddenUnder } from "./placed";
 import { isPrivateMaster, wholeNameTypo } from "./recommendLexicon";
 import { asMaster, type LibraryRules, type RecommendContext, REFRESH_HINT, ruleMatches } from "./recommendSupport";
 import { codeMapView, replacementOf } from "./replacements";
@@ -106,7 +106,7 @@ export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
     workspace: input.workspace,
     designContext: input.designContext,
   });
-  const listedOnly =
+  const listedOnly: ProperUseReport | undefined =
     !input.frame?.trim() && (input.components ?? []).some((name) => name.trim())
       ? {
           summary: "0 errors",
@@ -317,8 +317,9 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
         );
       }
     } else {
-      const nested = index.getNestedInstances(frameNode.id);
-      const instances = frameNode.type === "COMPONENT_INSTANCE" ? [frameNode, ...nested] : nested;
+      const libraryNode =
+        isMasterType(frameNode.type) || frameNode.type === "PAGE" || frameNode.type === "SECTION";
+      const instances = libraryNode ? [] : designerPlacedInstances(index, frameNode.id);
       for (const instance of instances) {
         if (hiddenUnder(index, instance, frameNode.id)) continue;
         const main = index.getMainComponent(instance.id);
@@ -671,7 +672,7 @@ function stampTextCheck<T extends { hint: string }>(
     const nextLen = Math.max(NAME_FLOOR, frame.name.length - Math.max(1, overflow + 1));
     if (nextLen >= frame.name.length) break;
     const keep = Math.max(1, nextLen - 1);
-    frame.name = frame.name.includes("/") ? `…${frame.name.slice(-keep)}` : `${frame.name.slice(0, keep)}…`;
+    frame.name = `${frame.name.slice(0, keep)}…`;
     card = build();
   }
   if (fits(card)) return card;

@@ -26,6 +26,8 @@ export function isFigmaSlot(node: GraphNode): boolean {
  * Hidden instances are left out.
  * A screen that is itself one instance stays that one instance.
  */
+const DEFINITION = new Set(["COMPONENT_SET", "VARIANT", "MAIN_COMPONENT", "COMPONENT"]);
+
 export function designerPlacedInstances(index: GraphIndex, frameId: string): GraphNode[] {
   const self = index.getNode(frameId);
   if (!self) return [];
@@ -39,6 +41,7 @@ export function designerPlacedInstances(index: GraphIndex, frameId: string): Gra
         walkSlots(child.id);
         continue;
       }
+      if (DEFINITION.has(child.type)) continue;
       walkLayer(child.id);
     }
   };

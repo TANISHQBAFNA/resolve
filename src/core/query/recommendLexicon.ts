@@ -206,8 +206,10 @@ export function dropShadowedBaseTier<T>(rows: T[], askedBase: boolean, nameOf: (
 }
 
 /** Family name only. `Type=Primary` is a variant layer, not a component name. A tier prefix is not part of the name. */
-export function familyHaystack(node: GraphNode, set: GraphNode | undefined): string {
-  if (VARIANT_PROP_NAME.test(node.name)) return stripTier(set?.name ?? "");
+export function familyHaystack(node: GraphNode, set: GraphNode | undefined, host = ""): string {
+  const family = host.trim() || (set && !VARIANT_PROP_NAME.test(set.name) ? stripTier(set.name) : "");
+  if (VARIANT_PROP_NAME.test(node.name)) return family;
+  if (family && family !== node.name) return `${family} ${stripTier(node.name)}`;
   if (set && set.id !== node.id) return `${stripTier(set.name)} ${stripTier(node.name)}`;
   return stripTier(node.name);
 }
@@ -235,15 +237,18 @@ export function matchHaystack(node: GraphNode, set?: GraphNode): { variant: stri
     .join(" ");
   return { variant, describe };
 }
-/** Set name equals the ask, or the set name is a whole-word/phrase inside the ask. */
+/** Set name, or one path segment of it, is a whole phrase inside the ask. `Controls / Button` covers "button". */
 export function setCoversAsk(ask: string, setName: string): boolean {
   const askFold = ask.trim().toLowerCase();
   const nameFold = setName.trim().toLowerCase();
   if (!askFold || !nameFold) return false;
-  if (askFold === nameFold || collapsedName(askFold) === collapsedName(nameFold)) return true;
-  const nameTokens = tokensOf(nameFold);
   const askTokens = tokensOf(askFold);
-  return nameTokens.length > 0 && nameTokens.every((token) => askTokens.includes(token));
+  const covers = (label: string) => {
+    if (label === askFold || collapsedName(label) === collapsedName(askFold)) return true;
+    const nameTokens = tokensOf(label);
+    return nameTokens.length > 0 && nameTokens.every((token) => askTokens.includes(token));
+  };
+  return nameFold.split("/").some((part) => covers(part.trim()));
 }
 /** Query names this node, not merely its family. */
 export function namesThisNode(ask: string, node: GraphNode, index: GraphIndex): boolean {
@@ -516,18 +521,13 @@ function genericQuery(query: string): boolean {
   const group = SYNONYM_OF.get(query);
   return Boolean(group?.some((word) => word !== query && GENERIC_NAME_TOKENS.has(word)));
 }
-/**
- * A master that only shares a generic token (bar, button, input, cta, …)
- * drops out when another word names a different component, or when this
- * master still has a specific word the ask did not say.
- * "radio button" drops Button. "primary button" drops Pay CTA.
- * "login field" keeps Text Field.
- */
+/** Generic-only overlap drops when another word names a different part. */
 export function genericOnlyMiss(
   name: string,
   queryTokens: string[],
   allowClip: boolean,
   componentWord: (token: string) => boolean,
+  synonymWord: (token: string) => boolean = () => false,
 ): boolean {
   const nameTokens = tokensOf(name);
   if (!nameTokens.length || !queryTokens.length) return false;
@@ -542,8 +542,11 @@ export function genericOnlyMiss(
     return !nameTokens.some((token) => tokenMatchesName(query, token, allowClip));
   });
   if (!uncovered.length) return false;
-  // A size or an accessibility word is not a second component. "large" must not drop Button.
-  if (uncovered.some((query) => !SIZE_OR_A11Y.has(query) && componentWord(query))) return true;
+  // A size is not a second component. A modifier is, when it is a synonym of one ("warning" → alert).
+  if (uncovered.some((query) => {
+    if (SIZE_OR_A11Y.has(query) || !componentWord(query)) return false;
+    return !modifierWord(query) || synonymWord(query);
+  })) return true;
   const unknown = uncovered.filter((query) => !modifierWord(query));
   if (!unknown.length) return false;
   return nameTokens.some(
@@ -552,11 +555,7 @@ export function genericOnlyMiss(
       !queryTokens.some((query) => tokenMatchesName(query, token, allowClip)),
   );
 }
-/**
- * "primary button" drops Pay CTA when a master is actually named primary.
- * A library whose primary control is named Pay CTA keeps it, because primary
- * is only a variant there. Two real component words ("button and row") both stay.
- */
+/** A named modifier drops a generic cousin. The plain noun itself stays. */
 export function withoutGenericCousins<T extends { node: { name: string }; setName?: string }>(
   entries: T[],
   queryTokens: string[],
@@ -574,6 +573,9 @@ export function withoutGenericCousins<T extends { node: { name: string }; setNam
     const names = tokensOf(familyOf(entry));
     const misses = covered.some((token) => !names.some((name) => name === token || inflectsName(token, name)));
     if (!misses) return true;
+    const tail = tokensOf(familyOf(entry).split("/").pop() ?? "");
+    const noun = queryTokens.find((token) => PLAIN_NOUN.has(token) || SYNONYM_OF.get(token)?.some((word) => PLAIN_NOUN.has(word)));
+    if (noun && tail.length === 1 && tail[0] && (tail[0] === noun || inflectsName(noun, tail[0]))) return true;
     return names.some((name) => {
       if (GENERIC_NAME_TOKENS.has(name)) return false;
       return queryTokens.some((query) => {
@@ -684,7 +686,14 @@ function plainNounToken(token: string): boolean {
   return Boolean(group?.some((word) => PLAIN_NOUN.has(word)));
 }
 
-/** "primary button" stays Button. "card" stays Card. A second real word is left alone. */
+const SHAPE_WORD = new Set(["group"]);
+
+/** Last path segment. `Controls / Button` is Button. */
+function bareSegment(label: string): string {
+  return label.split("/").map((part) => part.trim()).filter(Boolean).pop() ?? label;
+}
+
+/** "primary button" stays Button. "card" stays Card. "radio group" stays Radio, not a button group. */
 export function plainNounOverComposite<T extends { node: { name: string }; setName?: string }>(
   entries: T[],
   queryTokens: string[],
@@ -693,14 +702,14 @@ export function plainNounOverComposite<T extends { node: { name: string }; setNa
   if (nouns.length !== 1 || entries.length < 2) return entries;
   const noun = nouns[0]!;
   const rest = queryTokens.filter((token) => token !== noun);
-  if (rest.some((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token))) return entries;
+  if (rest.some((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token) && !SHAPE_WORD.has(token))) return entries;
   const plainLabel = (label: string): boolean => {
-    const names = new Set(tokensOf(label));
+    const names = new Set(tokensOf(bareSegment(label)));
     if (![...names].some((name) => name === noun || inflectsName(noun, name))) return false;
     for (const name of names) {
       if (name === noun || inflectsName(noun, name)) continue;
       // "save" is a modifier, but "cta" did not ask for it. Save CTA is not the plain control.
-      if (queryTokens.includes(name) && (modifierWord(name) || SIZE_OR_A11Y.has(name))) continue;
+      if (queryTokens.includes(name) && (modifierWord(name) || SIZE_OR_A11Y.has(name) || SHAPE_WORD.has(name))) continue;
       return false;
     }
     return names.size > 0;

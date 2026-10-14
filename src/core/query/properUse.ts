@@ -935,8 +935,14 @@ export function attachProperUse<T extends object>(
   if (JSON.stringify(priced).length > budget && report.errors === 0) {
     shown = [];
     truncated = undefined;
+    delete host["builtAt"];
     priced = build();
-    if (JSON.stringify(priced).length > budget) return card as T & { properUse?: ProperUseReport; cost?: AgentCost };
+    const hint = host["hint"];
+    if (JSON.stringify(priced).length > budget && typeof hint === "string" && hint.length > 48) {
+      host["hint"] = `${hint.slice(0, 47)}…`;
+      priced = build();
+    }
+    if (JSON.stringify(priced).length > budget) return price(card) as T & { properUse?: ProperUseReport; cost?: AgentCost };
   }
   return priced as T & { properUse?: ProperUseReport; cost?: AgentCost };
 }

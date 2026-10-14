@@ -270,8 +270,9 @@ describe("check card wording", () => {
     const original = "workspace/screens/ingredients/page-shell".repeat(2);
     const payload = { name: original, pad: "y".repeat(500) };
     shrinkNameFields(payload, 70);
-    expect(payload.name.startsWith("…")).toBe(true);
-    expect(original.endsWith(payload.name.slice(1))).toBe(true);
+    expect(payload.name.endsWith("…")).toBe(true);
+    expect(payload.name.startsWith("…")).toBe(false);
+    expect(original.startsWith(payload.name.slice(0, -1))).toBe(true);
     expect(exampleSentence("bare defaults only")).toBe(
       "Copies are on screens, but each one still shows the default text, so there is no filled example to clone.",
     );
@@ -291,6 +292,149 @@ describe("check card wording", () => {
     const first = presentToolResult(card, "markdown", "verify_frame").split("\n")[0] ?? "";
     expect(first).toContain("Proper use");
     expect(first).toContain("NAMES ONLY");
+  });
+});
+
+describe("a nested library still prefers the plain component", () => {
+  function nested() {
+    const file = n("file", "FILE", "Acme UI", { fileKey: "ACMEUI" });
+    const page = n("page", "PAGE", "Library", { parentId: "file", fileKey: "ACMEUI" });
+    const buttonPage = n("buttonPage", "PAGE", "Button", { parentId: "file", fileKey: "ACMEUI" });
+    const cardPage = n("cardPage", "PAGE", "Card", { parentId: "file", fileKey: "ACMEUI" });
+    const actions = n("actions", "FRAME", "Actions", { parentId: "page", fileKey: "ACMEUI" });
+    const button = n("button", "COMPONENT_SET", "Button", { parentId: "actions", fileKey: "ACMEUI", figmaNodeId: "1:1" });
+    const primary = n("primary", "VARIANT", "Type=Primary, Size=Large", {
+      parentId: "button",
+      componentSetId: "button",
+      fileKey: "ACMEUI",
+      figmaNodeId: "1:2",
+      variantProperties: { Type: "Primary", Size: "Large" },
+    });
+    const loose = n("loose", "MAIN_COMPONENT", "Type=Primary, Size=Large", {
+      parentId: "buttonPage",
+      fileKey: "ACMEUI",
+      figmaNodeId: "1:8",
+      variantProperties: { Type: "Primary", Size: "Large" },
+    });
+    const bar = n("bar", "COMPONENT_SET", "Bottom action bar", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:3" });
+    const nounBar = n("nounBar", "COMPONENT_SET", "Primary button bar", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:9" });
+    const pathButton = n("pathButton", "COMPONENT_SET", "Controls / Button", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:10" });
+    const pathVariant = n("pathVariant", "VARIANT", "Type=Primary, Size=Large", {
+      parentId: "pathButton",
+      componentSetId: "pathButton",
+      fileKey: "ACMEUI",
+      figmaNodeId: "1:11",
+      variantProperties: { Type: "Primary", Size: "Large" },
+    });
+    const cardLoose = n("cardLoose", "MAIN_COMPONENT", "Type=Default", {
+      parentId: "cardPage",
+      fileKey: "ACMEUI",
+      figmaNodeId: "1:12",
+      variantProperties: { Type: "Default" },
+    });
+    const pathCard = n("pathCard", "COMPONENT_SET", "Surfaces / Card", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:13" });
+    const party = n("party", "COMPONENT_SET", "Party card", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:5" });
+    const profile = n("profile", "COMPONENT_SET", "Profile card", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:14" });
+    const radio = n("radio", "COMPONENT_SET", "Radio", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:15" });
+    const group = n("group", "COMPONENT_SET", "button-group", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:16" });
+    const alert = n("alert", "COMPONENT_SET", "Alert", {
+      parentId: "page",
+      fileKey: "ACMEUI",
+      figmaNodeId: "1:17",
+      description: "A notice the user must see",
+    });
+    const badges = n("badges", "COMPONENT_SET", "Badge group", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:18" });
+    const nodes = [file, page, buttonPage, cardPage, actions, button, primary, loose, bar, nounBar, pathButton, pathVariant, cardLoose, pathCard, party, profile, radio, group, alert, badges];
+    const edges = [
+      e("CONTAINS", "file", "page"),
+      e("CONTAINS", "file", "buttonPage"),
+      e("CONTAINS", "file", "cardPage"),
+      e("CONTAINS", "page", "actions"),
+      e("CONTAINS", "actions", "button"),
+      e("CONTAINS", "button", "primary"),
+      e("VARIANT_OF", "primary", "button"),
+      e("CONTAINS", "buttonPage", "loose"),
+      e("CONTAINS", "page", "bar"),
+      e("CONTAINS", "page", "nounBar"),
+      e("CONTAINS", "page", "pathButton"),
+      e("CONTAINS", "pathButton", "pathVariant"),
+      e("VARIANT_OF", "pathVariant", "pathButton"),
+      e("CONTAINS", "cardPage", "cardLoose"),
+      e("CONTAINS", "page", "pathCard"),
+      e("CONTAINS", "page", "party"),
+      e("CONTAINS", "page", "profile"),
+      e("CONTAINS", "page", "radio"),
+      e("CONTAINS", "page", "group"),
+      e("CONTAINS", "page", "alert"),
+      e("CONTAINS", "page", "badges"),
+    ];
+    const index = indexGraph(graphOf("ACMEUI", nodes, edges));
+    const workspace = { version: 1 as const, files: [{ role: "library" as const, key: "ACMEUI", label: "Acme UI" }] };
+    return { index, workspace };
+  }
+
+  it("ranks the button family when it is nested, path-named, or only a variant under its page", () => {
+    const { index, workspace } = nested();
+    for (const ask of ["primary button", "large primary button"]) {
+      const card = recommendMasters(index, ask, { workspace });
+      expect(card.candidates[0]?.name, ask).toBe("Button");
+      expect(card.match, ask).not.toBe("weak match");
+    }
+    const card = recommendMasters(index, "card", { workspace });
+    expect(card.candidates[0]?.name).toBe("Card");
+    expect(card.match).not.toBe("weak match");
+    expect(card.candidates[0]?.name).not.toBe("Party card");
+    expect(card.candidates[0]?.name).not.toBe("Profile card");
+  });
+
+  it("fills the sign-in slot from a nested button", () => {
+    const { index, workspace } = nested();
+    const recipe = starterRecipes().find((row) => row.id === "sign-in");
+    const filled = fillRecipe(index, recipe!, undefined, undefined, workspace);
+    const slot = filled.slots.find((row) => row.role === "primary-cta");
+    expect(slot?.status).toBe("filled");
+    expect(slot?.master?.name).toBe("Button");
+  });
+
+  it("keeps radio ahead of a button group, and flags a different category", () => {
+    const { index, workspace } = nested();
+    const radio = recommendMasters(index, "radio group", { workspace });
+    expect(radio.candidates[0]?.name).toBe("Radio");
+    expect(recommendMasters(index, "button group", { workspace }).candidates[0]?.name).toBe("button-group");
+    for (const ask of ["notification count", "chat bubble", "toast notification"]) {
+      const card = recommendMasters(index, ask, { workspace });
+      expect(card.candidates.length, ask).toBeGreaterThan(0);
+      expect(card.match, ask).toBe("weak match");
+    }
+  });
+});
+
+describe("a placed screen counts the instances the designer put there", () => {
+  it("does not count an icon nested inside a button", () => {
+    const nodes = [
+      n("file", "FILE", "Acme", { fileKey: "ACMEUI" }),
+      n("screen", "FRAME", "Checkout", { fileKey: "ACMEUI", figmaNodeId: "8:1" }),
+      n("button", "MAIN_COMPONENT", "Button", { fileKey: "ACMEUI", figmaNodeId: "1:1" }),
+      n("field", "MAIN_COMPONENT", "Text field", { fileKey: "ACMEUI", figmaNodeId: "1:2" }),
+      n("link", "MAIN_COMPONENT", "Link", { fileKey: "ACMEUI", figmaNodeId: "1:3" }),
+      n("icon", "MAIN_COMPONENT", "Icon", { fileKey: "ACMEUI", figmaNodeId: "1:4" }),
+      n("b", "COMPONENT_INSTANCE", "Button", { parentId: "screen", fileKey: "ACMEUI", mainComponentId: "button", figmaNodeId: "8:2" }),
+      n("f", "COMPONENT_INSTANCE", "Text field", { parentId: "screen", fileKey: "ACMEUI", mainComponentId: "field", figmaNodeId: "8:3" }),
+      n("l", "COMPONENT_INSTANCE", "Link", { parentId: "screen", fileKey: "ACMEUI", mainComponentId: "link", figmaNodeId: "8:4" }),
+      n("i", "COMPONENT_INSTANCE", "Icon", { parentId: "b", fileKey: "ACMEUI", mainComponentId: "icon", figmaNodeId: "8:5" }),
+    ];
+    const edges = [
+      e("CONTAINS", "screen", "b"),
+      e("CONTAINS", "screen", "f"),
+      e("CONTAINS", "screen", "l"),
+      e("CONTAINS", "b", "i"),
+      e("INSTANCE_OF", "b", "button"),
+      e("INSTANCE_OF", "f", "field"),
+      e("INSTANCE_OF", "l", "link"),
+      e("INSTANCE_OF", "i", "icon"),
+    ];
+    const checked = verifyFrame(indexGraph(graphOf("ACMEUI", nodes, edges)), { frame: "8:1" });
+    expect(checked.approved).toBe(3);
   });
 });
 

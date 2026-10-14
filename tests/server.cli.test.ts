@@ -182,6 +182,29 @@ describe("resolve ingest --role", () => {
     process.exitCode = undefined;
   });
 
+  it("prints the full verdict line for a component id", async () => {
+    const xmlPath = join(process.env["RESOLVE_HOME"]!, "id-check.xml");
+    writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
+    await runCli(["ingest", xmlPath, "--file-key", "LIB"]);
+    const chunks: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    process.exitCode = undefined;
+    try {
+      await runCli(["check", "--components", "9:9"]);
+    } finally {
+      process.stdout.write = write;
+    }
+    const first = chunks.join("").split("\n")[0] ?? "";
+    expect(first).toContain("Components:");
+    expect(first).toContain("Proper use");
+    expect(first).not.toBe("PASS");
+    process.exitCode = undefined;
+  });
+
   it("treats a closed pipe as a clean exit", () => {
     const exit = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
       throw new Error(`exit:${code}`);

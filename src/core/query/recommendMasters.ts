@@ -15,6 +15,7 @@ import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RE
 import { placeReady } from "./placeReady";
 import { tokensOf } from "./queryTokens";
 import { appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
+import { flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, purposeTailTokens, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakMatchWhy, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { type RecommendAlternate, type RecommendCandidate, type RecommendContext, type RecommendHit, refreshHintFor, slotsForComponent, whereUsedRows } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
@@ -25,13 +26,7 @@ import { exampleQuery } from "./usageCard";
 import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
 
-/**
- * Brief/intent → ranked library masters. Agent does not need the component
- * name. A strong name, token, or synonym match leads. Screen, journey, and
- * usage only break ties among those matches — they cannot pull in a master
- * the words do not name. Deprecated names resolve to the live replacement.
- * Never invents a component that is not in the graph.
- */
+/** Rank library masters for one intent. Context breaks ties. Never invents a component. */
 export function recommendMasters(
   index: GraphIndex,
   intent: string,
@@ -103,6 +98,8 @@ export function recommendMasters(
     publicNameSets.some(
       (names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip),
     );
+  const synonymWord = (token: string): boolean =>
+    publicNameSets.some((names) => synonymIn(token, names, allowClip));
 
   type Scored = {
     node: GraphNode;
@@ -116,12 +113,14 @@ export function recommendMasters(
     setName?: string;
     exactName: boolean;
     covered: number;
+    askCovered?: number;
     weak?: boolean;
   };
 
   const scoreNode = (node: GraphNode, set: GraphNode | undefined): Scored | undefined => {
     const collapsedAsk = collapsedName(intentNeedle);
-    const familyLabel = familyHaystack(node, set);
+    const host = hostFamilyName(index, node, set);
+    const familyLabel = familyHaystack(node, set, host);
     let exactName =
       Boolean(intentNeedle) &&
       (node.name.toLowerCase() === intentNeedle ||
@@ -138,12 +137,17 @@ export function recommendMasters(
             phraseNamesMatch(intentNeedle, set!.name))));
     const nameHaystack = familyLabel;
     const matched = matchHaystack(node, set);
-    const hits = tokenHits(nameHaystack, matched.variant, tokens, allowClip, matched.describe);
+    const detail = searchDetail(index, node, set);
+    const hits = tokenHits(
+      nameHaystack,
+      `${matched.variant} ${detail.variant}`,
+      tokens,
+      allowClip,
+      `${matched.describe} ${detail.describe}`,
+    );
     const extraHits = extraTokens.length
       ? tokenHits(nameHaystack, matched.variant, extraTokens, allowClip, matched.describe)
       : undefined;
-    // A screen-job slot names the family ("sign in" + primary-cta → buttons).
-    // When the intent already names a master, that gate stays off.
     let lexical: number;
     if (exactName) {
       lexical = lexicalScore(hits, true);
@@ -163,7 +167,7 @@ export function recommendMasters(
       lexical += aliasBonus;
       lexical += headTokenBonus(familyLabel, tokens, allowClip, false) + categoryHeadBonus(familyLabel, tokens, allowClip);
       lexical += repeatedSynonym(familyLabel, tokens, allowClip) * 20;
-      if (genericOnlyMiss(familyLabel, tokens.filter((token) => !purposeTailTokens(intent).has(token)), allowClip, componentWord)) return undefined;
+      if (genericOnlyMiss(familyLabel, tokens.filter((token) => !purposeTailTokens(intent).has(token)), allowClip, componentWord, synonymWord)) return undefined;
       const nameTokens = tokensOf(familyLabel);
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
       if (nameTokens.length > 0 && matched === nameTokens.length) lexical += 25;
@@ -266,12 +270,13 @@ export function recommendMasters(
       analog: Boolean(analogHit),
       deprecated,
       instances,
-      setName: set && set.id !== node.id ? set.name : undefined,
+      setName: host && host !== node.name ? host : undefined,
       exactName,
       covered: hits.covered + (extraHits?.covered ?? 0),
+      askCovered: hits.covered,
       weak:
         !exactName &&
-        !setCoversAsk(intentNeedle, stripTier(set?.name ?? node.name)) &&
+        !setCoversAsk(intentNeedle, stripTier(host || set?.name || node.name)) &&
         hits.specific === 0 &&
         (extraHits?.specific ?? 0) === 0 &&
         (hits.name + hits.synonym + (extraHits?.name ?? 0) + (extraHits?.synonym ?? 0) > 0 ||
@@ -461,9 +466,7 @@ export function recommendMasters(
     intent,
     componentWord,
   );
-  // A variant value (Primary, Off, Filter) is not a component. Drop it when a
-  // real name, synonym, or typo already matched. A lone variant word ("primary")
-  // still returns that variant, because nothing else named the family.
+  // A variant value is not a component once a real name already matched.
   const grounded = (entry: Scored): boolean =>
     entry.exactName ||
     Boolean(entry.whyOverride) ||
@@ -517,6 +520,7 @@ export function recommendMasters(
     seenFamily.add(key);
     collapsed.push(asFamilyRow(entry));
   }
+  flagUncovered(collapsed, intentNeedle, tokens, (entry) => stripTier(entry.setName || setOf(index, entry.node)?.name || entry.node.name));
   kept = collapsed.filter((entry) => {
     const namesakes = realMastersNamed(index, entry.node.name);
     const preferred = preferNamedMaster(index, namesakes, workspace, intent, ruleBonus);
@@ -631,6 +635,7 @@ export function recommendMasters(
   }
 
   const familyCardName = (entry: Scored): string => {
+    if (entry.setName && entry.node.name.includes("=") && !namesThisNode(intentNeedle, entry.node, index)) return entry.setName;
     if (entry.node.type !== "VARIANT") return variantCardName(index, entry.node);
     const set = setOf(index, entry.node);
     if (!isSetModifierVariant(entry.node, set)) return variantCardName(index, entry.node);

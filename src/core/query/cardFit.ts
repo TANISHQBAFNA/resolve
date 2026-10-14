@@ -116,7 +116,6 @@ function collectNameSlots(
 function clipLabel(text: string, target: number): string {
   if (text.length <= target) return text;
   const keep = Math.max(1, target - 1);
-  if (text.includes("/")) return `…${text.slice(-keep)}`;
   return `${text.slice(0, keep)}…`;
 }
 /** Shorten the longest `name` / `given` fields until `size(payload)` fits. Ids stay intact. */
