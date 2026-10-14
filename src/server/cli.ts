@@ -944,6 +944,13 @@ async function dispatchCli(argv: string[]): Promise<void> {
   }
 }
 
+process.stdout.on("error", (error: NodeJS.ErrnoException) => {
+  if (error.code === "EPIPE") process.exit(0);
+});
+process.stderr.on("error", (error: NodeJS.ErrnoException) => {
+  if (error.code === "EPIPE") process.exit(0);
+});
+
 if (!process.env["VITEST"]) {
   runCli(process.argv.slice(2)).catch((error) => {
     const raw = error instanceof Error ? error.message : String(error);

@@ -105,7 +105,12 @@ function localWhen(iso?: string): string {
   if (!iso || Number.isNaN(Date.parse(iso))) return "unknown";
   const date = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`;
+  const zone =
+    new Intl.DateTimeFormat("en-US", { timeZoneName: "short" })
+      .formatToParts(date)
+      .find((part) => part.type === "timeZoneName")?.value ?? "";
+  const clock = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return zone ? `${clock} ${zone}` : clock;
 }
 
 /** Figma's version is often a long internal number. Say that it is recorded, in plain words. */

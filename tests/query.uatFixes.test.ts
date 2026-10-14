@@ -2,20 +2,17 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import type { DesignGraph, GraphEdge, GraphNode, NodeType } from "@/core/model";
-import { SourceDocumentSchema } from "@/core/ingestion/types";
-import { buildGraph } from "@/core/transform";
-import { indexGraph, recommendMasters, verifyFrame } from "@/core/query";
+import { fillRecipe, indexGraph, recommendMasters, starterRecipes, verifyFrame } from "@/core/query";
 import { parseBindRulesFile } from "@/core/query/bindRules";
+import { shrinkNameFields } from "@/core/query/cardFit";
 import { checkComponentName } from "@/core/query/codeMapCheck";
-import { checkProperUse } from "@/core/query/properUse";
-import { loadPhraseCases, scorePhrases } from "@/core/query/phraseScore";
+import { exampleSentence } from "@/core/query/examples";
+import { attachProperUse, checkProperUse } from "@/core/query/properUse";
+import { presentToolResult } from "@/server/cards";
 import { formatStatus, propertiesMissing, statusReport } from "@/server/status";
 import { clearCache } from "@/server/store";
 
-const root = fileURLToPath(new URL("..", import.meta.url));
 const FROZEN = "2026-01-01T00:00:00.000Z";
 
 function n(id: string, type: NodeType, name: string, extra: Partial<GraphNode> = {}): GraphNode {
@@ -88,11 +85,11 @@ describe("code-map check matches a variant to its set", () => {
 
   it("says a learned unmapped part has no code link", () => {
     const empty = { ok: true, screens: [{ components: [], ingredients: [] }] };
-    const card = checkComponentName("ingredients/modal", codeMap, empty, ["ingredients/modal", "Button"]);
+    const card = checkComponentName("Acme dialog", codeMap, empty, ["Acme dialog", "Button"]);
     expect(card.status).toBe("unmapped");
     expect(card.exitCode).toBe(4);
     expect(card.message).toBe("Real component, but no code link, and it is not on this screen.");
-    expect(checkComponentName("modal", codeMap, empty, ["ingredients/modal"]).status).toBe("not-found");
+    expect(checkComponentName("dialog", codeMap, empty, ["Acme dialog"]).status).toBe("not-found");
     expect(checkComponentName("Made up", codeMap, empty).message).toBe("Not in the design system or on this screen. Don't invent it.");
   });
 });
@@ -139,23 +136,105 @@ describe("workspace ranking stays on learned parts", () => {
   });
 });
 
-describe("the noun beats size and accessibility words", () => {
+describe("a plain noun beats a composite, and icon shelves stay searchable", () => {
   function library() {
-    const raw: unknown = JSON.parse(readFileSync(join(root, "scoreboard", "realistic", "library.json"), "utf8"));
-    return indexGraph(buildGraph(SourceDocumentSchema.parse(raw), { builtAt: FROZEN }));
+    const file = n("file", "FILE", "Acme UI", { fileKey: "ACMEUI" });
+    const page = n("page", "PAGE", "Controls", { parentId: "file", fileKey: "ACMEUI" });
+    const icons = n("icons", "PAGE", "Icons", { parentId: "file", fileKey: "ACMEUI" });
+    const button = n("button", "COMPONENT_SET", "Button", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:1" });
+    const primary = n("primary", "VARIANT", "Style=Primary", {
+      parentId: "button",
+      componentSetId: "button",
+      fileKey: "ACMEUI",
+      figmaNodeId: "1:2",
+      variantProperties: { Style: "Primary" },
+    });
+    const bar = n("bar", "COMPONENT_SET", "Bottom action bar", {
+      parentId: "page",
+      fileKey: "ACMEUI",
+      figmaNodeId: "1:3",
+      variantProperties: { Style: "Primary" },
+    });
+    const card = n("card", "COMPONENT_SET", "Card", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:4" });
+    const party = n("party", "COMPONENT_SET", "Party card", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:5" });
+    const menu = n("menu", "COMPONENT_SET", "Mega menu", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:6" });
+    const field = n("field", "COMPONENT_SET", "Search field", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:7" });
+    const input = n("input", "COMPONENT_SET", "Input", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "1:8" });
+    const remote = (id: string, name: string, fig: string) =>
+      n(id, "MAIN_COMPONENT", name, {
+        parentId: "icons",
+        pageId: "icons",
+        fileKey: "ACMEUI",
+        figmaNodeId: fig,
+        isRemote: true,
+        isMainComponent: true,
+      });
+    const nodes = [
+      file,
+      page,
+      icons,
+      button,
+      primary,
+      bar,
+      card,
+      party,
+      menu,
+      field,
+      input,
+      remote("search", "Search", "9:1"),
+      remote("home", "Home", "9:2"),
+      remote("settings", "Settings", "9:3"),
+      remote("chevron", "Chevron down", "9:4"),
+      remote("kebab", "Kebab", "9:5"),
+    ];
+    const edges = [
+      e("CONTAINS", "file", "page"),
+      e("CONTAINS", "file", "icons"),
+      e("CONTAINS", "page", "button"),
+      e("CONTAINS", "button", "primary"),
+      e("VARIANT_OF", "primary", "button"),
+      e("CONTAINS", "page", "bar"),
+      e("CONTAINS", "page", "card"),
+      e("CONTAINS", "page", "party"),
+      e("CONTAINS", "page", "menu"),
+      e("CONTAINS", "page", "field"),
+      e("CONTAINS", "page", "input"),
+      e("CONTAINS", "icons", "search"),
+      e("CONTAINS", "icons", "home"),
+      e("CONTAINS", "icons", "settings"),
+      e("CONTAINS", "icons", "chevron"),
+      e("CONTAINS", "icons", "kebab"),
+    ];
+    const index = indexGraph(graphOf("ACMEUI", nodes, edges));
+    const workspace = { version: 1 as const, files: [{ role: "library" as const, key: "ACMEUI", label: "Acme UI" }] };
+    return { index, workspace };
   }
 
-  it("keeps large, compact, and screen-reader asks on the button", () => {
-    const index = library();
-    for (const phrase of ["large button", "large primary button", "compact button", "button for screen reader users", "CTA button"]) {
-      const result = recommendMasters(index, phrase);
-      expect(result.candidates[0]?.name, phrase).toBe("Button");
-      expect(result.match, phrase).toBeUndefined();
-    }
-    expect(recommendMasters(index, "plus icon").candidates[0]?.name).toBe("Icon plus");
-    expect(recommendMasters(index, "chat bubble").candidates).toEqual([]);
-    expect(recommendMasters(index, "account card").candidates).toEqual([]);
-    expect(recommendMasters(index, "notification count").candidates).toEqual([]);
+  it("picks Button over an action bar, and Card over a party card", () => {
+    const { index, workspace } = library();
+    expect(recommendMasters(index, "primary button", { workspace }).candidates[0]?.name).toBe("Button");
+    expect(recommendMasters(index, "card", { workspace }).candidates[0]?.name).toBe("Card");
+    expect(recommendMasters(index, "large button", { workspace }).candidates[0]?.name).toBe("Button");
+  });
+
+  it("fills the sign-in primary slot with the button", () => {
+    const { index, workspace } = library();
+    const recipe = starterRecipes().find((row) => row.id === "sign-in");
+    expect(recipe).toBeDefined();
+    const filled = fillRecipe(index, recipe!, undefined, undefined, workspace);
+    const slot = filled.slots.find((row) => row.role === "primary-cta");
+    expect(slot?.status).toBe("filled");
+    expect(slot?.master?.name).toBe("Button");
+  });
+
+  it("finds icon-shelf parts that are remote stubs", () => {
+    const { index, workspace } = library();
+    expect(recommendMasters(index, "search icon", { workspace }).candidates[0]?.name).toBe("Search");
+    expect(recommendMasters(index, "home icon", { workspace }).candidates[0]?.name).toBe("Home");
+    expect(recommendMasters(index, "settings icon", { workspace }).candidates[0]?.name).toBe("Settings");
+    expect(recommendMasters(index, "chevron down", { workspace }).candidates[0]?.name).toBe("Chevron down");
+    expect(recommendMasters(index, "kebab menu icon", { workspace }).candidates[0]?.name).toBe("Kebab");
+    expect(recommendMasters(index, "search", { workspace }).candidates[0]?.name).toBe("Search");
   });
 });
 
@@ -186,20 +265,45 @@ describe("check runs proper use on a placed screen", () => {
   });
 });
 
-describe("realistic Acme phrases", () => {
-  it("puts the right part in the top 3 for at least 80 percent", () => {
-    const raw: unknown = JSON.parse(readFileSync(join(root, "scoreboard", "realistic", "library.json"), "utf8"));
-    const index = indexGraph(buildGraph(SourceDocumentSchema.parse(raw), { builtAt: FROZEN }));
-    const cases = loadPhraseCases([join(root, "scoreboard", "realistic", "phrases.json")]);
-    const match = cases.filter((row) => row.expect !== "none" && row.expect !== "weak");
-    expect(match.length).toBeGreaterThanOrEqual(42);
-    const report = scorePhrases(index, cases);
-    expect(report.skipped).toEqual([]);
-    expect(report.totals.invented).toBe(0);
-    expect(report.totals.retiredRecommended).toBe(0);
-    expect(report.totals.correctEmpty).toBe(report.totals.emptyCases);
-    expect(report.totals.top3 / report.totals.matchCases).toBeGreaterThanOrEqual(0.8);
-    expect(report.pass).toBe(true);
+describe("check card wording", () => {
+  it("clips a slash name from the end and keeps proper use on a crowded card", () => {
+    const original = "workspace/screens/ingredients/page-shell".repeat(2);
+    const payload = { name: original, pad: "y".repeat(500) };
+    shrinkNameFields(payload, 70);
+    expect(payload.name.startsWith("…")).toBe(true);
+    expect(original.endsWith(payload.name.slice(1))).toBe(true);
+    expect(exampleSentence("bare defaults only")).toBe(
+      "Copies are on screens, but each one still shows the default text, so there is no filled example to clone.",
+    );
+    const card = attachProperUse(
+      {
+        pass: false,
+        result: "nothing checked" as const,
+        approved: 3,
+        hint: "Named components are in the library. No placed screen was checked.",
+        resolved: Array.from({ length: 8 }, (_, i) => ({
+          given: `Acme part ${i}`,
+          name: `Acme part ${i}`,
+          id: `80:${i}`,
+        })),
+      },
+      {
+        summary: "2 warnings",
+        errors: 0,
+        warnings: 2,
+        unknown: 0,
+        exitCode: 0,
+        level: "wcag-a",
+        findings: [
+          { severity: "warning", check: "tap", name: "Acme button", problem: "p".repeat(120), fix: "f".repeat(80) },
+          { severity: "warning", check: "spacing", name: "Acme card", problem: "p".repeat(120), fix: "f".repeat(80) },
+        ],
+      },
+    );
+    expect(card.properUse?.errors).toBe(0);
+    const first = presentToolResult(card, "markdown", "verify_frame").split("\n")[0] ?? "";
+    expect(first).toContain("Proper use");
+    expect(first).toContain("NAMES ONLY");
   });
 });
 

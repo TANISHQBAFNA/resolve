@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -158,6 +158,40 @@ describe("resolve ingest --role", () => {
     expect(text).toMatch(/"result":\s*"nothing checked"/);
     expect(text.toLowerCase()).not.toContain("verified");
     process.exitCode = undefined;
+  });
+
+  it("keeps proper use on the first line for a component list at wcag-a", async () => {
+    const xmlPath = join(process.env["RESOLVE_HOME"]!, "named-a11y.xml");
+    writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
+    await runCli(["ingest", xmlPath, "--file-key", "LIB"]);
+    const chunks: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    process.exitCode = undefined;
+    try {
+      await runCli(["check", "--components", "Button", "--a11y", "wcag-a"]);
+    } finally {
+      process.stdout.write = write;
+    }
+    const first = chunks.join("").split("\n")[0] ?? "";
+    expect(first).toContain("Proper use");
+    expect(first).toContain("NAMES ONLY");
+    process.exitCode = undefined;
+  });
+
+  it("treats a closed pipe as a clean exit", () => {
+    const exit = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new Error(`exit:${code}`);
+    }) as typeof process.exit);
+    const error = Object.assign(new Error("write EPIPE"), { code: "EPIPE" });
+    try {
+      expect(() => process.stdout.emit("error", error)).toThrow("exit:0");
+    } finally {
+      exit.mockRestore();
+    }
   });
 
   it("score --init writes masters, a synonym, and empty asks", async () => {

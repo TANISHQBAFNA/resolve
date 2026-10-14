@@ -292,6 +292,15 @@ export function fromIconLibrary(
     return entryHitsAnchors(entry, anchors);
   });
 }
+const ICON_SHELF_WORD = /(?:^|[^a-z0-9])(?:icons?|glyphs?|symbols?)(?:[^a-z0-9]|$)/;
+/**
+ * A page or file whose name is an icon shelf. Remote icon stubs live here
+ * even when icon-libraries.json is empty, so they stay in the ranking pool.
+ */
+export function iconShelf(index: GraphIndex, node: GraphNode, workspace?: WorkspaceManifest): boolean {
+  const anchors = nodeIconAnchors(index, node, workspace);
+  return [...anchors.names, ...anchors.pages].some((value) => ICON_SHELF_WORD.test(value));
+}
 let emittedIconLibraryWarningKey = "";
 export function emitIconLibraryWarningsOnce(lines: readonly string[]): void {
   if (!lines.length) return;

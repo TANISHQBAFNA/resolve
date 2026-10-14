@@ -53,6 +53,7 @@ describe("H2 and M1 install then uninstall restores bytes", () => {
   it("round-trips compact JSON, a missing newline, extra newlines, and a CRLF last line", () => {
     const cases = [
       { name: "compact", file: ".mcp.json", text: `{"mcpServers":{"x":{"command":"y"}}}` },
+      { name: "cursor-compact", file: ".cursor/mcp.json", text: `{"tools":["acme"],"mcpServers":{"x":{"command":"y"}}}` },
       { name: "nonewline", file: "CLAUDE.md", text: "# Notes" },
       { name: "blanks", file: "CLAUDE.md", text: "\n\n\n" },
       { name: "crlf", file: ".gitignore", text: "node_modules/\r\ndist/\r\n" },

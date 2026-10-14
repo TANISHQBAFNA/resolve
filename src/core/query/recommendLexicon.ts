@@ -7,7 +7,7 @@ import modifierFile from "@/data/ui-modifiers.json";
 import type { GraphIndex } from "./GraphIndex";
 import { familyNameOf, MASTER_TYPES, VARIANT_PROP_NAME, variantCardName } from "./masterNames";
 import { GENERIC_NAME_TOKENS, tokensOf } from "./queryTokens";
-import { allSynonymGroups, extraSynonym, fromIconLibrary, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
+import { allSynonymGroups, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems, isScreen } from "./screenInventory";
 import { propertyAliases } from "./synonymLayer";
@@ -42,7 +42,12 @@ const UI_MODIFIER = new Set(modifierFile.words.map((word) => word.term.toLowerCa
 /** Size and accessibility words describe a component. They do not name a different one. */
 const SIZE_OR_A11Y = new Set([
   "large",
+  "larger",
   "small",
+  "smaller",
+  "big",
+  "bigger",
+  "huge",
   "compact",
   "medium",
   "mini",
@@ -249,17 +254,36 @@ export function namesThisNode(ask: string, node: GraphNode, index: GraphIndex): 
   if (phraseNamesMatch(needle, node.name)) return true;
   return variantCardName(index, node).toLowerCase() === needle;
 }
-/** Plural s/es or -ing/-ed, either way. "tablet" is not an inflection of "tab". */
+/** Plural s/es/ies or -ing/-ed, either way. "tablet" is not an inflection of "tab". */
 function inflectsName(query: string, nameToken: string): boolean {
   if (query === nameToken || query.length < 3 || nameToken.length < 3) return false;
   const [longer, shorter] = query.length >= nameToken.length ? [query, nameToken] : [nameToken, query];
+  if (longer.endsWith("ies") && shorter.endsWith("y") && longer.slice(0, -3) === shorter.slice(0, -1)) return true;
   if (!longer.startsWith(shorter)) return false;
   const rest = longer.slice(shorter.length);
   return rest === "s" || rest === "es" || rest === "ing" || rest === "ed";
 }
+/** One letter missing inside the word, or two neighbours swapped. Not a different word with an extra ending. */
+function tokenTypo(query: string, name: string): boolean {
+  if (query.length < 5 || name.length < 5 || query === name) return false;
+  if (query.length === name.length) return adjacentSwap(query, name);
+  const [shorter, longer] = query.length < name.length ? [query, name] : [name, query];
+  if (shorter.length + 1 !== longer.length) return false;
+  let i = 0;
+  while (i < shorter.length && shorter[i] === longer[i]) i += 1;
+  if (i === 0 || i === shorter.length) return false;
+  return shorter.slice(i) === longer.slice(i + 1);
+}
+/** A stopword that is itself a component synonym stays. "find box" keeps find. */
+export function withSynonymStopwords(text: string, tokens: string[]): string[] {
+  const raw = text.toLowerCase().split(/[^a-z0-9]+/).filter((part) => part.length > 1);
+  const extra = raw.filter((part) => !tokens.includes(part) && SYNONYM_OF.has(part));
+  return extra.length ? [...new Set([...extra, ...tokens])] : tokens;
+}
 export function tokenMatchesName(query: string, nameToken: string, allowClip = false): boolean {
   if (query === nameToken || inflectsName(query, nameToken)) return true;
-  return synonymIn(query, new Set([nameToken]), allowClip);
+  if (synonymIn(query, new Set([nameToken]), allowClip)) return true;
+  return tokenTypo(query, nameToken);
 }
 /** "x" means close only as the whole ask, or right beside icon/button. "x ray" does not. */
 export function xMeansClose(text: string): boolean {
@@ -388,22 +412,28 @@ export function purposeTailTokens(ask: string): Set<string> {
 
 /**
  * Learned masters only. A remote stub is an unlearned library.
+ * An icon shelf stays, even when it is remote or not listed in the workspace.
  * When a workspace lists files, a part from any other file stays out.
  */
 export function mastersToRank(index: GraphIndex, workspace: WorkspaceManifest | undefined, graphFileKey: string): GraphNode[] {
   const keys = workspace && workspace.files.length > 0 ? new Set(workspace.files.map((file) => file.key)) : undefined;
   return index.getNodesByType(...MASTER_TYPES).filter((node) => {
     if (isNameInferredMaster(node)) return false;
-    // A remote stub is an unlearned library, except a configured icon library.
-    if (node.isRemote && !fromIconLibrary(index, node, workspace)) return false;
-    if (!keys || node.isRemote) return true;
+    const icon =
+      fromIconLibrary(index, node, workspace) ||
+      iconShelf(index, node, workspace) ||
+      looksLikeIcon(index, node, setOf(index, node), workspace);
+    if (node.isRemote && !icon) return false;
+    if (!keys || node.isRemote || icon) return true;
     const key = nodeFileKey(node, graphFileKey);
     return !key || keys.has(key);
   });
 }
 
+const CATEGORY_TAIL = new Set(["icon", "glyph", "symbol", "banner", "dropdown", "nav", "navigation"]);
+
 function keepsCompany(token: string, previous: string | undefined, exempt: ReadonlySet<string>): boolean {
-  if (modifierWord(token) || exempt.has(token)) return true;
+  if (modifierWord(token) || exempt.has(token) || CATEGORY_TAIL.has(token)) return true;
   if (!previous) return false;
   const after = TRAILING_AFTER.get(token);
   if (!after) return false;
@@ -625,10 +655,7 @@ export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: 
   return next;
 }
 
-/**
- * Small tie-break for the last real word. A synonym of that word beats an
- * earlier synonym. It does not beat a name hit (100 vs 70).
- */
+/** Tie-break for the last real word. It does not beat a name hit (100 vs 70). */
 export function headTokenBonus(familyName: string, tokens: string[], allowClip: boolean, exactName: boolean): number {
   if (exactName) return 0;
   const head = [...tokens].reverse().find((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token));
@@ -636,7 +663,54 @@ export function headTokenBonus(familyName: string, tokens: string[], allowClip: 
   return 15;
 }
 
-/** Cousin filter, then the noun, then drop a weak pick that leaves a real word unmatched. */
+/** Last word is the kind of part. A family of that kind that also says the specific word gets a small lift. */
+export function categoryHeadBonus(familyName: string, tokens: string[], allowClip: boolean): number {
+  if (tokens.length < 2) return 0;
+  const tail = tokens[tokens.length - 1];
+  if (!tail || !CATEGORY_TAIL.has(tail)) return 0;
+  const names = new Set(tokensOf(familyName));
+  const tailHit = [...names].some((name) => name === tail || inflectsName(tail, name)) || synonymIn(tail, names, allowClip);
+  if (!tailHit) return 0;
+  const specific = tokens.slice(0, -1).filter((token) => token !== tail && !modifierWord(token) && !SIZE_OR_A11Y.has(token));
+  if (!specific.length || !specific.some((token) => nounHit(token, names, allowClip))) return 0;
+  return 40;
+}
+
+const PLAIN_NOUN = new Set(["button", "cta", "action", "icon", "card", "banner", "dropdown", "nav", "navigation", "field", "input", "bar", "menu", "modal", "dialog", "badge", "tab", "link", "chip", "tag", "switch", "checkbox", "radio", "toast", "alert"]);
+
+function plainNounToken(token: string): boolean {
+  if (PLAIN_NOUN.has(token)) return true;
+  const group = SYNONYM_OF.get(token);
+  return Boolean(group?.some((word) => PLAIN_NOUN.has(word)));
+}
+
+/** "primary button" stays Button. "card" stays Card. A second real word is left alone. */
+export function plainNounOverComposite<T extends { node: { name: string }; setName?: string }>(
+  entries: T[],
+  queryTokens: string[],
+): T[] {
+  const nouns = queryTokens.filter((token) => plainNounToken(token));
+  if (nouns.length !== 1 || entries.length < 2) return entries;
+  const noun = nouns[0]!;
+  const rest = queryTokens.filter((token) => token !== noun);
+  if (rest.some((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token))) return entries;
+  const literal = entries.filter((entry) => {
+    const names = familyNames(entry);
+    if (![...names].some((name) => name === noun || inflectsName(noun, name))) return false;
+    for (const name of names) {
+      if (name === noun || inflectsName(noun, name)) continue;
+      // "save" is a modifier, but "cta" did not ask for it. Save CTA is not the plain control.
+      if (queryTokens.includes(name) && (modifierWord(name) || SIZE_OR_A11Y.has(name))) continue;
+      return false;
+    }
+    return true;
+  });
+  if (!literal.length || literal.length === entries.length) return entries;
+  const chosen = new Set(literal);
+  return [...literal, ...entries.filter((entry) => !chosen.has(entry))];
+}
+
+/** Cousin filter, then the noun, then the plain name, then drop a weak pick that leaves a real word unmatched. */
 export function finishRank<T extends { node: { name: string }; setName?: string; weak?: boolean }>(
   entries: T[],
   queryTokens: string[],
@@ -651,7 +725,8 @@ export function finishRank<T extends { node: { name: string }; setName?: string;
     allowClip,
   );
   const nouns = nounBeatsExtras(cousins, queryTokens, allowClip);
-  return dropUnmatchedWeak(nouns, queryTokens, allowClip, purpose, componentWord);
+  const plain = plainNounOverComposite(nouns, queryTokens);
+  return dropUnmatchedWeak(plain, queryTokens, allowClip, purpose, componentWord);
 }
 
 export function nameTokenFor(token: string, names: Set<string>, used: Set<string>): string | undefined {

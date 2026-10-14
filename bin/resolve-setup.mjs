@@ -296,7 +296,8 @@ export function installMcp(current, { claude = false, force = false } = {}) {
       return { action: "skip", text: current, note: " (left alone: it already has a different resolve entry; --force replaces only that entry)" };
     }
   }
-  const next = { ...doc, mcpServers: { ...servers, resolve: entry } };
+  const nextServers = orderLike(servers, { ...servers, resolve: entry });
+  const next = orderLike(doc, { ...doc, mcpServers: nextServers });
   const text = writeJson(next, { indent, ending });
   return { action: blank ? "create" : "update", text };
 }
@@ -314,6 +315,19 @@ function writeJson(value, style) {
   const body = JSON.stringify(value, null, style.indent);
   if (!style.ending) return body;
   return useEnding(body.endsWith("\n") ? body : `${body}\n`, style.ending);
+}
+
+/** Keep the keys that were already in `sample`, then any new keys. */
+function orderLike(sample, value) {
+  const out = {};
+  const base = sample && typeof sample === "object" ? sample : {};
+  for (const key of Object.keys(base)) {
+    if (Object.prototype.hasOwnProperty.call(value, key)) out[key] = value[key];
+  }
+  for (const key of Object.keys(value)) {
+    if (!Object.prototype.hasOwnProperty.call(out, key)) out[key] = value[key];
+  }
+  return out;
 }
 
 /** Slash commands shipped in the package: [{ name, text }] from commands/*.md (front matter + body with $ARGUMENTS). */
@@ -339,17 +353,19 @@ function recordPath(opts) {
 }
 
 function emptyRecord() {
-  return { created: [], originals: {}, createdDirs: [] };
+  return { created: [], originals: {}, createdDirs: [], mcpStyle: {} };
 }
 
 function loadRecord(opts) {
   try {
     const raw = JSON.parse(readFileSync(recordPath(opts), "utf8"));
     const originals = raw.originals && typeof raw.originals === "object" ? { ...raw.originals } : {};
+    const mcpStyle = raw.mcpStyle && typeof raw.mcpStyle === "object" ? { ...raw.mcpStyle } : {};
     return {
       created: Array.isArray(raw.created) ? raw.created : [],
       originals,
       createdDirs: Array.isArray(raw.createdDirs) ? raw.createdDirs : [],
+      mcpStyle,
     };
   } catch {
     return emptyRecord();
@@ -459,7 +475,10 @@ export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot 
       if (typeof original === "string" && sameOthers) plan.push({ action: "update", path, text: original });
       else if (empty && created) plan.push({ action: "remove", path });
       else {
-        plan.push({ action: "update", path, text: writeJson({ ...doc, mcpServers: others }, jsonStyle(current)) });
+        const stored = record.mcpStyle?.[path];
+        const style = stored && typeof stored === "object" ? stored : jsonStyle(current);
+        const next = orderLike(doc, { ...doc, mcpServers: orderLike(doc.mcpServers, others) });
+        plan.push({ action: "update", path, text: writeJson(next, style) });
       }
     }
   }
@@ -571,6 +590,10 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
         if (item.action === "update" && record.originals[item.path] === undefined && !item.path.endsWith("mcp.json")) {
           const prior = readOrNull(item.path);
           if (prior != null) record.originals[item.path] = prior;
+        }
+        if (item.action === "update" && item.path.endsWith("mcp.json") && record.mcpStyle[item.path] === undefined) {
+          const prior = readOrNull(item.path);
+          if (prior != null) record.mcpStyle[item.path] = jsonStyle(prior);
         }
         writeFileSync(item.path, item.text);
       } catch (error) {

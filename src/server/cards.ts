@@ -149,7 +149,11 @@ function codeMapMarkdown(row: { status: string; message: string; exitCode: numbe
 function componentVerdict(record: Record<string, unknown>): string | undefined {
   if (typeof record["pass"] !== "boolean") return undefined;
   if (record["result"] === "name-only") return "NAME-ONLY";
-  if (record["result"] === "nothing checked") return "NOTHING CHECKED";
+  if (record["result"] === "nothing checked") {
+    const approved = record["approved"];
+    if (typeof approved === "number" && approved > 0) return "NAMES ONLY";
+    return "NOTHING CHECKED";
+  }
   return record["pass"] ? "PASS" : "FAIL";
 }
 
