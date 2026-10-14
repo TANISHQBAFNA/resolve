@@ -287,7 +287,7 @@ export function recommendMasters(
   const scored: Scored[] = [];
   const retired: Scored[] = [];
   let privateCovered = 0;
-  for (const node of mastersToRank(index, workspace, graphFileKey)) {
+  for (const node of mastersToRank(index, workspace, graphFileKey, intent)) {
     const set = setOf(index, node);
     if (deniedByRules(index, node, packRules)) continue;
     if (node.metadata?.["removedByAbsence"] === true) continue;
@@ -808,13 +808,7 @@ export function recommendMasters(
   let contextEcho = applied ? { ...applied } : undefined;
   const echoBag: { hint?: string } = {};
   const leadNode = kept[0]?.node;
-  const leadSetName = leadNode
-    ? setOf(index, leadNode)?.name ?? leadNode.name
-    : "";
-  const weakLead =
-    Boolean(kept[0]?.weak) &&
-    !(kept[0]?.exactName) &&
-    !(leadSetName && setCoversAsk(intentNeedle, leadSetName));
+  const weakLead = Boolean(kept[0]?.weak) && !kept[0]?.exactName;
   const leadClashes = leadNode ? realMastersNamed(index, leadNode.name) : [];
   const clashNote = leadNode ? sameNameNote(index, leadClashes, leadNode) : undefined;
   const subNote = substitutionNote(index, intent, leadNode);

@@ -5,6 +5,7 @@ import { hexFromColor, payloadHasBindings, paintsByNodeId } from "@/core/ingesti
 import { setOf } from "@/core/rules/family";
 import { foldLibName, isNameInferredMaster, isPrivateMasterName } from "@/core/rules/names";
 import { isRetired } from "@/core/rules/retired";
+import { NAME_FLOOR } from "./cardFit";
 import { type AgentCost, withCost } from "./cost";
 import { instancePropertyFindings } from "./componentProperties";
 import type { GraphIndex } from "./GraphIndex";
@@ -878,6 +879,31 @@ function shedProperUseHost(host: Record<string, unknown>, step: number): boolean
   }
 }
 
+function clipEnd(text: string): string {
+  if (text.length <= NAME_FLOOR) return text;
+  return `${text.slice(0, NAME_FLOOR - 1)}…`;
+}
+
+function clipNameRecord(record: Record<string, unknown>): void {
+  for (const field of ["name", "given"]) {
+    const text = record[field];
+    if (typeof text === "string") record[field] = clipEnd(text);
+  }
+  const meant = record["didYouMean"];
+  if (meant && typeof meant === "object") clipNameRecord(meant as Record<string, unknown>);
+}
+
+/** End-clip echoed names so a zero-error proper-use line still fits. */
+function clipListedNames(host: Record<string, unknown>): void {
+  for (const key of ["resolved", "unresolved", "invents", "deprecated"]) {
+    const rows = host[key];
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      if (row && typeof row === "object") clipNameRecord(row as Record<string, unknown>);
+    }
+  }
+}
+
 function moreLine(hidden: number): string | undefined {
   if (hidden <= 0) return undefined;
   const count = hidden === 1 ? "+1 more" : `+${hidden} more`;
@@ -937,8 +963,16 @@ export function attachProperUse<T extends object>(
     truncated = undefined;
     delete host["builtAt"];
     priced = build();
+    if (JSON.stringify(priced).length > budget) {
+      clipListedNames(host);
+      for (const key of ["deprecated", "unresolved", "invents", "resolved"]) {
+        const rows = host[key];
+        if (Array.isArray(rows) && rows.length === 0) delete host[key];
+      }
+      priced = build();
+    }
     const hint = host["hint"];
-    if (JSON.stringify(priced).length > budget && typeof hint === "string" && hint.length > 48) {
+    if (!host["frame"] && JSON.stringify(priced).length > budget && typeof hint === "string" && hint.length > 48) {
       host["hint"] = `${hint.slice(0, 47)}…`;
       priced = build();
     }

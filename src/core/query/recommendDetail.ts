@@ -2,7 +2,9 @@
 import type { GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import { VARIANT_PROP_NAME } from "./masterNames";
-import { modifierWord, setCoversAsk, variantValueText } from "./recommendLexicon";
+import { isFigmaSlot } from "./placed";
+import { tokensOf } from "./queryTokens";
+import { CATEGORY_TAIL, modifierWord, PLAIN_NOUN, setCoversAsk, variantValueText } from "./recommendLexicon";
 
 const SKIP_HOST = new Set(["PAGE", "FILE", "DOCUMENT", "CANVAS"]);
 const PAGE_BUCKET = new Set(["components", "component", "library", "icons", "icon", "screens", "screen", "patterns", "foundations", "styles", "assets", "documentation", "pages", "symbols", "variants"]);
@@ -57,6 +59,8 @@ export function searchDetail(index: GraphIndex, node: GraphNode, set?: GraphNode
     for (const def of item.propertyDefinitions ?? []) {
       if (def.description) describe.push(def.description);
       if (def.options?.length) variant.push(def.options.join(" "));
+      const value = def.defaultValue?.trim();
+      if (value && value !== "true" && value !== "false" && /[a-z]/i.test(value)) variant.push(value);
     }
     if (item.description) describe.push(item.description);
   };
@@ -66,15 +70,30 @@ export function searchDetail(index: GraphIndex, node: GraphNode, set?: GraphNode
   const walk = (id: string, depth: number) => {
     if (depth > 2) return;
     for (const child of index.getChildren(id)) {
-      if (child.type === "COMPONENT_INSTANCE" || child.type === "VARIANT" || child.type === "COMPONENT_SET") continue;
+      if (child.type === "VARIANT" || child.type === "COMPONENT_SET") continue;
+      const slot = isFigmaSlot(child);
+      if (child.type === "COMPONENT_INSTANCE" && !slot) continue;
       const name = child.name.trim();
       if (name && !LAYER_NOISE.test(name) && !VARIANT_PROP_NAME.test(name)) describe.push(name);
       if (child.description) describe.push(child.description);
+      if (slot) continue;
       walk(child.id, depth + 1);
     }
   };
   walk(root.id, 0);
   return { variant: variant.join(" "), describe: describe.join(" ") };
+}
+
+function familyHas(token: string, family: string): boolean {
+  return tokensOf(family).some((name) => name === token || name === `${token}s` || token === `${name}s`);
+}
+
+/** A plain noun in the ask that is not a modifier and is not in the family. "banner" on Alert. Not "bar" on Tabs. */
+function uncoveredKind(tokens: string[], family: string): boolean {
+  return tokens.some(
+    (token) =>
+      (PLAIN_NOUN.has(token) || CATEGORY_TAIL.has(token)) && !modifierWord(token) && !familyHas(token, family),
+  );
 }
 
 /** A cousin that leaves a query word unmatched stays in the list and is flagged weak. */
@@ -86,8 +105,12 @@ export function flagUncovered<T extends { exactName: boolean; weak?: boolean; as
 ): void {
   for (const entry of entries) {
     if (entry.exactName || entry.weak) continue;
-    if (entry.why?.includes("name") || entry.why?.includes("typo") || entry.why?.includes("bind-rule")) continue;
-    if (setCoversAsk(ask, familyOf(entry))) continue;
-    if ((entry.askCovered ?? tokens.length) < tokens.length) entry.weak = true;
+    const family = familyOf(entry);
+    const kind = uncoveredKind(tokens, family);
+    if (!kind) {
+      if (entry.why?.includes("name") || entry.why?.includes("typo") || entry.why?.includes("bind-rule")) continue;
+      if (setCoversAsk(ask, family)) continue;
+    }
+    if (kind || (entry.askCovered ?? tokens.length) < tokens.length) entry.weak = true;
   }
 }

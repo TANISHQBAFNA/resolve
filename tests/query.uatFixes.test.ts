@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { DesignGraph, GraphEdge, GraphNode, NodeType } from "@/core/model";
 import { fillRecipe, indexGraph, recommendMasters, starterRecipes, verifyFrame } from "@/core/query";
+import { searchDetail } from "@/core/query/recommendDetail";
 import { parseBindRulesFile } from "@/core/query/bindRules";
 import { shrinkNameFields } from "@/core/query/cardFit";
 import { checkComponentName } from "@/core/query/codeMapCheck";
@@ -435,6 +436,92 @@ describe("a placed screen counts the instances the designer put there", () => {
     ];
     const checked = verifyFrame(indexGraph(graphOf("ACMEUI", nodes, edges)), { frame: "8:1" });
     expect(checked.approved).toBe(3);
+  });
+
+  it("does not count an icon the frame also links when its parent is the button", () => {
+    const nodes = [
+      n("file", "FILE", "Acme", { fileKey: "ACMEUI" }),
+      n("screen", "FRAME", "Checkout", { fileKey: "ACMEUI", figmaNodeId: "8:1" }),
+      n("button", "MAIN_COMPONENT", "Button", { fileKey: "ACMEUI", figmaNodeId: "1:1" }),
+      n("field", "MAIN_COMPONENT", "Text field", { fileKey: "ACMEUI", figmaNodeId: "1:2" }),
+      n("link", "MAIN_COMPONENT", "Link", { fileKey: "ACMEUI", figmaNodeId: "1:3" }),
+      n("icon", "MAIN_COMPONENT", "Icon", { fileKey: "ACMEUI", figmaNodeId: "1:4" }),
+      n("b", "COMPONENT_INSTANCE", "Button", { parentId: "screen", fileKey: "ACMEUI", mainComponentId: "button", figmaNodeId: "8:2" }),
+      n("f", "COMPONENT_INSTANCE", "Text field", { parentId: "screen", fileKey: "ACMEUI", mainComponentId: "field", figmaNodeId: "8:3" }),
+      n("l", "COMPONENT_INSTANCE", "Link", { parentId: "screen", fileKey: "ACMEUI", mainComponentId: "link", figmaNodeId: "8:4" }),
+      n("i", "COMPONENT_INSTANCE", "Icon", { parentId: "b", fileKey: "ACMEUI", mainComponentId: "icon", figmaNodeId: "8:5" }),
+    ];
+    const edges = [
+      e("CONTAINS", "screen", "b"),
+      e("CONTAINS", "screen", "f"),
+      e("CONTAINS", "screen", "l"),
+      e("CONTAINS", "screen", "i"),
+      e("CONTAINS", "b", "i"),
+      e("INSTANCE_OF", "b", "button"),
+      e("INSTANCE_OF", "f", "field"),
+      e("INSTANCE_OF", "l", "link"),
+      e("INSTANCE_OF", "i", "icon"),
+    ];
+    const checked = verifyFrame(indexGraph(graphOf("ACMEUI", nodes, edges)), { frame: "8:1" });
+    expect(checked.approved).toBe(3);
+  });
+});
+
+describe("an older single-library store", () => {
+  function older() {
+    const file = n("file", "FILE", "Acme UI", { fileKey: "ACMEUI" });
+    const page = n("page", "PAGE", "Artwork", { parentId: "file", fileKey: "ACMEUI" });
+    const pdf = n("pdf", "MAIN_COMPONENT", "PDF", {
+      parentId: "page",
+      pageId: "page",
+      fileKey: "ACMEUI",
+      figmaNodeId: "4:1",
+      isRemote: true,
+      isMainComponent: true,
+    });
+    const alert = n("alert", "MAIN_COMPONENT", "Alert", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "4:2" });
+    const tabs = n("tabs", "COMPONENT_SET", "Tabs", { parentId: "page", fileKey: "ACMEUI", figmaNodeId: "4:3" });
+    const field = n("field", "COMPONENT_SET", "Text field", {
+      parentId: "page",
+      fileKey: "ACMEUI",
+      figmaNodeId: "4:4",
+      propertyDefinitions: [{ name: "Font", type: "TEXT", defaultValue: "Courier" }],
+    });
+    const slot = n("slot", "FRAME", "Caption", {
+      parentId: "field",
+      fileKey: "ACMEUI",
+      metadata: { figmaType: "SLOT" },
+    });
+    const index = indexGraph(
+      graphOf("ACMEUI", [file, page, pdf, alert, tabs, field, slot], [
+        e("CONTAINS", "file", "page"),
+        e("CONTAINS", "page", "pdf"),
+        e("CONTAINS", "page", "alert"),
+        e("CONTAINS", "page", "tabs"),
+        e("CONTAINS", "page", "field"),
+        e("CONTAINS", "field", "slot"),
+      ]),
+    );
+    const workspace = { version: 1 as const, files: [{ role: "library" as const, key: "ACMEUI", label: "Acme UI" }] };
+    return { index, workspace, field };
+  }
+
+  it("finds a remote pdf icon and flags an alert that is not a banner", () => {
+    const { index, workspace, field } = older();
+    const pdf = recommendMasters(index, "pdf icon", { workspace });
+    expect(pdf.candidates[0]?.name).toBe("PDF");
+    expect(pdf.match).not.toBe("weak match");
+    const banner = recommendMasters(index, "alert banner", { workspace });
+    expect(banner.candidates[0]?.name).toBe("Alert");
+    expect(banner.match).toBe("weak match");
+    const tabs = recommendMasters(index, "tab bar", { workspace });
+    expect(tabs.candidates[0]?.name).toBe("Tabs");
+    expect(tabs.match).not.toBe("weak match");
+    const detail = searchDetail(index, field);
+    expect(detail.variant.toLowerCase()).toContain("courier");
+    expect(detail.describe).toContain("Caption");
+    const font = recommendMasters(index, "courier field", { workspace });
+    expect(font.candidates[0]?.name).toBe("Text field");
   });
 });
 

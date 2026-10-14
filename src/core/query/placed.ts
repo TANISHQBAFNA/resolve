@@ -35,6 +35,7 @@ export function designerPlacedInstances(index: GraphIndex, frameId: string): Gra
   const out: GraphNode[] = [];
   const walkLayer = (parentId: string) => {
     for (const child of index.getChildren(parentId)) {
+      if (child.parentId && child.parentId !== parentId) continue;
       if (hiddenUnder(index, child, parentId)) continue;
       if (child.type === "COMPONENT_INSTANCE") {
         out.push(child);
@@ -47,6 +48,7 @@ export function designerPlacedInstances(index: GraphIndex, frameId: string): Gra
   };
   const walkSlots = (instanceId: string) => {
     for (const child of index.getChildren(instanceId)) {
+      if (child.parentId && child.parentId !== instanceId) continue;
       if (hiddenUnder(index, child, instanceId)) continue;
       if (isFigmaSlot(child)) {
         walkLayer(child.id);

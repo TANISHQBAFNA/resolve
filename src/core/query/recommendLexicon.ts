@@ -12,7 +12,7 @@ import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems, isScreen } from "./screenInventory";
 import { propertyAliases } from "./synonymLayer";
 import type { WorkspaceManifest } from "./workspace";
-import { nodeFileKey } from "./workspaceMerge";
+import { componentKeyOf, nodeFileKey } from "./workspaceMerge";
 
 /** Name / synonym / variant / description. One name token outranks any amount of context. */
 export const LEXICAL_WEIGHT = { name: 100, synonym: 70, variant: 80, describe: 50 } as const;
@@ -29,16 +29,7 @@ export function isSetModifierVariant(node: GraphNode, set?: GraphNode): boolean 
   const rest = tokensOf(name.slice(setName.length));
   return rest.length > 0 && rest.every((token) => modifierWord(token));
 }
-/**
- * States, sizes, variants, roles, and common UI nouns.
- * A multi-word ask may keep one of these beside a real component word.
- * Reasons live in src/data/ui-modifiers.json.
- */
 const UI_MODIFIER = new Set(modifierFile.words.map((word) => word.term.toLowerCase()));
-/**
- * A word that only counts when it follows a component word or one of its synonyms.
- * "window" after modal. "mark" after close. Not a free-floating modifier.
- */
 /** Size and accessibility words describe a component. They do not name a different one. */
 const SIZE_OR_A11Y = new Set([
   "large",
@@ -115,11 +106,7 @@ export function synonymIn(token: string, names: Set<string>, allowClip = false):
   return group.some((word) => word !== token && names.has(word));
 }
 const CLIP_GROUP = new Map<string, readonly string[] | undefined>();
-/**
- * A short token that is a unique prefix of one synonym, with at least four
- * letters left over. "pic" is picture. "head" is not, because it also starts header.
- * Single-word asks do not clip. The caller passes allowClip only for a multi-word ask.
- */
+/** Unique synonym prefix of at least four leftover letters. Single-word asks do not clip. */
 function clippingGroup(token: string): readonly string[] | undefined {
   if (CLIP_GROUP.has(token)) return CLIP_GROUP.get(token);
   let found: readonly string[] | undefined;
@@ -415,27 +402,55 @@ export function purposeTailTokens(ask: string): Set<string> {
   return new Set(tokensOf(parts.slice(at + 1).join(" ")));
 }
 
-/**
- * Learned masters only. A remote stub is an unlearned library.
- * An icon shelf stays, even when it is remote or not listed in the workspace.
- * When a workspace lists files, a part from any other file stays out.
- */
-export function mastersToRank(index: GraphIndex, workspace: WorkspaceManifest | undefined, graphFileKey: string): GraphNode[] {
-  const keys = workspace && workspace.files.length > 0 ? new Set(workspace.files.map((file) => file.key)) : undefined;
-  return index.getNodesByType(...MASTER_TYPES).filter((node) => {
+function learnedLibrary(node: GraphNode, keys: Set<string> | undefined): boolean {
+  if (!keys) return false;
+  const key = nodeFileKey(node)?.toLowerCase();
+  if (key && keys.has(key)) return true;
+  const source = node.metadata?.["sourceFileKey"];
+  return typeof source === "string" && keys.has(source.trim().toLowerCase());
+}
+
+/** Learned files, including a remote master from one of them when no local twin exists. */
+export function mastersToRank(
+  index: GraphIndex,
+  workspace: WorkspaceManifest | undefined,
+  graphFileKey: string,
+  ask?: string,
+): GraphNode[] {
+  const keys =
+    workspace && workspace.files.length > 0
+      ? new Set(workspace.files.map((file) => file.key.toLowerCase()))
+      : undefined;
+  const iconAsk = Boolean(ask && asksIcon(tokensOf(ask), ask));
+  const nodes = index.getNodesByType(...MASTER_TYPES);
+  const localIds = new Set<string>();
+  const localKeys = new Set<string>();
+  for (const node of nodes) {
+    if (node.isRemote || isNameInferredMaster(node)) continue;
+    if (node.figmaNodeId) localIds.add(node.figmaNodeId);
+    const published = componentKeyOf(node);
+    if (published) localKeys.add(published);
+  }
+  return nodes.filter((node) => {
     if (isNameInferredMaster(node)) return false;
     const icon =
       fromIconLibrary(index, node, workspace) ||
       iconShelf(index, node, workspace) ||
       looksLikeIcon(index, node, setOf(index, node), workspace);
-    if (node.isRemote && !icon) return false;
+    if (node.isRemote && !icon && !iconAsk) {
+      if (!learnedLibrary(node, keys)) return false;
+      if (node.figmaNodeId && localIds.has(node.figmaNodeId)) return false;
+      const published = componentKeyOf(node);
+      if (published && localKeys.has(published)) return false;
+    }
     if (!keys || node.isRemote || icon) return true;
-    const key = nodeFileKey(node, graphFileKey);
-    return !key || keys.has(key);
+    const key = nodeFileKey(node, graphFileKey)?.toLowerCase();
+    if (!key || keys.has(key)) return true;
+    return learnedLibrary(node, keys);
   });
 }
 
-const CATEGORY_TAIL = new Set(["icon", "glyph", "symbol", "banner", "dropdown", "nav", "navigation"]);
+export const CATEGORY_TAIL = new Set(["icon", "glyph", "symbol", "banner", "dropdown", "nav", "navigation"]);
 
 function keepsCompany(token: string, previous: string | undefined, exempt: ReadonlySet<string>): boolean {
   if (modifierWord(token) || exempt.has(token) || CATEGORY_TAIL.has(token)) return true;
@@ -446,13 +461,7 @@ function keepsCompany(token: string, previous: string | undefined, exempt: Reado
   const group = SYNONYM_OF.get(previous);
   return Boolean(group?.some((word) => after.has(word)));
 }
-/**
- * One component word plus words that are not the head is not a component ask.
- * The head is the last word, or a component word followed only by UI nouns.
- * "cart badge" keeps Badge. "card game" is empty, because game is the head.
- * "error alert" stays, because error is a status. A scene word is not junk.
- * An unknown word in front of the head is a noun modifier, and the pick is low confidence.
- */
+/** One component word, then a word that is not a UI noun, is not a component ask. */
 export function askGate(
   ask: string,
   tokens: string[],
@@ -599,11 +608,7 @@ function nounHit(noun: string, names: Set<string>, allowClip: boolean): boolean 
   return synonymIn(noun, names, allowClip);
 }
 
-/**
- * The component noun wins. "large button" stays a button when a button is in the list.
- * A synonym of that noun counts, so "primary button" can still be a CTA.
- * Runs after the cousin filter, so "radio button" has already dropped Button.
- */
+/** The component noun wins. A synonym counts. Cousins are already gone. */
 const CONTROL_NOUN = new Set(["button", "cta", "action", "icon"]);
 
 function controlNoun(token: string): boolean {
@@ -626,11 +631,7 @@ export function nounBeatsExtras<T extends { node: { name: string }; setName?: st
   return hits.length ? hits : entries;
 }
 
-/**
- * A weak pick that leaves a real word unmatched is not an offer.
- * "button" and "CTA button" stay, because every content word matches the button.
- * Words after to/for/on/when are purpose, not part of the name.
- */
+/** A weak pick that leaves a real word unmatched is not an offer. Purpose tails stay. */
 export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: string; weak?: boolean }>(
   entries: T[],
   queryTokens: string[],
@@ -680,7 +681,7 @@ export function categoryHeadBonus(familyName: string, tokens: string[], allowCli
   return 40;
 }
 
-const PLAIN_NOUN = new Set(["button", "cta", "action", "icon", "card", "banner", "dropdown", "nav", "navigation", "field", "input", "bar", "menu", "modal", "dialog", "badge", "tab", "link", "chip", "tag", "switch", "checkbox", "radio", "toast", "alert"]);
+export const PLAIN_NOUN = new Set(["button", "cta", "action", "icon", "card", "banner", "dropdown", "nav", "navigation", "field", "input", "bar", "menu", "modal", "dialog", "badge", "tab", "link", "chip", "tag", "switch", "checkbox", "radio", "toast", "alert"]);
 
 function plainNounToken(token: string): boolean {
   if (PLAIN_NOUN.has(token)) return true;
@@ -867,12 +868,7 @@ function iconOnlyTail(role: string): boolean {
     tokens.length > 0 && tokens.every((token) => token === "icon" || token === "glyph" || token === "symbol")
   );
 }
-/**
- * "checkout summary with primary button" → scene + the component ask.
- * "field with icon" keeps the field — icon is a modifier, not the role.
- * "phone number input with country code" keeps the whole ask, because the
- * words after "with" are not a component and the words before are.
- */
+/** Words after "with" are the role, unless they are only a modifier. */
 export function splitBrief(
   intent: string,
   componentWord?: (token: string) => boolean,
