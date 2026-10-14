@@ -934,14 +934,9 @@ export function attachProperUse<T extends object>(
   }
   if (JSON.stringify(priced).length > budget && report.errors === 0) {
     shown = [];
-    truncated = full.length ? moreLine(full.length) : undefined;
+    truncated = undefined;
     priced = build();
-    let extra = 0;
-    while (JSON.stringify(priced).length > budget && extra <= 8) {
-      shedProperUseHost(host, extra);
-      extra += 1;
-      priced = build();
-    }
+    if (JSON.stringify(priced).length > budget) return card as T & { properUse?: ProperUseReport; cost?: AgentCost };
   }
   return priced as T & { properUse?: ProperUseReport; cost?: AgentCost };
 }

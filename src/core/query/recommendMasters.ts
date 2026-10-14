@@ -708,6 +708,7 @@ export function recommendMasters(
   let dropVariant = false;
   let shedPlaceNoise = false;
   let shedLeadDetail = false;
+  let omitExNote = false;
   /** `all` keeps the catalog. `matched` keeps rows the request named. `none` is the last resort. */
   let propertyKeep: "all" | "matched" | "none" = "all";
   const exQuery = exampleQuery(index, options);
@@ -748,6 +749,7 @@ export function recommendMasters(
       ...pointer,
       hint: full.deprecated ? "Deprecated — do not place." : "Place fileKey + nodeId.",
     };
+    if (omitExNote) delete next.exNote;
     if (top && shedPlaceNoise) {
       const loose = next as unknown as Record<string, unknown>;
       delete loose["score"];
@@ -847,10 +849,8 @@ export function recommendMasters(
   };
 
   if (JSON.stringify(payload).length > budgetChars && candidates[0] && "exNote" in candidates[0]) {
-    const lead = { ...candidates[0] };
-    delete lead.exNote;
-    candidates = [lead, ...candidates.slice(1)];
-    payload = payloadOf();
+    omitExNote = true;
+    shrink();
   }
   const overBudget = () => JSON.stringify(payload).length > budgetChars;
   if (overBudget()) {

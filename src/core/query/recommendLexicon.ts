@@ -694,8 +694,8 @@ export function plainNounOverComposite<T extends { node: { name: string }; setNa
   const noun = nouns[0]!;
   const rest = queryTokens.filter((token) => token !== noun);
   if (rest.some((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token))) return entries;
-  const literal = entries.filter((entry) => {
-    const names = familyNames(entry);
+  const plainLabel = (label: string): boolean => {
+    const names = new Set(tokensOf(label));
     if (![...names].some((name) => name === noun || inflectsName(noun, name))) return false;
     for (const name of names) {
       if (name === noun || inflectsName(noun, name)) continue;
@@ -703,7 +703,12 @@ export function plainNounOverComposite<T extends { node: { name: string }; setNa
       if (queryTokens.includes(name) && (modifierWord(name) || SIZE_OR_A11Y.has(name))) continue;
       return false;
     }
-    return true;
+    return names.size > 0;
+  };
+  const literal = entries.filter((entry) => {
+    const labels = [familyNameOf(entry.node.name, entry.setName)];
+    if (entry.setName) labels.push(entry.setName);
+    return labels.some((label) => plainLabel(label));
   });
   if (!literal.length || literal.length === entries.length) return entries;
   const chosen = new Set(literal);

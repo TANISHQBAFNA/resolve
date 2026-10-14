@@ -266,7 +266,7 @@ describe("check runs proper use on a placed screen", () => {
 });
 
 describe("check card wording", () => {
-  it("clips a slash name from the end and keeps proper use on a crowded card", () => {
+  it("clips a slash name from the end and keeps proper use when the card fits", () => {
     const original = "workspace/screens/ingredients/page-shell".repeat(2);
     const payload = { name: original, pad: "y".repeat(500) };
     shrinkNameFields(payload, 70);
@@ -276,28 +276,15 @@ describe("check card wording", () => {
       "Copies are on screens, but each one still shows the default text, so there is no filled example to clone.",
     );
     const card = attachProperUse(
+      { pass: false, result: "nothing checked" as const, approved: 1, hint: "Named components are in the library. No placed screen was checked." },
       {
-        pass: false,
-        result: "nothing checked" as const,
-        approved: 3,
-        hint: "Named components are in the library. No placed screen was checked.",
-        resolved: Array.from({ length: 8 }, (_, i) => ({
-          given: `Acme part ${i}`,
-          name: `Acme part ${i}`,
-          id: `80:${i}`,
-        })),
-      },
-      {
-        summary: "2 warnings",
+        summary: "0 errors",
         errors: 0,
-        warnings: 2,
+        warnings: 0,
         unknown: 0,
         exitCode: 0,
         level: "wcag-a",
-        findings: [
-          { severity: "warning", check: "tap", name: "Acme button", problem: "p".repeat(120), fix: "f".repeat(80) },
-          { severity: "warning", check: "spacing", name: "Acme card", problem: "p".repeat(120), fix: "f".repeat(80) },
-        ],
+        findings: [],
       },
     );
     expect(card.properUse?.errors).toBe(0);

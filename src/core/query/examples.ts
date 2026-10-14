@@ -678,7 +678,7 @@ export function examplePointer(
   detail: "id" | "screen" = "id",
 ): ExamplePointer {
   const lookup = getExample(index, master, query);
-  if (!lookup.found) return {};
+  if (!lookup.found || lookup.example.exNote === "default text") return {};
   const pickFile = fileKeyOf(index, master, query);
   const file = lookup.example.fileKey;
   const cross = Boolean(file && pickFile && file !== pickFile);
