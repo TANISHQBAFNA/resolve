@@ -1,8 +1,4 @@
-<p align="center">
-	<a href="https://github.com/TANISHQBAFNA/resolve">
-		<img src="docs/assets/resolve-logo.svg" alt="Resolve" width="440">
-	</a>
-</p>
+<p align="center"><a href="https://github.com/TANISHQBAFNA/resolve"><img src="docs/assets/resolve-logo.svg" alt="Resolve" width="440"></a></p>
 <hr>
 <h3 align="center">The right component, every time your AI designs a screen</h3>
 <p align="center">Resolve is a design-system knowledge pack (an MSOCK) that Claude Code and Cursor ask first, so they place your real Figma components with the right context instead of guessing.</p>
