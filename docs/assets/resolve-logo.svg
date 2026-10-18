@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="120" viewBox="0 0 440 120" role="img" aria-labelledby="title desc">
+  <title id="title">Resolve</title>
+  <desc id="desc">Resolve logo: four component diamonds, one picked and highlighted, next to the word Resolve.</desc>
+  <style>
+    .word { fill: #7C6CFA; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 64px; letter-spacing: -1.5px; }
+    @media (prefers-color-scheme: light) { .word { fill: #4F46E5; } }
+    @media (prefers-color-scheme: dark)  { .word { fill: #A99BFF; } }
+  </style>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7C6CFA"/>
+      <stop offset="1" stop-color="#4F46E5"/>
+    </linearGradient>
+  </defs>
+  <!-- Mark: a rounded tile holding the four-diamond "component" symbol.
+       Three diamonds are outlines (the library); one is solid (the component Resolve picked). -->
+  <rect x="8" y="12" width="96" height="96" rx="24" fill="url(#tile)"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linejoin="round" opacity="0.75">
+    <path d="M56 26 L68 38 L56 50 L44 38 Z"/>
+    <path d="M34 48 L46 60 L34 72 L22 60 Z"/>
+    <path d="M56 70 L68 82 L56 94 L44 82 Z"/>
+  </g>
+  <path d="M78 46 L92 60 L78 74 L64 60 Z" fill="#FFFFFF"/>
+  <!-- Wordmark -->
+  <text class="word" x="124" y="82">Resolve</text>
+</svg>

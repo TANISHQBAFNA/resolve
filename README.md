@@ -1,106 +1,180 @@
-# Resolve
+<p align="center">
+	<a href="https://github.com/TANISHQBAFNA/resolve">
+		<img src="docs/assets/resolve-logo.svg" alt="Resolve" width="440">
+	</a>
+</p>
+<hr>
+<h3 align="center">The right component, every time your AI designs a screen</h3>
+<p align="center">Resolve is a design-system knowledge pack (an MSOCK) that Claude Code and Cursor ask first, so they place your real Figma components with the right context instead of guessing.</p>
+<p align="center"><i>Figma rules. Agents resolve.</i></p>
+<p align="center">
+	<a href="#install">Install</a> ·
+	<a href="#quick-start">Quick start</a> ·
+	<a href="#slash-commands">Slash commands</a> ·
+	<a href="docs/GUIDE.md">Designer guide</a> ·
+	<a href="INSTALL-FOR-AI.md">Install for AI</a> ·
+	<a href="#version-history">Version history</a>
+</p>
+<p align="center">
+	<a href="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml"><img src="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+	&nbsp;
+	<a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+	&nbsp;
+	<a href="package.json"><img src="https://img.shields.io/badge/version-0.1.0-7c6cfa.svg" alt="Version 0.1.0"></a>
+	&nbsp;
+	<a href="package.json"><img src="https://img.shields.io/badge/node-%E2%89%A522.12-339933.svg?logo=node.js&logoColor=white" alt="Node 22.12 or newer"></a>
+	<br>
+	<a href=".claude-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Claude%20Code-d97757.svg" alt="Claude Code plugin"></a>
+	&nbsp;
+	<a href=".cursor-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Cursor-000000.svg" alt="Cursor plugin"></a>
+	&nbsp;
+	<a href="#the-seven-mcp-tools"><img src="https://img.shields.io/badge/MCP-7%20tools-4f46e5.svg" alt="7 MCP tools"></a>
+</p>
 
-> Figma rules. Agents resolve.
+<!--
+  HERO IMAGE PLACEHOLDER
+  There is no real screenshot or GIF of Resolve in this repo yet, so none is shown here.
+  When one exists, save it as docs/assets/resolve-hero.gif (or .png) and replace this comment with:
 
-[github.com/TANISHQBAFNA/resolve](https://github.com/TANISHQBAFNA/resolve) · MIT licensed · free to use
+  <p align="center">
+    <img src="docs/assets/resolve-hero.gif" alt="Claude asks Resolve for a payee picker, places the real Acme component, then runs /check" width="800">
+  </p>
 
-Every example in this file is made up. "Acme" is a pretend company, the "Payments app" is a pretend product, and the components (Button, Text field, Payee picker) are pretend. None of it comes from a real design system.
+  Use only made-up data (the Acme example library). No real client names, Figma file keys or tokens.
+-->
 
-**Quick start:** open your project in Claude Code, Cursor or Codex and paste: *Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md*. The AI-facing checklist is [`INSTALL-FOR-AI.md`](INSTALL-FOR-AI.md); the plain steps are under [Set it up](#set-it-up).
+<hr>
 
-## Install as a plugin
+> [!NOTE]
+> Every example in this file is made up. "Acme" is a pretend company, the "Payments app" is a pretend product, and the components (Button, Text field, Payee picker) are pretend. None of it comes from a real design system.
 
-Install Resolve once. After that, every chat in every project asks Resolve before it draws in Figma. You do not paste the install note again.
+### Menu
 
-You still do two things by hand. Connect Figma in the app (sign in when it asks). Then fill in the two settings the plugin asks for: a Figma token, and the library file key. The file key is the id in a link such as `https://www.figma.com/design/ACMEUI/Acme` (here the key is `ACMEUI`). Do not type the token into a file.
+- [Features](#features)
+- [Install](#install)
+	- [Before you start](#before-you-start)
+	- [Option A: install as a plugin (recommended)](#option-a-install-as-a-plugin-recommended)
+	- [Option B: ask your AI tool to install it in one project](#option-b-ask-your-ai-tool-to-install-it-in-one-project)
+	- [Option C: install it by hand](#option-c-install-it-by-hand)
+- [Quick start](#quick-start)
+- [Slash commands](#slash-commands)
+- [Overview: how it works](#overview-how-it-works)
+	- [What an MSOCK is](#what-an-msock-is)
+	- [Known name first, phrase finder second](#known-name-first-phrase-finder-second)
+	- [The story in one minute](#the-story-in-one-minute)
+	- [Each piece in detail](#each-piece-in-detail)
+- [Check that a screen uses the library properly](#check-that-a-screen-uses-the-library-properly)
+- [Check that Resolve understands your words](#check-that-resolve-understands-your-words)
+- [Questions designers ask](#questions-designers-ask)
+- [Words used here](#words-used-here)
+- [For engineers and testers](#for-engineers-and-testers) (every command, config files, accuracy, limits)
+- [Version history](#version-history)
+- [License](#license)
 
-### Claude Code
+You can read this file from top to bottom without knowing any code. Everything above **For engineers and testers** is for designers. Everything below it is reference detail that you can skip.
 
-In Claude Code, type these two lines:
+## Features
 
-```
-/plugin marketplace add TANISHQBAFNA/resolve
-/plugin install resolve@resolve
-```
+- **Knows your library** (the SOCK part)
+	- Learns every component in your Figma design system file: its variants (for example `Variant=Primary`, `Size=Medium`), its properties (variant, boolean, text, instance swap and slot), their allowed values and defaults.
+	- Remembers where each component is really used on screens, so it can hand the AI a filled-in example to copy instead of a bare default.
+	- Re-learns when the library changes. Re-learning a page replaces that page, so a part that left the file does not linger.
+	- Keeps it all in a folder on your computer (the **store**). Nothing is uploaded.
+- **Tells the AI what to do** (the SOCI part, plus the always-on rule)
+	- An always-on rule (`rules/resolve.mdc` for Cursor, the `resolve` skill for Claude Code) says: for any Figma design task, ask Resolve first, place only the components it returns, never invent one.
+	- Screen **recipes**: checklists of the parts a kind of screen needs (header, list, main button, input), each slot filled with a real component.
+	- **Context** from the requirements or FSD: product, journey step, audience and accessibility bar (for example `wcag-aa`), passed only when the document says so.
+	- **SOCI suggestions**: after real screens pass the check, Resolve can *suggest* a rule or recipe. A person approves or rejects every suggestion. Nothing changes by itself.
+- **Goes straight to a known component**
+	- If the name is already known (the designer typed it, or the AI read it off the canvas, for example `Popover`), the AI calls `resolve` and gets that exact component with its Figma id. No searching, no second-guessing.
+	- Only when the name is not known does it use the **phrase finder** (`recommend`): "payee picker" → **Payee picker**.
+	- The phrase finder is honest: a partial match is labelled **weak match** with up to three options, and no match means no answer.
+- **Shows the AI the properties to set**
+	- Example: asked for an "outline button with icon", the card says `To apply: set Variant=Secondary, Has icon=true`.
+	- A value the component does not allow is never suggested.
+- **Knows the code twin** (optional)
+	- Engineers fill a **code map** (from a spreadsheet if they like) that says "this Figma Button is `AcmeButtonComponent`, selector `<acme-button>`, module `AcmeButtonModule`".
+	- React and Angular entries are both supported. Resolve never guesses a code twin.
+- **Checks the finished screen**
+	- **Components:** parts that are not in the library, parts that are retired (with what to use instead), and leftover template text such as "Lorem ipsum".
+	- **Proper use:** detached copies of components, hard-coded colours, spacing, radius and effects (with the nearest library token, for example `color/primary/600`), property values that are not allowed, and accessibility problems (text contrast, 44×44 tap targets, icon-only buttons with no label).
+	- It checks by each component's real Figma id, not its layer name, because a layer called "Button" can be anything.
+- **Knows what is retired**
+	- Retired components are never offered for a new screen. Old screens that use them fail the check, and the card names the live replacement.
+- **Writes the developer handoff** (optional)
+	- One build sheet per screen: every component, its Figma id, its code, the parts inside, recipe slots, the check result, approved decisions and open questions.
+	- It refuses a screen that still uses a retired component.
+- **Measures itself**
+	- A phrase scoreboard tests Resolve on designer-worded asks. On the built-in sample library today: top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0 (see [Accuracy and honesty rules](#accuracy-and-honesty-rules)).
+	- `resolve gaps` lists what designers asked for that Resolve could not answer well, most asked first.
+- **Lives inside your AI tool**
+	- Installs as a plugin in Claude Code and in Cursor, with six [slash commands](#slash-commands): `/design-system`, `/find`, `/check`, `/parts`, `/handoff`, `/resolve-status`.
+	- Seven MCP tools for the AI: `learn_library`, `recommend`, `resolve`, `get_example`, `verify_frame`, `recipe`, `check_cousins`.
+	- Read-only: it never changes your Figma file. Your AI tool does the drawing.
 
-When it asks, fill in **Figma token** and **Library file key**. To change them later, type `/plugin configure resolve@resolve`.
+## Install
 
-### Cursor
+Plan on about ten minutes. Pick **one** option. Option A is the simplest: install once and every chat in every project asks Resolve first.
 
-In the Cursor chat, type:
+### Before you start
 
-```
-/add-plugin https://github.com/TANISHQBAFNA/resolve
-```
+You need three things:
 
-Install **resolve**. Then open **Plugins**, choose **Resolve**, then **Configure**, and fill in the same two settings.
+1. **Node, version 22.12 or newer.** Node is a free program that runs Resolve in the background. To check, open a terminal (the Terminal app on Mac) and type:
 
-The older per-project setup (`resolve-setup`, under [Set it up](#set-it-up)) still works. Use the plugin when you want Resolve in every project without running setup in each one.
+   ```bash
+   node -v
+   ```
 
-You can read this file from top to bottom without knowing any code. The first half is for designers. The second half, under **For engineers and testers**, is reference detail that you can skip.
-
-## The story in one minute
-
-**The problem.** You ask an AI tool (Claude, Cursor or Codex) to draw a screen in Figma. It is fast, but it guesses. It may draw a button from scratch instead of using the Button in your design system. It may pick a component your team retired, because the name looks right. It may even invent a part that does not exist. The screen looks fine at a glance, but it is not built from your design system, so it slowly drifts away from it.
-
-**Without Resolve.** You ask Claude for a "Send money" screen in the Acme Payments app. Claude draws a rounded rectangle that looks like a button. It places "Old Button", a component Acme retired last year. It adds a part called "Payee dropdown" that is not in the library at all. Nobody notices until an engineer tries to build the screen.
-
-**With Resolve.** You ask the same thing. Before it draws anything, Claude asks Resolve, "Which component do I use for a payee picker?" Resolve answers: "The Acme Payee picker. Here is where it lives in Figma, and here is a real example of it to copy." Claude places that real component. When the screen is drawn, Claude asks Resolve to check it. Resolve says: "Fail. This screen uses the retired Old Button. Use Button instead." Claude fixes it. If you ask for something the library does not have, Resolve says "no match", and Claude tells you, instead of making one up.
-
-**What you see.** You do not open Resolve, and there is nothing to click. You see it in your AI tool's chat: Claude says which library components it chose, and it tells you the result of the check ("passed" or "failed, because..."). In Figma you get a screen made of real library components.
-
-**What Resolve is not.** It is not a Figma plugin. It does not draw anything; your AI tool draws. It never changes your Figma file; it only reads. It never guesses: no match means no answer. And it never changes your team's rules (for example "on the pay step, use this Button") by itself; a person approves every change.
-
-## Slash commands
-
-Once Resolve is installed, type these in the chat of Claude Code or Cursor. Each one tells your AI tool exactly what to ask Resolve, and what to show you. You paste a Figma link where it says `<link>`; a link to a single screen (it has `node-id=20-40` in it) works everywhere a screen is asked for. In every case, if Resolve has no match it says so. It never makes a component up.
-
-| Type | What happens | What you see |
-|---|---|---|
-| `/design-system <link>` | Resolve learns that Figma file (or page, or frame) and saves its components on your computer. A very big file is learned page by page. Running it again is safe. | How many components, how many are retired, which icon libraries are known, where it was saved, and what is still left. |
-| `/find <phrase>` | Resolve picks the right component for your words, for example `/find payee picker`. | A confident pick: the component, its Figma id, and a one-line reason. A weak match is shown as weak, with that one-line reason. It is never presented as a sure thing. Or "no match". |
-| `/check <link>` | Resolve checks a finished screen. | Three short lists: **Retired** (old components still on the screen), **Wrong** (a lookalike from the wrong family) and **Unknown** (not in the library). Or "passed". |
-| `/parts <link>` | What's on this screen and its code twin (or unmapped). For example a link to the Acme "Send money" screen. | Each component on the screen, its Figma id, and its code twin, or the word unmapped. |
-| `/handoff <link>` | The developer build sheet for that screen. | Every component with its Figma id and code, the parts inside, which recipe slots are filled, the check result and open questions. Or the reason it refused. |
-| `/resolve-status` | One short answer about this project. | Which libraries are loaded, when each was learned, its version if known, whether the Figma token is set, whether the always-on rule is installed, and what to do next. |
-
-Resolve's ticket add-on for AIDLC, if your team uses it, uses `design-handoff`. It calls `/handoff` for the build sheet. It does not replace that command.
-
-Setup (`resolve-setup`) puts these files in your project: `.claude/commands/` for Claude Code and `.cursor/commands/` for Cursor. Your AI tool shows them when you type `/`. Codex has no project commands; with Codex, say the same thing in words ("check this screen with Resolve: link"). Other tools can read the same commands as MCP prompts. To update them, run setup again. To remove everything Resolve added, ask your AI tool to run `resolve-setup --uninstall`; your own files and text stay.
-
-If a command cannot finish, you get one plain sentence and what to do next. You never see a stack trace. That covers a bad Figma link, a missing or expired token, a View-only seat, no design system learned yet, and Resolve not installed.
-
-Two kinds of files live in `.resolve/` on your computer. **Team files** are the ones your team wrote: recipes, context packs, the code map, decisions, bind rules, synonyms, phrase sets (`scoreboard/phrases/`) and golden files (`scoreboard/golden/`, including the file `score --init` writes). Those belong in the project. The **learned cache** is rebuilt by `/design-system`. Setup ignores that cache (`.resolve/graph.json`, `.resolve/files/`, `.resolve/learn/`, `.resolve/ingest/`, `.resolve/GRAPH_REPORT.md`, `.resolve/index.json`, `.resolve/setup-record.json`) and scoreboard run history (`.resolve/scoreboard/*`). A line in `.gitignore` that ignores the whole `.resolve` folder (`.resolve`, `.resolve/`, `.resolve/*`, or the same idea with `**`) also hides the team files; remove that line if you want them saved with the project.
-
-## What Resolve does, one piece at a time
-
-- **It learns your library.** You give it your design system file once. It reads the file and writes down what is in it: every component, its variants (for example Primary and Secondary), and where each one is used on real screens. You can repeat this whenever the library changes. This step has two names: **learn** (when your AI tool does it) and **ingest** (when you do it by hand). They mean the same thing: read a Figma file and remember it.
-- **It sets the context from the requirements or FSD.** The agent reads that document. Resolve does not. The agent passes which product, which journey step, who the screen is for, and the accessibility bar (for example wcag-aa) only when the document states them. A context pack is optional and stays: it is where a team adds its own words and property hints. It is used only on an exact product match, and an exact journey match when the document gives one. Audience, a11y, and density are shown on the card and do not change which component is picked.
-- **It recommends.** You describe what you need in plain words ("payee picker", "primary button"). Resolve picks the best matching component for that context. It looks at the name and your words first. If the match is only partial, it says "weak match" and offers up to three options, instead of pretending to be sure. An empty answer means stop. It does not draw a stand-in.
-- **It shows a real example.** With the pick, Resolve points to a real, filled-in copy of that component on a real screen. The AI tool clones it and swaps the content, which looks far better than starting from a bare default.
-- **It checks the finished screen.** Resolve looks at every piece on the screen and answers pass or fail. It flags parts that are not in the library, parts that are retired, and leftover template text such as "Lorem ipsum". It checks by each component's real Figma id (a hidden number every component has), not just by its layer name (the label you see in Figma's layers list), because a layer called "Button" can be anything.
-- **It knows what is retired.** A **retired** component is one your team no longer wants on new screens, although old screens may still use it. Resolve does not recommend retired parts, and flags one if it comes up. A check fails when a screen uses one. It also says what to use instead.
-- **It knows your team's words (optional).** If your team says "beneficiary" and the library says "Payee picker", you can teach Resolve that those mean the same.
-- **It knows the code twin (optional).** Engineers can write a short file, called a **code map**, that says "this Figma Button is this Button in our code". When it is there, Resolve adds the code component to its answer, for example `PayeePicker from '@acme/payments'`. Resolve never guesses a code twin.
-- **It shows what is inside a component.** Ask "what is inside the Payee picker?" and Resolve lists the library parts it is built from (for example Avatar and Button), each with its code component when the code map has one. A part with no code link says so. It never guesses one.
-- **It writes the developer handoff (optional).** For a finished screen, Resolve writes one sheet: every component on it, its Figma id, its code (React or Angular), the parts inside it, the check result, decisions the team approved, and open questions. It refuses when the screen still uses a retired component.
-- **It checks one component name against that sheet.** A developer types a display name, an Angular selector, a class name, or an import path. Resolve answers from the saved handoff and the saved code map only. It does not need the learned library. You get one answer: OK (the Angular selector, the module, and the import), retired (and what to use instead), not on this handoff, or on the handoff but not in the code map yet. It never guesses a code twin.
-- **It checks a context pack before you commit it.** The pack name is a slug, such as `checkout-summary`. The accessibility level is `wcag-a`, `wcag-aa`, or `wcag-aaa`. The file must not contain a Figma file key or a component id. Every recipe it names must already exist. When something is wrong, Resolve names the field and how to fix it.
-- **It knows screen recipes (optional).** A recipe is a checklist of the parts a kind of screen usually needs (header, list, main button, input). Resolve fills each slot with a real component.
-
-Resolve keeps everything it learned in a folder on your computer. This folder is called the **store**. Nothing is sent anywhere. Resolve only talks to Figma when you ask it to read a file.
-
-## Set it up
-
-Plan on about ten minutes. You do not type commands: your AI tool does the installing. The steps tell you what to expect, so you can tell it worked.
-
-**Before you start, you need three things:**
-
-1. **Node, version 22.12 or newer.** Node is a free program that runs Resolve in the background. To check, open a terminal (the Terminal app on Mac) and type `node -v`. You should see a number such as `v22.12.0` or higher. If you get an error or a lower number, install the current version from [nodejs.org](https://nodejs.org).
+   You should see a number such as `v22.12.0` or higher. If you get an error or a lower number, install the current version from [nodejs.org](https://nodejs.org).
 2. **An AI tool**: Claude Code, Cursor or Codex.
 3. **A Figma seat that allows AI tools to read your files.** For learning you need a **Dev or Full seat**, a paid seat type. A View or free seat has a small read allowance; Resolve saves its progress and carries on in the next session.
 
-### Step 1. Ask your AI tool to install Resolve
+### Option A: install as a plugin (recommended)
+
+Install Resolve once. After that, every chat in every project asks Resolve before it draws in Figma. You do not paste the install note again.
+
+You still do two things by hand. Connect Figma in the app (sign in when it asks). Then fill in the two settings the plugin asks for: a **Figma token**, and the **library file key**. The file key is the id in a link such as `https://www.figma.com/design/ACMEUI/Acme` (here the key is `ACMEUI`). Do not type the token into a file.
+
+**Claude Code**
+
+1. Add the Resolve marketplace:
+
+   ```
+   /plugin marketplace add TANISHQBAFNA/resolve
+   ```
+
+2. Install the plugin:
+
+   ```
+   /plugin install resolve@resolve
+   ```
+
+3. When it asks, fill in **Figma token** and **Library file key**.
+4. To change them later:
+
+   ```
+   /plugin configure resolve@resolve
+   ```
+
+**Cursor**
+
+1. In the Cursor chat, type:
+
+   ```
+   /add-plugin https://github.com/TANISHQBAFNA/resolve
+   ```
+
+2. Install **resolve**.
+3. Open **Plugins**, choose **Resolve**, then **Configure**, and fill in the same two settings.
+
+The older per-project setup (`resolve-setup`, Options B and C below) still works. Use the plugin when you want Resolve in every project without running setup in each one.
+
+### Option B: ask your AI tool to install it in one project
+
+You do not type commands: your AI tool does the installing. The steps tell you what to expect, so you can tell it worked.
+
+**Step 1. Ask your AI tool to install Resolve.**
 
 Open your project in Claude Code, Cursor or Codex, and paste this into the chat:
 
@@ -117,7 +191,7 @@ The tool reads [`INSTALL-FOR-AI.md`](INSTALL-FOR-AI.md), a checklist written for
 
 Checked on a test machine: every command in `INSTALL-FOR-AI.md` was run exactly as written, for Claude Code and for Cursor, in a scratch project with a scratch home folder (details in the engineer section below). **Not verified:** a real AI tool following the file in a live chat, Codex (not installed here), the Figma sign-in, and the Cursor app screens.
 
-### Step 2. Teach it your library
+**Step 2. Teach it your library.**
 
 1. Restart the tool so it sees the new settings (Claude Code: quit and start `claude` again in the project. Cursor: reload the window). Then sign in to Figma when it asks (Claude Code: type `/mcp`, choose figma, log in. Cursor: **Settings → MCP** and sign in).
 2. In the chat, write: "Learn my Figma design system from this link: (paste the Figma file link)".
@@ -126,12 +200,11 @@ Checked on a test machine: every command in `INSTALL-FOR-AI.md` was run exactly 
 
 Upgrading from an older version of Resolve? Read [Upgrading from the old names](#upgrading-from-the-old-names) first.
 
-<details>
-<summary>If you prefer to do it by hand</summary>
+### Option C: install it by hand
 
 These are the same steps, typed by you. Use them if you would rather not let your AI tool run commands.
 
-**Step A. Set up your project (once per project).**
+#### Step A. Set up your project (once per project)
 
 An AI tool forgets things between chats, so it needs a short written instruction that it reads every time: "for any Figma task, ask Resolve first." Different tools call this file different names. In Cursor it is a **Cursor rule**. In Claude it is a **Claude skill**, plus a small note in a file called `CLAUDE.md`. The same command also adds the **project connection**: a small settings file that tells Cursor (`.cursor/mcp.json`) and Claude Code (`.mcp.json`) how to start Resolve. You do not have to create that file yourself. Open a terminal in your project folder and run:
 
@@ -144,7 +217,7 @@ npx -y -p github:TANISHQBAFNA/resolve resolve-setup
 3. It is safe to run again; it only touches its own lines. If you already have a `.cursor/mcp.json` or `.mcp.json`, Resolve adds itself and keeps everything else in it. If such a file is not valid JSON, Resolve leaves it alone and tells you which file to fix. To look first without changing anything, add `--dry-run` at the end.
 4. If you only use one of the two tools, the other settings file is harmless; delete it if you like. Resolve never changes settings that live in your home folder (`~/.claude.json`, `~/.cursor`, `~/.codex`); the steps below that touch those are yours to run.
 
-**Step B. Connect Figma and check Resolve.**
+#### Step B. Connect Figma and check Resolve
 
 **MCP** (Model Context Protocol) is the plug that lets an AI tool talk to helper programs. Resolve is one such helper, and Figma has one too. "Connecting" simply means telling your tool how to start each helper. Step A already did that for Resolve in this project. Pick the tool you use.
 
@@ -195,7 +268,7 @@ Checked on a test machine: Step A writes the Cursor rule (`.cursor/rules/resolve
 
 Using the Claude desktop app instead? See [Setup in detail](#setup-in-detail).
 
-**Other ways to connect, by hand.**
+#### Other ways to connect, by hand
 
 **Claude Code, for all projects at once.** Instead of the project file, add Resolve to your home folder settings:
 
@@ -220,9 +293,56 @@ claude mcp add resolve -s user -- npx -y -p github:TANISHQBAFNA/resolve resolve-
 
 If the file already has other servers, add only the `"resolve": { ... }` part next to them.
 
-</details>
 
-## Two asks to try
+## Quick start
+
+These steps use the made-up Acme library. They assume you finished one of the install options above.
+
+1. **Teach Resolve your library.** Copy the link to your design system file from the browser address bar and type:
+
+   ```
+   /design-system https://www.figma.com/design/ACMEUI/Acme
+   ```
+
+   **What you should see:** how many components it learned, how many are retired, which icon libraries are known, and where it saved them. Running it again is safe.
+
+2. **Ask for a component by name you already know.** If you (or the canvas) already know the name, Resolve goes straight to it:
+
+   ```
+   /find Payee picker
+   ```
+
+   **What you should see:** the Acme Payee picker, its `fileKey` and `figmaNodeId`, and a one-line reason.
+
+3. **Ask for a component in your own words.** When you do not know the name, describe it:
+
+   ```
+   /find choose who to pay
+   ```
+
+   **What you should see:** a confident pick, a pick marked **weak match** with the reason it is weak, or "no match". Resolve never makes a component up.
+
+4. **Ask for a whole screen.** In plain words, in the chat:
+
+   > Design the Send money screen in the Acme Payments app using Resolve.
+
+   Your AI tool asks Resolve for a recipe, fills each slot with a real component, copies a real example, and draws the screen in Figma.
+
+5. **Check the screen.** Paste the link to that one screen (it has `node-id=` in it):
+
+   ```
+   /check https://www.figma.com/design/ACMEUI/Acme?node-id=20-40
+   ```
+
+   **What you should see:** "passed", or short lists of **Retired**, **Wrong** and **Unknown** parts, plus the **Proper use** results (detached copies, hard-coded values, accessibility).
+
+6. **Hand it to a developer** (optional, needs a code map):
+
+   ```
+   /handoff https://www.figma.com/design/ACMEUI/Acme?node-id=20-40
+   ```
+
+### Two asks to try
 
 These use the made-up Acme library. Type them into your AI tool once Step 2 is done.
 
@@ -230,6 +350,96 @@ These use the made-up Acme library. Type them into your AI tool once Step 2 is d
 2. **"Check the Send money screen."** Resolve answers that the check failed, because the screen uses the retired "Old Button". It says what to use instead (Button) and what the code is (`OldButton from '@acme/ui-legacy'`).
 
 The exact, word-for-word answers for both are shown further down, under [recommend](#recommend) and [verify](#verify).
+
+## Slash commands
+
+Once Resolve is installed, type these in the chat of Claude Code or Cursor. Each one tells your AI tool exactly what to ask Resolve, and what to show you. You paste a Figma link where it says `<link>`; a link to a single screen (it has `node-id=20-40` in it) works everywhere a screen is asked for. In every case, if Resolve has no match it says so. It never makes a component up.
+
+| Type | What happens | What you see |
+|---|---|---|
+| `/design-system <link>` | Resolve learns that Figma file (or page, or frame) and saves its components on your computer. A very big file is learned page by page. Running it again is safe. | How many components, how many are retired, which icon libraries are known, where it was saved, and what is still left. |
+| `/find <phrase>` | Resolve picks the right component for your words, for example `/find payee picker`. | A confident pick: the component, its Figma id, and a one-line reason. A weak match is shown as weak, with that one-line reason. It is never presented as a sure thing. Or "no match". |
+| `/check <link>` | Resolve checks a finished screen. | Three short lists: **Retired** (old components still on the screen), **Wrong** (a lookalike from the wrong family) and **Unknown** (not in the library). Or "passed". |
+| `/parts <link>` | What's on this screen and its code twin (or unmapped). For example a link to the Acme "Send money" screen. | Each component on the screen, its Figma id, and its code twin, or the word unmapped. |
+| `/handoff <link>` | The developer build sheet for that screen. | Every component with its Figma id and code, the parts inside, which recipe slots are filled, the check result and open questions. Or the reason it refused. |
+| `/resolve-status` | One short answer about this project. | Which libraries are loaded, when each was learned, its version if known, whether the Figma token is set, whether the always-on rule is installed, and what to do next. |
+
+Resolve's ticket add-on for AIDLC, if your team uses it, uses `design-handoff`. It calls `/handoff` for the build sheet. It does not replace that command.
+
+Setup (`resolve-setup`) puts these files in your project: `.claude/commands/` for Claude Code and `.cursor/commands/` for Cursor. Your AI tool shows them when you type `/`. Codex has no project commands; with Codex, say the same thing in words ("check this screen with Resolve: link"). Other tools can read the same commands as MCP prompts. To update them, run setup again. To remove everything Resolve added, ask your AI tool to run `resolve-setup --uninstall`; your own files and text stay.
+
+If a command cannot finish, you get one plain sentence and what to do next. You never see a stack trace. That covers a bad Figma link, a missing or expired token, a View-only seat, no design system learned yet, and Resolve not installed.
+
+Two kinds of files live in `.resolve/` on your computer. **Team files** are the ones your team wrote: recipes, context packs, the code map, decisions, bind rules, synonyms, phrase sets (`scoreboard/phrases/`) and golden files (`scoreboard/golden/`, including the file `score --init` writes). Those belong in the project. The **learned cache** is rebuilt by `/design-system`. Setup ignores that cache (`.resolve/graph.json`, `.resolve/files/`, `.resolve/learn/`, `.resolve/ingest/`, `.resolve/GRAPH_REPORT.md`, `.resolve/index.json`, `.resolve/setup-record.json`) and scoreboard run history (`.resolve/scoreboard/*`). A line in `.gitignore` that ignores the whole `.resolve` folder (`.resolve`, `.resolve/`, `.resolve/*`, or the same idea with `**`) also hides the team files; remove that line if you want them saved with the project.
+
+## Overview: how it works
+
+### What an MSOCK is
+
+Resolve is a design-system **MSOCK**: **SOCK** knowledge plus **SOCI** instructions, packed so that an AI can get the right component and the right context to design a screen.
+
+| Part | What it holds | Where it lives | Example (Acme) |
+| --- | --- | --- | --- |
+| **SOCK** (System of Connected Knowledge) | The facts about your library: every component, its variants and properties with allowed values and defaults, real examples of it on screens, which parts are retired, which screens used it and passed the check, and (when the team maps it) its React or Angular code twin. | The learned graph and SOCK facts in your store (`.resolve/`), plus your team files (code map, synonyms). | Payee picker = Avatar + Button. Code: `AcmePayeePickerComponent`, `<acme-payee-picker>`. |
+| **SOCI** (System of Connected Intelligence) and instructions | How the AI must use that knowledge: the always-on "ask Resolve first" rule, screen recipes, context from the requirements, human bind rules, and SOCI's suggested rules and recipes (a person approves each one). | `rules/resolve.mdc`, `skills/resolve/SKILL.md`, the slash commands, `.resolve/recipes.json`, `.resolve/bind-rules.json`, `.resolve/context-packs.json`, approved SOCI decisions. | "On the pay step, use Button." "A Send money screen needs a payee picker, an amount field and a primary button." |
+
+The AI tool asks; Resolve answers from the MSOCK; the AI tool draws. Resolve never draws and never changes your Figma file.
+
+```
+Designer / requirements ──► AI tool (Claude Code or Cursor)
+                               │  always-on rule: "ask Resolve first"
+                               ▼
+                      Resolve (MSOCK, read-only)
+     known name?  ── yes ──► resolve      → that exact component + Figma id
+                  └─ no ───► recommend    → best match, "weak match", or no match
+     screen job?  ─────────► recipe       → slots filled with real components
+     how to place ─────────► get_example  → a real filled-in copy to clone
+                               │
+                               ▼
+                      AI tool draws in Figma
+                               │
+                               ▼
+                      verify_frame / /check → pass, or what to fix
+```
+
+### Known name first, phrase finder second
+
+There are two ways to ask Resolve for a component, and the AI uses them in this order:
+
+1. **The name is known.** The designer typed it, the requirements name it, or the AI read it off a component already on the canvas (for example `Popover` or `Text field`). The AI calls `resolve` with that name. An exact component always comes back with `id`, `fileKey` and `figmaNodeId`, even if it is used nowhere yet. A retired name comes back flagged, with the live replacement. `/find` does the same thing when the phrase is an exact component name.
+2. **The name is not known.** The AI calls `recommend` with the designer's words ("payee picker", "6 digit OTP box"). This is the **phrase finder**. It looks at the name and the words first (exact name, word match, team synonyms); screen and usage only break ties. A partial match says **weak match** and offers up to three parts. No match says "No master matched. Do not invent."
+
+The same ask gets the same top pick from both: an exact component name (letter case ignored) stays that component in `resolve` and in `recommend`.
+
+### The story in one minute
+
+**The problem.** You ask an AI tool (Claude, Cursor or Codex) to draw a screen in Figma. It is fast, but it guesses. It may draw a button from scratch instead of using the Button in your design system. It may pick a component your team retired, because the name looks right. It may even invent a part that does not exist. The screen looks fine at a glance, but it is not built from your design system, so it slowly drifts away from it.
+
+**Without Resolve.** You ask Claude for a "Send money" screen in the Acme Payments app. Claude draws a rounded rectangle that looks like a button. It places "Old Button", a component Acme retired last year. It adds a part called "Payee dropdown" that is not in the library at all. Nobody notices until an engineer tries to build the screen.
+
+**With Resolve.** You ask the same thing. Before it draws anything, Claude asks Resolve, "Which component do I use for a payee picker?" Resolve answers: "The Acme Payee picker. Here is where it lives in Figma, and here is a real example of it to copy." Claude places that real component. When the screen is drawn, Claude asks Resolve to check it. Resolve says: "Fail. This screen uses the retired Old Button. Use Button instead." Claude fixes it. If you ask for something the library does not have, Resolve says "no match", and Claude tells you, instead of making one up.
+
+**What you see.** You do not open Resolve, and there is nothing to click. You see it in your AI tool's chat: Claude says which library components it chose, and it tells you the result of the check ("passed" or "failed, because..."). In Figma you get a screen made of real library components.
+
+**What Resolve is not.** It is not a Figma plugin. It does not draw anything; your AI tool draws. It never changes your Figma file; it only reads. It never guesses: no match means no answer. And it never changes your team's rules (for example "on the pay step, use this Button") by itself; a person approves every change.
+
+### Each piece in detail
+
+- **It learns your library.** You give it your design system file once. It reads the file and writes down what is in it: every component, its variants (for example Primary and Secondary), and where each one is used on real screens. You can repeat this whenever the library changes. This step has two names: **learn** (when your AI tool does it) and **ingest** (when you do it by hand). They mean the same thing: read a Figma file and remember it.
+- **It sets the context from the requirements or FSD.** The agent reads that document. Resolve does not. The agent passes which product, which journey step, who the screen is for, and the accessibility bar (for example wcag-aa) only when the document states them. A context pack is optional and stays: it is where a team adds its own words and property hints. It is used only on an exact product match, and an exact journey match when the document gives one. Audience, a11y, and density are shown on the card and do not change which component is picked.
+- **It recommends.** You describe what you need in plain words ("payee picker", "primary button"). Resolve picks the best matching component for that context. It looks at the name and your words first. If the match is only partial, it says "weak match" and offers up to three options, instead of pretending to be sure. An empty answer means stop. It does not draw a stand-in.
+- **It shows a real example.** With the pick, Resolve points to a real, filled-in copy of that component on a real screen. The AI tool clones it and swaps the content, which looks far better than starting from a bare default.
+- **It checks the finished screen.** Resolve looks at every piece on the screen and answers pass or fail. It flags parts that are not in the library, parts that are retired, and leftover template text such as "Lorem ipsum". It checks by each component's real Figma id (a hidden number every component has), not just by its layer name (the label you see in Figma's layers list), because a layer called "Button" can be anything.
+- **It knows what is retired.** A **retired** component is one your team no longer wants on new screens, although old screens may still use it. Resolve does not recommend retired parts, and flags one if it comes up. A check fails when a screen uses one. It also says what to use instead.
+- **It knows your team's words (optional).** If your team says "beneficiary" and the library says "Payee picker", you can teach Resolve that those mean the same.
+- **It knows the code twin (optional).** Engineers can write a short file, called a **code map**, that says "this Figma Button is this Button in our code". When it is there, Resolve adds the code component to its answer, for example `PayeePicker from '@acme/payments'`. Resolve never guesses a code twin.
+- **It shows what is inside a component.** Ask "what is inside the Payee picker?" and Resolve lists the library parts it is built from (for example Avatar and Button), each with its code component when the code map has one. A part with no code link says so. It never guesses one.
+- **It writes the developer handoff (optional).** For a finished screen, Resolve writes one sheet: every component on it, its Figma id, its code (React or Angular), the parts inside it, the check result, decisions the team approved, and open questions. It refuses when the screen still uses a retired component.
+- **It checks one component name against that sheet.** A developer types a display name, an Angular selector, a class name, or an import path. Resolve answers from the saved handoff and the saved code map only. It does not need the learned library. You get one answer: OK (the Angular selector, the module, and the import), retired (and what to use instead), not on this handoff, or on the handoff but not in the code map yet. It never guesses a code twin.
+- **It checks a context pack before you commit it.** The pack name is a slug, such as `checkout-summary`. The accessibility level is `wcag-a`, `wcag-aa`, or `wcag-aaa`. The file must not contain a Figma file key or a component id. Every recipe it names must already exist. When something is wrong, Resolve names the field and how to fix it.
+- **It knows screen recipes (optional).** A recipe is a checklist of the parts a kind of screen usually needs (header, list, main button, input). Resolve fills each slot with a real component.
+
+Resolve keeps everything it learned in a folder on your computer. This folder is called the **store**. Nothing is sent anywhere. Resolve only talks to Figma when you ask it to read a file.
 
 ## Check that a screen uses the library properly
 
@@ -328,6 +538,8 @@ These are explained where they first appear. This list is a reminder, and you do
 - **Stub:** an empty placeholder for a component that lives in another Figma file. It has a name but no variants and no details here. Resolve ignores a stub when a real component has the same name.
 - **Bind rule:** a human-written rule such as "on the pay step, use this Button".
 - **SOCI** (System of Connected Intelligence): the part of Resolve that watches which components pass the check on real screens and *suggests* a rule or recipe. It never applies a suggestion; a person approves or rejects it. **SOCK** (System of Connected Knowledge) is the learned facts about your library that those suggestions come from.
+- **MSOCK:** Resolve as a whole: SOCK knowledge plus SOCI instructions that an AI uses to pick the right component and context for a screen. See [What an MSOCK is](#what-an-msock-is).
+- **Phrase finder:** `recommend`, used when the component name is not known. When the name is known, `resolve` answers directly.
 
 ---
 
@@ -930,7 +1142,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 | Ingredient card (Acme example library) | Payee picker = Avatar + Button, Payment method row = Avatar + Button; invented parts 0; unmapped parts shown as unmapped |
 | Angular code map (Acme example) | 4 Angular entries load with 0 ignored; the CSV example imports to the same map; 14 bad Angular values dropped with a reason while the code line stays; 5 real selector forms and input aliases accepted |
 | Handoff sheet (Acme example) | Send money refused for the retired Old Button (draft or not); after the fix, 3 components, 3 linked to code, 2 parts, verify PASS, matches the golden file; 0 invented code lines. Receipt refused as `not-found` (Legacy badge's component is in no learned file); Payment methods' Brand mark labelled `other-library` |
-| Tests | 875 passing |
+| Tests | 893 (counted on `main` at `08eb74d`) |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](docs/SCOREBOARD.md).
 
@@ -994,7 +1206,7 @@ To apply: set Variant=Secondary, Has icon=true
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
-- **Oct 13, 2026 — [PR #58](https://github.com/TANISHQBAFNA/resolve/pull/58).** `resolve learn` reads a JSON component file the same way the agent does, including a libraries list. When Acme is preferred, Acme's part wins over a busier copy in another file, a slot stays a slot, and a retired set is named by the set. Phrase score unchanged: top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0.
+- **Oct 13, 2026 — [PR #58](https://github.com/TANISHQBAFNA/resolve/pull/58).** `resolve learn` reads a JSON component file the same way the agent does, including a libraries list. When Acme is preferred, Acme's part wins over a busier copy in another file, a slot stays a slot, and a retired set is named by the set. Phrase score unchanged: top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0. 893 tests.
 - **Oct 13, 2026 — [PR #48](https://github.com/TANISHQBAFNA/resolve/pull/48).** Re-learning Acme's Home page replaces that page: a field that left is gone, and a master that left is marked removed. An input in a slot counts as on the screen, a hidden button is left out, and "input field" finds `ingredients/input-field` ahead of `base/` unless the ask says `base/`. `resolve status` shows the workspace label, and `resolve learn` leaves out the save-state checkpoint. Phrase score unchanged: top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0. Default tools stay 7. 888 tests.
 - **Oct 13, 2026 — [PR #57](https://github.com/TANISHQBAFNA/resolve/pull/57).** `verify_frame`, `/check`, and `resolve check` now say when a frame uses the library badly: a detached copy of a component, a hard-coded colour, spacing, radius, or effect, a property value that is not allowed, placeholder text ("Button", "Label"), text contrast, a tap target under the bar, or an icon-only button with no label. The section is on the same card. The first line states both results, and proper-use errors make that line FAIL. Warnings alone stay PASS, with the count. A crowded card keeps every error and points at `resolve check --all` (or `verify_frame` `all: true`). Exit 1 is unchanged. Exit 7 means the component check passed and proper use still has an error. A capture with no `boundVariables` says unknown and does not flag a colour. On the Acme fixture, Misused is 14/14 known defects (precision 1) and Paid screen has 0 errors. The phrase scoreboard is unchanged: 118 phrases (88 expected a part + 30 expected empty), top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0. Held-out top-3 stays 18/19. The fresh Acme set stays top-3 14/14 and empty 7/7. The golden set stays 75 cases. Default tools stay 7. 883 tests.
 - **Oct 12, 2026 — [PR #56](https://github.com/TANISHQBAFNA/resolve/pull/56).** Same 118 phrases. top-1 83/88 (was 66/88), top-3 85/88 (was 68/88), empty-correct 30/30, invented 0, retired 0. One synonym map covers `synonyms.json` and the property-hint words, so a value word such as disabled or danger can rank the component that owns that value. Stemming, component descriptions, and property values count in the match. Teams still add their own words in a context pack. A held-out fifth of the phrases (seed 90) scores top-3 18/19. A fresh Acme set of 21 phrases scores top-3 14/14 and empty 7/7. The golden set stays 75 cases. Default tools stay 7. No scoreboard sentence was added as a synonym. 875 tests.
@@ -1074,4 +1286,6 @@ npm run build     # typecheck + browser build + server build
 - How tools plug in: [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md)
 - Toolchain versions: [`CHANGELOG.md`](CHANGELOG.md)
 
-License: [`LICENSE`](LICENSE) (MIT)
+## License
+
+Resolve is free to use under the MIT license. See [`LICENSE`](LICENSE).
