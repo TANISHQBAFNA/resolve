@@ -34,7 +34,7 @@ Resolve gives your AI two things about your design system: what your components 
 
 ## How it works
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/how-it-works-dark.svg"><img src="docs/assets/how-it-works-light.svg" alt="Illustration of three steps. 1, Learn your library: Resolve reads every component, variant and property in your Figma file, with /design-system. 2, Match every request: known names go straight to the part, other words use the phrase finder, with /find payee picker. 3, Check the result: it flags retired, detached and hard-coded parts, with the fix, with /check." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/how-it-works-dark.svg"><img src="docs/assets/how-it-works-light.svg" alt="Illustration of three steps. 1, Learn components: Resolve reads every component, variant and property in your Figma file, with /design-system. 2, Match requests: known names first, other words use the phrase finder, with /find payee picker. 3, Check screens: it flags retired, detached and hard-coded parts, with /check." width="100%"></picture>
 
 ## Features
 
