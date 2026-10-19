@@ -17,39 +17,37 @@
 	<a href=".cursor-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Cursor-555555.svg" alt="Cursor plugin"></a>
 </p>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg"><img src="docs/assets/hero-light.svg" alt="Illustration: a prompt, Build an Acme payments screen, goes to the AI tool. The AI asks Resolve, which uses SOCK knowledge and SOCI instructions to find the exact components. The result is an Acme screen built from the real Payee picker, Text field and Button." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg"><img src="docs/assets/hero-light.svg" alt="Illustration: a prompt, Build an Acme payments screen, goes to the AI tool. The AI asks Resolve, which finds the exact components. The result is an Acme screen built from the real Payee picker, Text field and Button." width="100%"></picture>
 
-<p align="center"><sub>You ask in plain words. Your AI asks Resolve. The screen is built from your real parts.</sub></p>
+<p align="center">You ask in plain words, and your AI builds with your real parts.</p>
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/before-after-dark.svg"><img src="docs/assets/before-after-light.svg" alt="Illustration: on the left, without Resolve, the AI invents a Payee dropdown, hard-codes the colour #1A73E8 and draws a detached Pay now button, and the check fails with 5 errors. On the right, with Resolve, the screen uses the real Payee picker, Text field and Button, and the check passes." width="100%"></picture>
 
-<p align="center"><sub>Without Resolve the AI guesses. With Resolve it places real library parts and the check passes.</sub></p>
+<p align="center">Without Resolve the AI guesses. With Resolve the check passes.</p>
 
 > [!NOTE]
 > Every example and picture here uses **Acme**, a made-up design system. The pictures are illustrations, not screenshots.
 
 ## What Resolve is
 
-Resolve is a design-system **MSOCK**: **SOCK** knowledge (your components, their variants, properties, recipes and code) plus **SOCI** instructions (how the AI must use them). Your AI asks Resolve before it draws. Resolve only reads. It never draws and never changes your Figma file.
+Resolve gives your AI two things about your design system: what your components are, and how to use them. We call this an **MSOCK**: **SOCK** = what your components are (variants, properties, recipes and code), **SOCI** = how to use them (the always-on rule, recipes and context). Your AI asks Resolve before it draws. Resolve only reads. It never draws and never changes your Figma file.
 
 ## How it works
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/how-it-works-dark.svg"><img src="docs/assets/how-it-works-light.svg" alt="Illustration of three steps. 1, Learn your library: Resolve reads every component, variant and property in your Figma file, with /design-system. 2, Match every request: known names go straight to the part, other words use the phrase finder, with /find payee picker. 3, Check the result: it flags retired, detached and hard-coded parts, with the fix, with /check." width="100%"></picture>
 
-<p align="center"><sub>Learn once. Then every ask gets a real component, and every screen gets a check.</sub></p>
-
 ## Features
 
 <table>
 <tr>
-<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-grid-dark.svg"><img src="docs/assets/icon-grid-light.svg" alt="grid icon" width="48"></picture><br><b>Knows your library</b><br>Every component, variant and property, learned from your Figma file.</td>
-<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-logo-dark.svg"><img src="docs/assets/icon-logo-light.svg" alt="logo icon" width="48"></picture><br><b>Known name first</b><br>A named part, like <code>Popover</code>, goes straight to that component.</td>
-<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-chat-dark.svg"><img src="docs/assets/icon-chat-light.svg" alt="chat icon" width="48"></picture><br><b>Speaks designer</b><br>&ldquo;payee picker&rdquo; finds Payee picker. No match means no answer.</td>
+<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-grid-dark.svg"><img src="docs/assets/icon-grid-light.svg" alt="Knows your library" width="48"></picture><br><b>Knows your library</b><br>Every component, variant and property, learned from your Figma file.</td>
+<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-logo-dark.svg"><img src="docs/assets/icon-logo-light.svg" alt="Known name first" width="48"></picture><br><b>Known name first</b><br>A named part, like <code>Popover</code>, goes straight to that component.</td>
+<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-chat-dark.svg"><img src="docs/assets/icon-chat-light.svg" alt="Speaks designer" width="48"></picture><br><b>Speaks designer</b><br>&ldquo;payee picker&rdquo; finds Payee picker. No match means no answer.</td>
 </tr>
 <tr>
-<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-sparkle-dark.svg"><img src="docs/assets/icon-sparkle-light.svg" alt="sparkle icon" width="48"></picture><br><b>Tells the AI how</b><br>An always-on rule, screen recipes and context from your requirements.</td>
-<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-check-dark.svg"><img src="docs/assets/icon-check-light.svg" alt="check icon" width="48"></picture><br><b>Checks every screen</b><br>Retired, detached and hard-coded parts, and accessibility, with the fix.</td>
-<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-grid-dark.svg"><img src="docs/assets/icon-grid-light.svg" alt="grid icon" width="48"></picture><br><b>Code and handoff</b><br>React or Angular code twins, and a build sheet for developers.</td>
+<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-sparkle-dark.svg"><img src="docs/assets/icon-sparkle-light.svg" alt="Tells the AI how" width="48"></picture><br><b>Tells the AI how</b><br>An always-on rule, screen recipes and context from your requirements.</td>
+<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-check-dark.svg"><img src="docs/assets/icon-check-light.svg" alt="Checks every screen" width="48"></picture><br><b>Checks every screen</b><br>Retired, detached and hard-coded parts, and accessibility, with the fix.</td>
+<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-code-dark.svg"><img src="docs/assets/icon-code-light.svg" alt="Code and handoff" width="48"></picture><br><b>Code and handoff</b><br>React or Angular code twins, and a build sheet for developers.</td>
 </tr>
 </table>
 
@@ -57,13 +55,13 @@ Resolve is a design-system **MSOCK**: **SOCK** knowledge (your components, their
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/component-card-dark.svg"><img src="docs/assets/component-card-light.svg" alt="Illustration of a Resolve card for the Acme Button: a small preview, the Angular selector acme-button and AcmeButtonModule, three properties with allowed values (Variant: Primary, Secondary, Tertiary; Size: Medium, Small, Large; State: Enabled, Disabled), and a line saying it is used on the Send money screen, with a real example to copy." width="100%"></picture>
 
-<p align="center"><sub>One short card per part: where it lives, the values it allows, its code, and a real example.</sub></p>
+<p align="center">One short card per part, with the values it allows and a real example.</p>
 
 ## Check a screen
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/check-result-dark.svg"><img src="docs/assets/check-result-light.svg" alt="Illustration of a /check result in a terminal. The verdict reads Components: PASS, Proper use: FAIL, 5 errors and 7 warnings. The findings: fill #1A73E8 is hard-coded, use the nearest token color/primary/600; Button is detached, re-insert the Button instance; hint text contrast is 1.7:1, below 4.5:1." width="100%"></picture>
 
-<p align="center"><sub>Each problem comes with its fix, like the nearest library token for a hard-coded colour.</sub></p>
+<p align="center">Every problem comes with its fix.</p>
 
 ## Install
 
