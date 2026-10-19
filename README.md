@@ -21,7 +21,7 @@
 
 <p align="center">You ask in plain words, and your AI builds with your real parts.</p>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/before-after-dark.svg"><img src="docs/assets/before-after-light.svg" alt="Illustration: on the left, without Resolve, the AI invents a Payee dropdown, hard-codes the colour #1A73E8 and draws a detached Pay now button, and the check fails with 5 errors. On the right, with Resolve, the screen uses the real Payee picker, Text field and Button, and the check passes." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/before-after-dark.svg"><img src="docs/assets/before-after-light.svg" alt="Illustration: on the left, without Resolve, the AI invents a Payee dropdown, hard-codes the colour #1A73E8 with no token and draws a detached Pay now button, and the check fails with 3 errors. On the right, with Resolve, the screen uses the real Payee picker, Text field and Button, and the check passes." width="100%"></picture>
 
 <p align="center">Without Resolve the AI guesses. With Resolve the check passes.</p>
 
