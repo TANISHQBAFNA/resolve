@@ -29,12 +29,12 @@ const rest = (fileKey: string, file: unknown) =>
 const acmeGraph = () => rest("ACMEUI", acmeFile);
 const acme = () => indexGraph(acmeGraph());
 
-/** The README's code map: Button set, Payee picker by name, retired Old Button. */
+/** The reference's code map (docs/REFERENCE.md): Button set, Payee picker by name, retired Old Button. */
 function readmeCodeMap(): string {
-  const readme = readFileSync(join(__dirname, "..", "README.md"), "utf8");
+  const readme = readFileSync(join(__dirname, "..", "docs", "REFERENCE.md"), "utf8");
   const at = readme.indexOf("#### `.resolve/code-map.json`");
   const block = readme.slice(at).match(/```json\n([\s\S]*?)```/);
-  if (!block?.[1]) throw new Error("README code map example missing");
+  if (!block?.[1]) throw new Error("REFERENCE code map example missing");
   return block[1];
 }
 
