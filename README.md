@@ -53,7 +53,7 @@ Resolve gives your AI two things about your design system: what your components 
 
 ## What the AI gets
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/component-card-dark.svg"><img src="docs/assets/component-card-light.svg" alt="Illustration of a Resolve card for the Acme Button: a small preview, the Angular selector acme-button and AcmeButtonModule, three properties with allowed values (Variant: Primary, Secondary, Tertiary; Size: Medium, Small, Large; State: Enabled, Disabled), and a line saying it is used on the Send money screen, with a real example to copy." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/component-card-dark.svg"><img src="docs/assets/component-card-light.svg" alt="Illustration of a Resolve card for the Acme Button: a small preview, the Angular selector acme-button and AcmeButtonModule, three properties with allowed values (Variant: Primary, Secondary, Tertiary; Size: Medium, Small, Large; State: Enabled, Disabled), and a line saying it is used on Send money, with a real example to copy." width="100%"></picture>
 
 <p align="center">One short card per part, with the values it allows and a real example.</p>
 
