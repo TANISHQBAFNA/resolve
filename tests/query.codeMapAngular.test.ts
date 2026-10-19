@@ -31,12 +31,12 @@ const acmeGraph = () => buildGraph(adaptFigmaRestFile({ fileKey: "ACMEUI", file:
 const acme = () => indexGraph(acmeGraph());
 const CSV = join(__dirname, "..", "docs", "examples", "acme-code-map-angular.csv");
 
-/** The README's React map, read from the README so the docs and the test cannot drift. */
+/** The reference's React map, read from docs/REFERENCE.md so the docs and the test cannot drift. */
 function readmeReactMap(): string {
-  const readme = readFileSync(join(__dirname, "..", "README.md"), "utf8");
+  const readme = readFileSync(join(__dirname, "..", "docs", "REFERENCE.md"), "utf8");
   const at = readme.indexOf("#### `.resolve/code-map.json`");
   const block = readme.slice(at).match(/```json\n([\s\S]*?)```/);
-  if (!block?.[1]) throw new Error("README code map example missing");
+  if (!block?.[1]) throw new Error("REFERENCE code map example missing");
   return block[1];
 }
 

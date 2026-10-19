@@ -47,7 +47,7 @@ npm run build:server
 
 That needs Node 22.12 or newer. Then open this folder in your AI tool and turn on Figma.
 
-For clone flags, tokens, and the optional browser map, see [For developers](../README.md#for-developers) in the README.
+For clone flags, tokens, and the optional browser map, see [For developers](REFERENCE.md#for-developers) in the reference.
 
 ---
 
