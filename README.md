@@ -59,7 +59,7 @@ Resolve gives your AI two things about your design system: what your components 
 
 ## Check a screen
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/check-result-dark.svg"><img src="docs/assets/check-result-light.svg" alt="Illustration of a /check result in a terminal. The verdict reads Components: PASS, Proper use: FAIL, 5 errors and 7 warnings. The findings: fill #1A73E8 is hard-coded, use the nearest token color/primary/600; Button is detached, re-insert the Button instance; hint text contrast is 1.7:1, below 4.5:1." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/check-result-dark.svg"><img src="docs/assets/check-result-light.svg" alt="Illustration of a /check result in a terminal. The verdict reads FAIL: proper use, 5 errors and 7 warnings, components pass. The findings: fill #1A73E8 is hard-coded, use the nearest token color/primary/600; Button is detached, re-insert the Button instance; hint text contrast is 1.7:1, below 4.5:1." width="100%"></picture>
 
 <p align="center">Every problem comes with its fix.</p>
 
@@ -173,6 +173,7 @@ Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.gra
 
 Newest first. The full list is in the [reference](docs/REFERENCE.md#version-history).
 
+- **Oct 20, 2026 — [PR #59](https://github.com/TANISHQBAFNA/resolve/pull/59).** Icon search still finds the icon. A plain name such as "button" beats a bar that only contains buttons, even when several libraries are learned. "primary button", "main action button", and "primary CTA" pick Acme DS Button, and the sign-in button slot fills with it. "info icon" picks the info icon. The check card's first line is plain PASS only when the check exits 0. A proper-use failure starts `FAIL: proper use … · components pass`. Phrase score rose from 83 of 88 first picks to 85, and from 85 of 88 in the top 3 to 87. Empty answers stay 30 of 30. Nothing is invented. The golden set stays 75.
 - **Oct 20, 2026 — [PR #64](https://github.com/TANISHQBAFNA/resolve/pull/64).** The README pictures, logo and badge use a brighter teal. In light mode, words are near-black and the teal is in fills, chips and underlines. PASS stays green.
 - **Oct 20, 2026 — [PR #61](https://github.com/TANISHQBAFNA/resolve/pull/61).** A failed check now says `pass: false` in JSON, including when proper use fails. Status still prints local time with a zone name, and the tests accept that. Tests stop with one clear message on Node older than 22.12. CI fails if the phrase score drops below 83 of 88 first picks or 85 of 88 in the top 3. CI runs on Node 22 and 24, in UTC and India time, and the browser checks include Firefox.
 - **Oct 20, 2026 — [PR #62](https://github.com/TANISHQBAFNA/resolve/pull/62).** The README pictures, logo and badge changed from purple to teal. PASS stays green.

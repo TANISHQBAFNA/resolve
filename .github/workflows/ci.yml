@@ -35,8 +35,10 @@ jobs:
           set -o pipefail
           npm run resolve -- ingest scoreboard/fixture/library.json --role library --name "Scoreboard fixture"
           npm run resolve -- score phrases --phrases scoreboard/phrases --json > "$RUNNER_TEMP/phrases.json"
-          node scripts/check-phrase-floor.mjs scoreboard/phrase-baseline.json "$RUNNER_TEMP/phrases.json"
-          npm run resolve -- score --golden scoreboard/golden --workspace fixture
+          npm run resolve -- score --golden scoreboard/golden --workspace fixture --json > "$RUNNER_TEMP/golden.json"
+          node scripts/check-phrase-floor.mjs scoreboard/phrase-baseline.json "$RUNNER_TEMP/phrases.json" "$RUNNER_TEMP/golden.json"
+      - name: Guard multi-library picks
+        run: node scripts/check-multi-library.mjs
 
   e2e:
     runs-on: ubuntu-latest

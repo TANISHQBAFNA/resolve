@@ -50,7 +50,7 @@ export function usage(): void {
       "      A crowded card keeps every error, then says how many were left off. --all prints every finding.",
       "      Exit 0 when it passes. Exit 1 when a component is missing, retired, or not allowed (unchanged).",
       "      Exit 7 when that component check passed and Proper use still has errors (a detached copy, a contrast fail, a tap target under the bar, or an icon-only button with no label).",
-      "      JSON pass is false whenever that exit code is not 0, including exit 7. The text card still says Components: PASS when the component check passed.",
+      "      JSON pass is false whenever that exit code is not 0, including exit 7. The first line is plain PASS only when the exit code is 0. Exit 7 starts FAIL: proper use … · components pass. JSON result is proper_use_failed, not verified.",
       "      A property value that is not allowed still fails the component check (exit 1) and is also listed under Proper use.",
       "      Warnings (hard-coded values, placeholder text such as Button or Label) stay on the card and do not change the exit code.",
       "      Unknown means the capture had no boundVariables, styles, size, or text for that check. It is not a failure.",

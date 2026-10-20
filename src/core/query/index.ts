@@ -32,7 +32,7 @@ export {
   type PartStatus,
 } from "./ingredients";
 export { angularText, bindingName, codeText, formatCodeMapReport, listCodeMapEntries, tidySelector, type AngularTwin, type CodeMapListed } from "./codeMap";
-export { checkComponentFiles, checkComponentName, type CodeMapCheckResult } from "./codeMapCheck";
+export { checkComponentFiles, checkComponentName, checkNamesFromNodes, type CodeMapCheckResult } from "./codeMapCheck";
 export {
   A11Y_LEVELS,
   assertContextPackDocument,

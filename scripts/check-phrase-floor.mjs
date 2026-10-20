@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs";
 
 const baselinePath = process.argv[2] ?? "scoreboard/phrase-baseline.json";
 const reportPath = process.argv[3];
+const goldenPath = process.argv[4];
 if (!reportPath) {
-  process.stderr.write("Usage: node scripts/check-phrase-floor.mjs <baseline.json> <phrase-report.json>\n");
+  process.stderr.write("Usage: node scripts/check-phrase-floor.mjs <baseline.json> <phrase-report.json> [golden-report.json]\n");
   process.exit(1);
 }
 
@@ -17,16 +18,19 @@ function readJson(path) {
 
 let baseline;
 let report;
+let golden;
 try {
   baseline = readJson(baselinePath);
   report = readJson(reportPath);
+  golden = goldenPath ? readJson(goldenPath) : undefined;
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   process.exit(1);
 }
-const top1 = report.totals?.top1;
-const top3 = report.totals?.top3;
-const matchCases = report.totals?.matchCases;
+const totals = report.totals ?? {};
+const top1 = totals.top1;
+const top3 = totals.top3;
+const matchCases = totals.matchCases;
 const floor1 = baseline.top1;
 const floor3 = baseline.top3;
 const floorBase = baseline.matchCases;
@@ -52,6 +56,26 @@ if (!failures.length) {
   }
   if (top3Rate < floor3Rate) {
     failures.push(`top-3 ${top3}/${matchCases} is below ${floor3}/${floorBase}`);
+  }
+  if (typeof baseline.invented === "number" && totals.invented > baseline.invented) {
+    failures.push(`invented ${totals.invented} is above ${baseline.invented}`);
+  }
+  if (typeof baseline.retired === "number" && totals.retiredRecommended > baseline.retired) {
+    failures.push(`retired ${totals.retiredRecommended} is above ${baseline.retired}`);
+  }
+  if (typeof baseline.correctEmpty === "number" && totals.correctEmpty < baseline.correctEmpty) {
+    failures.push(`empty-correct ${totals.correctEmpty} is below ${baseline.correctEmpty}`);
+  }
+  if (typeof baseline.emptyCases === "number" && totals.emptyCases < baseline.emptyCases) {
+    failures.push(`empty cases ${totals.emptyCases} is below ${baseline.emptyCases}`);
+  }
+  if (golden) {
+    if (typeof baseline.goldenCases === "number" && golden.cases < baseline.goldenCases) {
+      failures.push(`golden cases ${golden.cases} is below ${baseline.goldenCases}`);
+    }
+    if (typeof baseline.goldenInvent === "number" && golden.inventCount > baseline.goldenInvent) {
+      failures.push(`golden invented ${golden.inventCount} is above ${baseline.goldenInvent}`);
+    }
   }
 }
 

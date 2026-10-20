@@ -65,7 +65,7 @@ export interface RecipeMaster extends PlaceFields {
   ex?: string;
   exFileKey?: string;
   exWhy?: ExampleReason;
-  exNote?: "other product";
+  exNote?: "other product" | "default text";
 }
 
 export interface FilledSlot {

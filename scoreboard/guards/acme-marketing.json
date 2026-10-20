@@ -1,0 +1,30 @@
+{
+  "fileKey": "ACMEMKT",
+  "fileName": "Acme Marketing",
+  "root": {
+    "id": "0:0",
+    "name": "Acme Marketing",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "3:1",
+        "name": "Promos",
+        "type": "CANVAS",
+        "children": [
+          { "id": "30:1", "name": "Primary", "type": "COMPONENT" },
+          { "id": "30:2", "name": "Promo card", "type": "COMPONENT" }
+        ]
+      }
+    ]
+  },
+  "components": {
+    "30:1": { "id": "30:1", "name": "Primary", "key": "acme-mkt-primary" },
+    "30:2": { "id": "30:2", "name": "Promo card", "key": "acme-promo-card" }
+  },
+  "componentSets": {},
+  "styles": {},
+  "variables": {},
+  "variableCollections": {},
+  "libraries": {},
+  "source": { "kind": "mock", "ingestedAt": "2026-01-01T00:00:00.000Z" }
+}

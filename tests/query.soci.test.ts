@@ -576,17 +576,17 @@ describe("scoped wrong-cousin prefer", () => {
     const idle = scorePrefer(rules, "cta");
     expect(idle.map((row) => row.score)).toEqual([100, 100, 100]);
     const scoped = scorePrefer(rules, "product checkout");
-    expect(scoped.find((row) => row.node.id === "node:live")?.score).toBe(148);
-    expect(scoped.find((row) => row.node.id === "node:cousin")?.score).toBe(52);
+    expect(scoped.find((row) => row.node.id === "node:live")?.score).toBe(48100);
+    expect(scoped.find((row) => row.node.id === "node:cousin")?.score).toBe(-47900);
     expect(scoped.find((row) => row.node.id === "node:other")?.score).toBe(100);
     const unscoped = resolveBindRules(
       parseBindRulesFile({ rules: [{ prefer: "Shared DS", over: "Storefront" }] }),
       { workspace: preferWorkspace },
     );
     const wide = scorePrefer(unscoped, "cta");
-    expect(wide.find((row) => row.node.id === "node:live")?.score).toBe(148);
-    expect(wide.find((row) => row.node.id === "node:other")?.score).toBe(148);
-    expect(wide.find((row) => row.node.id === "node:cousin")?.score).toBe(52);
+    expect(wide.find((row) => row.node.id === "node:live")?.score).toBe(48100);
+    expect(wide.find((row) => row.node.id === "node:other")?.score).toBe(48100);
+    expect(wide.find((row) => row.node.id === "node:cousin")?.score).toBe(-47900);
   });
 
   it("keeps a naming note when screens share no scope", () => {

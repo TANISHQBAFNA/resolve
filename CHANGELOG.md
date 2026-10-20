@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — check verdict line
+
+Oct 20, 2026. The check card's first line is the overall verdict. It is plain `PASS` only when the exit code is 0. A proper-use failure (exit 7) starts `FAIL: proper use (N errors, M warnings) · components pass`. JSON `result` is `proper_use_failed` on that exit, not `verified`. JSON `pass` stays false whenever the exit code is not 0.
+
 ## Unreleased — learn JSON files, prefer between namesakes, slot properties
 
 Oct 13, 2026 IST. `resolve learn --design-context` reads a JSON file as JSON, so a dump of `[{id, name, key, componentPropertyDefinitions}]` stores property definitions and published keys the way `learn_library` does. Other text stays text. A JSON string passed to `learn_library` is read the same way. New `resolve learn --libraries <file.json>`, same as the tool's `libraries`. A bind-rule `prefer` now decides between masters of the same part from different files before variant count and usage: with Acme Core preferred, "input field" gives `ingredients/input-field`, not Globex Mobile's `Input Field`, in `recommend` and `resolve`. A Figma `SLOT` property is stored and shown as `SLOT` ("slot: place parts inside"), not `UNKNOWN`. Re-learn the file to update a stored slot. A retired set matched by one of its variants is named by the set in the why line (`replaces ingredients/toast (deprecated)`, not `replaces tone=neutral`). Ranking without a prefer rule is unchanged.

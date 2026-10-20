@@ -1,6 +1,12 @@
 {
-  "note": "Floor for the shipped sample phrase set. CI fails when top-1 or top-3 falls below these counts.",
-  "top1": 83,
-  "top3": 85,
-  "matchCases": 88
+  "note": "Floor for the shipped sample library. CI fails when a count drops below these.",
+  "top1": 85,
+  "top3": 87,
+  "matchCases": 88,
+  "correctEmpty": 30,
+  "emptyCases": 30,
+  "invented": 0,
+  "retired": 0,
+  "goldenCases": 75,
+  "goldenInvent": 0
 }
