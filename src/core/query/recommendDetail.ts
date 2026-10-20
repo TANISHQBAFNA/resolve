@@ -3,8 +3,12 @@ import type { GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import { VARIANT_PROP_NAME } from "./masterNames";
 import { isFigmaSlot } from "./placed";
+import modifierFile from "@/data/ui-modifiers.json";
 import { tokensOf } from "./queryTokens";
-import { CATEGORY_TAIL, modifierWord, PLAIN_NOUN, setCoversAsk, variantValueText } from "./recommendLexicon";
+import { SYNONYM_OF } from "./recommendContext";
+import { CATEGORY_TAIL, modifierWord, PLAIN_NOUN, setCoversAsk, SLOT_QUALIFIERS, variantValueText } from "./recommendLexicon";
+import { inflectionStems } from "./screenInventory";
+import { oneSlipFix } from "./typo";
 
 const SKIP_HOST = new Set(["PAGE", "FILE", "DOCUMENT", "CANVAS"]);
 const PAGE_BUCKET = new Set(["components", "component", "library", "icons", "icon", "screens", "screen", "patterns", "foundations", "styles", "assets", "documentation", "pages", "symbols", "variants"]);
@@ -116,4 +120,15 @@ export function flagUncovered<T extends { exactName: boolean; weak?: boolean; as
     }
     if (kind || (entry.askCovered ?? tokens.length) < tokens.length) entry.weak = true;
   }
+}
+
+/**
+ * "primarry button" is "primary button": the one misspelled word of an otherwise known ask becomes the known
+ * word (a name word, synonym, modifier, or variant word) before ranking, so a typo of primary or information
+ * gets the same handling as the real word and cannot land on a decoy named Primary or Icons.
+ */
+export function fixOneSlip(ask: string, nameSets: readonly Set<string>[]): string {
+  const vocab = new Set([...SYNONYM_OF.keys(), ...modifierFile.words.map((row) => row.term.toLowerCase()), ...SLOT_QUALIFIERS, ...nameSets.flatMap((names) => [...names])]);
+  const hit = oneSlipFix(tokensOf(ask), (word) => vocab.has(word) || inflectionStems(word).some((stem) => vocab.has(stem)), vocab);
+  return hit ? ask.toLowerCase().replace(new RegExp(`\\b${hit.word}\\b`), hit.fix) : ask;
 }

@@ -71,3 +71,15 @@ export function typoHeavy(
   if (!count) return false;
   return count > 1 || words.some((word) => !slipOnly(word) && !exact(word) && !known(word));
 }
+
+/**
+ * The one misspelled word of an otherwise known ask, and the single known word it slips to.
+ * Two unknown words, or a slip that fits two known words, corrects nothing.
+ */
+export function oneSlipFix(words: readonly string[], known: (word: string) => boolean, vocab: Iterable<string>): { word: string; fix: string } | undefined {
+  const unknown = words.filter((word) => !known(word));
+  if (unknown.length !== 1) return undefined;
+  const word = unknown[0]!;
+  const fixes = [...vocab].filter((term) => wordSlip(word, term));
+  return fixes.length === 1 ? { word, fix: fixes[0]! } : undefined;
+}

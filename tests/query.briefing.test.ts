@@ -166,8 +166,7 @@ describe("designer briefing", () => {
     expect(desktop).toMatchObject({ ready: true, candidates: [] });
     expect(JSON.stringify(desktop)).not.toContain("Desktop Nav");
     const settings = run("desktop settings form");
-    // PR #59: the recipe's primary-cta slot ("button primary save") fills with the plain Button, as the sign-in slot does.
-    expect("ready" in settings && settings.candidates.map((row) => row.name)).toEqual(["Text Field", "Button"]);
+    expect("ready" in settings && settings.candidates.map((row) => row.name)).toEqual(["Text Field", "Save CTA"]);
     const named = briefScreen({
       request: "use the Desktop Nav",
       answers: { states: ["empty"] },
@@ -488,5 +487,22 @@ describe("designer briefing", () => {
     const text = formatHandoffScreen(pack.screens[0]!, false);
     expect(text).toContain("**to-add**");
     expect(text).not.toMatch(/Data Table ×1/);
+  });
+
+  it("prefers the save family for a save slot, asks no platform on form-and-list asks, and keeps the form ahead of a state", () => {
+    saveGraph(acmeGraph());
+    const index = indexGraph(acmeGraph());
+    const top = (intent: string) => (recommendMasters(index, intent, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+    expect(top("save button")).toBe("Save CTA");
+    expect(top("primary button")).toBe("Button");
+    expect(top("large button")).toBe("Button");
+    for (const request of ["a form with a list for tablet", "form plus a list on phone", "a form and a list of rows on desktop"]) {
+      expect(asked(run(request)).some((question) => question.topic === "platform"), request).toBe(false);
+    }
+    expect(top("a list for tablet")).not.toMatch(/Nav/);
+    for (const intent of ["a signup form on phone with an error alert", "profile form for tablet with an error alert"]) {
+      const card = callTool("recommend", { intent, answers: { shape: "form" }, budgetChars: 4000 }) as { candidates?: Array<{ name?: string }> };
+      expect(card.candidates?.[0]?.name, intent).toBe("Text Field");
+    }
   });
 });

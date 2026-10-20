@@ -15,7 +15,7 @@ import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RE
 import { placeReady } from "./placeReady";
 import { navFamily, tokensOf } from "./queryTokens";
 import { appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
-import { flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
+import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, purposeTailTokens, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakMatchWhy, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { type RecommendAlternate, type RecommendCandidate, type RecommendContext, type RecommendHit, refreshHintFor, slotsForComponent, whereUsedRows } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
@@ -43,16 +43,15 @@ export function recommendMasters(
   usePropertyHints([...BUILTIN_PROPERTY_HINTS, ...hintsFromFile(), ...(options.context?.propertyHints ?? [])]);
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
   const echoIntent = intent.length > 200 ? `${intent.slice(0, 199)}…` : intent;
+  const publicNameSets = liveNameSets(index);
+  intent = fixOneSlip(intent, publicNameSets);
   const analog = similarUsage(index, intent);
   const analogById = new Map(analog.variants.map((variant) => [variant.id, variant]));
   const slotRaw = options.context?.journey?.step?.trim() ?? "";
   const slotTokens = tokensOf(slotRaw.replace(/-/g, " "));
   const slotRole = slotIsComponentRole(slotTokens);
-  const publicNameSets = liveNameSets(index);
   const namesHit = (token: string) =>
-    publicNameSets.some(
-      (names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false),
-    );
+    publicNameSets.some((names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false));
   const brief = splitBrief(intent, namesHit);
   const askedTokens = withSynonymStopwords(brief.role, tokensOf(brief.role));
   if (xMeansClose(brief.role) && !askedTokens.includes("close")) askedTokens.push("close");
@@ -117,6 +116,7 @@ export function recommendMasters(
     weak?: boolean;
   };
 
+  const beforePurposeTail = tokens.filter((token) => !purposeTailTokens(intent).has(token));
   const scoreNode = (node: GraphNode, set: GraphNode | undefined): Scored | undefined => {
     const collapsedAsk = collapsedName(intentNeedle);
     const host = hostFamilyName(index, node, set);
@@ -165,9 +165,9 @@ export function recommendMasters(
       const aliasBonus = phraseAliasBonus(intentNeedle, familyLabel);
       if (lexical === 0 && aliasBonus === 0) return undefined;
       lexical += aliasBonus;
-      lexical += headTokenBonus(familyLabel, tokens, allowClip, false) + categoryHeadBonus(familyLabel, tokens, allowClip);
+      lexical += headTokenBonus(familyLabel, beforePurposeTail.length ? beforePurposeTail : tokens, allowClip, false) + categoryHeadBonus(familyLabel, tokens, allowClip);
       lexical += repeatedSynonym(familyLabel, tokens, allowClip) * 20;
-      if (genericOnlyMiss(familyLabel, tokens.filter((token) => !purposeTailTokens(intent).has(token)), allowClip, componentWord, synonymWord)) return undefined;
+      if (genericOnlyMiss(familyLabel, beforePurposeTail, allowClip, componentWord, synonymWord)) return undefined;
       const nameTokens = tokensOf(familyLabel);
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
       if (nameTokens.length > 0 && matched === nameTokens.length) lexical += 25;
@@ -523,8 +523,7 @@ export function recommendMasters(
     collapsed.push(asFamilyRow(entry));
   }
   flagUncovered(collapsed, intentNeedle, tokens, (entry) => stripTier(entry.setName || setOf(index, entry.node)?.name || entry.node.name));
-  const navWord = (token?: string) => token === "navigation" || token === "nav";
-  const navAsk = navWord(tokens.at(-1)) || (tokens.at(-1) === "bar" && navWord(tokens.at(-2)));
+  const navAsk = /(?:^| )(?:nav|navigation)(?: bar)?$/.test(tokens.join(" "));
   kept = collapsed.filter((entry) => {
     if (navAsk && !navFamily(tokensOf(stripTier(entry.setName || entry.node.name)), tokens)) return false;
     const namesakes = realMastersNamed(index, entry.node.name);

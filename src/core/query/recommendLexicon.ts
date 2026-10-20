@@ -254,10 +254,11 @@ function inflectsName(query: string, nameToken: string): boolean {
 function tokenTypo(query: string, name: string): boolean {
   if (query.length < 5 || name.length < 5 || query === name) return false;
   const noun = (word: string) => PLAIN_NOUN.has(word);
+  if (SLOT_QUALIFIERS.has(name)) return false; // a slip never lands on a variant word like primary
   if (query.length === name.length) {
     if (adjacentSwap(query, name)) return true;
-    // Not onto a variant word, and a slip that also fits a plain noun means the noun ("botton" is button, not bottom).
-    return !SLOT_QUALIFIERS.has(name) && keySlip(query, name) && (noun(name) || ![...PLAIN_NOUN].some((word) => keySlip(query, word)));
+    // A slip that also fits a plain noun means the noun ("botton" is button, not bottom).
+    return keySlip(query, name) && (noun(name) || ![...PLAIN_NOUN].some((word) => keySlip(query, word)));
   }
   if (innerGap(query, name)) return true;
   const [shorter, longer] = query.length < name.length ? [query, name] : [name, query];
@@ -703,6 +704,9 @@ export function plainNounOverComposite<T extends { node: { name: string }; setNa
   const noun = nouns[0]!;
   const rest = queryTokens.filter((token) => token !== noun);
   if (rest.some((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token) && !SHAPE_WORD.has(token))) return entries;
+  // "save button": a family named by another asked word (not a variant or size word) that is this control is more specific.
+  const specific = entries.filter((entry) => nounHit(noun, familyNames(entry), false) && rest.some((token) => !SLOT_QUALIFIERS.has(token) && !SIZE_OR_A11Y.has(token) && familyNames(entry).has(token)));
+  if (specific.length) return [...specific, ...entries.filter((entry) => !specific.includes(entry))];
   const plainLabel = (label: string): boolean => {
     const names = new Set(tokensOf(bareSegment(label)));
     if (![...names].some((name) => name === noun || inflectsName(noun, name))) return false;

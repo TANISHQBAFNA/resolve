@@ -131,6 +131,18 @@ describe("synthetic multi-library guard", () => {
     expect(arrows.some((row) => row.name === "Icons")).toBe(false);
   });
 
+  it("reads a misspelled primary or information as the real word, so no decoy wins", () => {
+    for (const ask of ["primarry button", "pirmary button", "prmary button", "primary buttn"] as const) {
+      const card = recommendMasters(severalIndex, ask, { workspace: several });
+      expect([card.candidates[0]?.name, card.candidates[0]?.fileKey], ask).toEqual(["Button", "ACMEDS"]);
+    }
+    for (const ask of ["infromation icon", "informatoin icon", "informaton icon"] as const) {
+      const card = recommendMasters(severalIndex, ask, { workspace: several });
+      expect([card.candidates[0]?.name, card.candidates[0]?.fileKey], ask).toEqual(["Info", "ACMEDS"]);
+      expect(card.candidates.some((row) => row.name === "Icons" || row.name === "Arrow icons"), ask).toBe(false);
+    }
+  });
+
   it("picks Card from Acme DS", () => {
     const card = recommendMasters(severalIndex, "card", { workspace: several });
     expect(card.candidates[0]?.name).toBe("Card");
