@@ -406,6 +406,10 @@ describe("Angular Material public reference", () => {
     }
     // On its own the word still names its part.
     expect(top("selected")).toBe("Select");
+    // Unless the stem and the noun name a part together: an -ing form of search before a bar or field is Search bar.
+    for (const ask of ["a searching bar up top", "searching field for contacts", "the searched input"]) expect(top(ask), ask).toBe("Search bar");
+    // A single-word part (Select, Sort) still loses to the noun.
+    expect(top("a selected button")).toBe("Button");
     // A vague panel keeps a head-noun match, never a part named by the other word.
     for (const ask of ["search panel", "nav panel"]) expect(top(ask), ask).not.toMatch(/Search bar|Navigation/);
     // A known part plus a describing tail is still that part.
