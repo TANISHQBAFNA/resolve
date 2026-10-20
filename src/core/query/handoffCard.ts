@@ -14,6 +14,7 @@ import type { ContextPack } from "./contextPacks";
 import { buildHandoff, SCREEN_TYPES, type HandoffDecisionInput, type HandoffHooks, type HandoffPack, type VerifyLike } from "./handoff";
 import { realByKey } from "./ingredients";
 import { missingNodeSentence, readFigmaLink } from "./learnedLink";
+import type { BriefCandidate } from "./brief";
 import { fillRecipe, matchRecipe, type Recipe } from "./recipes";
 import type { SockState } from "./sock";
 import type { WorkspaceManifest } from "./workspace";
@@ -31,6 +32,8 @@ export interface HandoffInput {
   decisions?: HandoffDecisionInput[];
   /** Answered briefing lines, already resolved to library names. */
   briefing?: string[];
+  /** Components the answers selected. Added to the sheet's parts. */
+  briefParts?: BriefCandidate[];
   depth?: number;
   maxCharsPerCard?: number;
 }
@@ -112,6 +115,64 @@ export function handoffSheet(index: GraphIndex, frames: string[], input: Handoff
     depth: input.depth,
     maxCharsPerCard: input.maxCharsPerCard,
   });
-  if (!pack.ok || !input.briefing?.length) return pack;
-  return { ...pack, screens: pack.screens.map((screen) => ({ ...screen, briefing: input.briefing })) };
+  if (!pack.ok) return pack;
+  return applyBriefing(pack, input.briefing, input.briefParts);
+}
+
+function applyBriefing(pack: Extract<HandoffPack, { ok: true }>, lines: string[] | undefined, parts: BriefCandidate[] | undefined): HandoffPack {
+  const extra = (parts ?? []).filter((part) => part.name);
+  if (!lines?.length && !extra.length) return pack;
+  const screens = pack.screens.map((screen) => {
+    const added = extra.filter((part) => !screen.components.some((component) => component.name === part.name));
+    const components = [
+      ...screen.components,
+      ...added.map((part) => ({
+        name: part.name,
+        ...(part.fileKey ? { fileKey: part.fileKey } : {}),
+        ...(part.figmaNodeId ? { figmaNodeId: part.figmaNodeId } : {}),
+        count: 1,
+        copies: [],
+        identity: "confirmed" as const,
+        status: "current" as const,
+        code: "unmapped",
+        parts: [],
+      })),
+    ];
+    const ingredients = [
+      ...screen.ingredients,
+      ...added.filter((part) => !screen.ingredients.some((row) => row.name === part.name)).map((part) => ({
+        name: part.name,
+        ...(part.fileKey ? { fileKey: part.fileKey } : {}),
+        ...(part.figmaNodeId ? { figmaNodeId: part.figmaNodeId } : {}),
+        status: "unmapped" as const,
+        code: "unmapped",
+        usedBy: ["Briefing"],
+      })),
+    ];
+    return {
+      ...screen,
+      ...(lines?.length ? { briefing: lines } : {}),
+      components,
+      ingredients,
+      summary: {
+        ...screen.summary,
+        components: screen.summary.components + added.length,
+        copies: screen.summary.copies + added.length,
+        unmapped: screen.summary.unmapped + added.length,
+      },
+    };
+  });
+  const ingredients = [...pack.ingredients];
+  for (const part of extra) {
+    if (ingredients.some((row) => row.name === part.name)) continue;
+    ingredients.push({
+      name: part.name,
+      ...(part.fileKey ? { fileKey: part.fileKey } : {}),
+      ...(part.figmaNodeId ? { figmaNodeId: part.figmaNodeId } : {}),
+      status: "unmapped",
+      code: "unmapped",
+      usedBy: ["Briefing"],
+    });
+  }
+  return { ...pack, screens, ingredients };
 }

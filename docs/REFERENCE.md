@@ -222,18 +222,19 @@ Resolve's ticket add-on for AIDLC, if your team uses it, uses `design-handoff`. 
 
 Use this when you know the screen you want, and you do not yet know which parts to place.
 
-`/brief show recent payments` (or `resolve brief "show recent payments"`) looks at four things only:
+`/brief show recent payments` (or `resolve brief "show recent payments"`) looks at three things:
 
-1. What the person is doing on the screen (the user goal).
-2. Phone or desktop, and compact or comfortable density, when the library has different components for those.
-3. Which states matter: empty, loading, error, pending.
-4. The shape of the data: a table or a card list, a form, a summary, or counts.
+1. The shape of the data: a table or a card list, a form, a summary, or counts.
+2. Which states matter: empty, loading, error, pending. You can pick more than one.
+3. Phone or desktop, and compact or comfortable. The word "desktop" is not a component named Desktop Nav.
 
-Each question is multiple choice. The choices are components Resolve already learned. A made-up example, once those parts are in the library: "Data Table or Card List: compare rows or scan items?"
+Resolve does not ask what kind of screen it is. That question did not help choose a component.
 
-Resolve asks at most 3 questions. It does not ask when the answer would not change the component. It does not ask when your words already answered that topic, when a saved recipe matches, when an approved screen decision matches, or when only one component fits. If you say "just build", it asks nothing and lists the assumptions it used.
+It asks only when the request fits something in the library, and only when the answer would change the component. A request that fits nothing, including a typo-heavy one, gets no questions and says "No match." A saved recipe, an approved screen decision, or a single fitting component also asks nothing.
 
-Pass an answer with `--answer shape=table` (topics: `goal`, `platform`, `states`, `shape`). The same answers go into `recommend` and show on the handoff sheet under Briefing. Resolve does not ask who the person is, what the visual style should be, or about a ticket or a regulation.
+"Just build", "go ahead and build", and "build without asking" ask nothing. If nothing fits, there are no candidates.
+
+Pass an answer with `--answer shape=table`. States can repeat: `--answer states=empty --answer states=error`. Topics are `shape`, `states`, and `platform`. At most 3 answers. An unknown topic, an unknown option, an empty value, a duplicate, or a fourth answer is an error. The same answers change the parts on `recommend` and on the handoff sheet. Resolve does not ask who the person is, what the visual style should be, or about a ticket or a regulation.
 
 Setup (`resolve-setup`) puts these files in your project: `.claude/commands/` for Claude Code and `.cursor/commands/` for Cursor. Your AI tool shows them when you type `/`. Codex has no project commands; with Codex, say the same thing in words ("check this screen with Resolve: link"). Other tools can read the same commands as MCP prompts. To update them, run setup again. To remove everything Resolve added, ask your AI tool to run `resolve-setup --uninstall`; your own files and text stay.
 
@@ -501,7 +502,7 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `ingest <file.json \| file.xml \| figma-url \| file-key>` | Reads a Figma file and adds it to the workspace. |
 | `learn --file-key <key>` | Same as the MCP `learn_library` tool: load a file from Figma `get_metadata` XML. |
 | `recipe [list \| "<name>"]` | Screen packs: the list of components a screen of that kind usually needs. |
-| `brief "<screen request>"` | Asks at most 3 multiple-choice questions before a screen is picked, and only when the answer would change the component. `--answer shape=table` passes an answer (topics: goal, platform, states, shape). |
+| `brief "<screen request>"` | Asks at most 3 multiple-choice questions before a screen is picked, and only when the request fits and the answer would change the component. States can take more than one answer. Nothing that fits says "No match." `--answer shape=table` (topics: shape, states, platform). |
 | `recommend "<intent>"` | Ranked library components for a plain-words ask. `--answer <topic>=<option>` uses a briefing answer. |
 | `example "<name>"` | The real, filled-in instance behind a pick, to copy. |
 | `resolve "<name>"` | "I know the name, give me the id." |
@@ -1070,7 +1071,7 @@ To apply: set Variant=Secondary, Has icon=true
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
-- **Oct 20, 2026 — [PR #67](https://github.com/TANISHQBAFNA/resolve/pull/67).** On a screen request, `brief` (also `resolve brief` and `/brief`) asks at most 3 multiple-choice questions before `recommend`. Topics are the user goal, platform and density, the states that matter (empty, loading, error, pending), and the data shape (list, form, summary, counts). Options are live parts from the learned library. A question is skipped when the request already answers it, a saved recipe or an approved screen decision matches, only one candidate fits, or the designer says "just build" (the assumptions are logged). Answers are passed to `recommend` and shown on the handoff sheet. No new store. 35 synthetic Acme screen requests: at most 3 questions each, 1 question per screen on average, and every asked question changed the pick. Phrase score unchanged: top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0. Default tools are 8 (`brief` joined the list). 913 tests.
+- **Oct 20, 2026 — [PR #67](https://github.com/TANISHQBAFNA/resolve/pull/67).** On a screen request, `brief` (also `resolve brief` and `/brief`) asks at most 3 multiple-choice questions before `recommend`. Topics are data shape, states (more than one allowed), and platform. There is no screen-type goal question. A request that fits nothing, including a typo, says "No match" and asks nothing. "Just build", "go ahead and build", and "build without asking" do the same when nothing fits, and do not invent a part. A word like desktop is not the Desktop Nav component. Bad answers (unknown topic or option, empty, duplicate, or more than 3) are an error. Answers change `recommend` and the handoff parts. A fresh Acme set of 32 requests, including no-fit and typo requests, labels whether each one should ask at all. Precision (asked when it should) is 1. Average questions per screen is 0.25. Phrase score unchanged: top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0. Default tools are 8. 915 tests.
 - **Oct 20, 2026 — [PR #61](https://github.com/TANISHQBAFNA/resolve/pull/61).** JSON `pass` on `resolve check`, `resolve verify`, and MCP `verify_frame` is false whenever the verdict exit code is not 0, including proper-use exit 7. The text card still leads with `Components: PASS` when the component check passed. `resolve status` keeps printing local time with a zone label. `.npmrc` sets `engine-strict=true`, and the test setup throws one message when Node is older than 22.12. CI reads `scoreboard/phrase-baseline.json` and fails if top-1 drops below 83/88 or top-3 below 85/88. The same jobs run on Node 22 and 24, in UTC and Asia/Kolkata. Browser checks add Firefox. Phrase score unchanged: top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0.
 - **Oct 20, 2026 — [PR #64](https://github.com/TANISHQBAFNA/resolve/pull/64).** Docs only. The README pictures, logo and version badge use a brighter teal (#2DD4BF). In light mode, words are near-black and the teal is in fills, chips and underlines, with a thin dark outline. PASS stays green. Tests: unchanged.
 - **Oct 20, 2026 — [PR #62](https://github.com/TANISHQBAFNA/resolve/pull/62).** Docs only. The README pictures, logo and version badge changed from purple to bright teal (#14B8A6). PASS stays green. Tests: unchanged.

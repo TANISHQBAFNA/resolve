@@ -10,30 +10,34 @@ import type { SociProposal, SockState } from "./sock";
 import type { WorkspaceManifest } from "./workspace";
 
 /**
- * Designer briefing. At most 3 multiple-choice questions, and only when the
- * answer changes the component recommend would pick. Options are live masters
- * in the learned library. No new store: recipes, approved decisions, and
- * recommend already hold the facts.
+ * Designer briefing. At most 3 answers, and a question only when the request
+ * already fits the library and the answer would change the component.
+ * The screen-type goal question is not asked. States can take more than one answer.
+ * No new store.
  */
 
 export const BRIEF_QUESTION_CAP = 3;
-export const BRIEF_TOPICS = ["shape", "goal", "states", "platform"] as const;
+export const BRIEF_TOPICS = ["shape", "states", "platform"] as const;
 export type BriefTopic = (typeof BRIEF_TOPICS)[number];
 
 const TOPIC_NAME: Record<BriefTopic, string> = {
   shape: "data shape",
-  goal: "user goal",
   states: "states",
   platform: "platform and density",
 };
 
+const PLATFORM_IDS = ["desktop", "mobile", "phone", "compact", "comfortable"] as const;
+type PlatformId = (typeof PLATFORM_IDS)[number];
+const PLATFORM_WORDS = new Set<string>(PLATFORM_IDS);
+const PLATFORM_GENERIC = new Set(["nav", "bar", "list", "view", "shell", "layout", "screen", "row"]);
+
 const FILLER = new Set([
   "a", "an", "the", "screen", "page", "frame", "please", "app", "view", "with", "and", "on", "in", "of", "to",
   "for", "me", "our", "build", "make", "create", "need", "want", "show", "new", "my", "this", "that", "just",
-  "use", "using", "recent", "some", "when", "into", "from",
+  "use", "using", "recent", "some", "when", "into", "from", "ahead", "without", "asking", "go",
 ]);
 
-const JUST_BUILD = /\b(?:just build|just do it|don'?t ask|do not ask|skip questions|no questions)\b/gi;
+const JUST_BUILD = /\b(?:just build|just do it|don'?t ask|do not ask|skip questions|no questions|go ahead and build|build without asking)\b/gi;
 
 interface Role {
   id: string;
@@ -56,24 +60,12 @@ const STATES: Role[] = [
   { id: "pending", phrases: ["pending"], contrast: "pending" },
 ];
 
-const PLATFORM: Role[] = [
-  { id: "mobile", phrases: ["mobile", "phone"], contrast: "phone" },
-  { id: "desktop", phrases: ["desktop"], contrast: "desktop" },
-  { id: "compact", phrases: ["compact"], contrast: "compact density" },
-  { id: "comfortable", phrases: ["comfortable"], contrast: "comfortable density" },
-];
-
-/** Component phrases come from the library. Request phrases are how a designer names that goal. */
-const GOAL: Array<Role & { recipeId: string; request: string[] }> = [
-  { id: "checkout-summary", recipeId: "checkout-summary", phrases: ["pay cta", "pay"], request: ["checkout", "order summary", "cart", "pay"], contrast: "checkout summary" },
-  { id: "settings-form", recipeId: "settings-form", phrases: ["save cta", "save"], request: ["settings", "preferences", "save"], contrast: "settings form" },
-  { id: "search-results", recipeId: "search-results", phrases: ["search field", "search"], request: ["search results", "search"], contrast: "search results" },
-  { id: "list-detail", recipeId: "list-detail", phrases: ["card list", "list row"], request: ["list detail", "master detail", "inbox"], contrast: "list and detail" },
-  { id: "sign-in", recipeId: "sign-in", phrases: ["text field"], request: ["sign in", "login", "log in"], contrast: "sign in" },
-  { id: "empty-state", recipeId: "empty-state", phrases: ["empty message"], request: ["zero state", "blank"], contrast: "empty state" },
-  { id: "nav-content-shell", recipeId: "nav-content-shell", phrases: ["desktop nav", "mobile nav", "nav"], request: ["app shell", "navigation"], contrast: "app shell" },
-  { id: "confirm-dialog", recipeId: "confirm-dialog", phrases: ["button"], request: ["confirm", "dialog", "modal"], contrast: "confirm dialog" },
-];
+export class BriefAnswerError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BriefAnswerError";
+  }
+}
 
 export interface BriefOption {
   id: string;
@@ -84,6 +76,8 @@ export interface BriefQuestion {
   topic: BriefTopic;
   prompt: string;
   options: BriefOption[];
+  /** States can take more than one of these options. */
+  multiple?: true;
 }
 
 export interface BriefCandidate {
@@ -93,7 +87,13 @@ export interface BriefCandidate {
   figmaNodeId?: string;
 }
 
-export type BriefSkip = "just-build" | "recipe" | "decision" | "answered" | "one-candidate";
+export interface BriefAnswers {
+  shape?: string;
+  platform?: string;
+  states: string[];
+}
+
+export type BriefSkip = "just-build" | "recipe" | "decision" | "answered" | "one-candidate" | "no-match";
 
 export type BriefResult =
   | { questions: BriefQuestion[] }
@@ -112,7 +112,7 @@ export interface BriefDecision {
 
 export interface BriefInput {
   request: string;
-  answers?: Record<string, string>;
+  answers?: BriefAnswers;
   index: GraphIndex;
   recipes?: Recipe[];
   decisions?: BriefDecision[];
@@ -125,9 +125,7 @@ export interface BriefInput {
 
 interface Catalog {
   shape: Choice[];
-  goal: Choice[];
   states: Choice[];
-  platform: Choice[];
 }
 
 function containsPhrase(hay: string, phrase: string): boolean {
@@ -137,10 +135,21 @@ function containsPhrase(hay: string, phrase: string): boolean {
   return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:[^a-z0-9]|$)`).test(hay.toLowerCase());
 }
 
+function contentTokens(request: string): string[] {
+  return nameTokens(request).filter((token) => !FILLER.has(token) && !PLATFORM_WORDS.has(token));
+}
+
 function liveMasters(index: GraphIndex): GraphNode[] {
   return index.getNodesByType("COMPONENT_SET", "MAIN_COMPONENT").filter(
     (node) => !isPrivateMasterName(node.name) && !isRetired(index, node) && !isNameInferredMaster(node),
   );
+}
+
+/** A name like Desktop Nav or Compact List is a platform label, not the screen's component. */
+export function platformComponentName(name: string): boolean {
+  const tokens = nameTokens(name);
+  if (!tokens.some((token) => PLATFORM_WORDS.has(token))) return false;
+  return tokens.every((token) => PLATFORM_WORDS.has(token) || PLATFORM_GENERIC.has(token));
 }
 
 function firstMaster(masters: GraphNode[], phrases: string[]): GraphNode | undefined {
@@ -148,7 +157,7 @@ function firstMaster(masters: GraphNode[], phrases: string[]): GraphNode | undef
     .map((phrase, index) => ({ phrase, index }))
     .sort((a, b) => b.phrase.length - a.phrase.length || a.index - b.index);
   for (const row of ordered) {
-    const hits = masters.filter((master) => containsPhrase(master.name, row.phrase));
+    const hits = masters.filter((master) => !platformComponentName(master.name) && containsPhrase(master.name, row.phrase));
     if (!hits.length) continue;
     hits.sort((a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name));
     return hits[0];
@@ -158,153 +167,212 @@ function firstMaster(masters: GraphNode[], phrases: string[]): GraphNode | undef
 
 function roleOptions(masters: GraphNode[], roles: Role[]): Choice[] {
   const claimed = new Set<string>();
-  const options: Choice[] = [];
-  const pending = roles.map((role) => ({ role, master: firstMaster(masters, role.phrases) }));
-  pending.sort((a, b) => {
-    const al = a.role.phrases.find((phrase) => a.master && containsPhrase(a.master.name, phrase))?.length ?? 0;
-    const bl = b.role.phrases.find((phrase) => b.master && containsPhrase(b.master.name, phrase))?.length ?? 0;
-    return bl - al;
-  });
-  for (const row of pending) {
-    if (!row.master || claimed.has(row.master.id)) continue;
-    claimed.add(row.master.id);
-    options.push({
-      id: row.role.id,
-      label: row.master.name,
-      contrast: row.role.contrast,
-      masterId: row.master.id,
-    });
-  }
-  return roles.flatMap((role) => options.filter((option) => option.id === role.id));
-}
-
-function goalOptions(recipes: Recipe[], masters: GraphNode[]): Choice[] {
-  const ids = new Set(recipes.map((recipe) => recipe.id));
-  const claimed = new Set<string>();
-  const options: Choice[] = [];
-  for (const row of GOAL) {
-    if (!ids.has(row.recipeId)) continue;
-    const master = firstMaster(masters, row.phrases);
+  const found: Choice[] = [];
+  for (const role of roles) {
+    const master = firstMaster(masters, role.phrases);
     if (!master || claimed.has(master.id)) continue;
     claimed.add(master.id);
-    options.push({ id: row.id, label: master.name, contrast: row.contrast, masterId: master.id });
-    if (options.length === 4) break;
+    found.push({ id: role.id, label: master.name, contrast: role.contrast, masterId: master.id });
   }
-  return options;
+  return found;
 }
 
-function catalogFor(index: GraphIndex, recipes: Recipe[]): Catalog {
+function catalogFor(index: GraphIndex): Catalog {
   const masters = liveMasters(index);
-  return {
-    shape: roleOptions(masters, SHAPE),
-    goal: goalOptions(recipes, masters),
-    states: roleOptions(masters, STATES),
-    platform: roleOptions(masters, PLATFORM),
-  };
+  return { shape: roleOptions(masters, SHAPE), states: roleOptions(masters, STATES) };
 }
 
 function findChoice(options: Choice[], raw: string): Choice | undefined {
   const needle = raw.trim().toLowerCase();
-  if (!needle) return undefined;
   return options.find((option) => option.id.toLowerCase() === needle || option.label.toLowerCase() === needle);
 }
 
-export function briefAnswers(raw: unknown): Record<string, string> | undefined {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
-  const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(raw)) {
-    if (typeof value === "string" && value.trim()) out[key.trim().toLowerCase()] = value.trim();
-  }
-  return Object.keys(out).length ? out : undefined;
+function valuesOf(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map((item) => (typeof item === "string" ? item.trim() : ""));
+  if (typeof raw === "string") return raw.split(",").map((item) => item.trim());
+  return [];
 }
 
-export function briefAnswersFromFlags(args: string[]): Record<string, string> | undefined {
-  const out: Record<string, string> = {};
+function countAnswers(answers: BriefAnswers): number {
+  return (answers.shape ? 1 : 0) + (answers.platform ? 1 : 0) + answers.states.length;
+}
+
+function rejectOverCap(answers: BriefAnswers): void {
+  if (countAnswers(answers) > BRIEF_QUESTION_CAP) {
+    throw new BriefAnswerError("Briefing accepts at most 3 answers.");
+  }
+}
+
+function assignTopic(answers: BriefAnswers, topic: string, raw: unknown, seenSingle: Set<string>): void {
+  const id = topic.trim().toLowerCase();
+  if (!id) throw new BriefAnswerError("Answer topic is empty.");
+  if (!BRIEF_TOPICS.includes(id as BriefTopic)) {
+    throw new BriefAnswerError(`Unknown briefing topic "${id}". Topics: shape, states, platform.`);
+  }
+  const values = valuesOf(raw);
+  if (!values.length || values.some((value) => !value)) throw new BriefAnswerError(`Answer for ${id} is empty.`);
+  if (id === "states") {
+    for (const value of values) {
+      const key = value.toLowerCase();
+      if (answers.states.some((item) => item.toLowerCase() === key)) {
+        throw new BriefAnswerError(`State "${value}" was given twice.`);
+      }
+      answers.states.push(value);
+    }
+    return;
+  }
+  if (seenSingle.has(id)) throw new BriefAnswerError(`Topic ${id} was given twice.`);
+  if (values.length > 1) throw new BriefAnswerError(`Topic ${id} takes one answer.`);
+  seenSingle.add(id);
+  if (id === "shape") answers.shape = values[0];
+  else answers.platform = values[0];
+}
+
+/** Parse an answers object. Empty input is no answers. Bad input throws. */
+export function briefAnswers(raw: unknown): BriefAnswers | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    throw new BriefAnswerError("Briefing answers must be an object of topic to option.");
+  }
+  const entries = Object.entries(raw);
+  if (!entries.length) return undefined;
+  const answers: BriefAnswers = { states: [] };
+  const seen = new Set<string>();
+  for (const [topic, value] of entries) assignTopic(answers, topic, value, seen);
+  rejectOverCap(answers);
+  return answers;
+}
+
+/** `--answer topic=option`, repeated. States may repeat with a different option. */
+export function briefAnswersFromFlags(args: string[]): BriefAnswers | undefined {
+  const answers: BriefAnswers = { states: [] };
+  const seen = new Set<string>();
+  let any = false;
   for (let i = 0; i < args.length; i += 1) {
     if (args[i] !== "--answer") continue;
+    any = true;
     const raw = args[i + 1] ?? "";
     const eq = raw.indexOf("=");
-    if (eq <= 0) throw new Error("Usage: --answer <topic>=<option>. Topics: goal, platform, states, shape.");
-    out[raw.slice(0, eq).trim().toLowerCase()] = raw.slice(eq + 1).trim();
+    if (eq <= 0) throw new BriefAnswerError("Usage: --answer <topic>=<option>. Topics: shape, states, platform.");
+    assignTopic(answers, raw.slice(0, eq), raw.slice(eq + 1), seen);
   }
-  return Object.keys(out).length ? out : undefined;
+  if (!any) return undefined;
+  rejectOverCap(answers);
+  return answers;
 }
 
-function chosenLabels(catalog: Catalog, answers: Record<string, string> | undefined): string[] {
-  if (!answers) return [];
-  const labels: string[] = [];
-  for (const topic of BRIEF_TOPICS) {
-    const raw = answers[topic];
-    if (!raw) continue;
-    const choice = findChoice(catalog[topic], raw);
-    if (choice) labels.push(choice.label);
+function assertKnown(answers: BriefAnswers | undefined, catalog: Catalog): Map<BriefTopic, Choice[]> {
+  const resolved = new Map<BriefTopic, Choice[]>();
+  if (!answers) return resolved;
+  if (answers.shape) {
+    const choice = findChoice(catalog.shape, answers.shape);
+    if (!choice) {
+      const options = catalog.shape.map((option) => option.id).join(", ") || "none";
+      throw new BriefAnswerError(`Unknown option "${answers.shape}" for data shape. Options: ${options}.`);
+    }
+    resolved.set("shape", [choice]);
   }
-  return labels;
+  if (answers.platform) {
+    const id = answers.platform.toLowerCase();
+    if (!PLATFORM_IDS.includes(id as PlatformId)) {
+      throw new BriefAnswerError(`Unknown option "${answers.platform}" for platform and density. Options: ${PLATFORM_IDS.join(", ")}.`);
+    }
+    resolved.set("platform", [{ id, label: id, contrast: id, masterId: "" }]);
+  }
+  if (answers.states.length) {
+    const choices: Choice[] = [];
+    for (const value of answers.states) {
+      const choice = findChoice(catalog.states, value);
+      if (!choice) {
+        const options = catalog.states.map((option) => option.id).join(", ") || "none";
+        throw new BriefAnswerError(`Unknown option "${value}" for states. Options: ${options}.`);
+      }
+      choices.push(choice);
+    }
+    resolved.set("states", choices);
+  }
+  return resolved;
 }
 
-/** Fold briefing answers into an intent. No answers leaves the request unchanged. */
-export function applyBriefIntent(
-  request: string,
-  answers: Record<string, string> | undefined,
-  index: GraphIndex,
-  recipes: Recipe[],
-): string {
-  if (!answers || !Object.keys(answers).length) return request;
-  const labels = chosenLabels(catalogFor(index, recipes), answers);
+function componentChoices(resolved: Map<BriefTopic, Choice[]>): Choice[] {
+  return [...(resolved.get("shape") ?? []), ...(resolved.get("states") ?? [])].filter((choice) => choice.masterId);
+}
+
+/** Check answers against the learned library. No answers is a no-op. */
+export function assertBriefAnswers(answers: BriefAnswers | undefined, index: GraphIndex): Map<BriefTopic, Choice[]> {
+  return assertKnown(answers, catalogFor(index));
+}
+
+/** Component names from shape and state answers. Platform words are not component names. */
+export function applyBriefIntent(request: string, answers: BriefAnswers | undefined, index: GraphIndex): string {
+  if (!answers) return request;
+  const labels = componentChoices(assertBriefAnswers(answers, index)).map((choice) => choice.label);
   return labels.length ? `${request} ${labels.join(" ")}`.trim() : request;
 }
 
-/** Lines for a handoff sheet. Unknown options are left out. */
-export function briefAnswerLines(answers: Record<string, string> | undefined, index: GraphIndex, recipes: Recipe[]): string[] {
+export function briefAnswerLines(answers: BriefAnswers | undefined, index: GraphIndex): string[] {
   if (!answers) return [];
-  const catalog = catalogFor(index, recipes);
+  const resolved = assertBriefAnswers(answers, index);
   const lines: string[] = [];
   for (const topic of BRIEF_TOPICS) {
-    const raw = answers[topic];
-    if (!raw) continue;
-    const choice = findChoice(catalog[topic], raw);
-    if (choice) lines.push(`${TOPIC_NAME[topic]}: ${choice.label}`);
+    const choices = resolved.get(topic);
+    if (!choices?.length) continue;
+    lines.push(`You answered ${TOPIC_NAME[topic]}: ${choices.map((choice) => choice.label).join(", ")}.`);
   }
   return lines;
 }
 
-function answered(request: string, topic: BriefTopic, options: Choice[]): Choice | undefined {
-  const labels = [...options].sort((a, b) => b.label.length - a.label.length);
-  for (const option of labels) {
-    if (containsPhrase(request, option.label)) return option;
+/** Masters the answers selected. These are the parts a handoff must add. */
+export function briefAnswerParts(answers: BriefAnswers | undefined, index: GraphIndex): BriefCandidate[] {
+  if (!answers) return [];
+  const masters = new Map(liveMasters(index).map((master) => [master.id, master]));
+  const seen = new Set<string>();
+  const parts: BriefCandidate[] = [];
+  for (const choice of componentChoices(assertBriefAnswers(answers, index))) {
+    const master = masters.get(choice.masterId);
+    if (!master || seen.has(master.id)) continue;
+    seen.add(master.id);
+    parts.push(candidateOf(master));
   }
-  if (topic === "goal") {
-    const rows = GOAL.filter((row) => options.some((option) => option.id === row.id));
-    const phrases = rows.flatMap((row) => row.request.map((phrase, index) => ({ phrase, index, id: row.id })));
-    phrases.sort((a, b) => b.phrase.length - a.phrase.length || a.index - b.index);
-    for (const row of phrases) {
-      if (!containsPhrase(request, row.phrase)) continue;
-      return options.find((option) => option.id === row.id);
-    }
-    return undefined;
-  }
-  const roles = topic === "shape" ? SHAPE : topic === "states" ? STATES : PLATFORM;
+  return parts;
+}
+
+function mentioned(request: string, options: Choice[], roles: Role[]): Choice[] {
+  const hits: Choice[] = [];
   const phrases = roles.flatMap((role) => role.phrases.map((phrase, index) => ({ phrase, index, id: role.id })));
   phrases.sort((a, b) => b.phrase.length - a.phrase.length || a.index - b.index);
-  for (const row of phrases) {
-    if (!containsPhrase(request, row.phrase)) continue;
-    const option = options.find((item) => item.id === row.id);
-    if (option) return option;
+  const used = new Set<string>();
+  for (const option of [...options].sort((a, b) => b.label.length - a.label.length)) {
+    if (containsPhrase(request, option.label)) {
+      hits.push(option);
+      used.add(option.id);
+    }
   }
-  return undefined;
+  for (const row of phrases) {
+    if (used.has(row.id) || !containsPhrase(request, row.phrase)) continue;
+    const option = options.find((item) => item.id === row.id);
+    if (!option) continue;
+    hits.push(option);
+    used.add(row.id);
+  }
+  return hits;
+}
+
+function platformSaid(request: string): PlatformId | undefined {
+  const hits = PLATFORM_IDS.filter((id) => containsPhrase(request, id));
+  hits.sort((a, b) => b.length - a.length);
+  return hits[0];
+}
+
+function namedMasters(request: string, masters: GraphNode[]): GraphNode[] {
+  return masters
+    .filter((master) => containsPhrase(request, master.name))
+    .sort((a, b) => b.name.length - a.name.length);
 }
 
 function joinOr(parts: string[]): string {
   if (parts.length <= 2) return parts.join(" or ");
   return `${parts.slice(0, -1).join(", ")}, or ${parts[parts.length - 1]}`;
-}
-
-function promptFor(options: Choice[]): string {
-  return `${joinOr(options.map((option) => option.label))}: ${joinOr(options.map((option) => option.contrast))}?`;
-}
-
-function contentTokens(request: string): string[] {
-  return nameTokens(request).filter((token) => !FILLER.has(token));
 }
 
 function recipeMatch(recipes: Recipe[], request: string): Recipe | undefined {
@@ -330,7 +398,7 @@ function decisionMatch(
   for (const row of decisions) {
     const text = [row.proposal.summary, row.proposal.decisionNote, row.proposal.namingFix].filter(Boolean).join(" ");
     const named = masters
-      .filter((master) => containsPhrase(text, master.name))
+      .filter((master) => !platformComponentName(master.name) && containsPhrase(text, master.name))
       .sort((a, b) => b.name.length - a.name.length);
     const master = named[0];
     if (!master) continue;
@@ -355,16 +423,18 @@ function ready(skip: BriefSkip, assumptions: string[], candidates: BriefCandidat
   return { ready: true, skip, assumptions, candidates };
 }
 
+const NO_MATCH = "No match.";
+
 export function briefScreen(input: BriefInput): BriefResult {
   const recipes = input.recipes ?? [];
-  const catalog = catalogFor(input.index, recipes);
-  const answers = input.answers;
+  const catalog = catalogFor(input.index);
+  const resolved = assertKnown(input.answers, catalog);
   const justBuild = JUST_BUILD.test(input.request);
   JUST_BUILD.lastIndex = 0;
   const stripped = input.request.replace(JUST_BUILD, " ").replace(/\s+/g, " ").trim();
-  const request = [stripped, ...chosenLabels(catalog, answers)].filter(Boolean).join(" ");
-  const cache = new Map<string, BriefCandidate[]>();
-  const rank = (intent: string): BriefCandidate[] => {
+  const masters = liveMasters(input.index);
+  const cache = new Map<string, { rows: BriefCandidate[]; weak: boolean }>();
+  const rank = (intent: string): { rows: BriefCandidate[]; weak: boolean } => {
     const key = intent.trim().toLowerCase();
     const hit = cache.get(key);
     if (hit) return hit;
@@ -375,84 +445,118 @@ export function briefScreen(input: BriefInput): BriefResult {
       sock: input.sock,
       bindRules: input.bindRules,
       placeholders: input.placeholders,
-    }) as { candidates?: Array<{ id?: string; name?: string; fileKey?: string; figmaNodeId?: string }> };
+    }) as { match?: string; candidates?: Array<{ id?: string; name?: string; fileKey?: string; figmaNodeId?: string }> };
     const rows = (card.candidates ?? []).slice(0, 3).flatMap((row) => {
-      if (!row.id || !row.name) return [];
+      if (!row.id || !row.name || platformComponentName(row.name)) return [];
       return [candidateOf({ id: row.id, name: row.name, fileKey: row.fileKey, figmaNodeId: row.figmaNodeId })];
     });
-    cache.set(key, rows);
+    const value = { rows, weak: card.match === "weak match" };
+    cache.set(key, value);
+    return value;
+  };
+
+  const shapes = mentioned(stripped, catalog.shape, SHAPE);
+  const states = mentioned(stripped, catalog.states, STATES);
+  const platform = platformSaid(stripped);
+  const named = namedMasters(stripped, masters).filter((master) => !platformComponentName(master.name) || containsPhrase(stripped, master.name));
+  const recipe = recipeMatch(recipes, stripped);
+  const decision = recipe ? undefined : decisionMatch(stripped, input.decisions ?? [], masters);
+  const lead = rank(stripped);
+  const leadFit = !lead.weak && lead.rows.some((row) => nameTokens(row.name).some((token) => contentTokens(stripped).includes(token)));
+  const answerFit = componentChoices(resolved).length > 0;
+  const fits = Boolean(recipe || decision || shapes.length || states.length || named.length || leadFit || answerFit);
+
+  const notes: string[] = [];
+  const fromAnswer = (topic: BriefTopic) => resolved.has(topic);
+  if (fromAnswer("shape") || shapes.length === 1) {
+    const choice = resolved.get("shape")?.[0] ?? shapes[0];
+    if (choice) notes.push(`${fromAnswer("shape") ? "You answered" : "Request already says"} ${TOPIC_NAME.shape}: ${choice.label}.`);
+  }
+  if (fromAnswer("states") || states.length) {
+    const choices = resolved.get("states") ?? states;
+    notes.push(`${fromAnswer("states") ? "You answered" : "Request already says"} ${TOPIC_NAME.states}: ${choices.map((choice) => choice.label).join(", ")}.`);
+  }
+  if (fromAnswer("platform") || platform) {
+    const label = resolved.get("platform")?.[0]?.label ?? platform;
+    if (label) notes.push(`${fromAnswer("platform") ? "You answered" : "Request already says"} ${TOPIC_NAME.platform}: ${label}.`);
+  }
+
+  const answeredShape = fromAnswer("shape") || shapes.length === 1;
+  const answeredStates = fromAnswer("states") || states.length > 0;
+  const shapeFork = !answeredShape && shapes.length >= 2 ? shapes : [];
+  const stateFork = answeredStates ? [] : catalog.states;
+
+  const forks: Array<{ topic: BriefTopic; options: Choice[]; multiple?: true }> = [];
+  const consider = (topic: BriefTopic, options: Choice[], multiple?: true) => {
+    if (options.length < 2 || !fits) return;
+    const distinct: Choice[] = [];
+    for (const option of options) {
+      const top = rank(`${stripped} ${option.label}`.trim());
+      if (top.weak || top.rows[0]?.name !== option.label) continue;
+      distinct.push(option);
+    }
+    if (distinct.length < 2) return;
+    forks.push({ topic, options: distinct, ...(multiple ? { multiple: true as const } : {}) });
+  };
+  if (shapeFork.length >= 2) forks.push({ topic: "shape", options: shapeFork });
+  consider("states", stateFork, true);
+
+  const realCandidates = (): BriefCandidate[] => {
+    const rows: BriefCandidate[] = [];
+    const seen = new Set<string>();
+    const push = (row: BriefCandidate, allowPlatform = false) => {
+      if (seen.has(row.id)) return;
+      if (!allowPlatform && platformComponentName(row.name)) return;
+      seen.add(row.id);
+      rows.push(row);
+    };
+    if (recipe) for (const row of recipeCandidates(input, recipe)) push(row);
+    else if (decision) push(candidateOf(decision.master));
+    else {
+      for (const master of named) push(candidateOf(master), containsPhrase(stripped, master.name));
+      for (const choice of [...(answeredShape ? shapes.slice(0, 1) : []), ...states]) {
+        const master = masters.find((item) => item.id === choice.masterId);
+        if (master) push(candidateOf(master));
+      }
+      for (const choice of componentChoices(resolved)) {
+        const master = masters.find((item) => item.id === choice.masterId);
+        if (master) push(candidateOf(master));
+      }
+      if (!rows.length && leadFit) for (const row of lead.rows) push(row);
+    }
     return rows;
   };
 
-  const masters = liveMasters(input.index);
-  const recipe = recipeMatch(recipes, request);
-  const decision = recipe ? undefined : decisionMatch(request, input.decisions ?? [], masters);
-
-  const forks: Array<{ topic: BriefTopic; options: Choice[]; assumed: Choice }> = [];
-  const notes: string[] = [];
-  for (const topic of BRIEF_TOPICS) {
-    const options = catalog[topic];
-    if (options.length < 2) continue;
-    const known = answered(request, topic, options);
-    if (known) {
-      notes.push(`Request already says ${TOPIC_NAME[topic]}: ${known.label}.`);
-      continue;
-    }
-    const distinct: Choice[] = [];
-    for (const option of options) {
-      const name = rank(`${request} ${option.label}`.trim())[0]?.name;
-      // The choice counts only when recommend would actually place that component.
-      if (name !== option.label) continue;
-      distinct.push(option);
-    }
-    if (distinct.length < 2) continue;
-    const base = rank(request)[0]?.name;
-    const assumed = distinct.find((option) => rank(`${request} ${option.label}`.trim())[0]?.name === base) ?? distinct[0]!;
-    forks.push({ topic, options: distinct, assumed });
-  }
+  if (!fits) return ready(justBuild ? "just-build" : "no-match", [NO_MATCH], []);
 
   if (justBuild) {
-    if (recipe) {
-      return ready("just-build", [`Assumed the ${recipe.title} recipe. No questions asked.`], recipeCandidates(input, recipe));
-    }
-    if (decision) {
-      return ready("just-build", [`Assumed the approved decision: ${decision.summary}`], [candidateOf(decision.master)]);
-    }
-    const assumed = forks.slice(0, BRIEF_QUESTION_CAP);
-    const assumptions = assumed.map(
-      (fork) => `Assumed ${TOPIC_NAME[fork.topic]}: ${fork.assumed.label} (${fork.assumed.contrast}).`,
-    );
-    const candidates = rank(request);
-    for (const fork of assumed) {
-      if (candidates.some((row) => row.name === fork.assumed.label)) continue;
-      const picked = rank(fork.assumed.label)[0];
-      if (picked) candidates.push(picked);
-    }
-    return ready("just-build", assumptions.length ? assumptions : ["No open question. Nothing assumed."], candidates);
+    const assumptions = forks.length
+      ? forks.slice(0, BRIEF_QUESTION_CAP).map((fork) => `Assumed ${TOPIC_NAME[fork.topic]}: none named. No questions asked.`)
+      : ["No questions asked."];
+    if (recipe) assumptions.unshift(`Assumed the ${recipe.title} recipe.`);
+    if (decision) assumptions.unshift(`Assumed the approved decision: ${decision.summary}`);
+    return ready("just-build", assumptions, realCandidates());
   }
 
-  if (recipe) {
-    return ready("recipe", [`Recipe ${recipe.title} matches. Slots decide the parts.`], recipeCandidates(input, recipe));
-  }
-  if (decision) {
-    return ready("decision", [`Approved decision: ${decision.summary}`], [candidateOf(decision.master)]);
-  }
+  if (recipe) return ready("recipe", [`Recipe ${recipe.title} matches. Slots decide the parts.`], realCandidates());
+  if (decision) return ready("decision", [`Approved decision: ${decision.summary}`], realCandidates());
 
   const asked = forks.slice(0, BRIEF_QUESTION_CAP);
   if (asked.length) {
     return {
       questions: asked.map((fork) => ({
         topic: fork.topic,
-        prompt: promptFor(fork.options),
+        prompt: `${joinOr(fork.options.map((option) => option.label))}: ${joinOr(fork.options.map((option) => option.contrast))}?${fork.multiple ? " Pick any that apply." : ""}`,
         options: fork.options.map((option) => ({ id: option.id, label: option.label })),
+        ...(fork.multiple ? { multiple: true as const } : {}),
       })),
     };
   }
 
-  const candidates = rank(request);
-  const skip: BriefSkip = candidates.length <= 1 ? "one-candidate" : "answered";
-  const assumptions = notes.length ? notes : [candidates.length <= 1 ? "Only one candidate fits." : "No question would change the component."];
-  return ready(skip, assumptions, candidates);
+  const candidates = realCandidates();
+  if (!candidates.length) return ready("no-match", [NO_MATCH], []);
+  const assumptions = notes.length ? notes : [candidates.length === 1 ? "Only one candidate fits." : "No question would change the component."];
+  return ready(candidates.length === 1 ? "one-candidate" : "answered", assumptions, candidates);
 }
 
 function recipeCandidates(input: BriefInput, recipe: Recipe): BriefCandidate[] {
@@ -470,7 +574,7 @@ function recipeCandidates(input: BriefInput, recipe: Recipe): BriefCandidate[] {
   const rows: BriefCandidate[] = [];
   for (const slot of filled.slots) {
     const master = slot.master;
-    if (!master || slot.status === "deprecated" || seen.has(master.id)) continue;
+    if (!master || slot.status === "deprecated" || seen.has(master.id) || platformComponentName(master.name)) continue;
     seen.add(master.id);
     rows.push(candidateOf(master));
   }

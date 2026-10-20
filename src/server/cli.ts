@@ -55,6 +55,7 @@ import {
   screenPartsCard,
   applyBriefIntent,
   briefAnswerLines,
+  briefAnswerParts,
   briefAnswersFromFlags,
   briefScreen,
 } from "@/core/query";
@@ -298,7 +299,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const budget = Number(flag(args, "budget"));
       const { bind, pack, context } = recommendContextFromFlags(args);
       const index = requireGraph(args).index;
-      const intent = applyBriefIntent(asked, briefAnswersFromFlags(args), index, loadRecipes());
+      const intent = applyBriefIntent(asked, briefAnswersFromFlags(args), index);
       const screen = screenAskCard(intent, { sock: readSock(), index, recipes: loadRecipes() });
       if (screen) {
         recordGap(intent, screen);
@@ -523,7 +524,9 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const bind = bindFromFlags(args);
       const pack = packForRecommend(bind);
       const index = requireGraph(args).index;
-      const briefing = briefAnswerLines(briefAnswersFromFlags(args), index, loadRecipes());
+      const briefed = briefAnswersFromFlags(args);
+      const briefing = briefAnswerLines(briefed, index);
+      const briefParts = briefAnswerParts(briefed, index);
       const result = handoffSheet(index, frames, {
         draft: args.includes("--draft"),
         recipe: flag(args, "recipe"),
@@ -536,6 +539,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
         rules: readLibraryRules(flag(args, "rules")),
         decisions: readApprovedDecisions(),
         ...(briefing.length ? { briefing } : {}),
+        ...(briefParts.length ? { briefParts } : {}),
         depth,
       });
       const json = args.includes("--json");

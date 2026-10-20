@@ -53,11 +53,11 @@ Resolve gives your AI two things about your design system: what your components 
 
 ## A short briefing
 
-Before it picks parts for a screen, Resolve can ask up to 3 questions. It asks only when the answer would change which component it picks. Every question is multiple choice, and the choices are real parts from the library it learned. For example: "Data Table or Card List: compare rows or scan items?"
+Before it picks parts for a screen, Resolve can ask up to 3 questions. It asks only when the request fits the library and the answer would change which component it picks. It does not ask what kind of screen it is. States (empty, loading, error, pending) can take more than one answer. A request that fits nothing, including a mistyped one, gets "No match." and no questions.
 
-It skips a question the request already answers. It also skips when a saved recipe or an approved screen decision already decided, or when only one part fits. If you say "just build", it asks nothing and writes down what it assumed.
+If you say "just build", "go ahead and build", or "build without asking", it asks nothing. With no match, it does not invent a part.
 
-Type `/brief show recent payments`, or let the AI call the `brief` tool. The answers go into `recommend` and the handoff sheet.
+Type `/brief show recent payments`, or let the AI call the `brief` tool. The answers change `recommend` and the parts on the handoff sheet.
 
 ## What the AI gets
 
@@ -181,7 +181,7 @@ Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.gra
 
 Newest first. The full list is in the [reference](docs/REFERENCE.md#version-history).
 
-- **Oct 20, 2026 — [PR #67](https://github.com/TANISHQBAFNA/resolve/pull/67).** Before picking parts for a screen, Resolve asks at most 3 multiple-choice questions, and only when the answer would change the component. `/brief`, `resolve brief`, and the `brief` tool. "Just build" logs the assumptions. On 35 Acme screens: 1 question per screen on average, and every asked question changed the pick. Phrase score unchanged.
+- **Oct 20, 2026 — [PR #67](https://github.com/TANISHQBAFNA/resolve/pull/67).** Before picking parts for a screen, Resolve asks at most 3 multiple-choice questions, and only when the request fits and the answer would change the component. No screen-type question. States can take more than one answer. No match asks nothing and invents nothing. Answers change the handoff parts. Phrase score unchanged.
 - **Oct 20, 2026 — [PR #64](https://github.com/TANISHQBAFNA/resolve/pull/64).** The README pictures, logo and badge use a brighter teal. In light mode, words are near-black and the teal is in fills, chips and underlines. PASS stays green.
 - **Oct 20, 2026 — [PR #61](https://github.com/TANISHQBAFNA/resolve/pull/61).** A failed check now says `pass: false` in JSON, including when proper use fails. Status still prints local time with a zone name, and the tests accept that. Tests stop with one clear message on Node older than 22.12. CI fails if the phrase score drops below 83 of 88 first picks or 85 of 88 in the top 3. CI runs on Node 22 and 24, in UTC and India time, and the browser checks include Firefox.
 - **Oct 20, 2026 — [PR #62](https://github.com/TANISHQBAFNA/resolve/pull/62).** The README pictures, logo and badge changed from purple to teal. PASS stays green.

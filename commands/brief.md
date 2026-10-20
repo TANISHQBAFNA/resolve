@@ -7,12 +7,13 @@ The designer typed: $ARGUMENTS
 Before you pick components, brief this screen. Do not draw anything yet.
 
 1. If the input is empty, ask what screen they want and stop.
-2. Call the Resolve tool `brief` with `request` set to the designer's words. If they already answered, pass `answers` as topic to option id (`goal`, `platform`, `states`, `shape`).
+2. Call the Resolve tool `brief` with `request` set to the designer's words. If they already answered, pass `answers`. Topics are `shape`, `states`, and `platform`. `states` can be a list. At most 3 answers. Do not pass `goal`.
 3. If Resolve says no design system is learned, tell the designer to run `/design-system <Figma link>` first. Stop.
-4. If the result has `questions`, ask only those questions, in order, at most 3. Each question is multiple choice. Read the options out. Do not add your own. Wait for the answers, then call `brief` again with those `answers`.
-5. If the result is `ready`, do not ask anything. Tell the designer the assumptions in one or two sentences. The candidates are the parts to use. Pass the same `answers` to `recommend` for any slot that is still open, and to `get_handoff` when you build the sheet.
-6. If the designer said "just build", the result is `ready` and the assumptions are what Resolve assumed. Show those assumptions. Do not ask the questions.
-7. If there are no candidates, say Resolve has no component for this screen. Do not guess or make one up.
+4. If the result says `No match`, say there is no match. Do not ask questions and do not invent a part.
+5. If the result has `questions`, ask only those questions, in order, at most 3. Each question is multiple choice. A states question can take more than one option. Read the options out. Do not add your own. Wait for the answers, then call `brief` again with those `answers`.
+6. If the result is `ready`, do not ask anything. Tell the designer the assumptions in one or two sentences. The candidates are the parts to use. Pass the same `answers` to `recommend` and to `get_handoff`. The handoff parts change with the answers.
+7. If the designer said "just build", "go ahead and build", or "build without asking", the result is `ready`. Show the assumptions. If it says no match, do not pick a part.
+8. If there are no candidates, say Resolve has no component for this screen. Do not guess or make one up.
 
 Never invent a component, name, or node id. Only use ids Resolve returned. Do not ask about persona, visual style, or a requirements ticket.
 

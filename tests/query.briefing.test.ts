@@ -1,23 +1,24 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
 import {
+  BriefAnswerError,
+  briefAnswers,
+  briefAnswersFromFlags,
   briefScreen,
   formatHandoffScreen,
   handoffSheet,
   indexGraph,
   recommendMasters,
   starterRecipes,
-  type BriefQuestion,
   type BriefResult,
 } from "@/core/query";
 import { runCli } from "@/server/cli";
-import { presentToolResult } from "@/server/cards";
-import { callTool } from "@/server/tools";
+import { callTool, ToolError } from "@/server/tools";
 import { clearCache, saveGraph } from "@/server/store";
-import cases from "../scoreboard/briefing/acme.json";
+import labeled from "../scoreboard/briefing/acme.json";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
 
@@ -66,9 +67,7 @@ function acmeGraph(): DesignGraph {
       }),
       ...masters,
     ],
-    edges: [
-      { id: "e1", source: "node:1:2", target: "node:10:17", type: "INSTANCE_OF" },
-    ],
+    edges: [{ id: "e1", source: "node:1:2", target: "node:10:17", type: "INSTANCE_OF" }],
   };
 }
 
@@ -94,65 +93,9 @@ function run(request: string): BriefResult {
   });
 }
 
-function topName(request: string): string | undefined {
-  const card = recommendMasters(indexGraph(acmeGraph()), request, { budgetChars: 4000 }) as {
-    candidates?: Array<{ name?: string }>;
-  };
-  return card.candidates?.[0]?.name;
-}
-
-interface ExpectedCase {
-  request: string;
-  questions?: string[];
-  skip?: string;
-  assumptions?: string[];
-  candidates?: string[];
-  picks?: Record<string, Record<string, string>>;
-}
-
-const expected = cases as { cases: ExpectedCase[] };
-
-function asked(result: BriefResult): BriefQuestion[] {
+function asked(result: BriefResult) {
   return "questions" in result ? result.questions : [];
 }
-
-const DUMP_REQUESTS = [
-  "show recent activity",
-  "show recent activity as a data table",
-  "show recent activity as a data table on desktop",
-  "show recent activity as a data table on desktop with an empty state",
-  "checkout summary",
-  "settings form",
-  "search results",
-  "sign in",
-  "inbox",
-  "confirm dialog",
-  "empty state",
-  "app shell",
-  "just build a transactions screen",
-  "just build the checkout summary",
-  "don't ask, make the transactions screen",
-  "no questions, use a data table",
-  "transactions screen",
-  "desktop settings",
-  "compare rows in a table",
-  "scan items on a card list",
-  "fill in a form",
-  "review a summary",
-  "read the counts",
-  "mobile nav with a loading spinner",
-  "compact list of payments",
-  "comfortable cards for a catalog",
-  "error when a payment fails",
-  "pending transfer status",
-  "place the Pay CTA",
-  "checkout",
-  "blank",
-  "preferences screen",
-  "login screen",
-  "navigation shell",
-  "show recent activity as a data table on a phone",
-];
 
 describe("designer briefing", () => {
   const previousHome = process.env["RESOLVE_HOME"];
@@ -168,121 +111,156 @@ describe("designer briefing", () => {
     else process.env["RESOLVE_HOME"] = previousHome;
   });
 
-  it("covers at least 30 Acme screen requests and only asks questions that change the pick", () => {
-    if (process.env["BRIEF_DUMP"] === "1") {
-      let questions = 0;
-      let changed = 0;
-      const dumped = DUMP_REQUESTS.map((request) => {
-        const result = run(request);
-        const prompts = asked(result);
-        questions += prompts.length;
-        if ("questions" in result) {
-          const picks: Record<string, Record<string, string>> = {};
-          for (const question of result.questions) {
-            picks[question.topic] = {};
-            const names = question.options.map((option) => topName(`${request} ${option.label}`));
-            if (new Set(names).size === names.length) changed += question.options.length ? 1 : 0;
-            question.options.forEach((option, index) => {
-              picks[question.topic]![option.id] = names[index] ?? "";
-            });
-          }
-          return { request, questions: result.questions.map((question) => question.topic), picks };
-        }
-        return { request, skip: result.skip, assumptions: result.assumptions, candidates: result.candidates.map((candidate) => candidate.name) };
-      });
-      const payload = {
-        average: questions / dumped.length,
-        changedShare: questions ? changed / questions : 1,
-        cases: dumped,
-      };
-      writeFileSync(join(import.meta.dirname, "../scoreboard/briefing/acme.json"), `${JSON.stringify(payload, null, 2)}\n`);
-      expect(dumped.length).toBeGreaterThanOrEqual(30);
-      return;
-    }
-    expect(expected.cases.length).toBeGreaterThanOrEqual(30);
-    const seen = new Set<string>();
+  it("asks only on the requests labeled should-ask, and reports precision and the average", () => {
+    const cases = labeled.cases;
+    expect(cases.length).toBeGreaterThanOrEqual(30);
+    expect(cases.some((row) => /tabel|lsit|paymnts|asdf/.test(row.request))).toBe(true);
+    expect(cases.some((row) => /flux|orbital|zxcv/.test(row.request))).toBe(true);
     let questions = 0;
-    let changed = 0;
-    for (const row of expected.cases) {
-      expect(seen.has(row.request), row.request).toBe(false);
-      seen.add(row.request);
+    let askedCount = 0;
+    let truePositive = 0;
+    const misses: string[] = [];
+    for (const row of cases) {
       const result = run(row.request);
       const prompts = asked(result);
       expect(prompts.length, row.request).toBeLessThanOrEqual(3);
+      expect(prompts.some((question) => question.prompt.toLowerCase().includes("settings form")), row.request).toBe(false);
+      const didAsk = prompts.length > 0;
+      if (didAsk !== row.shouldAsk) misses.push(`${row.request} | should ${row.shouldAsk} | asked ${didAsk} | ${JSON.stringify(result).slice(0, 280)}`);
       questions += prompts.length;
-      if ("questions" in result) {
-        expect(result.questions.map((question) => question.topic)).toEqual(row.questions ?? []);
-        for (const question of result.questions) {
-          expect(question.options.length).toBeGreaterThanOrEqual(2);
-          expect(question.prompt).toContain("?");
-          const names = question.options.map((option) => topName(`${row.request} ${option.label}`));
-          expect(new Set(names).size, question.prompt).toBe(names.length);
-          changed += 1;
-          const want = row.picks?.[question.topic] ?? {};
-          for (const option of question.options) {
-            expect(names[question.options.indexOf(option)], `${row.request} ${option.id}`).toBe(want[option.id]);
-            expect(MASTERS.some(([, name]) => name === option.label)).toBe(true);
-          }
-        }
-      } else {
-        expect(result.ready).toBe(true);
-        expect(result.skip).toBe(row.skip);
-        expect(result.assumptions).toEqual(row.assumptions ?? []);
-        expect(result.candidates.map((candidate) => candidate.name)).toEqual(row.candidates ?? []);
+      if (didAsk) {
+        askedCount += 1;
+        if (row.shouldAsk) truePositive += 1;
+      }
+      if (!row.shouldAsk && /flux|asdf|tabel|lsit|pyament|orbital|recent activity|just do it|without asking|on desktop|comfortable please/.test(row.request)) {
+        expect("ready" in result && result.candidates, row.request).toEqual([]);
+        expect("ready" in result && result.assumptions.join(" "), row.request).toMatch(/No match/);
+        expect(JSON.stringify(result), row.request).not.toMatch(/Desktop Nav|Save CTA|Comfortable List|Mobile Nav/);
       }
     }
-    const average = questions / expected.cases.length;
-    expect(average).toBeLessThanOrEqual(3);
-    expect(changed).toBe(questions);
-    expect(average).toBeCloseTo(cases.average, 5);
-    expect(changed / questions).toBeCloseTo(cases.changedShare, 5);
+    expect(misses, misses.join("\n")).toEqual([]);
+    const precision = askedCount === 0 ? 1 : truePositive / askedCount;
+    const average = questions / cases.length;
+    expect(precision).toBe(labeled.precision);
+    expect(average).toBe(labeled.average);
+    expect(questions).toBe(labeled.questions);
+    expect(cases.length).toBe(labeled.screens);
   });
 
-  it("folds an answer into recommend and shows it on the handoff", () => {
-    const open = run("show recent activity");
-    expect("questions" in open).toBe(true);
-    const plain = topName("show recent activity");
-    const table = topName("show recent activity Data Table");
-    expect(table).toBe("Data Table");
-    expect(table).not.toBe(plain);
-
-    saveGraph(acmeGraph());
-    const briefed = callTool("brief", { request: "show recent activity", answers: { shape: "table" } }) as BriefResult;
-    const topics = asked(briefed).map((question) => question.topic);
-    expect(topics).not.toContain("shape");
-    const ranked = callTool("recommend", { intent: "show recent activity", answers: { shape: "table" } }) as {
-      candidates?: Array<{ name?: string }>;
-    };
-    expect(ranked.candidates?.[0]?.name).toBe("Data Table");
-
-    const sheet = handoffSheet(indexGraph(acmeGraph()), ["Activity"], {
+  it("does not invent a pick for just build when nothing fits, and does not treat desktop as Desktop Nav", () => {
+    const invented = run("just build a flux capacitor");
+    expect(invented).toMatchObject({ ready: true, candidates: [], assumptions: ["No match."] });
+    const desktop = run("on desktop");
+    expect(desktop).toMatchObject({ ready: true, candidates: [] });
+    expect(JSON.stringify(desktop)).not.toContain("Desktop Nav");
+    const settings = run("desktop settings form");
+    expect("ready" in settings && settings.candidates.map((row) => row.name)).toEqual(["Text Field", "Save CTA"]);
+    const named = briefScreen({
+      request: "use the Desktop Nav",
+      answers: { states: ["empty"] },
+      index: indexGraph(acmeGraph()),
       recipes: starterRecipes(),
-      briefing: ["data shape: Data Table"],
     });
-    expect(sheet.ok).toBe(true);
-    if (!sheet.ok) return;
-    expect(sheet.screens[0]?.briefing).toEqual(["data shape: Data Table"]);
-    const text = formatHandoffScreen(sheet.screens[0]!, false);
-    expect(text).toContain("## Briefing");
-    expect(text).toContain("data shape: Data Table");
-    expect(presentToolResult(sheet, "markdown", "get_handoff")).toContain("data shape: Data Table");
+    expect("ready" in named && named.candidates.some((row) => row.name === "Desktop Nav")).toBe(true);
+    const word = briefScreen({
+      request: "on desktop",
+      answers: { states: ["empty"] },
+      index: indexGraph(acmeGraph()),
+      recipes: starterRecipes(),
+    });
+    expect(JSON.stringify(word)).not.toContain("Desktop Nav");
+    const ahead = run("go ahead and build the checkout summary");
+    expect(asked(ahead)).toEqual([]);
+    expect("ready" in ahead && ahead.candidates.length).toBeGreaterThan(0);
+    const quiet = run("build without asking");
+    expect(quiet).toMatchObject({ candidates: [], assumptions: ["No match."] });
   });
 
-  it("resolve brief prints questions or a ready card", async () => {
+  it("says you answered when the value came from an answer, and lets states take more than one", () => {
+    const result = briefScreen({
+      request: "compare rows in a table",
+      answers: { states: ["empty", "error"] },
+      index: indexGraph(acmeGraph()),
+      recipes: starterRecipes(),
+    });
+    expect("ready" in result).toBe(true);
+    if (!("ready" in result)) return;
+    expect(result.assumptions.some((line) => line.startsWith("You answered states:"))).toBe(true);
+    expect(result.assumptions.some((line) => line.startsWith("Request already says data shape:"))).toBe(true);
+    expect(result.candidates.map((row) => row.name)).toEqual(expect.arrayContaining(["Data Table", "Empty Message", "Error Alert"]));
+    const open = run("compare rows in a table");
+    const states = asked(open).find((question) => question.topic === "states");
+    expect(states?.multiple).toBe(true);
+    expect(states?.prompt).toContain("Pick any that apply");
+  });
+
+  it("rejects a bad answer from brief, recommend, and handoff", async () => {
     saveGraph(acmeGraph());
-    const chunks: string[] = [];
-    const write = process.stdout.write.bind(process.stdout);
-    process.stdout.write = ((chunk: string | Uint8Array) => {
-      chunks.push(String(chunk));
-      return true;
-    }) as typeof process.stdout.write;
-    try {
-      await runCli(["brief", "checkout summary"]);
-    } finally {
-      process.stdout.write = write;
+    const bad = [
+      ["--answer", "shape="],
+      ["--answer", "goal=pay"],
+      ["--answer", "shape=spreadsheet"],
+      ["--answer", "states=empty", "--answer", "states=empty"],
+      ["--answer", "shape=table", "--answer", "states=empty,error", "--answer", "platform=desktop"],
+    ];
+    for (const flags of bad) {
+      await expect(runCli(["brief", "compare rows in a table", ...flags])).rejects.toBeInstanceOf(BriefAnswerError);
+      await expect(runCli(["recommend", "compare rows in a table", ...flags])).rejects.toBeInstanceOf(BriefAnswerError);
+      await expect(runCli(["handoff", "Activity", ...flags])).rejects.toBeInstanceOf(BriefAnswerError);
     }
-    const printed = JSON.parse(chunks.join("")) as BriefResult;
-    expect("ready" in printed && printed.ready).toBe(true);
-    if ("ready" in printed) expect(printed.candidates.some((candidate) => candidate.name === "Pay CTA")).toBe(true);
+    expect(() => briefAnswers({ shape: "" })).toThrow(/empty/i);
+    expect(() => briefAnswers({ states: [] })).toThrow(/empty/i);
+    expect(() => briefAnswersFromFlags(["--answer", "shape=table", "--answer", "shape=cards"])).toThrow(/twice/i);
+    expect(() => callTool("brief", { request: "compare rows in a table", answers: { nope: "x" } })).toThrow(ToolError);
+    expect(() => callTool("recommend", { intent: "table", answers: { shape: "" } })).toThrow(/empty/i);
+    process.env["RESOLVE_MCP_ADVANCED"] = "1";
+    expect(() => callTool("get_handoff", { frame: "Activity", answers: { platform: "lunar" } })).toThrow(/Unknown option/);
+    delete process.env["RESOLVE_MCP_ADVANCED"];
+  });
+
+  it("changes the handoff parts the same way the answer changes recommend", () => {
+    saveGraph(acmeGraph());
+    const index = indexGraph(acmeGraph());
+    const sheet = (shape: string) => {
+      const pack = handoffSheet(index, ["Activity"], {
+        recipes: starterRecipes(),
+        briefing: [`You answered data shape: ${shape === "table" ? "Data Table" : "Card List"}.`],
+        briefParts: [
+          {
+            id: shape === "table" ? "node:10:1" : "node:10:2",
+            name: shape === "table" ? "Data Table" : "Card List",
+            fileKey: "ACMEUI",
+            figmaNodeId: shape === "table" ? "10:1" : "10:2",
+          },
+        ],
+      });
+      expect(pack.ok).toBe(true);
+      if (!pack.ok) throw new Error("handoff refused");
+      return pack;
+    };
+    const table = sheet("table");
+    const cards = sheet("cards");
+    expect(table.screens[0]?.components.map((row) => row.name)).toContain("Data Table");
+    expect(table.screens[0]?.ingredients.map((row) => row.name)).toContain("Data Table");
+    expect(cards.screens[0]?.components.map((row) => row.name)).toContain("Card List");
+    expect(cards.screens[0]?.components.map((row) => row.name)).not.toContain("Data Table");
+    expect(formatHandoffScreen(table.screens[0]!, false)).not.toBe(formatHandoffScreen(cards.screens[0]!, false));
+
+    const ranked = callTool("recommend", {
+      intent: "compare rows",
+      answers: { states: ["empty", "error"] },
+    }) as { intent?: string; candidates?: Array<{ name?: string }> };
+    expect(ranked.intent).toContain("Empty Message");
+    expect(ranked.intent).toContain("Error Alert");
+    const plain = recommendMasters(index, "compare rows", { budgetChars: 4000 }) as { intent?: string };
+    expect(plain.intent).not.toContain("Empty Message");
+
+    process.env["RESOLVE_MCP_ADVANCED"] = "1";
+    const handed = callTool("get_handoff", { frame: "Activity", answers: { shape: "cards", states: ["pending"] } }) as {
+      screens?: Array<{ components: Array<{ name: string }>; ingredients: Array<{ name: string }> }>;
+    };
+    const names = handed.screens?.[0]?.components.map((row) => row.name) ?? [];
+    expect(names).toEqual(expect.arrayContaining(["Card List", "Pending Banner"]));
+    expect(handed.screens?.[0]?.ingredients.map((row) => row.name)).toEqual(expect.arrayContaining(["Card List", "Pending Banner"]));
   });
 });
