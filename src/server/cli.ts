@@ -57,6 +57,7 @@ import {
   ingredientCoverage,
   screenPartsCard,
   applyBriefIntent,
+  BriefAnswerError,
   briefAnswerLines,
   briefAnswerParts,
   briefAnswersFromFlags,
@@ -134,6 +135,11 @@ export async function runCli(argv: string[]): Promise<void> {
   const previous = setJsonPretty(pretty);
   try {
     await dispatchCli(pretty ? argv.filter((arg) => arg !== "--pretty") : argv);
+  } catch (error) {
+    // --json reads stdout: bad briefing input (or any brief error) is ok:false JSON, exit 1.
+    if (!argv.includes("--json") || !(error instanceof BriefAnswerError || argv[0] === "brief")) throw error;
+    printJson({ ok: false, status: "error", message: error instanceof Error ? error.message : String(error), exitCode: 1 });
+    process.exitCode = 1;
   } finally {
     setJsonPretty(previous);
   }
@@ -279,22 +285,18 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const request = positionals(args)[0];
       if (!request) throw new Error('Usage: resolve brief "<screen request>"');
       const { bind, pack, context } = recommendContextFromFlags(args);
-      const index = requireGraph(args).index;
-      printJson(
-        briefScreen({
-          request,
-          answers: briefAnswersFromFlags(args),
-          index,
-          recipes: loadRecipes(),
-          decisions: readApprovedDecisions(),
-          ...(context ? { context } : {}),
-          workspace: bind.workspace,
-          sock: readSock(),
-          bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
-          placeholders: readPlaceholders(),
-        }),
-      );
-      return;
+      return printJson(briefScreen({
+        request,
+        answers: briefAnswersFromFlags(args),
+        index: requireGraph(args).index,
+        recipes: loadRecipes(),
+        decisions: readApprovedDecisions(),
+        ...(context ? { context } : {}),
+        workspace: bind.workspace,
+        sock: readSock(),
+        bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
+        placeholders: readPlaceholders(),
+      }));
     }
 
     case "recommend": {

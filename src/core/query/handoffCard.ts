@@ -131,9 +131,9 @@ function applyBriefing(pack: Extract<HandoffPack, { ok: true }>, lines: string[]
         name: part.name,
         ...(part.fileKey ? { fileKey: part.fileKey } : {}),
         ...(part.figmaNodeId ? { figmaNodeId: part.figmaNodeId } : {}),
-        count: 1,
+        count: 0,
         copies: [],
-        identity: "confirmed" as const,
+        identity: "to-add" as const,
         status: "current" as const,
         code: "unmapped",
         parts: [],
@@ -158,7 +158,6 @@ function applyBriefing(pack: Extract<HandoffPack, { ok: true }>, lines: string[]
       summary: {
         ...screen.summary,
         components: screen.summary.components + added.length,
-        copies: screen.summary.copies + added.length,
         unmapped: screen.summary.unmapped + added.length,
       },
     };

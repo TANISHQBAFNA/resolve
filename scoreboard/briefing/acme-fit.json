@@ -1,0 +1,29 @@
+{
+  "note": "Fresh fit set, written apart from acme.json. expect is the part a designer means, or null when nothing in the Acme library fits. Recall: fitting requests where brief offered the expected part, as a candidate, as a question option, or as a candidate once the first option of each question is answered. Precision: requests where brief offered parts, and the expected part was among them.",
+  "cases": [
+    { "request": "data tables of payments", "expect": "Data Table" },
+    { "request": "list the payees as cards", "expect": "Card List" },
+    { "request": "summary cards for the order", "expect": "Summary Card" },
+    { "request": "a summary card with the totals", "expect": "Summary Card" },
+    { "request": "stat blocks for balances", "expect": "Stat Block" },
+    { "request": "text fields for the address", "expect": "Text Field" },
+    { "request": "search fields above the results", "expect": "Search Field" },
+    { "request": "error alerts when the transfer fails", "expect": "Error Alert" },
+    { "request": "loading spinners while it saves", "expect": "Loading Spinner" },
+    { "request": "pending banners on held payments", "expect": "Pending Banner" },
+    { "request": "empty messages for no results", "expect": "Empty Message" },
+    { "request": "the pay ctas at the bottom", "expect": "Pay CTA" },
+    { "request": "show the payment buttons", "expect": "Button" },
+    { "request": "an error alert for failed sign-ins", "expect": "Error Alert" },
+    { "request": "build it without asking: data tables", "expect": "Data Table" },
+    { "request": "just build the summary cards", "expect": "Summary Card" },
+    { "request": "warp drive gauges", "expect": null },
+    { "request": "hologram of the moon", "expect": null },
+    { "request": "summry crads", "expect": null },
+    { "request": "txt feilds", "expect": null },
+    { "request": "build it without asking", "expect": null },
+    { "request": "just build the time machine", "expect": null },
+    { "request": "on mobile", "expect": null },
+    { "request": "compact please", "expect": null }
+  ]
+}

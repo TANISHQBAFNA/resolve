@@ -13,12 +13,14 @@ import {
   indexGraph,
   recommendMasters,
   starterRecipes,
+  type BriefAnswers,
   type BriefResult,
 } from "@/core/query";
 import { runCli } from "@/server/cli";
 import { callTool, ToolError } from "@/server/tools";
 import { clearCache, saveGraph } from "@/server/store";
 import labeled from "../scoreboard/briefing/acme.json";
+import fitSet from "../scoreboard/briefing/acme-fit.json";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
 
@@ -159,7 +161,7 @@ describe("designer briefing", () => {
 
   it("does not invent a pick for just build when nothing fits, and does not treat desktop as Desktop Nav", () => {
     const invented = run("just build a flux capacitor");
-    expect(invented).toMatchObject({ ready: true, candidates: [], assumptions: ["No match."] });
+    expect(invented).toMatchObject({ ready: true, candidates: [], assumptions: [expect.stringMatching(/^No match\. .*brief again/)] });
     const desktop = run("on desktop");
     expect(desktop).toMatchObject({ ready: true, candidates: [] });
     expect(JSON.stringify(desktop)).not.toContain("Desktop Nav");
@@ -183,7 +185,7 @@ describe("designer briefing", () => {
     expect(asked(ahead)).toEqual([]);
     expect("ready" in ahead && ahead.candidates.length).toBeGreaterThan(0);
     const quiet = run("build without asking");
-    expect(quiet).toMatchObject({ candidates: [], assumptions: ["No match."] });
+    expect(quiet).toMatchObject({ candidates: [], assumptions: [expect.stringMatching(/^No match\. .*brief again/)] });
   });
 
   it("says you answered when the value came from an answer, and lets states take more than one", () => {
@@ -272,5 +274,107 @@ describe("designer briefing", () => {
     const names = handed.screens?.[0]?.components.map((row) => row.name) ?? [];
     expect(names).toEqual(expect.arrayContaining(["Card List", "Pending Banner"]));
     expect(handed.screens?.[0]?.ingredients.map((row) => row.name)).toEqual(expect.arrayContaining(["Card List", "Pending Banner"]));
+  });
+
+  it("finds the part recommend finds on plurals and close phrasing (recall), and stays silent when nothing fits (precision)", () => {
+    let fitting = 0;
+    let found = 0;
+    let offered = 0;
+    let right = 0;
+    const misses: string[] = [];
+    for (const row of fitSet.cases) {
+      const result = run(row.request);
+      let names = "questions" in result
+        ? result.questions.flatMap((question) => question.options.map((option) => option.label))
+        : result.candidates.map((candidate) => candidate.name);
+      if ("questions" in result && row.expect !== null && !names.includes(row.expect)) {
+        const answers: BriefAnswers = { states: [] };
+        for (const question of result.questions) {
+          const first = question.options[0]!.id;
+          if (question.topic === "states") answers.states.push(first);
+          else answers[question.topic] = first;
+        }
+        const answered = briefScreen({ request: row.request, answers, index: indexGraph(acmeGraph()), recipes: starterRecipes() });
+        if ("ready" in answered) names = [...names, ...answered.candidates.map((candidate) => candidate.name)];
+      }
+      const hit = row.expect !== null && names.includes(row.expect);
+      if (row.expect !== null) {
+        fitting += 1;
+        if (hit) found += 1;
+        else misses.push(`${row.request} | want ${row.expect} | ${JSON.stringify(result).slice(0, 200)}`);
+      } else {
+        expect("ready" in result && result.candidates, row.request).toEqual([]);
+        expect("ready" in result && result.assumptions[0], row.request).toMatch(/^No match\./);
+      }
+      if (names.length) {
+        offered += 1;
+        if (hit) right += 1;
+      }
+    }
+    expect(misses, misses.join("\n")).toEqual([]);
+    expect(found / fitting).toBe(1);
+    expect(right / offered).toBe(1);
+    expect(fitSet.cases.length).toBeGreaterThanOrEqual(24);
+  });
+
+  it("does not ask a shape question when the request names the shape, and each shape answer leads to its own part", () => {
+    for (const request of ["summary cards for the order", "a summary card with the totals", "list the payees as cards"]) {
+      expect(asked(run(request)).some((question) => question.topic === "shape"), request).toBe(false);
+    }
+    saveGraph(acmeGraph());
+    for (const request of ["customer rows in a table or a card list", "a form or a summary of the account"]) {
+      const shape = asked(run(request)).find((question) => question.topic === "shape");
+      expect(shape, request).toBeDefined();
+      const tops = shape!.options.map((option) => {
+        const card = callTool("recommend", { intent: request, answers: { shape: option.id }, budgetChars: 4000 }) as { candidates?: Array<{ name?: string }> };
+        return card.candidates?.[0]?.name;
+      });
+      expect(tops, request).toEqual(shape!.options.map((option) => option.label));
+    }
+  });
+
+  it("treats build it without asking as just build, and says no match for a recipe with no filled parts", () => {
+    expect(run("build it without asking")).toMatchObject({ skip: "just-build", candidates: [] });
+    const empty = briefScreen({
+      request: "warp console",
+      index: indexGraph(acmeGraph()),
+      recipes: [{ id: "warp-console", title: "Warp console", intentAliases: [], slots: [{ role: "flux gauge", required: true, hints: ["flux gauge"] }] }],
+    });
+    expect(empty).toMatchObject({ ready: true, skip: "no-match", candidates: [] });
+    expect("ready" in empty && empty.assumptions[0]).toMatch(/^No match\. .*brief again/);
+  });
+
+  it("prints ok:false JSON for bad input with --json, and marks parts from answers as to-add", async () => {
+    saveGraph(acmeGraph());
+    const writes: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string) => {
+      writes.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await runCli(["brief", "compare rows in a table", "--answer", "shape=spreadsheet", "--json"]);
+      await runCli(["handoff", "Activity", "--answer", "goal=pay", "--json"]);
+    } finally {
+      process.stdout.write = write;
+    }
+    expect(process.exitCode).toBe(1);
+    process.exitCode = 0;
+    const printed = writes.join("").trim().split(/\n(?=\{)/).map((text) => JSON.parse(text) as { ok: boolean; message: string });
+    expect(printed).toHaveLength(2);
+    for (const row of printed) expect(row.ok).toBe(false);
+    expect(printed[0]!.message).toMatch(/Unknown option/);
+
+    const index = indexGraph(acmeGraph());
+    const pack = handoffSheet(index, ["Activity"], {
+      recipes: starterRecipes(),
+      briefParts: [{ id: "node:10:1", name: "Data Table", fileKey: "ACMEUI", figmaNodeId: "10:1" }],
+    });
+    if (!pack.ok) throw new Error("handoff refused");
+    const added = pack.screens[0]!.components.find((row) => row.name === "Data Table");
+    expect(added).toMatchObject({ count: 0, identity: "to-add" });
+    const text = formatHandoffScreen(pack.screens[0]!, false);
+    expect(text).toContain("**to-add**");
+    expect(text).not.toMatch(/Data Table ×1/);
   });
 });

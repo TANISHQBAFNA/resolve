@@ -6,6 +6,7 @@ import type { BindRulesFile } from "./bindRules";
 import { exactRecipe, fillRecipe, type Recipe } from "./recipes";
 import { recommendMasters } from "./recommendMasters";
 import type { RecommendContext } from "./recommendSupport";
+import { inflectionStems } from "./screenInventory";
 import type { SociProposal, SockState } from "./sock";
 import type { WorkspaceManifest } from "./workspace";
 
@@ -37,7 +38,7 @@ const FILLER = new Set([
   "use", "using", "recent", "some", "when", "into", "from", "ahead", "without", "asking", "go",
 ]);
 
-const JUST_BUILD = /\b(?:just build|just do it|don'?t ask|do not ask|skip questions|no questions|go ahead and build|build without asking)\b/gi;
+const JUST_BUILD = /\b(?:just build|just do it|don'?t ask|do not ask|skip questions|no questions|go ahead and build|build (?:it |this |them )?without asking)\b/gi;
 
 interface Role {
   id: string;
@@ -128,11 +129,35 @@ interface Catalog {
   states: Choice[];
 }
 
+/** Same word, or the same word with a plural or -ing/-ed ending (recommend's stems). */
+function sameWord(a: string, b: string): boolean {
+  if (a === b) return true;
+  const forms = [a, ...inflectionStems(a)];
+  return [b, ...inflectionStems(b)].some((form) => forms.includes(form));
+}
+
+/** Where the phrase's words sit in hay, in order, as [start, end). Plurals and stems count. */
+function phraseSpan(hay: string, phrase: string): [number, number] | undefined {
+  if (phrase.trim().length < 3) return undefined;
+  const needle = nameTokens(phrase);
+  const words = nameTokens(hay);
+  if (!needle.length) return undefined;
+  for (let start = 0; start + needle.length <= words.length; start += 1) {
+    if (needle.every((word, offset) => sameWord(words[start + offset]!, word))) return [start, start + needle.length];
+  }
+  return undefined;
+}
+
 function containsPhrase(hay: string, phrase: string): boolean {
-  const needle = phrase.trim().toLowerCase();
-  if (needle.length < 3) return false;
-  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:[^a-z0-9]|$)`).test(hay.toLowerCase());
+  return phraseSpan(hay, phrase) !== undefined;
+}
+
+/** hay without the words the phrase matched. */
+function withoutPhrase(hay: string, phrase: string): string {
+  const span = phraseSpan(hay, phrase);
+  if (!span) return hay;
+  const words = nameTokens(hay);
+  return [...words.slice(0, span[0]), ...words.slice(span[1])].join(" ");
 }
 
 function contentTokens(request: string): string[] {
@@ -303,11 +328,29 @@ export function assertBriefAnswers(answers: BriefAnswers | undefined, index: Gra
   return assertKnown(answers, catalogFor(index));
 }
 
+/** The request with the other shapes it named taken out, so the chosen shape leads. */
+function steerShape(request: string, shapes: Choice[], chosen: Choice): string {
+  let rest = request;
+  for (const other of shapes) {
+    if (other.id === chosen.id) continue;
+    const role = SHAPE.find((row) => row.id === other.id);
+    for (const phrase of [other.label, ...(role?.phrases ?? [])]) {
+      while (containsPhrase(rest, phrase)) rest = withoutPhrase(rest, phrase);
+    }
+  }
+  return rest;
+}
+
 /** Component names from shape and state answers. Platform words are not component names. */
 export function applyBriefIntent(request: string, answers: BriefAnswers | undefined, index: GraphIndex): string {
   if (!answers) return request;
-  const labels = componentChoices(assertBriefAnswers(answers, index)).map((choice) => choice.label);
-  return labels.length ? `${request} ${labels.join(" ")}`.trim() : request;
+  const catalog = catalogFor(index);
+  const resolved = assertKnown(answers, catalog);
+  const labels = componentChoices(resolved).map((choice) => choice.label);
+  if (!labels.length) return request;
+  const shape = resolved.get("shape")?.[0];
+  const base = shape ? steerShape(request, catalog.shape, shape) : request;
+  return `${base} ${labels.join(" ")}`.trim();
 }
 
 export function briefAnswerLines(answers: BriefAnswers | undefined, index: GraphIndex): string[] {
@@ -342,14 +385,16 @@ function mentioned(request: string, options: Choice[], roles: Role[]): Choice[] 
   const phrases = roles.flatMap((role) => role.phrases.map((phrase, index) => ({ phrase, index, id: role.id })));
   phrases.sort((a, b) => b.phrase.length - a.phrase.length || a.index - b.index);
   const used = new Set<string>();
+  let rest = request;
   for (const option of [...options].sort((a, b) => b.label.length - a.label.length)) {
-    if (containsPhrase(request, option.label)) {
+    if (containsPhrase(rest, option.label)) {
       hits.push(option);
       used.add(option.id);
+      rest = withoutPhrase(rest, option.label);
     }
   }
   for (const row of phrases) {
-    if (used.has(row.id) || !containsPhrase(request, row.phrase)) continue;
+    if (used.has(row.id) || !containsPhrase(rest, row.phrase)) continue;
     const option = options.find((item) => item.id === row.id);
     if (!option) continue;
     hits.push(option);
@@ -382,8 +427,7 @@ function recipeMatch(recipes: Recipe[], request: string): Recipe | undefined {
     const phrases = [recipe.title, ...recipe.intentAliases];
     return phrases.some((phrase) => {
       if (!containsPhrase(request, phrase)) return false;
-      const rest = request.toLowerCase().replace(phrase.toLowerCase(), " ");
-      return contentTokens(rest).length === 0;
+      return contentTokens(withoutPhrase(request, phrase)).length === 0;
     });
   });
   return hits.length === 1 ? hits[0] : undefined;
@@ -423,7 +467,7 @@ function ready(skip: BriefSkip, assumptions: string[], candidates: BriefCandidat
   return { ready: true, skip, assumptions, candidates };
 }
 
-const NO_MATCH = "No match.";
+const NO_MATCH = "No match. Name a component from the learned library or check the spelling, then brief again.";
 
 export function briefScreen(input: BriefInput): BriefResult {
   const recipes = input.recipes ?? [];
@@ -462,7 +506,12 @@ export function briefScreen(input: BriefInput): BriefResult {
   const recipe = recipeMatch(recipes, stripped);
   const decision = recipe ? undefined : decisionMatch(stripped, input.decisions ?? [], masters);
   const lead = rank(stripped);
-  const leadFit = !lead.weak && lead.rows.some((row) => nameTokens(row.name).some((token) => contentTokens(stripped).includes(token)));
+  // Recommend's own ranking decides fit. A weak lead fits only when the request names one of its words.
+  const asks = contentTokens(stripped);
+  const leadRows = lead.weak
+    ? lead.rows.filter((row) => nameTokens(row.name).some((token) => asks.some((word) => sameWord(word, token))))
+    : lead.rows;
+  const leadFit = leadRows.length > 0;
   const answerFit = componentChoices(resolved).length > 0;
   const fits = Boolean(recipe || decision || shapes.length || states.length || named.length || leadFit || answerFit);
 
@@ -491,14 +540,15 @@ export function briefScreen(input: BriefInput): BriefResult {
     if (options.length < 2 || !fits) return;
     const distinct: Choice[] = [];
     for (const option of options) {
-      const top = rank(`${stripped} ${option.label}`.trim());
+      const base = topic === "shape" ? steerShape(stripped, catalog.shape, option) : stripped;
+      const top = rank(`${base} ${option.label}`.trim());
       if (top.weak || top.rows[0]?.name !== option.label) continue;
       distinct.push(option);
     }
     if (distinct.length < 2) return;
     forks.push({ topic, options: distinct, ...(multiple ? { multiple: true as const } : {}) });
   };
-  if (shapeFork.length >= 2) forks.push({ topic: "shape", options: shapeFork });
+  consider("shape", shapeFork);
   consider("states", stateFork, true);
 
   const realCandidates = (): BriefCandidate[] => {
@@ -522,12 +572,13 @@ export function briefScreen(input: BriefInput): BriefResult {
         const master = masters.find((item) => item.id === choice.masterId);
         if (master) push(candidateOf(master));
       }
-      if (!rows.length && leadFit) for (const row of lead.rows) push(row);
+      if (!rows.length) for (const row of leadRows) push(row);
     }
     return rows;
   };
 
   if (!fits) return ready(justBuild ? "just-build" : "no-match", [NO_MATCH], []);
+  if (recipe && !realCandidates().length) return ready(justBuild ? "just-build" : "no-match", [NO_MATCH], []);
 
   if (justBuild) {
     const assumptions = forks.length
