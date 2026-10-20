@@ -56,6 +56,7 @@ import {
   ingredientCard,
   ingredientCoverage,
   screenPartsCard,
+  composeCard,
 } from "@/core/query";
 import {
   deltaAgainst,
@@ -79,6 +80,7 @@ import {
   proposalDecisionBody,
   readPlaceholders,
   readSock,
+  saveSock,
   readApprovedDecisions,
   readWorkspace,
   runProposalDecision,
@@ -233,6 +235,25 @@ async function dispatchCli(argv: string[]): Promise<void> {
         printJson(
           listRecipes(recipes, resolveGraph(flag(args, "id"))?.index, bind, sock, bindRules, readPlaceholders()),
         );
+        return;
+      }
+      if (args.includes("--compose") || args.includes("--propose")) {
+        const index = resolveGraph(flag(args, "id"))?.index;
+        const problem = !args.includes("--compose")
+          ? "--propose needs --compose."
+          : !index
+            ? "Compose needs a learned library. Run resolve learn first."
+            : undefined;
+        if (problem || !index) {
+          if (!args.includes("--json")) throw new Error(problem);
+          printJson({ ok: false, status: "error", query, message: problem, exitCode: 1 });
+          process.exitCode = 1;
+          return;
+        }
+        const placeholders = readPlaceholders();
+        const out = composeCard({ request: query, index, recipes, bind, sock, bindRules, placeholders }, args.includes("--propose"), new Date().toISOString());
+        if (out.state) saveSock(out.state);
+        printJson(out.card);
         return;
       }
       const screen = screenAskCard(query, { sock, index: resolveGraph(flag(args, "id"))?.index, recipes });

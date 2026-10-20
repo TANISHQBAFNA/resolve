@@ -25,6 +25,7 @@ import {
   ingredientCard,
   handoffSheet,
   type HandoffPack,
+  composeCard,
 } from "@/core/query";
 import { trimmedStrings } from "@/core/query/recommendSupport";
 import { presentToolResult, type ToolCardFormat } from "./cards";
@@ -374,6 +375,8 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
+        compose: { type: "boolean", description: "Advanced only. When no saved recipe fits, compose one from the parts the request names. Never invents; empty slots say No match. Not saved." },
+        propose: { type: "boolean", description: "Advanced only, with compose. File the composed recipe as a pending proposal; a person approves it to save." },
         ...screenContextProperties,
         ...freshnessProperties,
       },
@@ -793,6 +796,22 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const extra = intent && intent !== query ? intent : undefined;
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
       const recipes = loadRecipes();
+      const compose = args["compose"] === true || args["propose"] === true;
+      if (compose && process.env["RESOLVE_MCP_ADVANCED"] === "1") {
+        if (args["compose"] !== true) throw new ToolError("propose needs compose: true.");
+        const input = {
+          request: query,
+          index: context(args).index,
+          recipes,
+          bind: contextBindFromArgs(args),
+          sock: readSock(),
+          bindRules: loadBindRulesSafe(),
+          placeholders: readPlaceholders(),
+        };
+        const out = composeCard(input, args["propose"] === true, new Date().toISOString());
+        if (out.state) saveSock(out.state);
+        return capRecipePayload(out.card);
+      }
       const screen = screenAskCard(query, { sock: readSock(), index: resolveGraph(graphId)?.index, recipes });
       if (screen) return withPendingImprovements(screen, readSock());
       const ranked = rankRecipes(recipes, query);
@@ -807,8 +826,9 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         readPlaceholders(),
       );
       const also = ranked.slice(1).map((recipe) => recipe.title);
+      const note = compose ? { compose: "Composing needs the advanced surface (RESOLVE_MCP_ADVANCED=1)." } : {};
       return withPendingImprovements(
-        capRecipePayload(also.length ? { ...card, also } : card),
+        capRecipePayload({ ...card, ...(also.length ? { also } : {}), ...note }),
         readSock(),
       );
     }

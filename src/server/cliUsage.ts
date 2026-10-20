@@ -28,6 +28,7 @@ export function usage(): void {
       "      Screen packs. Overlay .resolve/recipes.json still wins.",
       "      After ingest, list/get bind slots to live masters (or next recommend query).",
       "      Matching .resolve/context-packs.json scopes slot fills + nextRecommend.",
+      "      --compose: no saved recipe fits, so build one from the parts the request names. Not saved. --propose files it for approval.",
       "      Never invents node ids. Unbound: recommend then verify_frame.",
       `  resolve recommend "<intent>" [--id] [--budget <chars>] ${PACK_BIND_FLAGS} [--screen-type <kind>]`,
       "      Ranked masters: name/intent first (exact, token, synonym). Context and usage break ties.",

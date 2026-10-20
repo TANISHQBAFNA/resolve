@@ -81,6 +81,22 @@ To replace a starter recipe, reuse its `id` (for example `checkout-summary`) in 
 
 Optional: bind a context pack from the recipe side with `"contextPackId": "storefront-checkout-summary"`. Prefer listing `recipeIds` on the pack so one product/journey file owns the bind.
 
+### Compose a recipe
+
+When no saved recipe fits, ask Resolve to compose one. It only does this when you ask.
+
+```bash
+npm run resolve -- recipe "profile page with an avatar, a text field and a save button" --compose
+```
+
+- Words before "with" name the screen. Each part after it ("an avatar", "a text field", "a save button") becomes a slot.
+- Each slot is filled by `recommend`, the same way a saved recipe's slot is. It never invents a part or an id.
+- A part with no fit stays in the card as **No match**, with the `recommend` to try.
+- Fewer than 2 parts fit: no recipe. One part says "use recommend". None says "No match".
+- A saved recipe with that exact name wins, and nothing is composed.
+- Nothing is saved. `--propose` files a pending proposal; a person runs `resolve approve <id> --who <name>` to add it to `.resolve/recipes.json`.
+- MCP: `recipe` with `compose: true` (and `propose: true`), on the advanced surface only (`RESOLVE_MCP_ADVANCED=1`). The default 7 tools do not change.
+
 ## Context packs
 
 Designers that share one Figma library across products add a **product + journey** pack so `recipe` / `recommend` pick masters for *this* product and *this* step — not a generic name match.

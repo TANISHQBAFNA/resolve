@@ -525,6 +525,8 @@ npm run resolve -- recipe "checkout summary"
 
 A recipe is a list of slots (header, line list, primary action, input). Each slot is filled with a real component from your library, or is marked `unbound` or `missing`, with the next `recommend` to run. It never invents an id. Your own recipes go in `.resolve/recipes.json` and win over the built-in ones. See [`docs/RECIPES.md`](RECIPES.md).
 
+`recipe "<screen with parts>" --compose` builds a recipe when no saved one fits: one slot per part you name, each filled by `recommend`. A part with no fit says No match. Fewer than 2 fitting parts is not a recipe. Nothing is saved; `--propose` files a proposal, and a person's `resolve approve` adds it to `.resolve/recipes.json`. MCP: `compose: true` on `recipe`, advanced surface only.
+
 #### recommend
 
 ```bash

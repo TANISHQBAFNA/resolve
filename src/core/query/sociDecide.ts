@@ -57,7 +57,8 @@ function recordedDecision(
   patch?: {
     writesRecipes: true;
     recipeOverlay: Recipe[];
-    recipeBefore: Recipe;
+    /** Absent when approval adds a new recipe. */
+    recipeBefore?: Recipe;
     recipeAfter: Recipe;
   },
 ): SociDecision {
@@ -71,7 +72,7 @@ function recordedDecision(
       action,
       before: rules.rules,
       after: rules.rules,
-      ...(patch ? { recipeBefore: patch.recipeBefore, recipeAfter: patch.recipeAfter } : {}),
+      ...(patch ? { ...(patch.recipeBefore ? { recipeBefore: patch.recipeBefore } : {}), recipeAfter: patch.recipeAfter } : {}),
     },
     ...(patch ? { recipeOverlay: patch.recipeOverlay } : {}),
     writesRules: false,
@@ -126,6 +127,21 @@ export function applySociDecision(
     case "recipe-update": {
       if (action === "reject") {
         return recordedDecision(sock, rules, proposalId, action, who, when, note);
+      }
+      const added = proposal.suggestedNewRecipe;
+      if (added) {
+        // A composed recipe: every stored id must still be a live master, and it never replaces a recipe.
+        for (const slot of added.slots) {
+          if (slot.defaultMasterId) assertCurrentMaster(options.index, sock, slot.defaultMasterId, "recipe master");
+        }
+        if ((options.recipes ?? []).some((recipe) => recipe.id === added.id)) {
+          throw new BindRuleError(`Recipe "${added.id}" already exists. A composed recipe never replaces one.`);
+        }
+        return recordedDecision(sock, rules, proposalId, action, who, when, note, {
+          writesRecipes: true,
+          recipeOverlay: overlayWithRecipe(options.overlay ?? [], added),
+          recipeAfter: added,
+        });
       }
       const change = proposal.suggestedRecipe;
       if (!change) {
