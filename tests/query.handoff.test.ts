@@ -168,7 +168,7 @@ describe("handoff sheet", () => {
     ]);
     expect(sheet.verify).toEqual({ pass: true, approved: 3, retired: [], invents: [], unresolved: [] });
     expect(sheet.decisions).toEqual([]);
-    expect(sheet.openQuestions).toContain("Part Avatar [ACMEUI 30:40] (inside Payee picker) has no code link.");
+    expect(sheet.openQuestions).toContain("Part Avatar [ACMEUI 30:40] (inside Payee picker) has no code link. Stop and ask.");
     await expect(formatHandoffScreen(sheet, false)).toMatchFileSnapshot(join(GOLDEN, "send-money.md"));
     await expect(`${JSON.stringify(pack, null, 2)}\n`).toMatchFileSnapshot(join(GOLDEN, "send-money.json"));
   });

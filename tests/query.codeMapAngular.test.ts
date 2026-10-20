@@ -70,7 +70,7 @@ describe("Angular fields in the code map", () => {
     expect(report).not.toHaveProperty("angularIgnored");
     const text = formatCodeMapReport(report);
     expect(text).toContain("Angular: 4 components have a selector (incl. 1 retired): 2 standalone, 2 with a module, 3 list inputs or outputs.");
-    expect(text).toContain("Retired: Old Button [ACMEUI 30:50] -> use Button (old code: AcmeOldButtonComponent from '@acme/ui-angular-legacy', <acme-old-button>, AcmeLegacyModule)");
+    expect(text).toContain("Retired: Old Button [ACMEUI 30:50] -> use Button");
     expect(report.retired[0]?.angular).toMatchObject({ selector: "acme-old-button", module: "AcmeLegacyModule" });
   });
 
@@ -184,14 +184,15 @@ describe("Angular fields in the code map", () => {
     );
   });
 
-  it("a retired part shows its own Angular code and the replacement's", () => {
+  it("a retired part hides its own code and names the replacement", () => {
     put(angularMap);
     const card = found(ingredientCard(acme(), "Old Button"));
-    expect(card.angular).toMatchObject({ selector: "acme-old-button", module: "AcmeLegacyModule" });
-    expect(card.component).toMatchObject({ use: "Button", useCode: "AcmeButtonComponent from '@acme/ui-angular'", useAngular: { selector: "acme-button" } });
+    expect(card.code).toBeNull();
+    expect(card.angular).toBeUndefined();
+    expect(card.component).toMatchObject({ status: "retired", use: "Button", useCode: "AcmeButtonComponent from '@acme/ui-angular'", useAngular: { selector: "acme-button" } });
     const text = formatIngredientCard(card);
-    expect(text).toContain("Code: AcmeOldButtonComponent from '@acme/ui-angular-legacy' (retired; use Button, code: AcmeButtonComponent from '@acme/ui-angular', <acme-button>, AcmeButtonModule)");
-    expect(text).toContain("Angular: <acme-old-button>, AcmeLegacyModule");
+    expect(text).toContain("Retired; use Button, code: AcmeButtonComponent from '@acme/ui-angular', <acme-button>, AcmeButtonModule");
+    expect(text).not.toContain("AcmeOldButtonComponent");
   });
 
   it("resolve, recommend and verify carry the Angular fields next to the code line", () => {
@@ -203,14 +204,14 @@ describe("Angular fields in the code map", () => {
     expect(rec).toMatchObject({ code: "AcmeButtonComponent from '@acme/ui-angular'", angular: "<acme-button>, AcmeButtonModule" });
     expect(rec.cost.chars).toBeLessThanOrEqual(600);
     const verify = verifyFrame(acme(), { components: ["Old Button"] }) as { retired?: string[] };
-    expect(verify.retired).toEqual(["retired Old Button -> use Button (old code: AcmeOldButtonComponent from '@acme/ui-angular-legacy', <acme-old-button>, AcmeLegacyModule)"]);
+    expect(verify.retired).toEqual(["retired Old Button -> use Button"]);
   });
 
   it("CSV: the template lists every component, filled where the map knows it; the Acme CSV imports to the Acme JSON", () => {
     put(angularMap);
     const template = codeMapTemplate(codeMapRows(acme()));
     const rows = parseCsv(template);
-    expect(rows[0]).toEqual(["fileKey", "id", "name", "component", "importPath", "framework", "selector", "module", "standalone", "inputs", "outputs", "status", "replacedBy"]);
+    expect(rows[0]).toEqual(["fileKey", "id", "name", "component", "importPath", "framework", "selector", "module", "standalone", "inputs", "outputs", "status", "replacedBy", "relation", "figmaVersion", "packageVersion"]);
     expect(rows).toHaveLength(7);
     expect(template).toBe(readFileSync(CSV, "utf8"));
     const imported = codeMapFromCsv(readFileSync(CSV, "utf8"));
@@ -238,7 +239,7 @@ describe("Angular fields in the code map", () => {
     expect(notes).toMatchObject({ errors: [], ignoredColumns: ["notes", "owner"] });
     expect(notes.entries).toEqual([{ fileKey: "ACMEUI", id: "30:10", code: { import: "import { Button } from '@acme/ui'", component: "Button" } }]);
     expect(codeMapFromCsv("fileKey,id,colour\nA,1,red").errors).toEqual([
-      "missing column 'component'; columns are fileKey, id, name, component, importPath, framework, selector, module, standalone, inputs, outputs, status, replacedBy",
+      "missing column 'component'; columns are fileKey, id, name, component, importPath, framework, selector, module, standalone, inputs, outputs, status, replacedBy, relation, figmaVersion, packageVersion",
     ]);
     // Aliases survive the CSV's space-or-comma list.
     const alias = codeMapFromCsv(`${head}\nACMEUI,30:20,Text field,T,@acme/ui-angular,angular,acme-text-field,,true,"label: ariaLabel value",,,\n`);
@@ -284,7 +285,7 @@ describe("code-map --init / --import and MCP size guard", () => {
   it("--init writes a template next to code-map.json and never overwrites without --force", async () => {
     expect(await cli(["code-map", "--init"])).toContain("6 components, 0 already mapped");
     const csv = join(home, "code-map.csv");
-    expect(readFileSync(csv, "utf8").split("\n")[1]).toBe("ACMEUI,30:10,Button,,,,,,,,,,");
+    expect(readFileSync(csv, "utf8").split("\n")[1]).toBe("ACMEUI,30:10,Button,,,,,,,,,,,,,");
     await expect(cli(["code-map", "--init"])).rejects.toThrow("already exists. Add --force to replace it.");
     expect(await cli(["code-map", "--init", "--force", "--out", join(home, "other.csv")])).toContain("other.csv");
   });

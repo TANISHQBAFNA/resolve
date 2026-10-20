@@ -183,6 +183,30 @@ describe("code-map.json", () => {
     expect(lineFor(lib(), "Button")).toBe("Button from '@acme/ui'");
   });
 
+  it("drops a duplicate mapped code line on load and warns once", () => {
+    const row = {
+      fileKey: "LIB",
+      id: "1:1",
+      name: "Button",
+      status: "mapped",
+      relation: "maps" as const,
+      code: { import: "import { Button } from '@acme/ui'", component: "Button", framework: "angular", selector: "acme-button" },
+    };
+    put({
+      entries: [row, { ...row, code: { ...row.code, selector: "button[acme-button]" } }, { ...row, code: { import: "import { Icon } from '@acme/ui'", component: "Icon", framework: "angular", selector: "acme-icon" } }],
+    });
+    const err: string[] = [];
+    const write = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array) => (err.push(String(chunk)), true)) as typeof process.stderr.write;
+    try {
+      expect(lineFor(lib(), "Button")).toBe("Button from '@acme/ui' + Icon from '@acme/ui'");
+      expect(lineFor(lib(), "Button")).toBe("Button from '@acme/ui' + Icon from '@acme/ui'");
+    } finally {
+      process.stderr.write = write;
+    }
+    expect(err.join("")).toBe("code-map.json: dropped 1 duplicate mapped entry; the code line is shown once\n");
+  });
+
   it("reports what it ignored, and says so when nothing is usable", async () => {
     put({
       entries: [
@@ -205,7 +229,7 @@ describe("code-map.json", () => {
       "missing component",
       "import needs from '<module>'",
       "unsupported field 'code.props'",
-      "status must be current or retired",
+      "status must be mapped, suggested, partial, unmapped, retired, or current",
       "'id' must be text",
       "not an object",
     ]);
@@ -342,11 +366,11 @@ describe("code-map.json", () => {
       expect(card.code).toBeUndefined();
       type Retired = { pass: boolean; hint: string; retired?: string[] };
       const old = verifyFrame(idx, { components: ["Old Button"] }) as Retired;
-      expect(old.retired).toEqual(["retired Old Button -> use Button (old code: OldButton from '@acme/ui')"]);
+      expect(old.retired).toEqual(["retired Old Button -> use Button"]);
       expect(old.pass).toBe(false);
       put({ entries: [entry("1:1"), entry("3:3", "Chip", { status: "retired", replacedBy: "Button" })] });
       const chip = verifyFrame(idx, { components: ["Chip"] }) as Retired;
-      expect(chip.retired).toEqual(["retired Chip -> use Button (old code: Chip from '@acme/ui')"]);
+      expect(chip.retired).toEqual(["retired Chip -> use Button"]);
       expect(JSON.stringify(chip).length).toBeLessThanOrEqual(600);
       map();
       expect(verifyFrame(idx, { components: ["Chip"] })).not.toHaveProperty("retired");
@@ -356,7 +380,7 @@ describe("code-map.json", () => {
       const tc = (id: string, component: string, extra: object = {}) => ({ fileKey: "TESTKEY", id, code: code(component), ...extra });
       put({ entries: [tc("30:10", "Button", { status: "retired", replacedBy: "Input" }), tc("30:20", "Input")] });
       const card = verifyFrame(demo, { frame: "Create account" }) as { pass: boolean; retired?: unknown };
-      expect(card.retired).toEqual(["retired Button -> use Input (old code: Button from '@acme/ui')"]);
+      expect(card.retired).toEqual(["retired Button -> use Input"]);
       expect(JSON.stringify(card).length).toBeLessThanOrEqual(600);
     });
   });
@@ -385,11 +409,11 @@ describe("code-map.json", () => {
       const idx = rl();
       put({ entries: [entry("1:1"), old("3:3", "Tabs", "Tab"), old("4:4", "Tab", "Chip"), old("5:5", "Chip", "Pager"), entry("6:6", "Pager")] });
       expect(use(idx, "Tabs")).toBe("Pager");
-      expect(row(idx, "Tabs")).toEqual(["retired Tabs -> use Pager (old code: Tabs from '@acme/ui')"]);
+      expect(row(idx, "Tabs")).toEqual(["retired Tabs -> use Pager"]);
       put({ entries: [old("3:3", "Tabs", "Tab"), old("4:4", "Tab", "Chip"), old("5:5", "Chip", "Pager"), old("6:6", "Pager", "Button"), entry("1:1")] });
       expect(use(idx, "Tabs")).toBeUndefined();
       expect(use(idx, "Chip")).toBe("Button");
-      expect(row(idx, "Tabs")).toEqual(["retired Tabs -> no current replacement (old code: Tabs from '@acme/ui')"]);
+      expect(row(idx, "Tabs")).toEqual(["retired Tabs -> no current replacement"]);
       expect(recommendMasters(idx, "tabs").hint).toBe("Only match is retired: Tabs. Use none.");
       put({ entries: [old("3:3", "Tabs", "Tab"), old("4:4", "Tab", "Tabs")] });
       expect(use(idx, "Tabs")).toBeUndefined();
@@ -439,7 +463,7 @@ describe("code-map.json", () => {
       expect(chip.deprecated.map((d) => d.name)).toEqual(["Chip"]);
       expect(lib.deprecated.map((d) => d.name)).toEqual(["Old Button"]);
       expect(chip.hint).toMatch(/^Fail/);
-      expect(chip.retired).toEqual(["retired Chip -> use Button (old code: Chip from '@acme/ui')"]);
+      expect(chip.retired).toEqual(["retired Chip -> use Button"]);
     });
 
     it("verify keeps every retired fact in 600: three rows then '+N more', else a pointer to --retired", () => {
@@ -497,13 +521,13 @@ describe("code-map.json", () => {
         expect(why(idx, "size=small")).toEqual({ use: undefined, bad: ["replacedBy is a variant: 'size=small'"] });
         expect(why(idx, "node:OTHER:8:2")).toEqual({ use: undefined, bad: ["replacedBy is a remote stub: 'node:OTHER:8:2'"] });
         expect(why(idx, "Gadget")).toEqual({ use: undefined, bad: ["replacedBy is a remote stub: 'Gadget'"] });
-        expect(row(idx, "Chip")).toEqual(["retired Chip -> no current replacement (old code: Chip from '@acme/ui')"]);
+        expect(row(idx, "Chip")).toEqual(["retired Chip -> no current replacement"]);
       });
 
       it("a name shared by a real set and a remote stub resolves to the real set", () => {
         const idx = withStubs();
         expect(why(idx, "Button")).toEqual({ use: "Button", bad: [] });
-        expect(row(idx, "Chip")).toEqual(["retired Chip -> use Button (old code: Chip from '@acme/ui')"]);
+        expect(row(idx, "Chip")).toEqual(["retired Chip -> use Button"]);
         expect(why(idx, "node:LIB:1:1")).toEqual({ use: "Button", bad: [] });
       });
     });
@@ -512,12 +536,12 @@ describe("code-map.json", () => {
       const idx = rl();
       put({ entries: [entry("1:1"), entry("2:2", "OldButton")] });
       const guess = "closest current part (guess): Button";
-      expect(row(idx, "Old Button")).toEqual([`retired Old Button -> ${guess} (old code: OldButton from '@acme/ui')`]);
+      expect(row(idx, "Old Button")).toEqual([`retired Old Button -> ${guess}`]);
       expect(recommendMasters(idx, "old button").retired).toBe(`Old Button is retired, ${guess}.`);
       expect(formatCodeMapReport(report(idx), true)).toContain(`Old Button [LIB 2:2] -> ${guess}`);
       expect(report(idx).retired[0]).toMatchObject({ name: "Old Button", use: "Button", guess: true });
       put({ entries: [entry("1:1"), old("2:2", "OldButton", "Button")] });
-      expect(row(idx, "Old Button")).toEqual(["retired Old Button -> use Button (old code: OldButton from '@acme/ui')"]);
+      expect(row(idx, "Old Button")).toEqual(["retired Old Button -> use Button"]);
       expect(report(idx).retired[0]).not.toHaveProperty("guess");
     });
 
@@ -526,8 +550,8 @@ describe("code-map.json", () => {
       saveGraph(rl().graph);
       expect((await cli(["code-map", "--retired"])).out.trim().split("\n")).toEqual([
         "Retired: 3",
-        "Old Button [LIB 2:2] -> use Button (old code: OldButton from '@acme/ui')",
-        "Tabs [LIB 3:3] -> no current replacement (old code: Tabs from '@acme/ui')",
+        "Old Button [LIB 2:2] -> use Button",
+        "Tabs [LIB 3:3] -> no current replacement",
         "Legacy Menu [LIB 7:7] -> no current replacement",
       ]);
       expect(JSON.parse((await cli(["code-map", "--json"])).out).retired[0]).toEqual({ name: "Old Button", fileKey: "LIB", id: "2:2", use: "Button", code: "OldButton from '@acme/ui'" });

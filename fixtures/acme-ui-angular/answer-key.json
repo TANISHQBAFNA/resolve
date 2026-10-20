@@ -1,0 +1,15 @@
+{
+  "package": "@acme/ui-angular",
+  "version": "1.4.0",
+  "pairs": [
+    { "figma": "Banner", "component": "AcmeBannerComponent", "relation": "maps" },
+    { "figma": "Button", "component": "AcmeButtonComponent", "relation": "maps" },
+    { "figma": "Card", "component": "AcmeCardComponent", "relation": "maps" },
+    { "figma": "Dialog", "component": "AcmeButtonComponent", "relation": "composed-of" },
+    { "figma": "Icon button", "component": "AcmeIconButtonComponent", "relation": "maps" },
+    { "figma": "Old Button", "component": "AcmeOldButtonComponent", "relation": "maps" },
+    { "figma": "Payee picker", "component": "AcmePayeePickerComponent", "relation": "maps" },
+    { "figma": "Payee picker", "component": "AcmeTextFieldComponent", "relation": "composed-of" },
+    { "figma": "Text field", "component": "AcmeTextFieldComponent", "relation": "maps" }
+  ]
+}
