@@ -111,9 +111,11 @@ function clippingGroup(token: string): readonly string[] | undefined {
   return found;
 }
 function termsFor(token: string, allowClip: boolean): readonly string[] | undefined {
-  // A plural or -ing/-ed form reads its stem's group: "side panels" is the panel/sheet group.
-  // Not for a position, variant, or modifier stem: "bottoms" is not the footer.
-  const partStem = (stem: string) => !DEMOTE_UNASKED.has(stem) && !SLOT_QUALIFIERS.has(stem) && !modifierWord(stem);
+  // A plural reads its stem's group: "side panels" is the panel/sheet group. Only plurals: an -ed or -ing
+  // form describes the noun after it ("toggled switch" is a switch). Not for a position, variant, or
+  // modifier stem: "bottoms" is not the footer.
+  const partStem = (stem: string) =>
+    (token === `${stem}s` || token === `${stem}es`) && !DEMOTE_UNASKED.has(stem) && !SLOT_QUALIFIERS.has(stem) && !modifierWord(stem);
   const stemmed = () => inflectionStems(token).filter(partStem).map((stem) => extraSynonym.get(stem) ?? SYNONYM_OF.get(stem)).find(Boolean);
   const base = extraSynonym.get(token) ?? SYNONYM_OF.get(token) ?? stemmed() ?? (allowClip ? clippingGroup(token) : undefined);
   const alias = propertyAliases(token);

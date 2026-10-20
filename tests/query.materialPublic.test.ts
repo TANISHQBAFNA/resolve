@@ -394,6 +394,10 @@ describe("Angular Material public reference", () => {
     // Plurals read their stem's synonym group for any part noun.
     expect(top("three accordions")).toBe("Expansion panel");
     expect(top("the toasts")).toBe("Snackbar");
+    // An -ed or -ing word only describes the noun after it: the noun wins.
+    for (const ask of ["a toggled switch", "the toggling switch"]) expect(top(ask), ask).toBe("Slide toggle");
+    expect(top("checked checkboxes")).toBe("Checkbox");
+    expect(top("a dimmed snackbar")).toBe("Snackbar");
     // A vague panel keeps a head-noun match, never a part named by the other word.
     for (const ask of ["search panel", "nav panel"]) expect(top(ask), ask).not.toMatch(/Search bar|Navigation/);
     // A known part plus a describing tail is still that part.
