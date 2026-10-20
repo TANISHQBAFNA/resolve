@@ -38,14 +38,16 @@ export function innerGap(query: string, name: string): boolean {
 }
 
 /**
- * One wrong letter, struck on a nearby key: "botton" for "button", "dialig" for "dialog".
- * Words of 6+ letters only, first letter kept. Shorter words sit too close to real ones ("moral", "modal"),
- * and a far key is a different word ("swatch", "switch").
+ * One wrong letter, first letter kept: "botton" for "button", "expantion" for "expansion".
+ * 6 or 7 letters: only a nearby key, since a far key is a different word ("swatch", "switch").
+ * 8+ letters: any letter, since long words rarely sit one letter apart. Under 6 is too close to real
+ * words ("moral", "modal").
  */
 export function keySlip(query: string, name: string): boolean {
   if (query.length !== name.length || query.length < 6 || query[0] !== name[0]) return false;
   const diffs = [...query].flatMap((ch, i) => (ch === name[i] ? [] : [i]));
-  return diffs.length === 1 && nearKeys(query[diffs[0]!]!, name[diffs[0]!]!);
+  if (diffs.length !== 1) return false;
+  return query.length >= 8 || nearKeys(query[diffs[0]!]!, name[diffs[0]!]!);
 }
 
 /** Any one-letter slip on a name word of 5+ letters: a swap, an inner missing or extra letter, or a near key. */
