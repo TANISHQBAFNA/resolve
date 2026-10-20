@@ -55,6 +55,7 @@ import {
 } from "./store";
 import { recordGap } from "./gaps";
 import { CODE_MAP_TOOLS, runCodeMapTool } from "./codeMapMcp";
+import { composeProblem, runCompose } from "./composeCommand";
 import { recordVerifyUsage } from "./verifyRecord";
 
 export { recordVerifyUsage };
@@ -409,6 +410,9 @@ export const TOOLS: ToolDefinition[] = [
         product: { type: "string" },
         journey: { type: "string" },
         domain: { type: "string" },
+        compose: { type: "boolean", description: "Advanced only. When no saved recipe fits, compose one from the parts the request names. Never invents; empty slots say No match. Not saved." },
+        propose: { type: "boolean", description: "Advanced only, with compose. File the composed recipe as a pending proposal; a person approves it to save." },
+        answers: { type: "object", additionalProperties: true, description: "With compose. Briefing answers; shape and state answers add their parts as slots." },
         ...screenContextProperties,
         ...freshnessProperties,
       },
@@ -866,11 +870,20 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
     case "recipe": {
       const rawQuery = args["query"] ?? args["name"] ?? args["recipe"] ?? args["intent"];
       const query = typeof rawQuery === "string" ? rawQuery.trim() : "";
+      const compose = args["compose"] !== undefined || args["propose"] !== undefined;
+      const problem = composeProblem(args["compose"], args["propose"], query);
+      if (problem?.includes("must be") || (problem && compose && process.env["RESOLVE_MCP_ADVANCED"] === "1")) throw new ToolError(problem);
       if (!query || query === "list") return listedRecipes(args);
       const intent = typeof args["intent"] === "string" ? args["intent"].trim() : "";
       const extra = intent && intent !== query ? intent : undefined;
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
       const recipes = loadRecipes();
+      if (compose && process.env["RESOLVE_MCP_ADVANCED"] === "1") {
+        const { index } = context(args);
+        const answerParts = briefingAnswers(args["answers"], index).parts;
+        const input = { request: query, answerParts, index, recipes, bind: contextBindFromArgs(args), sock: readSock(), bindRules: loadBindRulesSafe(), placeholders: readPlaceholders() };
+        return capRecipePayload(runCompose(input, args["propose"] === true));
+      }
       const screen = screenAskCard(query, { sock: readSock(), index: resolveGraph(graphId)?.index, recipes });
       if (screen) return withPendingImprovements(screen, readSock());
       const ranked = rankRecipes(recipes, query);
@@ -885,8 +898,9 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         readPlaceholders(),
       );
       const also = ranked.slice(1).map((recipe) => recipe.title);
+      const note = compose ? { compose: "Composing needs the advanced surface (RESOLVE_MCP_ADVANCED=1)." } : {};
       return withPendingImprovements(
-        capRecipePayload(also.length ? { ...card, also } : card),
+        capRecipePayload({ ...card, ...(also.length ? { also } : {}), ...note }),
         readSock(),
       );
     }

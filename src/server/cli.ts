@@ -17,6 +17,7 @@ import {
   toGraph,
   writeStored,
 } from "./cliArgs";
+import { composeFromCli } from "./composeCommand";
 import { dirname, join, resolve } from "node:path";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
@@ -240,6 +241,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const bind = bindFromFlags(args);
       const sock = readSock();
       const bindRules = readBindRules();
+      if (args.includes("--compose") || args.includes("--propose")) return composeFromCli(args, query);
       if (!query || query === "list") {
         printJson(
           listRecipes(recipes, resolveGraph(flag(args, "id"))?.index, bind, sock, bindRules, readPlaceholders()),

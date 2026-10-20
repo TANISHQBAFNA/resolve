@@ -25,6 +25,12 @@ export function inflectionStems(word: string): string[] {
   }
   return stems;
 }
+/** Same word, or the same word with a plural or -ing/-ed ending. */
+export function sameWordForm(a: string, b: string): boolean {
+  if (a === b) return true;
+  const forms = [a, ...inflectionStems(a)];
+  return [b, ...inflectionStems(b)].some((form) => forms.includes(form));
+}
 function familyKey(token: string, names: readonly string[]): string | undefined {
   if (names.some((name) => name.includes(token))) return token;
   for (const stem of inflectionStems(token)) {
