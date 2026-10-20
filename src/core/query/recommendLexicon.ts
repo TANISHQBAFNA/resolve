@@ -85,6 +85,16 @@ export function intentNamesMaster(index: GraphIndex, askedTokens: string[]): boo
   return false;
 }
 export const RETIRED_NAME_TOKENS = new Set(["legacy", "old", "deprecated", "retired"]);
+/**
+ * -ed and -ing words that only describe a later part noun: "selected tab" is a tab, "sorted table" a table.
+ * They are left out of name matching, so their stem cannot name a part (Select, Sort). A word that is a part
+ * word as written ("loading" in Loading Spinner) stays.
+ */
+export function describingInflections(tokens: readonly string[], nameSets: readonly Set<string>[]): Set<string> {
+  const partWord = (token: string) =>
+    nameSets.some((names) => names.has(token) || [...names].some((name) => [`${name}s`, `${name}es`].includes(token) || [`${token}s`, `${token}es`].includes(name)) || synonymIn(token, names, false));
+  return new Set(tokens.filter((token, i) => /(?:ed|ing)$/.test(token) && !partWord(token) && tokens.slice(i + 1).some(partWord)));
+}
 export function synonymIn(token: string, names: Set<string>, allowClip = false): boolean {
   const group = termsFor(token, allowClip);
   if (!group) return false;

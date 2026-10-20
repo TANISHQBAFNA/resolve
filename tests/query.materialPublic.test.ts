@@ -398,6 +398,14 @@ describe("Angular Material public reference", () => {
     for (const ask of ["a toggled switch", "the toggling switch"]) expect(top(ask), ask).toBe("Slide toggle");
     expect(top("checked checkboxes")).toBe("Checkbox");
     expect(top("a dimmed snackbar")).toBe("Snackbar");
+    // Through stems too: an -ed/-ing word whose stem is a part (Select, Sort) still only describes the noun.
+    const ranked = (ask: string) => recommendMasters(index, ask).candidates.slice(0, 3).map((row) => row.name);
+    for (const [ask, name] of [["the selected tab", "Tabs"], ["selecting tab", "Tabs"], ["a sorted data table", "Table"], ["sorting table", "Table"]] as const) {
+      expect(top(ask), ask).toBe(name);
+      expect(ranked(ask), ask).not.toContain(name === "Tabs" ? "Select" : "Sort");
+    }
+    // On its own the word still names its part.
+    expect(top("selected")).toBe("Select");
     // A vague panel keeps a head-noun match, never a part named by the other word.
     for (const ask of ["search panel", "nav panel"]) expect(top(ask), ask).not.toMatch(/Search bar|Navigation/);
     // A known part plus a describing tail is still that part.
