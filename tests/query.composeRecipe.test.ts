@@ -377,4 +377,38 @@ describe("composed recipes", () => {
       expect((compose("lounge with a chip, a switch and a badge").card as Card & { duplicates?: string[] }).duplicates).toBeUndefined();
     });
   });
+  describe("r3 findings, by category", () => {
+    const compose = (request: string) => composeRecipe({ request, index: indexGraph(fixtureGraph()), recipes: starterRecipes() });
+
+    it("L8: words after on/in/inside are a part when they fit a library part, else context", () => {
+      for (const [request, parts] of [
+        ["drawer with a list row inside a modal", ["List Row", "Modal"]],
+        ["a toast in a header bar", ["Toast", "Header Bar"]],
+        ["a badge on an avatar", ["Badge", "Avatar"]],
+        ["sheet with a chip within a footer bar", ["Chip", "Footer Bar"]],
+      ] as const) {
+        const card = compose(request).card as Card & { readAsContext?: string[] };
+        expect(returned(card).map((part) => part.name), request).toEqual(parts);
+        expect(card.readAsContext, request).toBeUndefined();
+      }
+      for (const [request, context] of [
+        ["a toast and a tag on mobile", "on mobile"],
+        ["a toast and a tag in dark mode", "in dark mode"],
+        ["a chip and a switch inside the moonbase", "inside the moonbase"],
+        ["a chip and a switch on a landscape tablet", "on a landscape tablet"],
+      ] as const) {
+        const card = compose(request).card as Card & { readAsContext?: string[] };
+        expect(returned(card).length, request).toBe(2);
+        expect(card.readAsContext, request).toEqual([context]);
+      }
+    });
+
+    it("Info: when every part is weak the hint says weak, not No match", () => {
+      const card = compose("sheet with a tangerine toast and a velvet switch").card as Card & { weak?: string[] };
+      expect(card.weak).toHaveLength(2);
+      expect(card.hint).toMatch(/^No sure fit: every part is weak, check\./);
+      expect(card.hint).not.toMatch(/No match/);
+      expect((compose("sheet with a tangerine toast and a flux gauge").card as Card).hint).toMatch(/^No match\./);
+    });
+  });
 });

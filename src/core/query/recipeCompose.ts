@@ -25,12 +25,34 @@ const LINKS = /\s*(?:,|;|&|\band\b|\bplus\b|\bthen\b)\s*/i;
 // Where a part sits joins two parts: "a toast next to the header bar" names a toast and a header bar.
 const SPATIAL = /\s+(?:next to|on top of|left of|right of|in front of|beside|underneath|beneath|under|above|below|over|near|after|before)\s+/gi;
 // "on mobile", "in the app", "inside checkout": a device or place is context, not a part.
+// What follows on/in is a part only when it fits a library part ("a row inside a modal").
 const CONTEXT = /\s+\b(?:on|in|inside|within)\b\s+(.*)$/i;
 // "a set of chips", "a list of payees": the part is what the container holds.
 const CONTAINER_OF = /\b(?:a\s+|the\s+)?(?:list|group|set|stack|collection)s?\s+of\s+/gi;
 const ARTICLES = new Set(["a", "an", "the", "some", "its", "their", "our", "my", "your"]);
+// Device, theme and density words are always context, even when a part is named after them (Mobile Nav).
+const SETTING = new Set([
+  "mobile", "desktop", "tablet", "phone", "web", "watch", "tv", "ios", "android", "dark", "light", "theme", "mode",
+  "contrast", "landscape", "portrait", "compact", "comfortable", "small", "large", "screen", "screens", "app", "view",
+]);
+
 // Words after these say why or whose, not which part: "a radio list for delivery".
 const PURPOSE = /\s+\b(?:for|of|to|when|while|that|which|at|from)\b.*$/i;
+
+/** Lowercase part words: purpose clause and articles dropped. */
+function cleanPhrase(raw: string): string {
+  return raw
+    .replace(PURPOSE, "")
+    .split(" ")
+    .filter((word) => word && !ARTICLES.has(word.toLowerCase()))
+    .join(" ")
+    .toLowerCase();
+}
+
+/** "inside a modal" -> "modal". */
+function contextPhrase(raw: string): string {
+  return cleanPhrase(raw.replace(/^\s*(?:on|in|inside|within)\s+/i, ""));
+}
 
 /** The screen name (before "with"), one phrase per named part, and the on/in context read as context. */
 export function composeParts(request: string): { title: string; phrases: string[]; context: string[] } {
@@ -43,13 +65,7 @@ export function composeParts(request: string): { title: string; phrases: string[
   for (const raw of body.split(LINKS)) {
     const where = raw.match(CONTEXT);
     if (where?.[1]?.trim()) context.push(where[0].trim().toLowerCase());
-    const phrase = raw
-      .replace(CONTEXT, "")
-      .replace(PURPOSE, "")
-      .split(" ")
-      .filter((word) => word && !ARTICLES.has(word.toLowerCase()))
-      .join(" ")
-      .toLowerCase();
+    const phrase = cleanPhrase(raw.replace(CONTEXT, ""));
     if (/[a-z]/.test(phrase) && !phrases.includes(phrase)) phrases.push(phrase);
   }
   return { title, phrases, context };
@@ -122,7 +138,24 @@ export function composeRecipe(input: ComposeInput) {
     const card = recipeCard(input.recipes, saved.id, index, undefined, input.bind, input.sock, input.bindRules, input.placeholders);
     return { card: { ...card, composed: false as const, note: `Saved recipe ${saved.title} covers this. Nothing composed.` } };
   }
-  const { title, phrases, context } = composeParts(request);
+  const split = composeParts(request);
+  const { title } = split;
+  const pack = input.bind ? packForRecipe({ id: "composed" }, input.bind) : undefined;
+  const fill = (recipe: Recipe) => fillRecipe(index, recipe, undefined, pack, input.bind?.workspace, input.sock, input.bindRules, input.placeholders);
+  const isFit = (slot: FilledSlot) => Boolean(slot.master) && (slot.status === "filled" || slot.status === "bound") && headMatches(index, slot);
+  // On/in words are a part when they fit a library part under the same strict rule; else context.
+  const phrases = [...split.phrases];
+  const context: string[] = [];
+  for (const raw of split.context) {
+    const phrase = contextPhrase(raw);
+    const words = phrase.split(" ").filter(Boolean);
+    const probe = words.length && !words.every((word) => SETTING.has(word))
+      ? fill({ id: "probe", title: "", intentAliases: [], slots: [{ role: slug(phrase), required: true, hints: words }] }).slots[0]
+      : undefined;
+    if (probe && isFit(probe)) {
+      if (!phrases.includes(phrase)) phrases.push(phrase);
+    } else context.push(raw);
+  }
   const draft: Recipe = {
     id: `composed-${slug(title || phrases.join(" ")) || "screen"}`,
     title: title || request.trim(),
@@ -135,8 +168,6 @@ export function composeRecipe(input: ComposeInput) {
     ],
   };
   if (!draft.slots.length) return { card: noMatch(request, phrases) };
-  const pack = input.bind ? packForRecipe(draft, input.bind) : undefined;
-  const fill = (recipe: Recipe) => fillRecipe(index, recipe, undefined, pack, input.bind?.workspace, input.sock, input.bindRules, input.placeholders);
   const first = fill(draft);
   // A container word can hide the part from recommend ("avatar group"): retry those slots once without it.
   const bare = (hints: string[]) => hints.filter((hint) => !CONTAINERS.some((container) => sameWordForm(container, hint)));
@@ -149,7 +180,6 @@ export function composeRecipe(input: ComposeInput) {
   // An answer part the request already named is one slot, not two.
   const named = new Set(all.slots.slice(0, phrases.length).flatMap((slot) => (slot.master ? [slot.master.id] : [])));
   const filled = { ...all, slots: all.slots.filter((slot, i) => i < phrases.length || !named.has(slot.master?.id ?? "")) };
-  const isFit = (slot: FilledSlot) => Boolean(slot.master) && (slot.status === "filled" || slot.status === "bound") && headMatches(index, slot);
   const parts = filled.slots.filter(isFit);
   const weak = filled.slots.filter((slot) => !isFit(slot) && slot.master && slot.status === "filled");
   const empty = filled.slots.filter((slot) => !isFit(slot) && !weak.includes(slot));
@@ -163,6 +193,10 @@ export function composeRecipe(input: ComposeInput) {
     ...weak.map((slot) => `Weak, check ${slot.role}: ${unmatched(index, slot).join(", ")} not in ${slot.master!.name}.`),
     ...(context.length ? [`Read as context, not parts: ${context.join("; ")}.`] : []),
   ].join(" ");
+  if (!parts.length && weak.length && !empty.length) {
+    // Something was found for every part, but none surely: say weak, not No match.
+    return { card: withCost({ found: false as const, composed: false as const, query: request, ...misses, hint: `No sure fit: every part is weak, check. ${missLine}`.trim() }) };
+  }
   if (!parts.length) return { card: noMatch(request, phrases, misses) };
   if (parts.length < COMPOSE_MIN_PARTS) {
     const master = parts[0]!.master!;
