@@ -97,10 +97,12 @@ export function readInflections(tokens: readonly string[], nameSets: readonly Se
   const partWordIn = (names: Set<string>, token: string) =>
     names.has(token) || [...names].some((name) => [`${name}s`, `${name}es`].includes(token) || [`${token}s`, `${token}es`].includes(name)) || synonymIn(token, names, false);
   const partWord = (token: string) => nameSets.some((names) => partWordIn(names, token));
+  // A shared noun that is a part on its own ("card" is Card) names that part, not a longer one.
+  const wholePart = (token: string) => nameSets.some((names) => names.size === 1 && partWordIn(names, token));
   const stemFor = (token: string, later: readonly string[]) => {
     for (const names of nameSets) {
       const stem = inflectionStems(token).find((form) => names.has(form));
-      if (stem && later.some((word) => word !== token && (partWordIn(names, word) || (names.size > 1 && GENERIC_NAME_TOKENS.has(word))))) return stem;
+      if (stem && later.some((word) => word !== token && (partWordIn(names, word) || (names.size > 1 && GENERIC_NAME_TOKENS.has(word) && !wholePart(word))))) return stem;
     }
     return undefined;
   };

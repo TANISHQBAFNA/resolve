@@ -413,6 +413,10 @@ describe("Angular Material public reference", () => {
     // A kept word is read as its stem, so a dropped-e form still names the part.
     expect(top("a dated picker for the invoice")).toBe("Date picker");
     expect(top("the timed picker on the alarm screen")).toBe("Time picker");
+    // A shared noun that is a whole part name keeps its part: an -ed form of date or time before card is Card.
+    expect(top("a dated card on the statement")).toBe("Card");
+    expect(top("the timed card")).toBe("Card");
+    expect(top("searching field in the header")).toBe("Search bar");
     // A vague panel keeps a head-noun match, never a part named by the other word.
     for (const ask of ["search panel", "nav panel"]) expect(top(ask), ask).not.toMatch(/Search bar|Navigation/);
     // A known part plus a describing tail is still that part.
