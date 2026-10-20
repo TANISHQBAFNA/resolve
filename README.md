@@ -17,11 +17,11 @@
 	<a href=".cursor-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Cursor-555555.svg" alt="Cursor plugin"></a>
 </p>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg"><img src="docs/assets/hero-light.svg" alt="Animation: a chat message says Design the Acme Send money screen. Next to it, an Acme phone screen builds itself as real library parts snap in: Payee picker, Amount field and a Send button, each with a library tick." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg"><img src="docs/assets/hero-light.svg" alt="Animation that plays once: a chat message says Design the Acme Send money screen. Next to it, an Acme phone screen builds itself as real library parts snap in: Payee picker, Text field and a Send button, each with a library tick." width="100%"></picture>
 
 <p align="center">You ask in plain words. Your AI builds with your real parts.</p>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/before-after-dark.svg"><img src="docs/assets/before-after-light.svg" alt="Illustration: two Acme Send money screens. Without Resolve, callouts point at an invented dropdown, a raw #1A73E8 fill and a detached button, and the check fails. With Resolve, the same screen uses the library Payee picker, Amount field and Button, and the check passes." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/before-after-dark.svg"><img src="docs/assets/before-after-light.svg" alt="Illustration: two Acme Send money screens. Without Resolve, numbered callouts mark an invented dropdown, a raw #1A73E8 fill and a detached button, and the check fails. With Resolve, the same screen uses the library Payee picker, Text field and Button, and the check passes." width="100%"></picture>
 
 <p align="center">Without Resolve the AI guesses. With Resolve the check passes.</p>
 
@@ -34,7 +34,7 @@ Resolve gives your AI two things about your design system: what your components 
 
 ## How it works
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/walkthrough-dark.svg"><img src="docs/assets/walkthrough-light.svg" alt="Animation: a scan line sweeps across an Acme Send money screen on a design canvas. Parts light up with numbered pins, 1 Payee picker, 2 Text field, 3 Button, and a list on the right fills in with what Resolve learned." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/walkthrough-dark.svg"><img src="docs/assets/walkthrough-light.svg" alt="Animation that plays once: a scan line sweeps down an Acme Send money screen on a design canvas. Parts light up with numbered pins, 1 Payee picker, 2 Text field, 3 Button, and a list on the right fills in with what Resolve learned." width="100%"></picture>
 
 1. **Learn.** `/design-system` reads every component, variant and property.
 2. **Match.** `/find` uses known names first, then your own words.
@@ -55,25 +55,25 @@ Resolve gives your AI two things about your design system: what your components 
 </tr>
 </table>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/cross-screen-dark.svg"><img src="docs/assets/cross-screen-light.svg" alt="Illustration: three Acme screens, Send money, Confirm payment and Receipt, with threads joining the Payee picker on each and the Button on each. Labels give the counts from a real Resolve run on the Acme example file: Payee picker used 4 times in file, Button used 11 times in file." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/cross-screen-dark.svg"><img src="docs/assets/cross-screen-light.svg" alt="Illustration: three Acme screens, Send money, Review and Receipt, with threads joining the Payee picker on each and the Button on each. Labels give the counts from a real Resolve run on the Acme example file: Payee picker used 4 times in file, Button used 11 times in file." width="100%"></picture>
 
 <p align="center">Resolve knows where each part is really used.</p>
 
 ## What the AI gets
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/component-card-dark.svg"><img src="docs/assets/component-card-light.svg" alt="Illustration of a Resolve card for the Acme Button, with five numbered labels: 1 the name, Button; 2 its variants and properties; 3 the token it uses, color/primary/600; 4 its code twin, acme-button with AcmeButtonModule; 5 a real example, a thumbnail of the Send money screen. The preview shows Primary, Secondary and Disabled side by side." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/component-card-dark.svg"><img src="docs/assets/component-card-light.svg" alt="Illustration of a Resolve card for the Acme Button, with five numbered labels: 1 the name, Button; 2 its properties, Variant (Primary, Secondary or Danger) and Size (Medium or Large), 4 variants in all; 3 the token it uses, color/primary/600; 4 its code twin, acme-button with AcmeButtonModule; 5 a real example, a thumbnail of the Send money screen. The preview shows Primary, Secondary and Danger side by side." width="100%"></picture>
 
 <p align="center">One short card per part, with a real example to copy.</p>
 
 ## Check a screen
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/check-result-dark.svg"><img src="docs/assets/check-result-light.svg" alt="Illustration: the Acme Send money screen with three numbered pins on problem layers. The verdict panel says Components PASS and Proper use FAIL. 1, a hard-coded fill #1A73E8, with the nearest token color/primary/600 shown beside it. 2, the retired Old Button, to swap for Button. 3, text contrast of 1.7 to 1, which needs 4.5 to 1 or more." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/check-result-dark.svg"><img src="docs/assets/check-result-light.svg" alt="Illustration of a real check on the Acme Send money screen: the result is FAIL with exit code 1. 2 parts are approved, Payee picker and Button. 1 is deprecated: Old Button, node 30:50, which should be swapped for Button." width="100%"></picture>
 
 <p align="center">Every problem comes with its fix.</p>
 
 ## From design to code
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/code-map-dark.svg"><img src="docs/assets/code-map-light.svg" alt="Illustration: Figma parts on the left joined to code on the right. Button links to acme-button and AcmeButtonModule, Text field to acme-text-field, Payee picker to acme-payee-picker. Avatar has no link and is labelled no code twin." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/code-map-dark.svg"><img src="docs/assets/code-map-light.svg" alt="Illustration of the full Acme code map, 6 parts: 3 mapped, 1 retired and 2 unmapped. Button links to acme-button and AcmeButtonModule, Text field to acme-text-field, Payee picker to acme-payee-picker. Old Button is retired: it still links to acme-old-button, use Button instead. Avatar and Payment method row have no code twin." width="100%"></picture>
 
 <p align="center">Each Figma part links to its code twin.</p>
 
@@ -189,7 +189,7 @@ Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.gra
 
 Newest first. The full list is in the [reference](docs/REFERENCE.md#version-history).
 
-- **Oct 20, 2026 — [PR #65](https://github.com/TANISHQBAFNA/resolve/pull/65).** New README pictures: real screens instead of boxes, two short animations, a code map and new icons. A "From design to code" section comes before Install.
+- **Oct 20, 2026 — [PR #65](https://github.com/TANISHQBAFNA/resolve/pull/65).** New README pictures: real screens instead of boxes, two short animations that play once, a full code map and new icons. Text in the pictures shows at 22px or more on GitHub. A "From design to code" section comes before Install.
 - **Oct 20, 2026 — [PR #64](https://github.com/TANISHQBAFNA/resolve/pull/64).** The README pictures, logo and badge use a brighter teal. In light mode, words are near-black and the teal is in fills, chips and underlines. PASS stays green.
 - **Oct 20, 2026 — [PR #61](https://github.com/TANISHQBAFNA/resolve/pull/61).** A failed check now says `pass: false` in JSON, including when proper use fails. Status still prints local time with a zone name, and the tests accept that. Tests stop with one clear message on Node older than 22.12. CI fails if the phrase score drops below 83 of 88 first picks or 85 of 88 in the top 3. CI runs on Node 22 and 24, in UTC and India time, and the browser checks include Firefox.
 - **Oct 20, 2026 — [PR #62](https://github.com/TANISHQBAFNA/resolve/pull/62).** The README pictures, logo and badge changed from purple to teal. PASS stays green.
