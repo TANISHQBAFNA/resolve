@@ -26,6 +26,10 @@
       "reason": "A toast or a snack is the snackbar."
     },
     {
+      "terms": ["sheet", "panel"],
+      "reason": "Material 3 calls a panel docked to an edge a sheet: a side panel is the side sheet."
+    },
+    {
       "terms": ["accordion", "expansion"],
       "reason": "An accordion is the expansion panel."
     },

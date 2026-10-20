@@ -348,9 +348,9 @@ describe("Angular Material public reference", () => {
     expect(report.totals.invented, detail).toBe(0);
     expect(report.totals.wrongCousin, detail).toBe(0);
     expect(report.totals.correctEmpty, detail).toBe(report.totals.emptyCases);
-    // 28 of 31. "a collapsible section" and "header with a back arrow" need a meaning link, not a spelling one.
+    // 30 of 33. "a collapsible section" and "header with a back arrow" need a meaning link, not a spelling one.
     // "grid of photos": "of" describes only after a part's whole name, and "grid" is half of Grid list.
-    expect(report.totals.top1, detail).toBeGreaterThanOrEqual(28);
+    expect(report.totals.top1, detail).toBeGreaterThanOrEqual(30);
     expect(report.misses.map((miss) => miss.id).sort(), detail).toEqual(["desc-collapsible", "desc-grid-of", "desc-header-back"]);
   });
 
@@ -374,9 +374,29 @@ describe("Angular Material public reference", () => {
     for (const [ask, name] of lead) expect(top(ask), ask).toBe(name);
     // Nothing before the linking word names a part: the part after it is still the ask.
     expect(top("dashboard with a table")).toBe("Table");
-    for (const ask of ["side panel", "search panel", "nav panel", "bottom panel"]) expect(top(ask), ask).toBeUndefined();
     // A whole-word part or a shared head noun keeps its pick.
     expect(top("menu button")).toBe("Menu");
     expect(top("search field")).toBe("Search bar");
+  });
+
+  it("sends side panels to Side sheet, and keeps longer asks that name a part", () => {
+    const home = join(tmpdir(), "resolve-material-r4");
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, "synonyms.json"), readFileSync(join(fix, "synonyms.json")));
+    process.env["RESOLVE_HOME"] = home;
+    clearCache();
+    const index = indexGraph(materialGraph());
+    const top = (ask: string) => recommendMasters(index, ask).candidates[0]?.name;
+    // Fresh wording, two and three words, with and without a tail.
+    for (const ask of ["side panel", "a side panel", "pinned side panel", "right side panel", "side panel for map layers"]) {
+      expect(top(ask), ask).toBe("Side sheet");
+    }
+    // A vague panel keeps a head-noun match, never a part named by the other word.
+    for (const ask of ["search panel", "nav panel"]) expect(top(ask), ask).not.toMatch(/Search bar|Navigation/);
+    // A known part plus a describing tail is still that part.
+    expect(top("a bottom navigation with three destinations")).toBe("Navigation bar");
+    expect(top("bottom navigation for the main sections")).toBe("Navigation bar");
+    expect(top("a toolbar holding a title and two actions")).toBe("Toolbar");
+    expect(top("toolbar holding the page actions")).toBe("Toolbar");
   });
 });

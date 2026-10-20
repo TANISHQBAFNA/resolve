@@ -404,7 +404,8 @@ function describingSplit(ask: string, nameSets: NameSets, allowClip: boolean): {
 }
 function describingTail(ask: string, nameSets: NameSets, allowClip: boolean): Set<string> {
   const { words, at } = describingSplit(ask, nameSets, allowClip);
-  return new Set(at < 1 ? [] : words.slice(at + 1));
+  // The describing word itself is part of the tail: "holding" in "toolbar holding other items" is not junk.
+  return new Set(at < 1 ? [] : words.slice(at));
 }
 /**
  * The part named before the first describing word wins: "button to open the dialog" is a Button.
@@ -424,19 +425,6 @@ export function partBeforeLink(ask: string, nameSets: NameSets, allowClip: boole
     (token) => !nameSets.some((names) => namedIn(names, token, allowClip)) || leadSets.some((names) => namedIn(names, token, allowClip)),
   );
   return [...lead, words[at]!, ...tail].join(" ");
-}
-
-/**
- * Two words that each name a different part, and only part of its name: "side panel" is half Side sheet and
- * half Expansion panel, so neither fits. A part named by one whole word ("menu button" has Menu), a part that
- * holds both words, or a shared head noun such as field or button ("search field") keeps the usual ranking.
- */
-function splitNaming(mod: string, head: string, nameSets: readonly Set<string>[], allowClip: boolean): boolean {
-  if (GENERIC_NAME_TOKENS.has(head)) return false;
-  const has = (names: Set<string>, token: string) =>
-    nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip);
-  if (nameSets.some((names) => has(names, mod) && has(names, head))) return false;
-  return !nameSets.some((names) => names.size === 1 && (has(names, mod) || has(names, head)));
 }
 
 /**
@@ -486,14 +474,6 @@ export function askGate(
     ),
   );
   if (typoHeavy(content, nameSets, exempt, describingTail(ask, nameSets, allowClip), allowClip)) return { outOfDomain: true, lowConfidence: false };
-  // The two words before any describing tail: "side panel with filters" is still "side panel".
-  const split = describingSplit(ask, nameSets, allowClip);
-  const bare = (split.at < 1 ? split.words : split.words.slice(0, split.at)).filter((word) => word !== "a" && word !== "an" && word !== "the");
-  const [first, second] = tokensOf(bare.join(" "));
-  const hits = (token: string) => nameSets.some((names) => namedIn(names, token, allowClip));
-  if (bare.length === 2 && first && second && hits(first) && hits(second) && splitNaming(first, second, nameSets, allowClip)) {
-    return { outOfDomain: true, lowConfidence: false };
-  }
   if (hit.filter(Boolean).length !== 1) return open;
   const head = hit.lastIndexOf(true);
   const tail = describingTail(ask, nameSets, allowClip);
