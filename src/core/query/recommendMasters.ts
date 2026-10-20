@@ -13,7 +13,7 @@ import { examplePointer } from "./examples";
 import type { GraphIndex } from "./GraphIndex";
 import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RECOMMEND_BUDGET, sameNameNote, substitutionNote, variantCardName } from "./masterNames";
 import { placeReady } from "./placeReady";
-import { tokensOf } from "./queryTokens";
+import { navFamily, tokensOf } from "./queryTokens";
 import { appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, purposeTailTokens, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakMatchWhy, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
@@ -523,9 +523,10 @@ export function recommendMasters(
     collapsed.push(asFamilyRow(entry));
   }
   flagUncovered(collapsed, intentNeedle, tokens, (entry) => stripTier(entry.setName || setOf(index, entry.node)?.name || entry.node.name));
-  const navAsk = tokens.at(-1) === "navigation" || tokens.at(-1) === "nav";
+  const navWord = (token?: string) => token === "navigation" || token === "nav";
+  const navAsk = navWord(tokens.at(-1)) || (tokens.at(-1) === "bar" && navWord(tokens.at(-2)));
   kept = collapsed.filter((entry) => {
-    if (navAsk && !tokensOf(stripTier(entry.setName || entry.node.name)).some((token) => token === "nav" || token === "navigation" || token === "bar" || token === "header" || token === "footer")) return false;
+    if (navAsk && !navFamily(tokensOf(stripTier(entry.setName || entry.node.name)), tokens)) return false;
     const namesakes = realMastersNamed(index, entry.node.name);
     const preferred = preferNamedMaster(index, namesakes, workspace, intent, ruleBonus);
     if (!preferred || preferred.id === entry.node.id) return true;

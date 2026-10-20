@@ -110,6 +110,27 @@ describe("synthetic multi-library guard", () => {
     }
   });
 
+  it("does not answer a navigation ask with an action, progress, or loading bar", () => {
+    for (const ask of ["navigation bar", "nav bar", "main navigation bar", "top navigation"] as const) {
+      const name = recommendMasters(severalIndex, ask, { workspace: several }).candidates[0]?.name;
+      expect(name === undefined || /header|nav/i.test(name), `${ask}: ${name}`).toBe(true);
+    }
+    const bottom = recommendMasters(severalIndex, "bottom navigation", { workspace: several }).candidates[0]?.name;
+    expect(bottom === undefined || bottom === "Bottom action bar", `bottom navigation: ${bottom}`).toBe(true);
+    expect(recommendMasters(severalIndex, "progress bar", { workspace: several }).candidates[0]?.name).toBe("Progress bar");
+  });
+
+  it("keeps a one-letter slip on any word off the Primary decoy and the Icons container", () => {
+    for (const ask of ["primaru button", "primary buttin", "submit buttin", "main botton"] as const) {
+      const card = recommendMasters(severalIndex, ask, { workspace: several });
+      expect(card.candidates[0]?.name, ask).toBe("Button");
+      expect(card.candidates[0]?.fileKey, ask).toBe("ACMEDS");
+    }
+    const arrows = recommendMasters(severalIndex, "arrpws", { workspace: several }).candidates;
+    expect(arrows[0]?.name).toBe("Arrows");
+    expect(arrows.some((row) => row.name === "Icons")).toBe(false);
+  });
+
   it("picks Card from Acme DS", () => {
     const card = recommendMasters(severalIndex, "card", { workspace: several });
     expect(card.candidates[0]?.name).toBe("Card");

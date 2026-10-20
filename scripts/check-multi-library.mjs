@@ -64,6 +64,17 @@ for (const ask of ["primary color token", "navigation bar"]) {
   }
 }
 
+// Action, progress, and loading bars (in two files) are not navigation. A nav ask gets nothing or a header,
+// and a bottom bar only when the ask says bottom or footer.
+for (const ask of ["navigation bar", "nav bar", "top navigation", "main navigation bar", "site nav", "header navigation"]) {
+  const name = jsonFrom(run(["recommend", ask])).candidates?.[0]?.name;
+  if (name && !/header|nav/i.test(name)) failures.push(`"${ask}" picked ${name}; expected nothing or a header`);
+}
+for (const ask of ["bottom navigation", "footer nav"]) {
+  const name = jsonFrom(run(["recommend", ask])).candidates?.[0]?.name;
+  if (name && !/header|footer|nav|bottom/i.test(name)) failures.push(`"${ask}" picked ${name}; expected nothing, a footer, or a bottom bar`);
+}
+
 const bar = jsonFrom(run(["recommend", "bottom action bar"]));
 const barName = bar.candidates?.[0]?.name;
 if (barName === "Button" || barName !== "Bottom action bar") {
@@ -75,4 +86,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-process.stdout.write("Multi-library guard holds: action phrases, submit, and the info icon come from Acme DS. Primary navigation does not pick Marketing Primary, and the bottom action bar does not pick Button.\n");
+process.stdout.write("Multi-library guard holds: action phrases, submit, and the info icon come from Acme DS. Primary navigation does not pick Marketing Primary, navigation asks do not pick an action or progress bar, and the bottom action bar does not pick Button.\n");

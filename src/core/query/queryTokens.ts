@@ -102,3 +102,15 @@ export const GENERIC_NAME_TOKENS = new Set([
   "input",
   "picker",
 ]);
+
+/**
+ * A navigation-type part: it says nav, or it is a header or footer, or a top or bottom bar when the
+ * ask names that side (top or header, bottom or footer). An action, progress, or loading bar is not.
+ */
+export function navFamily(names: Iterable<string>, asked: readonly string[]): boolean {
+  const set = new Set(names);
+  if (set.has("nav") || set.has("navigation") || set.has("header") || set.has("footer")) return true;
+  if (!set.has("bar")) return false;
+  const side = (word: string, alias: string) => set.has(word) && asked.some((token) => token === word || token === alias);
+  return side("top", "header") || side("bottom", "footer");
+}

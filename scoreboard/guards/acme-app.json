@@ -11,6 +11,8 @@
         "name": "Patterns",
         "type": "CANVAS",
         "children": [
+          { "id": "20:90", "name": "Loading bar", "type": "COMPONENT" },
+          { "id": "20:91", "name": "Action bar", "type": "COMPONENT" },
           {
             "id": "20:1",
             "name": "Bottom action bar",
@@ -98,6 +100,8 @@
       "libraryId": "ds"
     },
     "20:1": { "id": "20:1", "name": "Bottom action bar", "key": "acme-bar" },
+    "20:90": { "id": "20:90", "name": "Loading bar", "key": "acme-app-loading-bar" },
+    "20:91": { "id": "20:91", "name": "Action bar", "key": "acme-app-action-bar" },
     "20:2": { "id": "20:2", "name": "Party card", "key": "acme-party" },
     "20:3": { "id": "20:3", "name": "button-group", "key": "acme-button-group" },
     "21:2": { "id": "21:2", "name": "Direction=Left", "key": "acme-app-arrow", "componentSetId": "21:1" }

@@ -6,6 +6,8 @@ Oct 20, 2026. The default tap target is 24 by 24. That is the WCAG 2.2 AA size, 
 
 On a clean check the first line is `PASS · Components: PASS · Proper use: PASS`. PASS stays the first word. A component list with no frame stays `NOTHING CHECKED` and does not add a proper-use block. JSON still includes `builtAt`, plus empty `deprecated` and `unresolved` arrays.
 
+A navigation ask (including "navigation bar") is answered by a nav part, a header or footer, or a top or bottom bar only when the ask names that side; an action, progress, or loading bar is not a navigation bar. A one-letter typo now works on any name word: a neighbour swap, a missing or extra letter, or one wrong letter on a nearby key in a word of 6+ letters ("chrckbox", "avatsr"). It never lands on a variant word such as primary, so it cannot pick the Marketing Primary decoy.
+
 ## Unreleased — check verdict line
 
 Oct 20, 2026. The check card's first line is the overall verdict. It is plain `PASS` only when the exit code is 0. A proper-use failure (exit 7) starts `FAIL: proper use (N errors, M warnings) · components pass`. JSON `result` is `proper_use_failed` on that exit, not `verified`. JSON `pass` stays false whenever the exit code is not 0.

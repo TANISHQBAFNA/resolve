@@ -151,6 +151,16 @@ describe("phrase match and typos", () => {
     expect(topName(index, "kelp forest gauge").candidates).toEqual([]);
   });
 
+  it("takes a one-letter slip on any name word, not only button", () => {
+    // Fresh slips: a near key ("chrckbox", "avatsr", "swirch", "breadcrunb") or a neighbour swap.
+    expect(topName(index, "chrckbox").candidates[0]?.name).toBe("Checkbox");
+    expect(topName(index, "avatsr").candidates[0]?.name).toBe("Avatar");
+    expect(topName(index, "toggle swirch").candidates[0]?.name).toBe("Switch");
+    expect(topName(index, "breadcrunb").candidates[0]?.name).toBe("Breadcrumb");
+    // A far key is a different word, and short words sit too close to real ones.
+    for (const word of ["swatch", "moral", "radix"]) expect(topName(index, word).candidates, word).toEqual([]);
+  });
+
   it("returns empty for ordinary words and non-UI phrases", () => {
     const junk = [
       "cart",

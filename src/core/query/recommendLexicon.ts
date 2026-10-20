@@ -6,7 +6,8 @@ import { isRetired } from "@/core/rules/retired";
 import modifierFile from "@/data/ui-modifiers.json";
 import type { GraphIndex } from "./GraphIndex";
 import { familyNameOf, MASTER_TYPES, VARIANT_PROP_NAME, variantCardName } from "./masterNames";
-import { GENERIC_NAME_TOKENS, tokensOf } from "./queryTokens";
+import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
+import { adjacentSwap, keySlip } from "./typo";
 import { allSynonymGroups, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems, isScreen } from "./screenInventory";
@@ -255,7 +256,8 @@ function tokenTypo(query: string, name: string): boolean {
   const noun = (word: string) => PLAIN_NOUN.has(word);
   if (query.length === name.length) {
     if (adjacentSwap(query, name)) return true;
-    return name === "button" && query[0] === name[0] && [...query].filter((ch, i) => ch !== name[i]).length === 1;
+    // Not onto a variant word, and a slip that also fits a plain noun means the noun ("botton" is button, not bottom).
+    return !SLOT_QUALIFIERS.has(name) && keySlip(query, name) && (noun(name) || ![...PLAIN_NOUN].some((word) => keySlip(query, word)));
   }
   const [shorter, longer] = query.length < name.length ? [query, name] : [name, query];
   if (shorter.length + 1 !== longer.length) return false;
@@ -502,14 +504,6 @@ function oneCharMissing(query: string, name: string): boolean {
   while (i < query.length && query[i] === name[i]) i += 1;
   return query.slice(i) === name.slice(i + 1);
 }
-function adjacentSwap(query: string, name: string): boolean {
-  if (query.length !== name.length || query.length < 2) return false;
-  let i = 0;
-  while (i < query.length && query[i] === name[i]) i += 1;
-  if (i >= query.length - 1) return false;
-  if (query[i] !== name[i + 1] || query[i + 1] !== name[i]) return false;
-  return query.slice(i + 2) === name.slice(i + 2);
-}
 /** Whole name, spaces removed, at least 5 letters: one missing letter or a neighbour swap. */
 export function wholeNameTypo(ask: string, name: string): boolean {
   const query = collapsedName(ask);
@@ -543,8 +537,7 @@ export function genericOnlyMiss(
     return !nameTokens.some((token) => tokenMatchesName(query, token, allowClip));
   });
   if (!uncovered.length) return false;
-  const bar = nameTokens.some((token) => token === "bar" || token === "header" || token === "footer");
-  if (bar && uncovered.every((query) => query === "nav" || query === "navigation")) return false;
+  if (navFamily(nameTokens, queryTokens) && uncovered.every((query) => query === "nav" || query === "navigation")) return false;
   if (uncovered.some((query) => {
     if (SIZE_OR_A11Y.has(query) || !componentWord(query)) return false;
     return !modifierWord(query) || synonymWord(query);
@@ -605,7 +598,7 @@ function nounHit(noun: string, names: Set<string>, allowClip: boolean): boolean 
 const CONTROL_NOUN = new Set(["button", "cta", "action", "icon"]);
 
 function controlNoun(token: string): boolean {
-  if (CONTROL_NOUN.has(token)) return true;
+  if (CONTROL_NOUN.has(token) || [...CONTROL_NOUN].some((word) => tokenTypo(token, word))) return true;
   const group = SYNONYM_OF.get(token);
   return Boolean(group?.some((word) => CONTROL_NOUN.has(word)));
 }
@@ -654,7 +647,7 @@ export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: 
       continue;
     }
     const control = content.some((token) => controlNoun(token) && nounHit(token, names, allowClip));
-    const navBar = unmatched.every((token) => token === "nav" || token === "navigation") && [...names].some((token) => token === "bar" || token === "header" || token === "footer");
+    const navBar = unmatched.every((token) => token === "nav" || token === "navigation") && navFamily(names, queryTokens);
     if (control || navBar || unmatched.every((token) => !componentWord(token))) next.push(entry);
   }
   return next;
