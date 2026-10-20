@@ -1,5 +1,5 @@
 {
-  "note": "Fresh compose set for the scoreboard fixture library, written and labelled before composeRecipe existed. expect is the set of parts a designer would place for the parts the request names; [] when nothing fits (no-fit or typo-heavy). composed is false when fewer than 2 parts fit. tune rows may guide fixes; heldout rows are only measured, never tuned on. Slot precision: returned parts that are expected. Slot recall: expected parts that were returned. Invented: a returned id that is not a live master in the graph. First run (measured, nothing tuned after it): tune slot precision 32/34, recall 32/34; held-out slot precision 28/31, recall 28/32; composed-or-not right 15/15 both; No match right 2/2 both; invented 0. Misses: danger, primary and secondary button return the Button set, not the variant (both splits); held-out 'modal with radios and a danger button' reads modal as the screen name, so Modal is not a slot. Scored strictly by name.",
+  "note": "Fresh compose set for the scoreboard fixture library, written and labelled before composeRecipe existed. expect is the set of parts a designer would place for the parts the request names; [] when nothing fits (no-fit or typo-heavy). composed is false when fewer than 2 parts fit. tune rows may guide fixes; heldout rows are only measured, never tuned on. Slot precision: returned parts that are expected. Slot recall: expected parts that were returned. Invented: a returned id that is not a live master in the graph. First run (measured, nothing tuned after it): tune slot precision 32/34, recall 32/34; held-out slot precision 28/31, recall 28/32; composed-or-not right 15/15 both; No match right 2/2 both; invented 0. Misses: danger, primary and secondary button return the Button set, not the variant (both splits); held-out 'modal with radios and a danger button' reads modal as the screen name, so Modal is not a slot. Scored strictly by name. r1 fixes (head word must match, with synonyms): tune 31/33 precision, 31/34 recall, composed-or-not 14/15 ('radio list' is now weak: its head word is list); held-out unchanged 28/31, 28/32, 15/15.",
   "cases": [
     { "split": "tune", "request": "transfer screen with a payee search field, payment rows and a pay button", "expect": [ "Search Field", "Payment Row", "Pay CTA" ], "composed": true },
     { "split": "tune", "request": "profile page with an avatar, a text field and a save button", "expect": [ "Avatar", "Text Field", "Save CTA" ], "composed": true },
@@ -35,11 +35,11 @@
   "measured": {
     "tune": {
       "cases": 15,
-      "returned": 34,
-      "right": 32,
+      "returned": 33,
+      "right": 31,
       "expected": 34,
-      "found": 32,
-      "composedOk": 15,
+      "found": 31,
+      "composedOk": 14,
       "noMatchOk": 2,
       "noMatchCases": 2,
       "invented": 0

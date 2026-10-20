@@ -89,12 +89,16 @@ When no saved recipe fits, ask Resolve to compose one. It only does this when yo
 npm run resolve -- recipe "profile page with an avatar, a text field and a save button" --compose
 ```
 
-- Words before "with" name the screen. Each part after it ("an avatar", "a text field", "a save button") becomes a slot.
+- Words before "with" name the screen. Each part after it ("an avatar", "a text field", "a save button") becomes a slot. Place words ("next to", "under", "on") join two parts: "a toast next to the header bar" is two slots.
 - Each slot is filled by `recommend`, the same way a saved recipe's slot is. It never invents a part or an id.
-- A part with no fit stays in the card as **No match**, with the `recommend` to try.
+- A part with no fit stays in the card as **No match**, with the `recommend` to try. Every such part is listed, in the one-part answer too.
+- The part's last word must match the part found (synonyms count: a save button fits Save CTA). If only another word matches ("price list" finds Price), the slot says **weak, check** and is not counted as a fit.
+- If a saved recipe has the same title or the same parts, the card warns and names it, and `--propose` files nothing.
 - Fewer than 2 parts fit: no recipe. One part says "use recommend". None says "No match".
 - A saved recipe with that exact name wins, and nothing is composed.
-- Nothing is saved. `--propose` files a pending proposal; a person runs `resolve approve <id> --who <name>` to add it to `.resolve/recipes.json`.
+- Nothing is saved. `--propose` files a pending proposal; a person runs `resolve approve <id> --who <name>` to add it to `.resolve/recipes.json`. The proposal id includes the parts, so different parts are a different proposal. Proposing again after approve or reject files nothing and says why.
+- Approve refuses a private part, a variant inside a set, anything that is not a library component, a recipe with no parts or no id, and a recipe whose id or title is already saved.
+- An empty request, or a `compose` that is not true or false, is an error (`ok:false`, exit 1 in the CLI).
 - MCP: `recipe` with `compose: true` (and `propose: true`), on the advanced surface only (`RESOLVE_MCP_ADVANCED=1`). The default 7 tools do not change.
 
 ## Context packs

@@ -1,3 +1,4 @@
+import { isPrivateMasterName } from "@/core/rules/names";
 import type { GraphIndex } from "./GraphIndex";
 import { exactRecipe } from "./recipes";
 import type { Recipe } from "./recipes";
@@ -31,6 +32,29 @@ function assertCurrentMaster(
   if (isRemovedByAbsence(sock, node) || node.metadata?.["removedByAbsence"] === true) {
     refusePending(`Cannot approve: ${label} "${node.name}" (${id}) was removed.`);
   }
+}
+
+/** A composed recipe saves only real, public, top-level masters, and never replaces or doubles a recipe. */
+function assertComposedRecipe(recipe: Recipe, index: GraphIndex | undefined, sock: SockState, recipes: Recipe[]): void {
+  if (!recipe.id?.trim()) refusePending("Cannot approve: the composed recipe has no id.");
+  if (!recipe.title?.trim()) refusePending("Cannot approve: the composed recipe has no title.");
+  const ids = (recipe.slots ?? []).flatMap((slot) => (slot.defaultMasterId ? [slot.defaultMasterId] : []));
+  if (!ids.length) refusePending("Cannot approve: the composed recipe has no parts.");
+  for (const id of ids) {
+    assertCurrentMaster(index, sock, id, "recipe master");
+    const node = index!.getNode(id)!;
+    if (node.componentSetId || node.type === "VARIANT") {
+      refusePending(`Cannot approve: "${node.name}" (${id}) is a variant inside a set; store the set.`);
+    }
+    if (node.type !== "COMPONENT_SET" && node.type !== "MAIN_COMPONENT") {
+      refusePending(`Cannot approve: "${node.name}" (${id}) is a ${node.type}, not a library component.`);
+    }
+    if (isPrivateMasterName(node.name)) refusePending(`Cannot approve: "${node.name}" (${id}) is private.`);
+  }
+  const clash = recipes.find(
+    (row) => row.id === recipe.id || row.title.trim().toLowerCase() === recipe.title.trim().toLowerCase(),
+  );
+  if (clash) refusePending(`Cannot approve: saved recipe "${clash.title}" (${clash.id}) has the same id or title. A composed recipe never replaces one.`);
 }
 
 function ruleDecision(
@@ -130,13 +154,7 @@ export function applySociDecision(
       }
       const added = proposal.suggestedNewRecipe;
       if (added) {
-        // A composed recipe: every stored id must still be a live master, and it never replaces a recipe.
-        for (const slot of added.slots) {
-          if (slot.defaultMasterId) assertCurrentMaster(options.index, sock, slot.defaultMasterId, "recipe master");
-        }
-        if ((options.recipes ?? []).some((recipe) => recipe.id === added.id)) {
-          throw new BindRuleError(`Recipe "${added.id}" already exists. A composed recipe never replaces one.`);
-        }
+        if (action === "approve") assertComposedRecipe(added, options.index, sock, options.recipes ?? []);
         return recordedDecision(sock, rules, proposalId, action, who, when, note, {
           writesRecipes: true,
           recipeOverlay: overlayWithRecipe(options.overlay ?? [], added),

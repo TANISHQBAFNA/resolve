@@ -791,12 +791,18 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
     case "recipe": {
       const rawQuery = args["query"] ?? args["name"] ?? args["recipe"] ?? args["intent"];
       const query = typeof rawQuery === "string" ? rawQuery.trim() : "";
+      for (const key of ["compose", "propose"]) {
+        if (args[key] !== undefined && typeof args[key] !== "boolean") throw new ToolError(`${key} must be true or false.`);
+      }
+      const compose = args["compose"] === true || args["propose"] === true;
+      if (compose && process.env["RESOLVE_MCP_ADVANCED"] === "1" && (!query || query === "list")) {
+        throw new ToolError('compose needs a screen request, e.g. "profile page with an avatar and a save button".');
+      }
       if (!query || query === "list") return listedRecipes(args);
       const intent = typeof args["intent"] === "string" ? args["intent"].trim() : "";
       const extra = intent && intent !== query ? intent : undefined;
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
       const recipes = loadRecipes();
-      const compose = args["compose"] === true || args["propose"] === true;
       if (compose && process.env["RESOLVE_MCP_ADVANCED"] === "1") {
         if (args["compose"] !== true) throw new ToolError("propose needs compose: true.");
         const input = {

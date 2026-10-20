@@ -1,8 +1,12 @@
+import { createHash } from "node:crypto";
 import type { GraphIndex } from "./GraphIndex";
 import type { BindRulesFile } from "./bindRules";
 import { packForRecipe, type ContextBind } from "./contextPacks";
-import { compactCardSlot, exactRecipe, fillRecipe, recipeCard, type Recipe, type RecipeSlot } from "./recipes";
+import { compactCardSlot, exactRecipe, fillRecipe, recipeCard, type FilledSlot, type Recipe, type RecipeSlot } from "./recipes";
 import { withCost } from "./agentSurface";
+import { nameTokens } from "@/core/rules/names";
+import { allSynonymGroups } from "./recommendContext";
+import { sameWordForm } from "./screenInventory";
 import { proposalIdFor } from "./soci";
 import { emptySock, type SockState } from "./sock";
 
@@ -18,16 +22,18 @@ import { emptySock, type SockState } from "./sock";
 export const COMPOSE_MIN_PARTS = 2;
 
 const LINKS = /\s*(?:,|;|&|\band\b|\bplus\b|\bthen\b)\s*/i;
+// Where a part sits joins two parts: "a toast next to the header bar" names a toast and a header bar.
+const SPATIAL = /\s+(?:next to|on top of|left of|right of|in front of|beside|underneath|beneath|under|above|below|over|inside|within|near|on|in|after|before)\s+/gi;
 const ARTICLES = new Set(["a", "an", "the", "some", "its", "their", "our", "my", "your"]);
-// Words after these say where or why, not which part: "a radio list for delivery".
-const PURPOSE = /\s+\b(?:for|on|in|of|to|when|while|that|which|at|above|below|under|over|next|from)\b.*$/i;
+// Words after these say why or whose, not which part: "a radio list for delivery".
+const PURPOSE = /\s+\b(?:for|of|to|when|while|that|which|at|from)\b.*$/i;
 
 /** The screen name (before "with") and one phrase per named part. */
 export function composeParts(request: string): { title: string; phrases: string[] } {
   const text = request.trim().replace(/\s+/g, " ");
   const at = text.search(/\bwith\b/i);
   const title = at > 0 ? text.slice(0, at).trim() : "";
-  const body = at >= 0 ? text.slice(at + 4) : text;
+  const body = (at >= 0 ? text.slice(at + 4) : text).replace(SPATIAL, ", ");
   const phrases: string[] = [];
   for (const raw of body.split(LINKS)) {
     const phrase = raw
@@ -53,6 +59,39 @@ export interface ComposeInput {
   placeholders?: string[];
 }
 
+/** The part word is the last word of the phrase ("search field"). A fill that only shares another word is weak. Synonyms count (button, cta). */
+function headMatches(slot: FilledSlot): boolean {
+  const head = slot.hints.at(-1)?.toLowerCase();
+  if (!head || !slot.master) return false;
+  const forms = [head, ...allSynonymGroups().filter((group) => group.terms.some((term) => sameWordForm(term, head))).flatMap((group) => group.terms)];
+  return nameTokens(slot.master.name).some((token) => forms.some((form) => sameWordForm(token, form)));
+}
+
+function weakSlot(slot: FilledSlot) {
+  const master = slot.master!;
+  return {
+    role: slot.role,
+    status: "weak" as const,
+    master: { id: master.id, name: master.name, figmaNodeId: master.figmaNodeId, ...(master.fileKey ? { fileKey: master.fileKey } : {}) },
+    nextRecommend: slot.nextRecommend,
+    hint: `Weak, check: "${slot.hints.at(-1)}" is not in ${master.name}. Not counted as a fit.`,
+  };
+}
+
+/** Saved recipes with the same title, or the same set of parts. */
+function duplicates(input: ComposeInput, title: string, ids: string[]): string[] {
+  const key = (list: string[]) => [...new Set(list)].sort().join("|");
+  const want = key(ids);
+  return input.recipes
+    .filter((recipe) => {
+      if (title && recipe.title.toLowerCase() === title.toLowerCase()) return true;
+      const filled = fillRecipe(input.index, recipe, undefined, undefined, input.bind?.workspace, input.sock, input.bindRules, input.placeholders);
+      const theirs = filled.slots.flatMap((slot) => (slot.master && slot.status !== "deprecated" ? [slot.master.id] : []));
+      return want.length > 0 && key(theirs) === want;
+    })
+    .map((recipe) => recipe.title);
+}
+
 export function composeRecipe(input: ComposeInput) {
   const { request, index } = input;
   const saved = exactRecipe(input.recipes, request);
@@ -71,8 +110,19 @@ export function composeRecipe(input: ComposeInput) {
   if (!draft.slots.length) return { card: noMatch(request, phrases) };
   const pack = input.bind ? packForRecipe(draft, input.bind) : undefined;
   const filled = fillRecipe(index, draft, undefined, pack, input.bind?.workspace, input.sock, input.bindRules, input.placeholders);
-  const parts = filled.slots.filter((slot) => slot.master && (slot.status === "filled" || slot.status === "bound"));
-  if (!parts.length) return { card: noMatch(request, phrases) };
+  const isFit = (slot: FilledSlot) => Boolean(slot.master) && (slot.status === "filled" || slot.status === "bound") && headMatches(slot);
+  const parts = filled.slots.filter(isFit);
+  const weak = filled.slots.filter((slot) => !isFit(slot) && slot.master && slot.status === "filled");
+  const empty = filled.slots.filter((slot) => !isFit(slot) && !weak.includes(slot));
+  const misses = {
+    ...(empty.length ? { noMatch: empty.map((slot) => slot.role) } : {}),
+    ...(weak.length ? { weak: weak.map((slot) => `${slot.role}: ${slot.master!.name} (weak, check)`) } : {}),
+  };
+  const missLine = [
+    ...empty.map((slot) => `No match for ${slot.role}: recommend "${slot.nextRecommend}", do not invent.`),
+    ...weak.map((slot) => `Weak, check ${slot.role}: ${slot.master!.name} shares a word only.`),
+  ].join(" ");
+  if (!parts.length) return { card: noMatch(request, phrases, misses) };
   if (parts.length < COMPOSE_MIN_PARTS) {
     const master = parts[0]!.master!;
     return {
@@ -81,12 +131,12 @@ export function composeRecipe(input: ComposeInput) {
         composed: false as const,
         query: request,
         part: { id: master.id, name: master.name, figmaNodeId: master.figmaNodeId, ...(master.fileKey ? { fileKey: master.fileKey } : {}) },
-        hint: `One part fits (${master.name}). A composed recipe needs ${COMPOSE_MIN_PARTS} or more. Use recommend for one part. Do not invent the rest.`,
+        ...misses,
+        hint: `One part fits (${master.name}). A composed recipe needs ${COMPOSE_MIN_PARTS} or more. Use recommend for one part. ${missLine}`.trim(),
       }),
     };
   }
-  const empty = filled.slots.filter((slot) => !parts.includes(slot));
-  // Saved shape: filled slots keep the returned id; empty slots stay optional with no id.
+  // Saved shape: fitting slots keep the returned id; the rest stay optional with no id.
   const recipe: Recipe = {
     ...draft,
     slots: filled.slots.map((slot): RecipeSlot => {
@@ -94,35 +144,59 @@ export function composeRecipe(input: ComposeInput) {
       return { role: slot.role, required: Boolean(id), hints: slot.hints, ...(id ? { defaultMasterId: id } : {}) };
     }),
   };
+  const same = duplicates(input, recipe.title, parts.map((slot) => slot.master!.id));
   const card = withCost({
     found: true as const,
     composed: true as const,
     saved: false as const,
     query: request,
     recipe: { id: recipe.id, title: recipe.title },
-    slots: filled.slots.map(compactCardSlot),
-    ...(empty.length ? { noMatch: empty.map((slot) => slot.role) } : {}),
+    slots: filled.slots.map((slot) => (weak.includes(slot) ? weakSlot(slot) : compactCardSlot(slot))),
+    ...misses,
+    ...(same.length ? { duplicates: same } : {}),
     ...(filled.context ? { context: filled.context } : {}),
-    hint: `Composed from the parts you named; not saved. ${empty.length ? `No match for ${empty.map((slot) => slot.role).join(", ")}: recommend those, do not invent. ` : ""}To keep it, propose it (--propose) and a person approves. Then verify_frame.`,
+    hint: [
+      "Composed from the parts you named; not saved.",
+      same.length ? `Warning: saved recipe ${same.join(", ")} already covers this; use it instead.` : "",
+      missLine,
+      "To keep it, propose it (--propose) and a person approves. Then verify_frame.",
+    ].filter(Boolean).join(" "),
   });
-  return { card, recipe };
+  return { card, recipe, duplicates: same };
 }
 
-function noMatch(request: string, phrases: string[]) {
+function noMatch(request: string, phrases: string[], misses: object = {}) {
   return withCost({
     found: false as const,
     composed: false as const,
     query: request,
+    ...misses,
     hint: `No match. No learned part fits ${phrases.length ? phrases.map((phrase) => `"${phrase}"`).join(", ") : "this request"}. Name parts from the library, check the spelling, or learn the library. Do not invent a component.`,
   });
 }
 
+/** The proposal id names the recipe and its parts, so a different set of parts is a different proposal. */
+export function composedProposalId(recipe: Recipe): string {
+  const parts = recipe.slots.map((slot) => `${slot.role}=${slot.defaultMasterId ?? ""}`).join("|");
+  return proposalIdFor("recipe-update", `new:${recipe.id}:${createHash("sha1").update(parts).digest("hex").slice(0, 8)}`);
+}
+
 /** CLI and MCP both call this. `state` is set only when a proposal was filed; the caller saves it. */
 export function composeCard(input: ComposeInput, propose: boolean, now: string): { card: object; state?: SockState } {
-  const { card, recipe } = composeRecipe(input);
+  const { card, recipe, duplicates: same } = composeRecipe(input);
   if (!propose) return { card };
-  if (!recipe) return { card: { ...card, proposal: "none (nothing composed to propose)" } };
-  const filed = proposeComposedRecipe(input.sock ?? emptySock(), recipe, now);
+  const refuse = (why: string) => ({ card: { ...card, proposal: "none", hint: `${why} Nothing filed.` } });
+  if (!recipe) return refuse("Nothing composed to propose.");
+  if (same?.length) return refuse(`Saved recipe ${same.join(", ")} already covers this.`);
+  if (input.recipes.some((row) => row.id === recipe.id)) return refuse(`A saved recipe already uses the id ${recipe.id}.`);
+  const sock = input.sock ?? emptySock();
+  const id = composedProposalId(recipe);
+  const earlier = sock.proposals.find((row) => row.id === id);
+  if (earlier?.status === "pending") {
+    return { card: { ...card, proposal: id, hint: `Already proposed as ${id}; not saved until a person approves it (resolve approve ${id} --who <name>).` } };
+  }
+  if (earlier) return refuse(`This exact recipe was already ${earlier.status} as ${id}.`);
+  const filed = proposeComposedRecipe(sock, recipe, now);
   return {
     card: { ...card, proposal: filed.proposalId, hint: `Proposed as ${filed.proposalId}; not saved until a person approves it (resolve approve ${filed.proposalId} --who <name>).` },
     state: filed.state,
@@ -131,7 +205,7 @@ export function composeCard(input: ComposeInput, propose: boolean, now: string):
 
 /** File a pending recipe-update proposal that adds the composed recipe. A person approves it; nothing else writes recipes.json. */
 export function proposeComposedRecipe(state: SockState, recipe: Recipe, now: string): { state: SockState; proposalId: string } {
-  const proposalId = proposalIdFor("recipe-update", `new:${recipe.id}`);
+  const proposalId = composedProposalId(recipe);
   if (state.proposals.some((row) => row.id === proposalId)) return { state, proposalId };
   const parts = recipe.slots.filter((slot) => slot.defaultMasterId).length;
   return {

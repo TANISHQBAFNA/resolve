@@ -7,8 +7,8 @@ import { SourceDocumentSchema } from "@/core/ingestion/types";
 import { buildGraph } from "@/core/transform";
 import { composeParts, composeRecipe, indexGraph, starterRecipes, type GraphIndex } from "@/core/query";
 import { runCli } from "@/server/cli";
-import { callTool, DEFAULT_TOOL_NAMES } from "@/server/tools";
-import { clearCache, loadRecipes, readSock, saveGraph } from "@/server/store";
+import { callTool, DEFAULT_TOOL_NAMES, ToolError } from "@/server/tools";
+import { clearCache, loadRecipes, readSock, saveGraph, saveSock } from "@/server/store";
 import set from "../scoreboard/compose/acme.json";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -134,7 +134,7 @@ describe("composed recipes", () => {
     expect(plain.compose).toMatch(/advanced/);
 
     const proposed = await cliJson(["recipe", request, "--compose", "--propose", "--json"]);
-    expect(proposed.proposal).toMatch(/^soci:recipe-update:new-composed-profile-page$/);
+    expect(proposed.proposal).toMatch(/^soci:recipe-update:new-composed-profile-page-[0-9a-f]{8}$/);
     expect(loadRecipes().some((recipe) => recipe.id === "composed-profile-page")).toBe(false);
     expect(readSock().proposals.find((row) => row.id === proposed.proposal)?.status).toBe("pending");
 
@@ -153,5 +153,118 @@ describe("composed recipes", () => {
     expect(json).toMatchObject({ ok: false, message: "--propose needs --compose." });
     expect(process.exitCode).toBe(1);
     process.exitCode = 0;
+  });
+  describe("r1 findings, by category", () => {
+    const compose = (request: string) => composeRecipe({ request, index: indexGraph(fixtureGraph()), recipes: starterRecipes() });
+
+    it("M1: a part that shares only a non-head word is weak, not a fit, also in the one-part answer", () => {
+      const out = compose("screen with a price list, a header image and a tag");
+      expect(out.recipe).toBeUndefined();
+      const card = out.card as Card & { weak?: string[] };
+      expect(card.part?.name).toBe("Tag");
+      expect(card.weak).toEqual(["price-list: Price (weak, check)", "header-image: Header Bar (weak, check)"]);
+      expect(card.hint).toMatch(/^One part fits \(Tag\)/);
+      expect(card.hint).toMatch(/Weak, check price-list/);
+      const two = compose("screen with a price list, a toast and a tag");
+      const slots = (two.card as Card).slots!;
+      expect(slots.find((slot) => slot.role === "price-list")).toMatchObject({ status: "weak" });
+      expect(two.recipe!.slots.find((slot) => slot.role === "price-list")!.defaultMasterId).toBeUndefined();
+      for (const request of ["a save button and a toast", "a payment row and badges", "checkboxes and a switch"]) {
+        expect(returned(compose(request).card as Card).length, request).toBe(2);
+      }
+    });
+
+    it("M2: a different set of parts is a different proposal, and a decided one is refused clearly", async () => {
+      saveGraph(fixtureGraph());
+      const first = await cliJson(["recipe", "promo page with a banner and a toast", "--compose", "--propose", "--json"]);
+      const other = await cliJson(["recipe", "promo page with a banner and a tag", "--compose", "--propose", "--json"]);
+      expect(first.proposal).not.toBe(other.proposal);
+      const again = await cliJson(["recipe", "promo page with a banner and a toast", "--compose", "--propose", "--json"]);
+      expect(again.proposal).toBe(first.proposal);
+      expect(again.hint).toMatch(/Already proposed/);
+      await cliJson(["reject", first.proposal!, "--who", "Avery", "--json"]);
+      const refused = await cliJson(["recipe", "promo page with a banner and a toast", "--compose", "--propose", "--json"]);
+      expect(refused.proposal).toBe("none");
+      expect(refused.hint).toMatch(/already rejected .*Nothing filed\./);
+      await cliJson(["approve", other.proposal!, "--who", "Avery", "--json"]);
+      clearCache();
+      const saved = loadRecipes().find((recipe) => recipe.id === "composed-promo-page");
+      expect(saved?.slots.map((slot) => slot.role)).toEqual(["banner", "tag"]);
+      const after = await cliJson(["recipe", "promo page with a banner and a tag", "--compose", "--propose", "--json"]);
+      expect(after.proposal).toBe("none");
+    });
+
+    it("L1: approve refuses private parts, variants, non-components, no parts, no id and a duplicate title", async () => {
+      const graph = fixtureGraph();
+      saveGraph(graph);
+      const index = indexGraph(graph);
+      const byName = (name: string) => index.getNodesByType("MAIN_COMPONENT", "COMPONENT_SET", "FRAME").find((node) => node.name === name)!;
+      const privateId = index.getNodesByType("MAIN_COMPONENT", "COMPONENT_SET").find((node) => node.name.startsWith("_"))!.id;
+      const variantId = index.getNodesByType("VARIANT")[0]!.id;
+      const frameId = index.getNodesByType("FRAME")[0]!.id;
+      const tag = byName("Tag").id;
+      const bad: Array<[string, object]> = [
+        ["private", { id: "composed-a", title: "A", slots: [{ role: "x", required: true, hints: ["x"], defaultMasterId: privateId }] }],
+        ["variant inside a set", { id: "composed-b", title: "B", slots: [{ role: "x", required: true, hints: ["x"], defaultMasterId: variantId }] }],
+        ["not a library component", { id: "composed-c", title: "C", slots: [{ role: "x", required: true, hints: ["x"], defaultMasterId: frameId }] }],
+        ["no parts", { id: "composed-d", title: "D", slots: [] }],
+        ["no id", { id: " ", title: "E", slots: [{ role: "x", required: true, hints: ["x"], defaultMasterId: tag }] }],
+        ["same id or title", { id: "composed-f", title: "Checkout summary", slots: [{ role: "x", required: true, hints: ["x"], defaultMasterId: tag }] }],
+      ];
+      const sock = readSock();
+      saveSock({
+        ...sock,
+        proposals: bad.map(([why, recipe], i) => ({
+          id: `soci:recipe-update:bad-${i}`,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          type: "recipe-update" as const,
+          status: "pending" as const,
+          summary: why,
+          evidence: [],
+          suggestedNewRecipe: { intentAliases: [], ...recipe } as never,
+        })),
+      });
+      const want = [/is private/, /variant inside a set/, /not a library component/, /no parts/, /no id/, /same id or title/];
+      for (const [i, [why]] of bad.entries()) {
+        await expect(runCli(["approve", `soci:recipe-update:bad-${i}`, "--who", "Avery"]), why).rejects.toThrow(want[i]!);
+      }
+    });
+
+    it("L2: parts after a place word are kept, and every part with no fit is listed", () => {
+      expect(composeParts("a toast next to the header bar").phrases).toEqual(["toast", "header bar"]);
+      expect(composeParts("a badge on the avatar, a tag under a warp gauge").phrases).toEqual(["badge", "avatar", "tag", "warp gauge"]);
+      const card = compose("a tag beside a flux gauge").card as Card;
+      expect(card.part?.name).toBe("Tag");
+      expect(card.noMatch).toEqual(["flux-gauge"]);
+      expect(card.hint).toMatch(/No match for flux-gauge/);
+      const many = compose("a toast above the header bar below a warp gauge").card as Card;
+      expect(returned(many).map((part) => part.name)).toEqual(["Toast", "Header Bar"]);
+      expect(many.noMatch).toEqual(["warp-gauge"]);
+    });
+
+    it("L3: warns when a saved recipe already covers the screen, and does not propose it", async () => {
+      const out = compose("Settings form with a text field and a save button");
+      expect((out.card as Card & { duplicates?: string[] }).duplicates).toEqual(["Settings form"]);
+      expect(out.card.hint).toMatch(/Warning: saved recipe Settings form already covers this/);
+      saveGraph(fixtureGraph());
+      const proposed = await cliJson(["recipe", "Settings form with a text field and a save button", "--compose", "--propose", "--json"]);
+      expect(proposed.proposal).toBe("none");
+    });
+
+    it("L4: an empty request or a non-boolean compose is an error in the CLI and MCP", async () => {
+      saveGraph(fixtureGraph());
+      for (const argv of [["recipe", "--compose", "--json"], ["recipe", "  ", "--compose", "--json"]]) {
+        const json = (await cliJson(argv)) as unknown as { ok: boolean; message: string };
+        expect(json, argv.join(" ")).toMatchObject({ ok: false });
+        expect(json.message).toMatch(/needs a screen request/);
+        expect(process.exitCode).toBe(1);
+        process.exitCode = 0;
+      }
+      process.env["RESOLVE_MCP_ADVANCED"] = "1";
+      expect(() => callTool("recipe", { query: "a tag and a chip", compose: "yes" })).toThrow(ToolError);
+      expect(() => callTool("recipe", { query: "a tag and a chip", compose: true, propose: 1 })).toThrow(/propose must be true or false/);
+      expect(() => callTool("recipe", { compose: true })).toThrow(/needs a screen request/);
+      expect(() => callTool("recipe", { query: "", compose: true })).toThrow(ToolError);
+    });
   });
 });
