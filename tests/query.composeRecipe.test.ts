@@ -411,4 +411,40 @@ describe("composed recipes", () => {
       expect((compose("sheet with a tangerine toast and a flux gauge").card as Card).hint).toMatch(/^No match\./);
     });
   });
+  describe("r4 findings, by category", () => {
+    const compose = (request: string) => composeRecipe({ request, index: indexGraph(fixtureGraph()), recipes: starterRecipes() });
+
+    it("M4: one generic word after on/in that names several parts, or none, stays context", () => {
+      for (const [request, context] of [
+        ["a toast and a chip on a card", "on a card"],
+        ["a badge and a tag in a row", "in a row"],
+        ["a toast and a switch on the map", "on the map"],
+        ["a chip and a tag inside a table", "inside a table"],
+      ] as const) {
+        const card = compose(request).card as Card & { readAsContext?: string[] };
+        expect(returned(card).length, request).toBe(2);
+        expect(card.readAsContext, request).toEqual([context]);
+      }
+      // A full name, or one word naming exactly one part, is still a part.
+      expect(returned(compose("a toast on a summary card").card as Card).map((part) => part.name)).toEqual(["Toast", "Summary Card"]);
+      expect(returned(compose("a chip inside a modal").card as Card).map((part) => part.name)).toEqual(["Chip", "Modal"]);
+      // A generic word no longer turns a saved recipe's parts into new ones, so the warning stays.
+      const warned = compose("Settings form with a text field and a save button on a card").card as Card & { duplicates?: string[] };
+      expect(warned.duplicates).toEqual(["Settings form"]);
+    });
+
+    it("L9: a density word before a part does not make it weak", () => {
+      for (const [request, parts] of [
+        ["sheet with a compact toast and a dense chip", ["Toast", "Chip"]],
+        ["sheet with a condensed list row and a spacious footer bar", ["List Row", "Footer Bar"]],
+        ["drawer with cozy badges and a tight divider", ["Badge", "Divider"]],
+      ] as const) {
+        const card = compose(request).card as Card & { weak?: string[] };
+        expect(returned(card).map((part) => part.name), request).toEqual(parts);
+        expect(card.weak, request).toBeUndefined();
+      }
+      // Other modifiers still count: an unrelated word stays weak.
+      expect((compose("sheet with a tangerine toast and a chip").card as Card & { weak?: string[] }).weak).toHaveLength(1);
+    });
+  });
 });

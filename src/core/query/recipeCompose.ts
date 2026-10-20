@@ -4,7 +4,7 @@ import type { BindRulesFile } from "./bindRules";
 import { packForRecipe, type ContextBind } from "./contextPacks";
 import { compactCardSlot, exactRecipe, fillRecipe, recipeCard, type FilledSlot, type Recipe, type RecipeSlot } from "./recipes";
 import { withCost } from "./agentSurface";
-import { nameTokens } from "@/core/rules/names";
+import { isPrivateMasterName, nameTokens } from "@/core/rules/names";
 import { allSynonymGroups } from "./recommendContext";
 import { sameWordForm } from "./screenInventory";
 import { proposalIdFor } from "./soci";
@@ -31,10 +31,30 @@ const CONTEXT = /\s+\b(?:on|in|inside|within)\b\s+(.*)$/i;
 const CONTAINER_OF = /\b(?:a\s+|the\s+)?(?:list|group|set|stack|collection)s?\s+of\s+/gi;
 const ARTICLES = new Set(["a", "an", "the", "some", "its", "their", "our", "my", "your"]);
 // Device, theme and density words are always context, even when a part is named after them (Mobile Nav).
+// Density words describe how a part is laid out, not which part: "a compact list row" asks for a list row.
+const DENSITY = new Set(["compact", "comfortable", "dense", "condensed", "spacious", "cozy", "tight", "roomy"]);
 const SETTING = new Set([
   "mobile", "desktop", "tablet", "phone", "web", "watch", "tv", "ios", "android", "dark", "light", "theme", "mode",
-  "contrast", "landscape", "portrait", "compact", "comfortable", "small", "large", "screen", "screens", "app", "view",
+  "contrast", "landscape", "portrait", "small", "large", "screen", "screens", "app", "view", ...DENSITY,
 ]);
+
+/** Live, public, top-level parts (not variants) whose name the words name. */
+function namedParts(index: GraphIndex, words: string[]) {
+  const parts = index
+    .getNodesByType("COMPONENT_SET", "MAIN_COMPONENT")
+    .filter((node) => !node.componentSetId && node.status !== "deprecated" && !isPrivateMasterName(node.name));
+  const has = (word: string, token: string) => sameWordForm(token, word);
+  // A full part name inside the words ("a header bar" names Header Bar).
+  const full = parts.filter((node) => {
+    const tokens = nameTokens(node.name);
+    return tokens.length > 0 && tokens.every((token) => words.some((word) => has(word, token)));
+  });
+  if (full.length) return full;
+  // One word that names exactly one part ("modal"). A word shared by many parts ("card", "row") names none.
+  if (words.length !== 1) return [];
+  const one = parts.filter((node) => nameTokens(node.name).some((token) => has(words[0]!, token)));
+  return one.length === 1 ? one : [];
+}
 
 // Words after these say why or whose, not which part: "a radio list for delivery".
 const PURPOSE = /\s+\b(?:for|of|to|when|while|that|which|at|from)\b.*$/i;
@@ -94,7 +114,7 @@ function unmatched(index: GraphIndex, slot: FilledSlot): string[] {
   const variants = index.getNodesByType("VARIANT").filter((node) => node.componentSetId === slot.master!.id);
   const names = [slot.master.name, ...variants.map((node) => node.name)].flatMap(nameTokens);
   const words = slot.hints.map((hint) => hint.toLowerCase());
-  const main = words.filter((word) => !CONTAINERS.some((container) => sameWordForm(container, word)));
+  const main = words.filter((word) => !DENSITY.has(word) && !CONTAINERS.some((container) => sameWordForm(container, word)));
   return (main.length ? main : words).filter((word) => {
     const forms = [word, ...allSynonymGroups().filter((group) => group.terms.some((term) => sameWordForm(term, word))).flatMap((group) => group.terms)];
     return !names.some((token) => forms.some((form) => sameWordForm(token, form)));
@@ -149,10 +169,12 @@ export function composeRecipe(input: ComposeInput) {
   for (const raw of split.context) {
     const phrase = contextPhrase(raw);
     const words = phrase.split(" ").filter(Boolean);
-    const probe = words.length && !words.every((word) => SETTING.has(word))
+    // A part only when the words name it outright; a generic word ("card", "row", "map") stays context.
+    const named = words.every((word) => SETTING.has(word)) ? [] : namedParts(index, words);
+    const probe = named.length
       ? fill({ id: "probe", title: "", intentAliases: [], slots: [{ role: slug(phrase), required: true, hints: words }] }).slots[0]
       : undefined;
-    if (probe && isFit(probe)) {
+    if (probe && isFit(probe) && named.some((node) => node.id === probe.master?.id)) {
       if (!phrases.includes(phrase)) phrases.push(phrase);
     } else context.push(raw);
   }
@@ -170,7 +192,8 @@ export function composeRecipe(input: ComposeInput) {
   if (!draft.slots.length) return { card: noMatch(request, phrases) };
   const first = fill(draft);
   // A container word can hide the part from recommend ("avatar group"): retry those slots once without it.
-  const bare = (hints: string[]) => hints.filter((hint) => !CONTAINERS.some((container) => sameWordForm(container, hint)));
+  // Retry without container and density words ("avatar group", "compact list row").
+  const bare = (hints: string[]) => hints.filter((hint) => !DENSITY.has(hint) && !CONTAINERS.some((container) => sameWordForm(container, hint)));
   const retry = first.slots.map((slot, i) => {
     if (i >= phrases.length || (slot.master && headMatches(index, slot)) || bare(slot.hints).length === slot.hints.length || !bare(slot.hints).length) return slot;
     const again = fill({ ...draft, slots: [{ role: slot.role, required: true, hints: bare(slot.hints) }] }).slots[0]!;
