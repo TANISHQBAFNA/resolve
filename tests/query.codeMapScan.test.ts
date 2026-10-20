@@ -220,6 +220,22 @@ describe("code map scan, suggest, review", () => {
     expect(kept.filter((row) => (row as { status?: string }).status === "mapped")).toHaveLength(1);
   });
 
+  it("keeps every class that repeats a selector and flags the conflict", () => {
+    const probe = mkdtempSync(join(tmpdir(), "acme-lite-"));
+    writeFileSync(join(probe, "package.json"), JSON.stringify({ name: "@acme/lite", version: "0.1.0" }));
+    writeFileSync(
+      join(probe, "index.d.ts"),
+      `export declare class HarborComponent { static ɵcmp: i0.ɵɵComponentDeclaration<HarborComponent, "acme-harbor", never, {}, {}, never, never, true, never>; }
+export declare class HarborLiteComponent { static ɵcmp: i0.ɵɵComponentDeclaration<HarborLiteComponent, "acme-harbor", never, {}, {}, never, never, true, never>; }
+`,
+    );
+    const scanned = scanAngularPackage(probe);
+    const names = scanned.components.map((row) => row.component);
+    expect(names).toEqual(["HarborComponent", "HarborLiteComponent"]);
+    expect(scanned.components.find((row) => row.component === "HarborComponent")?.selectorConflict).toEqual(["HarborLiteComponent"]);
+    expect(scanned.components.find((row) => row.component === "HarborLiteComponent")?.selectorConflict).toEqual(["HarborComponent"]);
+  });
+
   it("leaves the default MCP tool list at 7", () => {
     expect(listToolDefinitions(false)).toHaveLength(7);
     expect(listToolDefinitions(true).map((tool) => tool.name)).toEqual(expect.arrayContaining(["code_map_scan", "code_map_suggest", "code_map_review"]));

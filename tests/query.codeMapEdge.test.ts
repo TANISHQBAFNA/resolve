@@ -58,7 +58,11 @@ describe("code map edge fixture", () => {
     expect(inventory.components.find((row) => row.component === "AcmeSnackbarComponent")?.selector).toBe("acme-snackbar");
     expect(inventory.components.find((row) => row.component === "AcmeBannerComponent")?.deprecated).toMatch(/deprecated|AcmeAlert/i);
     expect(inventory.components.find((row) => row.component === "AcmeButtonLegacyComponent")?.deprecated).toBeTruthy();
-    for (const noise of KEY.notComponents) expect(names).not.toContain(noise);
+    const skipped = KEY.notComponents.filter((name) => name !== "AcmeTooltipSourceDirective");
+    for (const noise of skipped) expect(names).not.toContain(noise);
+    expect(names).toContain("AcmeTooltipSourceDirective");
+    expect(inventory.components.find((row) => row.component === "AcmeTooltipDirective")?.selectorConflict).toEqual(["AcmeTooltipSourceDirective"]);
+    expect(inventory.components.find((row) => row.component === "AcmeTooltipSourceDirective")?.selectorConflict).toEqual(["AcmeTooltipDirective"]);
   });
 
   it("suggests the 49-pair key with no wrong link when every suggestion is accepted", () => {
@@ -73,11 +77,33 @@ describe("code map edge fixture", () => {
       .map((pair) => ({ name: pair.name, status: "mapped", relation: pair.relation, code: { component: pair.component } }));
     expect(pairs.filter((pair) => KEY.retired.includes(pair.name))).toEqual([]);
     expect(pairs.filter((pair) => KEY.noCode.includes(pair.name) && pair.status === "suggested")).toEqual([]);
+    const byStatus = (status: "suggested" | "partial") =>
+      scoreSuggestions(
+        pairs.filter((pair) => pair.status === status).map((pair) => ({ figma: pair.name, component: pair.component, relation: pair.relation })),
+        KEY.pairs,
+      );
+    const suggested = byStatus("suggested");
+    const partial = byStatus("partial");
+    const label = (pair: AnswerPair) => `${pair.figma} → ${pair.component}`;
     expect(wrongMappedLinks(accepted, KEY.pairs)).toEqual([]);
-    expect(score.extra.filter((pair) => pairs.find((row) => row.name === pair.figma && row.component === pair.component && row.status === "suggested"))).toEqual([]);
-    expect(score).toMatchObject({ proposed: 49, labelled: 49, hits: 49, precision: 1, recall: 1 });
-    expect(score.missed).toEqual([]);
+    expect(pairs.filter((pair) => KEY.noCode.includes(pair.name) && pair.status === "suggested")).toEqual([]);
+    expect(suggested.extra).toEqual([]);
+    expect(suggested).toMatchObject({ proposed: 43, labelled: 49, hits: 43, precision: 1, recall: 43 / 49 });
+    expect(suggested.missed.map(label).sort()).toEqual(
+      [
+        "Avatar → AcmeAvatarComponent",
+        "Breadcrumbs → AcmeBreadcrumbComponent",
+        "Date range picker → AcmeDateRangeEndComponent",
+        "Date range picker → AcmeDateRangeStartComponent",
+        "Pagination → AcmePaginatorComponent",
+        "Radio → AcmeRadioButtonComponent",
+      ].sort(),
+    );
+    expect(partial.extra).toEqual([]);
+    expect(partial).toMatchObject({ proposed: 4, labelled: 49, hits: 4, precision: 1, recall: 4 / 49 });
     expect(score.extra).toEqual([]);
+    expect(score.missed.map(label).sort()).toEqual(["Avatar → AcmeAvatarComponent", "Pagination → AcmePaginatorComponent"].sort());
+    expect(score).toMatchObject({ proposed: 47, labelled: 49, hits: 47, precision: 1, recall: 47 / 49 });
     expect(pairs.some((pair) => pair.component === "AcmeBannerComponent" && pair.codeDeprecated)).toBe(true);
   });
 

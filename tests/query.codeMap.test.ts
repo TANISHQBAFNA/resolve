@@ -183,6 +183,30 @@ describe("code-map.json", () => {
     expect(lineFor(lib(), "Button")).toBe("Button from '@acme/ui'");
   });
 
+  it("drops a duplicate mapped code line on load and warns once", () => {
+    const row = {
+      fileKey: "LIB",
+      id: "1:1",
+      name: "Button",
+      status: "mapped",
+      relation: "maps" as const,
+      code: { import: "import { Button } from '@acme/ui'", component: "Button", framework: "angular", selector: "acme-button" },
+    };
+    put({
+      entries: [row, { ...row, code: { ...row.code, selector: "button[acme-button]" } }, { ...row, code: { import: "import { Icon } from '@acme/ui'", component: "Icon", framework: "angular", selector: "acme-icon" } }],
+    });
+    const err: string[] = [];
+    const write = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array) => (err.push(String(chunk)), true)) as typeof process.stderr.write;
+    try {
+      expect(lineFor(lib(), "Button")).toBe("Button from '@acme/ui' + Icon from '@acme/ui'");
+      expect(lineFor(lib(), "Button")).toBe("Button from '@acme/ui' + Icon from '@acme/ui'");
+    } finally {
+      process.stderr.write = write;
+    }
+    expect(err.join("")).toBe("code-map.json: dropped 1 duplicate mapped entry; the code line is shown once\n");
+  });
+
   it("reports what it ignored, and says so when nothing is usable", async () => {
     put({
       entries: [

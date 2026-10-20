@@ -116,42 +116,41 @@ function toPair(
   };
 }
 
-function preferAcme(hits: AngularComponentRecord[]): AngularComponentRecord[] {
-  const prefixed = hits.filter((hit) => hit.component.startsWith("Acme"));
-  return prefixed.length === 1 ? prefixed : hits;
-}
+type MatchKind = "token" | "partial";
 
-function matchesFor(wanted: string[], inventory: AngularInventory): AngularComponentRecord[] {
-  const exact = inventory.components.filter((component) => same(classWords(component), wanted));
-  if (exact.length) return preferAcme(exact);
+/** Stem, an added suffix, or a shared family prefix. Never a character prefix. Always partial. */
+function heuristicHits(wanted: string[], inventory: AngularInventory): AngularComponentRecord[] {
+  const found = new Map<string, AngularComponentRecord>();
+  const add = (rows: AngularComponentRecord[]) => {
+    for (const row of rows) found.set(row.component, row);
+  };
   const stem = pluralStem(wanted);
-  const plural = stem ? inventory.components.filter((component) => same(classWords(component), stem)) : [];
-  if (plural.length === 1) return plural;
-  const withButton = inventory.components.filter((component) => same(classWords(component), [...wanted, "button"]));
-  if (withButton.length === 1) return withButton;
-  const alias = inventory.components.filter((component) => aliasWords(component, wanted));
-  if (alias.length) return preferAcme(alias);
-  if (wanted.length === 1) {
-    const word = wanted[0]!;
-    const stemmed = inventory.components.filter((component) => {
-      const cls = classWords(component);
-      if (cls.length !== 1) return false;
-      const other = cls[0]!;
-      let shared = 0;
-      while (shared < word.length && shared < other.length && word[shared] === other[shared]) shared += 1;
-      return shared >= 6 && Math.abs(word.length - other.length) <= 3 && word !== other;
-    });
-    if (stemmed.length === 1) return stemmed;
-  }
-  const prefix = wanted.length >= 2 ? wanted.slice(0, -1) : [];
+  if (stem) add(inventory.components.filter((component) => same(classWords(component), stem)));
+  add(inventory.components.filter((component) => same(classWords(component), [...wanted, "button"])));
+  const prefix = wanted.length >= 3 ? wanted.slice(0, -1) : [];
   if (prefix.length >= 2) {
     const family = inventory.components.filter((component) => {
       const cls = classWords(component);
       return cls.length === prefix.length + 1 && prefix.every((word, index) => cls[index] === word);
     });
-    if (family.length >= 2) return family;
+    if (family.length >= 2) add(family);
   }
-  return [];
+  return [...found.values()];
+}
+
+/**
+ * Whole words only. One exact class or selector alias can be suggested.
+ * Two exact matches of the same strength are left unmatched. A character prefix is never a match.
+ */
+function matchesFor(wanted: string[], inventory: AngularInventory): { component: AngularComponentRecord; kind: MatchKind }[] {
+  if (!wanted.length) return [];
+  const exact = inventory.components.filter((component) => same(classWords(component), wanted));
+  if (exact.length === 1) return [{ component: exact[0]!, kind: "token" }];
+  if (exact.length > 1) return [];
+  const alias = inventory.components.filter((component) => aliasWords(component, wanted));
+  if (alias.length === 1) return [{ component: alias[0]!, kind: "token" }];
+  if (alias.length > 1) return [];
+  return heuristicHits(wanted, inventory).map((component) => ({ component, kind: "partial" }));
 }
 
 export interface SuggestOptions {
@@ -168,21 +167,20 @@ export function suggestPairs(index: GraphIndex, inventory: AngularInventory, tar
     if (options.retired?.(target.node)) continue;
     const wanted = words(target.name);
     const hits = matchesFor(wanted, inventory);
-    const ambiguous = hits.length > 1 && !hits.every((hit) => {
-      const cls = classWords(hit);
-      return wanted.length >= 2 && cls.length === wanted.length && wanted.slice(0, -1).every((word, index) => cls[index] === word);
-    });
+    const tie = hits.length > 1;
     for (const hit of hits) {
-      const inputs = ioNames(hit.inputs);
-      const fit = ambiguous ? "partial" : coverage(target.node, inputs);
-      const because = ambiguous
+      const inputs = ioNames(hit.component.inputs);
+      const fit = hit.kind === "partial" || tie ? "partial" : coverage(target.node, inputs);
+      const because = tie
         ? `more than one code component has the name ${target.name}`
-        : fit === "full"
-          ? `name matches ${hit.component}; Figma properties match its inputs`
-          : `name matches ${hit.component}; some Figma properties have no input`;
-      const status: SuggestStatus = fit === "full" && !ambiguous ? "suggested" : "partial";
-      maps.push(toPair(target, hit, inventory, "maps", status, because, figmaVersion));
-      if (status === "suggested" && !byFigma.has(target.node.id)) byFigma.set(target.node.id, hit);
+        : hit.kind === "partial"
+          ? `name is only close to ${hit.component}; not a whole-word match`
+          : fit === "full"
+            ? `name matches ${hit.component}; Figma properties match its inputs`
+            : `name matches ${hit.component}; some Figma properties have no input`;
+      const status: SuggestStatus = hit.kind === "token" && !tie && fit === "full" ? "suggested" : "partial";
+      maps.push(toPair(target, hit.component, inventory, "maps", status, because, figmaVersion));
+      if (status === "suggested" && !byFigma.has(target.node.id)) byFigma.set(target.node.id, hit.component);
     }
   }
   const composed: SuggestedPair[] = [];

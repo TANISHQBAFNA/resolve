@@ -29,6 +29,8 @@ export interface AngularComponentRecord {
   from: "dts" | "source";
   /** Text after `@deprecated`, when the class comment has that tag. */
   deprecated?: string;
+  /** Other classes that declare this same selector. */
+  selectorConflict?: string[];
 }
 
 export interface AngularInventory {
@@ -70,6 +72,7 @@ export function scanAngularPackage(packageOrPath: string, fromDir = process.cwd(
     const row = byName.get(component);
     if (row && !row.standalone && !row.module) row.module = module;
   }
+  flagSelectorConflicts(byName);
   const components = [...byName.values()].sort((a, b) => a.component.localeCompare(b.component) || a.selector.localeCompare(b.selector));
   return { packageName, packageVersion, components };
 }
@@ -136,9 +139,23 @@ function readFile(
 
 function keep(byName: Map<string, AngularComponentRecord>, row: AngularComponentRecord): void {
   if (byName.has(row.component)) return;
-  const selector = row.selector.trim();
-  for (const have of byName.values()) if (have.selector.trim() === selector) return;
   byName.set(row.component, row);
+}
+
+/** Same selector on two classes is a conflict. Both stay. */
+function flagSelectorConflicts(byName: Map<string, AngularComponentRecord>): void {
+  const groups = new Map<string, AngularComponentRecord[]>();
+  for (const row of byName.values()) {
+    const selector = row.selector.trim();
+    const list = groups.get(selector) ?? [];
+    list.push(row);
+    groups.set(selector, list);
+  }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const names = group.map((row) => row.component).sort();
+    for (const row of group) row.selectorConflict = names.filter((name) => name !== row.component);
+  }
 }
 
 function declarationOf(node: ts.ClassDeclaration, kind: "ComponentDeclaration" | "DirectiveDeclaration" | "NgModuleDeclaration"): ts.TypeReferenceNode | undefined {

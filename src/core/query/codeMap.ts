@@ -272,6 +272,7 @@ export function checkEntry(raw: unknown): string | undefined {
 
 let warned = "";
 const warnedClash = new Set<string>();
+const warnedDupes = new Set<string>();
 
 /** Missing, empty, BOM-only = no map, quietly. Not JSON = no map plus one stderr line. */
 function load(): { rows: Row[]; ignored: Item[]; path: string; angularIgnored: Item[]; figmaVersion?: string; packageVersion?: string; packages?: Record<string, string> } | undefined {
@@ -316,7 +317,37 @@ function load(): { rows: Row[]; ignored: Item[]; path: string; angularIgnored: I
       ignored.push({ entry: i + 1, reason: String(reason) });
     }
   });
-  return { rows, ignored, path, angularIgnored, ...(figmaVersion ? { figmaVersion } : {}), ...(packageVersion ? { packageVersion } : {}), ...(packages ? { packages } : {}) };
+  const kept = dedupeMappedLines(rows, path);
+  return { rows: kept, ignored, path, angularIgnored, ...(figmaVersion ? { figmaVersion } : {}), ...(packageVersion ? { packageVersion } : {}), ...(packages ? { packages } : {}) };
+}
+
+/** Same part, same code line, written twice. Keep the first and warn once. */
+function dedupeMappedLines(rows: Row[], path: string): Row[] {
+  const seen = new Set<string>();
+  const kept: Row[] = [];
+  let dropped = 0;
+  for (const row of rows) {
+    const confirmed = !row.status || row.status === "current" || row.status === "mapped";
+    if (!confirmed) {
+      kept.push(row);
+      continue;
+    }
+    const rank = "mapped";
+    const key = `${row.fileKey}\n${row.id ?? ""}\n${row.name ?? ""}\n${row.line}\n${row.relation ?? "maps"}\n${rank}\n${row.replacedBy ?? ""}`;
+    if (seen.has(key)) {
+      dropped += 1;
+      continue;
+    }
+    seen.add(key);
+    kept.push(row);
+  }
+  const said = `${path}\n${dropped}`;
+  if (dropped && !warnedDupes.has(said)) {
+    warnedDupes.add(said);
+    const noun = dropped === 1 ? "entry" : "entries";
+    process.stderr.write(`code-map.json: dropped ${dropped} duplicate mapped ${noun}; the code line is shown once\n`);
+  }
+  return kept;
 }
 
 function rootPackages(doc: Record<string, unknown>): Record<string, string> | undefined {
@@ -400,8 +431,9 @@ function resolveRows(index: GraphIndex, loaded: Loaded, hooks: Hooks): CodeView 
     const mixed = distinct.some((o) => o.r.angular) && distinct.some((o) => !o.r.angular);
     const multi = current.length > 1 && current.every((o) => o.r.relation === "maps");
     if (multi) {
+      const lines = [...new Set(current.map((o) => o.r.line))];
       twins.set(node.id, {
-        line: current.map((o) => o.r.line).join(" + "),
+        line: lines.join(" + "),
         retired: false,
         ...(current[0]?.r.angular ? { angular: current[0].r.angular } : {}),
       });
