@@ -54,6 +54,27 @@ describe("phrase scoreboard floor", () => {
     expect(invented.stderr).toContain("golden invented 1 is above 0");
   });
 
+  it("fails when a golden suite's pass count drops and the case count does not", () => {
+    const dir = mkdtempSync(join(tmpdir(), "resolve-floor-"));
+    const phrases = join(dir, "phrases.json");
+    const golden = join(dir, "golden.json");
+    const tools = [
+      { tool: "recommend", top1Count: 56, scored: 56 },
+      { tool: "resolve", top1Count: 59, scored: 59 },
+      { tool: "recipe", top1Count: 3, scored: 3 },
+      { tool: "verify", top1Count: 33, scored: 33 },
+    ];
+    writeFileSync(phrases, report(85, 87, 88));
+    writeFileSync(golden, JSON.stringify({ cases: 75, inventCount: 0, tools }));
+    const held = spawnSync(process.execPath, ["scripts/check-phrase-floor.mjs", "scoreboard/phrase-baseline.json", phrases, golden], { encoding: "utf8" });
+    expect(held.status).toBe(0);
+    tools[0] = { tool: "recommend", top1Count: 54, scored: 56 };
+    writeFileSync(golden, JSON.stringify({ cases: 75, inventCount: 0, tools }));
+    const dropped = spawnSync(process.execPath, ["scripts/check-phrase-floor.mjs", "scoreboard/phrase-baseline.json", phrases, golden], { encoding: "utf8" });
+    expect(dropped.status).toBe(1);
+    expect(dropped.stderr).toContain("golden recommend 54/56 is below 56/56");
+  });
+
   it("allows a higher score on the same set", () => {
     expect(floor(report(86, 88, 88)).status).toBe(0);
   });

@@ -14,6 +14,9 @@ const asks = [
   ["primary action", "Button", "ACMEDS"],
   ["card", "Card", "ACMEDS"],
   ["info icon", "Info", "ACMEDS"],
+  ["submit", "Button", "ACMEDS"],
+  ["primary btn", "Button", "ACMEDS"],
+  ["primary buttton", "Button", "ACMEDS"],
 ];
 
 function run(args) {
@@ -49,6 +52,18 @@ for (const [intent, name, fileKey] of asks) {
   }
 }
 
+const navigation = jsonFrom(run(["recommend", "primary navigation"]));
+const navName = navigation.candidates?.[0]?.name;
+if (navName === "Primary" || (navName && !/nav/i.test(navName))) {
+  failures.push(`"primary navigation" picked ${navName}; expected a navigation part or nothing`);
+}
+for (const ask of ["primary color token", "navigation bar"]) {
+  const card = jsonFrom(run(["recommend", ask]));
+  if (card.candidates?.[0]?.name === "Button") {
+    failures.push(`"${ask}" picked Button`);
+  }
+}
+
 const bar = jsonFrom(run(["recommend", "bottom action bar"]));
 const barName = bar.candidates?.[0]?.name;
 if (barName === "Button" || barName !== "Bottom action bar") {
@@ -60,4 +75,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-process.stdout.write("Multi-library guard holds: action phrases and info icon come from Acme DS, and the bottom action bar does not pick Button.\n");
+process.stdout.write("Multi-library guard holds: action phrases, submit, and the info icon come from Acme DS. Primary navigation does not pick Marketing Primary, and the bottom action bar does not pick Button.\n");

@@ -8,5 +8,11 @@
   "invented": 0,
   "retired": 0,
   "goldenCases": 75,
-  "goldenInvent": 0
+  "goldenInvent": 0,
+  "goldenTools": {
+    "recommend": { "top1": 56, "scored": 56 },
+    "resolve": { "top1": 59, "scored": 59 },
+    "recipe": { "top1": 3, "scored": 3 },
+    "verify": { "top1": 33, "scored": 33 }
+  }
 }

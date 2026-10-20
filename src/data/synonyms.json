@@ -2,8 +2,8 @@
   "version": 1,
   "groups": [
     {
-      "terms": ["button", "cta", "action"],
-      "reason": "A call to action is a button."
+      "terms": ["button", "cta", "action", "btn", "submit"],
+      "reason": "A call to action, a btn, or a submit control is a button."
     },
     {
       "terms": ["avatar", "profile", "photo", "image", "picture", "headshot"],

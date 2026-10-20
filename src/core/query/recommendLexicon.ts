@@ -513,11 +513,7 @@ function adjacentSwap(query: string, name: string): boolean {
   if (query[i] !== name[i + 1] || query[i + 1] !== name[i]) return false;
   return query.slice(i + 2) === name.slice(i + 2);
 }
-/**
- * Typo against the whole name, spaces removed. At least 5 letters.
- * A missing letter or a neighbouring swap. Not a substituted letter.
- * Never used while an exact, phrase, or synonym match exists.
- */
+/** Whole name, spaces removed, at least 5 letters: one missing letter or a neighbour swap. */
 export function wholeNameTypo(ask: string, name: string): boolean {
   const query = collapsedName(ask);
   const master = collapsedName(name);
@@ -583,7 +579,7 @@ export function withoutGenericCousins<T extends { node: { name: string }; setNam
     const misses = covered.some((token) => !names.some((name) => name === token || inflectsName(token, name)));
     if (!misses) return true;
     const tail = tokensOf(familyOf(entry).split("/").pop() ?? "");
-    const noun = queryTokens.find((token) => PLAIN_NOUN.has(token) || SYNONYM_OF.get(token)?.some((word) => PLAIN_NOUN.has(word)));
+    const noun = queryTokens.find((token) => PLAIN_NOUN.has(token) || SYNONYM_OF.get(token)?.some((word) => PLAIN_NOUN.has(word)) || [...PLAIN_NOUN].some((word) => tokenTypo(token, word)));
     if (noun && tail.length === 1 && tail[0] && (tail[0] === noun || inflectsName(noun, tail[0]) || tokenMatchesName(noun, tail[0], allowClip))) return true;
     return names.some((name) => {
       if (GENERIC_NAME_TOKENS.has(name)) return false;
@@ -624,6 +620,13 @@ export function nounBeatsExtras<T extends { node: { name: string }; setName?: st
 ): T[] {
   const nouns = queryTokens.filter((token) => controlNoun(token));
   if (!nouns.length || entries.length < 2) return entries;
+  const iconOnly = nouns.every((token) => token === "icon" || token === "glyph" || token === "symbol");
+  if (iconOnly) {
+    const named = entries.filter((entry) =>
+      queryTokens.some((token) => token !== "icon" && token !== "glyph" && token !== "symbol" && !SIZE_OR_A11Y.has(token) && nounHit(token, familyNames(entry), allowClip)),
+    );
+    if (named.length) return named;
+  }
   const other = queryTokens.some((token) => !controlNoun(token) && !modifierWord(token) && !SIZE_OR_A11Y.has(token));
   // "radio button" and "payment row" name another part. A lone "large button" does not.
   if (other) return entries;
@@ -647,13 +650,13 @@ export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: 
       next.push(entry);
       continue;
     }
+    const head = queryTokens.at(-1) ?? "";
+    if ((head === "navigation" || head === "nav") && !nounHit(head, familyNames(entry), allowClip)) continue;
     const unmatched = content.filter((token) => !nounHit(token, familyNames(entry), allowClip));
     if (!unmatched.length) {
       next.push({ ...entry, weak: false });
       continue;
     }
-    // Keep a weak lead that still names the control ("confirm payment action" → Pay CTA).
-    // Drop it when the leftover word is a different component and this lead is not that control.
     const control = content.some((token) => controlNoun(token) && nounHit(token, familyNames(entry), allowClip));
     if (control || unmatched.every((token) => !componentWord(token))) next.push(entry);
   }
@@ -749,7 +752,7 @@ export function finishRank<T extends { node: { name: string }; setName?: string;
 export function nameTokenFor(token: string, names: Set<string>, used: Set<string>): string | undefined {
   if (names.has(token) && !used.has(token)) return token;
   for (const name of names) {
-    if (!used.has(name) && inflectsName(token, name)) return name;
+    if (!used.has(name) && (inflectsName(token, name) || tokenTypo(token, name))) return name;
   }
   return undefined;
 }

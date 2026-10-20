@@ -291,7 +291,7 @@ describe("check card wording", () => {
     );
     expect(card.properUse?.errors).toBe(0);
     const first = presentToolResult(card, "markdown", "verify_frame").split("\n")[0] ?? "";
-    expect(first).toContain("Proper use");
+    expect(first).toContain("Proper use: N/A");
     expect(first).toContain("NAMES ONLY");
   });
 });

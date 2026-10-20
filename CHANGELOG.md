@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — 24×24 tap target and the check line
+
+Oct 20, 2026. The default tap target is 24 by 24. That is the WCAG 2.2 AA size, so it stays. The bigger 44 by 44 target is still an option: use `--a11y wcag-aaa` (or set the pack to `wcag-aaa`). That option also asks for stronger contrast. The Acme example used to say a 30×30 button failed a 44×44 bar. A 30×30 control is large enough for 24×24, so that sentence was out of date. The button that still fails is 20×20, and the example now says so.
+
+On a clean check the first line is `PASS · Components: PASS · Proper use: PASS`. PASS stays the first word. A component list with no frame says `Proper use: N/A`, because proper use did not run. JSON still includes `builtAt`.
+
 ## Unreleased — check verdict line
 
 Oct 20, 2026. The check card's first line is the overall verdict. It is plain `PASS` only when the exit code is 0. A proper-use failure (exit 7) starts `FAIL: proper use (N errors, M warnings) · components pass`. JSON `result` is `proper_use_failed` on that exit, not `verified`. JSON `pass` stays false whenever the exit code is not 0.

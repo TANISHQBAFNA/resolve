@@ -976,11 +976,10 @@ export function attachProperUse<T extends object>(
   if (JSON.stringify(priced).length > budget && report.errors === 0) {
     shown = [];
     truncated = undefined;
-    delete host["builtAt"];
     priced = build();
     if (JSON.stringify(priced).length > budget) {
       clipListedNames(host);
-      for (const key of ["deprecated", "unresolved", "invents", "resolved"]) {
+      for (const key of ["deprecated", "unresolved", "resolved"]) {
         const rows = host[key];
         if (Array.isArray(rows) && rows.length === 0) delete host[key];
       }
@@ -990,6 +989,10 @@ export function attachProperUse<T extends object>(
     if (!host["frame"] && JSON.stringify(priced).length > budget && typeof hint === "string" && hint.length > 48) {
       host["hint"] = `${hint.slice(0, 47)}…`;
       priced = build();
+    }
+    if (JSON.stringify(priced).length > budget) {
+      const slim = report as { level?: string; unknown?: number; warnings?: number };
+      delete slim.level; delete slim.unknown; if (!slim.warnings) delete slim.warnings; priced = build();
     }
     if (JSON.stringify(priced).length > budget) return price(card) as T & { properUse?: ProperUseReport; cost?: AgentCost };
   }

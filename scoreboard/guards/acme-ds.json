@@ -57,6 +57,20 @@
                 "variantProperties": { "Direction": "Right" }
               }
             ]
+          },
+          {
+            "id": "50:4",
+            "name": "Icons",
+            "type": "COMPONENT_SET",
+            "children": [
+              {
+                "id": "50:5",
+                "name": "Name=Star",
+                "type": "COMPONENT",
+                "componentSetId": "50:4",
+                "variantProperties": { "Name": "Star" }
+              }
+            ]
           }
         ]
       }
@@ -68,11 +82,13 @@
     "10:4": { "id": "10:4", "name": "Radio", "key": "acme-radio" },
     "40:1": { "id": "40:1", "name": "Bottom action bar", "key": "acme-bar" },
     "50:1": { "id": "50:1", "name": "Info", "key": "acme-icon-info" },
-    "50:3": { "id": "50:3", "name": "Direction=Right", "key": "acme-icon-arrow", "componentSetId": "50:2" }
+    "50:3": { "id": "50:3", "name": "Direction=Right", "key": "acme-icon-arrow", "componentSetId": "50:2" },
+    "50:5": { "id": "50:5", "name": "Name=Star", "key": "acme-icon-star", "componentSetId": "50:4" }
   },
   "componentSets": {
     "10:1": { "id": "10:1", "name": "Button", "key": "acme-btn-set" },
-    "50:2": { "id": "50:2", "name": "Arrows", "key": "acme-arrows" }
+    "50:2": { "id": "50:2", "name": "Arrows", "key": "acme-arrows" },
+    "50:4": { "id": "50:4", "name": "Icons", "key": "acme-icons" }
   },
   "styles": {},
   "variables": {},

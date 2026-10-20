@@ -64,11 +64,28 @@ describe("synthetic multi-library guard", () => {
     expect(card.candidates[0]?.name).not.toBe("Button");
   });
 
-  it("picks the info icon, not the arrows set", () => {
+  it("picks the info icon, not an arrows or icons set from any library", () => {
     const card = recommendMasters(severalIndex, "info icon", { workspace: several });
     expect(card.candidates[0]?.name).toBe("Info");
     expect(card.candidates[0]?.fileKey).toBe("ACMEDS");
-    expect(card.candidates.some((row) => row.name === "Arrows")).toBe(false);
+    const groups = new Set(["Arrows", "Icons", "Arrow icons"]);
+    expect(card.candidates.some((row) => groups.has(row.name))).toBe(false);
+  });
+
+  it("picks Button for submit, btn, and a repeated-letter typo, and does not steal navigation", () => {
+    for (const ask of ["submit", "primary btn", "primary buttton"] as const) {
+      const card = recommendMasters(severalIndex, ask, { workspace: several });
+      expect(card.candidates[0]?.name, ask).toBe("Button");
+      expect(card.candidates[0]?.fileKey, ask).toBe("ACMEDS");
+    }
+    const navigation = recommendMasters(severalIndex, "primary navigation", { workspace: several });
+    const navName = navigation.candidates[0]?.name;
+    expect(navName === undefined || /nav/i.test(navName)).toBe(true);
+    expect(navName).not.toBe("Primary");
+    for (const ask of ["primary color token", "navigation bar"] as const) {
+      const card = recommendMasters(severalIndex, ask, { workspace: several });
+      expect(card.candidates[0]?.name, ask).not.toBe("Button");
+    }
   });
 
   it("still picks Button when only Acme DS is learned", () => {

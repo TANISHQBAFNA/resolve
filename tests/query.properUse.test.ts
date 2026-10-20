@@ -198,7 +198,7 @@ describe("Acme proper use", () => {
   it("prints a Proper use section on the check card", () => {
     const card = verifyFrame(index, { frame: "Paid screen" });
     const markdown = presentToolResult(card, "markdown", "verify_frame");
-    expect(markdown.startsWith("PASS")).toBe(true);
+    expect(markdown.startsWith("PASS · Components: PASS · Proper use: PASS")).toBe(true);
     expect(markdown).toContain("Proper use: 0 errors");
     const json = JSON.parse(presentToolResult(card, "json", "verify_frame")) as { pass?: boolean; properUse?: { summary?: string } };
     expect(json.pass).toBe(true);
@@ -214,7 +214,7 @@ describe("Acme proper use", () => {
       "markdown",
       "verify_frame",
     );
-    expect(noted.startsWith("PASS")).toBe(true);
+    expect(noted.startsWith("PASS · Components: PASS · Proper use: PASS (2 warnings)")).toBe(true);
     const schema = TOOLS.find((tool) => tool.name === "verify_frame")?.inputSchema as { properties: Record<string, unknown> };
     expect(schema.properties).toHaveProperty("all");
     const full = verifyFrame(index, { frame: "Misused", all: true });

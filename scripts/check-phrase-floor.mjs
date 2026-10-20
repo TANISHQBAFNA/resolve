@@ -76,6 +76,28 @@ if (!failures.length) {
     if (typeof baseline.goldenInvent === "number" && golden.inventCount > baseline.goldenInvent) {
       failures.push(`golden invented ${golden.inventCount} is above ${baseline.goldenInvent}`);
     }
+    const toolFloors = baseline.goldenTools;
+    if (toolFloors && typeof toolFloors === "object") {
+      const tools = Array.isArray(golden.tools) ? golden.tools : [];
+      for (const [name, floor] of Object.entries(toolFloors)) {
+        const wantTop = floor && typeof floor.top1 === "number" ? floor.top1 : undefined;
+        const wantScored = floor && typeof floor.scored === "number" ? floor.scored : undefined;
+        if (wantTop === undefined || wantScored === undefined) {
+          failures.push(`${baselinePath} goldenTools.${name} needs numeric top1 and scored`);
+          continue;
+        }
+        const row = tools.find((tool) => tool && tool.tool === name);
+        const top = row && typeof row.top1Count === "number" ? row.top1Count : undefined;
+        const scored = row && typeof row.scored === "number" ? row.scored : undefined;
+        if (top === undefined || scored === undefined) {
+          failures.push(`golden ${name} is missing a pass count`);
+          continue;
+        }
+        if (top < wantTop || scored < wantScored) {
+          failures.push(`golden ${name} ${top}/${scored} is below ${wantTop}/${wantScored}`);
+        }
+      }
+    }
   }
 }
 

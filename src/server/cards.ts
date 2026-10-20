@@ -162,16 +162,23 @@ function tally(count: number, singular: string): string {
   return `${count} ${count === 1 ? singular : `${singular}s`}`;
 }
 
-/** Overall verdict. Plain PASS only when the exit code is 0. */
+/** Overall verdict. Exit 0 starts with PASS, then the component and proper-use results. */
 function verifyHeadline(record: Record<string, unknown>): string | undefined {
   const components = componentVerdict(record);
   if (!components) return undefined;
   const proper = record["properUse"];
-  if (!isRecord(proper) || typeof proper["errors"] !== "number") return components;
+  const noFrame = record["frame"] == null;
+  if (!isRecord(proper) || typeof proper["errors"] !== "number") {
+    return noFrame ? `${components} · Proper use: N/A` : components;
+  }
   const errors = proper["errors"];
   const warnings = typeof proper["warnings"] === "number" ? proper["warnings"] : 0;
+  if (noFrame && errors === 0 && warnings === 0) return `${components} · Proper use: N/A`;
   const properFailed = errors > 0 || proper["exitCode"] === 7;
-  if (!properFailed && record["pass"] === true) return "PASS";
+  if (!properFailed && record["pass"] === true) {
+    const use = warnings > 0 ? `PASS (${tally(warnings, "warning")})` : "PASS";
+    return `PASS · Components: PASS · Proper use: ${use}`;
+  }
   if (properFailed && record["pass"] === true) {
     return `FAIL: proper use (${tally(errors, "error")}, ${tally(warnings, "warning")}) · components pass`;
   }

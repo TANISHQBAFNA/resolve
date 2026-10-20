@@ -177,7 +177,7 @@ describe("resolve ingest --role", () => {
       process.stdout.write = write;
     }
     const first = chunks.join("").split("\n")[0] ?? "";
-    expect(first).toContain("Proper use");
+    expect(first).toContain("Proper use: N/A");
     expect(first).toContain("NAMES ONLY");
     process.exitCode = undefined;
   });
@@ -199,8 +199,8 @@ describe("resolve ingest --role", () => {
       process.stdout.write = write;
     }
     const first = chunks.join("").split("\n")[0] ?? "";
-    expect(first === "PASS" || first.startsWith("FAIL")).toBe(true);
-    expect(chunks.join("")).toContain("Proper use");
+    expect(first.startsWith("PASS") || first.startsWith("FAIL") || first.startsWith("NAMES ONLY")).toBe(true);
+    expect(first).toContain("Proper use: N/A");
     process.exitCode = undefined;
   });
 

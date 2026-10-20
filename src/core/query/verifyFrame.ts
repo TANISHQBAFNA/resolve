@@ -109,7 +109,7 @@ export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
   const listedOnly: ProperUseReport | undefined =
     !input.frame?.trim() && (input.components ?? []).some((name) => name.trim())
       ? {
-          summary: "0 errors",
+          summary: "N/A",
           errors: 0,
           warnings: 0,
           unknown: 0,
