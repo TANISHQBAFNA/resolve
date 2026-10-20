@@ -387,10 +387,13 @@ describe("Angular Material public reference", () => {
     clearCache();
     const index = indexGraph(materialGraph());
     const top = (ask: string) => recommendMasters(index, ask).candidates[0]?.name;
-    // Fresh wording, two and three words, with and without a tail.
-    for (const ask of ["side panel", "a side panel", "pinned side panel", "right side panel", "side panel for map layers"]) {
+    // Fresh wording, two and three words, with and without a tail, singular and plural.
+    for (const ask of ["side panel", "a side panel", "pinned side panel", "right side panel", "side panel for map layers", "side panels", "the side panels", "docked side panels", "two side panels with filters"]) {
       expect(top(ask), ask).toBe("Side sheet");
     }
+    // Plurals read their stem's synonym group for any part noun.
+    expect(top("three accordions")).toBe("Expansion panel");
+    expect(top("the toasts")).toBe("Snackbar");
     // A vague panel keeps a head-noun match, never a part named by the other word.
     for (const ask of ["search panel", "nav panel"]) expect(top(ask), ask).not.toMatch(/Search bar|Navigation/);
     // A known part plus a describing tail is still that part.

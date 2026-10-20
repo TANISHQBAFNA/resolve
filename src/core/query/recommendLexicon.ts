@@ -8,7 +8,7 @@ import type { GraphIndex } from "./GraphIndex";
 import { familyNameOf, MASTER_TYPES, VARIANT_PROP_NAME, variantCardName } from "./masterNames";
 import { GENERIC_NAME_TOKENS, tokensOf } from "./queryTokens";
 import { adjacentSwap, keySlip, wordSlip } from "./typo";
-import { allSynonymGroups, extraSynonym, fromIconLibrary, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
+import { allSynonymGroups, DEMOTE_UNASKED, extraSynonym, fromIconLibrary, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems, isScreen } from "./screenInventory";
 import { propertyAliases } from "./synonymLayer";
@@ -111,7 +111,11 @@ function clippingGroup(token: string): readonly string[] | undefined {
   return found;
 }
 function termsFor(token: string, allowClip: boolean): readonly string[] | undefined {
-  const base = extraSynonym.get(token) ?? SYNONYM_OF.get(token) ?? (allowClip ? clippingGroup(token) : undefined);
+  // A plural or -ing/-ed form reads its stem's group: "side panels" is the panel/sheet group.
+  // Not for a position, variant, or modifier stem: "bottoms" is not the footer.
+  const partStem = (stem: string) => !DEMOTE_UNASKED.has(stem) && !SLOT_QUALIFIERS.has(stem) && !modifierWord(stem);
+  const stemmed = () => inflectionStems(token).filter(partStem).map((stem) => extraSynonym.get(stem) ?? SYNONYM_OF.get(stem)).find(Boolean);
+  const base = extraSynonym.get(token) ?? SYNONYM_OF.get(token) ?? stemmed() ?? (allowClip ? clippingGroup(token) : undefined);
   const alias = propertyAliases(token);
   if (!alias) return base;
   if (!base) return alias;
