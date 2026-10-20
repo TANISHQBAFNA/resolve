@@ -55,6 +55,7 @@ describe("Acme proper use", () => {
     expect([...DEFAULT_TOOL_NAMES]).toEqual([
       "learn_library",
       "recipe",
+      "brief",
       "recommend",
       "resolve",
       "get_example",

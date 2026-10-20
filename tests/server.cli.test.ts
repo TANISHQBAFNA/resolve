@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chdir } from "node:process";
 import { runCli } from "@/server/cli";
+import { exitQuietlyOnClosedPipe } from "@/server/cliArgs";
 import { callTool } from "@/server/tools";
 import { clearCache, loadGraph, workspacePath } from "@/server/store";
 
@@ -230,6 +231,7 @@ describe("resolve ingest --role", () => {
       throw new Error(`exit:${code}`);
     }) as typeof process.exit);
     const error = Object.assign(new Error("write EPIPE"), { code: "EPIPE" });
+    exitQuietlyOnClosedPipe();
     try {
       expect(() => process.stdout.emit("error", error)).toThrow("exit:0");
     } finally {

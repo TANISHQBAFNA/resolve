@@ -55,3 +55,19 @@ export function wordSlip(query: string, name: string): boolean {
   if (query === name || query.length < 5 || name.length < 5) return false;
   return adjacentSwap(query, name) || innerGap(query, name) || keySlip(query, name);
 }
+
+/**
+ * A one-letter slip counts only when every other word is known. Two slips, or a slip beside an unknown word,
+ * make a typo-heavy ask that stays empty: "lodaing spinnr", "pyament screeen tabel". "primary botton" stays.
+ */
+export function typoHeavy(
+  words: readonly string[],
+  exact: (word: string) => boolean,
+  slips: (word: string) => boolean,
+  known: (word: string) => boolean,
+): boolean {
+  const slipOnly = (word: string) => !exact(word) && slips(word);
+  const count = words.filter(slipOnly).length;
+  if (!count) return false;
+  return count > 1 || words.some((word) => !slipOnly(word) && !exact(word) && !known(word));
+}

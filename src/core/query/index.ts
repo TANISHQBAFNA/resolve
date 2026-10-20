@@ -62,3 +62,23 @@ export {
   screenSlug,
 } from "./handoffFormat";
 export { handoffSheet, type HandoffInput } from "./handoffCard";
+export {
+  applyBriefIntent,
+  assertBriefAnswers,
+  briefAnswerLines,
+  briefAnswerParts,
+  briefAnswers,
+  briefAnswersFromFlags,
+  briefScreen,
+  BriefAnswerError,
+  platformComponentName,
+  BRIEF_QUESTION_CAP,
+  BRIEF_TOPICS,
+  type BriefAnswers,
+  type BriefCandidate,
+  type BriefInput,
+  type BriefQuestion,
+  type BriefResult,
+  type BriefSkip,
+  type BriefTopic,
+} from "./brief";

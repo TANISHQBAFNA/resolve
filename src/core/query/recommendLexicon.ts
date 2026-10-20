@@ -7,7 +7,7 @@ import modifierFile from "@/data/ui-modifiers.json";
 import type { GraphIndex } from "./GraphIndex";
 import { familyNameOf, MASTER_TYPES, VARIANT_PROP_NAME, variantCardName } from "./masterNames";
 import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
-import { adjacentSwap, innerGap, keySlip } from "./typo";
+import { adjacentSwap, innerGap, keySlip, typoHeavy } from "./typo";
 import { allSynonymGroups, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems, isScreen } from "./screenInventory";
@@ -471,6 +471,9 @@ export function askGate(
   const tail = purposeTailTokens(ask);
   const content = tokens.filter((token) => !RETIRED_NAME_TOKENS.has(token));
   if (content.length < 2) return open;
+  const exact = (token: string) => nameSets.some((names) => names.has(token) || [...names].some((name) => inflectsName(token, name)) || synonymIn(token, names, allowClip));
+  const slips = (token: string) => nameSets.some((names) => [...names].some((name) => tokenTypo(token, name)));
+  if (typoHeavy(content, exact, slips, (token) => modifierWord(token) || exempt.has(token) || tail.has(token))) return { outOfDomain: true, lowConfidence: false };
   const hit = content.map((token) =>
     nameSets.some(
       (names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip),
