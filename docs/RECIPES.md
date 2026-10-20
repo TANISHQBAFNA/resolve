@@ -92,7 +92,8 @@ npm run resolve -- recipe "profile page with an avatar, a text field and a save 
 - Words before "with" name the screen. Each part after it ("an avatar", "a text field", "a save button") becomes a slot. Place words ("next to", "under", "on") join two parts: "a toast next to the header bar" is two slots.
 - Each slot is filled by `recommend`, the same way a saved recipe's slot is. It never invents a part or an id.
 - A part with no fit stays in the card as **No match**, with the `recommend` to try. Every such part is listed, in the one-part answer too.
-- The part's last word must match the part found (synonyms count: a save button fits Save CTA). If only another word matches ("price list" finds Price), the slot says **weak, check** and is not counted as a fit.
+- The part word must match the part found (synonyms count: a save button fits Save CTA). The part word is the last word that is not a container (list, group, set, stack, collection): in "radio list" it is radio. If only another word matches ("header image" finds Header Bar), the slot says **weak, check** and is not counted as a fit.
+- Briefing answers fill slots too: `--answer states=empty --answer states=error` (MCP `answers`) adds Empty Message and the error part as slots, bound to those real parts. A part you already named is not added twice. `brief` offers to compose when no saved recipe fits; it never composes by itself.
 - If a saved recipe has the same title or the same parts, the card warns and names it, and `--propose` files nothing.
 - Fewer than 2 parts fit: no recipe. One part says "use recommend". None says "No match".
 - A saved recipe with that exact name wins, and nothing is composed.

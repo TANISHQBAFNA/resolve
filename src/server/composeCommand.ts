@@ -1,4 +1,4 @@
-import { composeCard, type ComposeInput } from "@/core/query";
+import { briefAnswerParts, briefAnswersFromFlags, composeCard, type ComposeInput } from "@/core/query";
 import { bindFromFlags, flag, printJson } from "./cliArgs";
 import { loadRecipes, readBindRules, readPlaceholders, readSock, resolveGraph, saveSock } from "./store";
 
@@ -19,7 +19,7 @@ export function runCompose(input: ComposeInput, propose: boolean): object {
   return out.card;
 }
 
-/** `resolve recipe "<screen> with <parts>" --compose [--propose] [--json]`. Bad input with --json is ok:false, exit 1. */
+/** `resolve recipe "<screen> with <parts>" --compose [--answer topic=option ...] [--propose] [--json]`. Bad input with --json is ok:false, exit 1. */
 export function composeFromCli(args: string[], query: string | undefined): void {
   const request = query?.trim() ?? "";
   const index = resolveGraph(flag(args, "id"))?.index;
@@ -32,6 +32,8 @@ export function composeFromCli(args: string[], query: string | undefined): void 
     process.exitCode = 1;
     return;
   }
-  const input = { request, index, recipes: loadRecipes(), bind: bindFromFlags(args), sock: readSock(), bindRules: readBindRules(), placeholders: readPlaceholders() };
+  // Bad answers throw BriefAnswerError; runCli prints that as ok:false JSON with --json.
+  const answerParts = briefAnswerParts(briefAnswersFromFlags(args), index);
+  const input = { request, answerParts, index, recipes: loadRecipes(), bind: bindFromFlags(args), sock: readSock(), bindRules: readBindRules(), placeholders: readPlaceholders() };
   printJson(runCompose(input, Boolean(propose)));
 }

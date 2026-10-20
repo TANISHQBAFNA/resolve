@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SourceDocumentSchema } from "@/core/ingestion/types";
 import { buildGraph } from "@/core/transform";
-import { composeParts, composeRecipe, indexGraph, starterRecipes, type GraphIndex } from "@/core/query";
+import { briefScreen, composeParts, composeRecipe, indexGraph, starterRecipes, type GraphIndex } from "@/core/query";
 import { runCli } from "@/server/cli";
 import { callTool, DEFAULT_TOOL_NAMES, ToolError } from "@/server/tools";
 import { clearCache, loadRecipes, readSock, saveGraph, saveSock } from "@/server/store";
@@ -32,7 +32,7 @@ type Card = {
 /** Returned names, from filled slots or the single part. */
 function returned(card: Card): Array<{ id?: string; name: string }> {
   if (card.part) return [card.part];
-  return (card.slots ?? []).flatMap((slot) => (slot.master && slot.status === "filled" ? [slot.master] : []));
+  return (card.slots ?? []).flatMap((slot) => (slot.master && (slot.status === "filled" || slot.status === "bound") ? [slot.master] : []));
 }
 
 /** Strict: the returned part has the expected name. A set returned for a variant ask is a miss. */
@@ -158,20 +158,29 @@ describe("composed recipes", () => {
     const compose = (request: string) => composeRecipe({ request, index: indexGraph(fixtureGraph()), recipes: starterRecipes() });
 
     it("M1: a part that shares only a non-head word is weak, not a fit, also in the one-part answer", () => {
-      const out = compose("screen with a price list, a header image and a tag");
+      const out = compose("screen with a header image, a flux gauge and a tag");
       expect(out.recipe).toBeUndefined();
       const card = out.card as Card & { weak?: string[] };
       expect(card.part?.name).toBe("Tag");
-      expect(card.weak).toEqual(["price-list: Price (weak, check)", "header-image: Header Bar (weak, check)"]);
+      expect(card.weak).toEqual(["header-image: Header Bar (weak, check)"]);
+      expect(card.noMatch).toEqual(["flux-gauge"]);
       expect(card.hint).toMatch(/^One part fits \(Tag\)/);
-      expect(card.hint).toMatch(/Weak, check price-list/);
-      const two = compose("screen with a price list, a toast and a tag");
+      expect(card.hint).toMatch(/Weak, check header-image/);
+      const two = compose("screen with a header image, a toast and a tag");
       const slots = (two.card as Card).slots!;
-      expect(slots.find((slot) => slot.role === "price-list")).toMatchObject({ status: "weak" });
-      expect(two.recipe!.slots.find((slot) => slot.role === "price-list")!.defaultMasterId).toBeUndefined();
+      expect(slots.find((slot) => slot.role === "header-image")).toMatchObject({ status: "weak" });
+      expect(two.recipe!.slots.find((slot) => slot.role === "header-image")!.defaultMasterId).toBeUndefined();
       for (const request of ["a save button and a toast", "a payment row and badges", "checkboxes and a switch"]) {
         expect(returned(compose(request).card as Card).length, request).toBe(2);
       }
+    });
+
+    it("container words (list, group, set) are not the part word: the word before them must match", () => {
+      const card = compose("panel with a radio list, an avatar group, a chip set and a price list").card as Card;
+      expect(returned(card).map((part) => part.name)).toEqual(["Radio", "Avatar", "Chip", "Price"]);
+      const weak = compose("panel with a warp list and a tag").card as Card & { weak?: string[] };
+      expect(returned(weak).map((part) => part.name)).toEqual(["Tag"]);
+      expect(returned(compose("a list and a tag").card as Card).map((part) => part.name)).toContain("Tag");
     });
 
     it("M2: a different set of parts is a different proposal, and a decided one is refused clearly", async () => {
@@ -265,6 +274,38 @@ describe("composed recipes", () => {
       expect(() => callTool("recipe", { query: "a tag and a chip", compose: true, propose: 1 })).toThrow(/propose must be true or false/);
       expect(() => callTool("recipe", { compose: true })).toThrow(/needs a screen request/);
       expect(() => callTool("recipe", { query: "", compose: true })).toThrow(ToolError);
+    });
+  });
+  describe("briefing and compose", () => {
+    it("brief offers to compose when no saved recipe fits and two or more parts are named, and never runs it", () => {
+      saveGraph(fixtureGraph());
+      const index = indexGraph(fixtureGraph());
+      const brief = (request: string) => briefScreen({ request, index, recipes: starterRecipes() });
+      const offered = brief("profile page with an avatar, a text field and a save button");
+      expect(offered.composeOffer).toMatch(/^No saved recipe fits\. .*compose.*Not run\.$/);
+      expect(readSock().proposals).toEqual([]);
+      for (const request of ["checkout summary", "a tag", "warp drive console with flux gauges and a hologram"]) {
+        expect(brief(request).composeOffer, request).toBeUndefined();
+      }
+      const mcp = callTool("brief", { request: "profile page with an avatar, a text field and a save button" }) as { composeOffer?: string };
+      expect(mcp.composeOffer).toBe(offered.composeOffer);
+    });
+
+    it("briefing answers fill composed slots with their real parts, the same in CLI and MCP, and bad answers are refused", async () => {
+      saveGraph(fixtureGraph());
+      const request = "alerts page with a toast and a tag";
+      const cli = await cliJson(["recipe", request, "--compose", "--answer", "states=empty", "--answer", "states=error", "--json"]);
+      expect(returned(cli).map((part) => part.name)).toEqual(["Toast", "Tag", "Empty Message", "Alert"]);
+      process.env["RESOLVE_MCP_ADVANCED"] = "1";
+      const mcp = callTool("recipe", { query: request, compose: true, answers: { states: ["empty", "error"] } }) as Card;
+      expect(mcp).toEqual(cli);
+      const once = composeRecipe({ request: "page with an alert and a tag", answerParts: [{ id: returned(cli)[3]!.id!, name: "Alert" }], index: indexGraph(fixtureGraph()), recipes: starterRecipes() });
+      expect(returned(once.card as Card).map((part) => part.name)).toEqual(["Alert", "Tag"]);
+      expect(() => callTool("recipe", { query: request, compose: true, answers: { states: "nope" } })).toThrow(ToolError);
+      const bad = (await cliJson(["recipe", request, "--compose", "--answer", "goal=pay", "--json"])) as unknown as { ok: boolean };
+      expect(bad.ok).toBe(false);
+      expect(process.exitCode).toBe(1);
+      process.exitCode = 0;
     });
   });
 });

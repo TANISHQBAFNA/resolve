@@ -51,6 +51,8 @@ const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-").re
 
 export interface ComposeInput {
   request: string;
+  /** Parts from briefing answers (briefAnswerParts). Each becomes a slot bound to that part. */
+  answerParts?: Array<{ id: string; name: string }>;
   index: GraphIndex;
   recipes: Recipe[];
   bind?: ContextBind;
@@ -59,9 +61,18 @@ export interface ComposeInput {
   placeholders?: string[];
 }
 
-/** The part word is the last word of the phrase ("search field"). A fill that only shares another word is weak. Synonyms count (button, cta). */
+// Words that hold parts, not parts: in "radio list" the part is radio.
+const CONTAINERS = ["list", "group", "set", "stack", "collection"];
+
+/** The part word: the last word that is not a container ("search field" → field, "radio list" → radio). */
+function headWord(hints: string[]): string | undefined {
+  const words = hints.map((hint) => hint.toLowerCase());
+  return [...words].reverse().find((word) => !CONTAINERS.some((container) => sameWordForm(container, word))) ?? words.at(-1);
+}
+
+/** The part word must match the part found. A fill that only shares another word is weak. Synonyms count (button, cta). */
 function headMatches(slot: FilledSlot): boolean {
-  const head = slot.hints.at(-1)?.toLowerCase();
+  const head = headWord(slot.hints);
   if (!head || !slot.master) return false;
   const forms = [head, ...allSynonymGroups().filter((group) => group.terms.some((term) => sameWordForm(term, head))).flatMap((group) => group.terms)];
   return nameTokens(slot.master.name).some((token) => forms.some((form) => sameWordForm(token, form)));
@@ -74,7 +85,7 @@ function weakSlot(slot: FilledSlot) {
     status: "weak" as const,
     master: { id: master.id, name: master.name, figmaNodeId: master.figmaNodeId, ...(master.fileKey ? { fileKey: master.fileKey } : {}) },
     nextRecommend: slot.nextRecommend,
-    hint: `Weak, check: "${slot.hints.at(-1)}" is not in ${master.name}. Not counted as a fit.`,
+    hint: `Weak, check: "${headWord(slot.hints)}" is not in ${master.name}. Not counted as a fit.`,
   };
 }
 
@@ -105,11 +116,27 @@ export function composeRecipe(input: ComposeInput) {
     title: title || request.trim(),
     intentAliases: [request.trim()],
     notes: `Composed by Resolve from: ${request.trim()}`,
-    slots: phrases.map((phrase) => ({ role: slug(phrase), required: true, hints: phrase.split(" ") })),
+    slots: [
+      ...phrases.map((phrase) => ({ role: slug(phrase), required: true, hints: phrase.split(" ") })),
+      // Briefing answers name real parts; bind them directly.
+      ...(input.answerParts ?? []).map((part) => ({ role: slug(part.name), required: true, hints: nameTokens(part.name), defaultMasterId: part.id })),
+    ],
   };
   if (!draft.slots.length) return { card: noMatch(request, phrases) };
   const pack = input.bind ? packForRecipe(draft, input.bind) : undefined;
-  const filled = fillRecipe(index, draft, undefined, pack, input.bind?.workspace, input.sock, input.bindRules, input.placeholders);
+  const fill = (recipe: Recipe) => fillRecipe(index, recipe, undefined, pack, input.bind?.workspace, input.sock, input.bindRules, input.placeholders);
+  const first = fill(draft);
+  // A container word can hide the part from recommend ("avatar group"): retry those slots once without it.
+  const bare = (hints: string[]) => hints.filter((hint) => !CONTAINERS.some((container) => sameWordForm(container, hint)));
+  const retry = first.slots.map((slot, i) => {
+    if (i >= phrases.length || (slot.master && headMatches(slot)) || bare(slot.hints).length === slot.hints.length || !bare(slot.hints).length) return slot;
+    const again = fill({ ...draft, slots: [{ role: slot.role, required: true, hints: bare(slot.hints) }] }).slots[0]!;
+    return again.master && headMatches(again) ? { ...again, hints: slot.hints } : slot;
+  });
+  const all = { ...first, slots: retry };
+  // An answer part the request already named is one slot, not two.
+  const named = new Set(all.slots.slice(0, phrases.length).flatMap((slot) => (slot.master ? [slot.master.id] : [])));
+  const filled = { ...all, slots: all.slots.filter((slot, i) => i < phrases.length || !named.has(slot.master?.id ?? "")) };
   const isFit = (slot: FilledSlot) => Boolean(slot.master) && (slot.status === "filled" || slot.status === "bound") && headMatches(slot);
   const parts = filled.slots.filter(isFit);
   const weak = filled.slots.filter((slot) => !isFit(slot) && slot.master && slot.status === "filled");

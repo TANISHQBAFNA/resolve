@@ -412,6 +412,7 @@ export const TOOLS: ToolDefinition[] = [
         domain: { type: "string" },
         compose: { type: "boolean", description: "Advanced only. When no saved recipe fits, compose one from the parts the request names. Never invents; empty slots say No match. Not saved." },
         propose: { type: "boolean", description: "Advanced only, with compose. File the composed recipe as a pending proposal; a person approves it to save." },
+        answers: { type: "object", additionalProperties: true, description: "With compose. Briefing answers; shape and state answers add their parts as slots." },
         ...screenContextProperties,
         ...freshnessProperties,
       },
@@ -878,7 +879,9 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
       const recipes = loadRecipes();
       if (compose && process.env["RESOLVE_MCP_ADVANCED"] === "1") {
-        const input = { request: query, index: context(args).index, recipes, bind: contextBindFromArgs(args), sock: readSock(), bindRules: loadBindRulesSafe(), placeholders: readPlaceholders() };
+        const { index } = context(args);
+        const answerParts = briefingAnswers(args["answers"], index).parts;
+        const input = { request: query, answerParts, index, recipes, bind: contextBindFromArgs(args), sock: readSock(), bindRules: loadBindRulesSafe(), placeholders: readPlaceholders() };
         return capRecipePayload(runCompose(input, args["propose"] === true));
       }
       const screen = screenAskCard(query, { sock: readSock(), index: resolveGraph(graphId)?.index, recipes });

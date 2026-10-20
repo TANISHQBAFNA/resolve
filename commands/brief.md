@@ -14,6 +14,7 @@ Before you pick components, brief this screen. Do not draw anything yet.
 6. If the result is `ready`, do not ask anything. Tell the designer the assumptions in one or two sentences. The candidates are the parts to use. Pass the same `answers` to `recommend` and to `get_handoff`. The handoff parts change with the answers.
 7. If the designer said "just build", "go ahead and build", or "build without asking", the result is `ready`. Show the assumptions. If it says no match, do not pick a part.
 8. If there are no candidates, say Resolve has no component for this screen. Do not guess or make one up.
+9. If the result has `composeOffer`, tell the designer Resolve can compose a recipe from the parts they named, and ask if they want it. Do not compose unless they say yes.
 
 Never invent a component, name, or node id. Only use ids Resolve returned. Do not ask about persona, visual style, or a requirements ticket.
 
