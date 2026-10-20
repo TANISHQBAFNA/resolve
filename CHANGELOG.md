@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — designer briefing
+
+Oct 20, 2026 IST. `brief` (CLI `resolve brief`, slash `/brief`, MCP `brief`) asks at most 3 multiple-choice questions before `recommend`, and only when the request fits the library and the answer would change the component. Topics are data shape, states (more than one allowed), and platform. There is no screen-type goal question. A request that fits nothing, including a typo, says "No match" and asks nothing. "Just build", "go ahead and build", and "build without asking" do the same when nothing fits, and do not invent a part. A word like desktop is not the Desktop Nav component. An unknown topic or option, an empty value, a duplicate topic, or more than 3 answers is an error on `brief`, `recommend`, and handoff. Shape and state answers are added to the handoff parts. Phrase score unchanged.
+
 ## Unreleased — learn JSON files, prefer between namesakes, slot properties
 
 Oct 13, 2026 IST. `resolve learn --design-context` reads a JSON file as JSON, so a dump of `[{id, name, key, componentPropertyDefinitions}]` stores property definitions and published keys the way `learn_library` does. Other text stays text. A JSON string passed to `learn_library` is read the same way. New `resolve learn --libraries <file.json>`, same as the tool's `libraries`. A bind-rule `prefer` now decides between masters of the same part from different files before variant count and usage: with Acme Core preferred, "input field" gives `ingredients/input-field`, not Globex Mobile's `Input Field`, in `recommend` and `resolve`. A Figma `SLOT` property is stored and shown as `SLOT` ("slot: place parts inside"), not `UNKNOWN`. Re-learn the file to update a stored slot. A retired set matched by one of its variants is named by the set in the why line (`replaces ingredients/toast (deprecated)`, not `replaces tone=neutral`). Ranking without a prefer rule is unchanged.

@@ -3,7 +3,6 @@ import { PACK_BIND_FLAGS, usage } from "./cliUsage";
 import {
   bindFromFlags,
   defaultGoldenDir,
-  existingEntries,
   flag,
   graphFromMetadataXml,
   ingestLive,
@@ -38,7 +37,11 @@ import {
   verifyFrame,
   codeMapCard,
   codeMapFromCsv,
+  codeMapJson,
+  csvIsReviewSheet,
   entryLabel,
+  readCodeMapDocument,
+  reviewEntries,
   formatHandoffIndex,
   formatHandoffIngredients,
   formatHandoffScreen,
@@ -92,6 +95,7 @@ import {
 } from "./store";
 import { stripFiller } from "./cards";
 import { formatGaps, readGaps, recordGap } from "./gaps";
+import { rowProblems, runCodeMapExtra } from "./codeMapCommand";
 import { recordVerifyUsage } from "./tools";
 import { learnLibrary } from "./learn";
 import { DESIGNER, designerFailure } from "./designerMessages";
@@ -382,6 +386,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
     }
 
     case "code-map": {
+      if (runCodeMapExtra(args)) return;
       const mapPath = overlayFile("code-map.json") ?? join(storeRoot(), "code-map.json");
       const force = args.includes("--force");
       const replace = args.includes("--replace");
@@ -445,7 +450,8 @@ async function dispatchCli(argv: string[]): Promise<void> {
         if (args.includes("--json")) throw new Error("--json is not used with --import. Use --dry-run to see the JSON that would be written.");
         if (force && replace) throw new Error("Use either --force (keep entries the CSV has no row for) or --replace (drop them), not both.");
         if (!existsSync(file)) throw new Error(`No such file: ${file}`);
-        const result = codeMapFromCsv(readFileSync(file, "utf8"));
+        const raw = codeMapFromCsv(readFileSync(file, "utf8"));
+        const result = force && csvIsReviewSheet(raw) ? reviewEntries(codeMapFromCsv(readFileSync(file, "utf8"), { blankStatus: "suggested" })) : raw;
         const ignoredCols = result.ignoredColumns.length
           ? `Ignored column${result.ignoredColumns.length > 1 ? "s" : ""} Resolve does not use: ${result.ignoredColumns.join(", ")}.\n`
           : "";
@@ -464,9 +470,9 @@ async function dispatchCli(argv: string[]): Promise<void> {
         if (exists && !force && !replace && !args.includes("--dry-run")) {
           throw new Error(`${mapPath} already exists. Add --force to update it (entries the CSV has no row for are kept), --replace to write only the CSV's entries, or --dry-run to see the result.`);
         }
-        const old = exists ? existingEntries(mapPath) : [];
-        const merged = mergeCodeMap(old, result, replace);
-        const json = `${JSON.stringify({ entries: merged.entries }, null, 2)}\n`;
+        const previous = exists ? readCodeMapDocument(mapPath) : { entries: [] as unknown[] };
+        const merged = mergeCodeMap(previous.entries, result, replace);
+        const json = codeMapJson(merged.entries, previous);
         const list = (items: unknown[]) => items.slice(0, 12).map((e) => `  ${entryLabel(e)}`).join("\n") + (items.length > 12 ? `\n  +${items.length - 12} more` : "");
         const notes = [
           merged.untouched.length
@@ -485,6 +491,12 @@ async function dispatchCli(argv: string[]): Promise<void> {
           return;
         }
         const index = requireGraph(args).index;
+        const problems = rowProblems(result.entries, index);
+        if (problems.length) {
+          process.stdout.write(`Nothing written. Fix these rows:\n${problems.slice(0, 20).map((error) => `  ${error}`).join("\n")}\n`);
+          process.exitCode = 1;
+          return;
+        }
         mkdirSync(dirname(mapPath), { recursive: true });
         writeFileSync(mapPath, json);
         process.stdout.write(

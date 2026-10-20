@@ -1,8 +1,11 @@
 {
   "note": "Each shouldAsk label was chosen from the request text. Precision is the share of asked screens that were labeled should-ask. It is not a check that an option changes the pick.",
   "screens": 32,
+  "shouldAsk": 7,
+  "askedWhenShould": 7,
   "questions": 8,
   "precision": 1,
+  "recall": 1,
   "average": 0.25,
   "cases": [
     { "request": "compare rows in a table", "shouldAsk": true },

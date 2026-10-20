@@ -75,6 +75,7 @@ export function handoffSheet(index: GraphIndex, frames: string[], input: Handoff
   const hooks: HandoffHooks = {
     real: realByKey(index),
     retired: r.retired,
+    needsReview: r.needsReview,
     nameGuess: (node) => isNameInferredMaster(node),
     twin: (node) => r.view?.twin(node),
     codeMap: Boolean(r.view),

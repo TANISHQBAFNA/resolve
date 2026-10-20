@@ -119,6 +119,8 @@ describe("designer briefing", () => {
     let questions = 0;
     let askedCount = 0;
     let truePositive = 0;
+    let shouldAskCount = 0;
+    let askedWhenShould = 0;
     const misses: string[] = [];
     for (const row of cases) {
       const result = run(row.request);
@@ -128,6 +130,10 @@ describe("designer briefing", () => {
       const didAsk = prompts.length > 0;
       if (didAsk !== row.shouldAsk) misses.push(`${row.request} | should ${row.shouldAsk} | asked ${didAsk} | ${JSON.stringify(result).slice(0, 280)}`);
       questions += prompts.length;
+      if (row.shouldAsk) {
+        shouldAskCount += 1;
+        if (didAsk) askedWhenShould += 1;
+      }
       if (didAsk) {
         askedCount += 1;
         if (row.shouldAsk) truePositive += 1;
@@ -141,10 +147,14 @@ describe("designer briefing", () => {
     expect(misses, misses.join("\n")).toEqual([]);
     const precision = askedCount === 0 ? 1 : truePositive / askedCount;
     const average = questions / cases.length;
+    const recall = shouldAskCount === 0 ? 1 : askedWhenShould / shouldAskCount;
     expect(precision).toBe(labeled.precision);
+    expect(recall).toBe(labeled.recall);
     expect(average).toBe(labeled.average);
     expect(questions).toBe(labeled.questions);
     expect(cases.length).toBe(labeled.screens);
+    expect(askedWhenShould).toBe(labeled.askedWhenShould);
+    expect(shouldAskCount).toBe(labeled.shouldAsk);
   });
 
   it("does not invent a pick for just build when nothing fits, and does not treat desktop as Desktop Nav", () => {

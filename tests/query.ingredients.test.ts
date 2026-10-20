@@ -216,14 +216,15 @@ describe("ingredient card", () => {
     );
     const card = found(ingredientCard(kit(), "Toolbar"));
     const by = Object.fromEntries(card.parts.map((p) => [p.name, p]));
-    // Retired still shows its own code, and the replacement's code next to "use".
-    expect(by["Old Chip"]).toMatchObject({ status: "retired", code: "OldChip from '@acme/old'", use: "Chip", useCode: "Chip from '@acme/ui'" });
+    // A retired part hides its own code. The replacement's code stays, labelled as what to use.
+    expect(by["Old Chip"]).toMatchObject({ status: "retired", code: null, use: "Chip", useCode: "Chip from '@acme/ui'" });
     expect(by["Chip"]).toMatchObject({ status: "current", code: "Chip from '@acme/ui'", hidden: true });
     expect(by["Brand mark"]).toMatchObject({ status: "other-library", code: null });
     expect(by["Ghost"]).toMatchObject({ status: "not-found", code: null });
     expect(card.summary).toEqual({ parts: 4, linkedToCode: 1, missingCode: 0, retired: 1, nameGuessed: 0, otherLibrary: 1, notFound: 1 });
     const text = formatIngredientCard(card);
-    expect(text).toContain("retired, code: OldChip from '@acme/old'; use Chip (code: Chip from '@acme/ui')");
+    expect(text).toContain("retired; use Chip (code: Chip from '@acme/ui')");
+    expect(text).not.toContain("OldChip");
     expect(text).toContain("hidden by default");
   });
 
@@ -530,7 +531,7 @@ describe("ingredient card: placed copies at every level", () => {
     expect(found(ingredientCard(index, "B:30:30")).component.name).toBe("Other picker");
   });
 
-  it("a retired component shows its own code and the replacement's code", () => {
+  it("a retired component hides its own code and names the replacement", () => {
     writeFileSync(
       join(process.env["RESOLVE_HOME"]!, "code-map.json"),
       JSON.stringify({
@@ -541,9 +542,10 @@ describe("ingredient card: placed copies at every level", () => {
       }),
     );
     const card = found(ingredientCard(kit(), "Old Chip"));
-    expect(card).toMatchObject({ code: "OldChip from '@acme/old'", component: { status: "retired", use: "Chip", useCode: "Chip from '@acme/ui'" } });
+    expect(card).toMatchObject({ code: null, component: { status: "retired", use: "Chip", useCode: "Chip from '@acme/ui'" } });
     const text = formatIngredientCard(card);
-    expect(text).toContain("Code: OldChip from '@acme/old' (retired; use Chip, code: Chip from '@acme/ui')");
+    expect(text).toContain("Retired; use Chip, code: Chip from '@acme/ui'");
+    expect(text).not.toContain("OldChip");
     expect(card.note).toContain("Old Chip is retired. Use Chip instead (code: Chip from '@acme/ui').");
   });
 

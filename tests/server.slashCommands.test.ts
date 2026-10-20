@@ -13,15 +13,16 @@ import { listToolDefinitions } from "@/server/tools";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const bin = join(root, "bin", "resolve-setup.mjs");
 const BEGIN = "<!-- resolve-setup:begin -->";
-const NAMES = ["brief", "check", "design-system", "find", "handoff", "parts", "resolve-status"];
+const NAMES = ["brief", "check", "code-map", "design-system", "find", "handoff", "parts", "resolve-status"];
 /** What each command must tell the agent to call. */
 const CALLS: Record<string, string[]> = {
   brief: ["brief", "questions", "just build", "answers"],
   "design-system": ["learn_library", "get_metadata", "page by page", "50,000", "report.told"],
   find: ["recommend", "resolve", "weak match"],
   check: ["verify_frame", "check_cousins", "node-id", "name-only", "wrong cousin", "missing required state"],
-  parts: ["what's on this screen and its code twin (or unmapped)", "resolve-figma parts", "unmapped", "retired", "screen link"],
-  handoff: ["developer build sheet", "resolve-figma handoff", "get_handoff", "node-id"],
+  "code-map": ["code-map scan", "code-map suggest", "code-map review", "suggested", "stop and ask"],
+  parts: ["what's on this screen and its code twin (or unmapped)", "resolve-figma parts", "unmapped", "retired", "screen link", "stop and ask"],
+  handoff: ["developer build sheet", "resolve-figma handoff", "get_handoff", "node-id", "stop and ask"],
   "resolve-status": ["resolve-figma status", "version", "always-on rule"],
 };
 

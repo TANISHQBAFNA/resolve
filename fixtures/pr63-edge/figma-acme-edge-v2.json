@@ -1,0 +1,985 @@
+{
+ "name": "Acme Edge UI",
+ "version": "2026.11.0",
+ "document": {
+  "id": "0:0",
+  "name": "Document",
+  "type": "DOCUMENT",
+  "children": [
+   {
+    "id": "0:1",
+    "name": "Parts",
+    "type": "CANVAS",
+    "children": [
+     {
+      "id": "1:1",
+      "name": "Button",
+      "type": "COMPONENT",
+      "componentPropertyDefinitions": {
+       "Variant": {
+        "type": "VARIANT",
+        "defaultValue": "Primary",
+        "variantOptions": [
+         "Primary",
+         "Secondary"
+        ]
+       },
+       "Size": {
+        "type": "VARIANT",
+        "defaultValue": "Small",
+        "variantOptions": [
+         "Small",
+         "Medium"
+        ]
+       },
+       "Disabled": {
+        "type": "BOOLEAN",
+        "defaultValue": false
+       }
+      },
+      "children": []
+     },
+     {
+      "id": "1:2",
+      "name": "Button group",
+      "type": "COMPONENT",
+      "children": [
+       {
+        "id": "I1:1:1",
+        "name": "Button",
+        "type": "INSTANCE",
+        "componentId": "1:1"
+       }
+      ]
+     },
+     {
+      "id": "1:3",
+      "name": "Icon button",
+      "type": "COMPONENT",
+      "componentPropertyDefinitions": {
+       "Icon": {
+        "type": "TEXT",
+        "defaultValue": "x"
+       },
+       "Disabled": {
+        "type": "BOOLEAN",
+        "defaultValue": false
+       }
+      },
+      "children": [
+       {
+        "id": "I2:1:28",
+        "name": "Icon",
+        "type": "INSTANCE",
+        "componentId": "1:28"
+       }
+      ]
+     },
+     {
+      "id": "1:4",
+      "name": "Button Legacy",
+      "type": "COMPONENT",
+      "componentPropertyDefinitions": {
+       "Label": {
+        "type": "TEXT",
+        "defaultValue": "x"
+       }
+      },
+      "description": "status: deprecated",
+      "children": []
+     },
+     {
+      "id": "1:5",
+      "name": "Card",
+      "type": "COMPONENT",
+      "componentPropertyDefinitions": {
+       "Title": {
+        "type": "TEXT",
+        "defaultValue": "x"
+       }
+      },
+      "children": [
+       {
+        "id": "I3:1:6",
+        "name": "Card header",
+        "type": "INSTANCE",
+        "componentId": "1:6"
+       }
+      ]
+     },
+     {
+      "id": "1:6",
+      "name": "Card header",
+      "type": "COMPONENT",
+      "componentPropertyDefinitions": {
+       "Title": {
+        "type": "TEXT",
+        "defaultValue": "x"
+       }
+      },
+      "children": []
+     },
+     {
+      "id": "1:7",
+      "name": "Cart",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:8",
+      "name": "Header card",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:9",
+      "name": "Tooltip",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:10",
+      "name": "Chip",
+      "type": "COMPONENT",
+      "componentPropertyDefinitions": {
+       "Label": {
+        "type": "TEXT",
+        "defaultValue": "x"
+       }
+      },
+      "children": []
+     },
+     {
+      "id": "1:11",
+      "name": "Tag",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:12",
+      "name": "Badge",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:13",
+      "name": "Pill",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:14",
+      "name": "Toggle",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:15",
+      "name": "Switch",
+      "type": "COMPONENT",
+      "componentPropertyDefinitions": {
+       "Checked": {
+        "type": "BOOLEAN",
+        "defaultValue": false
+       }
+      },
+      "children": []
+     },
+     {
+      "id": "1:16",
+      "name": "Checkbox",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:17",
+      "name": "Select",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:18",
+      "name": "Dropdown",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:19",
+      "name": "Form field",
+      "type": "COMPONENT",
+      "componentPropertyDefinitions": {
+       "Label": {
+        "type": "TEXT",
+        "defaultValue": "x"
+       },
+       "Hint": {
+        "type": "TEXT",
+        "defaultValue": "x"
+       },
+       "Error": {
+        "type": "TEXT",
+        "defaultValue": "x"
+       }
+      },
+      "children": [
+       {
+        "id": "I4:1:20",
+        "name": "Text input",
+        "type": "INSTANCE",
+        "componentId": "1:20"
+       }
+      ]
+     },
+     {
+      "id": "1:20",
+      "name": "Text input",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:21",
+      "name": "Dialog",
+      "type": "COMPONENT",
+      "children": [
+       {
+        "id": "I5:1:22",
+        "name": "Dialog header",
+        "type": "INSTANCE",
+        "componentId": "1:22"
+       },
+       {
+        "id": "I6:1:23",
+        "name": "Dialog body",
+        "type": "INSTANCE",
+        "componentId": "1:23"
+       },
+       {
+        "id": "I7:1:24",
+        "name": "Dialog footer",
+        "type": "INSTANCE",
+        "componentId": "1:24"
+       },
+       {
+        "id": "I8:1:1",
+        "name": "Button",
+        "type": "INSTANCE",
+        "componentId": "1:1"
+       }
+      ]
+     },
+     {
+      "id": "1:22",
+      "name": "Dialog header",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:23",
+      "name": "Dialog body",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:24",
+      "name": "Dialog footer",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:25",
+      "name": "Date range picker",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:26",
+      "name": "Tabs",
+      "type": "COMPONENT",
+      "children": [
+       {
+        "id": "I9:1:27",
+        "name": "Tab",
+        "type": "INSTANCE",
+        "componentId": "1:27"
+       }
+      ]
+     },
+     {
+      "id": "1:27",
+      "name": "Tab",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:28",
+      "name": "Icon",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:29",
+      "name": "Alert",
+      "type": "COMPONENT",
+      "description": "status: deprecated",
+      "children": [
+       {
+        "id": "I10:1:28",
+        "name": "Icon",
+        "type": "INSTANCE",
+        "componentId": "1:28"
+       }
+      ]
+     },
+     {
+      "id": "1:30",
+      "name": "Banner",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:31",
+      "name": "Old Stepper",
+      "type": "COMPONENT",
+      "description": "status: deprecated",
+      "children": [
+       {
+        "id": "I11:1:1",
+        "name": "Button",
+        "type": "INSTANCE",
+        "componentId": "1:1"
+       }
+      ]
+     },
+     {
+      "id": "1:32",
+      "name": "Avatar",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:33",
+      "name": "Spinner",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:34",
+      "name": "Loader",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:35",
+      "name": "Breadcrumbs",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:36",
+      "name": "Pagination",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:37",
+      "name": "Progress bar",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:38",
+      "name": "Radio",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:39",
+      "name": "Radio group",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:40",
+      "name": "Menu",
+      "type": "COMPONENT",
+      "children": [
+       {
+        "id": "I12:1:41",
+        "name": "Menu item",
+        "type": "INSTANCE",
+        "componentId": "1:41"
+       }
+      ]
+     },
+     {
+      "id": "1:41",
+      "name": "Menu item",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:42",
+      "name": "Table",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:43",
+      "name": "Slider",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:44",
+      "name": "Snackbar",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:45",
+      "name": "Data list",
+      "type": "COMPONENT",
+      "children": []
+     },
+     {
+      "id": "1:46",
+      "name": "Base field",
+      "type": "COMPONENT",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "0:2",
+    "name": "Screens",
+    "type": "CANVAS",
+    "children": [
+     {
+      "id": "9:1",
+      "name": "Edge screen",
+      "type": "FRAME",
+      "children": [
+       {
+        "id": "I13:1:1",
+        "name": "Button",
+        "type": "INSTANCE",
+        "componentId": "1:1"
+       },
+       {
+        "id": "I14:1:2",
+        "name": "Button group",
+        "type": "INSTANCE",
+        "componentId": "1:2"
+       },
+       {
+        "id": "I15:1:3",
+        "name": "Icon button",
+        "type": "INSTANCE",
+        "componentId": "1:3"
+       },
+       {
+        "id": "I16:1:5",
+        "name": "Card",
+        "type": "INSTANCE",
+        "componentId": "1:5"
+       },
+       {
+        "id": "I17:1:6",
+        "name": "Card header",
+        "type": "INSTANCE",
+        "componentId": "1:6"
+       },
+       {
+        "id": "I18:1:7",
+        "name": "Cart",
+        "type": "INSTANCE",
+        "componentId": "1:7"
+       },
+       {
+        "id": "I19:1:8",
+        "name": "Header card",
+        "type": "INSTANCE",
+        "componentId": "1:8"
+       },
+       {
+        "id": "I20:1:9",
+        "name": "Tooltip",
+        "type": "INSTANCE",
+        "componentId": "1:9"
+       },
+       {
+        "id": "I21:1:10",
+        "name": "Chip",
+        "type": "INSTANCE",
+        "componentId": "1:10"
+       },
+       {
+        "id": "I22:1:11",
+        "name": "Tag",
+        "type": "INSTANCE",
+        "componentId": "1:11"
+       },
+       {
+        "id": "I23:1:12",
+        "name": "Badge",
+        "type": "INSTANCE",
+        "componentId": "1:12"
+       },
+       {
+        "id": "I24:1:13",
+        "name": "Pill",
+        "type": "INSTANCE",
+        "componentId": "1:13"
+       },
+       {
+        "id": "I25:1:14",
+        "name": "Toggle",
+        "type": "INSTANCE",
+        "componentId": "1:14"
+       },
+       {
+        "id": "I26:1:15",
+        "name": "Switch",
+        "type": "INSTANCE",
+        "componentId": "1:15"
+       },
+       {
+        "id": "I27:1:16",
+        "name": "Checkbox",
+        "type": "INSTANCE",
+        "componentId": "1:16"
+       },
+       {
+        "id": "I28:1:17",
+        "name": "Select",
+        "type": "INSTANCE",
+        "componentId": "1:17"
+       },
+       {
+        "id": "I29:1:18",
+        "name": "Dropdown",
+        "type": "INSTANCE",
+        "componentId": "1:18"
+       },
+       {
+        "id": "I30:1:19",
+        "name": "Form field",
+        "type": "INSTANCE",
+        "componentId": "1:19"
+       },
+       {
+        "id": "I31:1:20",
+        "name": "Text input",
+        "type": "INSTANCE",
+        "componentId": "1:20"
+       },
+       {
+        "id": "I32:1:21",
+        "name": "Dialog",
+        "type": "INSTANCE",
+        "componentId": "1:21"
+       },
+       {
+        "id": "I33:1:22",
+        "name": "Dialog header",
+        "type": "INSTANCE",
+        "componentId": "1:22"
+       },
+       {
+        "id": "I34:1:23",
+        "name": "Dialog body",
+        "type": "INSTANCE",
+        "componentId": "1:23"
+       },
+       {
+        "id": "I35:1:24",
+        "name": "Dialog footer",
+        "type": "INSTANCE",
+        "componentId": "1:24"
+       },
+       {
+        "id": "I36:1:25",
+        "name": "Date range picker",
+        "type": "INSTANCE",
+        "componentId": "1:25"
+       },
+       {
+        "id": "I37:1:26",
+        "name": "Tabs",
+        "type": "INSTANCE",
+        "componentId": "1:26"
+       },
+       {
+        "id": "I38:1:27",
+        "name": "Tab",
+        "type": "INSTANCE",
+        "componentId": "1:27"
+       },
+       {
+        "id": "I39:1:28",
+        "name": "Icon",
+        "type": "INSTANCE",
+        "componentId": "1:28"
+       },
+       {
+        "id": "I40:1:30",
+        "name": "Banner",
+        "type": "INSTANCE",
+        "componentId": "1:30"
+       },
+       {
+        "id": "I41:1:32",
+        "name": "Avatar",
+        "type": "INSTANCE",
+        "componentId": "1:32"
+       },
+       {
+        "id": "I42:1:33",
+        "name": "Spinner",
+        "type": "INSTANCE",
+        "componentId": "1:33"
+       },
+       {
+        "id": "I43:1:34",
+        "name": "Loader",
+        "type": "INSTANCE",
+        "componentId": "1:34"
+       },
+       {
+        "id": "I44:1:35",
+        "name": "Breadcrumbs",
+        "type": "INSTANCE",
+        "componentId": "1:35"
+       },
+       {
+        "id": "I45:1:36",
+        "name": "Pagination",
+        "type": "INSTANCE",
+        "componentId": "1:36"
+       },
+       {
+        "id": "I46:1:37",
+        "name": "Progress bar",
+        "type": "INSTANCE",
+        "componentId": "1:37"
+       },
+       {
+        "id": "I47:1:38",
+        "name": "Radio",
+        "type": "INSTANCE",
+        "componentId": "1:38"
+       },
+       {
+        "id": "I48:1:39",
+        "name": "Radio group",
+        "type": "INSTANCE",
+        "componentId": "1:39"
+       },
+       {
+        "id": "I49:1:40",
+        "name": "Menu",
+        "type": "INSTANCE",
+        "componentId": "1:40"
+       },
+       {
+        "id": "I50:1:41",
+        "name": "Menu item",
+        "type": "INSTANCE",
+        "componentId": "1:41"
+       },
+       {
+        "id": "I51:1:42",
+        "name": "Table",
+        "type": "INSTANCE",
+        "componentId": "1:42"
+       },
+       {
+        "id": "I52:1:43",
+        "name": "Slider",
+        "type": "INSTANCE",
+        "componentId": "1:43"
+       },
+       {
+        "id": "I53:1:44",
+        "name": "Snackbar",
+        "type": "INSTANCE",
+        "componentId": "1:44"
+       },
+       {
+        "id": "I54:1:45",
+        "name": "Data list",
+        "type": "INSTANCE",
+        "componentId": "1:45"
+       },
+       {
+        "id": "I55:1:46",
+        "name": "Base field",
+        "type": "INSTANCE",
+        "componentId": "1:46"
+       }
+      ]
+     },
+     {
+      "id": "9:2",
+      "name": "Retired screen",
+      "type": "FRAME",
+      "children": [
+       {
+        "id": "I56:1:4",
+        "name": "Button Legacy",
+        "type": "INSTANCE",
+        "componentId": "1:4"
+       },
+       {
+        "id": "I57:1:29",
+        "name": "Alert",
+        "type": "INSTANCE",
+        "componentId": "1:29"
+       },
+       {
+        "id": "I58:1:31",
+        "name": "Old Stepper",
+        "type": "INSTANCE",
+        "componentId": "1:31"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "components": {
+  "1:1": {
+   "key": "k-1:1",
+   "name": "Button",
+   "description": ""
+  },
+  "1:2": {
+   "key": "k-1:2",
+   "name": "Button group",
+   "description": ""
+  },
+  "1:3": {
+   "key": "k-1:3",
+   "name": "Icon button",
+   "description": ""
+  },
+  "1:4": {
+   "key": "k-1:4",
+   "name": "Button Legacy",
+   "description": "status: deprecated"
+  },
+  "1:5": {
+   "key": "k-1:5",
+   "name": "Card",
+   "description": ""
+  },
+  "1:6": {
+   "key": "k-1:6",
+   "name": "Card header",
+   "description": ""
+  },
+  "1:7": {
+   "key": "k-1:7",
+   "name": "Cart",
+   "description": ""
+  },
+  "1:8": {
+   "key": "k-1:8",
+   "name": "Header card",
+   "description": ""
+  },
+  "1:9": {
+   "key": "k-1:9",
+   "name": "Tooltip",
+   "description": ""
+  },
+  "1:10": {
+   "key": "k-1:10",
+   "name": "Chip",
+   "description": ""
+  },
+  "1:11": {
+   "key": "k-1:11",
+   "name": "Tag",
+   "description": ""
+  },
+  "1:12": {
+   "key": "k-1:12",
+   "name": "Badge",
+   "description": ""
+  },
+  "1:13": {
+   "key": "k-1:13",
+   "name": "Pill",
+   "description": ""
+  },
+  "1:14": {
+   "key": "k-1:14",
+   "name": "Toggle",
+   "description": ""
+  },
+  "1:15": {
+   "key": "k-1:15",
+   "name": "Switch",
+   "description": ""
+  },
+  "1:16": {
+   "key": "k-1:16",
+   "name": "Checkbox",
+   "description": ""
+  },
+  "1:17": {
+   "key": "k-1:17",
+   "name": "Select",
+   "description": ""
+  },
+  "1:18": {
+   "key": "k-1:18",
+   "name": "Dropdown",
+   "description": ""
+  },
+  "1:19": {
+   "key": "k-1:19",
+   "name": "Form field",
+   "description": ""
+  },
+  "1:20": {
+   "key": "k-1:20",
+   "name": "Text input",
+   "description": ""
+  },
+  "1:21": {
+   "key": "k-1:21",
+   "name": "Dialog",
+   "description": ""
+  },
+  "1:22": {
+   "key": "k-1:22",
+   "name": "Dialog header",
+   "description": ""
+  },
+  "1:23": {
+   "key": "k-1:23",
+   "name": "Dialog body",
+   "description": ""
+  },
+  "1:24": {
+   "key": "k-1:24",
+   "name": "Dialog footer",
+   "description": ""
+  },
+  "1:25": {
+   "key": "k-1:25",
+   "name": "Date range picker",
+   "description": ""
+  },
+  "1:26": {
+   "key": "k-1:26",
+   "name": "Tabs",
+   "description": ""
+  },
+  "1:27": {
+   "key": "k-1:27",
+   "name": "Tab",
+   "description": ""
+  },
+  "1:28": {
+   "key": "k-1:28",
+   "name": "Icon",
+   "description": ""
+  },
+  "1:29": {
+   "key": "k-1:29",
+   "name": "Alert",
+   "description": "status: deprecated"
+  },
+  "1:30": {
+   "key": "k-1:30",
+   "name": "Banner",
+   "description": ""
+  },
+  "1:31": {
+   "key": "k-1:31",
+   "name": "Old Stepper",
+   "description": "status: deprecated"
+  },
+  "1:32": {
+   "key": "k-1:32",
+   "name": "Avatar",
+   "description": ""
+  },
+  "1:33": {
+   "key": "k-1:33",
+   "name": "Spinner",
+   "description": ""
+  },
+  "1:34": {
+   "key": "k-1:34",
+   "name": "Loader",
+   "description": ""
+  },
+  "1:35": {
+   "key": "k-1:35",
+   "name": "Breadcrumbs",
+   "description": ""
+  },
+  "1:36": {
+   "key": "k-1:36",
+   "name": "Pagination",
+   "description": ""
+  },
+  "1:37": {
+   "key": "k-1:37",
+   "name": "Progress bar",
+   "description": ""
+  },
+  "1:38": {
+   "key": "k-1:38",
+   "name": "Radio",
+   "description": ""
+  },
+  "1:39": {
+   "key": "k-1:39",
+   "name": "Radio group",
+   "description": ""
+  },
+  "1:40": {
+   "key": "k-1:40",
+   "name": "Menu",
+   "description": ""
+  },
+  "1:41": {
+   "key": "k-1:41",
+   "name": "Menu item",
+   "description": ""
+  },
+  "1:42": {
+   "key": "k-1:42",
+   "name": "Table",
+   "description": ""
+  },
+  "1:43": {
+   "key": "k-1:43",
+   "name": "Slider",
+   "description": ""
+  },
+  "1:44": {
+   "key": "k-1:44",
+   "name": "Snackbar",
+   "description": ""
+  },
+  "1:45": {
+   "key": "k-1:45",
+   "name": "Data list",
+   "description": ""
+  },
+  "1:46": {
+   "key": "k-1:46",
+   "name": "Base field",
+   "description": ""
+  }
+ },
+ "componentSets": {},
+ "styles": {}
+}
