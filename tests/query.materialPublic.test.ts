@@ -348,10 +348,34 @@ describe("Angular Material public reference", () => {
     expect(report.totals.invented, detail).toBe(0);
     expect(report.totals.wrongCousin, detail).toBe(0);
     expect(report.totals.correctEmpty, detail).toBe(report.totals.emptyCases);
-    // 30 of 32. "a collapsible section" and "header with a back arrow" need a meaning link, not a spelling one.
-    expect(report.totals.top1, detail).toBeGreaterThanOrEqual(30);
+    // 29 of 31. "a collapsible section" and "header with a back arrow" need a meaning link, not a spelling one.
+    expect(report.totals.top1, detail).toBeGreaterThanOrEqual(29);
     expect(report.misses.map((miss) => miss.id).sort(), detail).toEqual(["desc-collapsible", "desc-header-back"]);
-    const side = recommendMasters(index, "side panel");
-    expect(side.candidates[0]?.name).toBe("Side sheet");
+  });
+
+  it("keeps the part named before a linking word, and keeps split two-word asks empty", () => {
+    const home = join(tmpdir(), "resolve-material-link");
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, "synonyms.json"), readFileSync(join(fix, "synonyms.json")));
+    process.env["RESOLVE_HOME"] = home;
+    clearCache();
+    const index = indexGraph(materialGraph());
+    const top = (ask: string) => recommendMasters(index, ask).candidates[0]?.name;
+    const lead: Array<[string, string]> = [
+      ["button to open the dialog", "Button"],
+      ["card showing a chip", "Card"],
+      ["dialog with a date picker", "Dialog"],
+      ["toolbar with a search bar", "Toolbar"],
+      ["chip for the badge", "Chip"],
+      ["table with a paginator", "Table"],
+      ["icon button to open the sidenav", "Icon button"],
+    ];
+    for (const [ask, name] of lead) expect(top(ask), ask).toBe(name);
+    // Nothing before the linking word names a part: the part after it is still the ask.
+    expect(top("dashboard with a table")).toBe("Table");
+    for (const ask of ["side panel", "search panel", "nav panel", "bottom panel"]) expect(top(ask), ask).toBeUndefined();
+    // A whole-word part or a shared head noun keeps its pick.
+    expect(top("menu button")).toBe("Menu");
+    expect(top("search field")).toBe("Search bar");
   });
 });

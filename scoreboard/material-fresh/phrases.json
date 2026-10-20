@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Fresh r2 set, written for this round and not tuned against. Descriptive phrasings, plurals, an extra describing word, new one-letter slips (none named in a report), and side panels. Not part of the CI floor.",
+  "note": "Fresh r2 set, written for this round and not tuned against. Descriptive phrasings, plurals, an extra describing word, new one-letter slips (none named in a report), and side panels. Not part of the CI floor. Side panels expect nothing: half Side sheet, half Expansion panel. \"settings panel\" keeps Expansion panel: its head noun names that part.",
   "cases": [
     {
       "id": "desc-table-cols",
@@ -150,17 +150,13 @@
       "id": "side-panel",
       "type": "fresh",
       "phrase": "side panel",
-      "expect": [
-        "Side sheet"
-      ]
+      "expect": "none"
     },
     {
       "id": "side-panel-filters",
       "type": "fresh",
       "phrase": "side panel with filters",
-      "expect": [
-        "Side sheet"
-      ]
+      "expect": "none"
     },
     {
       "id": "plural-checkboxes",
@@ -259,10 +255,12 @@
       ]
     },
     {
-      "id": "none-panel-talk",
+      "id": "head-panel",
       "type": "fresh",
       "phrase": "settings panel",
-      "expect": "none"
+      "expect": [
+        "Expansion panel"
+      ]
     },
     {
       "id": "none-stock",

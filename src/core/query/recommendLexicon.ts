@@ -386,12 +386,41 @@ const DESCRIBING_WORD = new Set(["for", "to", "with", "when", "while", "on", "un
  * Words after the first describing word. "slider for volume": volume says what the slider is for.
  * "of" describes only before a plural ("list of contacts"); "badge of honor" is a phrase of its own.
  */
-function describingTail(ask: string): Set<string> {
+function describingSplit(ask: string): { words: string[]; at: number } {
   const words = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
   const at = words.findIndex(
     (word, i) => DESCRIBING_WORD.has(word) || (word === "of" && /[^s]s$/.test(words[i + 1] ?? "")),
   );
+  return { words, at };
+}
+function describingTail(ask: string): Set<string> {
+  const { words, at } = describingSplit(ask);
   return new Set(at < 1 ? [] : words.slice(at + 1));
+}
+/**
+ * The part named before the first describing word wins: "button to open the dialog" is a Button.
+ * Undefined when nothing before that word names a part, or it names a screen ("dashboard with a button").
+ */
+export function partBeforeLink(ask: string, namesPart: (token: string) => boolean, screens: readonly string[]): string | undefined {
+  const { words, at } = describingSplit(ask);
+  if (at < 1) return undefined;
+  const lead = tokensOf(words.slice(0, at).join(" "));
+  // "checkout summary with primary button": the lead is a screen, so the part after the link is the ask.
+  if (lead.every((token) => screens.includes(token))) return undefined;
+  return lead.some(namesPart) ? lead.join(" ") : undefined;
+}
+
+/**
+ * Two words that each name a different part, and only part of its name: "side panel" is half Side sheet and
+ * half Expansion panel, so neither fits. A part named by one whole word ("menu button" has Menu), a part that
+ * holds both words, or a shared head noun such as field or button ("search field") keeps the usual ranking.
+ */
+function splitNaming(mod: string, head: string, nameSets: readonly Set<string>[], allowClip: boolean): boolean {
+  if (GENERIC_NAME_TOKENS.has(head)) return false;
+  const has = (names: Set<string>, token: string) =>
+    nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip);
+  if (nameSets.some((names) => has(names, mod) && has(names, head))) return false;
+  return !nameSets.some((names) => names.size === 1 && (has(names, mod) || has(names, head)));
 }
 
 function keepsCompany(token: string, previous: string | undefined, exempt: ReadonlySet<string>): boolean {
@@ -426,6 +455,10 @@ export function askGate(
       (names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip),
     ),
   );
+  const bare = ask.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word && word !== "a" && word !== "an" && word !== "the");
+  if (bare.length === 2 && content.length === 2 && hit[0] && hit[1] && splitNaming(content[0]!, content[1]!, nameSets, allowClip)) {
+    return { outOfDomain: true, lowConfidence: false };
+  }
   if (hit.filter(Boolean).length !== 1) return open;
   const head = hit.lastIndexOf(true);
   const tail = describingTail(ask);
