@@ -86,26 +86,30 @@ export function intentNamesMaster(index: GraphIndex, askedTokens: string[]): boo
 }
 export const RETIRED_NAME_TOKENS = new Set(["legacy", "old", "deprecated", "retired"]);
 /**
- * -ed and -ing words that only describe a later part noun: "selected tab" is a tab, "sorted table" a table.
- * One whose stem plus the noun is a part's name stays: "searching bar" is Search bar.
- * They are left out of name matching, so their stem cannot name a part (Select, Sort). A word that is a part
- * word as written ("loading" in Loading Spinner) stays.
+ * The asked words as name matching should read them, for -ed and -ing words before a part noun.
+ * One that only describes the noun is left out, so its stem cannot name a part: "selected tab" is a tab,
+ * "sorted table" a table (not Select or Sort). One whose stem names the part with the noun is read as that
+ * stem: "searching bar" and "dated picker" match as "search bar" and "date picker". The stem also counts when
+ * it is one word of a longer name and the noun is shared ("searching field", as "search field" is Search bar).
+ * A word that is a part word as written ("loading" in Loading Spinner) is left as it is.
  */
-export function describingInflections(tokens: readonly string[], nameSets: readonly Set<string>[]): Set<string> {
-  const partWord = (token: string) => nameSets.some((names) => partWordIn(names, token));
-  // Kept when its stem and a later word name one part together ("searching bar" is Search bar), or the stem is
-  // one word of a longer name and the later word is a shared noun ("searching field", as "search field" is Search bar).
-  const stemPart = (token: string, later: readonly string[]) =>
-    nameSets.some(
-      (names) =>
-        inflectionStems(token).some((stem) => names.has(stem)) &&
-        later.some((word) => word !== token && (partWordIn(names, word) || (names.size > 1 && GENERIC_NAME_TOKENS.has(word)))),
-    );
+export function readInflections(tokens: readonly string[], nameSets: readonly Set<string>[]): string[] {
   const partWordIn = (names: Set<string>, token: string) =>
     names.has(token) || [...names].some((name) => [`${name}s`, `${name}es`].includes(token) || [`${token}s`, `${token}es`].includes(name)) || synonymIn(token, names, false);
-  return new Set(
-    tokens.filter((token, i) => /(?:ed|ing)$/.test(token) && !partWord(token) && tokens.slice(i + 1).some(partWord) && !stemPart(token, tokens.slice(i + 1))),
-  );
+  const partWord = (token: string) => nameSets.some((names) => partWordIn(names, token));
+  const stemFor = (token: string, later: readonly string[]) => {
+    for (const names of nameSets) {
+      const stem = inflectionStems(token).find((form) => names.has(form));
+      if (stem && later.some((word) => word !== token && (partWordIn(names, word) || (names.size > 1 && GENERIC_NAME_TOKENS.has(word))))) return stem;
+    }
+    return undefined;
+  };
+  return tokens.flatMap((token, i) => {
+    const later = tokens.slice(i + 1);
+    if (!/(?:ed|ing)$/.test(token) || partWord(token) || !later.some(partWord)) return [token];
+    const stem = stemFor(token, later);
+    return stem ? [stem] : [];
+  });
 }
 export function synonymIn(token: string, names: Set<string>, allowClip = false): boolean {
   const group = termsFor(token, allowClip);

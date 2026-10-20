@@ -410,6 +410,9 @@ describe("Angular Material public reference", () => {
     for (const ask of ["a searching bar up top", "searching field for contacts", "the searched input"]) expect(top(ask), ask).toBe("Search bar");
     // A single-word part (Select, Sort) still loses to the noun.
     expect(top("a selected button")).toBe("Button");
+    // A kept word is read as its stem, so a dropped-e form still names the part.
+    expect(top("a dated picker for the invoice")).toBe("Date picker");
+    expect(top("the timed picker on the alarm screen")).toBe("Time picker");
     // A vague panel keeps a head-noun match, never a part named by the other word.
     for (const ask of ["search panel", "nav panel"]) expect(top(ask), ask).not.toMatch(/Search bar|Navigation/);
     // A known part plus a describing tail is still that part.
