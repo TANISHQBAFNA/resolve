@@ -17,11 +17,11 @@
 	<a href=".cursor-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Cursor-555555.svg" alt="Cursor plugin"></a>
 </p>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg"><img src="docs/assets/hero-light.svg" alt="Animation that plays once: a chat message says Design the Acme Send money screen. Next to it, an Acme phone screen builds itself as real library parts snap in: Payee picker, Text field and a Send button, each with a library tick." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg"><img src="docs/assets/hero-light.svg" alt="Animation that plays once: a chat message says Design the Acme Send money screen. Below it, an Acme phone screen builds itself as real library parts snap in: Payee picker, Text field and a Send button, each with a library tick." width="560"></picture>
 
 <p align="center">You ask in plain words. Your AI builds with your real parts.</p>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/before-after-dark.svg"><img src="docs/assets/before-after-light.svg" alt="Illustration: two Acme Send money screens. Without Resolve, numbered callouts mark an invented dropdown, a raw #1A73E8 fill and a detached button, and the check fails. With Resolve, the same screen uses the library Payee picker, Text field and Button, and the check passes." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/before-after-dark.svg"><img src="docs/assets/before-after-light.svg" alt="Illustration: two Acme Send money screens. Without Resolve, numbered callouts mark an invented dropdown, a raw #1A73E8 fill and a detached button, and the check fails. With Resolve, the same screen uses the library Payee picker, Text field and Button, and the check passes." width="560"></picture>
 
 <p align="center">Without Resolve the AI guesses. With Resolve the check passes.</p>
 
@@ -34,7 +34,7 @@ Resolve gives your AI two things about your design system: what your components 
 
 ## How it works
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/walkthrough-dark.svg"><img src="docs/assets/walkthrough-light.svg" alt="Animation that plays once: a scan line sweeps down an Acme Send money screen on a design canvas. Parts light up with numbered pins, 1 Payee picker, 2 Text field, 3 Button, and a list on the right fills in with what Resolve learned." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/walkthrough-dark.svg"><img src="docs/assets/walkthrough-light.svg" alt="Animation that plays once: a scan line sweeps down an Acme Send money screen on a design canvas. Parts light up with numbered pins, 1 Payee picker, 2 Text field, 3 Button, and a list below fills in with what Resolve learned." width="560"></picture>
 
 1. **Learn.** `/design-system` reads every component, variant and property.
 2. **Match.** `/find` uses known names first, then your own words.
@@ -55,25 +55,25 @@ Resolve gives your AI two things about your design system: what your components 
 </tr>
 </table>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/cross-screen-dark.svg"><img src="docs/assets/cross-screen-light.svg" alt="Illustration: three Acme screens, Send money, Review and Receipt, with threads joining the Payee picker on each and the Button on each. Labels give the counts from a real Resolve run on the Acme example file: Payee picker used 4 times in file, Button used 11 times in file." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/cross-screen-dark.svg"><img src="docs/assets/cross-screen-light.svg" alt="Illustration: three Acme screens stacked, Send money, Confirm payment and Receipt. A thread on the left joins the Payee picker on each, and one on the right joins the Button on each. Labels give the counts from a real Resolve run on the Acme example file: Payee picker used 4 times in file, Button used 11 times in file." width="560"></picture>
 
 <p align="center">Resolve knows where each part is really used.</p>
 
 ## What the AI gets
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/component-card-dark.svg"><img src="docs/assets/component-card-light.svg" alt="Illustration of a Resolve card for the Acme Button, with five numbered labels: 1 the name, Button; 2 its properties, Variant (Primary, Secondary or Danger) and Size (Medium or Large), 4 variants in all; 3 the token it uses, color/primary/600; 4 its code twin, acme-button with AcmeButtonModule; 5 a real example, a thumbnail of the Send money screen. The preview shows Primary, Secondary and Danger side by side." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/component-card-dark.svg"><img src="docs/assets/component-card-light.svg" alt="Illustration of a Resolve card for the Acme Button, with five numbered labels: 1 the name, Button; 2 its properties, Variant (Primary, Secondary or Danger) and Size (Medium or Large), 4 variants in all; 3 the token it uses, color/primary/600; 4 its code twin, acme-button with AcmeButtonModule; 5 a real example, a thumbnail of the Send money screen. The preview shows Primary, Secondary and Danger side by side." width="560"></picture>
 
 <p align="center">One short card per part, with a real example to copy.</p>
 
 ## Check a screen
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/check-result-dark.svg"><img src="docs/assets/check-result-light.svg" alt="Illustration of a real check on the Acme Send money screen: the result is FAIL with exit code 1. 2 parts are approved, Payee picker and Button. 1 is deprecated: Old Button, node 30:50, which should be swapped for Button." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/check-result-dark.svg"><img src="docs/assets/check-result-light.svg" alt="Illustration of a real check on the Acme Send money screen: the result is FAIL with exit code 1. 2 parts are approved, Payee picker and Button. 1 is deprecated: Old Button, node 30:50, which should be swapped for Button." width="560"></picture>
 
 <p align="center">Every problem comes with its fix.</p>
 
 ## From design to code
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/code-map-dark.svg"><img src="docs/assets/code-map-light.svg" alt="Illustration of the full Acme code map, 6 parts: 3 mapped, 1 retired and 2 unmapped. Button links to acme-button and AcmeButtonModule, Text field to acme-text-field, Payee picker to acme-payee-picker. Old Button is retired: it still links to acme-old-button, use Button instead. Avatar and Payment method row have no code twin." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/code-map-dark.svg"><img src="docs/assets/code-map-light.svg" alt="Illustration of the full Acme code map, 6 parts: 3 mapped, 1 retired and 2 unmapped. Button links to acme-button and AcmeButtonModule, Text field to acme-text-field, Payee picker to acme-payee-picker. Old Button is retired: it still links to acme-old-button, use Button instead. Avatar and Payment method row have no code twin." width="560"></picture>
 
 <p align="center">Each Figma part links to its code twin.</p>
 
