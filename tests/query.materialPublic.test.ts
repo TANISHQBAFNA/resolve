@@ -9,7 +9,7 @@ import { buildGraph } from "@/core/transform/buildGraph";
 import { checkEntry } from "@/core/query/codeMap";
 import { codeMapJson } from "@/core/query/codeMapCsv";
 import { indexGraph } from "@/core/query/GraphIndex";
-import { formatHandoffScreen, handoffSheet, recommendMasters } from "@/core/query";
+import { briefScreen, formatHandoffScreen, handoffSheet, recommendMasters } from "@/core/query";
 import { mergeRecipes, parseRecipeFile, starterRecipes } from "@/core/query/recipes";
 import { loadPhraseCases, scorePhrases } from "@/core/query/phraseScore";
 import { libraryCodeTargets } from "@/core/query/replacements";
@@ -417,6 +417,21 @@ describe("Angular Material public reference", () => {
     expect(top("a dated card on the statement")).toBe("Card");
     expect(top("the timed card")).toBe("Card");
     expect(top("searching field in the header")).toBe("Search bar");
+    // A pick reached only through a shared noun after an -ed/-ing word is a guess: weak in recommend and brief.
+    for (const [ask, name] of [["dated item", "Date picker"], ["timed bar", "Time picker"], ["searching item", "Search bar"], ["searching field", "Search bar"]] as const) {
+      const card = recommendMasters(index, ask, { budgetChars: 4000 }) as { match?: string; candidates: Array<{ name?: string; why?: string }> };
+      expect([card.match, card.candidates[0]?.name], ask).toEqual(["weak match", name]);
+      expect(card.candidates[0]?.why, ask).toMatch(/^Weak, check:/);
+      const brief = briefScreen({ request: ask, index, recipes: [] });
+      expect("ready" in brief && brief.candidates[0], ask).toMatchObject({ name, weak: true });
+    }
+    // Not a guess: a whole part name, a plain ask, or a stem that names the part with the noun.
+    for (const [ask, name] of [["dated card", "Card"], ["pick a date", "Date picker"], ["searching bar", "Search bar"], ["dated picker", "Date picker"]] as const) {
+      const card = recommendMasters(index, ask, { budgetChars: 4000 }) as { match?: string; candidates: Array<{ name?: string }> };
+      expect([card.match, card.candidates[0]?.name], ask).toEqual([undefined, name]);
+      const brief = briefScreen({ request: ask, index, recipes: [] });
+      expect("ready" in brief && brief.candidates[0]?.weak, ask).toBeUndefined();
+    }
     // A vague panel keeps a head-noun match, never a part named by the other word.
     for (const ask of ["search panel", "nav panel"]) expect(top(ask), ask).not.toMatch(/Search bar|Navigation/);
     // A known part plus a describing tail is still that part.

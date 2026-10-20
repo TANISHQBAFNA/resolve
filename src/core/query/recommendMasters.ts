@@ -59,7 +59,8 @@ export function recommendMasters(
       (names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false),
     );
   const brief = splitBrief(partBeforeLink(intent, publicNameSets, false, screenWords(index)) ?? intent, namesHit);
-  const askedTokens = readInflections(tokensOf(brief.role), publicNameSets);
+  const reading = readInflections(tokensOf(brief.role), publicNameSets);
+  const askedTokens = reading.tokens;
   if (xMeansClose(brief.role) && !askedTokens.includes("close")) askedTokens.push("close");
   // Exclusive family only when the slot is a component role and the intent is a
   // screen job ("sign in"). "input chip" and "checkout summary" already name a
@@ -717,7 +718,9 @@ export function recommendMasters(
 
   const leadCandidate = (entry: Scored, top: boolean): RecommendCandidate => {
     const full = toCandidate(entry, false, 0);
-    if (
+    if (entry === kept[0] && reading.shared.length > 0) {
+      full.why = `Weak, check: ${reading.shared.map((word) => `"${word}"`).join(", ")} not in ${familyCardName(entry)}.`;
+    } else if (
       entry.weak &&
       entry === kept[0] &&
       /used \d+× in file/.test(full.why) &&
@@ -802,10 +805,10 @@ export function recommendMasters(
   const leadSetName = leadNode
     ? setOf(index, leadNode)?.name ?? leadNode.name
     : "";
+  // A lead reached only through a shared noun after an -ed/-ing word ("dated item") is a guess: weak, like compose.
   const weakLead =
-    Boolean(kept[0]?.weak) &&
-    !(kept[0]?.exactName) &&
-    !(leadSetName && setCoversAsk(intentNeedle, leadSetName));
+    (reading.shared.length > 0 && kept.length > 0) ||
+    (Boolean(kept[0]?.weak) && !(kept[0]?.exactName) && !(leadSetName && setCoversAsk(intentNeedle, leadSetName)));
   const leadClashes = leadNode ? realMastersNamed(index, leadNode.name) : [];
   const clashNote = leadNode ? sameNameNote(index, leadClashes, leadNode) : undefined;
   const subNote = substitutionNote(index, intent, leadNode);

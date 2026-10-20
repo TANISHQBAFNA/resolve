@@ -93,6 +93,8 @@ export interface BriefCandidate {
   name: string;
   fileKey?: string;
   figmaNodeId?: string;
+  /** Recommend's lead was a weak match: check before placing. */
+  weak?: true;
 }
 
 export interface BriefAnswers {
@@ -543,9 +545,10 @@ function briefRequest(input: BriefInput): BriefResult {
       bindRules: input.bindRules,
       placeholders: input.placeholders,
     }) as { match?: string; candidates?: Array<{ id?: string; name?: string; fileKey?: string; figmaNodeId?: string }> };
-    const all = (card.candidates ?? []).slice(0, 3).flatMap((row) => {
+    const all = (card.candidates ?? []).slice(0, 3).flatMap((row, i) => {
       if (!row.id || !row.name) return [];
-      return [candidateOf({ id: row.id, name: row.name, fileKey: row.fileKey, figmaNodeId: row.figmaNodeId })];
+      const lead = candidateOf({ id: row.id, name: row.name, fileKey: row.fileKey, figmaNodeId: row.figmaNodeId });
+      return [i === 0 && card.match === "weak match" ? { ...lead, weak: true as const } : lead];
     });
     const value = {
       rows: all.filter((row) => !platformComponentName(row.name)),

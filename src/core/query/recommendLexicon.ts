@@ -93,25 +93,33 @@ export const RETIRED_NAME_TOKENS = new Set(["legacy", "old", "deprecated", "reti
  * it is one word of a longer name and the noun is shared ("searching field", as "search field" is Search bar).
  * A word that is a part word as written ("loading" in Loading Spinner) is left as it is.
  */
-export function readInflections(tokens: readonly string[], nameSets: readonly Set<string>[]): string[] {
+export function readInflections(tokens: readonly string[], nameSets: readonly Set<string>[]): { tokens: string[]; shared: string[] } {
   const partWordIn = (names: Set<string>, token: string) =>
     names.has(token) || [...names].some((name) => [`${name}s`, `${name}es`].includes(token) || [`${token}s`, `${token}es`].includes(name)) || synonymIn(token, names, false);
   const partWord = (token: string) => nameSets.some((names) => partWordIn(names, token));
   // A shared noun that is a part on its own ("card" is Card) names that part, not a longer one.
   const wholePart = (token: string) => nameSets.some((names) => names.size === 1 && partWordIn(names, token));
-  const stemFor = (token: string, later: readonly string[]) => {
+  // `shared` is the shared noun when only the shared-noun branch kept the word ("dated item"): a guess, read as weak.
+  const stemFor = (token: string, later: readonly string[]): { stem: string; shared?: string } | undefined => {
+    let guess: { stem: string; shared?: string } | undefined;
     for (const names of nameSets) {
       const stem = inflectionStems(token).find((form) => names.has(form));
-      if (stem && later.some((word) => word !== token && (partWordIn(names, word) || (names.size > 1 && GENERIC_NAME_TOKENS.has(word) && !wholePart(word))))) return stem;
+      if (!stem) continue;
+      if (later.some((word) => word !== token && partWordIn(names, word))) return { stem };
+      const shared = later.find((word) => word !== token && names.size > 1 && GENERIC_NAME_TOKENS.has(word) && !wholePart(word));
+      if (shared && !guess) guess = { stem, shared };
     }
-    return undefined;
+    return guess;
   };
-  return tokens.flatMap((token, i) => {
+  const shared: string[] = [];
+  const read = tokens.flatMap((token, i) => {
     const later = tokens.slice(i + 1);
     if (!/(?:ed|ing)$/.test(token) || partWord(token) || !later.some(partWord)) return [token];
-    const stem = stemFor(token, later);
-    return stem ? [stem] : [];
+    const found = stemFor(token, later);
+    if (found?.shared) shared.push(found.shared);
+    return found ? [found.stem] : [];
   });
+  return { tokens: read, shared };
 }
 export function synonymIn(token: string, names: Set<string>, allowClip = false): boolean {
   const group = termsFor(token, allowClip);
