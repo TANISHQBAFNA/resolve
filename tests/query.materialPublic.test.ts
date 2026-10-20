@@ -20,7 +20,9 @@ import {
   type AnswerPair,
 } from "@/core/query/codeMapSuggest";
 import { isRetired } from "@/core/rules/retired";
+import { runCli } from "@/server/cli";
 import { clearCache, saveGraph } from "@/server/store";
+import { callTool } from "@/server/tools";
 
 const repo = join(fileURLToPath(new URL("..", import.meta.url)));
 const fix = join(repo, "fixtures", "material");
@@ -451,5 +453,42 @@ describe("Angular Material public reference", () => {
     expect(top("bottom navigation for the main sections")).toBe("Navigation bar");
     expect(top("a toolbar holding a title and two actions")).toBe("Toolbar");
     expect(top("toolbar holding the page actions")).toBe("Toolbar");
+  });
+
+  it("gives every weak lead a Weak, check reason at the default card size, in the CLI and MCP", async () => {
+    const home = join(tmpdir(), "resolve-material-weak-default");
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, "synonyms.json"), readFileSync(join(fix, "synonyms.json")));
+    process.env["RESOLVE_HOME"] = home;
+    clearCache();
+    saveGraph(materialGraph());
+    const cliCard = async (ask: string) => {
+      const chunks: string[] = [];
+      const write = process.stdout.write.bind(process.stdout);
+      process.stdout.write = ((chunk: string) => {
+        chunks.push(String(chunk));
+        return true;
+      }) as typeof process.stdout.write;
+      try {
+        await runCli(["recommend", ask]);
+      } finally {
+        process.stdout.write = write;
+      }
+      const text = chunks.join("");
+      return JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)) as Card;
+    };
+    type Card = { match?: string; candidates: Array<{ name?: string; why?: string }>; cost?: { chars: number } };
+    // Fresh wording: guesses through a shared noun, and a plain weak lead.
+    for (const ask of ["a searching field near the top", "searching input", "the dated item", "header"]) {
+      for (const card of [await cliCard(ask), callTool("recommend", { intent: ask }) as Card]) {
+        expect(card.match, ask).toBe("weak match");
+        expect(card.candidates[0]?.why, ask).toMatch(/^Weak, check:/);
+        expect(card.cost?.chars ?? 0, ask).toBeLessThanOrEqual(600);
+      }
+    }
+    // A confident pick gets no weak reason.
+    const confident = callTool("recommend", { intent: "timed progress bar" }) as Card;
+    expect(confident.match).toBeUndefined();
+    expect(confident.candidates[0]?.why ?? "").not.toMatch(/Weak, check/);
   });
 });

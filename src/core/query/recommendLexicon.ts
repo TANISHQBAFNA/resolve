@@ -135,6 +135,12 @@ export function guessesFor(shared: readonly SharedGuess[], leadName: string): st
   const lead = new Set(tokensOf(leadName));
   return shared.filter((guess) => guess.part.every((word) => lead.has(word)) && !lead.has(guess.word)).map((guess) => guess.word);
 }
+/** The why line of a weak lead. Always set, even on a compact card that dropped why. */
+export function weakCheckWhy(why: string | undefined, guesses: readonly string[], intent: string, name: string): string {
+  if (why?.startsWith("Weak, check")) return why;
+  if (guesses.length) return `Weak, check: ${guesses.map((word) => `"${word}"`).join(", ")} not in ${name}.`;
+  return `Weak, check: ${why ?? weakMatchWhy(intent, name)}`;
+}
 export function synonymIn(token: string, names: Set<string>, allowClip = false): boolean {
   const group = termsFor(token, allowClip);
   if (!group) return false;

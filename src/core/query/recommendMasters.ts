@@ -15,7 +15,7 @@ import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RE
 import { placeReady } from "./placeReady";
 import { tokensOf } from "./queryTokens";
 import { appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
-import { askGate, guessesFor, readInflections, partBeforeLink, asksIcon, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, genericOnlyMiss, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, matchHaystack, modifierWord, namesThisNode, nameTokenFor, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakMatchWhy, wholeNameTypo, withoutGenericCousins, xMeansClose } from "./recommendLexicon";
+import { askGate, guessesFor, weakCheckWhy, readInflections, partBeforeLink, asksIcon, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, genericOnlyMiss, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, matchHaystack, modifierWord, namesThisNode, nameTokenFor, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakMatchWhy, wholeNameTypo, withoutGenericCousins, xMeansClose } from "./recommendLexicon";
 import { type RecommendAlternate, type RecommendCandidate, type RecommendContext, type RecommendHit, refreshHintFor, slotsForComponent, whereUsedRows } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
 import { inflectionStems, overlap, similarUsage } from "./screenInventory";
@@ -813,7 +813,7 @@ export function recommendMasters(
   const subNote = substitutionNote(index, intent, leadNode);
   const extraNote = [clashNote, subNote].filter(Boolean).join(" ") || undefined;
   const payloadOf = () => {
-    if (weakLead && candidates[0] && "why" in candidates[0] && !candidates[0].why.startsWith("Weak, check")) candidates[0].why = `Weak, check: ${candidates[0].why}`;
+    if (weakLead && candidates[0]) Object.assign(candidates[0], { why: weakCheckWhy((candidates[0] as { why?: string }).why, guessesFor(reading.shared, kept[0] ? familyCardName(kept[0]) : ""), intent, candidates[0].name) });
     const base = {
       intent: echoIntent,
       candidates,
