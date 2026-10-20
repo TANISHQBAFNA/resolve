@@ -58,7 +58,7 @@ export function recommendMasters(
     publicNameSets.some(
       (names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false),
     );
-  const brief = splitBrief(partBeforeLink(intent, namesHit, screenWords(index)) ?? intent, namesHit);
+  const brief = splitBrief(partBeforeLink(intent, publicNameSets, false, screenWords(index)) ?? intent, namesHit);
   const askedTokens = tokensOf(brief.role);
   if (xMeansClose(brief.role) && !askedTokens.includes("close")) askedTokens.push("close");
   // Exclusive family only when the slot is a component role and the intent is a

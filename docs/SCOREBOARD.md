@@ -142,7 +142,7 @@ npm run resolve -- score phrases --phrases scoreboard/material-phrases
 
 The current floor is top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0. Ranking weights are not tuned to that file. `scoreboard/material-heldout/` is a separate set of unseen wording (synonyms, typos, and an extra word). It is not part of the floor.
 
-`scoreboard/material-fresh/` was written for the r2 round and not tuned against: descriptive phrasings, plurals, a describing tail, new one-letter slips, and side panels. It scores top-1 30/32, empty-correct 3/3, invented 0. The two misses ("a collapsible section", "header with a back arrow") need a meaning link that a spelling rule cannot make.
+`scoreboard/material-fresh/` was written for the r2 round and not tuned against: descriptive phrasings, plurals, a describing tail, new one-letter slips, and side panels. It scores top-1 28/31, empty-correct 4/4, invented 0. Side panels expect nothing (half Side sheet, half Expansion panel). Misses: "a collapsible section" and "header with a back arrow" need a meaning link that a spelling rule cannot make; "grid of photos" misses because "of" describes only after a part's whole name.
 
 ## Finder gaps
 

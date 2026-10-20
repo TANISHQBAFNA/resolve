@@ -395,7 +395,7 @@ describe("code-map --init / --import and MCP size guard", () => {
 
   it("MCP get_ingredients cuts a big card (less deep first) and says so; the default surface stays at 7", () => {
     delete process.env["RESOLVE_MCP_ADVANCED"];
-    expect(listToolDefinitions(false)).toHaveLength(7);
+    expect(listToolDefinitions(false)).toHaveLength(8);
     process.env["RESOLVE_MCP_ADVANCED"] = "1";
     expect(INGREDIENTS_MCP_MAX_CHARS).toBe(12_000);
     const small = callTool("get_ingredients", { name: "Payee picker", depth: 2 }) as { cut?: unknown };

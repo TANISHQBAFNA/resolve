@@ -382,32 +382,48 @@ function longestCoveredName(token: string, nameSets: readonly Set<string>[]): nu
 /** Words that start a description of the part: what it is for, what it holds, where it sits. */
 const DESCRIBING_WORD = new Set(["for", "to", "with", "when", "while", "on", "under", "above", "below", "after", "before", "showing", "holding"]);
 
+type NameSets = readonly Set<string>[];
+const namedIn = (names: Set<string>, token: string, allowClip: boolean) =>
+  nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip);
+
 /**
- * Words after the first describing word. "slider for volume": volume says what the slider is for.
- * "of" describes only before a plural ("list of contacts"); "badge of honor" is a phrase of its own.
+ * Where the first describing word sits. "slider for volume": volume says what the slider is for.
+ * "of" describes only before a plural, and only after a part's whole name: "list of contacts" with a List.
+ * "badge of honor" and "a list of quasars" (Card List is not just "list") stay phrases of their own.
  */
-function describingSplit(ask: string): { words: string[]; at: number } {
+function describingSplit(ask: string, nameSets: NameSets, allowClip: boolean): { words: string[]; at: number } {
   const words = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const wholePart = (end: number) => {
+    const lead = tokensOf(words.slice(0, end).join(" "));
+    return nameSets.some((names) => [...names].every((name) => lead.some((token) => namedIn(new Set([name]), token, allowClip))));
+  };
   const at = words.findIndex(
-    (word, i) => DESCRIBING_WORD.has(word) || (word === "of" && /[^s]s$/.test(words[i + 1] ?? "")),
+    (word, i) => DESCRIBING_WORD.has(word) || (word === "of" && /[^s]s$/.test(words[i + 1] ?? "") && wholePart(i)),
   );
   return { words, at };
 }
-function describingTail(ask: string): Set<string> {
-  const { words, at } = describingSplit(ask);
+function describingTail(ask: string, nameSets: NameSets, allowClip: boolean): Set<string> {
+  const { words, at } = describingSplit(ask, nameSets, allowClip);
   return new Set(at < 1 ? [] : words.slice(at + 1));
 }
 /**
  * The part named before the first describing word wins: "button to open the dialog" is a Button.
+ * A later word that names a different part is dropped; one that sharpens the same part stays
+ * ("nav bar on mobile" keeps mobile, for Mobile Nav).
  * Undefined when nothing before that word names a part, or it names a screen ("dashboard with a button").
  */
-export function partBeforeLink(ask: string, namesPart: (token: string) => boolean, screens: readonly string[]): string | undefined {
-  const { words, at } = describingSplit(ask);
+export function partBeforeLink(ask: string, nameSets: NameSets, allowClip: boolean, screens: readonly string[]): string | undefined {
+  const { words, at } = describingSplit(ask, nameSets, allowClip);
   if (at < 1) return undefined;
   const lead = tokensOf(words.slice(0, at).join(" "));
   // "checkout summary with primary button": the lead is a screen, so the part after the link is the ask.
   if (lead.every((token) => screens.includes(token))) return undefined;
-  return lead.some(namesPart) ? lead.join(" ") : undefined;
+  const leadSets = nameSets.filter((names) => lead.some((token) => namedIn(names, token, allowClip)));
+  if (!leadSets.length) return undefined;
+  const tail = tokensOf(words.slice(at + 1).join(" ")).filter(
+    (token) => !nameSets.some((names) => namedIn(names, token, allowClip)) || leadSets.some((names) => namedIn(names, token, allowClip)),
+  );
+  return [...lead, words[at]!, ...tail].join(" ");
 }
 
 /**
@@ -421,6 +437,20 @@ function splitNaming(mod: string, head: string, nameSets: readonly Set<string>[]
     nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip);
   if (nameSets.some((names) => has(names, mod) && has(names, head))) return false;
   return !nameSets.some((names) => names.size === 1 && (has(names, mod) || has(names, head)));
+}
+
+/**
+ * A one-letter slip counts only when every other word is known: a name word, a synonym, a modifier,
+ * a scene word, or a describing tail. "primary botton" stays; "lodaing spinnr" and "pyament screeen tabel"
+ * are typo-heavy and stay empty.
+ */
+function typoHeavy(content: string[], nameSets: NameSets, exempt: ReadonlySet<string>, tail: ReadonlySet<string>, allowClip: boolean): boolean {
+  const exact = (token: string) =>
+    nameSets.some((names) => names.has(token) || [...names].some((name) => inflectsName(token, name)) || synonymIn(token, names, allowClip));
+  const slipOnly = (token: string) => !exact(token) && nameSets.some((names) => [...names].some((name) => wordSlip(token, name)));
+  const slips = content.filter(slipOnly);
+  if (!slips.length) return false;
+  return slips.length > 1 || content.some((token) => !slipOnly(token) && !exact(token) && !modifierWord(token) && !exempt.has(token) && !tail.has(token));
 }
 
 function keepsCompany(token: string, previous: string | undefined, exempt: ReadonlySet<string>): boolean {
@@ -455,13 +485,18 @@ export function askGate(
       (names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip),
     ),
   );
-  const bare = ask.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word && word !== "a" && word !== "an" && word !== "the");
-  if (bare.length === 2 && content.length === 2 && hit[0] && hit[1] && splitNaming(content[0]!, content[1]!, nameSets, allowClip)) {
+  if (typoHeavy(content, nameSets, exempt, describingTail(ask, nameSets, allowClip), allowClip)) return { outOfDomain: true, lowConfidence: false };
+  // The two words before any describing tail: "side panel with filters" is still "side panel".
+  const split = describingSplit(ask, nameSets, allowClip);
+  const bare = (split.at < 1 ? split.words : split.words.slice(0, split.at)).filter((word) => word !== "a" && word !== "an" && word !== "the");
+  const [first, second] = tokensOf(bare.join(" "));
+  const hits = (token: string) => nameSets.some((names) => namedIn(names, token, allowClip));
+  if (bare.length === 2 && first && second && hits(first) && hits(second) && splitNaming(first, second, nameSets, allowClip)) {
     return { outOfDomain: true, lowConfidence: false };
   }
   if (hit.filter(Boolean).length !== 1) return open;
   const head = hit.lastIndexOf(true);
-  const tail = describingTail(ask);
+  const tail = describingTail(ask, nameSets, allowClip);
   let trailingJunk = false;
   for (let i = head + 1; i < content.length; i += 1) {
     const token = content[i];

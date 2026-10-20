@@ -379,7 +379,7 @@ describe("resolve handoff (CLI) and get_handoff (MCP)", () => {
   it("MCP: get_handoff is advanced only (the default surface stays at 7); allowWeak makes a draft", () => {
     saveGraph(fixedGraph());
     delete process.env["RESOLVE_MCP_ADVANCED"];
-    expect(listToolDefinitions(false)).toHaveLength(7);
+    expect(listToolDefinitions(false)).toHaveLength(8);
     expect(listToolDefinitions(false).map((t) => t.name)).not.toContain("get_handoff");
     expect(() => callTool("get_handoff", { frame: "Send money" })).toThrow("not on the default MCP surface");
     process.env["RESOLVE_MCP_ADVANCED"] = "1";
