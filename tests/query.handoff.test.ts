@@ -20,6 +20,7 @@ import {
   type HandoffPack,
 } from "@/core/query";
 import { runCli } from "@/server/cli";
+import { formatLearnedAt } from "@/server/localTime";
 import { callTool, listToolDefinitions } from "@/server/tools";
 import { appendBindAudit, clearCache, saveGraph, saveSock } from "@/server/store";
 import { emptySock } from "@/core/query/sock";
@@ -629,7 +630,7 @@ describe("handoff fixes after PR #37 UAT", () => {
     expect(handoffSheet(indexGraph(fixedGraph()), ["https://www.figma.com/design/OTHERFILE/X?node-id=999-1"]).ok).toBe(false);
     const status = await cli(["status"]);
     expect(status).toContain("Learned files:");
-    expect(status).toContain("last learned 2026-01-01 00:00 UTC");
+    expect(status).toContain(`last learned ${formatLearnedAt(FROZEN)}`);
     expect(status).toContain("Code map: none yet");
     expect(status).toMatch(/version /);
     expect(status).toMatch(/Figma token: (missing|set)/);

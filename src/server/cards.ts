@@ -8,6 +8,7 @@ import {
   type IngredientCoverage,
 } from "@/core/query";
 import { formatPropertyLines, type PropertyRow } from "@/core/query/componentProperties";
+import { publishedVerdict } from "@/core/query/properUse";
 import { isRecord } from "./isRecord";
 import { formatStatus, type StatusReport } from "./status";
 
@@ -372,7 +373,7 @@ export function markdownCard(result: unknown, tool?: string): string {
 export function presentToolResult(result: unknown, format: ToolCardFormat = "markdown", tool?: string): string {
   switch (format) {
     case "json":
-      return JSON.stringify(stripFiller(result));
+      return JSON.stringify(stripFiller(publishedVerdict(result)));
     case "markdown":
       return markdownCard(result, tool);
     default: {

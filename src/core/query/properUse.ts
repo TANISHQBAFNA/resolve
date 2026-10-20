@@ -792,6 +792,22 @@ export function verifyExitCode(result: { pass?: boolean; properUse?: { exitCode?
   return code === 0 ? 0 : code;
 }
 
+/**
+ * JSON `pass` for a check. True only when the verdict exit code is 0.
+ * A proper-use failure keeps the component pass on the object verify uses for
+ * Markdown (`Components: PASS`), and this copy sets `pass` false for exit 7.
+ */
+function withPass(value: object): value is { pass: boolean; properUse?: { exitCode?: number } } {
+  return "pass" in value && typeof value.pass === "boolean";
+}
+
+export function publishedVerdict<T>(result: T): T {
+  if (!result || typeof result !== "object" || Array.isArray(result) || !withPass(result)) return result;
+  const pass = verifyExitCode(result) === 0;
+  if (result.pass === pass) return result;
+  return { ...result, pass } as T;
+}
+
 export function checkProperUse(index: GraphIndex, frameName: string | undefined, options: ProperUseOptions = {}): ProperUseReport | undefined {
   const asked = frameName?.trim();
   if (!asked) return undefined;

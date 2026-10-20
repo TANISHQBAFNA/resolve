@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const ci = !!process.env.CI;
 const chromium = { name: "chromium", use: { ...devices["Desktop Chrome"] } };
+const firefox = { name: "firefox", use: { ...devices["Desktop Firefox"] } };
 
 export default defineConfig({
   testDir: "./e2e",
@@ -21,12 +22,12 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 120_000,
   },
-  // CI runs headless Chromium only. Firefox and WebKit stay available locally.
+  // CI runs headless Chromium and Firefox. WebKit stays available locally.
   projects: ci
-    ? [chromium]
+    ? [chromium, firefox]
     : [
         chromium,
-        { name: "firefox", use: { ...devices["Desktop Firefox"] } },
+        firefox,
         { name: "webkit", use: { ...devices["Desktop Safari"] } },
       ],
 });

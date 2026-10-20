@@ -1,0 +1,6 @@
+{
+  "note": "Floor for the shipped sample phrase set. CI fails when top-1 or top-3 falls below these counts.",
+  "top1": 83,
+  "top3": 85,
+  "matchCases": 88
+}
