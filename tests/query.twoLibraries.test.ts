@@ -401,16 +401,16 @@ describe("CLI and MCP still see the check card", () => {
 
     const names = ["A", "B", "C", "D"].map((prefix) => `${prefix}${"y".repeat(212)}`);
     const headline = (await capture(["check", "--components", names.join(",")])).split("\n")[0] ?? "";
-    expect(headline.startsWith("FAIL") || headline.startsWith("NAMES ONLY") || headline.startsWith("PASS")).toBe(true);
-    expect(headline).toContain("Proper use: N/A");
+    expect(headline.startsWith("FAIL") || headline.startsWith("NOTHING CHECKED") || headline.startsWith("PASS")).toBe(true);
+    expect(headline).not.toContain("Proper use");
     const markdown = encodeToolResult(
       callTool("verify_frame", { components: names }),
       "markdown",
       "verify_frame",
     );
     const first = markdown.split("\n")[0] ?? "";
-    expect(first.startsWith("PASS") || first.startsWith("FAIL") || first.startsWith("NAMES ONLY")).toBe(true);
-    expect(first).toContain("Proper use: N/A");
+    expect(first.startsWith("PASS") || first.startsWith("FAIL") || first.startsWith("NOTHING CHECKED")).toBe(true);
+    expect(first).not.toContain("Proper use");
   });
 
   it("finds a remote pdf icon and flags alert banner through CLI and MCP", async () => {

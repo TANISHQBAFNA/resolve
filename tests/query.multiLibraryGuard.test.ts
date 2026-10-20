@@ -95,6 +95,21 @@ describe("synthetic multi-library guard", () => {
     expect(card.match).not.toBe("weak match");
   });
 
+  it("keeps a core-word typo, a help icon, and a submit verb off the marketing decoy", () => {
+    for (const ask of ["primary botton", "butto", "submitting", "submitted"] as const) {
+      const card = recommendMasters(severalIndex, ask, { workspace: several });
+      expect(card.candidates[0]?.name, ask).toBe("Button");
+      expect(card.candidates[0]?.fileKey, ask).toBe("ACMEDS");
+      expect(card.candidates[0]?.name, ask).not.toBe("Primary");
+    }
+    for (const ask of ["information icon", "help icon"] as const) {
+      const card = recommendMasters(severalIndex, ask, { workspace: several });
+      expect(card.candidates[0]?.name, ask).toBe("Info");
+      expect(card.candidates[0]?.fileKey, ask).toBe("ACMEDS");
+      expect(card.candidates.some((row) => row.name === "Icons" || row.name === "Arrow icons")).toBe(false);
+    }
+  });
+
   it("picks Card from Acme DS", () => {
     const card = recommendMasters(severalIndex, "card", { workspace: several });
     expect(card.candidates[0]?.name).toBe("Card");

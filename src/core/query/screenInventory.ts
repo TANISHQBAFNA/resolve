@@ -13,15 +13,20 @@ export function inflectionStems(word: string): string[] {
   };
   if (word.length >= 5 && word.endsWith("es")) add(word.slice(0, -2));
   if (word.length >= 4 && word.endsWith("s") && !word.endsWith("ss")) add(word.slice(0, -1));
+  const undouble = (base: string) => {
+    if (base.length >= 4 && base.at(-1) === base.at(-2)) add(base.slice(0, -1));
+  };
   if (word.length >= 6 && word.endsWith("ing")) {
     const base = word.slice(0, -3);
     add(base);
     add(`${base}e`);
+    undouble(base);
   }
   if (word.length >= 5 && word.endsWith("ed")) {
     const base = word.slice(0, -2);
     add(base);
     add(`${base}e`);
+    undouble(base);
   }
   return stems;
 }

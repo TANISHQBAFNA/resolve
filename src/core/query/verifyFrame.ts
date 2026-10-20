@@ -6,7 +6,7 @@ import { setOf } from "@/core/rules/family";
 import { isNameInferredMaster, isPrivateMasterName } from "@/core/rules/names";
 import { isRetired } from "@/core/rules/retired";
 import { type BindRulesFile, verifyBindRules } from "./bindRules";
-import { attachProperUse, checkProperUse, type ProperUseReport } from "./properUse";
+import { attachProperUse, checkProperUse } from "./properUse";
 import { briefNode, EXACT_COMPONENT_HINT, LAYER_NAME_GUESS } from "./cardCopy";
 import { fitCardAfterCost, NAME_FLOOR, shrinkNameFields, WARNING_OVERFLOW } from "./cardFit";
 import { codeText, useText } from "./codeMap";
@@ -106,19 +106,7 @@ export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
     workspace: input.workspace,
     designContext: input.designContext,
   });
-  const listedOnly: ProperUseReport | undefined =
-    !input.frame?.trim() && (input.components ?? []).some((name) => name.trim())
-      ? {
-          summary: "N/A",
-          errors: 0,
-          warnings: 0,
-          unknown: 0,
-          exitCode: 0,
-          level: input.context?.constraints?.a11y?.trim() || "wcag-aa",
-          findings: [],
-        }
-      : undefined;
-  const withUse = (value: typeof card) => attachProperUse(value, frameReport ?? listedOnly, { all: input.all === true });
+  const withUse = (value: typeof card) => attachProperUse(value, frameReport, { all: input.all === true });
   if (!view) return withUse(card);
   const names = new Set<string>();
   const rows = [...new Set(used)].flatMap((node) => {

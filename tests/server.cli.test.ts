@@ -160,7 +160,7 @@ describe("resolve ingest --role", () => {
     process.exitCode = undefined;
   });
 
-  it("keeps proper use on the first line for a component list at wcag-a", async () => {
+  it("keeps a component list with no frame on the nothing-checked headline", async () => {
     const xmlPath = join(process.env["RESOLVE_HOME"]!, "named-a11y.xml");
     writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
     await runCli(["ingest", xmlPath, "--file-key", "LIB"]);
@@ -177,8 +177,29 @@ describe("resolve ingest --role", () => {
       process.stdout.write = write;
     }
     const first = chunks.join("").split("\n")[0] ?? "";
-    expect(first).toContain("Proper use: N/A");
-    expect(first).toContain("NAMES ONLY");
+    expect(first).toBe("NOTHING CHECKED");
+    expect(first).not.toContain("Proper use");
+    chunks.length = 0;
+    process.exitCode = undefined;
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await runCli(["check", "--components", "Button", "--json"]);
+    } finally {
+      process.stdout.write = write;
+    }
+    const card = JSON.parse(chunks.join("")) as {
+      result?: string;
+      properUse?: unknown;
+      deprecated?: unknown[];
+      unresolved?: unknown[];
+    };
+    expect(card.result).toBe("nothing checked");
+    expect(card.properUse).toBeUndefined();
+    expect(card.deprecated).toEqual([]);
+    expect(card.unresolved).toEqual([]);
     process.exitCode = undefined;
   });
 
@@ -199,8 +220,8 @@ describe("resolve ingest --role", () => {
       process.stdout.write = write;
     }
     const first = chunks.join("").split("\n")[0] ?? "";
-    expect(first.startsWith("PASS") || first.startsWith("FAIL") || first.startsWith("NAMES ONLY")).toBe(true);
-    expect(first).toContain("Proper use: N/A");
+    expect(first.startsWith("PASS") || first.startsWith("FAIL") || first.startsWith("NOTHING CHECKED")).toBe(true);
+    expect(first).not.toContain("Proper use");
     process.exitCode = undefined;
   });
 

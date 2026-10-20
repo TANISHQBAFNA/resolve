@@ -122,7 +122,8 @@ function clippingGroup(token: string): readonly string[] | undefined {
   return found;
 }
 function termsFor(token: string, allowClip: boolean): readonly string[] | undefined {
-  const base = extraSynonym.get(token) ?? SYNONYM_OF.get(token) ?? (allowClip ? clippingGroup(token) : undefined);
+  const stemmed = token.endsWith("ing") || token.endsWith("ed") ? inflectionStems(token).reduce<readonly string[] | undefined>((found, stem) => found ?? SYNONYM_OF.get(stem), undefined) : undefined;
+  const base = extraSynonym.get(token) ?? SYNONYM_OF.get(token) ?? stemmed ?? (allowClip ? clippingGroup(token) : undefined);
   const alias = propertyAliases(token);
   if (!alias) return base;
   if (!base) return alias;
@@ -148,11 +149,7 @@ export function tierOf(name: string): "base" | "ingredients" | "recipes" | undef
   return undefined;
 }
 
-/**
- * The literal-name pick, unless a bind-rule prefer ranks the same part from another file
- * (same name once tier prefix, case and punctuation are dropped) strictly higher.
- * "input field" with Acme Core preferred → `ingredients/input-field`, not Globex Mobile's `Input Field`.
- */
+/** Literal-name pick, unless a bind-rule prefer ranks the same part from another file higher. */
 export function ruleNamesake(
   picked: GraphNode,
   others: Iterable<GraphNode>,
@@ -173,10 +170,7 @@ export function ruleNamesake(
   return best;
 }
 
-/**
- * `ingredients/` and `recipes/` beat `base/` for the same part.
- * An ask that says `base/` keeps the base part.
- */
+/** `ingredients/` and `recipes/` beat `base/` for the same part. An ask that says `base/` keeps the base part. */
 export function dropShadowedBaseTier<T>(rows: T[], askedBase: boolean, nameOf: (row: T) => string): T[] {
   if (askedBase || rows.length < 2) return rows;
   const bareKey = (row: T) => collapsedName(stripTier(nameOf(row)));
@@ -255,16 +249,21 @@ function inflectsName(query: string, nameToken: string): boolean {
   const rest = longer.slice(shorter.length);
   return rest === "s" || rest === "es" || rest === "ing" || rest === "ed";
 }
-/** One letter missing inside the word, or two neighbours swapped. Not a different word with an extra ending. */
+/** One letter off a core noun, a missing letter, or two neighbours swapped. Not an unrelated extra ending. */
 function tokenTypo(query: string, name: string): boolean {
   if (query.length < 5 || name.length < 5 || query === name) return false;
-  if (query.length === name.length) return adjacentSwap(query, name);
+  const noun = (word: string) => PLAIN_NOUN.has(word);
+  if (query.length === name.length) {
+    if (adjacentSwap(query, name)) return true;
+    return name === "button" && query[0] === name[0] && [...query].filter((ch, i) => ch !== name[i]).length === 1;
+  }
   const [shorter, longer] = query.length < name.length ? [query, name] : [name, query];
   if (shorter.length + 1 !== longer.length) return false;
   let i = 0;
   while (i < shorter.length && shorter[i] === longer[i]) i += 1;
-  if (i === 0 || i === shorter.length) return false;
-  return shorter.slice(i) === longer.slice(i + 1);
+  if (i === 0) return false;
+  if (i !== shorter.length) return shorter.slice(i) === longer.slice(i + 1);
+  return noun(longer) && !SYNONYM_OF.has(shorter) && !noun(shorter);
 }
 /** A stopword that is itself a component synonym stays. "find box" keeps find. */
 export function withSynonymStopwords(text: string, tokens: string[]): string[] {
@@ -497,14 +496,12 @@ export function askGate(
   }
   return { outOfDomain: false, lowConfidence: unknown > 0 };
 }
-/** Query is the master name with one letter missing. */
 function oneCharMissing(query: string, name: string): boolean {
   if (query.length + 1 !== name.length) return false;
   let i = 0;
   while (i < query.length && query[i] === name[i]) i += 1;
   return query.slice(i) === name.slice(i + 1);
 }
-/** Neighbouring letters swapped, and nothing else. */
 function adjacentSwap(query: string, name: string): boolean {
   if (query.length !== name.length || query.length < 2) return false;
   let i = 0;
@@ -540,14 +537,14 @@ export function genericOnlyMiss(
     queryTokens.some((query) => tokenMatchesName(query, token, allowClip)),
   );
   if (!matched.length) return false;
-  // "cta" on Pay CTA is a real name token, even though cta is a synonym of button.
   if (matched.some((token) => !GENERIC_NAME_TOKENS.has(token))) return false;
   const uncovered = queryTokens.filter((query) => {
     if (genericQuery(query) || query === "primary" || query === "main" || query === "submit") return false;
     return !nameTokens.some((token) => tokenMatchesName(query, token, allowClip));
   });
   if (!uncovered.length) return false;
-  // A size is not a second component. A modifier is, when it is a synonym of one ("warning" → alert).
+  const bar = nameTokens.some((token) => token === "bar" || token === "header" || token === "footer");
+  if (bar && uncovered.every((query) => query === "nav" || query === "navigation")) return false;
   if (uncovered.some((query) => {
     if (SIZE_OR_A11Y.has(query) || !componentWord(query)) return false;
     return !modifierWord(query) || synonymWord(query);
@@ -650,24 +647,29 @@ export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: 
       next.push(entry);
       continue;
     }
-    const head = queryTokens.at(-1) ?? "";
-    if ((head === "navigation" || head === "nav") && !nounHit(head, familyNames(entry), allowClip)) continue;
-    const unmatched = content.filter((token) => !nounHit(token, familyNames(entry), allowClip));
+    const names = familyNames(entry);
+    const unmatched = content.filter((token) => !nounHit(token, names, allowClip));
     if (!unmatched.length) {
       next.push({ ...entry, weak: false });
       continue;
     }
-    const control = content.some((token) => controlNoun(token) && nounHit(token, familyNames(entry), allowClip));
-    if (control || unmatched.every((token) => !componentWord(token))) next.push(entry);
+    const control = content.some((token) => controlNoun(token) && nounHit(token, names, allowClip));
+    const navBar = unmatched.every((token) => token === "nav" || token === "navigation") && [...names].some((token) => token === "bar" || token === "header" || token === "footer");
+    if (control || navBar || unmatched.every((token) => !componentWord(token))) next.push(entry);
   }
   return next;
 }
 
-/** Tie-break for the last real word. It does not beat a name hit (100 vs 70). */
 export function headTokenBonus(familyName: string, tokens: string[], allowClip: boolean, exactName: boolean): number {
   if (exactName) return 0;
+  const names = new Set(tokensOf(familyName));
+  const nav = tokens.includes("nav") || tokens.includes("navigation");
+  const bottom = tokens.some((token) => token === "bottom" || token === "footer");
+  if (nav && !bottom && names.has("header")) return 25;
   const head = [...tokens].reverse().find((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token));
-  if (!head || !nounHit(head, new Set(tokensOf(familyName)), allowClip)) return 0;
+  if (!head || !nounHit(head, names, allowClip)) return 0;
+  const sided = bottom || tokens.some((token) => token === "top" || token === "header");
+  if (sided && (head === "nav" || head === "navigation") && !names.has(bottom ? "footer" : "header")) return 0;
   return 15;
 }
 
@@ -940,7 +942,6 @@ function codedIconName(name: string): boolean {
 function iconWordName(name: string): boolean {
   return ICON_WORD.test(name.trim().toLowerCase().replace(/[_/]+/g, " "));
 }
-/** Name heuristic, plus any master from a team-listed icon library. */
 export function masterLooksLikeIcon(
   index: GraphIndex,
   node: GraphNode,

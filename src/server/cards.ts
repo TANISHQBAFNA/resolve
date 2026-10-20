@@ -150,11 +150,7 @@ function codeMapMarkdown(row: { status: string; message: string; exitCode: numbe
 function componentVerdict(record: Record<string, unknown>): string | undefined {
   if (typeof record["pass"] !== "boolean") return undefined;
   if (record["result"] === "name-only") return "NAME-ONLY";
-  if (record["result"] === "nothing checked") {
-    const approved = record["approved"];
-    if (typeof approved === "number" && approved > 0) return "NAMES ONLY";
-    return "NOTHING CHECKED";
-  }
+  if (record["result"] === "nothing checked") return "NOTHING CHECKED";
   return record["pass"] ? "PASS" : "FAIL";
 }
 
@@ -167,13 +163,9 @@ function verifyHeadline(record: Record<string, unknown>): string | undefined {
   const components = componentVerdict(record);
   if (!components) return undefined;
   const proper = record["properUse"];
-  const noFrame = record["frame"] == null;
-  if (!isRecord(proper) || typeof proper["errors"] !== "number") {
-    return noFrame ? `${components} · Proper use: N/A` : components;
-  }
+  if (!isRecord(proper) || typeof proper["errors"] !== "number") return components;
   const errors = proper["errors"];
   const warnings = typeof proper["warnings"] === "number" ? proper["warnings"] : 0;
-  if (noFrame && errors === 0 && warnings === 0) return `${components} · Proper use: N/A`;
   const properFailed = errors > 0 || proper["exitCode"] === 7;
   if (!properFailed && record["pass"] === true) {
     const use = warnings > 0 ? `PASS (${tally(warnings, "warning")})` : "PASS";

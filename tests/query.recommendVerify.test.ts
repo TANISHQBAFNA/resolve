@@ -491,7 +491,9 @@ describe("card budgets with long variant labels", () => {
     });
     expect(verified.pass).toBe(true);
     expect(verified.approved).toBe(4);
-    expect(verified.properUse?.errors).toBe(0);
+    expect(verified.properUse).toBeUndefined();
+    expect(verified.deprecated).toEqual([]);
+    expect(verified.unresolved).toEqual([]);
     expect(verified.cost.chars).toBeLessThanOrEqual(600);
     expect(JSON.stringify(verified).length).toBeLessThanOrEqual(600);
   });
@@ -520,7 +522,7 @@ describe("card budgets with long variant labels", () => {
     const verified = verifyFrame(indexGraph(graph), {
       components: [label, "Nope Alpha", "Nope Beta", "Nope Gamma"],
     });
-    expect(verified.properUse?.errors).toBe(0);
+    expect(verified.properUse).toBeUndefined();
     expect(verified.cost.chars).toBeLessThanOrEqual(600);
     expect(JSON.stringify(verified).length).toBeLessThanOrEqual(600);
   });
@@ -539,7 +541,7 @@ describe("card budgets with long variant labels", () => {
     };
     const verified = verifyFrame(indexGraph(graph), { components: names });
     expect(verified.pass).toBe(false);
-    expect(verified.properUse?.errors).toBe(0);
+    expect(verified.properUse).toBeUndefined();
     expect(verified.cost.chars).toBeLessThanOrEqual(600);
     expect(JSON.stringify(verified).length).toBeLessThanOrEqual(600);
   });

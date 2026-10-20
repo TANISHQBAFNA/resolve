@@ -134,6 +134,14 @@ describe("phrase match and typos", () => {
     expect(mainAction).not.toBe("Save CTA");
   });
 
+  it("keeps a navigation ask on the bar it names", () => {
+    expect(topName(index, "top navigation").candidates[0]?.name).toBe("Header Bar");
+    expect(topName(index, "navigation bar").candidates[0]?.name).toBe("Header Bar");
+    const bottomNav = topName(index, "bottom navigation");
+    expect(bottomNav.candidates[0]?.name).toBe("Footer Bar");
+    expect(bottomNav.match).toBe("weak match");
+  });
+
   it("typos the whole name only when nothing else matches", () => {
     expect(topName(index, "buton").candidates[0]?.name).toBe("Button");
     expect(topName(index, "avtar").candidates[0]?.name).toBe("Avatar");

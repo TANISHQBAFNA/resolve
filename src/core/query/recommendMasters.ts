@@ -525,7 +525,7 @@ export function recommendMasters(
   flagUncovered(collapsed, intentNeedle, tokens, (entry) => stripTier(entry.setName || setOf(index, entry.node)?.name || entry.node.name));
   const navAsk = tokens.at(-1) === "navigation" || tokens.at(-1) === "nav";
   kept = collapsed.filter((entry) => {
-    if (navAsk && !tokensOf(stripTier(entry.setName || entry.node.name)).some((token) => token === "nav" || token === "navigation")) return false;
+    if (navAsk && !tokensOf(stripTier(entry.setName || entry.node.name)).some((token) => token === "nav" || token === "navigation" || token === "bar" || token === "header" || token === "footer")) return false;
     const namesakes = realMastersNamed(index, entry.node.name);
     const preferred = preferNamedMaster(index, namesakes, workspace, intent, ruleBonus);
     if (!preferred || preferred.id === entry.node.id) return true;
