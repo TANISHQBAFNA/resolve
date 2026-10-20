@@ -129,6 +129,10 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   out.push("", "## Decisions", "");
   if (s.decisions.length) for (const d of s.decisions) out.push(`- ${whenText(d.when)}, ${md(d.who)}: ${md(d.summary)}${d.why !== d.summary ? ` Why: ${md(d.why)}` : ""} (\`${d.proposalId}\`)`);
   else out.push("None approved for this screen yet.");
+  if (s.briefing?.length) {
+    out.push("", "## Briefing", "");
+    for (const line of s.briefing) out.push(`- ${md(line)}`);
+  }
   out.push("", "## Open questions", "");
   out.push(...(s.openQuestions.length ? s.openQuestions.map((q) => `- ${md(q)}`) : ["None."]));
   return `${out.join("\n")}\n`;

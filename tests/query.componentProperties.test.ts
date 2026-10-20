@@ -317,6 +317,7 @@ describe("component properties", () => {
     expect(DEFAULT_TOOL_NAMES).toEqual([
       "learn_library",
       "recipe",
+      "brief",
       "recommend",
       "resolve",
       "get_example",

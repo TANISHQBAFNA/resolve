@@ -280,9 +280,9 @@ describe("Acme markdown cards", () => {
   });
 
   it("advertises format on every tool and adds no tool", () => {
-    expect(TOOLS).toHaveLength(14);
-    expect(listToolDefinitions(false)).toHaveLength(7);
-    expect(listToolDefinitions(true)).toHaveLength(14);
+    expect(TOOLS).toHaveLength(15);
+    expect(listToolDefinitions(false)).toHaveLength(8);
+    expect(listToolDefinitions(true)).toHaveLength(15);
     for (const tool of listToolDefinitions(true)) {
       const properties = (tool.inputSchema["properties"] ?? {}) as Record<string, { enum?: string[] }>;
       expect(properties["format"]?.enum, tool.name).toEqual(["markdown", "json"]);

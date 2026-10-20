@@ -25,6 +25,10 @@ import {
   ingredientCard,
   handoffSheet,
   type HandoffPack,
+  applyBriefIntent,
+  briefAnswerLines,
+  briefAnswers,
+  briefScreen,
 } from "@/core/query";
 import { trimmedStrings } from "@/core/query/recommendSupport";
 import { presentToolResult, type ToolCardFormat } from "./cards";
@@ -86,6 +90,7 @@ const screenContextProperties = {
 export const DEFAULT_TOOL_NAMES = [
   "learn_library",
   "recipe",
+  "brief",
   "recommend",
   "resolve",
   "get_example",
@@ -186,9 +191,37 @@ export const TOOLS: ToolDefinition[] = [
         ...screenContextProperties,
         screenType: { type: "string", description: 'Screen kind, e.g. "settings" or "checkout". Same tie-break as domain.' },
         budgetChars: { type: "number", description: "Hard cap on the structured card, in characters. Default 600. Markdown is shorter." },
+        answers: {
+          type: "object",
+          description: "Briefing answers, topic to option id or label (goal, platform, states, shape). Folded into the intent before ranking. Omit when brief was not asked.",
+          additionalProperties: { type: "string" },
+        },
         ...freshnessProperties,
       },
       required: ["intent"],
+    },
+  },
+  {
+    name: "brief",
+    description:
+      "Before recommend on a screen request. Asks at most 3 multiple-choice questions, and only when the answer would change the component. Topics: user goal, platform and density, states (empty, loading, error, pending), and data shape (list, form, summary, counts). Options are live masters from the learned library. Returns { questions } or { ready: true, assumptions, candidates }. Skips a topic the request already answers, a saved recipe, or an approved screen decision. One candidate means no question. 'Just build' returns ready and logs assumptions. Pass answers back on brief, recommend, and get_handoff. No persona, style, or requirements questions. Do not invent a component. Do not Read graph.json.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...graphIdProperty,
+        request: { type: "string", description: "The screen request, in the designer's words." },
+        answers: {
+          type: "object",
+          description: "Answers already given, topic to option id or label.",
+          additionalProperties: { type: "string" },
+        },
+        pack: { type: "string", description: "Context pack id. Same rules as recommend." },
+        product: { type: "string" },
+        journey: { type: "string" },
+        domain: { type: "string" },
+        ...screenContextProperties,
+      },
+      required: ["request"],
     },
   },
   {
@@ -406,6 +439,11 @@ export const TOOLS: ToolDefinition[] = [
         allowWeak: { type: "boolean", description: "Draft: allow components known only from layer names (labelled name-guess) or missing from the learned files (labelled not-found). Retired components still refuse." },
         recipe: { type: "string", description: "Recipe id or intent to check the screen against. Default: matched from the screen name." },
         depth: { type: "number", description: "Levels of parts per component, 1-3. Default 3. Any other value is clamped, and depthNote says so." },
+        answers: {
+          type: "object",
+          description: "Briefing answers, topic to option id or label. Shown on the sheet as Briefing. Does not invent parts.",
+          additionalProperties: { type: "string" },
+        },
         pack: { type: "string" },
         product: { type: "string" },
         journey: { type: "string" },
@@ -696,11 +734,34 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       return JSON.stringify(shown).length <= cap ? shown : card;
     }
 
+    case "brief": {
+      const { index } = context(args);
+      const request = asString(args["request"] ?? args["intent"] ?? args["query"], "request");
+      const { bind, pack, context: resolvedContext } = recommendContextFromArgs(args);
+      return briefScreen({
+        request,
+        answers: briefAnswers(args["answers"]),
+        index,
+        recipes: loadRecipes(),
+        decisions: readApprovedDecisions(),
+        ...(resolvedContext ? { context: resolvedContext } : {}),
+        workspace: bind.workspace,
+        sock: readSock(),
+        bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
+        placeholders: readPlaceholders(),
+      });
+    }
+
     case "recommend": {
       const { index } = context(args);
       const budget = typeof args["budgetChars"] === "number" ? args["budgetChars"] : undefined;
       const { bind, pack, context: resolvedContext } = recommendContextFromArgs(args);
-      const intent = asString(args["intent"] ?? args["question"] ?? args["query"], "intent");
+      const intent = applyBriefIntent(
+        asString(args["intent"] ?? args["question"] ?? args["query"], "intent"),
+        briefAnswers(args["answers"]),
+        index,
+        loadRecipes(),
+      );
       const screen = screenAskCard(intent, { sock: readSock(), index, recipes: loadRecipes() });
       if (screen) {
         recordGap(intent, screen);
@@ -833,6 +894,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           : {};
       const bind = contextBindFromArgs(args);
       const pack = packForRecommend(bind);
+      const briefing = briefAnswerLines(briefAnswers(args["answers"]), index, loadRecipes());
       const build = (d: number) =>
         handoffSheet(index, frames, {
           draft: args["allowWeak"] === true,
@@ -845,6 +907,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           placeholders: readPlaceholders(),
           rules: libraryRulesFromArgs(args),
           decisions: readApprovedDecisions(),
+          ...(briefing.length ? { briefing } : {}),
           depth: d,
           maxCharsPerCard: HANDOFF_MCP_MAX_CHARS,
         });

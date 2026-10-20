@@ -13,9 +13,10 @@ import { listToolDefinitions } from "@/server/tools";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const bin = join(root, "bin", "resolve-setup.mjs");
 const BEGIN = "<!-- resolve-setup:begin -->";
-const NAMES = ["check", "design-system", "find", "handoff", "parts", "resolve-status"];
+const NAMES = ["brief", "check", "design-system", "find", "handoff", "parts", "resolve-status"];
 /** What each command must tell the agent to call. */
 const CALLS: Record<string, string[]> = {
+  brief: ["brief", "questions", "just build", "answers"],
   "design-system": ["learn_library", "get_metadata", "page by page", "50,000", "report.told"],
   find: ["recommend", "resolve", "weak match"],
   check: ["verify_frame", "check_cousins", "node-id", "name-only", "wrong cousin", "missing required state"],
@@ -46,7 +47,7 @@ function snapshot(dir: string, base = dir): Record<string, string> {
 }
 
 describe("slash commands: install", () => {
-  it("installs the six commands for Claude Code and Cursor, each naming its tool and the no-invent rule", () => {
+  it("installs the commands for Claude Code and Cursor, each naming its tool and the no-invent rule", () => {
     const cwd = temp("install");
     const result = setup([], cwd);
     expect(result.status).toBe(0);
@@ -292,9 +293,9 @@ describe("slash commands: uninstall", () => {
 });
 
 describe("slash commands: MCP prompts and status", () => {
-  it("exposes the same commands as prompts and leaves the default tool count at 7", () => {
+  it("exposes the same commands as prompts and leaves brief on the default tool list", () => {
     expect(listPrompts().map((p) => p.name)).toEqual(NAMES);
-    expect(listToolDefinitions(false)).toHaveLength(7);
+    expect(listToolDefinitions(false)).toHaveLength(8);
     const prompt = getPrompt("find", { input: "payee picker" })!;
     expect(prompt.messages[0]!.content.text).toContain("The designer typed: payee picker");
     expect(prompt.messages[0]!.content.text).toContain("recommend");

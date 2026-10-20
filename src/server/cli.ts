@@ -53,6 +53,10 @@ import {
   ingredientCard,
   ingredientCoverage,
   screenPartsCard,
+  applyBriefIntent,
+  briefAnswerLines,
+  briefAnswersFromFlags,
+  briefScreen,
 } from "@/core/query";
 import {
   deltaAgainst,
@@ -266,12 +270,35 @@ async function dispatchCli(argv: string[]): Promise<void> {
       return;
     }
 
+    case "brief": {
+      const request = positionals(args)[0];
+      if (!request) throw new Error('Usage: resolve brief "<screen request>"');
+      const { bind, pack, context } = recommendContextFromFlags(args);
+      const index = requireGraph(args).index;
+      printJson(
+        briefScreen({
+          request,
+          answers: briefAnswersFromFlags(args),
+          index,
+          recipes: loadRecipes(),
+          decisions: readApprovedDecisions(),
+          ...(context ? { context } : {}),
+          workspace: bind.workspace,
+          sock: readSock(),
+          bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
+          placeholders: readPlaceholders(),
+        }),
+      );
+      return;
+    }
+
     case "recommend": {
-      const intent = positionals(args)[0];
-      if (!intent) throw new Error('Usage: resolve recommend "<intent>"');
+      const asked = positionals(args)[0];
+      if (!asked) throw new Error('Usage: resolve recommend "<intent>"');
       const budget = Number(flag(args, "budget"));
       const { bind, pack, context } = recommendContextFromFlags(args);
       const index = requireGraph(args).index;
+      const intent = applyBriefIntent(asked, briefAnswersFromFlags(args), index, loadRecipes());
       const screen = screenAskCard(intent, { sock: readSock(), index, recipes: loadRecipes() });
       if (screen) {
         recordGap(intent, screen);
@@ -473,7 +500,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
     }
 
     case "handoff": {
-      const VALUE_FLAGS = ["--out", "--recipe", "--depth", "--rules", "--pack", "--product", "--journey", "--domain", "--audience", "--a11y", "--packs", "--id"];
+      const VALUE_FLAGS = ["--out", "--recipe", "--depth", "--rules", "--pack", "--product", "--journey", "--domain", "--audience", "--a11y", "--packs", "--id", "--answer"];
       const frames: string[] = [];
       for (let i = 0; i < args.length; i += 1) {
         const arg = args[i]!;
@@ -484,7 +511,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
           i += 1;
           continue;
         }
-        if (arg.startsWith("--")) throw new Error(`Unknown handoff option "${arg}". Use --draft, --json, --out, --recipe, --depth, --force, --rules or ${PACK_BIND_FLAGS}.`);
+        if (arg.startsWith("--")) throw new Error(`Unknown handoff option "${arg}". Use --draft, --json, --out, --recipe, --depth, --force, --answer, --rules or ${PACK_BIND_FLAGS}.`);
         frames.push(arg);
       }
       if (!frames.length) {
@@ -496,6 +523,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const bind = bindFromFlags(args);
       const pack = packForRecommend(bind);
       const index = requireGraph(args).index;
+      const briefing = briefAnswerLines(briefAnswersFromFlags(args), index, loadRecipes());
       const result = handoffSheet(index, frames, {
         draft: args.includes("--draft"),
         recipe: flag(args, "recipe"),
@@ -507,6 +535,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
         placeholders: readPlaceholders(),
         rules: readLibraryRules(flag(args, "rules")),
         decisions: readApprovedDecisions(),
+        ...(briefing.length ? { briefing } : {}),
         depth,
       });
       const json = args.includes("--json");

@@ -201,6 +201,8 @@ export interface HandoffScreen {
   ingredients: HandoffIngredient[];
   verify: { pass: boolean; approved: number; retired: string[]; invents: string[]; unresolved: string[]; checked?: "components"; note?: string };
   decisions: HandoffDecision[];
+  /** Briefing answers for this screen, when the caller passed them. */
+  briefing?: string[];
   openQuestions: string[];
   summary: {
     components: number;

@@ -29,6 +29,8 @@ export interface HandoffInput {
   placeholders?: string[];
   rules?: { allow?: string[]; deny?: string[] };
   decisions?: HandoffDecisionInput[];
+  /** Answered briefing lines, already resolved to library names. */
+  briefing?: string[];
   depth?: number;
   maxCharsPerCard?: number;
 }
@@ -100,7 +102,7 @@ export function handoffSheet(index: GraphIndex, frames: string[], input: Handoff
     frame: (ask) => findFrame(index, ask),
     fillRecipe: (recipe) => fillRecipe(index, recipe, undefined, input.context, input.workspace, input.sock, input.bindRules, input.placeholders),
   };
-  return buildHandoff(index, frames, hooks, {
+  const pack = buildHandoff(index, frames, hooks, {
     draft: input.draft,
     recipe: input.recipe,
     recipes: input.recipes,
@@ -110,4 +112,6 @@ export function handoffSheet(index: GraphIndex, frames: string[], input: Handoff
     depth: input.depth,
     maxCharsPerCard: input.maxCharsPerCard,
   });
+  if (!pack.ok || !input.briefing?.length) return pack;
+  return { ...pack, screens: pack.screens.map((screen) => ({ ...screen, briefing: input.briefing })) };
 }

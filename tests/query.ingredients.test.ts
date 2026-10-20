@@ -641,7 +641,7 @@ describe("ingredients command and MCP tool", () => {
 
   it("get_ingredients is advanced only; the default MCP surface stays at 7 tools", () => {
     delete process.env["RESOLVE_MCP_ADVANCED"];
-    expect(listToolDefinitions(false)).toHaveLength(7);
+    expect(listToolDefinitions(false)).toHaveLength(8);
     expect(listToolDefinitions(false).map((t) => t.name)).not.toContain("get_ingredients");
     expect(() => callTool("get_ingredients", { name: "Payee picker" })).toThrow("not on the default MCP surface");
     process.env["RESOLVE_MCP_ADVANCED"] = "1";

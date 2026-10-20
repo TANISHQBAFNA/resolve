@@ -210,12 +210,30 @@ Once Resolve is installed, type these in the chat of Claude Code or Cursor. Each
 |---|---|---|
 | `/design-system <link>` | Resolve learns that Figma file (or page, or frame) and saves its components on your computer. A very big file is learned page by page. Running it again is safe. | How many components, how many are retired, which icon libraries are known, where it was saved, and what is still left. |
 | `/find <phrase>` | Resolve picks the right component for your words, for example `/find payee picker`. | A confident pick: the component, its Figma id, and a one-line reason. A weak match is shown as weak, with that one-line reason. It is never presented as a sure thing. Or "no match". |
+| `/brief <screen>` | Before it picks parts for a screen, Resolve asks at most 3 multiple-choice questions. It only asks when the answer would change the component. The choices are real parts from the library you learned. | The questions, or a ready answer with the assumptions and the parts to use. "Just build" skips the questions and shows what was assumed. |
 | `/check <link>` | Resolve checks a finished screen. | Three short lists: **Retired** (old components still on the screen), **Wrong** (a lookalike from the wrong family) and **Unknown** (not in the library). Or "passed". |
 | `/parts <link>` | What's on this screen and its code twin (or unmapped). For example a link to the Acme "Send money" screen. | Each component on the screen, its Figma id, and its code twin, or the word unmapped. |
 | `/handoff <link>` | The developer build sheet for that screen. | Every component with its Figma id and code, the parts inside, which recipe slots are filled, the check result and open questions. Or the reason it refused. |
 | `/resolve-status` | One short answer about this project. | Which libraries are loaded, when each was learned, its version if known, whether the Figma token is set, whether the always-on rule is installed, and what to do next. |
 
 Resolve's ticket add-on for AIDLC, if your team uses it, uses `design-handoff`. It calls `/handoff` for the build sheet. It does not replace that command.
+
+### Brief a screen
+
+Use this when you know the screen you want, and you do not yet know which parts to place.
+
+`/brief show recent payments` (or `resolve brief "show recent payments"`) looks at four things only:
+
+1. What the person is doing on the screen (the user goal).
+2. Phone or desktop, and compact or comfortable density, when the library has different components for those.
+3. Which states matter: empty, loading, error, pending.
+4. The shape of the data: a table or a card list, a form, a summary, or counts.
+
+Each question is multiple choice. The choices are components Resolve already learned. A made-up example, once those parts are in the library: "Data Table or Card List: compare rows or scan items?"
+
+Resolve asks at most 3 questions. It does not ask when the answer would not change the component. It does not ask when your words already answered that topic, when a saved recipe matches, when an approved screen decision matches, or when only one component fits. If you say "just build", it asks nothing and lists the assumptions it used.
+
+Pass an answer with `--answer shape=table` (topics: `goal`, `platform`, `states`, `shape`). The same answers go into `recommend` and show on the handoff sheet under Briefing. Resolve does not ask who the person is, what the visual style should be, or about a ticket or a regulation.
 
 Setup (`resolve-setup`) puts these files in your project: `.claude/commands/` for Claude Code and `.cursor/commands/` for Cursor. Your AI tool shows them when you type `/`. Codex has no project commands; with Codex, say the same thing in words ("check this screen with Resolve: link"). Other tools can read the same commands as MCP prompts. To update them, run setup again. To remove everything Resolve added, ask your AI tool to run `resolve-setup --uninstall`; your own files and text stay.
 
@@ -483,7 +501,8 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `ingest <file.json \| file.xml \| figma-url \| file-key>` | Reads a Figma file and adds it to the workspace. |
 | `learn --file-key <key>` | Same as the MCP `learn_library` tool: load a file from Figma `get_metadata` XML. |
 | `recipe [list \| "<name>"]` | Screen packs: the list of components a screen of that kind usually needs. |
-| `recommend "<intent>"` | Ranked library components for a plain-words ask. |
+| `brief "<screen request>"` | Asks at most 3 multiple-choice questions before a screen is picked, and only when the answer would change the component. `--answer shape=table` passes an answer (topics: goal, platform, states, shape). |
+| `recommend "<intent>"` | Ranked library components for a plain-words ask. `--answer <topic>=<option>` uses a briefing answer. |
 | `example "<name>"` | The real, filled-in instance behind a pick, to copy. |
 | `resolve "<name>"` | "I know the name, give me the id." |
 | `verify "<frame>"` | Pass/fail check of a drawn frame or a list of components. |
@@ -1051,6 +1070,7 @@ To apply: set Variant=Secondary, Has icon=true
 
 Newest first. Dates are the day each pull request was merged on GitHub (UTC). "Tests" is the number of tests in the repo at that change (counted by running the suite on the commit).
 
+- **Oct 20, 2026 — Briefing v1.** On a screen request, `brief` (also `resolve brief` and `/brief`) asks at most 3 multiple-choice questions before `recommend`. Topics are the user goal, platform and density, the states that matter (empty, loading, error, pending), and the data shape (list, form, summary, counts). Options are live parts from the learned library. A question is skipped when the request already answers it, a saved recipe or an approved screen decision matches, only one candidate fits, or the designer says "just build" (the assumptions are logged). Answers are passed to `recommend` and shown on the handoff sheet. No new store. 35 synthetic Acme screen requests: at most 3 questions each, 1 question per screen on average, and every asked question changed the pick. Phrase score unchanged: top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0. Default tools are 8 (`brief` joined the list). 913 tests.
 - **Oct 20, 2026 — [PR #61](https://github.com/TANISHQBAFNA/resolve/pull/61).** JSON `pass` on `resolve check`, `resolve verify`, and MCP `verify_frame` is false whenever the verdict exit code is not 0, including proper-use exit 7. The text card still leads with `Components: PASS` when the component check passed. `resolve status` keeps printing local time with a zone label. `.npmrc` sets `engine-strict=true`, and the test setup throws one message when Node is older than 22.12. CI reads `scoreboard/phrase-baseline.json` and fails if top-1 drops below 83/88 or top-3 below 85/88. The same jobs run on Node 22 and 24, in UTC and Asia/Kolkata. Browser checks add Firefox. Phrase score unchanged: top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0.
 - **Oct 20, 2026 — [PR #64](https://github.com/TANISHQBAFNA/resolve/pull/64).** Docs only. The README pictures, logo and version badge use a brighter teal (#2DD4BF). In light mode, words are near-black and the teal is in fills, chips and underlines, with a thin dark outline. PASS stays green. Tests: unchanged.
 - **Oct 20, 2026 — [PR #62](https://github.com/TANISHQBAFNA/resolve/pull/62).** Docs only. The README pictures, logo and version badge changed from purple to bright teal (#14B8A6). PASS stays green. Tests: unchanged.
