@@ -27,7 +27,7 @@ One module owns each shared rule. Call it. Do not copy it.
 2. If two modules need the same helper, put the helper in `src/core/rules/` or next to the feature, and delete the copy.
 3. Print the card through `presentToolResult`. Do not write a second formatter for the CLI.
 4. Context packs stay. They are where a team adds its own words and property hints (`.resolve/context-packs.json`). Do not mark them deprecated.
-5. The default MCP list is exactly the seven names in `DEFAULT_TOOL_NAMES`. A new tool is off that list unless a product decision says otherwise. A test locks the seven names.
+5. The default MCP list is the eight names in `DEFAULT_TOOL_NAMES`, including `brief`. A new tool besides those is off that list unless a product decision says otherwise. A test locks the names.
 
 `query/communities.ts` and `core/layout/force.ts` still exist for tests. They do not draw a screen. The old `orient` MCP tool is gone; use `recommend` or `recipe`.
 

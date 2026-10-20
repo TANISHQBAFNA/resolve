@@ -90,6 +90,7 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
     out.push(c.status === "other-library" && placed ? `- Figma: placed as ${md(c.copies.join(", "))}${c.count > c.copies.length ? `, +${c.count - c.copies.length} more` : ""}; ${figma}${c.slot ? `; recipe slot: ${md(c.slot)}` : ""}` : `- Figma: ${figma}${placed}${c.slot ? `; recipe slot: ${md(c.slot)}` : ""}`);
     if (c.identity === NAME_GUESS) out.push("- Identity: **name-guess** (from the layer name, not confirmed)");
     if (c.identity === "not-found") out.push("- Identity: **not-found** (the copy's component is in no learned file)");
+    if (c.identity === "to-add") out.push("- Identity: **to-add** (picked by a briefing answer; not placed on this screen yet)");
     out.push(`- Code: ${c.status === "other-library" ? "unknown (its library file is not learned)" : c.code === "unknown" ? "unknown (its component is not in the learned files)" : codeLine(c.code, undefined)}`);
     if (c.angular) out.push(`- Angular: ${ng(c.angular, true)}${c.angular.standalone ? " (add the component to `imports`)" : c.angular.module ? ` (import \`${c.angular.module}\` from '${c.angular.importPath}')` : ""}`);
     if (c.figmaProps) {
@@ -129,6 +130,10 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   out.push("", "## Decisions", "");
   if (s.decisions.length) for (const d of s.decisions) out.push(`- ${whenText(d.when)}, ${md(d.who)}: ${md(d.summary)}${d.why !== d.summary ? ` Why: ${md(d.why)}` : ""} (\`${d.proposalId}\`)`);
   else out.push("None approved for this screen yet.");
+  if (s.briefing?.length) {
+    out.push("", "## Briefing", "");
+    for (const line of s.briefing) out.push(`- ${md(line)}`);
+  }
   out.push("", "## Open questions", "");
   out.push(...(s.openQuestions.length ? s.openQuestions.map((q) => `- ${md(q)}`) : ["None."]));
   return `${out.join("\n")}\n`;

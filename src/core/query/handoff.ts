@@ -124,8 +124,8 @@ export interface HandoffComponent {
   count: number;
   /** Placed copies on this screen (Figma ids, first 10; `count` has them all). */
   copies: string[];
-  /** `not-found`: the copy's component is in no learned file (draft only). */
-  identity: "confirmed" | typeof NAME_GUESS | "not-found";
+  /** `not-found`: the copy's component is in no learned file (draft only). `to-add`: a briefing answer picked it; not placed yet. */
+  identity: "confirmed" | typeof NAME_GUESS | "not-found" | "to-add";
   /** `other-library`: from a library file that is not learned (no Figma id of this file, code unknown). */
   status: "current" | "retired" | "not-found" | "other-library";
   slot?: string;
@@ -203,6 +203,8 @@ export interface HandoffScreen {
   ingredients: HandoffIngredient[];
   verify: { pass: boolean; approved: number; retired: string[]; invents: string[]; unresolved: string[]; checked?: "components"; note?: string };
   decisions: HandoffDecision[];
+  /** Briefing answers for this screen, when the caller passed them. */
+  briefing?: string[];
   openQuestions: string[];
   summary: {
     components: number;
