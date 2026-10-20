@@ -1,0 +1,4555 @@
+{
+  "name": "Material 3",
+  "version": "public-spec-2026-10-20",
+  "lastModified": "2026-10-20T00:00:00.000Z",
+  "fileKey": "M3SPEC",
+  "document": {
+    "id": "0:0",
+    "name": "Document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "1:24",
+        "name": "Actions",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "1:1",
+            "name": "Button",
+            "type": "COMPONENT_SET",
+            "description": "Five button types from the Material 3 spec.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/buttons/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 640,
+              "height": 160
+            },
+            "componentPropertyDefinitions": {
+              "Type": {
+                "type": "VARIANT",
+                "defaultValue": "Filled",
+                "variantOptions": [
+                  "Filled",
+                  "Outlined",
+                  "Text",
+                  "Elevated",
+                  "Tonal"
+                ]
+              },
+              "Label": {
+                "type": "TEXT",
+                "defaultValue": "Button"
+              },
+              "Disabled": {
+                "type": "BOOLEAN",
+                "defaultValue": false
+              },
+              "Icon": {
+                "type": "SLOT"
+              }
+            },
+            "children": [
+              {
+                "id": "1:2",
+                "name": "Type=Filled",
+                "type": "COMPONENT",
+                "description": "Five button types from the Material 3 spec.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/buttons/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:1",
+                "boundVariables": {
+                  "fills": [
+                    {
+                      "type": "VARIABLE_ALIAS",
+                      "id": "VariableID:color:primary"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "1:3",
+                "name": "Type=Outlined",
+                "type": "COMPONENT",
+                "description": "Five button types from the Material 3 spec.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/buttons/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:1"
+              },
+              {
+                "id": "1:4",
+                "name": "Type=Text",
+                "type": "COMPONENT",
+                "description": "Five button types from the Material 3 spec.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/buttons/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:1"
+              },
+              {
+                "id": "1:5",
+                "name": "Type=Elevated",
+                "type": "COMPONENT",
+                "description": "Five button types from the Material 3 spec.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/buttons/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:1"
+              },
+              {
+                "id": "1:6",
+                "name": "Type=Tonal",
+                "type": "COMPONENT",
+                "description": "Five button types from the Material 3 spec.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/buttons/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:1"
+              }
+            ]
+          },
+          {
+            "id": "1:7",
+            "name": "Icon button",
+            "type": "COMPONENT_SET",
+            "description": "Icon button. Standard, filled, tonal, and outlined.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/icon-buttons/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 640,
+              "height": 160
+            },
+            "componentPropertyDefinitions": {
+              "Type": {
+                "type": "VARIANT",
+                "defaultValue": "Standard",
+                "variantOptions": [
+                  "Standard",
+                  "Filled",
+                  "Tonal",
+                  "Outlined"
+                ]
+              },
+              "Toggle": {
+                "type": "BOOLEAN",
+                "defaultValue": false
+              }
+            },
+            "children": [
+              {
+                "id": "1:8",
+                "name": "Type=Standard",
+                "type": "COMPONENT",
+                "description": "Icon button. Standard, filled, tonal, and outlined.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/icon-buttons/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:7",
+                "boundVariables": {
+                  "fills": [
+                    {
+                      "type": "VARIABLE_ALIAS",
+                      "id": "VariableID:color:primary"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "1:9",
+                "name": "Type=Filled",
+                "type": "COMPONENT",
+                "description": "Icon button. Standard, filled, tonal, and outlined.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/icon-buttons/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:7"
+              },
+              {
+                "id": "1:10",
+                "name": "Type=Tonal",
+                "type": "COMPONENT",
+                "description": "Icon button. Standard, filled, tonal, and outlined.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/icon-buttons/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:7"
+              },
+              {
+                "id": "1:11",
+                "name": "Type=Outlined",
+                "type": "COMPONENT",
+                "description": "Icon button. Standard, filled, tonal, and outlined.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/icon-buttons/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:7"
+              }
+            ]
+          },
+          {
+            "id": "1:12",
+            "name": "FAB",
+            "type": "COMPONENT_SET",
+            "description": "Floating action button. Small, regular, and large.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/floating-action-button/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 640,
+              "height": 160
+            },
+            "componentPropertyDefinitions": {
+              "Size": {
+                "type": "VARIANT",
+                "defaultValue": "Small",
+                "variantOptions": [
+                  "Small",
+                  "Regular",
+                  "Large"
+                ]
+              },
+              "Icon": {
+                "type": "SLOT"
+              }
+            },
+            "children": [
+              {
+                "id": "1:13",
+                "name": "Size=Small",
+                "type": "COMPONENT",
+                "description": "Floating action button. Small, regular, and large.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/floating-action-button/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:12",
+                "boundVariables": {
+                  "fills": [
+                    {
+                      "type": "VARIABLE_ALIAS",
+                      "id": "VariableID:color:primary-container"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "1:14",
+                "name": "Size=Regular",
+                "type": "COMPONENT",
+                "description": "Floating action button. Small, regular, and large.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/floating-action-button/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:12"
+              },
+              {
+                "id": "1:15",
+                "name": "Size=Large",
+                "type": "COMPONENT",
+                "description": "Floating action button. Small, regular, and large.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/floating-action-button/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:12"
+              }
+            ]
+          },
+          {
+            "id": "1:17",
+            "name": "Mini FAB",
+            "type": "COMPONENT",
+            "description": "Small floating action button.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/floating-action-button/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:primary-container"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Icon": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:18",
+            "name": "Extended FAB",
+            "type": "COMPONENT_SET",
+            "description": "Floating action button with a label.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/floating-action-button/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 640,
+              "height": 160
+            },
+            "componentPropertyDefinitions": {
+              "Size": {
+                "type": "VARIANT",
+                "defaultValue": "Small",
+                "variantOptions": [
+                  "Small",
+                  "Medium",
+                  "Large"
+                ]
+              },
+              "Label": {
+                "type": "TEXT",
+                "defaultValue": "Create"
+              },
+              "Icon": {
+                "type": "SLOT"
+              }
+            },
+            "children": [
+              {
+                "id": "1:19",
+                "name": "Size=Small",
+                "type": "COMPONENT",
+                "description": "Floating action button with a label.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/floating-action-button/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:18",
+                "boundVariables": {
+                  "fills": [
+                    {
+                      "type": "VARIABLE_ALIAS",
+                      "id": "VariableID:color:primary-container"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "1:20",
+                "name": "Size=Medium",
+                "type": "COMPONENT",
+                "description": "Floating action button with a label.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/floating-action-button/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:18"
+              },
+              {
+                "id": "1:21",
+                "name": "Size=Large",
+                "type": "COMPONENT",
+                "description": "Floating action button with a label.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/floating-action-button/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:18"
+              }
+            ]
+          },
+          {
+            "id": "1:23",
+            "name": "Button toggle",
+            "type": "COMPONENT",
+            "description": "Segmented button. Single or multi select.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/segmented-buttons/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:secondary-container"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Selected": {
+                "type": "BOOLEAN",
+                "defaultValue": false
+              },
+              "Label": {
+                "type": "TEXT",
+                "defaultValue": "Option"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "1:35",
+        "name": "Communication",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "1:26",
+            "name": "Badge",
+            "type": "COMPONENT",
+            "description": "Small status mark on another part.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/badges/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:error"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Label": {
+                "type": "TEXT",
+                "defaultValue": "1"
+              }
+            }
+          },
+          {
+            "id": "1:28",
+            "name": "Progress bar",
+            "type": "COMPONENT",
+            "description": "Linear progress indicator.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/progress-indicators/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:primary"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Indeterminate": {
+                "type": "BOOLEAN",
+                "defaultValue": false
+              }
+            }
+          },
+          {
+            "id": "1:30",
+            "name": "Progress spinner",
+            "type": "COMPONENT",
+            "description": "Circular progress indicator.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/progress-indicators/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:primary"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Indeterminate": {
+                "type": "BOOLEAN",
+                "defaultValue": true
+              }
+            }
+          },
+          {
+            "id": "1:32",
+            "name": "Snackbar",
+            "type": "COMPONENT",
+            "description": "Brief message at the bottom of the screen.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/snackbar/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:inverse-surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Message": {
+                "type": "TEXT",
+                "defaultValue": "Saved"
+              },
+              "Action": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:34",
+            "name": "Tooltip",
+            "type": "COMPONENT",
+            "description": "Label for an icon-only control.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/tooltips/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:inverse-surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Label": {
+                "type": "TEXT",
+                "defaultValue": "More"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "1:55",
+        "name": "Containment",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "1:37",
+            "name": "Bottom sheet",
+            "type": "COMPONENT",
+            "description": "Surface that slides up from the bottom.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/bottom-sheets/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Content": {
+                "type": "SLOT"
+              },
+              "Actions": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:38",
+            "name": "Card",
+            "type": "COMPONENT_SET",
+            "description": "Elevated, filled, and outlined cards.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/cards/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 640,
+              "height": 160
+            },
+            "componentPropertyDefinitions": {
+              "Type": {
+                "type": "VARIANT",
+                "defaultValue": "Elevated",
+                "variantOptions": [
+                  "Elevated",
+                  "Filled",
+                  "Outlined"
+                ]
+              },
+              "Media": {
+                "type": "SLOT"
+              },
+              "Content": {
+                "type": "SLOT"
+              },
+              "Actions": {
+                "type": "SLOT"
+              }
+            },
+            "children": [
+              {
+                "id": "1:39",
+                "name": "Type=Elevated",
+                "type": "COMPONENT",
+                "description": "Elevated, filled, and outlined cards.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/cards/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:38",
+                "boundVariables": {
+                  "fills": [
+                    {
+                      "type": "VARIABLE_ALIAS",
+                      "id": "VariableID:color:surface"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "1:40",
+                "name": "Type=Filled",
+                "type": "COMPONENT",
+                "description": "Elevated, filled, and outlined cards.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/cards/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:38"
+              },
+              {
+                "id": "1:41",
+                "name": "Type=Outlined",
+                "type": "COMPONENT",
+                "description": "Elevated, filled, and outlined cards.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/cards/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:38"
+              }
+            ]
+          },
+          {
+            "id": "1:42",
+            "name": "Dialog",
+            "type": "COMPONENT_SET",
+            "description": "Basic dialog and full-screen dialog.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/dialogs/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 640,
+              "height": 160
+            },
+            "componentPropertyDefinitions": {
+              "Type": {
+                "type": "VARIANT",
+                "defaultValue": "Basic",
+                "variantOptions": [
+                  "Basic",
+                  "Full-screen"
+                ]
+              },
+              "Headline": {
+                "type": "TEXT",
+                "defaultValue": "Title"
+              },
+              "Content": {
+                "type": "SLOT"
+              },
+              "Actions": {
+                "type": "SLOT"
+              }
+            },
+            "children": [
+              {
+                "id": "1:43",
+                "name": "Type=Basic",
+                "type": "COMPONENT",
+                "description": "Basic dialog and full-screen dialog.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/dialogs/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:42",
+                "boundVariables": {
+                  "fills": [
+                    {
+                      "type": "VARIABLE_ALIAS",
+                      "id": "VariableID:color:surface"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "1:44",
+                "name": "Type=Full-screen",
+                "type": "COMPONENT",
+                "description": "Basic dialog and full-screen dialog.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/dialogs/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:42"
+              }
+            ]
+          },
+          {
+            "id": "1:46",
+            "name": "Divider",
+            "type": "COMPONENT",
+            "description": "Hairline between items.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/divider/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:outline-variant"
+                }
+              ]
+            }
+          },
+          {
+            "id": "1:48",
+            "name": "List",
+            "type": "COMPONENT",
+            "description": "Vertical list of rows.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/lists/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Rows": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:49",
+            "name": "List item",
+            "type": "COMPONENT_SET",
+            "description": "One, two, or three line row.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/lists/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 640,
+              "height": 160
+            },
+            "componentPropertyDefinitions": {
+              "Lines": {
+                "type": "VARIANT",
+                "defaultValue": "One",
+                "variantOptions": [
+                  "One",
+                  "Two",
+                  "Three"
+                ]
+              },
+              "Leading": {
+                "type": "SLOT"
+              },
+              "Headline": {
+                "type": "TEXT",
+                "defaultValue": "Title"
+              },
+              "Trailing": {
+                "type": "SLOT"
+              }
+            },
+            "children": [
+              {
+                "id": "1:50",
+                "name": "Lines=One",
+                "type": "COMPONENT",
+                "description": "One, two, or three line row.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/lists/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:49",
+                "boundVariables": {
+                  "fills": [
+                    {
+                      "type": "VARIABLE_ALIAS",
+                      "id": "VariableID:color:surface"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "1:51",
+                "name": "Lines=Two",
+                "type": "COMPONENT",
+                "description": "One, two, or three line row.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/lists/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:49"
+              },
+              {
+                "id": "1:52",
+                "name": "Lines=Three",
+                "type": "COMPONENT",
+                "description": "One, two, or three line row.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/lists/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:49"
+              }
+            ]
+          },
+          {
+            "id": "1:54",
+            "name": "Side sheet",
+            "type": "COMPONENT",
+            "description": "Sheet docked to the side. Material 3 has no separate Angular class for this.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/side-sheets/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Content": {
+                "type": "SLOT"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "1:69",
+        "name": "Navigation",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "1:57",
+            "name": "Navigation bar",
+            "type": "COMPONENT",
+            "description": "Bottom navigation. Material 3. No matching Angular Material class.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/navigation-bar/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Destinations": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:59",
+            "name": "Navigation rail",
+            "type": "COMPONENT",
+            "description": "Side rail for a few destinations. No matching Angular Material class.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/navigation-rail/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Destinations": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:61",
+            "name": "Sidenav",
+            "type": "COMPONENT",
+            "description": "Navigation drawer.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/navigation-drawer/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Content": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:63",
+            "name": "Tabs",
+            "type": "COMPONENT",
+            "description": "Tabs.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/tabs/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:primary"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Tabs": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:64",
+            "name": "Toolbar",
+            "type": "COMPONENT_SET",
+            "description": "Top app bar.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/top-app-bar/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 640,
+              "height": 160
+            },
+            "componentPropertyDefinitions": {
+              "Type": {
+                "type": "VARIANT",
+                "defaultValue": "Center aligned",
+                "variantOptions": [
+                  "Center aligned",
+                  "Small",
+                  "Medium",
+                  "Large"
+                ]
+              },
+              "Title": {
+                "type": "TEXT",
+                "defaultValue": "Title"
+              },
+              "Trailing": {
+                "type": "SLOT"
+              }
+            },
+            "children": [
+              {
+                "id": "1:65",
+                "name": "Type=Center aligned",
+                "type": "COMPONENT",
+                "description": "Top app bar.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/top-app-bar/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:64",
+                "boundVariables": {
+                  "fills": [
+                    {
+                      "type": "VARIABLE_ALIAS",
+                      "id": "VariableID:color:surface"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "1:66",
+                "name": "Type=Small",
+                "type": "COMPONENT",
+                "description": "Top app bar.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/top-app-bar/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:64"
+              },
+              {
+                "id": "1:67",
+                "name": "Type=Medium",
+                "type": "COMPONENT",
+                "description": "Top app bar.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/top-app-bar/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:64"
+              },
+              {
+                "id": "1:68",
+                "name": "Type=Large",
+                "type": "COMPONENT",
+                "description": "Top app bar.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/top-app-bar/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:64"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "1:91",
+        "name": "Selection",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "1:71",
+            "name": "Checkbox",
+            "type": "COMPONENT",
+            "description": "Select one or more.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/checkbox/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:primary"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Checked": {
+                "type": "BOOLEAN",
+                "defaultValue": false
+              }
+            }
+          },
+          {
+            "id": "1:72",
+            "name": "Chip",
+            "type": "COMPONENT_SET",
+            "description": "Assist, filter, input, and suggestion chips.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/chips/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 640,
+              "height": 160
+            },
+            "componentPropertyDefinitions": {
+              "Type": {
+                "type": "VARIANT",
+                "defaultValue": "Assist",
+                "variantOptions": [
+                  "Assist",
+                  "Filter",
+                  "Input",
+                  "Suggestion"
+                ]
+              },
+              "Label": {
+                "type": "TEXT",
+                "defaultValue": "Chip"
+              },
+              "Selected": {
+                "type": "BOOLEAN",
+                "defaultValue": false
+              },
+              "Leading": {
+                "type": "SLOT"
+              }
+            },
+            "children": [
+              {
+                "id": "1:73",
+                "name": "Type=Assist",
+                "type": "COMPONENT",
+                "description": "Assist, filter, input, and suggestion chips.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/chips/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:72",
+                "boundVariables": {
+                  "fills": [
+                    {
+                      "type": "VARIABLE_ALIAS",
+                      "id": "VariableID:color:secondary-container"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "1:74",
+                "name": "Type=Filter",
+                "type": "COMPONENT",
+                "description": "Assist, filter, input, and suggestion chips.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/chips/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:72"
+              },
+              {
+                "id": "1:75",
+                "name": "Type=Input",
+                "type": "COMPONENT",
+                "description": "Assist, filter, input, and suggestion chips.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/chips/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:72"
+              },
+              {
+                "id": "1:76",
+                "name": "Type=Suggestion",
+                "type": "COMPONENT",
+                "description": "Assist, filter, input, and suggestion chips.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/chips/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:72"
+              }
+            ]
+          },
+          {
+            "id": "1:78",
+            "name": "Date picker",
+            "type": "COMPONENT",
+            "description": "Pick a date.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/date-pickers/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Headline": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:80",
+            "name": "Menu",
+            "type": "COMPONENT",
+            "description": "List of choices anchored to a control.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/menus/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Items": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:82",
+            "name": "Radio button",
+            "type": "COMPONENT",
+            "description": "Pick one of a set.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/radio-button/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:primary"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Checked": {
+                "type": "BOOLEAN",
+                "defaultValue": false
+              }
+            }
+          },
+          {
+            "id": "1:84",
+            "name": "Slider",
+            "type": "COMPONENT",
+            "description": "Pick a value along a track.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/sliders/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:primary"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Value": {
+                "type": "TEXT",
+                "defaultValue": "40"
+              }
+            }
+          },
+          {
+            "id": "1:86",
+            "name": "Slide toggle",
+            "type": "COMPONENT",
+            "description": "Switch. On or off.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/switch/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:primary"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Checked": {
+                "type": "BOOLEAN",
+                "defaultValue": false
+              }
+            }
+          },
+          {
+            "id": "1:88",
+            "name": "Time picker",
+            "type": "COMPONENT",
+            "description": "Pick a time.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/time-pickers/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Headline": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:90",
+            "name": "Select",
+            "type": "COMPONENT",
+            "description": "Closed menu of options. Angular Material select. Material 3 uses a menu for this job.",
+            "documentationLinks": [
+              {
+                "uri": "https://material.angular.dev/components/categories"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Label": {
+                "type": "TEXT",
+                "defaultValue": "Choose"
+              },
+              "Options": {
+                "type": "SLOT"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "1:99",
+        "name": "Text inputs",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "1:92",
+            "name": "Text field",
+            "type": "COMPONENT_SET",
+            "description": "Filled and outlined text fields.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/text-fields/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 640,
+              "height": 160
+            },
+            "componentPropertyDefinitions": {
+              "Type": {
+                "type": "VARIANT",
+                "defaultValue": "Filled",
+                "variantOptions": [
+                  "Filled",
+                  "Outlined"
+                ]
+              },
+              "Label": {
+                "type": "TEXT",
+                "defaultValue": "Label"
+              },
+              "Supporting text": {
+                "type": "TEXT",
+                "defaultValue": ""
+              },
+              "Error": {
+                "type": "BOOLEAN",
+                "defaultValue": false
+              },
+              "Leading": {
+                "type": "SLOT"
+              },
+              "Trailing": {
+                "type": "SLOT"
+              }
+            },
+            "children": [
+              {
+                "id": "1:93",
+                "name": "Type=Filled",
+                "type": "COMPONENT",
+                "description": "Filled and outlined text fields.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/text-fields/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:92",
+                "boundVariables": {
+                  "fills": [
+                    {
+                      "type": "VARIABLE_ALIAS",
+                      "id": "VariableID:color:surface"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "1:94",
+                "name": "Type=Outlined",
+                "type": "COMPONENT",
+                "description": "Filled and outlined text fields.",
+                "documentationLinks": [
+                  {
+                    "uri": "https://m3.material.io/components/text-fields/overview"
+                  }
+                ],
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 200,
+                  "height": 48
+                },
+                "componentSetId": "1:92"
+              }
+            ]
+          },
+          {
+            "id": "1:96",
+            "name": "Form field",
+            "type": "COMPONENT",
+            "description": "Label, hint, and error around an input.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/text-fields/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Label": {
+                "type": "TEXT",
+                "defaultValue": "Label"
+              },
+              "Input": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:98",
+            "name": "Search bar",
+            "type": "COMPONENT",
+            "description": "Search. Material 3 search. Angular Material has no search-bar class.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/search/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Query": {
+                "type": "TEXT",
+                "defaultValue": "Search"
+              },
+              "Leading": {
+                "type": "SLOT"
+              },
+              "Trailing": {
+                "type": "SLOT"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "1:118",
+        "name": "Collections",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "1:101",
+            "name": "Table",
+            "type": "COMPONENT",
+            "description": "Data table.",
+            "documentationLinks": [
+              {
+                "uri": "https://material.angular.dev/components/categories"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Header": {
+                "type": "SLOT"
+              },
+              "Rows": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:103",
+            "name": "Paginator",
+            "type": "COMPONENT",
+            "description": "Pages of a table.",
+            "documentationLinks": [
+              {
+                "uri": "https://material.angular.dev/components/categories"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Label": {
+                "type": "TEXT",
+                "defaultValue": "1–10 of 40"
+              }
+            }
+          },
+          {
+            "id": "1:105",
+            "name": "Stepper",
+            "type": "COMPONENT",
+            "description": "Steps in a task.",
+            "documentationLinks": [
+              {
+                "uri": "https://material.angular.dev/components/categories"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Steps": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:107",
+            "name": "Expansion panel",
+            "type": "COMPONENT",
+            "description": "A row that opens to show more.",
+            "documentationLinks": [
+              {
+                "uri": "https://material.angular.dev/components/categories"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Title": {
+                "type": "TEXT",
+                "defaultValue": "Details"
+              },
+              "Content": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:109",
+            "name": "Autocomplete",
+            "type": "COMPONENT",
+            "description": "Text field with suggested options.",
+            "documentationLinks": [
+              {
+                "uri": "https://material.angular.dev/components/categories"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Options": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:111",
+            "name": "Icon",
+            "type": "COMPONENT",
+            "description": "Icon glyph.",
+            "documentationLinks": [
+              {
+                "uri": "https://material.angular.dev/components/categories"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:on-surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Name": {
+                "type": "TEXT",
+                "defaultValue": "search"
+              }
+            }
+          },
+          {
+            "id": "1:113",
+            "name": "Sort",
+            "type": "COMPONENT",
+            "description": "Sortable column header.",
+            "documentationLinks": [
+              {
+                "uri": "https://material.angular.dev/components/categories"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:on-surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Active": {
+                "type": "BOOLEAN",
+                "defaultValue": false
+              }
+            }
+          },
+          {
+            "id": "1:115",
+            "name": "Grid list",
+            "type": "COMPONENT",
+            "description": "Tiles in a grid.",
+            "documentationLinks": [
+              {
+                "uri": "https://material.angular.dev/components/categories"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Tiles": {
+                "type": "SLOT"
+              }
+            }
+          },
+          {
+            "id": "1:117",
+            "name": "Tree",
+            "type": "COMPONENT",
+            "description": "Nested rows.",
+            "documentationLinks": [
+              {
+                "uri": "https://material.angular.dev/components/categories"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:surface"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Nodes": {
+                "type": "SLOT"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "1:120",
+        "name": "Screens",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "1:119",
+            "name": "Sign in",
+            "type": "FRAME",
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 390,
+              "height": 844
+            },
+            "children": [
+              {
+                "id": "1:121",
+                "name": "Toolbar",
+                "type": "INSTANCE",
+                "componentId": "1:65",
+                "absoluteBoundingBox": {
+                  "x": 16,
+                  "y": 16,
+                  "width": 358,
+                  "height": 48
+                }
+              },
+              {
+                "id": "1:122",
+                "name": "Text field",
+                "type": "INSTANCE",
+                "componentId": "1:93",
+                "absoluteBoundingBox": {
+                  "x": 16,
+                  "y": 16,
+                  "width": 358,
+                  "height": 48
+                }
+              },
+              {
+                "id": "1:123",
+                "name": "Text field",
+                "type": "INSTANCE",
+                "componentId": "1:93",
+                "absoluteBoundingBox": {
+                  "x": 16,
+                  "y": 16,
+                  "width": 358,
+                  "height": 48
+                }
+              },
+              {
+                "id": "1:124",
+                "name": "Checkbox",
+                "type": "INSTANCE",
+                "componentId": "1:71",
+                "absoluteBoundingBox": {
+                  "x": 16,
+                  "y": 16,
+                  "width": 358,
+                  "height": 48
+                }
+              },
+              {
+                "id": "1:125",
+                "name": "Button",
+                "type": "INSTANCE",
+                "componentId": "1:2",
+                "absoluteBoundingBox": {
+                  "x": 16,
+                  "y": 16,
+                  "width": 358,
+                  "height": 48
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "components": {
+    "1:2": {
+      "key": "m3spec-button-type-filled",
+      "name": "Type=Filled",
+      "description": "Five button types from the Material 3 spec.",
+      "componentSetId": "1:1"
+    },
+    "1:3": {
+      "key": "m3spec-button-type-outlined",
+      "name": "Type=Outlined",
+      "description": "Five button types from the Material 3 spec.",
+      "componentSetId": "1:1"
+    },
+    "1:4": {
+      "key": "m3spec-button-type-text",
+      "name": "Type=Text",
+      "description": "Five button types from the Material 3 spec.",
+      "componentSetId": "1:1"
+    },
+    "1:5": {
+      "key": "m3spec-button-type-elevated",
+      "name": "Type=Elevated",
+      "description": "Five button types from the Material 3 spec.",
+      "componentSetId": "1:1"
+    },
+    "1:6": {
+      "key": "m3spec-button-type-tonal",
+      "name": "Type=Tonal",
+      "description": "Five button types from the Material 3 spec.",
+      "componentSetId": "1:1"
+    },
+    "1:8": {
+      "key": "m3spec-icon-button-type-standard",
+      "name": "Type=Standard",
+      "description": "Icon button. Standard, filled, tonal, and outlined.",
+      "componentSetId": "1:7"
+    },
+    "1:9": {
+      "key": "m3spec-icon-button-type-filled",
+      "name": "Type=Filled",
+      "description": "Icon button. Standard, filled, tonal, and outlined.",
+      "componentSetId": "1:7"
+    },
+    "1:10": {
+      "key": "m3spec-icon-button-type-tonal",
+      "name": "Type=Tonal",
+      "description": "Icon button. Standard, filled, tonal, and outlined.",
+      "componentSetId": "1:7"
+    },
+    "1:11": {
+      "key": "m3spec-icon-button-type-outlined",
+      "name": "Type=Outlined",
+      "description": "Icon button. Standard, filled, tonal, and outlined.",
+      "componentSetId": "1:7"
+    },
+    "1:13": {
+      "key": "m3spec-fab-size-small",
+      "name": "Size=Small",
+      "description": "Floating action button. Small, regular, and large.",
+      "componentSetId": "1:12"
+    },
+    "1:14": {
+      "key": "m3spec-fab-size-regular",
+      "name": "Size=Regular",
+      "description": "Floating action button. Small, regular, and large.",
+      "componentSetId": "1:12"
+    },
+    "1:15": {
+      "key": "m3spec-fab-size-large",
+      "name": "Size=Large",
+      "description": "Floating action button. Small, regular, and large.",
+      "componentSetId": "1:12"
+    },
+    "1:17": {
+      "key": "m3spec-mini-fab",
+      "name": "Mini FAB",
+      "description": "Small floating action button."
+    },
+    "1:19": {
+      "key": "m3spec-extended-fab-size-small",
+      "name": "Size=Small",
+      "description": "Floating action button with a label.",
+      "componentSetId": "1:18"
+    },
+    "1:20": {
+      "key": "m3spec-extended-fab-size-medium",
+      "name": "Size=Medium",
+      "description": "Floating action button with a label.",
+      "componentSetId": "1:18"
+    },
+    "1:21": {
+      "key": "m3spec-extended-fab-size-large",
+      "name": "Size=Large",
+      "description": "Floating action button with a label.",
+      "componentSetId": "1:18"
+    },
+    "1:23": {
+      "key": "m3spec-button-toggle",
+      "name": "Button toggle",
+      "description": "Segmented button. Single or multi select."
+    },
+    "1:26": {
+      "key": "m3spec-badge",
+      "name": "Badge",
+      "description": "Small status mark on another part."
+    },
+    "1:28": {
+      "key": "m3spec-progress-bar",
+      "name": "Progress bar",
+      "description": "Linear progress indicator."
+    },
+    "1:30": {
+      "key": "m3spec-progress-spinner",
+      "name": "Progress spinner",
+      "description": "Circular progress indicator."
+    },
+    "1:32": {
+      "key": "m3spec-snackbar",
+      "name": "Snackbar",
+      "description": "Brief message at the bottom of the screen."
+    },
+    "1:34": {
+      "key": "m3spec-tooltip",
+      "name": "Tooltip",
+      "description": "Label for an icon-only control."
+    },
+    "1:37": {
+      "key": "m3spec-bottom-sheet",
+      "name": "Bottom sheet",
+      "description": "Surface that slides up from the bottom."
+    },
+    "1:39": {
+      "key": "m3spec-card-type-elevated",
+      "name": "Type=Elevated",
+      "description": "Elevated, filled, and outlined cards.",
+      "componentSetId": "1:38"
+    },
+    "1:40": {
+      "key": "m3spec-card-type-filled",
+      "name": "Type=Filled",
+      "description": "Elevated, filled, and outlined cards.",
+      "componentSetId": "1:38"
+    },
+    "1:41": {
+      "key": "m3spec-card-type-outlined",
+      "name": "Type=Outlined",
+      "description": "Elevated, filled, and outlined cards.",
+      "componentSetId": "1:38"
+    },
+    "1:43": {
+      "key": "m3spec-dialog-type-basic",
+      "name": "Type=Basic",
+      "description": "Basic dialog and full-screen dialog.",
+      "componentSetId": "1:42"
+    },
+    "1:44": {
+      "key": "m3spec-dialog-type-full-screen",
+      "name": "Type=Full-screen",
+      "description": "Basic dialog and full-screen dialog.",
+      "componentSetId": "1:42"
+    },
+    "1:46": {
+      "key": "m3spec-divider",
+      "name": "Divider",
+      "description": "Hairline between items."
+    },
+    "1:48": {
+      "key": "m3spec-list",
+      "name": "List",
+      "description": "Vertical list of rows."
+    },
+    "1:50": {
+      "key": "m3spec-list-item-lines-one",
+      "name": "Lines=One",
+      "description": "One, two, or three line row.",
+      "componentSetId": "1:49"
+    },
+    "1:51": {
+      "key": "m3spec-list-item-lines-two",
+      "name": "Lines=Two",
+      "description": "One, two, or three line row.",
+      "componentSetId": "1:49"
+    },
+    "1:52": {
+      "key": "m3spec-list-item-lines-three",
+      "name": "Lines=Three",
+      "description": "One, two, or three line row.",
+      "componentSetId": "1:49"
+    },
+    "1:54": {
+      "key": "m3spec-side-sheet",
+      "name": "Side sheet",
+      "description": "Sheet docked to the side. Material 3 has no separate Angular class for this."
+    },
+    "1:57": {
+      "key": "m3spec-navigation-bar",
+      "name": "Navigation bar",
+      "description": "Bottom navigation. Material 3. No matching Angular Material class."
+    },
+    "1:59": {
+      "key": "m3spec-navigation-rail",
+      "name": "Navigation rail",
+      "description": "Side rail for a few destinations. No matching Angular Material class."
+    },
+    "1:61": {
+      "key": "m3spec-sidenav",
+      "name": "Sidenav",
+      "description": "Navigation drawer."
+    },
+    "1:63": {
+      "key": "m3spec-tabs",
+      "name": "Tabs",
+      "description": "Tabs."
+    },
+    "1:65": {
+      "key": "m3spec-toolbar-type-center-aligned",
+      "name": "Type=Center aligned",
+      "description": "Top app bar.",
+      "componentSetId": "1:64"
+    },
+    "1:66": {
+      "key": "m3spec-toolbar-type-small",
+      "name": "Type=Small",
+      "description": "Top app bar.",
+      "componentSetId": "1:64"
+    },
+    "1:67": {
+      "key": "m3spec-toolbar-type-medium",
+      "name": "Type=Medium",
+      "description": "Top app bar.",
+      "componentSetId": "1:64"
+    },
+    "1:68": {
+      "key": "m3spec-toolbar-type-large",
+      "name": "Type=Large",
+      "description": "Top app bar.",
+      "componentSetId": "1:64"
+    },
+    "1:71": {
+      "key": "m3spec-checkbox",
+      "name": "Checkbox",
+      "description": "Select one or more."
+    },
+    "1:73": {
+      "key": "m3spec-chip-type-assist",
+      "name": "Type=Assist",
+      "description": "Assist, filter, input, and suggestion chips.",
+      "componentSetId": "1:72"
+    },
+    "1:74": {
+      "key": "m3spec-chip-type-filter",
+      "name": "Type=Filter",
+      "description": "Assist, filter, input, and suggestion chips.",
+      "componentSetId": "1:72"
+    },
+    "1:75": {
+      "key": "m3spec-chip-type-input",
+      "name": "Type=Input",
+      "description": "Assist, filter, input, and suggestion chips.",
+      "componentSetId": "1:72"
+    },
+    "1:76": {
+      "key": "m3spec-chip-type-suggestion",
+      "name": "Type=Suggestion",
+      "description": "Assist, filter, input, and suggestion chips.",
+      "componentSetId": "1:72"
+    },
+    "1:78": {
+      "key": "m3spec-date-picker",
+      "name": "Date picker",
+      "description": "Pick a date."
+    },
+    "1:80": {
+      "key": "m3spec-menu",
+      "name": "Menu",
+      "description": "List of choices anchored to a control."
+    },
+    "1:82": {
+      "key": "m3spec-radio-button",
+      "name": "Radio button",
+      "description": "Pick one of a set."
+    },
+    "1:84": {
+      "key": "m3spec-slider",
+      "name": "Slider",
+      "description": "Pick a value along a track."
+    },
+    "1:86": {
+      "key": "m3spec-slide-toggle",
+      "name": "Slide toggle",
+      "description": "Switch. On or off."
+    },
+    "1:88": {
+      "key": "m3spec-time-picker",
+      "name": "Time picker",
+      "description": "Pick a time."
+    },
+    "1:90": {
+      "key": "m3spec-select",
+      "name": "Select",
+      "description": "Closed menu of options. Angular Material select. Material 3 uses a menu for this job."
+    },
+    "1:93": {
+      "key": "m3spec-text-field-type-filled",
+      "name": "Type=Filled",
+      "description": "Filled and outlined text fields.",
+      "componentSetId": "1:92"
+    },
+    "1:94": {
+      "key": "m3spec-text-field-type-outlined",
+      "name": "Type=Outlined",
+      "description": "Filled and outlined text fields.",
+      "componentSetId": "1:92"
+    },
+    "1:96": {
+      "key": "m3spec-form-field",
+      "name": "Form field",
+      "description": "Label, hint, and error around an input."
+    },
+    "1:98": {
+      "key": "m3spec-search-bar",
+      "name": "Search bar",
+      "description": "Search. Material 3 search. Angular Material has no search-bar class."
+    },
+    "1:101": {
+      "key": "m3spec-table",
+      "name": "Table",
+      "description": "Data table."
+    },
+    "1:103": {
+      "key": "m3spec-paginator",
+      "name": "Paginator",
+      "description": "Pages of a table."
+    },
+    "1:105": {
+      "key": "m3spec-stepper",
+      "name": "Stepper",
+      "description": "Steps in a task."
+    },
+    "1:107": {
+      "key": "m3spec-expansion-panel",
+      "name": "Expansion panel",
+      "description": "A row that opens to show more."
+    },
+    "1:109": {
+      "key": "m3spec-autocomplete",
+      "name": "Autocomplete",
+      "description": "Text field with suggested options."
+    },
+    "1:111": {
+      "key": "m3spec-icon",
+      "name": "Icon",
+      "description": "Icon glyph."
+    },
+    "1:113": {
+      "key": "m3spec-sort",
+      "name": "Sort",
+      "description": "Sortable column header."
+    },
+    "1:115": {
+      "key": "m3spec-grid-list",
+      "name": "Grid list",
+      "description": "Tiles in a grid."
+    },
+    "1:117": {
+      "key": "m3spec-tree",
+      "name": "Tree",
+      "description": "Nested rows."
+    }
+  },
+  "componentSets": {
+    "1:1": {
+      "key": "m3spec-button",
+      "name": "Button",
+      "description": "Five button types from the Material 3 spec."
+    },
+    "1:7": {
+      "key": "m3spec-icon-button",
+      "name": "Icon button",
+      "description": "Icon button. Standard, filled, tonal, and outlined."
+    },
+    "1:12": {
+      "key": "m3spec-fab",
+      "name": "FAB",
+      "description": "Floating action button. Small, regular, and large."
+    },
+    "1:18": {
+      "key": "m3spec-extended-fab",
+      "name": "Extended FAB",
+      "description": "Floating action button with a label."
+    },
+    "1:38": {
+      "key": "m3spec-card",
+      "name": "Card",
+      "description": "Elevated, filled, and outlined cards."
+    },
+    "1:42": {
+      "key": "m3spec-dialog",
+      "name": "Dialog",
+      "description": "Basic dialog and full-screen dialog."
+    },
+    "1:49": {
+      "key": "m3spec-list-item",
+      "name": "List item",
+      "description": "One, two, or three line row."
+    },
+    "1:64": {
+      "key": "m3spec-toolbar",
+      "name": "Toolbar",
+      "description": "Top app bar."
+    },
+    "1:72": {
+      "key": "m3spec-chip",
+      "name": "Chip",
+      "description": "Assist, filter, input, and suggestion chips."
+    },
+    "1:92": {
+      "key": "m3spec-text-field",
+      "name": "Text field",
+      "description": "Filled and outlined text fields."
+    }
+  },
+  "variables": {
+    "meta": {
+      "variableCollections": {
+        "VariableCollectionId:m3:color": {
+          "id": "VariableCollectionId:m3:color",
+          "name": "md.sys.color",
+          "key": "md.sys.color",
+          "modes": [
+            {
+              "modeId": "1:0",
+              "name": "Light"
+            },
+            {
+              "modeId": "1:1",
+              "name": "Dark"
+            }
+          ],
+          "defaultModeId": "1:0",
+          "remote": false,
+          "hiddenFromPublishing": false,
+          "variableIds": [
+            "VariableID:color:primary",
+            "VariableID:color:on-primary",
+            "VariableID:color:primary-container",
+            "VariableID:color:on-primary-container",
+            "VariableID:color:secondary",
+            "VariableID:color:on-secondary",
+            "VariableID:color:secondary-container",
+            "VariableID:color:on-secondary-container",
+            "VariableID:color:tertiary",
+            "VariableID:color:on-tertiary",
+            "VariableID:color:tertiary-container",
+            "VariableID:color:on-tertiary-container",
+            "VariableID:color:error",
+            "VariableID:color:on-error",
+            "VariableID:color:error-container",
+            "VariableID:color:on-error-container",
+            "VariableID:color:background",
+            "VariableID:color:on-background",
+            "VariableID:color:surface",
+            "VariableID:color:on-surface",
+            "VariableID:color:surface-variant",
+            "VariableID:color:on-surface-variant",
+            "VariableID:color:outline",
+            "VariableID:color:outline-variant",
+            "VariableID:color:shadow",
+            "VariableID:color:scrim",
+            "VariableID:color:inverse-surface",
+            "VariableID:color:inverse-on-surface",
+            "VariableID:color:inverse-primary",
+            "VariableID:color:surface-tint"
+          ]
+        },
+        "VariableCollectionId:m3:metric": {
+          "id": "VariableCollectionId:m3:metric",
+          "name": "md.sys.metric",
+          "key": "md.sys.metric",
+          "modes": [
+            {
+              "modeId": "1:0",
+              "name": "Value"
+            }
+          ],
+          "defaultModeId": "1:0",
+          "remote": false,
+          "hiddenFromPublishing": false,
+          "variableIds": [
+            "VariableID:float:md.sys.typescale.display-large.size",
+            "VariableID:float:md.sys.typescale.display-large.line-height",
+            "VariableID:float:md.sys.typescale.display-medium.size",
+            "VariableID:float:md.sys.typescale.display-medium.line-height",
+            "VariableID:float:md.sys.typescale.display-small.size",
+            "VariableID:float:md.sys.typescale.display-small.line-height",
+            "VariableID:float:md.sys.typescale.headline-large.size",
+            "VariableID:float:md.sys.typescale.headline-large.line-height",
+            "VariableID:float:md.sys.typescale.headline-medium.size",
+            "VariableID:float:md.sys.typescale.headline-medium.line-height",
+            "VariableID:float:md.sys.typescale.headline-small.size",
+            "VariableID:float:md.sys.typescale.headline-small.line-height",
+            "VariableID:float:md.sys.typescale.title-large.size",
+            "VariableID:float:md.sys.typescale.title-large.line-height",
+            "VariableID:float:md.sys.typescale.title-medium.size",
+            "VariableID:float:md.sys.typescale.title-medium.line-height",
+            "VariableID:float:md.sys.typescale.title-small.size",
+            "VariableID:float:md.sys.typescale.title-small.line-height",
+            "VariableID:float:md.sys.typescale.body-large.size",
+            "VariableID:float:md.sys.typescale.body-large.line-height",
+            "VariableID:float:md.sys.typescale.body-medium.size",
+            "VariableID:float:md.sys.typescale.body-medium.line-height",
+            "VariableID:float:md.sys.typescale.body-small.size",
+            "VariableID:float:md.sys.typescale.body-small.line-height",
+            "VariableID:float:md.sys.typescale.label-large.size",
+            "VariableID:float:md.sys.typescale.label-large.line-height",
+            "VariableID:float:md.sys.typescale.label-medium.size",
+            "VariableID:float:md.sys.typescale.label-medium.line-height",
+            "VariableID:float:md.sys.typescale.label-small.size",
+            "VariableID:float:md.sys.typescale.label-small.line-height",
+            "VariableID:float:md.sys.shape.corner.none",
+            "VariableID:float:md.sys.shape.corner.extra-small",
+            "VariableID:float:md.sys.shape.corner.small",
+            "VariableID:float:md.sys.shape.corner.medium",
+            "VariableID:float:md.sys.shape.corner.large",
+            "VariableID:float:md.sys.shape.corner.extra-large",
+            "VariableID:float:md.sys.shape.corner.full",
+            "VariableID:float:md.sys.elevation.level0",
+            "VariableID:float:md.sys.elevation.level1",
+            "VariableID:float:md.sys.elevation.level2",
+            "VariableID:float:md.sys.elevation.level3",
+            "VariableID:float:md.sys.elevation.level4",
+            "VariableID:float:md.sys.elevation.level5"
+          ]
+        }
+      },
+      "variables": {
+        "VariableID:color:primary": {
+          "id": "VariableID:color:primary",
+          "name": "md.sys.color.primary",
+          "key": "md.sys.color.primary",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.4039,
+              "g": 0.3137,
+              "b": 0.6431,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.8118,
+              "g": 0.7373,
+              "b": 1,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.primary. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.primary"
+          }
+        },
+        "VariableID:color:on-primary": {
+          "id": "VariableID:color:on-primary",
+          "name": "md.sys.color.on-primary",
+          "key": "md.sys.color.on-primary",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 1,
+              "g": 1,
+              "b": 1,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.2196,
+              "g": 0.1176,
+              "b": 0.4471,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.on-primary. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.on-primary"
+          }
+        },
+        "VariableID:color:primary-container": {
+          "id": "VariableID:color:primary-container",
+          "name": "md.sys.color.primary-container",
+          "key": "md.sys.color.primary-container",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.9137,
+              "g": 0.8667,
+              "b": 1,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.3098,
+              "g": 0.2157,
+              "b": 0.5412,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.primary-container. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.primary-container"
+          }
+        },
+        "VariableID:color:on-primary-container": {
+          "id": "VariableID:color:on-primary-container",
+          "name": "md.sys.color.on-primary-container",
+          "key": "md.sys.color.on-primary-container",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.1333,
+              "g": 0,
+              "b": 0.3647,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.9137,
+              "g": 0.8667,
+              "b": 1,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.on-primary-container. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.on-primary-container"
+          }
+        },
+        "VariableID:color:secondary": {
+          "id": "VariableID:color:secondary",
+          "name": "md.sys.color.secondary",
+          "key": "md.sys.color.secondary",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.3843,
+              "g": 0.3569,
+              "b": 0.4431,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.7961,
+              "g": 0.7608,
+              "b": 0.8588,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.secondary. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.secondary"
+          }
+        },
+        "VariableID:color:on-secondary": {
+          "id": "VariableID:color:on-secondary",
+          "name": "md.sys.color.on-secondary",
+          "key": "md.sys.color.on-secondary",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 1,
+              "g": 1,
+              "b": 1,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.2,
+              "g": 0.1765,
+              "b": 0.2549,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.on-secondary. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.on-secondary"
+          }
+        },
+        "VariableID:color:secondary-container": {
+          "id": "VariableID:color:secondary-container",
+          "name": "md.sys.color.secondary-container",
+          "key": "md.sys.color.secondary-container",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.9098,
+              "g": 0.8706,
+              "b": 0.9725,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.2902,
+              "g": 0.2667,
+              "b": 0.3451,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.secondary-container. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.secondary-container"
+          }
+        },
+        "VariableID:color:on-secondary-container": {
+          "id": "VariableID:color:on-secondary-container",
+          "name": "md.sys.color.on-secondary-container",
+          "key": "md.sys.color.on-secondary-container",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.1176,
+              "g": 0.098,
+              "b": 0.1686,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.9098,
+              "g": 0.8706,
+              "b": 0.9725,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.on-secondary-container. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.on-secondary-container"
+          }
+        },
+        "VariableID:color:tertiary": {
+          "id": "VariableID:color:tertiary",
+          "name": "md.sys.color.tertiary",
+          "key": "md.sys.color.tertiary",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.4941,
+              "g": 0.3216,
+              "b": 0.3765,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.9373,
+              "g": 0.7216,
+              "b": 0.7843,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.tertiary. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.tertiary"
+          }
+        },
+        "VariableID:color:on-tertiary": {
+          "id": "VariableID:color:on-tertiary",
+          "name": "md.sys.color.on-tertiary",
+          "key": "md.sys.color.on-tertiary",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 1,
+              "g": 1,
+              "b": 1,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.2902,
+              "g": 0.1451,
+              "b": 0.1961,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.on-tertiary. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.on-tertiary"
+          }
+        },
+        "VariableID:color:tertiary-container": {
+          "id": "VariableID:color:tertiary-container",
+          "name": "md.sys.color.tertiary-container",
+          "key": "md.sys.color.tertiary-container",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 1,
+              "g": 0.851,
+              "b": 0.8902,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.3882,
+              "g": 0.2314,
+              "b": 0.2824,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.tertiary-container. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.tertiary-container"
+          }
+        },
+        "VariableID:color:on-tertiary-container": {
+          "id": "VariableID:color:on-tertiary-container",
+          "name": "md.sys.color.on-tertiary-container",
+          "key": "md.sys.color.on-tertiary-container",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.1922,
+              "g": 0.0627,
+              "b": 0.1137,
+              "a": 1
+            },
+            "1:1": {
+              "r": 1,
+              "g": 0.851,
+              "b": 0.8902,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.on-tertiary-container. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.on-tertiary-container"
+          }
+        },
+        "VariableID:color:error": {
+          "id": "VariableID:color:error",
+          "name": "md.sys.color.error",
+          "key": "md.sys.color.error",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.7294,
+              "g": 0.102,
+              "b": 0.102,
+              "a": 1
+            },
+            "1:1": {
+              "r": 1,
+              "g": 0.7059,
+              "b": 0.6706,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.error. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.error"
+          }
+        },
+        "VariableID:color:on-error": {
+          "id": "VariableID:color:on-error",
+          "name": "md.sys.color.on-error",
+          "key": "md.sys.color.on-error",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 1,
+              "g": 1,
+              "b": 1,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.4118,
+              "g": 0,
+              "b": 0.0196,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.on-error. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.on-error"
+          }
+        },
+        "VariableID:color:error-container": {
+          "id": "VariableID:color:error-container",
+          "name": "md.sys.color.error-container",
+          "key": "md.sys.color.error-container",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 1,
+              "g": 0.8549,
+              "b": 0.8392,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.5765,
+              "g": 0,
+              "b": 0.0392,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.error-container. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.error-container"
+          }
+        },
+        "VariableID:color:on-error-container": {
+          "id": "VariableID:color:on-error-container",
+          "name": "md.sys.color.on-error-container",
+          "key": "md.sys.color.on-error-container",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.2549,
+              "g": 0,
+              "b": 0.0078,
+              "a": 1
+            },
+            "1:1": {
+              "r": 1,
+              "g": 0.7059,
+              "b": 0.6706,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.on-error-container. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.on-error-container"
+          }
+        },
+        "VariableID:color:background": {
+          "id": "VariableID:color:background",
+          "name": "md.sys.color.background",
+          "key": "md.sys.color.background",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 1,
+              "g": 0.9843,
+              "b": 1,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.1098,
+              "g": 0.1059,
+              "b": 0.1176,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.background. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.background"
+          }
+        },
+        "VariableID:color:on-background": {
+          "id": "VariableID:color:on-background",
+          "name": "md.sys.color.on-background",
+          "key": "md.sys.color.on-background",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.1098,
+              "g": 0.1059,
+              "b": 0.1176,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.902,
+              "g": 0.8824,
+              "b": 0.902,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.on-background. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.on-background"
+          }
+        },
+        "VariableID:color:surface": {
+          "id": "VariableID:color:surface",
+          "name": "md.sys.color.surface",
+          "key": "md.sys.color.surface",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 1,
+              "g": 0.9843,
+              "b": 1,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.1098,
+              "g": 0.1059,
+              "b": 0.1176,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.surface. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.surface"
+          }
+        },
+        "VariableID:color:on-surface": {
+          "id": "VariableID:color:on-surface",
+          "name": "md.sys.color.on-surface",
+          "key": "md.sys.color.on-surface",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.1098,
+              "g": 0.1059,
+              "b": 0.1176,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.902,
+              "g": 0.8824,
+              "b": 0.902,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.on-surface. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.on-surface"
+          }
+        },
+        "VariableID:color:surface-variant": {
+          "id": "VariableID:color:surface-variant",
+          "name": "md.sys.color.surface-variant",
+          "key": "md.sys.color.surface-variant",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.9059,
+              "g": 0.8784,
+              "b": 0.9216,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.2863,
+              "g": 0.2706,
+              "b": 0.3059,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.surface-variant. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.surface-variant"
+          }
+        },
+        "VariableID:color:on-surface-variant": {
+          "id": "VariableID:color:on-surface-variant",
+          "name": "md.sys.color.on-surface-variant",
+          "key": "md.sys.color.on-surface-variant",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.2863,
+              "g": 0.2706,
+              "b": 0.3059,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.7922,
+              "g": 0.7686,
+              "b": 0.8118,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.on-surface-variant. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.on-surface-variant"
+          }
+        },
+        "VariableID:color:outline": {
+          "id": "VariableID:color:outline",
+          "name": "md.sys.color.outline",
+          "key": "md.sys.color.outline",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.4784,
+              "g": 0.4588,
+              "b": 0.498,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.5804,
+              "g": 0.5608,
+              "b": 0.6,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.outline. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.outline"
+          }
+        },
+        "VariableID:color:outline-variant": {
+          "id": "VariableID:color:outline-variant",
+          "name": "md.sys.color.outline-variant",
+          "key": "md.sys.color.outline-variant",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.7922,
+              "g": 0.7686,
+              "b": 0.8118,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.2863,
+              "g": 0.2706,
+              "b": 0.3059,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.outline-variant. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.outline-variant"
+          }
+        },
+        "VariableID:color:shadow": {
+          "id": "VariableID:color:shadow",
+          "name": "md.sys.color.shadow",
+          "key": "md.sys.color.shadow",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0,
+              "g": 0,
+              "b": 0,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0,
+              "g": 0,
+              "b": 0,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.shadow. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.shadow"
+          }
+        },
+        "VariableID:color:scrim": {
+          "id": "VariableID:color:scrim",
+          "name": "md.sys.color.scrim",
+          "key": "md.sys.color.scrim",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0,
+              "g": 0,
+              "b": 0,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0,
+              "g": 0,
+              "b": 0,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.scrim. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.scrim"
+          }
+        },
+        "VariableID:color:inverse-surface": {
+          "id": "VariableID:color:inverse-surface",
+          "name": "md.sys.color.inverse-surface",
+          "key": "md.sys.color.inverse-surface",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.1922,
+              "g": 0.1882,
+              "b": 0.2,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.902,
+              "g": 0.8824,
+              "b": 0.902,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.inverse-surface. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.inverse-surface"
+          }
+        },
+        "VariableID:color:inverse-on-surface": {
+          "id": "VariableID:color:inverse-on-surface",
+          "name": "md.sys.color.inverse-on-surface",
+          "key": "md.sys.color.inverse-on-surface",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.9569,
+              "g": 0.9373,
+              "b": 0.9569,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.1922,
+              "g": 0.1882,
+              "b": 0.2,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.inverse-on-surface. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.inverse-on-surface"
+          }
+        },
+        "VariableID:color:inverse-primary": {
+          "id": "VariableID:color:inverse-primary",
+          "name": "md.sys.color.inverse-primary",
+          "key": "md.sys.color.inverse-primary",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.8118,
+              "g": 0.7373,
+              "b": 1,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.4039,
+              "g": 0.3137,
+              "b": 0.6431,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.inverse-primary. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.inverse-primary"
+          }
+        },
+        "VariableID:color:surface-tint": {
+          "id": "VariableID:color:surface-tint",
+          "name": "md.sys.color.surface-tint",
+          "key": "md.sys.color.surface-tint",
+          "variableCollectionId": "VariableCollectionId:m3:color",
+          "resolvedType": "COLOR",
+          "valuesByMode": {
+            "1:0": {
+              "r": 0.4039,
+              "g": 0.3137,
+              "b": 0.6431,
+              "a": 1
+            },
+            "1:1": {
+              "r": 0.8118,
+              "g": 0.7373,
+              "b": 1,
+              "a": 1
+            }
+          },
+          "remote": false,
+          "description": "Material 3 baseline color role md.sys.color.surface-tint. Seed #6750A4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_FILLS",
+            "STROKE_COLOR"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.color.surface-tint"
+          }
+        },
+        "VariableID:float:md.sys.typescale.display-large.size": {
+          "id": "VariableID:float:md.sys.typescale.display-large.size",
+          "name": "md.sys.typescale.display-large.size",
+          "key": "md.sys.typescale.display-large.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 57
+          },
+          "remote": false,
+          "description": "Material 3 type scale display-large, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.display-large.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.display-large.line-height": {
+          "id": "VariableID:float:md.sys.typescale.display-large.line-height",
+          "name": "md.sys.typescale.display-large.line-height",
+          "key": "md.sys.typescale.display-large.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 64
+          },
+          "remote": false,
+          "description": "Material 3 type scale display-large, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.display-large.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.display-medium.size": {
+          "id": "VariableID:float:md.sys.typescale.display-medium.size",
+          "name": "md.sys.typescale.display-medium.size",
+          "key": "md.sys.typescale.display-medium.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 45
+          },
+          "remote": false,
+          "description": "Material 3 type scale display-medium, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.display-medium.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.display-medium.line-height": {
+          "id": "VariableID:float:md.sys.typescale.display-medium.line-height",
+          "name": "md.sys.typescale.display-medium.line-height",
+          "key": "md.sys.typescale.display-medium.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 52
+          },
+          "remote": false,
+          "description": "Material 3 type scale display-medium, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.display-medium.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.display-small.size": {
+          "id": "VariableID:float:md.sys.typescale.display-small.size",
+          "name": "md.sys.typescale.display-small.size",
+          "key": "md.sys.typescale.display-small.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 36
+          },
+          "remote": false,
+          "description": "Material 3 type scale display-small, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.display-small.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.display-small.line-height": {
+          "id": "VariableID:float:md.sys.typescale.display-small.line-height",
+          "name": "md.sys.typescale.display-small.line-height",
+          "key": "md.sys.typescale.display-small.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 44
+          },
+          "remote": false,
+          "description": "Material 3 type scale display-small, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.display-small.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.headline-large.size": {
+          "id": "VariableID:float:md.sys.typescale.headline-large.size",
+          "name": "md.sys.typescale.headline-large.size",
+          "key": "md.sys.typescale.headline-large.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 32
+          },
+          "remote": false,
+          "description": "Material 3 type scale headline-large, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.headline-large.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.headline-large.line-height": {
+          "id": "VariableID:float:md.sys.typescale.headline-large.line-height",
+          "name": "md.sys.typescale.headline-large.line-height",
+          "key": "md.sys.typescale.headline-large.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 40
+          },
+          "remote": false,
+          "description": "Material 3 type scale headline-large, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.headline-large.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.headline-medium.size": {
+          "id": "VariableID:float:md.sys.typescale.headline-medium.size",
+          "name": "md.sys.typescale.headline-medium.size",
+          "key": "md.sys.typescale.headline-medium.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 28
+          },
+          "remote": false,
+          "description": "Material 3 type scale headline-medium, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.headline-medium.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.headline-medium.line-height": {
+          "id": "VariableID:float:md.sys.typescale.headline-medium.line-height",
+          "name": "md.sys.typescale.headline-medium.line-height",
+          "key": "md.sys.typescale.headline-medium.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 36
+          },
+          "remote": false,
+          "description": "Material 3 type scale headline-medium, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.headline-medium.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.headline-small.size": {
+          "id": "VariableID:float:md.sys.typescale.headline-small.size",
+          "name": "md.sys.typescale.headline-small.size",
+          "key": "md.sys.typescale.headline-small.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 24
+          },
+          "remote": false,
+          "description": "Material 3 type scale headline-small, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.headline-small.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.headline-small.line-height": {
+          "id": "VariableID:float:md.sys.typescale.headline-small.line-height",
+          "name": "md.sys.typescale.headline-small.line-height",
+          "key": "md.sys.typescale.headline-small.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 32
+          },
+          "remote": false,
+          "description": "Material 3 type scale headline-small, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.headline-small.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.title-large.size": {
+          "id": "VariableID:float:md.sys.typescale.title-large.size",
+          "name": "md.sys.typescale.title-large.size",
+          "key": "md.sys.typescale.title-large.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 22
+          },
+          "remote": false,
+          "description": "Material 3 type scale title-large, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.title-large.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.title-large.line-height": {
+          "id": "VariableID:float:md.sys.typescale.title-large.line-height",
+          "name": "md.sys.typescale.title-large.line-height",
+          "key": "md.sys.typescale.title-large.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 28
+          },
+          "remote": false,
+          "description": "Material 3 type scale title-large, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.title-large.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.title-medium.size": {
+          "id": "VariableID:float:md.sys.typescale.title-medium.size",
+          "name": "md.sys.typescale.title-medium.size",
+          "key": "md.sys.typescale.title-medium.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 16
+          },
+          "remote": false,
+          "description": "Material 3 type scale title-medium, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.title-medium.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.title-medium.line-height": {
+          "id": "VariableID:float:md.sys.typescale.title-medium.line-height",
+          "name": "md.sys.typescale.title-medium.line-height",
+          "key": "md.sys.typescale.title-medium.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 24
+          },
+          "remote": false,
+          "description": "Material 3 type scale title-medium, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.title-medium.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.title-small.size": {
+          "id": "VariableID:float:md.sys.typescale.title-small.size",
+          "name": "md.sys.typescale.title-small.size",
+          "key": "md.sys.typescale.title-small.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 14
+          },
+          "remote": false,
+          "description": "Material 3 type scale title-small, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.title-small.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.title-small.line-height": {
+          "id": "VariableID:float:md.sys.typescale.title-small.line-height",
+          "name": "md.sys.typescale.title-small.line-height",
+          "key": "md.sys.typescale.title-small.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 20
+          },
+          "remote": false,
+          "description": "Material 3 type scale title-small, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.title-small.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.body-large.size": {
+          "id": "VariableID:float:md.sys.typescale.body-large.size",
+          "name": "md.sys.typescale.body-large.size",
+          "key": "md.sys.typescale.body-large.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 16
+          },
+          "remote": false,
+          "description": "Material 3 type scale body-large, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.body-large.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.body-large.line-height": {
+          "id": "VariableID:float:md.sys.typescale.body-large.line-height",
+          "name": "md.sys.typescale.body-large.line-height",
+          "key": "md.sys.typescale.body-large.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 24
+          },
+          "remote": false,
+          "description": "Material 3 type scale body-large, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.body-large.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.body-medium.size": {
+          "id": "VariableID:float:md.sys.typescale.body-medium.size",
+          "name": "md.sys.typescale.body-medium.size",
+          "key": "md.sys.typescale.body-medium.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 14
+          },
+          "remote": false,
+          "description": "Material 3 type scale body-medium, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.body-medium.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.body-medium.line-height": {
+          "id": "VariableID:float:md.sys.typescale.body-medium.line-height",
+          "name": "md.sys.typescale.body-medium.line-height",
+          "key": "md.sys.typescale.body-medium.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 20
+          },
+          "remote": false,
+          "description": "Material 3 type scale body-medium, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.body-medium.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.body-small.size": {
+          "id": "VariableID:float:md.sys.typescale.body-small.size",
+          "name": "md.sys.typescale.body-small.size",
+          "key": "md.sys.typescale.body-small.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 12
+          },
+          "remote": false,
+          "description": "Material 3 type scale body-small, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.body-small.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.body-small.line-height": {
+          "id": "VariableID:float:md.sys.typescale.body-small.line-height",
+          "name": "md.sys.typescale.body-small.line-height",
+          "key": "md.sys.typescale.body-small.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 16
+          },
+          "remote": false,
+          "description": "Material 3 type scale body-small, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.body-small.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.label-large.size": {
+          "id": "VariableID:float:md.sys.typescale.label-large.size",
+          "name": "md.sys.typescale.label-large.size",
+          "key": "md.sys.typescale.label-large.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 14
+          },
+          "remote": false,
+          "description": "Material 3 type scale label-large, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.label-large.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.label-large.line-height": {
+          "id": "VariableID:float:md.sys.typescale.label-large.line-height",
+          "name": "md.sys.typescale.label-large.line-height",
+          "key": "md.sys.typescale.label-large.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 20
+          },
+          "remote": false,
+          "description": "Material 3 type scale label-large, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.label-large.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.label-medium.size": {
+          "id": "VariableID:float:md.sys.typescale.label-medium.size",
+          "name": "md.sys.typescale.label-medium.size",
+          "key": "md.sys.typescale.label-medium.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 12
+          },
+          "remote": false,
+          "description": "Material 3 type scale label-medium, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.label-medium.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.label-medium.line-height": {
+          "id": "VariableID:float:md.sys.typescale.label-medium.line-height",
+          "name": "md.sys.typescale.label-medium.line-height",
+          "key": "md.sys.typescale.label-medium.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 16
+          },
+          "remote": false,
+          "description": "Material 3 type scale label-medium, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.label-medium.line-height"
+          }
+        },
+        "VariableID:float:md.sys.typescale.label-small.size": {
+          "id": "VariableID:float:md.sys.typescale.label-small.size",
+          "name": "md.sys.typescale.label-small.size",
+          "key": "md.sys.typescale.label-small.size",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 11
+          },
+          "remote": false,
+          "description": "Material 3 type scale label-small, font size.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.label-small.size"
+          }
+        },
+        "VariableID:float:md.sys.typescale.label-small.line-height": {
+          "id": "VariableID:float:md.sys.typescale.label-small.line-height",
+          "name": "md.sys.typescale.label-small.line-height",
+          "key": "md.sys.typescale.label-small.line-height",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 16
+          },
+          "remote": false,
+          "description": "Material 3 type scale label-small, line height.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.typescale.label-small.line-height"
+          }
+        },
+        "VariableID:float:md.sys.shape.corner.none": {
+          "id": "VariableID:float:md.sys.shape.corner.none",
+          "name": "md.sys.shape.corner.none",
+          "key": "md.sys.shape.corner.none",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 0
+          },
+          "remote": false,
+          "description": "Material 3 shape corner none.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.shape.corner.none"
+          }
+        },
+        "VariableID:float:md.sys.shape.corner.extra-small": {
+          "id": "VariableID:float:md.sys.shape.corner.extra-small",
+          "name": "md.sys.shape.corner.extra-small",
+          "key": "md.sys.shape.corner.extra-small",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 4
+          },
+          "remote": false,
+          "description": "Material 3 shape corner extra-small.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.shape.corner.extra-small"
+          }
+        },
+        "VariableID:float:md.sys.shape.corner.small": {
+          "id": "VariableID:float:md.sys.shape.corner.small",
+          "name": "md.sys.shape.corner.small",
+          "key": "md.sys.shape.corner.small",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 8
+          },
+          "remote": false,
+          "description": "Material 3 shape corner small.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.shape.corner.small"
+          }
+        },
+        "VariableID:float:md.sys.shape.corner.medium": {
+          "id": "VariableID:float:md.sys.shape.corner.medium",
+          "name": "md.sys.shape.corner.medium",
+          "key": "md.sys.shape.corner.medium",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 12
+          },
+          "remote": false,
+          "description": "Material 3 shape corner medium.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.shape.corner.medium"
+          }
+        },
+        "VariableID:float:md.sys.shape.corner.large": {
+          "id": "VariableID:float:md.sys.shape.corner.large",
+          "name": "md.sys.shape.corner.large",
+          "key": "md.sys.shape.corner.large",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 16
+          },
+          "remote": false,
+          "description": "Material 3 shape corner large.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.shape.corner.large"
+          }
+        },
+        "VariableID:float:md.sys.shape.corner.extra-large": {
+          "id": "VariableID:float:md.sys.shape.corner.extra-large",
+          "name": "md.sys.shape.corner.extra-large",
+          "key": "md.sys.shape.corner.extra-large",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 28
+          },
+          "remote": false,
+          "description": "Material 3 shape corner extra-large.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.shape.corner.extra-large"
+          }
+        },
+        "VariableID:float:md.sys.shape.corner.full": {
+          "id": "VariableID:float:md.sys.shape.corner.full",
+          "name": "md.sys.shape.corner.full",
+          "key": "md.sys.shape.corner.full",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 999
+          },
+          "remote": false,
+          "description": "Material 3 shape corner full.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.shape.corner.full"
+          }
+        },
+        "VariableID:float:md.sys.elevation.level0": {
+          "id": "VariableID:float:md.sys.elevation.level0",
+          "name": "md.sys.elevation.level0",
+          "key": "md.sys.elevation.level0",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 0
+          },
+          "remote": false,
+          "description": "Material 3 elevation level0.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.elevation.level0"
+          }
+        },
+        "VariableID:float:md.sys.elevation.level1": {
+          "id": "VariableID:float:md.sys.elevation.level1",
+          "name": "md.sys.elevation.level1",
+          "key": "md.sys.elevation.level1",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 1
+          },
+          "remote": false,
+          "description": "Material 3 elevation level1.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.elevation.level1"
+          }
+        },
+        "VariableID:float:md.sys.elevation.level2": {
+          "id": "VariableID:float:md.sys.elevation.level2",
+          "name": "md.sys.elevation.level2",
+          "key": "md.sys.elevation.level2",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 3
+          },
+          "remote": false,
+          "description": "Material 3 elevation level2.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.elevation.level2"
+          }
+        },
+        "VariableID:float:md.sys.elevation.level3": {
+          "id": "VariableID:float:md.sys.elevation.level3",
+          "name": "md.sys.elevation.level3",
+          "key": "md.sys.elevation.level3",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 6
+          },
+          "remote": false,
+          "description": "Material 3 elevation level3.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.elevation.level3"
+          }
+        },
+        "VariableID:float:md.sys.elevation.level4": {
+          "id": "VariableID:float:md.sys.elevation.level4",
+          "name": "md.sys.elevation.level4",
+          "key": "md.sys.elevation.level4",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 8
+          },
+          "remote": false,
+          "description": "Material 3 elevation level4.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.elevation.level4"
+          }
+        },
+        "VariableID:float:md.sys.elevation.level5": {
+          "id": "VariableID:float:md.sys.elevation.level5",
+          "name": "md.sys.elevation.level5",
+          "key": "md.sys.elevation.level5",
+          "variableCollectionId": "VariableCollectionId:m3:metric",
+          "resolvedType": "FLOAT",
+          "valuesByMode": {
+            "1:0": 12
+          },
+          "remote": false,
+          "description": "Material 3 elevation level5.",
+          "hiddenFromPublishing": false,
+          "scopes": [
+            "ALL_SCOPES"
+          ],
+          "codeSyntax": {
+            "WEB": "md.sys.elevation.level5"
+          }
+        }
+      }
+    }
+  }
+}

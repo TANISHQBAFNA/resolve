@@ -1,0 +1,803 @@
+{
+  "package": "@angular/material",
+  "version": "22.2.3",
+  "pairs": [
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:109",
+      "name": "Autocomplete",
+      "component": "MatAutocomplete",
+      "importPath": "@angular/material/autocomplete",
+      "selector": "mat-autocomplete",
+      "module": "MatAutocompleteModule",
+      "inputs": [
+        "ariaLabel: aria-label",
+        "ariaLabelledby: aria-labelledby",
+        "displayWith",
+        "autoActiveFirstOption",
+        "autoSelectActiveOption",
+        "requireSelection",
+        "panelWidth",
+        "disableRipple",
+        "classList: class",
+        "hideSingleSelectionIndicator"
+      ],
+      "outputs": [
+        "optionSelected",
+        "opened",
+        "closed",
+        "optionActivated"
+      ],
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatAutocomplete; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:26",
+      "name": "Badge",
+      "component": "MatBadge",
+      "importPath": "@angular/material/badge",
+      "selector": "[matBadge]",
+      "module": "MatBadgeModule",
+      "inputs": [
+        "color: matBadgeColor",
+        "overlap: matBadgeOverlap",
+        "disabled: matBadgeDisabled",
+        "position: matBadgePosition",
+        "content: matBadge",
+        "description: matBadgeDescription",
+        "size: matBadgeSize",
+        "hidden: matBadgeHidden"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatBadge; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:1",
+      "name": "Button",
+      "component": "MatButton",
+      "importPath": "@angular/material/button",
+      "selector": "button[matButton], a[matButton], button[mat-button], button[mat-raised-button], button[mat-flat-button], button[mat-stroked-button], a[mat-button], a[mat-raised-button], a[mat-flat-button], a[mat-stroked-button]",
+      "module": "MatButtonModule",
+      "inputs": [
+        "appearance: matButton"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatButton; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:23",
+      "name": "Button toggle",
+      "component": "MatButtonToggle",
+      "importPath": "@angular/material/button-toggle",
+      "selector": "mat-button-toggle",
+      "module": "MatButtonToggleModule",
+      "inputs": [
+        "ariaLabel: aria-label",
+        "ariaLabelledby: aria-labelledby",
+        "id",
+        "name",
+        "value",
+        "tabIndex",
+        "disableRipple",
+        "appearance",
+        "checked",
+        "disabled",
+        "disabledInteractive"
+      ],
+      "outputs": [
+        "change"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatButtonToggle; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:38",
+      "name": "Card",
+      "component": "MatCard",
+      "importPath": "@angular/material/card",
+      "selector": "mat-card",
+      "module": "MatCardModule",
+      "inputs": [
+        "appearance"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatCard; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:71",
+      "name": "Checkbox",
+      "component": "MatCheckbox",
+      "importPath": "@angular/material/checkbox",
+      "selector": "mat-checkbox",
+      "module": "MatCheckboxModule",
+      "inputs": [
+        "ariaLabel: aria-label",
+        "ariaLabelledby: aria-labelledby",
+        "ariaDescribedby: aria-describedby",
+        "ariaExpanded: aria-expanded",
+        "ariaControls: aria-controls",
+        "ariaOwns: aria-owns",
+        "id",
+        "required",
+        "labelPosition",
+        "name",
+        "value",
+        "disableRipple",
+        "tabIndex",
+        "color",
+        "disabledInteractive",
+        "checked",
+        "disabled",
+        "indeterminate"
+      ],
+      "outputs": [
+        "change",
+        "indeterminateChange"
+      ],
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatCheckbox; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:72",
+      "name": "Chip",
+      "component": "MatChip",
+      "importPath": "@angular/material/chips",
+      "selector": "mat-basic-chip, [mat-basic-chip], mat-chip, [mat-chip]",
+      "module": "MatChipsModule",
+      "inputs": [
+        "role",
+        "id",
+        "ariaLabel: aria-label",
+        "ariaDescription: aria-description",
+        "value",
+        "color",
+        "removable",
+        "highlighted",
+        "disableRipple",
+        "disabled"
+      ],
+      "outputs": [
+        "removed",
+        "destroyed"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatChip; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:78",
+      "name": "Date picker",
+      "component": "MatDatepicker",
+      "importPath": "@angular/material/datepicker",
+      "selector": "mat-datepicker",
+      "module": "MatDatepickerModule",
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatDatepicker; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:46",
+      "name": "Divider",
+      "component": "MatDivider",
+      "importPath": "@angular/material/divider",
+      "selector": "mat-divider",
+      "module": "MatDividerModule",
+      "inputs": [
+        "vertical",
+        "inset"
+      ],
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatDivider; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:107",
+      "name": "Expansion panel",
+      "component": "MatExpansionPanel",
+      "importPath": "@angular/material/expansion",
+      "selector": "mat-expansion-panel",
+      "module": "MatExpansionModule",
+      "inputs": [
+        "hideToggle",
+        "togglePosition"
+      ],
+      "outputs": [
+        "afterExpand",
+        "afterCollapse"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatExpansionPanel; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:12",
+      "name": "FAB",
+      "component": "MatFabButton",
+      "importPath": "@angular/material/button",
+      "selector": "button[mat-fab], a[mat-fab], button[matFab], a[matFab]",
+      "module": "MatButtonModule",
+      "inputs": [
+        "extended"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatFabButton; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:96",
+      "name": "Form field",
+      "component": "MatFormField",
+      "importPath": "@angular/material/input",
+      "selector": "mat-form-field",
+      "module": "MatFormFieldModule",
+      "inputs": [
+        "hideRequiredMarker",
+        "color",
+        "floatLabel",
+        "appearance",
+        "subscriptSizing",
+        "hintLabel"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatFormField; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:115",
+      "name": "Grid list",
+      "component": "MatGridList",
+      "importPath": "@angular/material/grid-list",
+      "selector": "mat-grid-list",
+      "module": "MatGridListModule",
+      "inputs": [
+        "cols",
+        "gutterSize",
+        "rowHeight"
+      ],
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatGridList; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:111",
+      "name": "Icon",
+      "component": "MatIcon",
+      "importPath": "@angular/material/icon",
+      "selector": "mat-icon",
+      "module": "MatIconModule",
+      "inputs": [
+        "color",
+        "inline",
+        "svgIcon",
+        "fontSet",
+        "fontIcon"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatIcon; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:7",
+      "name": "Icon button",
+      "component": "MatIconButton",
+      "importPath": "@angular/material/button",
+      "selector": "button[mat-icon-button], a[mat-icon-button], button[matIconButton], a[matIconButton]",
+      "module": "MatButtonModule",
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatIconButton; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:48",
+      "name": "List",
+      "component": "MatList",
+      "importPath": "@angular/material/list",
+      "selector": "mat-list",
+      "module": "MatListModule",
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatList; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:49",
+      "name": "List item",
+      "component": "MatListItem",
+      "importPath": "@angular/material/list",
+      "selector": "mat-list-item, a[mat-list-item], button[mat-list-item]",
+      "module": "MatListModule",
+      "inputs": [
+        "activated"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatListItem; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:80",
+      "name": "Menu",
+      "component": "MatMenu",
+      "importPath": "@angular/material/menu",
+      "selector": "mat-menu",
+      "module": "MatMenuModule",
+      "inputs": [
+        "backdropClass",
+        "ariaLabel: aria-label",
+        "ariaLabelledby: aria-labelledby",
+        "ariaDescribedby: aria-describedby",
+        "xPosition",
+        "yPosition",
+        "overlapTrigger",
+        "hasBackdrop",
+        "panelClass: class",
+        "classList"
+      ],
+      "outputs": [
+        "closed",
+        "close"
+      ],
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatMenu; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:17",
+      "name": "Mini FAB",
+      "component": "MatMiniFabButton",
+      "importPath": "@angular/material/button",
+      "selector": "button[mat-mini-fab], a[mat-mini-fab], button[matMiniFab], a[matMiniFab]",
+      "module": "MatButtonModule",
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatMiniFabButton; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:103",
+      "name": "Paginator",
+      "component": "MatPaginator",
+      "importPath": "@angular/material/paginator",
+      "selector": "mat-paginator",
+      "module": "MatPaginatorModule",
+      "inputs": [
+        "color",
+        "pageIndex",
+        "length",
+        "pageSize",
+        "pageSizeOptions",
+        "hidePageSize",
+        "showFirstLastButtons",
+        "selectConfig",
+        "disabled"
+      ],
+      "outputs": [
+        "page"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatPaginator; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:28",
+      "name": "Progress bar",
+      "component": "MatProgressBar",
+      "importPath": "@angular/material/progress-bar",
+      "selector": "mat-progress-bar",
+      "module": "MatProgressBarModule",
+      "inputs": [
+        "color",
+        "value",
+        "bufferValue",
+        "mode"
+      ],
+      "outputs": [
+        "animationEnd"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatProgressBar; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:30",
+      "name": "Progress spinner",
+      "component": "MatProgressSpinner",
+      "importPath": "@angular/material/progress-spinner",
+      "selector": "mat-progress-spinner, mat-spinner",
+      "module": "MatProgressSpinnerModule",
+      "inputs": [
+        "color",
+        "mode",
+        "value",
+        "diameter",
+        "strokeWidth"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatProgressSpinner; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:82",
+      "name": "Radio button",
+      "component": "MatRadioButton",
+      "importPath": "@angular/material/radio",
+      "selector": "mat-radio-button",
+      "module": "MatRadioModule",
+      "inputs": [
+        "id",
+        "name",
+        "ariaLabel: aria-label",
+        "ariaLabelledby: aria-labelledby",
+        "ariaDescribedby: aria-describedby",
+        "disableRipple",
+        "tabIndex",
+        "checked",
+        "value",
+        "labelPosition",
+        "disabled",
+        "required",
+        "color",
+        "disabledInteractive"
+      ],
+      "outputs": [
+        "change"
+      ],
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatRadioButton; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:90",
+      "name": "Select",
+      "component": "MatSelect",
+      "importPath": "@angular/material/select",
+      "selector": "mat-select",
+      "module": "MatSelectModule",
+      "inputs": [
+        "userAriaDescribedBy: aria-describedby",
+        "panelClass",
+        "disabled",
+        "disableRipple",
+        "tabIndex",
+        "hideSingleSelectionIndicator",
+        "placeholder",
+        "required",
+        "multiple",
+        "disableOptionCentering",
+        "compareWith",
+        "value",
+        "ariaLabel: aria-label",
+        "ariaLabelledby: aria-labelledby",
+        "errorStateMatcher",
+        "typeaheadDebounceInterval",
+        "sortComparator",
+        "id",
+        "panelWidth",
+        "canSelectNullableOptions"
+      ],
+      "outputs": [
+        "openedChange",
+        "_openedStream: opened",
+        "_closedStream: closed",
+        "selectionChange",
+        "valueChange"
+      ],
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatSelect; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:61",
+      "name": "Sidenav",
+      "component": "MatSidenav",
+      "importPath": "@angular/material/sidenav",
+      "selector": "mat-sidenav",
+      "module": "MatSidenavModule",
+      "inputs": [
+        "fixedInViewport",
+        "fixedTopGap",
+        "fixedBottomGap"
+      ],
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatSidenav; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:86",
+      "name": "Slide toggle",
+      "component": "MatSlideToggle",
+      "importPath": "@angular/material/slide-toggle",
+      "selector": "mat-slide-toggle",
+      "module": "MatSlideToggleModule",
+      "inputs": [
+        "name",
+        "id",
+        "labelPosition",
+        "ariaLabel: aria-label",
+        "ariaLabelledby: aria-labelledby",
+        "ariaDescribedby: aria-describedby",
+        "required",
+        "color",
+        "disabled",
+        "fullWidth",
+        "disableRipple",
+        "tabIndex",
+        "checked",
+        "hideIcon",
+        "disabledInteractive"
+      ],
+      "outputs": [
+        "change",
+        "toggleChange"
+      ],
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatSlideToggle; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:84",
+      "name": "Slider",
+      "component": "MatSlider",
+      "importPath": "@angular/material/slider",
+      "selector": "mat-slider",
+      "module": "MatSliderModule",
+      "inputs": [
+        "disabled",
+        "discrete",
+        "showTickMarks",
+        "min",
+        "color",
+        "disableRipple",
+        "max",
+        "step",
+        "displayWith"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatSlider; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:113",
+      "name": "Sort",
+      "component": "MatSort",
+      "importPath": "@angular/material/sort",
+      "selector": "[matSort]",
+      "module": "MatSortModule",
+      "inputs": [
+        "active: matSortActive",
+        "start: matSortStart",
+        "direction: matSortDirection",
+        "disableClear: matSortDisableClear",
+        "disabled: matSortDisabled"
+      ],
+      "outputs": [
+        "sortChange: matSortChange"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatSort; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:105",
+      "name": "Stepper",
+      "component": "MatStepper",
+      "importPath": "@angular/material/stepper",
+      "selector": "mat-stepper, mat-vertical-stepper, mat-horizontal-stepper, [matStepper]",
+      "module": "MatStepperModule",
+      "inputs": [
+        "disableRipple",
+        "color",
+        "labelPosition",
+        "headerPosition",
+        "ariaLabel: aria-label",
+        "headerPrefix",
+        "animationDuration"
+      ],
+      "outputs": [
+        "animationDone"
+      ],
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatStepper; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:101",
+      "name": "Table",
+      "component": "MatTable",
+      "importPath": "@angular/material/table",
+      "selector": "mat-table, table[mat-table]",
+      "module": "MatTableModule",
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatTable; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:88",
+      "name": "Time picker",
+      "component": "MatTimepicker",
+      "importPath": "@angular/material/timepicker",
+      "selector": "mat-timepicker",
+      "module": "MatTimepickerModule",
+      "inputs": [
+        "interval",
+        "options",
+        "disableRipple",
+        "ariaLabel: aria-label",
+        "ariaLabelledby: aria-labelledby",
+        "panelClass"
+      ],
+      "outputs": [
+        "selected",
+        "opened",
+        "closed"
+      ],
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatTimepicker; Figma properties match its inputs"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:64",
+      "name": "Toolbar",
+      "component": "MatToolbar",
+      "importPath": "@angular/material/toolbar",
+      "selector": "mat-toolbar",
+      "module": "MatToolbarModule",
+      "inputs": [
+        "color"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatToolbar; some Figma properties have no input"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:34",
+      "name": "Tooltip",
+      "component": "MatTooltip",
+      "importPath": "@angular/material/tooltip",
+      "selector": "[matTooltip]",
+      "module": "MatTooltipModule",
+      "inputs": [
+        "position: matTooltipPosition",
+        "positionAtOrigin: matTooltipPositionAtOrigin",
+        "disabled: matTooltipDisabled",
+        "showDelay: matTooltipShowDelay",
+        "hideDelay: matTooltipHideDelay",
+        "touchGestures: matTooltipTouchGestures",
+        "message: matTooltip",
+        "tooltipClass: matTooltipClass"
+      ],
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "more than one code component has the name Tooltip"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:34",
+      "name": "Tooltip",
+      "component": "TooltipComponent",
+      "importPath": "@angular/material/tooltip",
+      "selector": "mat-tooltip-component",
+      "module": "MatTooltipModule",
+      "relation": "maps",
+      "status": "partial",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "more than one code component has the name Tooltip"
+    },
+    {
+      "fileKey": "M3SPEC",
+      "id": "1:117",
+      "name": "Tree",
+      "component": "MatTree",
+      "importPath": "@angular/material/tree",
+      "selector": "mat-tree",
+      "module": "MatTreeModule",
+      "relation": "maps",
+      "status": "suggested",
+      "figmaVersion": "public-spec-2026-10-20",
+      "packageVersion": "22.2.3",
+      "because": "name matches MatTree; Figma properties match its inputs"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "signin-toolbar", "type": "screen", "phrase": "top app bar on the sign in screen", "expect": ["Toolbar"] },
+    { "id": "signin-email", "type": "screen", "phrase": "email text field", "expect": ["Text field"] },
+    { "id": "signin-password", "type": "screen", "phrase": "password text field", "expect": ["Text field"] },
+    { "id": "signin-primary", "type": "screen", "phrase": "primary sign in button", "expect": ["Button"], "mustNot": ["Icon button", "FAB"] },
+    { "id": "signin-text-button", "type": "screen", "phrase": "forgot password text button", "expect": ["Button"], "mustNot": ["Icon button"] },
+    { "id": "signin-checkbox", "type": "screen", "phrase": "remember me checkbox", "expect": ["Checkbox"] },
+    { "id": "signin-captcha", "type": "screen", "phrase": "captcha challenge widget", "expect": "none" },
+
+    { "id": "signup-name", "type": "screen", "phrase": "name text field outlined", "expect": ["Text field"] },
+    { "id": "signup-terms", "type": "screen", "phrase": "terms and conditions checkbox", "expect": ["Checkbox"] },
+    { "id": "signup-create", "type": "screen", "phrase": "create account filled button", "expect": ["Button"], "mustNot": ["FAB"] },
+    { "id": "signup-progress", "type": "screen", "phrase": "progress spinner while submitting", "expect": ["Progress spinner"] },
+    { "id": "signup-strength", "type": "screen", "phrase": "password strength meter", "expect": "none" },
+
+    { "id": "settings-toggle", "type": "screen", "phrase": "settings slide toggle", "expect": ["Slide toggle"] },
+    { "id": "settings-slider", "type": "screen", "phrase": "brightness slider", "expect": ["Slider"] },
+    { "id": "settings-radio", "type": "screen", "phrase": "theme radio button", "expect": ["Radio button"] },
+    { "id": "settings-drawer", "type": "screen", "phrase": "navigation drawer", "expect": ["Sidenav"] },
+    { "id": "settings-color", "type": "screen", "phrase": "color picker", "expect": "none" },
+
+    { "id": "table-grid", "type": "screen", "phrase": "data table", "expect": ["Table"] },
+    { "id": "table-sort", "type": "screen", "phrase": "sort", "expect": ["Sort"] },
+    { "id": "table-pages", "type": "screen", "phrase": "pagination control under the table", "expect": ["Paginator"] },
+    { "id": "table-filters", "type": "screen", "phrase": "filter chips", "expect": ["Chip"] },
+    { "id": "table-search", "type": "screen", "phrase": "search bar above the table", "expect": ["Search bar"] },
+    { "id": "table-check", "type": "screen", "phrase": "row checkbox", "expect": ["Checkbox"] },
+
+    { "id": "checkout-card", "type": "screen", "phrase": "order summary card", "expect": ["Card"] },
+    { "id": "checkout-field", "type": "screen", "phrase": "promo code text field", "expect": ["Text field"] },
+    { "id": "checkout-pay", "type": "screen", "phrase": "pay now button", "expect": ["Button"], "mustNot": ["FAB"] },
+    { "id": "checkout-steps", "type": "screen", "phrase": "checkout stepper", "expect": ["Stepper"] },
+    { "id": "checkout-select", "type": "screen", "phrase": "country select", "expect": ["Select"], "mustNot": ["Menu"] },
+
+    { "id": "list-row", "type": "screen", "phrase": "two line list item", "expect": ["List item"] },
+    { "id": "list-divider", "type": "screen", "phrase": "divider between rows", "expect": ["Divider"] },
+    { "id": "list-fab", "type": "screen", "phrase": "add floating action button", "expect": ["FAB"], "mustNot": ["Button"] },
+    { "id": "list-menu", "type": "screen", "phrase": "sort menu", "expect": ["Menu"], "mustNot": ["Select"] },
+    { "id": "list-extended", "type": "screen", "phrase": "extended fab compose", "expect": ["Extended FAB"] },
+
+    { "id": "dialog-confirm", "type": "screen", "phrase": "confirmation dialog", "expect": ["Dialog"] },
+    { "id": "dialog-date", "type": "screen", "phrase": "date picker", "expect": ["Date picker"] },
+    { "id": "dialog-sheet", "type": "screen", "phrase": "bottom sheet", "expect": ["Bottom sheet"] },
+    { "id": "dialog-time", "type": "screen", "phrase": "time picker", "expect": ["Time picker"] },
+    { "id": "dialog-coach", "type": "screen", "phrase": "coach mark tooltip tour", "expect": "none" },
+
+    { "id": "feed-snack", "type": "screen", "phrase": "snackbar after saving", "expect": ["Snackbar"] },
+    { "id": "feed-tooltip", "type": "screen", "phrase": "tooltip on an icon button", "expect": ["Tooltip"] },
+    { "id": "feed-icon", "type": "screen", "phrase": "edit icon button", "expect": ["Icon button"], "mustNot": ["Button"] },
+    { "id": "feed-badge", "type": "screen", "phrase": "notification badge", "expect": ["Badge"] },
+    { "id": "feed-tabs", "type": "screen", "phrase": "tabs", "expect": ["Tabs"] },
+    { "id": "feed-nav", "type": "screen", "phrase": "bottom navigation bar", "expect": ["Navigation bar"] },
+    { "id": "feed-carousel", "type": "screen", "phrase": "stories carousel", "expect": "none" },
+
+    { "id": "form-field", "type": "screen", "phrase": "form field around the email input", "expect": ["Form field"] },
+    { "id": "form-autocomplete", "type": "screen", "phrase": "city autocomplete", "expect": ["Autocomplete"] },
+    { "id": "form-expand", "type": "screen", "phrase": "expansion panel for shipping details", "expect": ["Expansion panel"] },
+    { "id": "form-tree", "type": "screen", "phrase": "folder tree", "expect": ["Tree"] },
+    { "id": "form-grid", "type": "screen", "phrase": "photo grid list", "expect": ["Grid list"] },
+    { "id": "form-toggle", "type": "screen", "phrase": "segmented button", "expect": ["Button toggle"] },
+    { "id": "form-side", "type": "screen", "phrase": "side sheet of filters", "expect": ["Side sheet"] },
+    { "id": "form-rail", "type": "screen", "phrase": "navigation rail", "expect": ["Navigation rail"] },
+    { "id": "form-upload", "type": "screen", "phrase": "upload progress bar", "expect": ["Progress bar"] },
+    { "id": "form-mini", "type": "screen", "phrase": "mini fab", "expect": ["Mini FAB"] },
+    { "id": "form-icon", "type": "screen", "phrase": "close icon", "expect": ["Icon"], "mustNot": ["Icon button"] },
+    { "id": "form-editor", "type": "screen", "phrase": "rich text editor", "expect": "none" },
+    { "id": "form-map", "type": "screen", "phrase": "map view", "expect": "none" },
+    { "id": "form-bio", "type": "screen", "phrase": "biometric fingerprint prompt", "expect": "none" }
+  ]
+}

@@ -38,6 +38,16 @@ jobs:
           npm run resolve -- score phrases --phrases scoreboard/phrases --json > "$RUNNER_TEMP/phrases.json"
           node scripts/check-phrase-floor.mjs scoreboard/phrase-baseline.json "$RUNNER_TEMP/phrases.json"
           npm run resolve -- score --golden scoreboard/golden --workspace fixture
+      - name: Score the Material library
+        env:
+          RESOLVE_HOME: ${{ runner.temp }}/material-home
+        run: |
+          set -o pipefail
+          mkdir -p "$RESOLVE_HOME"
+          cp fixtures/material/synonyms.json "$RESOLVE_HOME/synonyms.json"
+          npm run resolve -- ingest fixtures/material/library.json --role library --name "Material 3"
+          npm run resolve -- score phrases --phrases scoreboard/material-phrases --json > "$RUNNER_TEMP/material-phrases.json"
+          node scripts/check-material-floor.mjs scoreboard/material-baseline.json "$RUNNER_TEMP/material-phrases.json"
 
   e2e:
     runs-on: ubuntu-latest

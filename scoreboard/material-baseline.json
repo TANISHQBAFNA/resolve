@@ -1,0 +1,8 @@
+{
+  "note": "Floor for the Material phrase board. CI fails when top-1, top-3, or empty-correct falls below these counts, or invented is not 0.",
+  "top1": 51,
+  "top3": 51,
+  "matchCases": 51,
+  "emptyCorrect": 8,
+  "emptyCases": 8
+}

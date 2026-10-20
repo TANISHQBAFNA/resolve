@@ -1,0 +1,4094 @@
+{
+  "packageName": "@angular/material",
+  "packageVersion": "22.2.3",
+  "components": [
+    {
+      "component": "_MatBadgeStyleLoader",
+      "selector": "ng-component",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/_badge-chunk.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material"
+    },
+    {
+      "component": "_MatInternalFormField",
+      "selector": "[mat-internal-form-field]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "labelPosition"
+        }
+      ],
+      "outputs": [],
+      "file": "types/core.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material/core"
+    },
+    {
+      "component": "_StructuralStylesLoader",
+      "selector": "structural-styles",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/core.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material/core"
+    },
+    {
+      "component": "MatAccordion",
+      "selector": "mat-accordion",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "hideToggle"
+        },
+        {
+          "name": "displayMode"
+        },
+        {
+          "name": "togglePosition"
+        }
+      ],
+      "outputs": [],
+      "file": "types/expansion.d.ts",
+      "from": "dts",
+      "module": "MatExpansionModule",
+      "importPath": "@angular/material/expansion"
+    },
+    {
+      "component": "MatActionList",
+      "selector": "mat-action-list",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/list.d.ts",
+      "from": "dts",
+      "module": "MatListModule",
+      "importPath": "@angular/material/list"
+    },
+    {
+      "component": "MatAutocomplete",
+      "selector": "mat-autocomplete",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "ariaLabelledby",
+          "alias": "aria-labelledby"
+        },
+        {
+          "name": "displayWith"
+        },
+        {
+          "name": "autoActiveFirstOption"
+        },
+        {
+          "name": "autoSelectActiveOption"
+        },
+        {
+          "name": "requireSelection"
+        },
+        {
+          "name": "panelWidth"
+        },
+        {
+          "name": "disableRipple"
+        },
+        {
+          "name": "classList",
+          "alias": "class"
+        },
+        {
+          "name": "hideSingleSelectionIndicator"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "optionSelected"
+        },
+        {
+          "name": "opened"
+        },
+        {
+          "name": "closed"
+        },
+        {
+          "name": "optionActivated"
+        }
+      ],
+      "file": "types/autocomplete.d.ts",
+      "from": "dts",
+      "module": "MatAutocompleteModule",
+      "importPath": "@angular/material/autocomplete"
+    },
+    {
+      "component": "MatAutocompleteOrigin",
+      "selector": "[matAutocompleteOrigin]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/autocomplete.d.ts",
+      "from": "dts",
+      "module": "MatAutocompleteModule",
+      "importPath": "@angular/material/autocomplete"
+    },
+    {
+      "component": "MatAutocompleteTrigger",
+      "selector": "input[matAutocomplete], textarea[matAutocomplete]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "autocomplete",
+          "alias": "matAutocomplete"
+        },
+        {
+          "name": "position",
+          "alias": "matAutocompletePosition"
+        },
+        {
+          "name": "connectedTo",
+          "alias": "matAutocompleteConnectedTo"
+        },
+        {
+          "name": "autocompleteAttribute",
+          "alias": "autocomplete"
+        },
+        {
+          "name": "autocompleteDisabled",
+          "alias": "matAutocompleteDisabled"
+        }
+      ],
+      "outputs": [],
+      "file": "types/autocomplete.d.ts",
+      "from": "dts",
+      "module": "MatAutocompleteModule",
+      "importPath": "@angular/material/autocomplete"
+    },
+    {
+      "component": "MatBadge",
+      "selector": "[matBadge]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "color",
+          "alias": "matBadgeColor"
+        },
+        {
+          "name": "overlap",
+          "alias": "matBadgeOverlap"
+        },
+        {
+          "name": "disabled",
+          "alias": "matBadgeDisabled"
+        },
+        {
+          "name": "position",
+          "alias": "matBadgePosition"
+        },
+        {
+          "name": "content",
+          "alias": "matBadge"
+        },
+        {
+          "name": "description",
+          "alias": "matBadgeDescription"
+        },
+        {
+          "name": "size",
+          "alias": "matBadgeSize"
+        },
+        {
+          "name": "hidden",
+          "alias": "matBadgeHidden"
+        }
+      ],
+      "outputs": [],
+      "file": "types/_badge-chunk.d.ts",
+      "from": "dts",
+      "module": "MatBadgeModule",
+      "importPath": "@angular/material/badge"
+    },
+    {
+      "component": "MatBottomSheetContainer",
+      "selector": "mat-bottom-sheet-container",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/bottom-sheet.d.ts",
+      "from": "dts",
+      "module": "MatBottomSheetModule",
+      "importPath": "@angular/material/bottom-sheet"
+    },
+    {
+      "component": "MatButton",
+      "selector": "button[matButton], a[matButton], button[mat-button], button[mat-raised-button], button[mat-flat-button], button[mat-stroked-button], a[mat-button], a[mat-raised-button], a[mat-flat-button], a[mat-stroked-button]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "appearance",
+          "alias": "matButton"
+        }
+      ],
+      "outputs": [],
+      "file": "types/button.d.ts",
+      "from": "dts",
+      "module": "MatButtonModule",
+      "importPath": "@angular/material/button"
+    },
+    {
+      "component": "MatButtonToggle",
+      "selector": "mat-button-toggle",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "ariaLabelledby",
+          "alias": "aria-labelledby"
+        },
+        {
+          "name": "id"
+        },
+        {
+          "name": "name"
+        },
+        {
+          "name": "value"
+        },
+        {
+          "name": "tabIndex"
+        },
+        {
+          "name": "disableRipple"
+        },
+        {
+          "name": "appearance"
+        },
+        {
+          "name": "checked"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "disabledInteractive"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "change"
+        }
+      ],
+      "file": "types/_button-toggle-chunk.d.ts",
+      "from": "dts",
+      "module": "MatButtonToggleModule",
+      "importPath": "@angular/material/button-toggle"
+    },
+    {
+      "component": "MatButtonToggleGroup",
+      "selector": "mat-button-toggle-group",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "appearance"
+        },
+        {
+          "name": "name"
+        },
+        {
+          "name": "vertical"
+        },
+        {
+          "name": "value"
+        },
+        {
+          "name": "multiple"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "disabledInteractive"
+        },
+        {
+          "name": "hideSingleSelectionIndicator"
+        },
+        {
+          "name": "hideMultipleSelectionIndicator"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "valueChange"
+        },
+        {
+          "name": "change"
+        }
+      ],
+      "file": "types/_button-toggle-chunk.d.ts",
+      "from": "dts",
+      "module": "MatButtonToggleModule",
+      "importPath": "@angular/material/button-toggle"
+    },
+    {
+      "component": "MatCalendar",
+      "selector": "mat-calendar",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "headerComponent"
+        },
+        {
+          "name": "startAt"
+        },
+        {
+          "name": "startView"
+        },
+        {
+          "name": "selected"
+        },
+        {
+          "name": "minDate"
+        },
+        {
+          "name": "maxDate"
+        },
+        {
+          "name": "dateFilter"
+        },
+        {
+          "name": "dateClass"
+        },
+        {
+          "name": "comparisonStart"
+        },
+        {
+          "name": "comparisonEnd"
+        },
+        {
+          "name": "startDateAccessibleName"
+        },
+        {
+          "name": "endDateAccessibleName"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selectedChange"
+        },
+        {
+          "name": "yearSelected"
+        },
+        {
+          "name": "monthSelected"
+        },
+        {
+          "name": "viewChanged"
+        },
+        {
+          "name": "_userSelection"
+        },
+        {
+          "name": "_userDragDrop"
+        }
+      ],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatCalendarBody",
+      "selector": "[mat-calendar-body]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "label"
+        },
+        {
+          "name": "rows"
+        },
+        {
+          "name": "todayValue"
+        },
+        {
+          "name": "startValue"
+        },
+        {
+          "name": "endValue"
+        },
+        {
+          "name": "labelMinRequiredCells"
+        },
+        {
+          "name": "numCols"
+        },
+        {
+          "name": "activeCell"
+        },
+        {
+          "name": "isRange"
+        },
+        {
+          "name": "cellAspectRatio"
+        },
+        {
+          "name": "comparisonStart"
+        },
+        {
+          "name": "comparisonEnd"
+        },
+        {
+          "name": "previewStart"
+        },
+        {
+          "name": "previewEnd"
+        },
+        {
+          "name": "startDateAccessibleName"
+        },
+        {
+          "name": "endDateAccessibleName"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selectedValueChange"
+        },
+        {
+          "name": "previewChange"
+        },
+        {
+          "name": "activeDateChange"
+        },
+        {
+          "name": "dragStarted"
+        },
+        {
+          "name": "dragEnded"
+        }
+      ],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatCalendarHeader",
+      "selector": "mat-calendar-header",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatCard",
+      "selector": "mat-card",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "appearance"
+        }
+      ],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCardActions",
+      "selector": "mat-card-actions",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "align"
+        }
+      ],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCardAvatar",
+      "selector": "[mat-card-avatar], [matCardAvatar]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCardContent",
+      "selector": "mat-card-content",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCardFooter",
+      "selector": "mat-card-footer",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCardHeader",
+      "selector": "mat-card-header",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCardImage",
+      "selector": "[mat-card-image], [matCardImage]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCardLgImage",
+      "selector": "[mat-card-lg-image], [matCardImageLarge]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCardMdImage",
+      "selector": "[mat-card-md-image], [matCardImageMedium]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCardSmImage",
+      "selector": "[mat-card-sm-image], [matCardImageSmall]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCardSubtitle",
+      "selector": "mat-card-subtitle, [mat-card-subtitle], [matCardSubtitle]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCardTitle",
+      "selector": "mat-card-title, [mat-card-title], [matCardTitle]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCardTitleGroup",
+      "selector": "mat-card-title-group",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCardXlImage",
+      "selector": "[mat-card-xl-image], [matCardImageXLarge]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/card.d.ts",
+      "from": "dts",
+      "module": "MatCardModule",
+      "importPath": "@angular/material/card"
+    },
+    {
+      "component": "MatCell",
+      "selector": "mat-cell, td[mat-cell]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatCellDef",
+      "selector": "[matCellDef]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatCheckbox",
+      "selector": "mat-checkbox",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "ariaLabelledby",
+          "alias": "aria-labelledby"
+        },
+        {
+          "name": "ariaDescribedby",
+          "alias": "aria-describedby"
+        },
+        {
+          "name": "ariaExpanded",
+          "alias": "aria-expanded"
+        },
+        {
+          "name": "ariaControls",
+          "alias": "aria-controls"
+        },
+        {
+          "name": "ariaOwns",
+          "alias": "aria-owns"
+        },
+        {
+          "name": "id"
+        },
+        {
+          "name": "required"
+        },
+        {
+          "name": "labelPosition"
+        },
+        {
+          "name": "name"
+        },
+        {
+          "name": "value"
+        },
+        {
+          "name": "disableRipple"
+        },
+        {
+          "name": "tabIndex"
+        },
+        {
+          "name": "color"
+        },
+        {
+          "name": "disabledInteractive"
+        },
+        {
+          "name": "checked"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "indeterminate"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "change"
+        },
+        {
+          "name": "indeterminateChange"
+        }
+      ],
+      "file": "types/checkbox.d.ts",
+      "from": "dts",
+      "module": "MatCheckboxModule",
+      "importPath": "@angular/material/checkbox"
+    },
+    {
+      "component": "MatChip",
+      "selector": "mat-basic-chip, [mat-basic-chip], mat-chip, [mat-chip]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "role"
+        },
+        {
+          "name": "id"
+        },
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "ariaDescription",
+          "alias": "aria-description"
+        },
+        {
+          "name": "value"
+        },
+        {
+          "name": "color"
+        },
+        {
+          "name": "removable"
+        },
+        {
+          "name": "highlighted"
+        },
+        {
+          "name": "disableRipple"
+        },
+        {
+          "name": "disabled"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "removed"
+        },
+        {
+          "name": "destroyed"
+        }
+      ],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "module": "MatChipsModule",
+      "importPath": "@angular/material/chips"
+    },
+    {
+      "component": "MatChipAction",
+      "selector": "[matChipAction]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material"
+    },
+    {
+      "component": "MatChipAvatar",
+      "selector": "mat-chip-avatar, [matChipAvatar]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "module": "MatChipsModule",
+      "importPath": "@angular/material/chips"
+    },
+    {
+      "component": "MatChipContent",
+      "selector": "[matChipContent]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "tabIndex"
+        },
+        {
+          "name": "_allowFocusWhenDisabled"
+        }
+      ],
+      "outputs": [],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material"
+    },
+    {
+      "component": "MatChipEdit",
+      "selector": "[matChipEdit]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "module": "MatChipsModule",
+      "importPath": "@angular/material/chips"
+    },
+    {
+      "component": "MatChipEditInput",
+      "selector": "span[matChipEditInput]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "module": "MatChipsModule",
+      "importPath": "@angular/material/chips"
+    },
+    {
+      "component": "MatChipGrid",
+      "selector": "mat-chip-grid",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "placeholder"
+        },
+        {
+          "name": "required"
+        },
+        {
+          "name": "value"
+        },
+        {
+          "name": "errorStateMatcher"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "change"
+        },
+        {
+          "name": "valueChange"
+        }
+      ],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "module": "MatChipsModule",
+      "importPath": "@angular/material/chips"
+    },
+    {
+      "component": "MatChipInput",
+      "selector": "input[matChipInputFor]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "chipGrid",
+          "alias": "matChipInputFor"
+        },
+        {
+          "name": "addOnBlur",
+          "alias": "matChipInputAddOnBlur"
+        },
+        {
+          "name": "separatorKeyCodes",
+          "alias": "matChipInputSeparatorKeyCodes"
+        },
+        {
+          "name": "placeholder"
+        },
+        {
+          "name": "id"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "readonly"
+        },
+        {
+          "name": "disabledInteractive",
+          "alias": "matChipInputDisabledInteractive"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "chipEnd",
+          "alias": "matChipInputTokenEnd"
+        }
+      ],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "module": "MatChipsModule",
+      "importPath": "@angular/material/chips"
+    },
+    {
+      "component": "MatChipListbox",
+      "selector": "mat-chip-listbox",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "multiple"
+        },
+        {
+          "name": "ariaOrientation",
+          "alias": "aria-orientation"
+        },
+        {
+          "name": "selectable"
+        },
+        {
+          "name": "compareWith"
+        },
+        {
+          "name": "required"
+        },
+        {
+          "name": "hideSingleSelectionIndicator"
+        },
+        {
+          "name": "value"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "change"
+        }
+      ],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "module": "MatChipsModule",
+      "importPath": "@angular/material/chips"
+    },
+    {
+      "component": "MatChipOption",
+      "selector": "mat-basic-chip-option, [mat-basic-chip-option], mat-chip-option, [mat-chip-option]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "selectable"
+        },
+        {
+          "name": "selected"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selectionChange"
+        }
+      ],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "module": "MatChipsModule",
+      "importPath": "@angular/material/chips"
+    },
+    {
+      "component": "MatChipRemove",
+      "selector": "[matChipRemove]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "module": "MatChipsModule",
+      "importPath": "@angular/material/chips"
+    },
+    {
+      "component": "MatChipRow",
+      "selector": "mat-chip-row, [mat-chip-row], mat-basic-chip-row, [mat-basic-chip-row]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "editable"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "edited"
+        }
+      ],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "module": "MatChipsModule",
+      "importPath": "@angular/material/chips"
+    },
+    {
+      "component": "MatChipSet",
+      "selector": "mat-chip-set",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "role"
+        },
+        {
+          "name": "tabIndex"
+        }
+      ],
+      "outputs": [],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "module": "MatChipsModule",
+      "importPath": "@angular/material/chips"
+    },
+    {
+      "component": "MatChipTrailingIcon",
+      "selector": "mat-chip-trailing-icon, [matChipTrailingIcon]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/chips.d.ts",
+      "from": "dts",
+      "module": "MatChipsModule",
+      "importPath": "@angular/material/chips"
+    },
+    {
+      "component": "MatColumnDef",
+      "selector": "[matColumnDef]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "name",
+          "alias": "matColumnDef"
+        }
+      ],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatContextMenuTrigger",
+      "selector": "[matContextMenuTriggerFor]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "menu",
+          "alias": "matContextMenuTriggerFor"
+        },
+        {
+          "name": "menuData",
+          "alias": "matContextMenuTriggerData"
+        },
+        {
+          "name": "restoreFocus",
+          "alias": "matContextMenuTriggerRestoreFocus"
+        },
+        {
+          "name": "disabled",
+          "alias": "matContextMenuTriggerDisabled"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "menuOpened"
+        },
+        {
+          "name": "menuClosed"
+        }
+      ],
+      "file": "types/menu.d.ts",
+      "from": "dts",
+      "module": "MatMenuModule",
+      "importPath": "@angular/material/menu"
+    },
+    {
+      "component": "MatDatepicker",
+      "selector": "mat-datepicker",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatDatepickerActions",
+      "selector": "mat-datepicker-actions, mat-date-range-picker-actions",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatDatepickerApply",
+      "selector": "[matDatepickerApply], [matDateRangePickerApply]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatDatepickerCancel",
+      "selector": "[matDatepickerCancel], [matDateRangePickerCancel]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatDatepickerContent",
+      "selector": "mat-datepicker-content",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "color"
+        }
+      ],
+      "outputs": [],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatDatepickerInput",
+      "selector": "input[matDatepicker]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "matDatepicker"
+        },
+        {
+          "name": "min"
+        },
+        {
+          "name": "max"
+        },
+        {
+          "name": "dateFilter",
+          "alias": "matDatepickerFilter"
+        }
+      ],
+      "outputs": [],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatDatepickerToggle",
+      "selector": "mat-datepicker-toggle",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "datepicker",
+          "alias": "for"
+        },
+        {
+          "name": "tabIndex"
+        },
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "disableRipple"
+        }
+      ],
+      "outputs": [],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatDatepickerToggleIcon",
+      "selector": "[matDatepickerToggleIcon]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatDateRangeInput",
+      "selector": "mat-date-range-input",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "rangePicker"
+        },
+        {
+          "name": "required"
+        },
+        {
+          "name": "dateFilter"
+        },
+        {
+          "name": "min"
+        },
+        {
+          "name": "max"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "separator"
+        },
+        {
+          "name": "comparisonStart"
+        },
+        {
+          "name": "comparisonEnd"
+        }
+      ],
+      "outputs": [],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatDateRangePicker",
+      "selector": "mat-date-range-picker",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatDialogActions",
+      "selector": "[mat-dialog-actions], mat-dialog-actions, [matDialogActions]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "align"
+        }
+      ],
+      "outputs": [],
+      "file": "types/dialog.d.ts",
+      "from": "dts",
+      "module": "MatDialogModule",
+      "importPath": "@angular/material/dialog"
+    },
+    {
+      "component": "MatDialogClose",
+      "selector": "[mat-dialog-close], [matDialogClose]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "type"
+        },
+        {
+          "name": "dialogResult",
+          "alias": "mat-dialog-close"
+        },
+        {
+          "name": "_matDialogClose",
+          "alias": "matDialogClose"
+        }
+      ],
+      "outputs": [],
+      "file": "types/dialog.d.ts",
+      "from": "dts",
+      "module": "MatDialogModule",
+      "importPath": "@angular/material/dialog"
+    },
+    {
+      "component": "MatDialogContainer",
+      "selector": "mat-dialog-container",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/_dialog-chunk.d.ts",
+      "from": "dts",
+      "module": "MatDialogModule",
+      "importPath": "@angular/material/dialog"
+    },
+    {
+      "component": "MatDialogContent",
+      "selector": "[mat-dialog-content], mat-dialog-content, [matDialogContent]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/dialog.d.ts",
+      "from": "dts",
+      "module": "MatDialogModule",
+      "importPath": "@angular/material/dialog"
+    },
+    {
+      "component": "MatDialogTitle",
+      "selector": "[mat-dialog-title], [matDialogTitle]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "id"
+        }
+      ],
+      "outputs": [],
+      "file": "types/dialog.d.ts",
+      "from": "dts",
+      "module": "MatDialogModule",
+      "importPath": "@angular/material/dialog"
+    },
+    {
+      "component": "MatDivider",
+      "selector": "mat-divider",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "vertical"
+        },
+        {
+          "name": "inset"
+        }
+      ],
+      "outputs": [],
+      "file": "types/divider.d.ts",
+      "from": "dts",
+      "module": "MatDividerModule",
+      "importPath": "@angular/material/divider"
+    },
+    {
+      "component": "MatDrawer",
+      "selector": "mat-drawer",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "position"
+        },
+        {
+          "name": "mode"
+        },
+        {
+          "name": "disableClose"
+        },
+        {
+          "name": "autoFocus"
+        },
+        {
+          "name": "opened"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "openedChange"
+        },
+        {
+          "name": "_openedStream",
+          "alias": "opened"
+        },
+        {
+          "name": "openedStart"
+        },
+        {
+          "name": "_closedStream",
+          "alias": "closed"
+        },
+        {
+          "name": "closedStart"
+        },
+        {
+          "name": "onPositionChanged",
+          "alias": "positionChanged"
+        }
+      ],
+      "file": "types/sidenav.d.ts",
+      "from": "dts",
+      "module": "MatSidenavModule",
+      "importPath": "@angular/material/sidenav"
+    },
+    {
+      "component": "MatDrawerContainer",
+      "selector": "mat-drawer-container",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "autosize"
+        },
+        {
+          "name": "hasBackdrop"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "backdropClick"
+        }
+      ],
+      "file": "types/sidenav.d.ts",
+      "from": "dts",
+      "module": "MatSidenavModule",
+      "importPath": "@angular/material/sidenav"
+    },
+    {
+      "component": "MatDrawerContent",
+      "selector": "mat-drawer-content",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/sidenav.d.ts",
+      "from": "dts",
+      "module": "MatSidenavModule",
+      "importPath": "@angular/material/sidenav"
+    },
+    {
+      "component": "MatEndDate",
+      "selector": "input[matEndDate]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "dateChange"
+        },
+        {
+          "name": "dateInput"
+        }
+      ],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatError",
+      "selector": "mat-error, [matError]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "id"
+        }
+      ],
+      "outputs": [],
+      "file": "types/_form-field-chunk.d.ts",
+      "from": "dts",
+      "module": "MatFormFieldModule",
+      "importPath": "@angular/material/input"
+    },
+    {
+      "component": "MatExpansionPanel",
+      "selector": "mat-expansion-panel",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "hideToggle"
+        },
+        {
+          "name": "togglePosition"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "afterExpand"
+        },
+        {
+          "name": "afterCollapse"
+        }
+      ],
+      "file": "types/expansion.d.ts",
+      "from": "dts",
+      "module": "MatExpansionModule",
+      "importPath": "@angular/material/expansion"
+    },
+    {
+      "component": "MatExpansionPanelActionRow",
+      "selector": "mat-action-row",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/expansion.d.ts",
+      "from": "dts",
+      "module": "MatExpansionModule",
+      "importPath": "@angular/material/expansion"
+    },
+    {
+      "component": "MatExpansionPanelContent",
+      "selector": "ng-template[matExpansionPanelContent]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/expansion.d.ts",
+      "from": "dts",
+      "module": "MatExpansionModule",
+      "importPath": "@angular/material/expansion"
+    },
+    {
+      "component": "MatExpansionPanelDescription",
+      "selector": "mat-panel-description",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/expansion.d.ts",
+      "from": "dts",
+      "module": "MatExpansionModule",
+      "importPath": "@angular/material/expansion"
+    },
+    {
+      "component": "MatExpansionPanelHeader",
+      "selector": "mat-expansion-panel-header",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "expandedHeight"
+        },
+        {
+          "name": "collapsedHeight"
+        },
+        {
+          "name": "tabIndex"
+        }
+      ],
+      "outputs": [],
+      "file": "types/expansion.d.ts",
+      "from": "dts",
+      "module": "MatExpansionModule",
+      "importPath": "@angular/material/expansion"
+    },
+    {
+      "component": "MatExpansionPanelTitle",
+      "selector": "mat-panel-title",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/expansion.d.ts",
+      "from": "dts",
+      "module": "MatExpansionModule",
+      "importPath": "@angular/material/expansion"
+    },
+    {
+      "component": "MatFabButton",
+      "selector": "button[mat-fab], a[mat-fab], button[matFab], a[matFab]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "extended"
+        }
+      ],
+      "outputs": [],
+      "file": "types/button.d.ts",
+      "from": "dts",
+      "module": "MatButtonModule",
+      "importPath": "@angular/material/button"
+    },
+    {
+      "component": "MatFooterCell",
+      "selector": "mat-footer-cell, td[mat-footer-cell]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatFooterCellDef",
+      "selector": "[matFooterCellDef]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatFooterRow",
+      "selector": "mat-footer-row, tr[mat-footer-row]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatFooterRowDef",
+      "selector": "[matFooterRowDef]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "columns",
+          "alias": "matFooterRowDef"
+        },
+        {
+          "name": "sticky",
+          "alias": "matFooterRowDefSticky"
+        }
+      ],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatFormField",
+      "selector": "mat-form-field",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "hideRequiredMarker"
+        },
+        {
+          "name": "color"
+        },
+        {
+          "name": "floatLabel"
+        },
+        {
+          "name": "appearance"
+        },
+        {
+          "name": "subscriptSizing"
+        },
+        {
+          "name": "hintLabel"
+        }
+      ],
+      "outputs": [],
+      "file": "types/_form-field-chunk.d.ts",
+      "from": "dts",
+      "module": "MatFormFieldModule",
+      "importPath": "@angular/material/input"
+    },
+    {
+      "component": "MatFormFieldFloatingLabel",
+      "selector": "label[matFormFieldFloatingLabel]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "floating"
+        },
+        {
+          "name": "monitorResize"
+        }
+      ],
+      "outputs": [],
+      "file": "types/_form-field-chunk.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material"
+    },
+    {
+      "component": "MatFormFieldLineRipple",
+      "selector": "div[matFormFieldLineRipple]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/_form-field-chunk.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material"
+    },
+    {
+      "component": "MatFormFieldNotchedOutline",
+      "selector": "div[matFormFieldNotchedOutline]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "open",
+          "alias": "matFormFieldNotchedOutlineOpen"
+        }
+      ],
+      "outputs": [],
+      "file": "types/_form-field-chunk.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material"
+    },
+    {
+      "component": "MatGridAvatarCssMatStyler",
+      "selector": "[mat-grid-avatar], [matGridAvatar]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/grid-list.d.ts",
+      "from": "dts",
+      "module": "MatGridListModule",
+      "importPath": "@angular/material/grid-list"
+    },
+    {
+      "component": "MatGridList",
+      "selector": "mat-grid-list",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "cols"
+        },
+        {
+          "name": "gutterSize"
+        },
+        {
+          "name": "rowHeight"
+        }
+      ],
+      "outputs": [],
+      "file": "types/grid-list.d.ts",
+      "from": "dts",
+      "module": "MatGridListModule",
+      "importPath": "@angular/material/grid-list"
+    },
+    {
+      "component": "MatGridTile",
+      "selector": "mat-grid-tile",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "rowspan"
+        },
+        {
+          "name": "colspan"
+        }
+      ],
+      "outputs": [],
+      "file": "types/grid-list.d.ts",
+      "from": "dts",
+      "module": "MatGridListModule",
+      "importPath": "@angular/material/grid-list"
+    },
+    {
+      "component": "MatGridTileFooterCssMatStyler",
+      "selector": "mat-grid-tile-footer",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/grid-list.d.ts",
+      "from": "dts",
+      "module": "MatGridListModule",
+      "importPath": "@angular/material/grid-list"
+    },
+    {
+      "component": "MatGridTileHeaderCssMatStyler",
+      "selector": "mat-grid-tile-header",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/grid-list.d.ts",
+      "from": "dts",
+      "module": "MatGridListModule",
+      "importPath": "@angular/material/grid-list"
+    },
+    {
+      "component": "MatGridTileText",
+      "selector": "mat-grid-tile-header, mat-grid-tile-footer",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/grid-list.d.ts",
+      "from": "dts",
+      "module": "MatGridListModule",
+      "importPath": "@angular/material/grid-list"
+    },
+    {
+      "component": "MatHeaderCell",
+      "selector": "mat-header-cell, th[mat-header-cell]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatHeaderCellDef",
+      "selector": "[matHeaderCellDef]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatHeaderRow",
+      "selector": "mat-header-row, tr[mat-header-row]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatHeaderRowDef",
+      "selector": "[matHeaderRowDef]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "columns",
+          "alias": "matHeaderRowDef"
+        },
+        {
+          "name": "sticky",
+          "alias": "matHeaderRowDefSticky"
+        }
+      ],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatHint",
+      "selector": "mat-hint",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "align"
+        },
+        {
+          "name": "id"
+        }
+      ],
+      "outputs": [],
+      "file": "types/_form-field-chunk.d.ts",
+      "from": "dts",
+      "module": "MatFormFieldModule",
+      "importPath": "@angular/material/input"
+    },
+    {
+      "component": "MatIcon",
+      "selector": "mat-icon",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "color"
+        },
+        {
+          "name": "inline"
+        },
+        {
+          "name": "svgIcon"
+        },
+        {
+          "name": "fontSet"
+        },
+        {
+          "name": "fontIcon"
+        }
+      ],
+      "outputs": [],
+      "file": "types/_icon-module-chunk.d.ts",
+      "from": "dts",
+      "module": "MatIconModule",
+      "importPath": "@angular/material/icon"
+    },
+    {
+      "component": "MatIconButton",
+      "selector": "button[mat-icon-button], a[mat-icon-button], button[matIconButton], a[matIconButton]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/button.d.ts",
+      "from": "dts",
+      "module": "MatButtonModule",
+      "importPath": "@angular/material/button"
+    },
+    {
+      "component": "MatInput",
+      "selector": "input[matInput], textarea[matInput], select[matNativeControl], input[matNativeControl], textarea[matNativeControl]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "id"
+        },
+        {
+          "name": "placeholder"
+        },
+        {
+          "name": "name"
+        },
+        {
+          "name": "required"
+        },
+        {
+          "name": "type"
+        },
+        {
+          "name": "errorStateMatcher"
+        },
+        {
+          "name": "userAriaDescribedBy",
+          "alias": "aria-describedby"
+        },
+        {
+          "name": "value"
+        },
+        {
+          "name": "readonly"
+        },
+        {
+          "name": "disabledInteractive"
+        }
+      ],
+      "outputs": [],
+      "file": "types/input.d.ts",
+      "from": "dts",
+      "module": "MatInputModule",
+      "importPath": "@angular/material/input"
+    },
+    {
+      "component": "MatLabel",
+      "selector": "mat-label",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/_form-field-module-chunk.d.ts",
+      "from": "dts",
+      "module": "MatFormFieldModule",
+      "importPath": "@angular/material/input"
+    },
+    {
+      "component": "MatLine",
+      "selector": "[mat-line], [matLine]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/_line-chunk.d.ts",
+      "from": "dts",
+      "module": "MatLineModule",
+      "importPath": "@angular/material/core"
+    },
+    {
+      "component": "MatList",
+      "selector": "mat-list",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/list.d.ts",
+      "from": "dts",
+      "module": "MatListModule",
+      "importPath": "@angular/material/list"
+    },
+    {
+      "component": "MatListItem",
+      "selector": "mat-list-item, a[mat-list-item], button[mat-list-item]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "activated"
+        }
+      ],
+      "outputs": [],
+      "file": "types/list.d.ts",
+      "from": "dts",
+      "module": "MatListModule",
+      "importPath": "@angular/material/list"
+    },
+    {
+      "component": "MatListItemAvatar",
+      "selector": "[matListItemAvatar]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/list.d.ts",
+      "from": "dts",
+      "module": "MatListModule",
+      "importPath": "@angular/material/list"
+    },
+    {
+      "component": "MatListItemIcon",
+      "selector": "[matListItemIcon]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/list.d.ts",
+      "from": "dts",
+      "module": "MatListModule",
+      "importPath": "@angular/material/list"
+    },
+    {
+      "component": "MatListItemLine",
+      "selector": "[matListItemLine]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/list.d.ts",
+      "from": "dts",
+      "module": "MatListModule",
+      "importPath": "@angular/material/list"
+    },
+    {
+      "component": "MatListItemMeta",
+      "selector": "[matListItemMeta]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/list.d.ts",
+      "from": "dts",
+      "module": "MatListModule",
+      "importPath": "@angular/material/list"
+    },
+    {
+      "component": "MatListItemTitle",
+      "selector": "[matListItemTitle]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/list.d.ts",
+      "from": "dts",
+      "module": "MatListModule",
+      "importPath": "@angular/material/list"
+    },
+    {
+      "component": "MatListOption",
+      "selector": "mat-list-option",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "togglePosition"
+        },
+        {
+          "name": "color"
+        },
+        {
+          "name": "value"
+        },
+        {
+          "name": "selected"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selectedChange"
+        }
+      ],
+      "file": "types/list.d.ts",
+      "from": "dts",
+      "module": "MatListModule",
+      "importPath": "@angular/material/list"
+    },
+    {
+      "component": "MatListSubheaderCssMatStyler",
+      "selector": "[mat-subheader], [matSubheader]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/list.d.ts",
+      "from": "dts",
+      "module": "MatListModule",
+      "importPath": "@angular/material/list"
+    },
+    {
+      "component": "MatMenu",
+      "selector": "mat-menu",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "backdropClass"
+        },
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "ariaLabelledby",
+          "alias": "aria-labelledby"
+        },
+        {
+          "name": "ariaDescribedby",
+          "alias": "aria-describedby"
+        },
+        {
+          "name": "xPosition"
+        },
+        {
+          "name": "yPosition"
+        },
+        {
+          "name": "overlapTrigger"
+        },
+        {
+          "name": "hasBackdrop"
+        },
+        {
+          "name": "panelClass",
+          "alias": "class"
+        },
+        {
+          "name": "classList"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "closed"
+        },
+        {
+          "name": "close"
+        }
+      ],
+      "file": "types/menu.d.ts",
+      "from": "dts",
+      "module": "MatMenuModule",
+      "importPath": "@angular/material/menu"
+    },
+    {
+      "component": "MatMenuContent",
+      "selector": "ng-template[matMenuContent]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/menu.d.ts",
+      "from": "dts",
+      "module": "MatMenuModule",
+      "importPath": "@angular/material/menu"
+    },
+    {
+      "component": "MatMenuItem",
+      "selector": "[mat-menu-item]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "role"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "disabledInteractive"
+        },
+        {
+          "name": "disableRipple"
+        }
+      ],
+      "outputs": [],
+      "file": "types/menu.d.ts",
+      "from": "dts",
+      "module": "MatMenuModule",
+      "importPath": "@angular/material/menu"
+    },
+    {
+      "component": "MatMenuTrigger",
+      "selector": "[mat-menu-trigger-for], [matMenuTriggerFor]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "_deprecatedMatMenuTriggerFor",
+          "alias": "mat-menu-trigger-for"
+        },
+        {
+          "name": "menu",
+          "alias": "matMenuTriggerFor"
+        },
+        {
+          "name": "menuData",
+          "alias": "matMenuTriggerData"
+        },
+        {
+          "name": "restoreFocus",
+          "alias": "matMenuTriggerRestoreFocus"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "menuOpened"
+        },
+        {
+          "name": "onMenuOpen"
+        },
+        {
+          "name": "menuClosed"
+        },
+        {
+          "name": "onMenuClose"
+        }
+      ],
+      "file": "types/menu.d.ts",
+      "from": "dts",
+      "module": "MatMenuModule",
+      "importPath": "@angular/material/menu"
+    },
+    {
+      "component": "MatMiniFabButton",
+      "selector": "button[mat-mini-fab], a[mat-mini-fab], button[matMiniFab], a[matMiniFab]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/button.d.ts",
+      "from": "dts",
+      "module": "MatButtonModule",
+      "importPath": "@angular/material/button"
+    },
+    {
+      "component": "MatMonthView",
+      "selector": "mat-month-view",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "activeDate"
+        },
+        {
+          "name": "selected"
+        },
+        {
+          "name": "minDate"
+        },
+        {
+          "name": "maxDate"
+        },
+        {
+          "name": "dateFilter"
+        },
+        {
+          "name": "dateClass"
+        },
+        {
+          "name": "comparisonStart"
+        },
+        {
+          "name": "comparisonEnd"
+        },
+        {
+          "name": "startDateAccessibleName"
+        },
+        {
+          "name": "endDateAccessibleName"
+        },
+        {
+          "name": "activeDrag"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selectedChange"
+        },
+        {
+          "name": "_userSelection"
+        },
+        {
+          "name": "dragStarted"
+        },
+        {
+          "name": "dragEnded"
+        },
+        {
+          "name": "activeDateChange"
+        }
+      ],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatMultiYearView",
+      "selector": "mat-multi-year-view",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "activeDate"
+        },
+        {
+          "name": "selected"
+        },
+        {
+          "name": "minDate"
+        },
+        {
+          "name": "maxDate"
+        },
+        {
+          "name": "dateFilter"
+        },
+        {
+          "name": "dateClass"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selectedChange"
+        },
+        {
+          "name": "yearSelected"
+        },
+        {
+          "name": "activeDateChange"
+        }
+      ],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatNavList",
+      "selector": "mat-nav-list",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/list.d.ts",
+      "from": "dts",
+      "module": "MatListModule",
+      "importPath": "@angular/material/list"
+    },
+    {
+      "component": "MatNestedTreeNode",
+      "selector": "mat-nested-tree-node",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "node",
+          "alias": "matNestedTreeNode"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "tabIndex"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "activation"
+        },
+        {
+          "name": "expandedChange"
+        }
+      ],
+      "file": "types/tree.d.ts",
+      "from": "dts",
+      "module": "MatTreeModule",
+      "importPath": "@angular/material/tree"
+    },
+    {
+      "component": "MatNoDataRow",
+      "selector": "ng-template[matNoDataRow]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatOptgroup",
+      "selector": "mat-optgroup",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "label"
+        },
+        {
+          "name": "disabled"
+        }
+      ],
+      "outputs": [],
+      "file": "types/_option-chunk.d.ts",
+      "from": "dts",
+      "module": "MatOptionModule",
+      "importPath": "@angular/material/core"
+    },
+    {
+      "component": "MatOption",
+      "selector": "mat-option",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "value"
+        },
+        {
+          "name": "id"
+        },
+        {
+          "name": "disabled"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "onSelectionChange"
+        }
+      ],
+      "file": "types/_option-chunk.d.ts",
+      "from": "dts",
+      "module": "MatOptionModule",
+      "importPath": "@angular/material/core"
+    },
+    {
+      "component": "MatPaginator",
+      "selector": "mat-paginator",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "color"
+        },
+        {
+          "name": "pageIndex"
+        },
+        {
+          "name": "length"
+        },
+        {
+          "name": "pageSize"
+        },
+        {
+          "name": "pageSizeOptions"
+        },
+        {
+          "name": "hidePageSize"
+        },
+        {
+          "name": "showFirstLastButtons"
+        },
+        {
+          "name": "selectConfig"
+        },
+        {
+          "name": "disabled"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "page"
+        }
+      ],
+      "file": "types/_paginator-chunk.d.ts",
+      "from": "dts",
+      "module": "MatPaginatorModule",
+      "importPath": "@angular/material/paginator"
+    },
+    {
+      "component": "MatPrefix",
+      "selector": "[matPrefix], [matIconPrefix], [matTextPrefix]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "_isTextSelector",
+          "alias": "matTextPrefix"
+        }
+      ],
+      "outputs": [],
+      "file": "types/_form-field-chunk.d.ts",
+      "from": "dts",
+      "module": "MatFormFieldModule",
+      "importPath": "@angular/material/input"
+    },
+    {
+      "component": "MatProgressBar",
+      "selector": "mat-progress-bar",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "color"
+        },
+        {
+          "name": "value"
+        },
+        {
+          "name": "bufferValue"
+        },
+        {
+          "name": "mode"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "animationEnd"
+        }
+      ],
+      "file": "types/progress-bar.d.ts",
+      "from": "dts",
+      "module": "MatProgressBarModule",
+      "importPath": "@angular/material/progress-bar"
+    },
+    {
+      "component": "MatProgressSpinner",
+      "selector": "mat-progress-spinner, mat-spinner",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "color"
+        },
+        {
+          "name": "mode"
+        },
+        {
+          "name": "value"
+        },
+        {
+          "name": "diameter"
+        },
+        {
+          "name": "strokeWidth"
+        }
+      ],
+      "outputs": [],
+      "file": "types/_progress-spinner-chunk.d.ts",
+      "from": "dts",
+      "module": "MatProgressSpinnerModule",
+      "importPath": "@angular/material/progress-spinner"
+    },
+    {
+      "component": "MatPseudoCheckbox",
+      "selector": "mat-pseudo-checkbox",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "state"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "appearance"
+        }
+      ],
+      "outputs": [],
+      "file": "types/_pseudo-checkbox-module-chunk.d.ts",
+      "from": "dts",
+      "module": "MatPseudoCheckboxModule",
+      "importPath": "@angular/material/core"
+    },
+    {
+      "component": "MatRadioButton",
+      "selector": "mat-radio-button",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "name"
+        },
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "ariaLabelledby",
+          "alias": "aria-labelledby"
+        },
+        {
+          "name": "ariaDescribedby",
+          "alias": "aria-describedby"
+        },
+        {
+          "name": "disableRipple"
+        },
+        {
+          "name": "tabIndex"
+        },
+        {
+          "name": "checked"
+        },
+        {
+          "name": "value"
+        },
+        {
+          "name": "labelPosition"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "required"
+        },
+        {
+          "name": "color"
+        },
+        {
+          "name": "disabledInteractive"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "change"
+        }
+      ],
+      "file": "types/radio.d.ts",
+      "from": "dts",
+      "module": "MatRadioModule",
+      "importPath": "@angular/material/radio"
+    },
+    {
+      "component": "MatRadioGroup",
+      "selector": "mat-radio-group",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "color"
+        },
+        {
+          "name": "name"
+        },
+        {
+          "name": "labelPosition"
+        },
+        {
+          "name": "value"
+        },
+        {
+          "name": "selected"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "required"
+        },
+        {
+          "name": "disabledInteractive"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "change"
+        }
+      ],
+      "file": "types/radio.d.ts",
+      "from": "dts",
+      "module": "MatRadioModule",
+      "importPath": "@angular/material/radio"
+    },
+    {
+      "component": "MatRecycleRows",
+      "selector": "mat-table[recycleRows], table[mat-table][recycleRows]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "deprecated": "This directive is a no-op and will be removed.",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatRipple",
+      "selector": "[mat-ripple], [matRipple]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "color",
+          "alias": "matRippleColor"
+        },
+        {
+          "name": "unbounded",
+          "alias": "matRippleUnbounded"
+        },
+        {
+          "name": "centered",
+          "alias": "matRippleCentered"
+        },
+        {
+          "name": "radius",
+          "alias": "matRippleRadius"
+        },
+        {
+          "name": "animation",
+          "alias": "matRippleAnimation"
+        },
+        {
+          "name": "disabled",
+          "alias": "matRippleDisabled"
+        },
+        {
+          "name": "trigger",
+          "alias": "matRippleTrigger"
+        }
+      ],
+      "outputs": [],
+      "file": "types/_ripple-chunk.d.ts",
+      "from": "dts",
+      "module": "MatRippleModule",
+      "importPath": "@angular/material/core"
+    },
+    {
+      "component": "MatRow",
+      "selector": "mat-row, tr[mat-row]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatRowDef",
+      "selector": "[matRowDef]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "columns",
+          "alias": "matRowDefColumns"
+        },
+        {
+          "name": "when",
+          "alias": "matRowDefWhen"
+        }
+      ],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatSelect",
+      "selector": "mat-select",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "userAriaDescribedBy",
+          "alias": "aria-describedby"
+        },
+        {
+          "name": "panelClass"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "disableRipple"
+        },
+        {
+          "name": "tabIndex"
+        },
+        {
+          "name": "hideSingleSelectionIndicator"
+        },
+        {
+          "name": "placeholder"
+        },
+        {
+          "name": "required"
+        },
+        {
+          "name": "multiple"
+        },
+        {
+          "name": "disableOptionCentering"
+        },
+        {
+          "name": "compareWith"
+        },
+        {
+          "name": "value"
+        },
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "ariaLabelledby",
+          "alias": "aria-labelledby"
+        },
+        {
+          "name": "errorStateMatcher"
+        },
+        {
+          "name": "typeaheadDebounceInterval"
+        },
+        {
+          "name": "sortComparator"
+        },
+        {
+          "name": "id"
+        },
+        {
+          "name": "panelWidth"
+        },
+        {
+          "name": "canSelectNullableOptions"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "openedChange"
+        },
+        {
+          "name": "_openedStream",
+          "alias": "opened"
+        },
+        {
+          "name": "_closedStream",
+          "alias": "closed"
+        },
+        {
+          "name": "selectionChange"
+        },
+        {
+          "name": "valueChange"
+        }
+      ],
+      "file": "types/select.d.ts",
+      "from": "dts",
+      "module": "MatSelectModule",
+      "importPath": "@angular/material/select"
+    },
+    {
+      "component": "MatSelectionList",
+      "selector": "mat-selection-list",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "color"
+        },
+        {
+          "name": "compareWith"
+        },
+        {
+          "name": "multiple"
+        },
+        {
+          "name": "hideSingleSelectionIndicator"
+        },
+        {
+          "name": "disabled"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selectionChange"
+        }
+      ],
+      "file": "types/list.d.ts",
+      "from": "dts",
+      "module": "MatListModule",
+      "importPath": "@angular/material/list"
+    },
+    {
+      "component": "MatSelectTrigger",
+      "selector": "mat-select-trigger",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/select.d.ts",
+      "from": "dts",
+      "module": "MatSelectModule",
+      "importPath": "@angular/material/select"
+    },
+    {
+      "component": "MatSidenav",
+      "selector": "mat-sidenav",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "fixedInViewport"
+        },
+        {
+          "name": "fixedTopGap"
+        },
+        {
+          "name": "fixedBottomGap"
+        }
+      ],
+      "outputs": [],
+      "file": "types/sidenav.d.ts",
+      "from": "dts",
+      "module": "MatSidenavModule",
+      "importPath": "@angular/material/sidenav"
+    },
+    {
+      "component": "MatSidenavContainer",
+      "selector": "mat-sidenav-container",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/sidenav.d.ts",
+      "from": "dts",
+      "module": "MatSidenavModule",
+      "importPath": "@angular/material/sidenav"
+    },
+    {
+      "component": "MatSidenavContent",
+      "selector": "mat-sidenav-content",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/sidenav.d.ts",
+      "from": "dts",
+      "module": "MatSidenavModule",
+      "importPath": "@angular/material/sidenav"
+    },
+    {
+      "component": "MatSlider",
+      "selector": "mat-slider",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "discrete"
+        },
+        {
+          "name": "showTickMarks"
+        },
+        {
+          "name": "min"
+        },
+        {
+          "name": "color"
+        },
+        {
+          "name": "disableRipple"
+        },
+        {
+          "name": "max"
+        },
+        {
+          "name": "step"
+        },
+        {
+          "name": "displayWith"
+        }
+      ],
+      "outputs": [],
+      "file": "types/slider.d.ts",
+      "from": "dts",
+      "module": "MatSliderModule",
+      "importPath": "@angular/material/slider"
+    },
+    {
+      "component": "MatSliderRangeThumb",
+      "selector": "input[matSliderStartThumb], input[matSliderEndThumb]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/slider.d.ts",
+      "from": "dts",
+      "module": "MatSliderModule",
+      "importPath": "@angular/material/slider"
+    },
+    {
+      "component": "MatSliderThumb",
+      "selector": "input[matSliderThumb]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "value"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "valueChange"
+        },
+        {
+          "name": "dragStart"
+        },
+        {
+          "name": "dragEnd"
+        }
+      ],
+      "file": "types/slider.d.ts",
+      "from": "dts",
+      "module": "MatSliderModule",
+      "importPath": "@angular/material/slider"
+    },
+    {
+      "component": "MatSliderVisualThumb",
+      "selector": "mat-slider-visual-thumb",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "discrete"
+        },
+        {
+          "name": "thumbPosition"
+        },
+        {
+          "name": "valueIndicatorText"
+        }
+      ],
+      "outputs": [],
+      "file": "types/slider.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material/slider"
+    },
+    {
+      "component": "MatSlideToggle",
+      "selector": "mat-slide-toggle",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "name"
+        },
+        {
+          "name": "id"
+        },
+        {
+          "name": "labelPosition"
+        },
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "ariaLabelledby",
+          "alias": "aria-labelledby"
+        },
+        {
+          "name": "ariaDescribedby",
+          "alias": "aria-describedby"
+        },
+        {
+          "name": "required"
+        },
+        {
+          "name": "color"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "fullWidth"
+        },
+        {
+          "name": "disableRipple"
+        },
+        {
+          "name": "tabIndex"
+        },
+        {
+          "name": "checked"
+        },
+        {
+          "name": "hideIcon"
+        },
+        {
+          "name": "disabledInteractive"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "change"
+        },
+        {
+          "name": "toggleChange"
+        }
+      ],
+      "file": "types/slide-toggle.d.ts",
+      "from": "dts",
+      "module": "MatSlideToggleModule",
+      "importPath": "@angular/material/slide-toggle"
+    },
+    {
+      "component": "MatSnackBarAction",
+      "selector": "[matSnackBarAction]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/snack-bar.d.ts",
+      "from": "dts",
+      "module": "MatSnackBarModule",
+      "importPath": "@angular/material/snack-bar"
+    },
+    {
+      "component": "MatSnackBarActions",
+      "selector": "[matSnackBarActions]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/snack-bar.d.ts",
+      "from": "dts",
+      "module": "MatSnackBarModule",
+      "importPath": "@angular/material/snack-bar"
+    },
+    {
+      "component": "MatSnackBarContainer",
+      "selector": "mat-snack-bar-container",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/snack-bar.d.ts",
+      "from": "dts",
+      "module": "MatSnackBarModule",
+      "importPath": "@angular/material/snack-bar"
+    },
+    {
+      "component": "MatSnackBarLabel",
+      "selector": "[matSnackBarLabel]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/snack-bar.d.ts",
+      "from": "dts",
+      "module": "MatSnackBarModule",
+      "importPath": "@angular/material/snack-bar"
+    },
+    {
+      "component": "MatSort",
+      "selector": "[matSort]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "active",
+          "alias": "matSortActive"
+        },
+        {
+          "name": "start",
+          "alias": "matSortStart"
+        },
+        {
+          "name": "direction",
+          "alias": "matSortDirection"
+        },
+        {
+          "name": "disableClear",
+          "alias": "matSortDisableClear"
+        },
+        {
+          "name": "disabled",
+          "alias": "matSortDisabled"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "sortChange",
+          "alias": "matSortChange"
+        }
+      ],
+      "file": "types/_sort-chunk.d.ts",
+      "from": "dts",
+      "module": "MatSortModule",
+      "importPath": "@angular/material/sort"
+    },
+    {
+      "component": "MatSortHeader",
+      "selector": "[mat-sort-header]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "id",
+          "alias": "mat-sort-header"
+        },
+        {
+          "name": "arrowPosition"
+        },
+        {
+          "name": "start"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "sortActionDescription"
+        },
+        {
+          "name": "disableClear"
+        }
+      ],
+      "outputs": [],
+      "file": "types/sort.d.ts",
+      "from": "dts",
+      "module": "MatSortModule",
+      "importPath": "@angular/material/sort"
+    },
+    {
+      "component": "MatStartDate",
+      "selector": "input[matStartDate]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "dateChange"
+        },
+        {
+          "name": "dateInput"
+        }
+      ],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "MatStep",
+      "selector": "mat-step",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "color"
+        }
+      ],
+      "outputs": [],
+      "file": "types/stepper.d.ts",
+      "from": "dts",
+      "module": "MatStepperModule",
+      "importPath": "@angular/material/stepper"
+    },
+    {
+      "component": "MatStepContent",
+      "selector": "ng-template[matStepContent]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/stepper.d.ts",
+      "from": "dts",
+      "module": "MatStepperModule",
+      "importPath": "@angular/material/stepper"
+    },
+    {
+      "component": "MatStepHeader",
+      "selector": "mat-step-header",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "state"
+        },
+        {
+          "name": "label"
+        },
+        {
+          "name": "errorMessage"
+        },
+        {
+          "name": "iconOverrides"
+        },
+        {
+          "name": "index"
+        },
+        {
+          "name": "selected"
+        },
+        {
+          "name": "active"
+        },
+        {
+          "name": "optional"
+        },
+        {
+          "name": "disableRipple"
+        },
+        {
+          "name": "color"
+        }
+      ],
+      "outputs": [],
+      "file": "types/stepper.d.ts",
+      "from": "dts",
+      "module": "MatStepperModule",
+      "importPath": "@angular/material/stepper"
+    },
+    {
+      "component": "MatStepLabel",
+      "selector": "[matStepLabel]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/stepper.d.ts",
+      "from": "dts",
+      "module": "MatStepperModule",
+      "importPath": "@angular/material/stepper"
+    },
+    {
+      "component": "MatStepper",
+      "selector": "mat-stepper, mat-vertical-stepper, mat-horizontal-stepper, [matStepper]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "disableRipple"
+        },
+        {
+          "name": "color"
+        },
+        {
+          "name": "labelPosition"
+        },
+        {
+          "name": "headerPosition"
+        },
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "headerPrefix",
+          "signal": true
+        },
+        {
+          "name": "animationDuration"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "animationDone"
+        }
+      ],
+      "file": "types/stepper.d.ts",
+      "from": "dts",
+      "module": "MatStepperModule",
+      "importPath": "@angular/material/stepper"
+    },
+    {
+      "component": "MatStepperIcon",
+      "selector": "ng-template[matStepperIcon]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "name",
+          "alias": "matStepperIcon"
+        }
+      ],
+      "outputs": [],
+      "file": "types/stepper.d.ts",
+      "from": "dts",
+      "module": "MatStepperModule",
+      "importPath": "@angular/material/stepper"
+    },
+    {
+      "component": "MatStepperNext",
+      "selector": "button[matStepperNext]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/stepper.d.ts",
+      "from": "dts",
+      "module": "MatStepperModule",
+      "importPath": "@angular/material/stepper"
+    },
+    {
+      "component": "MatStepperPrevious",
+      "selector": "button[matStepperPrevious]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/stepper.d.ts",
+      "from": "dts",
+      "module": "MatStepperModule",
+      "importPath": "@angular/material/stepper"
+    },
+    {
+      "component": "MatSuffix",
+      "selector": "[matSuffix], [matIconSuffix], [matTextSuffix]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "_isTextSelector",
+          "alias": "matTextSuffix"
+        }
+      ],
+      "outputs": [],
+      "file": "types/_form-field-chunk.d.ts",
+      "from": "dts",
+      "module": "MatFormFieldModule",
+      "importPath": "@angular/material/input"
+    },
+    {
+      "component": "MatTab",
+      "selector": "mat-tab",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "textLabel",
+          "alias": "label"
+        },
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "ariaLabelledby",
+          "alias": "aria-labelledby"
+        },
+        {
+          "name": "labelClass"
+        },
+        {
+          "name": "bodyClass"
+        },
+        {
+          "name": "id"
+        }
+      ],
+      "outputs": [],
+      "file": "types/tabs.d.ts",
+      "from": "dts",
+      "module": "MatTabsModule",
+      "importPath": "@angular/material/tabs"
+    },
+    {
+      "component": "MatTabBody",
+      "selector": "mat-tab-body",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "_content",
+          "alias": "content"
+        },
+        {
+          "name": "animationDuration"
+        },
+        {
+          "name": "preserveContent"
+        },
+        {
+          "name": "position"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "_onCentering"
+        },
+        {
+          "name": "_beforeCentering"
+        },
+        {
+          "name": "_onCentered"
+        }
+      ],
+      "file": "types/tabs.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material/tabs"
+    },
+    {
+      "component": "MatTabBodyPortal",
+      "selector": "[matTabBodyHost]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/tabs.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material/tabs"
+    },
+    {
+      "component": "MatTabContent",
+      "selector": "[matTabContent]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/tabs.d.ts",
+      "from": "dts",
+      "module": "MatTabsModule",
+      "importPath": "@angular/material/tabs"
+    },
+    {
+      "component": "MatTabGroup",
+      "selector": "mat-tab-group",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "color"
+        },
+        {
+          "name": "fitInkBarToContent"
+        },
+        {
+          "name": "stretchTabs",
+          "alias": "mat-stretch-tabs"
+        },
+        {
+          "name": "alignTabs",
+          "alias": "mat-align-tabs"
+        },
+        {
+          "name": "dynamicHeight"
+        },
+        {
+          "name": "selectedIndex"
+        },
+        {
+          "name": "headerPosition"
+        },
+        {
+          "name": "animationDuration"
+        },
+        {
+          "name": "contentTabIndex"
+        },
+        {
+          "name": "disablePagination"
+        },
+        {
+          "name": "disableRipple"
+        },
+        {
+          "name": "preserveContent"
+        },
+        {
+          "name": "backgroundColor"
+        },
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "ariaLabelledby",
+          "alias": "aria-labelledby"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selectedIndexChange"
+        },
+        {
+          "name": "focusChange"
+        },
+        {
+          "name": "animationDone"
+        },
+        {
+          "name": "selectedTabChange"
+        }
+      ],
+      "file": "types/tabs.d.ts",
+      "from": "dts",
+      "module": "MatTabsModule",
+      "importPath": "@angular/material/tabs"
+    },
+    {
+      "component": "MatTabHeader",
+      "selector": "mat-tab-header",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label"
+        },
+        {
+          "name": "ariaLabelledby",
+          "alias": "aria-labelledby"
+        },
+        {
+          "name": "disableRipple"
+        }
+      ],
+      "outputs": [],
+      "file": "types/tabs.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material/tabs"
+    },
+    {
+      "component": "MatTabLabel",
+      "selector": "[mat-tab-label], [matTabLabel]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/tabs.d.ts",
+      "from": "dts",
+      "module": "MatTabsModule",
+      "importPath": "@angular/material/tabs"
+    },
+    {
+      "component": "MatTabLabelWrapper",
+      "selector": "[matTabLabelWrapper]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "disabled"
+        }
+      ],
+      "outputs": [],
+      "file": "types/tabs.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material/tabs"
+    },
+    {
+      "component": "MatTable",
+      "selector": "mat-table, table[mat-table]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatTabLink",
+      "selector": "[mat-tab-link], [matTabLink]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "active"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "disableRipple"
+        },
+        {
+          "name": "tabIndex"
+        },
+        {
+          "name": "id"
+        }
+      ],
+      "outputs": [],
+      "file": "types/tabs.d.ts",
+      "from": "dts",
+      "module": "MatTabsModule",
+      "importPath": "@angular/material/tabs"
+    },
+    {
+      "component": "MatTabNav",
+      "selector": "[mat-tab-nav-bar]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "fitInkBarToContent"
+        },
+        {
+          "name": "stretchTabs",
+          "alias": "mat-stretch-tabs"
+        },
+        {
+          "name": "animationDuration"
+        },
+        {
+          "name": "backgroundColor"
+        },
+        {
+          "name": "disableRipple"
+        },
+        {
+          "name": "color"
+        },
+        {
+          "name": "tabPanel"
+        }
+      ],
+      "outputs": [],
+      "file": "types/tabs.d.ts",
+      "from": "dts",
+      "module": "MatTabsModule",
+      "importPath": "@angular/material/tabs"
+    },
+    {
+      "component": "MatTabNavPanel",
+      "selector": "mat-tab-nav-panel",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "id"
+        }
+      ],
+      "outputs": [],
+      "file": "types/tabs.d.ts",
+      "from": "dts",
+      "module": "MatTabsModule",
+      "importPath": "@angular/material/tabs"
+    },
+    {
+      "component": "MatTextColumn",
+      "selector": "mat-text-column",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/table.d.ts",
+      "from": "dts",
+      "module": "MatTableModule",
+      "importPath": "@angular/material/table"
+    },
+    {
+      "component": "MatTimepicker",
+      "selector": "mat-timepicker",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "interval",
+          "signal": true
+        },
+        {
+          "name": "options",
+          "signal": true
+        },
+        {
+          "name": "disableRipple",
+          "signal": true
+        },
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label",
+          "signal": true
+        },
+        {
+          "name": "ariaLabelledby",
+          "alias": "aria-labelledby",
+          "signal": true
+        },
+        {
+          "name": "panelClass",
+          "signal": true
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selected"
+        },
+        {
+          "name": "opened"
+        },
+        {
+          "name": "closed"
+        }
+      ],
+      "file": "types/timepicker.d.ts",
+      "from": "dts",
+      "module": "MatTimepickerModule",
+      "importPath": "@angular/material/timepicker"
+    },
+    {
+      "component": "MatTimepickerInput",
+      "selector": "input[matTimepicker]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "value",
+          "signal": true
+        },
+        {
+          "name": "timepicker",
+          "alias": "matTimepicker",
+          "signal": true
+        },
+        {
+          "name": "min",
+          "alias": "matTimepickerMin",
+          "signal": true
+        },
+        {
+          "name": "max",
+          "alias": "matTimepickerMax",
+          "signal": true
+        },
+        {
+          "name": "openOnClick",
+          "alias": "matTimepickerOpenOnClick",
+          "signal": true
+        },
+        {
+          "name": "disabledInput",
+          "alias": "disabled",
+          "signal": true
+        }
+      ],
+      "outputs": [
+        {
+          "name": "value",
+          "alias": "valueChange"
+        }
+      ],
+      "file": "types/timepicker.d.ts",
+      "from": "dts",
+      "module": "MatTimepickerModule",
+      "importPath": "@angular/material/timepicker"
+    },
+    {
+      "component": "MatTimepickerToggle",
+      "selector": "mat-timepicker-toggle",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "timepicker",
+          "alias": "for",
+          "signal": true
+        },
+        {
+          "name": "ariaLabel",
+          "alias": "aria-label",
+          "signal": true
+        },
+        {
+          "name": "ariaLabelledby",
+          "alias": "aria-labelledby",
+          "signal": true
+        },
+        {
+          "name": "disabled",
+          "signal": true
+        },
+        {
+          "name": "tabIndex",
+          "signal": true
+        },
+        {
+          "name": "disableRipple",
+          "signal": true
+        }
+      ],
+      "outputs": [],
+      "file": "types/timepicker.d.ts",
+      "from": "dts",
+      "module": "MatTimepickerModule",
+      "importPath": "@angular/material/timepicker"
+    },
+    {
+      "component": "MatToolbar",
+      "selector": "mat-toolbar",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "color"
+        }
+      ],
+      "outputs": [],
+      "file": "types/toolbar.d.ts",
+      "from": "dts",
+      "module": "MatToolbarModule",
+      "importPath": "@angular/material/toolbar"
+    },
+    {
+      "component": "MatToolbarRow",
+      "selector": "mat-toolbar-row",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/toolbar.d.ts",
+      "from": "dts",
+      "module": "MatToolbarModule",
+      "importPath": "@angular/material/toolbar"
+    },
+    {
+      "component": "MatTooltip",
+      "selector": "[matTooltip]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "position",
+          "alias": "matTooltipPosition"
+        },
+        {
+          "name": "positionAtOrigin",
+          "alias": "matTooltipPositionAtOrigin"
+        },
+        {
+          "name": "disabled",
+          "alias": "matTooltipDisabled"
+        },
+        {
+          "name": "showDelay",
+          "alias": "matTooltipShowDelay"
+        },
+        {
+          "name": "hideDelay",
+          "alias": "matTooltipHideDelay"
+        },
+        {
+          "name": "touchGestures",
+          "alias": "matTooltipTouchGestures"
+        },
+        {
+          "name": "message",
+          "alias": "matTooltip"
+        },
+        {
+          "name": "tooltipClass",
+          "alias": "matTooltipClass"
+        }
+      ],
+      "outputs": [],
+      "file": "types/tooltip.d.ts",
+      "from": "dts",
+      "module": "MatTooltipModule",
+      "importPath": "@angular/material/tooltip"
+    },
+    {
+      "component": "MatTree",
+      "selector": "mat-tree",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/tree.d.ts",
+      "from": "dts",
+      "module": "MatTreeModule",
+      "importPath": "@angular/material/tree"
+    },
+    {
+      "component": "MatTreeNode",
+      "selector": "mat-tree-node",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "tabIndexInputBinding",
+          "alias": "tabIndex"
+        },
+        {
+          "name": "disabled"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "activation"
+        },
+        {
+          "name": "expandedChange"
+        }
+      ],
+      "file": "types/tree.d.ts",
+      "from": "dts",
+      "module": "MatTreeModule",
+      "importPath": "@angular/material/tree"
+    },
+    {
+      "component": "MatTreeNodeDef",
+      "selector": "[matTreeNodeDef]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "when",
+          "alias": "matTreeNodeDefWhen"
+        },
+        {
+          "name": "data",
+          "alias": "matTreeNode"
+        }
+      ],
+      "outputs": [],
+      "file": "types/tree.d.ts",
+      "from": "dts",
+      "module": "MatTreeModule",
+      "importPath": "@angular/material/tree"
+    },
+    {
+      "component": "MatTreeNodeOutlet",
+      "selector": "[matTreeNodeOutlet]",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/tree.d.ts",
+      "from": "dts",
+      "module": "MatTreeModule",
+      "importPath": "@angular/material/tree"
+    },
+    {
+      "component": "MatTreeNodePadding",
+      "selector": "[matTreeNodePadding]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "level",
+          "alias": "matTreeNodePadding"
+        },
+        {
+          "name": "indent",
+          "alias": "matTreeNodePaddingIndent"
+        }
+      ],
+      "outputs": [],
+      "file": "types/tree.d.ts",
+      "from": "dts",
+      "module": "MatTreeModule",
+      "importPath": "@angular/material/tree"
+    },
+    {
+      "component": "MatTreeNodeToggle",
+      "selector": "[matTreeNodeToggle]",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "recursive",
+          "alias": "matTreeNodeToggleRecursive"
+        }
+      ],
+      "outputs": [],
+      "file": "types/tree.d.ts",
+      "from": "dts",
+      "module": "MatTreeModule",
+      "importPath": "@angular/material/tree"
+    },
+    {
+      "component": "MatYearView",
+      "selector": "mat-year-view",
+      "standalone": true,
+      "inputs": [
+        {
+          "name": "activeDate"
+        },
+        {
+          "name": "selected"
+        },
+        {
+          "name": "minDate"
+        },
+        {
+          "name": "maxDate"
+        },
+        {
+          "name": "dateFilter"
+        },
+        {
+          "name": "dateClass"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selectedChange"
+        },
+        {
+          "name": "monthSelected"
+        },
+        {
+          "name": "activeDateChange"
+        }
+      ],
+      "file": "types/datepicker.d.ts",
+      "from": "dts",
+      "module": "MatDatepickerModule",
+      "importPath": "@angular/material/datepicker"
+    },
+    {
+      "component": "SimpleSnackBar",
+      "selector": "simple-snack-bar",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/snack-bar.d.ts",
+      "from": "dts",
+      "importPath": "@angular/material/snack-bar"
+    },
+    {
+      "component": "TooltipComponent",
+      "selector": "mat-tooltip-component",
+      "standalone": true,
+      "inputs": [],
+      "outputs": [],
+      "file": "types/tooltip.d.ts",
+      "from": "dts",
+      "module": "MatTooltipModule",
+      "importPath": "@angular/material/tooltip"
+    }
+  ]
+}
