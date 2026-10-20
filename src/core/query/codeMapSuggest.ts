@@ -171,13 +171,14 @@ export function suggestPairs(index: GraphIndex, inventory: AngularInventory, tar
     for (const hit of hits) {
       const inputs = ioNames(hit.component.inputs);
       const fit = hit.kind === "partial" || tie ? "partial" : coverage(target.node, inputs);
+      const className = hit.component.component;
       const because = tie
         ? `more than one code component has the name ${target.name}`
         : hit.kind === "partial"
-          ? `name is only close to ${hit.component}; not a whole-word match`
+          ? `name is only close to ${className}; not a whole-word match`
           : fit === "full"
-            ? `name matches ${hit.component}; Figma properties match its inputs`
-            : `name matches ${hit.component}; some Figma properties have no input`;
+            ? `name matches ${className}; Figma properties match its inputs`
+            : `name matches ${className}; some Figma properties have no input`;
       const status: SuggestStatus = hit.kind === "token" && !tie && fit === "full" ? "suggested" : "partial";
       maps.push(toPair(target, hit.component, inventory, "maps", status, because, figmaVersion));
       if (status === "suggested" && !byFigma.has(target.node.id)) byFigma.set(target.node.id, hit.component);

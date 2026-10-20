@@ -266,6 +266,31 @@ export declare class HarborLiteComponent { static ɵcmp: i0.ɵɵComponentDeclara
     expect(json.components.find((row) => row.component === "HarborComponent")?.selectorConflict).toEqual(["HarborLiteComponent"]);
   });
 
+  it("prints the class name in the suggest reason, in plain text and in json", async () => {
+    const capture = async (argv: string[]) => {
+      const out: string[] = [];
+      const write = process.stdout.write.bind(process.stdout);
+      process.stdout.write = ((chunk: string | Uint8Array) => (out.push(String(chunk)), true)) as typeof process.stdout.write;
+      try {
+        await runCli(argv);
+      } finally {
+        process.stdout.write = write;
+      }
+      return out.join("");
+    };
+    const reason = "name matches AcmeButtonComponent; Figma properties match its inputs";
+    const text = await capture(["code-map", "suggest", root]);
+    expect(text).toContain(`Button -> AcmeButtonComponent (maps, suggested) ${reason}`);
+    expect(text).toContain("name matches AcmeBannerComponent; some Figma properties have no input");
+    expect(text).not.toContain("[object Object]");
+    const json = JSON.parse(await capture(["code-map", "suggest", root, "--json"])) as {
+      suggestions: { name: string; component: string; relation: string; because: string }[];
+    };
+    const button = json.suggestions.find((pair) => pair.name === "Button" && pair.component === "AcmeButtonComponent" && pair.relation === "maps");
+    expect(button?.because).toBe(reason);
+    expect(JSON.stringify(json)).not.toContain("[object Object]");
+  });
+
   it("leaves the default MCP tool list at 7", () => {
     expect(listToolDefinitions(false)).toHaveLength(7);
     expect(listToolDefinitions(true).map((tool) => tool.name)).toEqual(expect.arrayContaining(["code_map_scan", "code_map_suggest", "code_map_review"]));
