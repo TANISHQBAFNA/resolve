@@ -424,7 +424,19 @@ describe("Angular Material public reference", () => {
       expect(card.candidates[0]?.why, ask).toMatch(/^Weak, check:/);
       const brief = briefScreen({ request: ask, index, recipes: [] });
       expect("ready" in brief && brief.candidates[0], ask).toMatchObject({ name, weak: true });
+      expect("ready" in brief && brief.assumptions.join(" "), ask).not.toMatch(/Only one candidate fits/);
+      expect("ready" in brief && brief.assumptions.join(" "), ask).toMatch(/Weak, check:/);
     }
+    // The guess marks only the part it pointed to. A full part name after the -ed/-ing word stays confident.
+    for (const [ask, name] of [["a timed progress bar on upload", "Progress bar"], ["the dated list item", "List item"], ["timed navigation bar", "Navigation bar"], ["searching text field", "Text field"]] as const) {
+      const card = recommendMasters(index, ask, { budgetChars: 4000 }) as { match?: string; candidates: Array<{ name?: string; why?: string }> };
+      expect([card.match, card.candidates[0]?.name], ask).toEqual([undefined, name]);
+      expect(card.candidates[0]?.why ?? "", ask).not.toMatch(/Weak, check/);
+    }
+    // Every weak lead carries a Weak, check reason.
+    const header = recommendMasters(index, "header", { budgetChars: 4000 }) as { match?: string; candidates: Array<{ why?: string }> };
+    expect(header.match).toBe("weak match");
+    expect(header.candidates[0]?.why).toMatch(/^Weak, check:/);
     // Not a guess: a whole part name, a plain ask, or a stem that names the part with the noun.
     for (const [ask, name] of [["dated card", "Card"], ["pick a date", "Date picker"], ["searching bar", "Search bar"], ["dated picker", "Date picker"]] as const) {
       const card = recommendMasters(index, ask, { budgetChars: 4000 }) as { match?: string; candidates: Array<{ name?: string }> };
