@@ -7,7 +7,7 @@ import modifierFile from "@/data/ui-modifiers.json";
 import type { GraphIndex } from "./GraphIndex";
 import { familyNameOf, MASTER_TYPES, VARIANT_PROP_NAME, variantCardName } from "./masterNames";
 import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
-import { adjacentSwap, keySlip } from "./typo";
+import { adjacentSwap, innerGap, keySlip } from "./typo";
 import { allSynonymGroups, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems, isScreen } from "./screenInventory";
@@ -259,13 +259,9 @@ function tokenTypo(query: string, name: string): boolean {
     // Not onto a variant word, and a slip that also fits a plain noun means the noun ("botton" is button, not bottom).
     return !SLOT_QUALIFIERS.has(name) && keySlip(query, name) && (noun(name) || ![...PLAIN_NOUN].some((word) => keySlip(query, word)));
   }
+  if (innerGap(query, name)) return true;
   const [shorter, longer] = query.length < name.length ? [query, name] : [name, query];
-  if (shorter.length + 1 !== longer.length) return false;
-  let i = 0;
-  while (i < shorter.length && shorter[i] === longer[i]) i += 1;
-  if (i === 0) return false;
-  if (i !== shorter.length) return shorter.slice(i) === longer.slice(i + 1);
-  return noun(longer) && !SYNONYM_OF.has(shorter) && !noun(shorter);
+  return longer.length === shorter.length + 1 && longer.startsWith(shorter) && noun(longer) && !SYNONYM_OF.has(shorter) && !noun(shorter);
 }
 /** A stopword that is itself a component synonym stays. "find box" keeps find. */
 export function withSynonymStopwords(text: string, tokens: string[]): string[] {

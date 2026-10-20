@@ -28,6 +28,15 @@ export function adjacentSwap(query: string, name: string): boolean {
   return query.slice(i + 2) === name.slice(i + 2);
 }
 
+/** One letter missing or extra inside the word, never the first or last: "chekbox", "buttton". "tablet" is not "table". */
+export function innerGap(query: string, name: string): boolean {
+  const [shorter, longer] = query.length < name.length ? [query, name] : [name, query];
+  if (shorter.length + 1 !== longer.length) return false;
+  let i = 0;
+  while (i < shorter.length && shorter[i] === longer[i]) i += 1;
+  return i > 0 && i < shorter.length && shorter.slice(i) === longer.slice(i + 1);
+}
+
 /**
  * One wrong letter, struck on a nearby key: "botton" for "button", "dialig" for "dialog".
  * Words of 6+ letters only, first letter kept. Shorter words sit too close to real ones ("moral", "modal"),
@@ -37,4 +46,10 @@ export function keySlip(query: string, name: string): boolean {
   if (query.length !== name.length || query.length < 6 || query[0] !== name[0]) return false;
   const diffs = [...query].flatMap((ch, i) => (ch === name[i] ? [] : [i]));
   return diffs.length === 1 && nearKeys(query[diffs[0]!]!, name[diffs[0]!]!);
+}
+
+/** Any one-letter slip on a name word of 5+ letters: a swap, an inner missing or extra letter, or a near key. */
+export function wordSlip(query: string, name: string): boolean {
+  if (query === name || query.length < 5 || name.length < 5) return false;
+  return adjacentSwap(query, name) || innerGap(query, name) || keySlip(query, name);
 }
