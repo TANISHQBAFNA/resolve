@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — composed recipes
+
+Oct 20, 2026 IST. `resolve recipe "<screen> with <parts>" --compose` and MCP `recipe` with `compose: true` (advanced surface only) build a recipe when no saved one fits. Each named part is a slot filled by `recommend`, the same path as a saved recipe. A slot holds only an id recommend returned; a part with no fit is listed as No match. Fewer than 2 fitting parts is not a recipe, and an exact saved recipe wins. Nothing is written: `--propose` files a recipe-update proposal, and `resolve approve` adds it to `.resolve/recipes.json` after checking every id is still live; it never replaces a recipe. Recipe slot hints match plurals and stems. Fresh set (30, tune/held-out): held-out slot precision 28/31, recall 28/32, invented 0, No match 2/2.
+
 ## Unreleased — learn JSON files, prefer between namesakes, slot properties
 
 Oct 13, 2026 IST. `resolve learn --design-context` reads a JSON file as JSON, so a dump of `[{id, name, key, componentPropertyDefinitions}]` stores property definitions and published keys the way `learn_library` does. Other text stays text. A JSON string passed to `learn_library` is read the same way. New `resolve learn --libraries <file.json>`, same as the tool's `libraries`. A bind-rule `prefer` now decides between masters of the same part from different files before variant count and usage: with Acme Core preferred, "input field" gives `ingredients/input-field`, not Globex Mobile's `Input Field`, in `recommend` and `resolve`. A Figma `SLOT` property is stored and shown as `SLOT` ("slot: place parts inside"), not `UNKNOWN`. Re-learn the file to update a stored slot. A retired set matched by one of its variants is named by the set in the why line (`replaces ingredients/toast (deprecated)`, not `replaces tone=neutral`). Ranking without a prefer rule is unchanged.
