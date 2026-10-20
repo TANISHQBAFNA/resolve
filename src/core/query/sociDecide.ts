@@ -7,6 +7,7 @@ import { emptySock, isRemovedByAbsence, screenPatternFor, type SockState, type U
 import { applyProposalDecision, BindRuleError, requirePendingProposal, type BindRulesFile } from "./bindRules";
 import type { WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
+import { COMPOSE_MIN_PARTS } from "./recipeCompose";
 import { applyRecipeSlotChange, overlayWithRecipe, proposalTypeOf, type SociDecision } from "./soci";
 
 function refusePending(detail: string): never {
@@ -50,6 +51,9 @@ function assertComposedRecipe(recipe: Recipe, index: GraphIndex | undefined, soc
       refusePending(`Cannot approve: "${node.name}" (${id}) is a ${node.type}, not a library component.`);
     }
     if (isPrivateMasterName(node.name)) refusePending(`Cannot approve: "${node.name}" (${id}) is private.`);
+  }
+  if (ids.length < COMPOSE_MIN_PARTS) {
+    refusePending(`Cannot approve: a composed recipe needs ${COMPOSE_MIN_PARTS} or more parts; this one has ${ids.length}.`);
   }
   const clash = recipes.find(
     (row) => row.id === recipe.id || row.title.trim().toLowerCase() === recipe.title.trim().toLowerCase(),

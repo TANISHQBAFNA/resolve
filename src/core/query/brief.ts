@@ -6,7 +6,7 @@ import type { BindRulesFile } from "./bindRules";
 import { exactRecipe, fillRecipe, type Recipe } from "./recipes";
 import { recommendMasters } from "./recommendMasters";
 import type { RecommendContext } from "./recommendSupport";
-import { composeParts } from "./recipeCompose";
+import { composeParts, composeRecipe } from "./recipeCompose";
 import { sameWordForm } from "./screenInventory";
 import type { SociProposal, SockState } from "./sock";
 import type { WorkspaceManifest } from "./workspace";
@@ -109,6 +109,8 @@ export type BriefResult = (
 ) & {
   /** An offer only. Brief never composes; the person or agent runs recipe compose. */
   composeOffer?: string;
+  /** A saved recipe already covers the named parts (same check compose uses). Use it instead of composing. */
+  savedRecipe?: string;
 };
 
 interface Choice extends BriefOption {
@@ -500,6 +502,19 @@ export function briefScreen(input: BriefInput): BriefResult {
   if ("skip" in result && ["recipe", "decision", "no-match"].includes(result.skip)) return result;
   const request = input.request.replace(new RegExp(JUST_BUILD.source, "gi"), " ").trim();
   if (composeParts(request).phrases.length < 2) return result;
+  // Same answer compose would give: a saved recipe that covers it, a recipe it would build, or nothing to offer.
+  const preview = composeRecipe({
+    request,
+    index: input.index,
+    recipes: input.recipes ?? [],
+    ...(input.workspace ? { bind: { packs: [], workspace: input.workspace } } : {}),
+    sock: input.sock,
+    bindRules: input.bindRules,
+    placeholders: input.placeholders,
+  });
+  const saved = preview.duplicates?.[0] ?? (preview.card.composed === false && "recipe" in preview.card ? preview.card.recipe?.title : undefined);
+  if (saved) return { ...result, savedRecipe: `Saved recipe ${saved} already covers this. Use recipe "${saved}"; no need to compose.` };
+  if (!preview.recipe) return result;
   return {
     ...result,
     composeOffer: `No saved recipe fits. To compose one from the parts you named, run recipe "${request}" with compose (CLI --compose; MCP compose: true, advanced). Not run.`,

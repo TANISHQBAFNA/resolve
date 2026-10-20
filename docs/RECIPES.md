@@ -89,16 +89,16 @@ When no saved recipe fits, ask Resolve to compose one. It only does this when yo
 npm run resolve -- recipe "profile page with an avatar, a text field and a save button" --compose
 ```
 
-- Words before "with" name the screen. Each part after it ("an avatar", "a text field", "a save button") becomes a slot. Place words ("next to", "under", "on") join two parts: "a toast next to the header bar" is two slots.
+- Words before "with" name the screen. Each part after it ("an avatar", "a text field", "a save button") becomes a slot. Place words ("next to", "under", "beside") join two parts: "a toast next to the header bar" is two slots. "On" and "in" phrases ("on mobile", "in the lobby") are context, not parts; the card lists them under `readAsContext`. "A set of chips" or "a list of badges" names the chips or badges.
 - Each slot is filled by `recommend`, the same way a saved recipe's slot is. It never invents a part or an id.
 - A part with no fit stays in the card as **No match**, with the `recommend` to try. Every such part is listed, in the one-part answer too.
-- The part word must match the part found (synonyms count: a save button fits Save CTA). The part word is the last word that is not a container (list, group, set, stack, collection): in "radio list" it is radio. If only another word matches ("header image" finds Header Bar), the slot says **weak, check** and is not counted as a fit.
-- Briefing answers fill slots too: `--answer states=empty --answer states=error` (MCP `answers`) adds Empty Message and the error part as slots, bound to those real parts. A part you already named is not added twice. `brief` offers to compose when no saved recipe fits; it never composes by itself.
+- Every main word of the part must be in the part found: its name, one of its variant names, or a synonym (a save button fits Save CTA; a danger button fits Button, which has a Danger variant). Container words (list, group, set, stack, collection) do not count, so a radio list fits Radio. If any main word is missing ("payee search field" finds Search Field, "header image" finds Header Bar), the slot says **weak, check**, names the missing words, and is not counted as a fit.
+- Briefing answers fill slots too: `--answer states=empty --answer states=error` (MCP `answers`) adds Empty Message and the error part as slots, bound to those real parts. A part you already named is not added twice. `brief` offers to compose (`composeOffer`) only when compose would build a recipe and no saved recipe covers it; when a saved recipe has the same title or parts, brief says `savedRecipe` instead, the same answer compose gives. It never composes by itself.
 - If a saved recipe has the same title or the same parts, the card warns and names it, and `--propose` files nothing.
 - Fewer than 2 parts fit: no recipe. One part says "use recommend". None says "No match".
 - A saved recipe with that exact name wins, and nothing is composed.
 - Nothing is saved. `--propose` files a pending proposal; a person runs `resolve approve <id> --who <name>` to add it to `.resolve/recipes.json`. The proposal id includes the parts, so different parts are a different proposal. Proposing again after approve or reject files nothing and says why.
-- Approve refuses a private part, a variant inside a set, anything that is not a library component, a recipe with no parts or no id, and a recipe whose id or title is already saved.
+- Approve refuses a private part, a variant inside a set, anything that is not a library component, a recipe with no id, fewer than 2 parts (also when trimmed by hand), and a recipe whose id or title is already saved.
 - An empty request, or a `compose` that is not true or false, is an error (`ok:false`, exit 1 in the CLI).
 - MCP: `recipe` with `compose: true` (and `propose: true`), on the advanced surface only (`RESOLVE_MCP_ADVANCED=1`). The default MCP tools do not change.
 

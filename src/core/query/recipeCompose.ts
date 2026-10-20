@@ -23,20 +23,28 @@ export const COMPOSE_MIN_PARTS = 2;
 
 const LINKS = /\s*(?:,|;|&|\band\b|\bplus\b|\bthen\b)\s*/i;
 // Where a part sits joins two parts: "a toast next to the header bar" names a toast and a header bar.
-const SPATIAL = /\s+(?:next to|on top of|left of|right of|in front of|beside|underneath|beneath|under|above|below|over|inside|within|near|on|in|after|before)\s+/gi;
+const SPATIAL = /\s+(?:next to|on top of|left of|right of|in front of|beside|underneath|beneath|under|above|below|over|near|after|before)\s+/gi;
+// "on mobile", "in the app", "inside checkout": a device or place is context, not a part.
+const CONTEXT = /\s+\b(?:on|in|inside|within)\b\s+(.*)$/i;
+// "a set of chips", "a list of payees": the part is what the container holds.
+const CONTAINER_OF = /\b(?:a\s+|the\s+)?(?:list|group|set|stack|collection)s?\s+of\s+/gi;
 const ARTICLES = new Set(["a", "an", "the", "some", "its", "their", "our", "my", "your"]);
 // Words after these say why or whose, not which part: "a radio list for delivery".
 const PURPOSE = /\s+\b(?:for|of|to|when|while|that|which|at|from)\b.*$/i;
 
-/** The screen name (before "with") and one phrase per named part. */
-export function composeParts(request: string): { title: string; phrases: string[] } {
+/** The screen name (before "with"), one phrase per named part, and the on/in context read as context. */
+export function composeParts(request: string): { title: string; phrases: string[]; context: string[] } {
   const text = request.trim().replace(/\s+/g, " ");
   const at = text.search(/\bwith\b/i);
   const title = at > 0 ? text.slice(0, at).trim() : "";
-  const body = (at >= 0 ? text.slice(at + 4) : text).replace(SPATIAL, ", ");
+  const body = (at >= 0 ? text.slice(at + 4) : text).replace(CONTAINER_OF, "").replace(SPATIAL, ", ");
   const phrases: string[] = [];
+  const context: string[] = [];
   for (const raw of body.split(LINKS)) {
+    const where = raw.match(CONTEXT);
+    if (where?.[1]?.trim()) context.push(where[0].trim().toLowerCase());
     const phrase = raw
+      .replace(CONTEXT, "")
       .replace(PURPOSE, "")
       .split(" ")
       .filter((word) => word && !ARTICLES.has(word.toLowerCase()))
@@ -44,7 +52,7 @@ export function composeParts(request: string): { title: string; phrases: string[
       .toLowerCase();
     if (/[a-z]/.test(phrase) && !phrases.includes(phrase)) phrases.push(phrase);
   }
-  return { title, phrases };
+  return { title, phrases, context };
 }
 
 const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
@@ -64,28 +72,32 @@ export interface ComposeInput {
 // Words that hold parts, not parts: in "radio list" the part is radio.
 const CONTAINERS = ["list", "group", "set", "stack", "collection"];
 
-/** The part word: the last word that is not a container ("search field" → field, "radio list" → radio). */
-function headWord(hints: string[]): string | undefined {
-  const words = hints.map((hint) => hint.toLowerCase());
-  return [...words].reverse().find((word) => !CONTAINERS.some((container) => sameWordForm(container, word))) ?? words.at(-1);
+/** Words of the ask that are not in the part's name, its variants' names, or a synonym. Containers do not count. */
+function unmatched(index: GraphIndex, slot: FilledSlot): string[] {
+  if (!slot.master) return slot.hints;
+  const variants = index.getNodesByType("VARIANT").filter((node) => node.componentSetId === slot.master!.id);
+  const names = [slot.master.name, ...variants.map((node) => node.name)].flatMap(nameTokens);
+  const words = slot.hints.map((hint) => hint.toLowerCase());
+  const main = words.filter((word) => !CONTAINERS.some((container) => sameWordForm(container, word)));
+  return (main.length ? main : words).filter((word) => {
+    const forms = [word, ...allSynonymGroups().filter((group) => group.terms.some((term) => sameWordForm(term, word))).flatMap((group) => group.terms)];
+    return !names.some((token) => forms.some((form) => sameWordForm(token, form)));
+  });
 }
 
-/** The part word must match the part found. A fill that only shares another word is weak. Synonyms count (button, cta). */
-function headMatches(slot: FilledSlot): boolean {
-  const head = headWord(slot.hints);
-  if (!head || !slot.master) return false;
-  const forms = [head, ...allSynonymGroups().filter((group) => group.terms.some((term) => sameWordForm(term, head))).flatMap((group) => group.terms)];
-  return nameTokens(slot.master.name).some((token) => forms.some((form) => sameWordForm(token, form)));
+/** A fit: every main word of the ask is in the part's name (or a variant name, or a synonym). */
+function headMatches(index: GraphIndex, slot: FilledSlot): boolean {
+  return Boolean(slot.master) && unmatched(index, slot).length === 0;
 }
 
-function weakSlot(slot: FilledSlot) {
+function weakSlot(index: GraphIndex, slot: FilledSlot) {
   const master = slot.master!;
   return {
     role: slot.role,
     status: "weak" as const,
     master: { id: master.id, name: master.name, figmaNodeId: master.figmaNodeId, ...(master.fileKey ? { fileKey: master.fileKey } : {}) },
     nextRecommend: slot.nextRecommend,
-    hint: `Weak, check: "${headWord(slot.hints)}" is not in ${master.name}. Not counted as a fit.`,
+    hint: `Weak, check: ${unmatched(index, slot).map((word) => `"${word}"`).join(", ")} not in ${master.name}. Not counted as a fit.`,
   };
 }
 
@@ -110,7 +122,7 @@ export function composeRecipe(input: ComposeInput) {
     const card = recipeCard(input.recipes, saved.id, index, undefined, input.bind, input.sock, input.bindRules, input.placeholders);
     return { card: { ...card, composed: false as const, note: `Saved recipe ${saved.title} covers this. Nothing composed.` } };
   }
-  const { title, phrases } = composeParts(request);
+  const { title, phrases, context } = composeParts(request);
   const draft: Recipe = {
     id: `composed-${slug(title || phrases.join(" ")) || "screen"}`,
     title: title || request.trim(),
@@ -129,25 +141,27 @@ export function composeRecipe(input: ComposeInput) {
   // A container word can hide the part from recommend ("avatar group"): retry those slots once without it.
   const bare = (hints: string[]) => hints.filter((hint) => !CONTAINERS.some((container) => sameWordForm(container, hint)));
   const retry = first.slots.map((slot, i) => {
-    if (i >= phrases.length || (slot.master && headMatches(slot)) || bare(slot.hints).length === slot.hints.length || !bare(slot.hints).length) return slot;
+    if (i >= phrases.length || (slot.master && headMatches(index, slot)) || bare(slot.hints).length === slot.hints.length || !bare(slot.hints).length) return slot;
     const again = fill({ ...draft, slots: [{ role: slot.role, required: true, hints: bare(slot.hints) }] }).slots[0]!;
-    return again.master && headMatches(again) ? { ...again, hints: slot.hints } : slot;
+    return again.master && headMatches(index, again) ? { ...again, hints: slot.hints } : slot;
   });
   const all = { ...first, slots: retry };
   // An answer part the request already named is one slot, not two.
   const named = new Set(all.slots.slice(0, phrases.length).flatMap((slot) => (slot.master ? [slot.master.id] : [])));
   const filled = { ...all, slots: all.slots.filter((slot, i) => i < phrases.length || !named.has(slot.master?.id ?? "")) };
-  const isFit = (slot: FilledSlot) => Boolean(slot.master) && (slot.status === "filled" || slot.status === "bound") && headMatches(slot);
+  const isFit = (slot: FilledSlot) => Boolean(slot.master) && (slot.status === "filled" || slot.status === "bound") && headMatches(index, slot);
   const parts = filled.slots.filter(isFit);
   const weak = filled.slots.filter((slot) => !isFit(slot) && slot.master && slot.status === "filled");
   const empty = filled.slots.filter((slot) => !isFit(slot) && !weak.includes(slot));
   const misses = {
+    ...(context.length ? { readAsContext: context } : {}),
     ...(empty.length ? { noMatch: empty.map((slot) => slot.role) } : {}),
     ...(weak.length ? { weak: weak.map((slot) => `${slot.role}: ${slot.master!.name} (weak, check)`) } : {}),
   };
   const missLine = [
     ...empty.map((slot) => `No match for ${slot.role}: recommend "${slot.nextRecommend}", do not invent.`),
-    ...weak.map((slot) => `Weak, check ${slot.role}: ${slot.master!.name} shares a word only.`),
+    ...weak.map((slot) => `Weak, check ${slot.role}: ${unmatched(index, slot).join(", ")} not in ${slot.master!.name}.`),
+    ...(context.length ? [`Read as context, not parts: ${context.join("; ")}.`] : []),
   ].join(" ");
   if (!parts.length) return { card: noMatch(request, phrases, misses) };
   if (parts.length < COMPOSE_MIN_PARTS) {
@@ -178,7 +192,7 @@ export function composeRecipe(input: ComposeInput) {
     saved: false as const,
     query: request,
     recipe: { id: recipe.id, title: recipe.title },
-    slots: filled.slots.map((slot) => (weak.includes(slot) ? weakSlot(slot) : compactCardSlot(slot))),
+    slots: filled.slots.map((slot) => (weak.includes(slot) ? weakSlot(index, slot) : compactCardSlot(slot))),
     ...misses,
     ...(same.length ? { duplicates: same } : {}),
     ...(filled.context ? { context: filled.context } : {}),

@@ -76,8 +76,9 @@ describe("composed recipes", () => {
     expect(composeParts("checkout with a radio list for delivery and a footer bar")).toEqual({
       title: "checkout",
       phrases: ["radio list", "footer bar"],
+      context: [],
     });
-    expect(composeParts("a header bar, breadcrumbs and a divider")).toEqual({ title: "", phrases: ["header bar", "breadcrumbs", "divider"] });
+    expect(composeParts("a header bar, breadcrumbs and a divider")).toEqual({ title: "", phrases: ["header bar", "breadcrumbs", "divider"], context: [] });
   });
 
   it("measures slot precision and recall on the fresh set, tune and held-out apart, and never invents", () => {
@@ -218,7 +219,7 @@ describe("composed recipes", () => {
         ["not a library component", { id: "composed-c", title: "C", slots: [{ role: "x", required: true, hints: ["x"], defaultMasterId: frameId }] }],
         ["no parts", { id: "composed-d", title: "D", slots: [] }],
         ["no id", { id: " ", title: "E", slots: [{ role: "x", required: true, hints: ["x"], defaultMasterId: tag }] }],
-        ["same id or title", { id: "composed-f", title: "Checkout summary", slots: [{ role: "x", required: true, hints: ["x"], defaultMasterId: tag }] }],
+        ["same id or title", { id: "composed-f", title: "Checkout summary", slots: [{ role: "x", required: true, hints: ["x"], defaultMasterId: tag }, { role: "y", required: true, hints: ["y"], defaultMasterId: byName("Chip").id }] }],
       ];
       const sock = readSock();
       saveSock({
@@ -241,7 +242,7 @@ describe("composed recipes", () => {
 
     it("L2: parts after a place word are kept, and every part with no fit is listed", () => {
       expect(composeParts("a toast next to the header bar").phrases).toEqual(["toast", "header bar"]);
-      expect(composeParts("a badge on the avatar, a tag under a warp gauge").phrases).toEqual(["badge", "avatar", "tag", "warp gauge"]);
+      expect(composeParts("a badge beside the avatar, a tag under a warp gauge").phrases).toEqual(["badge", "avatar", "tag", "warp gauge"]);
       const card = compose("a tag beside a flux gauge").card as Card;
       expect(card.part?.name).toBe("Tag");
       expect(card.noMatch).toEqual(["flux-gauge"]);
@@ -306,6 +307,74 @@ describe("composed recipes", () => {
       expect(bad.ok).toBe(false);
       expect(process.exitCode).toBe(1);
       process.exitCode = 0;
+    });
+  });
+  describe("r2 findings, by category", () => {
+    const index = () => indexGraph(fixtureGraph());
+    const compose = (request: string) => composeRecipe({ request, index: index(), recipes: starterRecipes() });
+
+    it("M1: a fit needs every main word in the name, a variant name or a synonym; a matching head alone is weak", () => {
+      for (const [request, weakRole] of [
+        ["sheet with a tangerine toast and a tag", "tangerine-toast"],
+        ["sheet with a wobbly divider and a tag", "wobbly-divider"],
+        ["sheet with a velvet switch and a chip", "velvet-switch"],
+      ] as const) {
+        const card = compose(request).card as Card & { weak?: string[] };
+        expect(card.weak?.[0], request).toMatch(new RegExp(`^${weakRole}: .* \\(weak, check\\)$`));
+        expect(card.composed, request).toBe(false);
+      }
+      const strict = compose("sheet with a save cta, a danger button and a close icon").card as Card;
+      expect(returned(strict).map((part) => part.name)).toEqual(["Save CTA", "Button", "Icon Close"]);
+    });
+
+    it("L1b: approve refuses a composed recipe with fewer than two parts", async () => {
+      const graph = fixtureGraph();
+      saveGraph(graph);
+      const tag = indexGraph(graph).getNodesByType("MAIN_COMPONENT", "COMPONENT_SET").find((node) => node.name === "Tag")!.id;
+      saveSock({
+        ...readSock(),
+        proposals: [{
+          id: "soci:recipe-update:trimmed",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          type: "recipe-update",
+          status: "pending",
+          summary: "trimmed",
+          evidence: [],
+          suggestedNewRecipe: { id: "composed-trimmed", title: "Trimmed", intentAliases: [], slots: [{ role: "tag", required: true, hints: ["tag"], defaultMasterId: tag }, { role: "gone", required: false, hints: ["gone"] }] },
+        }],
+      });
+      await expect(runCli(["approve", "soci:recipe-update:trimmed", "--who", "Avery"])).rejects.toThrow(/needs 2 or more parts; this one has 1/);
+    });
+
+    it("L5: on/in phrases are context, not parts, and the card says so", () => {
+      expect(composeParts("a toast and a tag on mobile")).toMatchObject({ phrases: ["toast", "tag"], context: ["on mobile"] });
+      expect(composeParts("kiosk with a chip in the lobby and a switch inside the settings drawer")).toMatchObject({ phrases: ["chip", "switch"], context: ["in the lobby", "inside the settings drawer"] });
+      const card = compose("a toast and a tag on a smart fridge").card as Card & { readAsContext?: string[] };
+      expect(returned(card).map((part) => part.name)).toEqual(["Toast", "Tag"]);
+      expect(card.readAsContext).toEqual(["on a smart fridge"]);
+      expect(card.noMatch).toBeUndefined();
+      expect(card.hint).toMatch(/Read as context, not parts: on a smart fridge\./);
+    });
+
+    it("L6: a container of X takes X", () => {
+      expect(composeParts("a set of chips and a group of avatars").phrases).toEqual(["chips", "avatars"]);
+      expect(composeParts("drawer with a stack of toasts, a collection of tags").phrases).toEqual(["toasts", "tags"]);
+      expect(returned(compose("a set of chips and a list of badges").card as Card).map((part) => part.name)).toEqual(["Chip", "Badge"]);
+    });
+
+    it("L7: brief and compose agree when a saved recipe already covers the parts", () => {
+      const graph = fixtureGraph();
+      saveGraph(graph);
+      const request = "Settings form with a text field and a save button";
+      const composeSays = compose(request).card as Card & { duplicates?: string[] };
+      expect(composeSays.duplicates).toEqual(["Settings form"]);
+      const brief = briefScreen({ request, index: index(), recipes: starterRecipes() });
+      expect(brief.composeOffer).toBeUndefined();
+      expect(brief.savedRecipe).toMatch(/^Saved recipe Settings form already covers this/);
+      const fresh = briefScreen({ request: "lounge with a chip, a switch and a badge", index: index(), recipes: starterRecipes() });
+      expect(fresh.composeOffer).toMatch(/^No saved recipe fits/);
+      expect(fresh.savedRecipe).toBeUndefined();
+      expect((compose("lounge with a chip, a switch and a badge").card as Card & { duplicates?: string[] }).duplicates).toBeUndefined();
     });
   });
 });
