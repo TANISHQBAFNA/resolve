@@ -522,4 +522,30 @@ describe("designer briefing", () => {
       if ("ready" in result) expect(result.candidates[0]?.name, request).toBe("Text Field");
     }
   });
+
+  it("reads density synonyms as compact or comfortable on a list ask", () => {
+    const graph = acmeGraph();
+    // Comfortable List is the used list, as in the form-with-list case.
+    graph.nodes.push(node("node:1:9", "COMPONENT_INSTANCE", "List", { parentId: "node:1:1", figmaNodeId: "1:9", mainComponentId: "node:10:14" }));
+    graph.edges.push({ id: "e19", source: "node:1:9", target: "node:10:14", type: "INSTANCE_OF" });
+    // A plain List Row part too, so a density word must still pick its density part.
+    graph.nodes.push(node("node:10:18", "MAIN_COMPONENT", "List Row", { figmaNodeId: "10:18", isMainComponent: true }));
+    const index = indexGraph(graph);
+    const brief = (request: string) => briefScreen({ request, index, recipes: starterRecipes(), decisions: [decision] });
+    for (const [request, name] of [
+      ["a squeezed-in dense list of rows", "Compact List"],
+      ["a tight list", "Compact List"],
+      ["condensed list view", "Compact List"],
+      ["a roomy list", "Comfortable List"],
+      ["an airy list of rows", "Comfortable List"],
+    ] as const) {
+      const result = brief(request);
+      expect(asked(result), request).toEqual([]);
+      expect("ready" in result && result.candidates[0]?.name, request).toBe(name);
+      // Recommend keeps the density part near the top; a literal "rows" may put List Row first.
+      const names = (recommendMasters(index, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates.slice(0, 3).map((row) => row.name);
+      expect(names, request).toContain(name);
+      if (!/rows/.test(request)) expect(names[0], request).toBe(name);
+    }
+  });
 });

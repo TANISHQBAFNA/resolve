@@ -4,6 +4,7 @@ import type { GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import type { BindRulesFile } from "./bindRules";
 import { exactRecipe, fillRecipe, type Recipe } from "./recipes";
+import { SYNONYM_OF } from "./recommendContext";
 import { recommendMasters } from "./recommendMasters";
 import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems } from "./screenInventory";
@@ -430,7 +431,9 @@ function mentioned(request: string, options: Choice[], roles: Role[]): Choice[] 
 }
 
 function platformSaid(request: string): PlatformId | undefined {
-  const hits = PLATFORM_IDS.filter((id) => containsPhrase(request, id));
+  // A density synonym ("dense", "roomy") says the same density as compact or comfortable.
+  const said = (id: PlatformId) => containsPhrase(request, id) || nameTokens(request).some((word) => SYNONYM_OF.get(word)?.includes(id));
+  const hits = PLATFORM_IDS.filter(said);
   hits.sort((a, b) => b.length - a.length);
   return hits[0];
 }
@@ -611,6 +614,14 @@ export function briefScreen(input: BriefInput): BriefResult {
     }
     if (options.length >= 2) forks.push({ topic: "platform", options });
   }
+  // The request states a density or platform ("a dense list of rows") and the library has that version of
+  // the asked part (Compact List): pick it, even when a plainer part (List Row) ranks first.
+  if (chosenPlatform && !platformPick) {
+    const kind = (choice: Choice) => nameTokens(choice.label).filter((token) => token !== choice.id);
+    const own = catalog.platform.find((choice) => choice.id === chosenPlatform && kind(choice).length > 0 && kind(choice).every((token) => asks.some((word) => sameWord(word, token))));
+    const master = own ? masters.find((item) => item.id === own.masterId) : undefined;
+    if (master) platformPick = candidateOf(master);
+  }
   // States: the pick is a real part that is not a platform part (a nav has no empty or loading state),
   // and the request names no state. Each answer adds its own part (Empty Message, Error Alert).
   // A request that names a part plus a context ("summary cards for the order") is specific: no states question.
@@ -620,7 +631,7 @@ export function briefScreen(input: BriefInput): BriefResult {
   // A state option only when picking it adds a part the request does not already have.
   const have = new Set([...named.map((master) => master.id), ...leadRows.map((row) => row.id)]);
   const stateOptions = catalog.states.filter((choice) => !have.has(choice.masterId));
-  const statePart = !platformRows.length && (leadRows.length > 0 || shapes.length > 0 || named.length > 0 || answerFit);
+  const statePart = !platformRows.length && !platformPick && (leadRows.length > 0 || shapes.length > 0 || named.length > 0 || answerFit);
   if (fits && statePart && !specific && !answeredStates && !listAsk && stateOptions.length >= 2) {
     forks.push({ topic: "states", options: stateOptions, multiple: true });
   }
