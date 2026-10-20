@@ -36,7 +36,12 @@ const FILLER = new Set([
   "a", "an", "the", "screen", "page", "frame", "please", "app", "view", "with", "and", "on", "in", "of", "to",
   "for", "me", "our", "build", "make", "create", "need", "want", "show", "new", "my", "this", "that", "just",
   "use", "using", "recent", "some", "when", "into", "from", "ahead", "without", "asking", "go",
+  // Verbs say what the person does with the part, not which part or where it sits.
+  "place", "put", "add", "scan", "compare", "read", "review", "display", "see", "browse",
 ]);
+
+// "show all payments", "payee list": a collection with no shape named.
+const LIST_ASK = /\b(?:all|every|lists?)\b/i;
 
 // No /g: .test() on a /g regex keeps lastIndex between calls.
 const JUST_BUILD = /\b(?:just build|just do it|don'?t ask|do not ask|no need to ask|skip (?:the )?questions|no questions|go ahead and build|without (?:asking|questions))\b/i;
@@ -542,7 +547,13 @@ export function briefScreen(input: BriefInput): BriefResult {
   const platformRows = asks.length ? trusted(lead.platformRows) : [];
   const leadFit = leadRows.length > 0 || platformRows.length > 0;
   const answerFit = componentChoices(resolved).length > 0;
-  const fits = Boolean(recipe || decision || shapes.length || states.length || named.length || leadFit || answerFit);
+  // Product rule (r3): a list ask with no shape or part named, where a card list and a table both exist, asks list or table.
+  const listShapes =
+    !resolved.has("shape") && !shapes.length && !named.length && LIST_ASK.test(stripped)
+      ? catalog.shape.filter((choice) => choice.id === "cards" || choice.id === "table")
+      : [];
+  const listAsk = listShapes.length === 2;
+  const fits = Boolean(recipe || decision || shapes.length || states.length || named.length || leadFit || answerFit || listAsk);
 
   const notes: string[] = [];
   const fromAnswer = (topic: BriefTopic) => resolved.has(topic);
@@ -561,7 +572,7 @@ export function briefScreen(input: BriefInput): BriefResult {
 
   const answeredShape = fromAnswer("shape") || shapes.length === 1;
   const answeredStates = fromAnswer("states") || states.length > 0;
-  const shapeFork = !answeredShape && shapes.length >= 2 ? shapes : [];
+  const shapeFork = !answeredShape && shapes.length >= 2 ? shapes : listShapes;
 
   const forks: Array<{ topic: BriefTopic; options: Choice[]; multiple?: true }> = [];
   const consider = (topic: BriefTopic, options: Choice[]) => {
@@ -596,9 +607,16 @@ export function briefScreen(input: BriefInput): BriefResult {
   }
   // States: the pick is a real part that is not a platform part (a nav has no empty or loading state),
   // and the request names no state. Each answer adds its own part (Empty Message, Error Alert).
+  // A request that names a part plus a context ("summary cards for the order") is specific: no states question.
+  const partWords = [...shapes.map((choice) => choice.label), ...named.map((master) => master.name)].flatMap(nameTokens);
+  const context = asks.filter((word) => !partWords.some((part) => sameWord(part, word)));
+  const specific = (shapes.length > 0 || named.length > 0) && context.length > 0;
+  // A state option only when picking it adds a part the request does not already have.
+  const have = new Set([...named.map((master) => master.id), ...leadRows.map((row) => row.id)]);
+  const stateOptions = catalog.states.filter((choice) => !have.has(choice.masterId));
   const statePart = !platformRows.length && (leadRows.length > 0 || shapes.length > 0 || named.length > 0 || answerFit);
-  if (fits && statePart && !answeredStates && catalog.states.length >= 2) {
-    forks.push({ topic: "states", options: catalog.states, multiple: true });
+  if (fits && statePart && !specific && !answeredStates && !listAsk && stateOptions.length >= 2) {
+    forks.push({ topic: "states", options: stateOptions, multiple: true });
   }
 
   const realCandidates = (): BriefCandidate[] => {

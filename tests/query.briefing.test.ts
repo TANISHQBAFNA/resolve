@@ -200,7 +200,7 @@ describe("designer briefing", () => {
     expect(result.assumptions.some((line) => line.startsWith("You answered states:"))).toBe(true);
     expect(result.assumptions.some((line) => line.startsWith("Request already says data shape:"))).toBe(true);
     expect(result.candidates.map((row) => row.name)).toEqual(expect.arrayContaining(["Data Table", "Empty Message", "Error Alert"]));
-    const open = run("compare rows in a table");
+    const open = run("a data table");
     const states = asked(open).find((question) => question.topic === "states");
     expect(states?.multiple).toBe(true);
     expect(states?.prompt).toContain("Pick any that apply");
@@ -382,10 +382,41 @@ describe("designer briefing", () => {
     expect(JSON.parse(writes.join("")).candidates.map((row: { name: string }) => row.name)).toEqual(["Mobile Nav"]);
   });
 
+  it("does not ask states on a specific request, and offers only states that add a part", () => {
+    for (const request of ["summary cards for the order", "the transfers table", "compare rows in a table", "scan the card list of payees"]) {
+      expect(asked(run(request)).some((question) => question.topic === "states"), request).toBe(false);
+    }
+    expect(asked(run("a data table")).map((question) => question.topic)).toEqual(["states"]);
+    const index = indexGraph(acmeGraph());
+    for (const row of [...labeled.cases, ...fitSet.cases]) {
+      const states = asked(run(row.request)).find((question) => question.topic === "states");
+      if (!states) continue;
+      const card = recommendMasters(index, row.request, { budgetChars: 4000 }) as { candidates?: Array<{ name?: string }> };
+      const have = (card.candidates ?? []).slice(0, 3).map((candidate) => candidate.name);
+      for (const option of states.options) expect(have, `${row.request}: ${option.label}`).not.toContain(option.label);
+    }
+  });
+
+  it("asks one list-or-table question on a list ask with no shape named, and each answer picks its part", () => {
+    saveGraph(acmeGraph());
+    for (const request of ["show all payments", "a list of invoices", "every transfer this month"]) {
+      const questions = asked(run(request));
+      expect(questions.map((question) => question.topic), request).toEqual(["shape"]);
+      expect(questions[0]!.options.map((option) => option.label).sort(), request).toEqual(["Card List", "Data Table"]);
+      for (const option of questions[0]!.options) {
+        const card = callTool("recommend", { intent: request, answers: { shape: option.id }, budgetChars: 4000 }) as { candidates?: Array<{ name?: string }> };
+        expect(card.candidates?.[0]?.name, `${request} ${option.id}`).toBe(option.label);
+      }
+    }
+    for (const request of ["show all payments in a table", "all payees as cards", "the compact list of payees"]) {
+      expect(asked(run(request)).some((question) => question.topic === "shape"), request).toBe(false);
+    }
+  });
+
   it("reads just build the same way on every call, with words in between", () => {
     for (let i = 0; i < 3; i += 1) {
       expect(run("make it without asking: data table"), String(i)).toMatchObject({ skip: "just-build" });
-      expect(run("compare rows in a table"), String(i)).toHaveProperty("questions");
+      expect(run("a data table"), String(i)).toHaveProperty("questions");
     }
     expect(run("build the page without asking")).toMatchObject({ skip: "just-build", candidates: [] });
   });
