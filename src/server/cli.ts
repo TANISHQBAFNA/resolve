@@ -21,7 +21,7 @@ import {
 import { dirname, join, resolve } from "node:path";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
-import { verifyExitCode } from "@/core/query/properUse";
+import { publishedVerdict, verifyExitCode } from "@/core/query/properUse";
 import {
   componentUsageCard,
   listRecipes,
@@ -687,7 +687,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const exitCode = verifyExitCode(verified);
       if (command === "check" && !args.includes("--json")) {
         process.stdout.write(`${presentToolResult(verified, "markdown", "verify_frame")}\n`);
-      } else printJson(verified);
+      } else printJson(publishedVerdict(verified));
       if (exitCode !== 0) process.exitCode = exitCode;
       return;
     }

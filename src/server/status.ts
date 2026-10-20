@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { figmaAccessToken } from "@/core/ingestion/adapters/figmaRestSource";
 import { codeMapCard } from "@/core/query";
+import { formatLearnedAt } from "./localTime";
 import { listGraphs, loadFileGraph, loadGraph, readWorkspace, resolveGraph, storeRoot } from "./store";
 
 const RULE_BEGIN = "<!-- resolve-setup:begin -->";
@@ -91,16 +92,6 @@ export function statusReport(): StatusReport {
   };
 }
 
-function localWhen(iso?: string): string {
-  if (!iso || Number.isNaN(Date.parse(iso))) return "unknown";
-  const date = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const zone =
-    new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(date).find((part) => part.type === "timeZoneName")
-      ?.value ?? "";
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())} ${zone}`.trim();
-}
-
 /** Figma's version is often a long internal number. Say that it is recorded, in plain words. */
 function readableVersion(version?: string): string {
   if (!version) return "version not recorded";
@@ -115,7 +106,7 @@ export function formatStatus(report: StatusReport): string {
   } else {
     lines.push(`Resolve store: ${report.store}`, "", "Learned files:");
     for (const f of report.files) {
-      lines.push(`- ${f.name} (${f.fileKey}): ${f.role === "library" ? "design system" : f.role ? `screens (${f.role})` : "learned"}, ${f.nodes} items, last learned ${localWhen(f.learnedAt)}, ${readableVersion(f.version)}`);
+      lines.push(`- ${f.name} (${f.fileKey}): ${f.role === "library" ? "design system" : f.role ? `screens (${f.role})` : "learned"}, ${f.nodes} items, last learned ${formatLearnedAt(f.learnedAt)}, ${readableVersion(f.version)}`);
     }
   }
   const c = report.codeMap;

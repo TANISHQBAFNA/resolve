@@ -173,6 +173,7 @@ Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.gra
 
 Newest first. The full list is in the [reference](docs/REFERENCE.md#version-history).
 
+- **Oct 20, 2026 — [PR #61](https://github.com/TANISHQBAFNA/resolve/pull/61).** A failed check now says `pass: false` in JSON, including when proper use fails. Status still prints local time with a zone name, and the tests accept that. Tests stop with one clear message on Node older than 22.12. CI fails if the phrase score drops below 83 of 88 first picks or 85 of 88 in the top 3. CI runs on Node 22 and 24, in UTC and India time, and the browser checks include Firefox.
 - **Oct 20, 2026 — [PR #62](https://github.com/TANISHQBAFNA/resolve/pull/62).** The README pictures, logo and badge changed from purple to teal. PASS stays green.
 - **Oct 19, 2026 — [PR #60](https://github.com/TANISHQBAFNA/resolve/pull/60).** This visual README. The full manual moved to `docs/REFERENCE.md`.
 - **Oct 13, 2026 — [PR #58](https://github.com/TANISHQBAFNA/resolve/pull/58).** `resolve learn` reads JSON files. A preferred library wins between parts with the same name. Slot properties are kept.
