@@ -370,6 +370,9 @@ function answerOne(hit: Candidate, mentions: Mention[], entries: CodeMapListed[]
   }
   const mention = confirmedMention(hit.entry, mentions);
   const label = labelFor(hit.entry, mention);
+  if (hit.entry.status === "suggested" || hit.entry.status === "partial" || hit.entry.status === "unmapped") {
+    return result("unmapped", query, `${label} is not a confirmed code twin. Stop and ask.`);
+  }
   const retired = hit.entry.status === "retired" || mention?.status === "retired";
   if (retired) {
     const use = replacementOf(hit.entry, entries);
@@ -414,12 +417,15 @@ export function checkComponentName(query: string, codeMap: unknown, handoff: unk
   const onSheet = unique.filter((hit) => confirmedMention(hit.entry, mentions));
   const chosen = unique.length <= 1 ? unique : onSheet.length === 1 ? onSheet : [];
   if (unique.length > 1 && onSheet.length !== 1) {
-    const retired = unique.filter((hit) => hit.entry.status === "retired");
-    const current = unique.filter((hit) => hit.entry.status !== "retired");
+    const confirmed = (status: CodeMapListed["status"]) => status === "current" || status === "mapped" || status === "retired";
+    const pool = unique.some((hit) => confirmed(hit.entry.status)) ? unique.filter((hit) => confirmed(hit.entry.status)) : unique;
+    if (pool.length === 1) return answerOne(pool[0]!, mentions, listed.entries, asked.original);
+    const retired = pool.filter((hit) => hit.entry.status === "retired");
+    const current = pool.filter((hit) => hit.entry.status === "current" || hit.entry.status === "mapped");
     if (current.length && retired.length) {
       return result("error", asked.original, `${asked.text} matches a current component and a retired one. Name the selector or the class.`);
     }
-    const names = unique.map((hit) => hit.entry.name ?? hit.entry.component).join(", ");
+    const names = pool.map((hit) => hit.entry.name ?? hit.entry.component).join(", ");
     return result("error", asked.original, `${asked.text} matches more than one code-map component (${names}). Name the selector or the class.`);
   }
   if (chosen.length === 1) return answerOne(chosen[0]!, mentions, listed.entries, asked.original);

@@ -205,7 +205,7 @@ describe("code-map.json", () => {
       "missing component",
       "import needs from '<module>'",
       "unsupported field 'code.props'",
-      "status must be current or retired",
+      "status must be mapped, suggested, partial, unmapped, retired, or current",
       "'id' must be text",
       "not an object",
     ]);

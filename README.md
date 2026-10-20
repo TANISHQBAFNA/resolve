@@ -138,9 +138,22 @@ The output lines are shortened from real runs on the Acme example library.
 | `/design-system <link>` | Resolve learns that Figma file and saves its components. |
 | `/find <phrase>` | The right component, a weak match marked as weak, or "no match". |
 | `/check <link>` | Pass, or the retired, wrong and unknown parts plus proper-use problems. |
-| `/parts <link>` | Each component on the screen and its code twin. |
-| `/handoff <link>` | A developer build sheet for the screen. |
+| `/parts <link>` | Each component on the screen and its mapped code twin. Unmapped means stop and ask. |
+| `/handoff <link>` | A developer build sheet for the screen. Mapped code twins only. |
+| `/code-map scan\|suggest\|review` | Read an Angular package, propose code pairs, then confirm them. |
 | `/resolve-status` | What is learned, whether the token and rule are set, and what to do next. |
+
+## Code map
+
+The code map is the list of which Figma part is which code part. Resolve can read an Acme Angular package and suggest pairs from the names and from Figma properties to inputs. A suggestion is not the truth. Someone confirms it. Only a confirmed pair shows on `/parts` and `/handoff`. If a part has no confirmed pair, stop and ask.
+
+| Figma | Code | What you do |
+| --- | --- | --- |
+| Button | `AcmeButtonComponent` | Mapped. Use it. |
+| Text field | a suggestion | Not used until you confirm it. |
+| Avatar | — | Unmapped. Stop and ask. |
+
+A part can map to more than one code component, and one code component can map to more than one part. "Composed of" is a link too: Payee picker is the picker, and it contains the text field. When the Figma library version or the package version changes, those rows are flagged for another look. The detail, and the measured suggestion score on the made-up Acme package (precision 1, recall 1, 9 of 9, no wrong mapped link), is in [the code map reference](docs/REFERENCE.md#scan-suggest-review).
 
 More detail: [Slash commands in detail](docs/REFERENCE.md#slash-commands-in-detail).
 
@@ -173,6 +186,7 @@ Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.gra
 
 Newest first. The full list is in the [reference](docs/REFERENCE.md#version-history).
 
+- **Oct 20, 2026 — [PR #63](https://github.com/TANISHQBAFNA/resolve/pull/63).** `resolve code-map scan` reads a made-up Acme Angular package. `suggest` proposes Figma-to-code pairs and never treats them as truth. `review` confirms them through the CSV. Only a mapped pair shows on `/parts` and `/handoff`. An unmapped part means stop and ask. On the Acme fixture, suggestion precision is 1 and recall is 1 (9/9), and mapped entries have 0 wrong links. Phrase score unchanged: top-1 83/88, top-3 85/88. 898 tests.
 - **Oct 20, 2026 — [PR #61](https://github.com/TANISHQBAFNA/resolve/pull/61).** A failed check now says `pass: false` in JSON, including when proper use fails. Status still prints local time with a zone name, and the tests accept that. Tests stop with one clear message on Node older than 22.12. CI fails if the phrase score drops below 83 of 88 first picks or 85 of 88 in the top 3. CI runs on Node 22 and 24, in UTC and India time, and the browser checks include Firefox.
 - **Oct 20, 2026 — [PR #62](https://github.com/TANISHQBAFNA/resolve/pull/62).** The README pictures, logo and badge changed from purple to teal. PASS stays green.
 - **Oct 19, 2026 — [PR #60](https://github.com/TANISHQBAFNA/resolve/pull/60).** This visual README. The full manual moved to `docs/REFERENCE.md`.

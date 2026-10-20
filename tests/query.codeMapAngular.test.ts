@@ -210,7 +210,7 @@ describe("Angular fields in the code map", () => {
     put(angularMap);
     const template = codeMapTemplate(codeMapRows(acme()));
     const rows = parseCsv(template);
-    expect(rows[0]).toEqual(["fileKey", "id", "name", "component", "importPath", "framework", "selector", "module", "standalone", "inputs", "outputs", "status", "replacedBy"]);
+    expect(rows[0]).toEqual(["fileKey", "id", "name", "component", "importPath", "framework", "selector", "module", "standalone", "inputs", "outputs", "status", "replacedBy", "relation", "figmaVersion", "packageVersion"]);
     expect(rows).toHaveLength(7);
     expect(template).toBe(readFileSync(CSV, "utf8"));
     const imported = codeMapFromCsv(readFileSync(CSV, "utf8"));
@@ -238,7 +238,7 @@ describe("Angular fields in the code map", () => {
     expect(notes).toMatchObject({ errors: [], ignoredColumns: ["notes", "owner"] });
     expect(notes.entries).toEqual([{ fileKey: "ACMEUI", id: "30:10", code: { import: "import { Button } from '@acme/ui'", component: "Button" } }]);
     expect(codeMapFromCsv("fileKey,id,colour\nA,1,red").errors).toEqual([
-      "missing column 'component'; columns are fileKey, id, name, component, importPath, framework, selector, module, standalone, inputs, outputs, status, replacedBy",
+      "missing column 'component'; columns are fileKey, id, name, component, importPath, framework, selector, module, standalone, inputs, outputs, status, replacedBy, relation, figmaVersion, packageVersion",
     ]);
     // Aliases survive the CSV's space-or-comma list.
     const alias = codeMapFromCsv(`${head}\nACMEUI,30:20,Text field,T,@acme/ui-angular,angular,acme-text-field,,true,"label: ariaLabel value",,,\n`);
@@ -284,7 +284,7 @@ describe("code-map --init / --import and MCP size guard", () => {
   it("--init writes a template next to code-map.json and never overwrites without --force", async () => {
     expect(await cli(["code-map", "--init"])).toContain("6 components, 0 already mapped");
     const csv = join(home, "code-map.csv");
-    expect(readFileSync(csv, "utf8").split("\n")[1]).toBe("ACMEUI,30:10,Button,,,,,,,,,,");
+    expect(readFileSync(csv, "utf8").split("\n")[1]).toBe("ACMEUI,30:10,Button,,,,,,,,,,,,,");
     await expect(cli(["code-map", "--init"])).rejects.toThrow("already exists. Add --force to replace it.");
     expect(await cli(["code-map", "--init", "--force", "--out", join(home, "other.csv")])).toContain("other.csv");
   });

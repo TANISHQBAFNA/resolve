@@ -52,6 +52,7 @@
   "dependencies": {
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "typescript": "~5.9.3",
     "zod": "^3.25.76",
     "zustand": "^5.0.15"
   },
@@ -65,7 +66,6 @@
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "jscpd": "^4.0.5",
-    "typescript": "~5.9.3",
     "vite": "^8.3.0",
     "vitest": "^5.0.1"
   },

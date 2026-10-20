@@ -3,7 +3,6 @@ import { PACK_BIND_FLAGS, usage } from "./cliUsage";
 import {
   bindFromFlags,
   defaultGoldenDir,
-  existingEntries,
   flag,
   graphFromMetadataXml,
   ingestLive,
@@ -38,7 +37,9 @@ import {
   verifyFrame,
   codeMapCard,
   codeMapFromCsv,
+  codeMapJson,
   entryLabel,
+  readCodeMapDocument,
   formatHandoffIndex,
   formatHandoffIngredients,
   formatHandoffScreen,
@@ -87,6 +88,7 @@ import {
 } from "./store";
 import { stripFiller } from "./cards";
 import { formatGaps, readGaps, recordGap } from "./gaps";
+import { runCodeMapExtra } from "./codeMapCommand";
 import { recordVerifyUsage } from "./tools";
 import { learnLibrary } from "./learn";
 import { DESIGNER, designerFailure } from "./designerMessages";
@@ -354,6 +356,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
     }
 
     case "code-map": {
+      if (runCodeMapExtra(args)) return;
       const mapPath = overlayFile("code-map.json") ?? join(storeRoot(), "code-map.json");
       const force = args.includes("--force");
       const replace = args.includes("--replace");
@@ -436,9 +439,9 @@ async function dispatchCli(argv: string[]): Promise<void> {
         if (exists && !force && !replace && !args.includes("--dry-run")) {
           throw new Error(`${mapPath} already exists. Add --force to update it (entries the CSV has no row for are kept), --replace to write only the CSV's entries, or --dry-run to see the result.`);
         }
-        const old = exists ? existingEntries(mapPath) : [];
-        const merged = mergeCodeMap(old, result, replace);
-        const json = `${JSON.stringify({ entries: merged.entries }, null, 2)}\n`;
+        const previous = exists ? readCodeMapDocument(mapPath) : { entries: [] as unknown[] };
+        const merged = mergeCodeMap(previous.entries, result, replace);
+        const json = codeMapJson(merged.entries, previous);
         const list = (items: unknown[]) => items.slice(0, 12).map((e) => `  ${entryLabel(e)}`).join("\n") + (items.length > 12 ? `\n  +${items.length - 12} more` : "");
         const notes = [
           merged.untouched.length

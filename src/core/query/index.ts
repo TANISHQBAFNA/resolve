@@ -43,7 +43,7 @@ export {
   type PackIssue,
   type PackValidation,
 } from "./packValidate";
-export { codeMapFromCsv, codeMapTemplate, CSV_COLUMNS, entryKeys, entryLabel, mergeCodeMap, parseCsv } from "./codeMapCsv";
+export { codeMapFromCsv, codeMapJson, codeMapTemplate, CSV_COLUMNS, entryKeys, entryLabel, entriesToCsv, mergeCodeMap, parseCsv, readCodeMapDocument, reviewEntries } from "./codeMapCsv";
 export {
   angularTemplate,
   figmaLink,

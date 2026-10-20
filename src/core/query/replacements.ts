@@ -83,6 +83,8 @@ const codeHooks = (index: GraphIndex): Hooks => ({
 export const codeMapView = (index: GraphIndex) => codeView(index, codeHooks(index));
 export const codeMapCard = (getIndex: () => GraphIndex) => codeMapReport(getIndex, codeHooks);
 /** Every component the map can name, with its current twin (for the CSV template). */
+/** Real components the code map can name. Same filter as the CSV template. */
+export const libraryCodeTargets = (index: GraphIndex) => codeMapTargets(index, codeHooks(index));
 export const codeMapRows = (index: GraphIndex) => {
   const view = codeMapView(index);
   return codeMapTargets(index, codeHooks(index)).map(({ node, ...row }) => ({ ...row, twin: view?.twin(node) }));
@@ -175,11 +177,13 @@ export function screenPartsCard(index: GraphIndex, ask: string) {
         : {}),
     });
   }
+  const unmapped = parts.some((part) => part.code === "unmapped");
   return {
     ok: true as const,
     frame: frame.name,
     ...(frame.figmaNodeId ? { figmaNodeId: frame.figmaNodeId } : {}),
     parts,
+    ...(unmapped ? { ask: "An unmapped part has no confirmed code twin. Stop and ask. Do not guess." } : {}),
   };
 }
 /** Library-wide ingredient counts: composites, parts, and how many parts link to code. */

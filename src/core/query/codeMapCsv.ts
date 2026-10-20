@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { checkEntry, type Twin } from "./codeMap";
 
 /**
@@ -19,6 +20,9 @@ export const CSV_COLUMNS = [
   "outputs",
   "status",
   "replacedBy",
+  "relation",
+  "figmaVersion",
+  "packageVersion",
 ] as const;
 type Column = (typeof CSV_COLUMNS)[number];
 
@@ -85,6 +89,9 @@ export function codeMapTemplate(rows: { fileKey: string; id: string; name: strin
       outputs: a?.outputs?.join(" ") ?? "",
       status: t?.retired ? "retired" : "",
       replacedBy: t?.replacedBy ?? "",
+      relation: "",
+      figmaVersion: "",
+      packageVersion: "",
     };
     return CSV_COLUMNS.map((c) => cell(value[c])).join(",");
   });
@@ -150,7 +157,58 @@ export function mergeCodeMap(old: unknown[], csv: CsvImport, replace: boolean): 
   const cleared = matched.filter((e) => !entryKeys(e).some((k) => filled.has(k)));
   const written = new Set(csv.entries.map((e) => JSON.stringify(e)));
   const replaced = matched.filter((e) => !cleared.includes(e) && !written.has(JSON.stringify(e)));
-  return { entries: [...csv.entries, ...(replace ? [] : untouched)], untouched, cleared, replaced };
+  const entries = [...csv.entries, ...(replace ? [] : untouched)];
+  if (!replace) {
+    const seen = new Set(entries.map((entry) => JSON.stringify(entry)));
+    const silent = old.filter(
+      (entry) => !seen.has(JSON.stringify(entry)) && !untouched.includes(entry) && !cleared.includes(entry) && !replaced.includes(entry),
+    );
+    if (silent.length) return { entries: [...entries, ...silent], untouched: [...untouched, ...silent], cleared, replaced };
+  }
+  return { entries, untouched, cleared, replaced };
+}
+
+/** Read a code map without dropping entries. A file that is not JSON, or has no entries list, throws and must not be overwritten. */
+export function readCodeMapDocument(path: string): { entries: unknown[]; figmaVersion?: string; packageVersion?: string } {
+  const text = readFileSync(path, "utf8").replace(/^\uFEFF/, "").trim();
+  if (!text) return { entries: [] };
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    throw new Error(`${path} is not valid JSON. Nothing was written.`);
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error(`${path} is not a code map. Nothing was written.`);
+  const doc = raw as Record<string, unknown>;
+  if (!("entries" in doc)) {
+    if (Object.keys(doc).length === 0) return { entries: [] };
+    throw new Error(`${path} has no entries list. Nothing was written.`);
+  }
+  if (!Array.isArray(doc["entries"])) throw new Error(`${path} entries must be a list. Nothing was written.`);
+  const figmaVersion = typeof doc["figmaVersion"] === "string" && doc["figmaVersion"].trim() ? doc["figmaVersion"].trim() : undefined;
+  const packageVersion = typeof doc["packageVersion"] === "string" && doc["packageVersion"].trim() ? doc["packageVersion"].trim() : undefined;
+  return { entries: doc["entries"], ...(figmaVersion ? { figmaVersion } : {}), ...(packageVersion ? { packageVersion } : {}) };
+}
+
+export function codeMapJson(entries: unknown[], versions: { figmaVersion?: string; packageVersion?: string }): string {
+  const body: Record<string, unknown> = {};
+  if (versions.figmaVersion) body["figmaVersion"] = versions.figmaVersion;
+  if (versions.packageVersion) body["packageVersion"] = versions.packageVersion;
+  body["entries"] = entries;
+  return `${JSON.stringify(body, null, 2)}\n`;
+}
+
+/** Review import: only an explicit mapped (or current) status is confirmed. Anything else stays a suggestion. */
+export function reviewEntries(parsed: CsvImport): CsvImport {
+  return {
+    ...parsed,
+    entries: parsed.entries.map((entry) => {
+      const status = typeof entry["status"] === "string" ? entry["status"] : "";
+      if (status === "mapped" || status === "current") return { ...entry, status: "mapped" };
+      if (status === "retired" || status === "partial" || status === "unmapped" || status === "suggested") return entry;
+      return { ...entry, status: "suggested" };
+    }),
+  };
 }
 
 /** `ACMEUI 30:10 Button`, for listing entries in import output. */
@@ -168,6 +226,51 @@ function ioList(value: string): string[] {
     .split(/[\s,;|]+/)
     .filter(Boolean)
     .map((x) => x.replace(":", ": "));
+}
+
+function importPathOf(line: string): string {
+  const marker = " from '";
+  const at = line.lastIndexOf(marker);
+  if (at < 0) return "";
+  const start = at + marker.length;
+  const end = line.indexOf("'", start);
+  return end < 0 ? "" : line.slice(start, end);
+}
+
+function textOf(entry: Record<string, unknown>, key: string): string {
+  const value = entry[key];
+  return typeof value === "string" ? value : "";
+}
+
+/** One row per stored entry, including suggestions. Used by `code-map review`. */
+export function entriesToCsv(entries: unknown[]): string {
+  const lines = entries.map((entry) => {
+    const row = entry && typeof entry === "object" && !Array.isArray(entry) ? (entry as Record<string, unknown>) : {};
+    const code = row["code"] && typeof row["code"] === "object" && !Array.isArray(row["code"]) ? (row["code"] as Record<string, unknown>) : {};
+    const imported = importPathOf(textOf(code, "import"));
+    const inputs = Array.isArray(code["inputs"]) ? (code["inputs"] as unknown[]).filter((item) => typeof item === "string").join(" ") : "";
+    const outputs = Array.isArray(code["outputs"]) ? (code["outputs"] as unknown[]).filter((item) => typeof item === "string").join(" ") : "";
+    const value: Record<Column, string> = {
+      fileKey: textOf(row, "fileKey"),
+      id: textOf(row, "id"),
+      name: textOf(row, "name"),
+      component: textOf(code, "component"),
+      importPath: imported?.[2] ?? "",
+      framework: textOf(code, "framework"),
+      selector: textOf(code, "selector"),
+      module: textOf(code, "module"),
+      standalone: code["standalone"] === true ? "true" : "",
+      inputs,
+      outputs,
+      status: textOf(row, "status"),
+      replacedBy: textOf(row, "replacedBy"),
+      relation: textOf(row, "relation"),
+      figmaVersion: textOf(row, "figmaVersion"),
+      packageVersion: textOf(row, "packageVersion"),
+    };
+    return CSV_COLUMNS.map((column) => cell(value[column])).join(",");
+  });
+  return `${[CSV_COLUMNS.join(","), ...lines].join("\n")}\n`;
 }
 
 /** Rows to entries. Any bad row is reported by its spreadsheet row number and nothing should be written. */
@@ -221,6 +324,7 @@ export function codeMapFromCsv(text: string): CsvImport {
       ...(list("inputs").length ? { inputs: list("inputs") } : {}),
       ...(list("outputs").length ? { outputs: list("outputs") } : {}),
     };
+    const relation = get("relation").toLowerCase();
     const entry: Record<string, unknown> = {
       ...(get("fileKey") ? { fileKey: get("fileKey") } : {}),
       ...(get("id") ? { id: get("id") } : {}),
@@ -228,6 +332,9 @@ export function codeMapFromCsv(text: string): CsvImport {
       ...(get("name") ? { name: get("name") } : {}),
       ...(get("status") ? { status: get("status").toLowerCase() } : {}),
       ...(get("replacedBy") ? { replacedBy: get("replacedBy") } : {}),
+      ...(relation ? { relation } : {}),
+      ...(get("figmaVersion") ? { figmaVersion: get("figmaVersion") } : {}),
+      ...(get("packageVersion") ? { packageVersion: get("packageVersion") } : {}),
       code,
     };
     if (!get("component") || !get("importPath")) {

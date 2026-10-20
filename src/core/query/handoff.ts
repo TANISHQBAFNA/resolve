@@ -757,9 +757,9 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
   if (!components.length) open.push("No components are placed on this screen, so there is nothing to build from the library. Is it the right frame?");
   if (!hooks.codeMap) open.push("No code map, so no component has a code link. Add .resolve/code-map.json (resolve code-map --init writes a spreadsheet to fill).");
   else {
-    for (const c of components) if (c.code === "unmapped" && c.identity === "confirmed" && c.status === "current") open.push(`${c.name} [${where(c.fileKey, c.figmaNodeId)}] has no code link. Map it in the code map, or say it is new and must be built.`);
+    for (const c of components) if (c.code === "unmapped" && c.identity === "confirmed" && c.status === "current") open.push(`${c.name} [${where(c.fileKey, c.figmaNodeId)}] has no code link. Map it in the code map, or say it is new and must be built. Stop and ask.`);
     const unmappedParts = ingredients.filter((i) => i.status === "unmapped");
-    for (const i of unmappedParts) open.push(`Part ${i.name} [${where(i.fileKey, i.figmaNodeId)}] (inside ${i.usedBy.join(", ")}) has no code link.`);
+    for (const i of unmappedParts) open.push(`Part ${i.name} [${where(i.fileKey, i.figmaNodeId)}] (inside ${i.usedBy.join(", ")}) has no code link. Stop and ask.`);
   }
   for (const i of ingredients) {
     if (i.status === NAME_GUESS) open.push(`Part ${i.name} (inside ${i.usedBy.join(", ")}) is a guess from its layer name.`);
