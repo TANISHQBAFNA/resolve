@@ -505,4 +505,21 @@ describe("designer briefing", () => {
       expect(card.candidates?.[0]?.name, intent).toBe("Text Field");
     }
   });
+
+  it("keeps the form first and asks no platform when a density list leads a form-with-list ask", () => {
+    // Same shape as the report: a form plus a list, where the density variants are the used lists.
+    const graph = acmeGraph();
+    for (const [id, master] of [["1:3", "10:14"], ["1:4", "10:14"], ["1:5", "10:13"]] as const) {
+      graph.nodes.push(node(`node:${id}`, "COMPONENT_INSTANCE", "List", { parentId: "node:1:1", figmaNodeId: id, mainComponentId: `node:${master}` }));
+      graph.edges.push({ id: `e${id}`, source: `node:${id}`, target: `node:${master}`, type: "INSTANCE_OF" });
+    }
+    const index = indexGraph(graph);
+    const lead = (recommendMasters(index, "a list", { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+    expect(lead).toBe("Card List");
+    for (const request of ["a form with a list", "a signup form with a list of saved cards", "form and list"]) {
+      const result = briefScreen({ request, index, recipes: starterRecipes(), decisions: [decision] });
+      expect(asked(result).some((question) => question.topic === "platform"), request).toBe(false);
+      if ("ready" in result) expect(result.candidates[0]?.name, request).toBe("Text Field");
+    }
+  });
 });

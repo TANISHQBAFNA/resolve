@@ -600,7 +600,8 @@ export function briefScreen(input: BriefInput): BriefResult {
   if (chosenPlatform && platformRows.length) {
     const top = rank(`${stripped} ${chosenPlatform}`).platformRows[0];
     if (top && platformWord(top.name) === chosenPlatform) platformPick = top;
-  } else if (fits && platformRows.length >= 2) {
+  } else if (fits && platformRows.length >= 2 && !shapes.length && !named.length) {
+    // A request that already names its part or shape ("a form with a list") is not asked platform.
     const options: Choice[] = [];
     for (const row of platformRows) {
       const id = platformWord(row.name);

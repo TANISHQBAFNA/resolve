@@ -100,8 +100,11 @@ for (const group of synonymFile.groups) {
 }
 /** Label words that can sit beside a control. They match, and the card is partial. */
 export const LABEL_FILLER = new Set(["sign", "terms", "submit", "submitting", "phone", "number", "country", "edit"]);
-/** Unasked position words. "app bar" is the top bar, not the bottom bar. */
-export const DEMOTE_UNASKED = new Set(["bottom", "secondary", "right"]);
+/**
+ * Unasked position, platform, and density words. "app bar" is the top bar, not the bottom bar; "a list" is the
+ * plain list, not Compact List or Comfortable List.
+ */
+export const DEMOTE_UNASKED = new Set(["bottom", "secondary", "right", "compact", "comfortable", "desktop", "mobile"]);
 interface SynonymGroup {
   terms: string[];
 }
