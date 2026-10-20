@@ -1,4 +1,6 @@
-import type { BriefAnswers, BriefCandidate, BriefResult } from "./brief";
+import { createHash } from "node:crypto";
+import { z } from "zod/v4";
+import { BRIEF_PLATFORM_IDS, BRIEF_SHAPE_IDS, BRIEF_STATE_IDS, type BriefCandidate, type BriefResult } from "./brief";
 import type { HandoffPack, HandoffScreen } from "./handoff";
 
 /**
@@ -10,47 +12,66 @@ import type { HandoffPack, HandoffScreen } from "./handoff";
 
 export const DECISION_SCHEMA_VERSION = 1 as const;
 
-export type DecisionKind = "brief" | "compose" | "handoff";
+export const DECISION_KINDS = ["brief", "compose", "handoff"] as const;
+/** Where a pick came from. */
+export const PICK_SOURCES = ["brief", "answer", "recipe", "decision", "compose", "placed"] as const;
+/** fit: every word matched; bound: a stored id (recipe or answer); placed: on the screen; to-add: an answer adds it; weak / name-guess: check it. */
+export const PICK_MATCHES = ["fit", "bound", "placed", "to-add", "weak", "name-guess"] as const;
+export const RECIPE_HOWS = ["saved", "composed", "matched", "asked"] as const;
 
-export interface DecisionPick {
-  name: string;
+export const BriefAnswerIdsSchema = z.object({
+  shape: z.enum(BRIEF_SHAPE_IDS).optional(),
+  platform: z.enum(BRIEF_PLATFORM_IDS).optional(),
+  states: z.array(z.enum(BRIEF_STATE_IDS)),
+});
+
+export const DecisionPickSchema = z.object({
+  name: z.string().min(1),
   /** Graph id when the result had one; handoff parts carry fileKey + figmaNodeId instead. */
-  id?: string;
-  fileKey?: string;
-  figmaNodeId?: string;
-  /** Where the pick came from. */
-  source: "brief" | "answer" | "recipe" | "decision" | "compose" | "placed";
-  /** fit: every word matched; bound: a stored id (recipe or answer); placed: on the screen; weak/name-guess: check it. */
-  match: "fit" | "bound" | "placed" | "to-add" | "weak" | "name-guess";
-  why?: string;
-  screen?: string;
-  slot?: string;
-}
+  id: z.string().optional(),
+  fileKey: z.string().optional(),
+  figmaNodeId: z.string().optional(),
+  source: z.enum(PICK_SOURCES),
+  match: z.enum(PICK_MATCHES),
+  why: z.string().optional(),
+  screen: z.string().optional(),
+  slot: z.string().optional(),
+});
 
-export interface DecisionReject {
-  what: string;
-  reason: string;
-  screen?: string;
-}
+export const DecisionRejectSchema = z.object({ what: z.string(), reason: z.string(), screen: z.string().optional() });
 
-export interface DecisionRecord {
-  schemaVersion: typeof DECISION_SCHEMA_VERSION;
-  kind: DecisionKind;
-  createdAt: string;
-  request?: string;
-  screens?: string[];
-  context?: Record<string, string>;
-  asked: Array<{ topic: string; prompt: string; options: string[] }>;
-  answers?: BriefAnswers;
-  assumptions: string[];
-  skip?: string;
-  picks: DecisionPick[];
-  rejected: DecisionReject[];
-  recipe?: { id?: string; title?: string; how: "saved" | "composed" | "matched" | "asked"; proposal?: string };
-  readAsContext?: string[];
-  openQuestions: string[];
+/** One owner for the record shape: types below come from it, and stored records are checked against it. */
+export const DecisionRecordSchema = z.object({
+  schemaVersion: z.literal(DECISION_SCHEMA_VERSION),
+  kind: z.enum(DECISION_KINDS),
+  createdAt: z.string().min(1),
+  request: z.string().optional(),
+  screens: z.array(z.string()).optional(),
+  context: z.record(z.string(), z.string()).optional(),
+  asked: z.array(z.object({ topic: z.string(), prompt: z.string(), options: z.array(z.string()) })),
+  answers: BriefAnswerIdsSchema.optional(),
+  assumptions: z.array(z.string()),
+  skip: z.string().optional(),
+  picks: z.array(DecisionPickSchema),
+  rejected: z.array(DecisionRejectSchema),
+  recipe: z.object({ id: z.string().optional(), title: z.string().optional(), how: z.enum(RECIPE_HOWS), proposal: z.string().optional() }).optional(),
+  readAsContext: z.array(z.string()).optional(),
+  openQuestions: z.array(z.string()),
   /** brief's offer to compose, or the saved recipe it points to. */
-  next?: string;
+  next: z.string().optional(),
+});
+
+export type DecisionKind = (typeof DECISION_KINDS)[number];
+export type DecisionPick = z.infer<typeof DecisionPickSchema>;
+export type DecisionReject = z.infer<typeof DecisionRejectSchema>;
+export type DecisionRecord = z.infer<typeof DecisionRecordSchema>;
+
+/** A stored record, checked. Throws a plain sentence naming what is wrong. */
+export function parseDecisionRecord(raw: unknown, name: string): DecisionRecord {
+  const parsed = DecisionRecordSchema.safeParse(raw);
+  if (parsed.success) return parsed.data;
+  const issue = parsed.error.issues[0];
+  throw new Error(`${name} is not a decision record (schemaVersion ${DECISION_SCHEMA_VERSION}): ${issue?.path.join(".") || "record"} ${issue?.message ?? "is invalid"}.`);
 }
 
 const pickOf = (row: { id?: string; name: string; fileKey?: string; figmaNodeId?: string }) => ({
@@ -66,7 +87,7 @@ function base(kind: DecisionKind, createdAt: string): DecisionRecord {
 
 export interface BriefRecordInput {
   request: string;
-  answers?: BriefAnswers;
+  answers?: DecisionRecord["answers"];
   /** Parts the answers picked (briefAnswerParts), so a pick can say it came from an answer. */
   answerParts?: BriefCandidate[];
   context?: Record<string, string>;
@@ -116,18 +137,16 @@ export interface ComposeCardLike {
   hint?: string;
 }
 
-export function recordFromCompose(input: { request: string; answers?: BriefAnswers; card: ComposeCardLike; createdAt: string }): DecisionRecord {
+export function recordFromCompose(input: { request: string; answers?: DecisionRecord["answers"]; card: ComposeCardLike; createdAt: string }): DecisionRecord {
   const { card } = input;
   const record = base("compose", input.createdAt);
   record.request = input.request;
   if (input.answers) record.answers = input.answers;
   if (card.hint) record.assumptions = [card.hint];
+  // Weak fits: the card lists them under weak (also when it has no slots: one part, or every part weak).
+  for (const line of card.weak ?? []) record.rejected.push({ what: line.replace(/ \(weak, check\)$/, ""), reason: "weak, check" });
   for (const slot of card.slots ?? []) {
-    if (!slot.master) continue;
-    if (slot.status === "weak") {
-      record.rejected.push({ what: `${slot.role}: ${slot.master.name}`, reason: slot.hint ?? "weak, check" });
-      continue;
-    }
+    if (!slot.master || slot.status === "weak") continue;
     if (slot.status !== "filled" && slot.status !== "bound") continue;
     record.picks.push({ ...pickOf(slot.master), source: slot.status === "bound" ? "answer" : "compose", match: slot.status === "bound" ? "bound" : "fit", slot: slot.role });
   }
@@ -159,7 +178,7 @@ function screenRejects(screen: HandoffScreen): DecisionReject[] {
   ];
 }
 
-export function recordFromHandoff(input: { pack: Extract<HandoffPack, { ok: true }>; answers?: BriefAnswers; createdAt: string }): DecisionRecord {
+export function recordFromHandoff(input: { pack: Extract<HandoffPack, { ok: true }>; answers?: DecisionRecord["answers"]; createdAt: string }): DecisionRecord {
   const record = base("handoff", input.createdAt);
   const screens = input.pack.screens;
   record.screens = screens.map((screen) => screen.screen.name);
@@ -200,8 +219,10 @@ export function formatDecisionRecord(record: DecisionRecord): string {
   return `${out.join("\n")}\n`;
 }
 
-/** File-safe name for a record: kind plus the request or first screen. */
+/** File-safe, unique name: kind, the start of the request or screens, and a hash of the whole record. */
 export function decisionSlug(record: DecisionRecord): string {
-  const text = record.request ?? record.screens?.[0] ?? "record";
-  return `${record.kind}-${text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "record"}`;
+  const text = record.request ?? record.screens?.join(" ") ?? "record";
+  const words = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48).replace(/-$/, "") || "record";
+  const hash = createHash("sha1").update(JSON.stringify(record)).digest("hex").slice(0, 10);
+  return `${record.kind}-${words}-${hash}`;
 }

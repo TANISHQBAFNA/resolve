@@ -19,7 +19,7 @@ import {
 } from "./cliArgs";
 import { composeFromCli } from "./composeCommand";
 import { runHandoff } from "./handoffCommand";
-import { contextFromFlags, recordFlag, runExport } from "./decisionCommand";
+import { contextFromFlags, recordFlag, runDecisions, runExport } from "./decisionCommand";
 import { dirname, join, resolve } from "node:path";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
@@ -58,6 +58,7 @@ import {
   BriefAnswerError,
   briefAnswersFromFlags,
   briefAnswerParts,
+  briefAnswerIds,
   recordFromBrief,
   briefScreen,
 } from "@/core/query";
@@ -297,12 +298,15 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const index = requireGraph(args).index;
       const result = briefScreen({ request, answers, index, recipes: loadRecipes(), decisions: readApprovedDecisions(), ...ranking });
       const createdAt = new Date().toISOString();
-      recordFlag(args, () => recordFromBrief({ request, answers, answerParts: briefAnswerParts(answers, index), context: contextFromFlags(args), result, createdAt }));
+      recordFlag(args, () => recordFromBrief({ request, answers: briefAnswerIds(answers, index), answerParts: briefAnswerParts(answers, index), context: contextFromFlags(args), result, createdAt }));
       return printJson(result);
     }
 
     case "export":
       return runExport(args);
+
+    case "decisions":
+      return runDecisions(args);
 
     case "recommend": {
       const asked = positionals(args)[0];

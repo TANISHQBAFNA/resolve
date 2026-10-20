@@ -20,6 +20,7 @@
           "type": "string"
         },
         "screens": {
+          "minItems": 1,
           "type": "array",
           "items": {
             "type": "string"
@@ -41,15 +42,35 @@
           "type": "object",
           "properties": {
             "shape": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "table",
+                "cards",
+                "form",
+                "summary",
+                "counts"
+              ]
             },
             "platform": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "desktop",
+                "mobile",
+                "phone",
+                "compact",
+                "comfortable"
+              ]
             },
             "states": {
               "type": "array",
               "items": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "empty",
+                  "loading",
+                  "error",
+                  "pending"
+                ]
               }
             }
           },
@@ -88,6 +109,7 @@
           "type": "boolean"
         },
         "screens": {
+          "minItems": 1,
           "type": "array",
           "items": {
             "type": "object",
@@ -111,7 +133,11 @@
                     "type": "string"
                   },
                   "matchedBy": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "asked",
+                      "screen name"
+                    ]
                   }
                 },
                 "required": [
@@ -144,16 +170,37 @@
                       "maximum": 9007199254740991
                     },
                     "identity": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "confirmed",
+                        "name-guess",
+                        "not-found",
+                        "to-add"
+                      ]
                     },
                     "status": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "current",
+                        "retired",
+                        "not-found",
+                        "other-library"
+                      ]
                     },
                     "slot": {
                       "type": "string"
                     },
+                    "codeStatus": {
+                      "type": "string",
+                      "enum": [
+                        "mapped",
+                        "unmapped",
+                        "unknown"
+                      ]
+                    },
                     "code": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "angular": {
                       "type": "object",
@@ -196,6 +243,7 @@
                     "count",
                     "identity",
                     "status",
+                    "codeStatus",
                     "code"
                   ],
                   "additionalProperties": false
@@ -255,7 +303,8 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
                   },
                   "id": {
                     "type": "string"
@@ -267,10 +316,26 @@
                     "type": "string"
                   },
                   "source": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "brief",
+                      "answer",
+                      "recipe",
+                      "decision",
+                      "compose",
+                      "placed"
+                    ]
                   },
                   "match": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "fit",
+                      "bound",
+                      "placed",
+                      "to-add",
+                      "weak",
+                      "name-guess"
+                    ]
                   },
                   "why": {
                     "type": "string"

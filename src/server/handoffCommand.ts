@@ -2,6 +2,7 @@ import { accessSync, constants as fsConstants, existsSync, mkdirSync, readdirSyn
 import { join, resolve } from "node:path";
 import {
   briefAnswerLines,
+  briefAnswerIds,
   briefAnswerParts,
   briefAnswersFromFlags,
   formatHandoffIndex,
@@ -108,7 +109,7 @@ export function runHandoff(args: string[]): void {
       writeFileSync(join(target, "ingredients.md"), formatHandoffIngredients(result));
       writeFileSync(join(target, "handoff.json"), `${JSON.stringify(result, null, 2)}\n`);
       writeFileSync(join(target, "handoff.md"), formatHandoffIndex(result, files));
-      if (record) writeDecision(target, recordFromHandoff({ pack: result, ...(briefed ? { answers: briefed } : {}), createdAt: new Date().toISOString() }));
+      if (record) writeDecision(target, recordFromHandoff({ pack: result, ...(briefed ? { answers: briefAnswerIds(briefed, index) } : {}), createdAt: new Date().toISOString() }));
       for (const f of stale) rmSync(join(target, f), { force: true });
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;

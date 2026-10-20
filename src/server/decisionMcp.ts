@@ -1,4 +1,5 @@
 import {
+  briefAnswerIds,
   briefAnswerParts,
   briefAnswers,
   recordFromBrief,
@@ -9,7 +10,7 @@ import {
   type DecisionRecord,
   type HandoffPack,
 } from "@/core/query";
-import { aidlcFromFolder, readDecision, storeDecision } from "./decisionCommand";
+import { aidlcFromFolder, decisionsDir, listDecisions, readDecision, storeDecision } from "./decisionCommand";
 import { resolveGraph } from "./store";
 
 /** Advanced MCP tools for decision records and the AIDLC export. Default tools do not change. */
@@ -17,8 +18,8 @@ export const DECISION_TOOLS = [
   {
     name: "decision_record",
     description:
-      "Read a decision record back: what was asked, which parts were picked and why, what was rejected, and the recipe. Pass the path a brief, recipe compose or get_handoff call returned as decisionRecord, or a handoff folder's decision.json. Advanced surface.",
-    inputSchema: { type: "object", properties: { ref: { type: "string", description: "Record path, file name or slug." } }, required: ["ref"] },
+      "List stored decision records (no ref), or read one back: what was asked, which parts were picked and why, what was rejected, and the recipe. Pass the path a brief, recipe compose or get_handoff call returned as decisionRecord, or a handoff folder's decision.json. Advanced surface.",
+    inputSchema: { type: "object", properties: { ref: { type: "string", description: "Record name from the list, or a path to a decision*.json file. Leave out to list the stored records." } } },
   },
   {
     name: "export_aidlc",
@@ -36,8 +37,14 @@ export const RECORD_PROPERTY = {
 export const RECORD_TOOLS = new Set(["brief", "recipe", "get_handoff"]);
 
 export function runDecisionTool(name: string, args: Record<string, unknown>): unknown {
-  if (name === "decision_record") return readDecision(String(args["ref"] ?? ""));
-  return aidlcFromFolder(String(args["folder"] ?? ""));
+  if (name === "decision_record") {
+    const ref = typeof args["ref"] === "string" ? args["ref"].trim() : "";
+    // No ref: list what is stored, so a record can be found again.
+    return ref ? readDecision(ref) : { folder: decisionsDir(), records: listDecisions() };
+  }
+  const folder = typeof args["folder"] === "string" ? args["folder"] : "";
+  if (!folder.trim()) throw new Error("export_aidlc needs folder: the folder resolve handoff --out wrote. It never uses the current folder by itself.");
+  return aidlcFromFolder(folder);
 }
 
 /** What `record` asks for, or why it is wrong. */
@@ -60,11 +67,12 @@ function contextOf(args: Record<string, unknown>): Record<string, string> {
 }
 
 function build(name: string, args: Record<string, unknown>, result: unknown, createdAt: string): DecisionRecord | undefined {
-  const answers = briefAnswers(args["answers"]);
+  const index = resolveGraph(text(args["graphId"]))?.index;
+  const raw = briefAnswers(args["answers"]);
+  const answers = index ? briefAnswerIds(raw, index) : undefined;
   if (name === "brief") {
     const request = text(args["request"] ?? args["intent"] ?? args["query"]) ?? "";
-    const index = resolveGraph(text(args["graphId"]))?.index;
-    const answerParts = index ? briefAnswerParts(answers, index) : [];
+    const answerParts = index ? briefAnswerParts(raw, index) : [];
     return recordFromBrief({ request, ...(answers ? { answers } : {}), answerParts, context: contextOf(args), result: result as BriefResult, createdAt });
   }
   if (name === "recipe") {

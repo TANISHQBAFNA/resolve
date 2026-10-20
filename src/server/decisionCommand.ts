@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import {
   aidlcExport,
   decisionSlug,
   formatDecisionRecord,
+  parseDecisionRecord,
   type AidlcHandoff,
   type DecisionRecord,
   type HandoffPack,
@@ -11,13 +12,37 @@ import {
 import { flag, positionals, printJson } from "./cliArgs";
 import { storeRoot } from "./store";
 
-/** Write `<name>.json` and `<name>.md` into dir. Returns the JSON path. */
+/** Write `<name>.json` and `<name>.md` into dir. Returns the JSON path. Errors name the folder. */
 export function writeDecision(dir: string, record: DecisionRecord, name = "decision"): string {
-  mkdirSync(dir, { recursive: true });
   const path = join(dir, `${name}.json`);
-  writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`);
-  writeFileSync(join(dir, `${name}.md`), formatDecisionRecord(record));
+  try {
+    if (existsSync(dir) && !statSync(dir).isDirectory()) throw new Error("it is a file, not a folder");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`);
+    writeFileSync(join(dir, `${name}.md`), formatDecisionRecord(record));
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    const why = code === "EACCES" || code === "EPERM" ? "no permission to write there" : code === "ENOTDIR" || code === "EEXIST" ? "part of that path is a file, not a folder" : (error as Error).message.split("\n")[0];
+    throw new Error(`Cannot write the decision record to ${dir}: ${why}.`);
+  }
   return path;
+}
+
+/** Every stored record (newest first): file, kind, what it was about, when. */
+export function listDecisions(): Array<{ file: string; kind: string; about: string; createdAt: string }> {
+  const dir = decisionsDir();
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((file) => file.endsWith(".json"))
+    .flatMap((file) => {
+      try {
+        const record = parseDecisionRecord(JSON.parse(readFileSync(join(dir, file), "utf8")), file);
+        return [{ file, kind: record.kind, about: record.request ?? (record.screens ?? []).join(", "), createdAt: record.createdAt }];
+      } catch {
+        return [];
+      }
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.file.localeCompare(b.file));
 }
 
 /** Records made over MCP (no --out folder) live in the store: .resolve/decisions/<kind>-<slug>.json. */
@@ -29,23 +54,51 @@ export function storeDecision(record: DecisionRecord): string {
   return writeDecision(decisionsDir(), record, decisionSlug(record));
 }
 
-/** A stored record by path, file name or slug. Only files inside the decisions folder or a path the caller names. */
+/**
+ * A stored record. A bare name is looked up in the decisions folder; a path must point into that folder,
+ * or at a decision*.json file (the one next to a handoff). Anything else is refused. The file is checked.
+ */
 export function readDecision(ref: string): DecisionRecord {
-  const name = ref.endsWith(".json") ? ref : `${ref}.json`;
-  const path = existsSync(name) ? resolve(name) : join(decisionsDir(), name);
-  if (!existsSync(path)) throw new Error(`No decision record "${ref}". Records are in ${decisionsDir()} or next to a handoff (decision.json).`);
-  return JSON.parse(readFileSync(path, "utf8")) as DecisionRecord;
+  const asked = ref.trim();
+  if (!asked) throw new Error("decision_record needs ref: a record name from the list, or a path to a decision*.json file.");
+  const dir = decisionsDir();
+  const file = asked.endsWith(".json") ? asked : `${asked}.json`;
+  const bare = !file.includes("/") && !file.includes("\\");
+  const path = bare ? join(dir, file) : resolve(file);
+  const inside = !relative(dir, path).startsWith("..") && !isAbsolute(relative(dir, path));
+  if ((bare && file.startsWith(".")) || (!inside && !/^decision[a-z0-9-]*\.json$/i.test(basename(path)))) {
+    throw new Error(`"${asked}" is not a decision record Resolve wrote. Use a name from the decisions list, or a decision*.json path.`);
+  }
+  if (!existsSync(path)) throw new Error(`No decision record "${asked}". Records are in ${dir} or next to a handoff (decision.json).`);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    throw new Error(`${basename(path)} is not JSON.`);
+  }
+  return parseDecisionRecord(raw, basename(path));
 }
 
-/** handoff.json + decision.json from a handoff --out folder, as the AIDLC contract. */
+function readJson(path: string, name: string): unknown {
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    throw new Error(`${name} in ${resolve(path, "..")} is not JSON.`);
+  }
+}
+
+/** handoff.json + decision.json from a handoff --out folder, as the AIDLC contract. Both are checked first. */
 export function aidlcFromFolder(dir: string): AidlcHandoff {
+  if (!dir.trim()) throw new Error("export aidlc needs a handoff folder (the --out folder of resolve handoff). It never uses the current folder by itself.");
   const folder = resolve(dir);
   const handoffPath = join(folder, "handoff.json");
   if (!existsSync(handoffPath)) throw new Error(`No handoff.json in ${folder}. Run resolve handoff "<frame>" --out ${dir} first.`);
-  const pack = JSON.parse(readFileSync(handoffPath, "utf8")) as HandoffPack;
-  if (!pack.ok) throw new Error(`The handoff in ${folder} was refused, so there is nothing to export. Fix it and run handoff again.`);
+  const pack = readJson(handoffPath, "handoff.json") as HandoffPack;
+  if (!pack || typeof pack !== "object" || pack.ok !== true || !Array.isArray(pack.screens) || !pack.screens.length) {
+    throw new Error(`handoff.json in ${folder} is not a passing handoff with screens, so there is nothing to export.`);
+  }
   const recordPath = join(folder, "decision.json");
-  const record = existsSync(recordPath) ? (JSON.parse(readFileSync(recordPath, "utf8")) as DecisionRecord) : undefined;
+  const record = existsSync(recordPath) ? parseDecisionRecord(readJson(recordPath, "decision.json"), "decision.json") : undefined;
   return aidlcExport(pack, record);
 }
 
@@ -65,7 +118,19 @@ export function recordFlag(args: string[], record: () => DecisionRecord): void {
   if (!args.includes("--record")) return;
   if (!dir || dir.startsWith("--")) throw new Error("--record needs a folder, for example --record decisions");
   const built = record();
-  writeDecision(resolve(dir), built, `decision-${built.kind}`);
+  const name = `decision-${built.kind}`;
+  if (existsSync(join(resolve(dir), `${name}.json`)) && !args.includes("--force")) {
+    throw new Error(`${resolve(dir)} already has ${name}.json. Add --force to replace it, or pass another --record folder.`);
+  }
+  writeDecision(resolve(dir), built, name);
+}
+
+/** `resolve decisions [--json]`: the records stored by MCP record: true. */
+export function runDecisions(args: string[]): void {
+  const rows = listDecisions();
+  if (args.includes("--json")) return printJson({ folder: decisionsDir(), records: rows });
+  if (!rows.length) return void process.stdout.write(`No decision records in ${decisionsDir()}.\n`);
+  process.stdout.write(`${rows.map((row) => `${row.file}  ${row.kind}  ${row.createdAt}  ${row.about}`).join("\n")}\n`);
 }
 
 /** `resolve export aidlc <handoff folder> [--out <file>] [--json]`. */

@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
-import type { DecisionRecord } from "./decisionRecord";
-import type { HandoffPack } from "./handoff";
+import { BriefAnswerIdsSchema, DecisionPickSchema, DecisionRejectSchema, type DecisionRecord } from "./decisionRecord";
+import type { HandoffComponent, HandoffPack, HandoffScreen } from "./handoff";
 
 /**
  * AIDLC hook: the contract between Resolve and AIDLC stages.
@@ -11,17 +11,11 @@ import type { HandoffPack } from "./handoff";
 
 export const AIDLC_SCHEMA_VERSION = 1 as const;
 
-const Pick = z.object({
-  name: z.string(),
-  id: z.string().optional(),
-  fileKey: z.string().optional(),
-  figmaNodeId: z.string().optional(),
-  source: z.string(),
-  match: z.string(),
-  why: z.string().optional(),
-  screen: z.string().optional(),
-  slot: z.string().optional(),
-});
+/** Allowed values. `satisfies` keeps them in step with the handoff types. */
+export const PART_IDENTITIES = ["confirmed", "name-guess", "not-found", "to-add"] as const satisfies readonly HandoffComponent["identity"][];
+export const PART_STATUSES = ["current", "retired", "not-found", "other-library"] as const satisfies readonly HandoffComponent["status"][];
+export const CODE_STATUSES = ["mapped", "unmapped", "unknown"] as const;
+export const RECIPE_MATCHED_BY = ["asked", "screen name"] as const satisfies readonly NonNullable<HandoffScreen["recipe"]>["matchedBy"][];
 
 const Part = z.object({
   name: z.string(),
@@ -29,11 +23,13 @@ const Part = z.object({
   fileKey: z.string().optional(),
   figmaNodeId: z.string().optional(),
   count: z.number().int().min(0),
-  identity: z.string(),
-  status: z.string(),
+  identity: z.enum(PART_IDENTITIES),
+  status: z.enum(PART_STATUSES),
   slot: z.string().optional(),
-  /** Code from the code map, "unmapped" (never guessed), or "unknown". */
-  code: z.string(),
+  /** mapped: code names a component and import; unmapped: no code link (never guessed); unknown: its library is not learned. */
+  codeStatus: z.enum(CODE_STATUSES),
+  /** The code-map text: "AcmeButtonComponent from '@acme/ui-angular'", or "unmapped" / "unknown". */
+  code: z.string().min(1),
   angular: z
     .object({ selector: z.string(), importPath: z.string(), module: z.string().optional(), standalone: z.literal(true).optional() })
     .optional(),
@@ -46,12 +42,12 @@ export const AidlcHandoffSchema = z.object({
   kind: z.literal("resolve.aidlc"),
   requirementsContext: z.object({
     request: z.string().optional(),
-    screens: z.array(z.string()),
+    screens: z.array(z.string()).min(1),
     product: z.string().optional(),
     journey: z.string().optional(),
     audience: z.string().optional(),
     a11y: z.string().optional(),
-    answers: z.object({ shape: z.string().optional(), platform: z.string().optional(), states: z.array(z.string()) }).optional(),
+    answers: BriefAnswerIdsSchema.optional(),
     assumptions: z.array(z.string()),
     openQuestions: z.array(z.string()),
   }),
@@ -63,16 +59,16 @@ export const AidlcHandoffSchema = z.object({
         name: z.string(),
         fileKey: z.string().optional(),
         figmaNodeId: z.string().optional(),
-        recipe: z.object({ id: z.string(), title: z.string(), matchedBy: z.string() }).optional(),
+        recipe: z.object({ id: z.string(), title: z.string(), matchedBy: z.enum(RECIPE_MATCHED_BY) }).optional(),
         parts: z.array(Part),
         verify: z.object({ pass: z.boolean(), retired: z.array(z.string()), unresolved: z.array(z.string()) }),
         openItems: z.array(z.string()),
       }),
-    ),
+    ).min(1),
     decisions: z.object({
       recorded: z.boolean(),
-      picks: z.array(Pick),
-      rejected: z.array(z.object({ what: z.string(), reason: z.string(), screen: z.string().optional() })),
+      picks: z.array(DecisionPickSchema),
+      rejected: z.array(DecisionRejectSchema),
     }),
   }),
 });
@@ -91,8 +87,26 @@ export function aidlcJsonSchema(): object {
 
 const defined = <T extends object>(row: T) => Object.fromEntries(Object.entries(row).filter(([, value]) => value !== undefined)) as T;
 
+/**
+ * A decision record may go into the export only when it is this handoff's record: kind handoff, the same screens,
+ * and every pick a part that handoff.json lists on that screen. Anything else is refused, never exported.
+ */
+export function assertRecordMatchesHandoff(pack: Extract<HandoffPack, { ok: true }>, record: DecisionRecord): void {
+  if (record.kind !== "handoff") throw new Error(`decision.json is a ${record.kind} record, not a handoff record.`);
+  const names = pack.screens.map((screen) => screen.screen.name);
+  if (JSON.stringify(record.screens ?? []) !== JSON.stringify(names)) {
+    throw new Error(`decision.json is for ${(record.screens ?? []).join(", ") || "no screen"}, but handoff.json is for ${names.join(", ")}.`);
+  }
+  for (const pick of record.picks) {
+    const screen = pack.screens.find((row) => row.screen.name === pick.screen);
+    const part = screen?.components.find((row) => row.name === pick.name && row.figmaNodeId === pick.figmaNodeId && row.fileKey === pick.fileKey);
+    if (!part) throw new Error(`decision.json picks "${pick.name}"${pick.figmaNodeId ? ` (${pick.figmaNodeId})` : ""}, which is not a part in handoff.json${pick.screen ? ` on ${pick.screen}` : ""}.`);
+  }
+}
+
 /** Handoff (+ its decision record, when one was written) to the AIDLC contract. Validated before it is returned. */
 export function aidlcExport(pack: Extract<HandoffPack, { ok: true }>, record?: DecisionRecord): AidlcHandoff {
+  if (record) assertRecordMatchesHandoff(pack, record);
   const context = pack.screens[0]?.context ?? {};
   const doc: AidlcHandoff = {
     schemaVersion: AIDLC_SCHEMA_VERSION,
@@ -124,6 +138,7 @@ export function aidlcExport(pack: Extract<HandoffPack, { ok: true }>, record?: D
             identity: row.identity,
             status: row.status,
             slot: row.slot,
+            codeStatus: row.code === "unmapped" || row.code === "unknown" ? row.code : "mapped",
             code: row.code,
             angular: row.angular ? defined({ selector: row.angular.selector, importPath: row.angular.importPath, module: row.angular.module, standalone: row.angular.standalone }) : undefined,
             states: row.states,

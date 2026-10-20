@@ -138,7 +138,7 @@ describe("decision record and AIDLC export", () => {
     expect(() => callTool("brief", { request: "payee picker", record: "yes" })).toThrow(/record must be true or false/);
     process.env["RESOLVE_MCP_ADVANCED"] = "1";
     const handoff = callTool("get_handoff", { frame: "Confirm payment", record: true }) as { decisionRecord: string };
-    expect(handoff.decisionRecord.endsWith("handoff-confirm-payment.json")).toBe(true);
+    expect(handoff.decisionRecord).toMatch(/handoff-confirm-payment-[0-9a-f]{10}\.json$/);
     expect(existsSync(handoff.decisionRecord.replace(/\.json$/, ".md"))).toBe(true);
   });
 
@@ -188,5 +188,118 @@ describe("decision record and AIDLC export", () => {
     const record = recordFromCompose({ request: "a payee picker and a text field", card: out.card as ComposeCardLike, createdAt: FROZEN });
     const cardNames = ((out.card as ComposeCardLike).slots ?? []).flatMap((slot) => (slot.master && slot.status === "filled" ? [slot.master.name] : []));
     expect(record.picks.map((pick) => pick.name)).toEqual(cardNames);
+  });
+  describe("Michigan #70 r1, negative cases", () => {
+    const handoffFolder = async () => {
+      await cli(["handoff", "Confirm payment", "--out", work]);
+      return JSON.parse(readFileSync(join(work, "decision.json"), "utf8")) as DecisionRecord;
+    };
+    const exportError = async () => JSON.parse(await cli(["export", "aidlc", work, "--json"])) as { ok: boolean; message: string };
+
+    it("M1: the contract uses enums for match, source, identity, status, codeStatus, matchedBy and answers", () => {
+      const schema = JSON.stringify(aidlcJsonSchema());
+      for (const values of [
+        ["fit", "bound", "placed", "to-add", "weak", "name-guess"],
+        ["brief", "answer", "recipe", "decision", "compose", "placed"],
+        ["confirmed", "name-guess", "not-found", "to-add"],
+        ["current", "retired", "not-found", "other-library"],
+        ["mapped", "unmapped", "unknown"],
+        ["asked", "screen name"],
+        ["table", "cards", "form", "summary", "counts"],
+        ["empty", "loading", "error", "pending"],
+      ]) {
+        expect(schema, values.join()).toContain(`"enum":${JSON.stringify(values)}`);
+        // The docs table lists the same values.
+        const doc = readFileSync(join(__dirname, "..", "docs", "AIDLC.md"), "utf8");
+        for (const value of values) expect(doc, value).toContain(`\`${value}\``);
+      }
+      const sample = JSON.parse(readFileSync(SAMPLE, "utf8")) as { designHandoff: { screens: Array<{ parts: Array<Record<string, unknown>> }> } };
+      sample.designHandoff.screens[0]!.parts[0]!["identity"] = "sort-of";
+      expect(AidlcHandoffSchema.safeParse(sample).success).toBe(false);
+      const none = JSON.parse(readFileSync(SAMPLE, "utf8")) as { designHandoff: { screens: unknown[] } };
+      none.designHandoff.screens = [];
+      expect(AidlcHandoffSchema.safeParse(none).success).toBe(false);
+    });
+
+    it("M2: export refuses a record with the wrong version or kind, junk, other screens, or a pick that is not in handoff.json", async () => {
+      const good = await handoffFolder();
+      const cases: Array<[string, unknown, RegExp]> = [
+        ["version 2", { ...good, schemaVersion: 2 }, /not a decision record/],
+        ["brief kind", { ...good, kind: "brief" }, /brief record, not a handoff record/],
+        ["junk object", { hello: "world" }, /not a decision record/],
+        ["other screen", { ...good, screens: ["Somewhere else"] }, /is for Somewhere else, but handoff.json is for Confirm payment/],
+        ["made-up pick", { ...good, picks: [...good.picks, { name: "Hover Board", fileKey: "ACMEUI", figmaNodeId: "99:99", source: "placed", match: "placed", screen: "Confirm payment" }] }, /picks "Hover Board" \(99:99\), which is not a part in handoff.json/],
+        ["unknown match value", { ...good, picks: [{ ...good.picks[0]!, match: "pretty sure" }] }, /not a decision record/],
+      ];
+      for (const [label, record, message] of cases) {
+        writeFileSync(join(work, "decision.json"), JSON.stringify(record));
+        const error = await exportError();
+        expect(error.ok, label).toBe(false);
+        expect(error.message, label).toMatch(message);
+        expect(process.exitCode, label).toBe(1);
+        process.exitCode = undefined;
+      }
+      writeFileSync(join(work, "decision.json"), "{not json");
+      expect((await exportError()).message).toMatch(/decision.json in .* is not JSON/);
+      writeFileSync(join(work, "handoff.json"), JSON.stringify({ ok: true, screens: [] }));
+      expect((await exportError()).message).toMatch(/not a passing handoff with screens/);
+    });
+
+    it("L1: decision_record reads only stored records or decision*.json files, and checks them", async () => {
+      process.env["RESOLVE_MCP_ADVANCED"] = "1";
+      const other = join(work, "notes.json");
+      writeFileSync(other, JSON.stringify({ secret: 1 }));
+      expect(() => callTool("decision_record", { ref: other })).toThrow(/is not a decision record Resolve wrote/);
+      expect(() => callTool("decision_record", { ref: "../../notes" })).toThrow(/is not a decision record Resolve wrote/);
+      expect(() => callTool("decision_record", { ref: "/etc/hosts" })).toThrow(/is not a decision record Resolve wrote/);
+      const fake = join(work, "decision-fake.json");
+      writeFileSync(fake, JSON.stringify({ schemaVersion: 1, kind: "handoff" }));
+      expect(() => callTool("decision_record", { ref: fake })).toThrow(/decision-fake.json is not a decision record/);
+      await handoffFolder();
+      const { cost: _cost, ...beside } = callTool("decision_record", { ref: join(work, "decision.json") }) as DecisionRecord & { cost: unknown };
+      expect(beside.kind).toBe("handoff");
+    });
+
+    it("L2: records can be listed, --record does not overwrite without --force, and long requests get unique names", async () => {
+      await cli(["brief", "pick a payee with the payee picker", "--json", "--record", work]);
+      const again = JSON.parse(await cli(["brief", "pick a payee with the payee picker", "--json", "--record", work])) as { ok: boolean; message: string };
+      expect(again).toMatchObject({ ok: false });
+      expect(again.message).toMatch(/already has decision-brief.json\. Add --force/);
+      process.exitCode = undefined;
+      await cli(["brief", "pick a payee with the payee picker", "--json", "--record", work, "--force"]);
+      process.env["RESOLVE_MCP_ADVANCED"] = "1";
+      const long = "a very long screen request about choosing who to pay from the saved list of people";
+      const first = callTool("brief", { request: `${long} with the payee picker`, record: true }) as { decisionRecord: string };
+      const second = callTool("brief", { request: `${long} with a button`, record: true }) as { decisionRecord: string };
+      expect(first.decisionRecord).not.toBe(second.decisionRecord);
+      const { cost: _cost, ...listed } = callTool("decision_record", {}) as { records: Array<{ file: string }>; cost: unknown };
+      expect(listed.records.map((row) => row.file).sort()).toEqual([first.decisionRecord, second.decisionRecord].map((path) => path.split("/").pop()).sort());
+      expect(await cli(["decisions"])).toContain("brief");
+    });
+
+    it("L3: compose --record into a file with --json is ok:false naming it; export_aidlc without a folder is a clear error", async () => {
+      const notFolder = join(work, "plain.txt");
+      writeFileSync(notFolder, "x");
+      const error = JSON.parse(await cli(["recipe", "a payee picker and a text field", "--compose", "--json", "--record", notFolder])) as { ok: boolean; message: string };
+      expect(error).toMatchObject({ ok: false });
+      expect(error.message).toContain(`Cannot write the decision record to ${notFolder}`);
+      process.exitCode = undefined;
+      process.env["RESOLVE_MCP_ADVANCED"] = "1";
+      expect(() => callTool("export_aidlc", {})).toThrow(/export_aidlc needs folder/);
+      expect(() => callTool("export_aidlc", { folder: "  " })).toThrow(/never uses the current folder/);
+      expect(() => callTool("export_aidlc", { folder: join(work, "nowhere") })).toThrow(new RegExp(`No handoff.json in ${join(work, "nowhere")}`));
+    });
+
+    it("L4: a weak match the compose card shows is listed under rejected, also in a one-part answer", () => {
+      const index = indexGraph(graph());
+      for (const request of ["sheet with a velvet avatar and a payee picker", "sheet with a velvet avatar, a payee picker and a text field"]) {
+        const out = composeRecipe({ request, index, recipes: starterRecipes() });
+        const card = out.card as ComposeCardLike;
+        expect(card.weak, request).toEqual(["velvet-avatar: Avatar (weak, check)"]);
+        const record = recordFromCompose({ request, card, createdAt: FROZEN });
+        expect(record.rejected, request).toContainEqual({ what: "velvet-avatar: Avatar", reason: "weak, check" });
+        expect(record.rejected.filter((row) => row.what.startsWith("velvet-avatar")), request).toHaveLength(1);
+      }
+    });
   });
 });
