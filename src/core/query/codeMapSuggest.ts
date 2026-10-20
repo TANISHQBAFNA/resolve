@@ -1,5 +1,5 @@
 import type { GraphNode } from "@/core/model";
-import { selectorAlternatives, splitWords, type AngularComponentRecord, type AngularInventory } from "@/adapters/angular";
+import { packageClassPrefix, selectorAlternatives, splitWords, type AngularComponentRecord, type AngularInventory } from "@/adapters/angular";
 import { angularInputFor } from "./componentProperties";
 import type { GraphIndex } from "./GraphIndex";
 import type { AngularTwin } from "./codeMap";
@@ -39,8 +39,7 @@ export interface CodeTarget {
   node: GraphNode;
 }
 
-/** `mat` is the Angular Material class prefix, so MatButton is the Button. */
-const STOP = new Set(["acme", "component", "directive", "module", "mat"]);
+const STOP = new Set(["acme", "component", "directive", "module"]);
 
 /** Ordered words. "Header card" is not "Card header". */
 function words(raw: string): string[] {
@@ -51,16 +50,19 @@ function same(left: string[], right: string[]): boolean {
   return left.length > 0 && left.length === right.length && left.every((word, index) => word === right[index]);
 }
 
-function classWords(component: AngularComponentRecord): string[] {
-  return words(component.component);
+/** Class words. The package's own prefix (Mat in @angular/material) is dropped; a class like Matrix keeps its name. */
+function classWords(component: AngularComponentRecord, prefix?: string): string[] {
+  const name = component.component;
+  const bare = prefix && name.startsWith(prefix) && /[A-Z]/.test(name[prefix.length] ?? "") ? name.slice(prefix.length) : name;
+  return words(bare);
 }
 
 /**
  * A selector alias counts only when the selector list also names the class.
  * `acme-pill` on AcmeBadgeComponent does not match Pill. `acme-dropdown` on AcmeSelectComponent does match Dropdown.
  */
-function aliasWords(component: AngularComponentRecord, figma: string[]): boolean {
-  const cls = classWords(component);
+function aliasWords(component: AngularComponentRecord, figma: string[], prefix?: string): boolean {
+  const cls = classWords(component, prefix);
   const alts = selectorAlternatives(component.selector);
   if (!alts.some((alt) => same(alt, cls))) return false;
   return alts.some((alt) => same(alt, figma));
@@ -121,17 +123,18 @@ type MatchKind = "token" | "partial";
 
 /** Stem, an added suffix, or a shared family prefix. Never a character prefix. Always partial. */
 function heuristicHits(wanted: string[], inventory: AngularInventory): AngularComponentRecord[] {
+  const own = packageClassPrefix(inventory.packageName);
   const found = new Map<string, AngularComponentRecord>();
   const add = (rows: AngularComponentRecord[]) => {
     for (const row of rows) found.set(row.component, row);
   };
   const stem = pluralStem(wanted);
-  if (stem) add(inventory.components.filter((component) => same(classWords(component), stem)));
-  add(inventory.components.filter((component) => same(classWords(component), [...wanted, "button"])));
+  if (stem) add(inventory.components.filter((component) => same(classWords(component, own), stem)));
+  add(inventory.components.filter((component) => same(classWords(component, own), [...wanted, "button"])));
   const prefix = wanted.length >= 3 ? wanted.slice(0, -1) : [];
   if (prefix.length >= 2) {
     const family = inventory.components.filter((component) => {
-      const cls = classWords(component);
+      const cls = classWords(component, own);
       return cls.length === prefix.length + 1 && prefix.every((word, index) => cls[index] === word);
     });
     if (family.length >= 2) add(family);
@@ -145,15 +148,17 @@ function heuristicHits(wanted: string[], inventory: AngularInventory): AngularCo
  */
 function matchesFor(wanted: string[], inventory: AngularInventory): { component: AngularComponentRecord; kind: MatchKind }[] {
   if (!wanted.length) return [];
-  const exact = inventory.components.filter((component) => same(classWords(component), wanted));
+  const own = packageClassPrefix(inventory.packageName);
+  const exact = inventory.components.filter((component) => same(classWords(component, own), wanted));
   if (exact.length === 1) return [{ component: exact[0]!, kind: "token" }];
   if (exact.length > 1) {
-    const prefixed = exact.filter((component) => component.component.startsWith("Mat"));
+    // In a package with its own prefix, the public prefixed class beats an internal one of the same name.
+    const prefixed = own ? exact.filter((component) => component.component.startsWith(own)) : [];
     if (prefixed.length === 1) return [{ component: prefixed[0]!, kind: "token" }];
     const rows = prefixed.length > 1 ? prefixed : exact;
     return rows.map((component) => ({ component, kind: "partial" }));
   }
-  const alias = inventory.components.filter((component) => aliasWords(component, wanted));
+  const alias = inventory.components.filter((component) => aliasWords(component, wanted, own));
   if (alias.length === 1) return [{ component: alias[0]!, kind: "token" }];
   if (alias.length > 1) return [];
   return heuristicHits(wanted, inventory).map((component) => ({ component, kind: "partial" }));

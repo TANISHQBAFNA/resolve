@@ -520,6 +520,8 @@ const file = {
   version: "public-spec-2026-10-20",
   lastModified: "2026-10-20T00:00:00.000Z",
   fileKey: "M3SPEC",
+  // Made-up key: links say "example, not a real Figma file".
+  example: true,
   document: {
     id: "0:0",
     name: "Document",

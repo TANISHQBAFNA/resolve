@@ -7,6 +7,7 @@ import modifierFile from "@/data/ui-modifiers.json";
 import type { GraphIndex } from "./GraphIndex";
 import { familyNameOf, MASTER_TYPES, VARIANT_PROP_NAME, variantCardName } from "./masterNames";
 import { GENERIC_NAME_TOKENS, tokensOf } from "./queryTokens";
+import { adjacentSwap, keySlip, wordSlip } from "./typo";
 import { allSynonymGroups, extraSynonym, fromIconLibrary, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems, isScreen } from "./screenInventory";
@@ -237,9 +238,13 @@ function inflectsName(query: string, nameToken: string): boolean {
   const rest = longer.slice(shorter.length);
   return rest === "s" || rest === "es" || rest === "ing" || rest === "ed";
 }
+/** A one-letter slip on a name word. Never onto a variant word like primary. */
+function slipsTo(query: string, nameToken: string): boolean {
+  return !SLOT_QUALIFIERS.has(nameToken) && wordSlip(query, nameToken);
+}
 export function tokenMatchesName(query: string, nameToken: string, allowClip = false): boolean {
   if (query === nameToken || inflectsName(query, nameToken)) return true;
-  return synonymIn(query, new Set([nameToken]), allowClip);
+  return synonymIn(query, new Set([nameToken]), allowClip) || slipsTo(query, nameToken);
 }
 /** "x" means close only as the whole ask, or right beside icon/button. "x ray" does not. */
 export function xMeansClose(text: string): boolean {
@@ -374,6 +379,21 @@ function longestCoveredName(token: string, nameSets: readonly Set<string>[]): nu
   return best;
 }
 
+/** Words that start a description of the part: what it is for, what it holds, where it sits. */
+const DESCRIBING_WORD = new Set(["for", "to", "with", "when", "while", "on", "under", "above", "below", "after", "before", "showing", "holding"]);
+
+/**
+ * Words after the first describing word. "slider for volume": volume says what the slider is for.
+ * "of" describes only before a plural ("list of contacts"); "badge of honor" is a phrase of its own.
+ */
+function describingTail(ask: string): Set<string> {
+  const words = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const at = words.findIndex(
+    (word, i) => DESCRIBING_WORD.has(word) || (word === "of" && /[^s]s$/.test(words[i + 1] ?? "")),
+  );
+  return new Set(at < 1 ? [] : words.slice(at + 1));
+}
+
 function keepsCompany(token: string, previous: string | undefined, exempt: ReadonlySet<string>): boolean {
   if (modifierWord(token) || exempt.has(token)) return true;
   if (!previous) return false;
@@ -408,9 +428,11 @@ export function askGate(
   );
   if (hit.filter(Boolean).length !== 1) return open;
   const head = hit.lastIndexOf(true);
+  const tail = describingTail(ask);
   let trailingJunk = false;
   for (let i = head + 1; i < content.length; i += 1) {
     const token = content[i];
+    if (token && tail.has(token)) continue;
     if (!token || !keepsCompany(token, content[i - 1], exempt)) trailingJunk = true;
   }
   // A long whole name ("snackbar", "datepicker") stays a match when one extra word follows.
@@ -436,27 +458,11 @@ function oneCharMissing(query: string, name: string): boolean {
   while (i < query.length && query[i] === name[i]) i += 1;
   return query.slice(i) === name.slice(i + 1);
 }
-/** Neighbouring letters swapped, and nothing else. */
-function adjacentSwap(query: string, name: string): boolean {
-  if (query.length !== name.length || query.length < 2) return false;
-  let i = 0;
-  while (i < query.length && query[i] === name[i]) i += 1;
-  if (i >= query.length - 1) return false;
-  if (query[i] !== name[i + 1] || query[i + 1] !== name[i]) return false;
-  return query.slice(i + 2) === name.slice(i + 2);
-}
 /**
  * Typo against the whole name, spaces removed. At least 5 letters.
  * A missing letter, a neighbouring swap, or one substituted letter.
  * Never used while an exact, phrase, or synonym match exists.
  */
-/** Same length, one different letter. "expantion" is "expansion". */
-function oneSubstitution(query: string, name: string): boolean {
-  if (query.length !== name.length || query.length < 6) return false;
-  let diff = 0;
-  for (let i = 0; i < query.length; i += 1) if (query[i] !== name[i]) diff += 1;
-  return diff === 1;
-}
 
 export function wholeNameTypo(ask: string, name: string): boolean {
   const query = collapsedName(ask);
@@ -471,7 +477,7 @@ export function wholeNameTypo(ask: string, name: string): boolean {
     for (const term of group.terms) {
       const folded = collapsedName(term);
       if (folded.length < 8 || folded === query) continue;
-      if (oneCharMissing(query, folded) || adjacentSwap(query, folded) || oneSubstitution(query, folded)) return true;
+      if (oneCharMissing(query, folded) || adjacentSwap(query, folded) || keySlip(query, folded)) return true;
     }
   }
   return false;
@@ -550,7 +556,7 @@ export function withoutGenericCousins<T extends { node: { name: string }; setNam
 export function nameTokenFor(token: string, names: Set<string>, used: Set<string>): string | undefined {
   if (names.has(token) && !used.has(token)) return token;
   for (const name of names) {
-    if (!used.has(name) && inflectsName(token, name)) return name;
+    if (!used.has(name) && (inflectsName(token, name) || slipsTo(token, name))) return name;
   }
   return undefined;
 }

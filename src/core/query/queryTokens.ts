@@ -101,4 +101,5 @@ export const GENERIC_NAME_TOKENS = new Set([
   "message",
   "input",
   "picker",
+  "panel",
 ]);

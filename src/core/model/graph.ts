@@ -103,6 +103,8 @@ export const DesignGraphSchema = z.object({
     lastModified: z.string().optional(),
     /** Remote-stub source lookup. `failed` = 403/404/network; matching by the other file may not work. */
     remoteSourceLookup: z.enum(["ok", "failed", "partial", "skipped"]).optional(),
+    /** A made-up example file (fixture). Links say so instead of pointing at figma.com. */
+    example: z.boolean().optional(),
   }),
   nodes: z.array(GraphNodeSchema),
   edges: z.array(GraphEdgeSchema),

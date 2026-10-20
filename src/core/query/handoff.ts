@@ -1,4 +1,5 @@
 import type { GraphNode } from "@/core/model";
+import { EXAMPLE_FILE_NOTE } from "@/core/transform/figmaUrl";
 import type { GraphIndex } from "./GraphIndex";
 import { bindingName, codeText, type AngularTwin, type Twin } from "./codeMap";
 import type { IngredientPart } from "./ingredients";
@@ -253,12 +254,10 @@ const slotCoverage = (slots: HandoffSlot[]) => {
 };
 const fid = (index: GraphIndex, n: GraphNode) => nodeFileKey(n, index.graph.fileKey);
 export const where = (fileKey?: string, id?: string) => [fileKey, id].filter(Boolean).join(" ");
-/** Made-up fixture keys. A figma.com URL for these would look like a real file. */
-const EXAMPLE_FILE_KEYS = new Set(["M3SPEC"]);
-export const exampleFileNote = "example, not a real Figma file";
-export const figmaLink = (fileKey?: string, id?: string) => {
+/** `example`: the file is a made-up fixture (its JSON says so). A figma.com URL would look like a real file. */
+export const figmaLink = (fileKey?: string, id?: string, example?: boolean) => {
   if (!fileKey || !id || !/^\d+[:-]\d+$/.test(id)) return undefined;
-  if (EXAMPLE_FILE_KEYS.has(fileKey)) return exampleFileNote;
+  if (example) return EXAMPLE_FILE_NOTE;
   return /^[A-Za-z0-9]{2,40}$/.test(fileKey) ? `https://www.figma.com/design/${fileKey}/?node-id=${id.replace(":", "-")}` : undefined;
 };
 const setOf = (index: GraphIndex, n: GraphNode) =>
@@ -481,6 +480,8 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
   }
   const frame = found.node;
   const frameKey = fid(index, frame);
+  // Built from a file whose JSON says it is a made-up example: no figma.com link.
+  const exampleFile = Boolean(frame.figmaUrl?.startsWith(EXAMPLE_FILE_NOTE));
   const mainOf = (copy: GraphNode) => {
     const main = index.getMainComponent(copy.id);
     return main && hooks.real ? hooks.real(main) : main;
@@ -831,7 +832,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
       id: frame.id,
       ...(frameKey ? { fileKey: frameKey } : {}),
       ...(frame.figmaNodeId ? { figmaNodeId: frame.figmaNodeId } : {}),
-      ...(figmaLink(frameKey, frame.figmaNodeId) ? { link: figmaLink(frameKey, frame.figmaNodeId) } : {}),
+      ...(figmaLink(frameKey, frame.figmaNodeId, exampleFile) ? { link: figmaLink(frameKey, frame.figmaNodeId, exampleFile) } : {}),
     },
     ...(found.fuzzy ? { matchedFrame: `closest match for "${clean(ask)}"; no frame has that exact name or id` } : {}),
     ...(pack

@@ -39,6 +39,11 @@ export interface AngularInventory {
   components: AngularComponentRecord[];
 }
 
+/** The class prefix a known package puts on its components, so MatButton reads as Button. Only for that package. */
+export function packageClassPrefix(packageName: string): string | undefined {
+  return packageName === "@angular/material" ? "Mat" : undefined;
+}
+
 const HTML_TAGS = new Set(["a", "button", "div", "h1", "h2", "h3", "img", "input", "label", "li", "p", "span", "ul"]);
 
 /** Scan a package path or a package name Node can resolve from `fromDir`. */

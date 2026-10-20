@@ -170,7 +170,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
   const pendingTransitions: PendingTransition[] = [];
   const pendingLinks: PendingLink[] = [];
 
-  const linkNode = (rawFigmaId: string) => figmaNodeUrl(doc.fileKey, doc.fileName, rawFigmaId);
+  const linkNode = (rawFigmaId: string) => figmaNodeUrl(doc.fileKey, doc.fileName, rawFigmaId, { example: doc.source.example });
 
   const attachRationale = (
     subjectId: string,
@@ -200,7 +200,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
     figmaNodeId: doc.root.id,
     type: "FILE",
     name: doc.fileName,
-    figmaUrl: figmaFileUrl(doc.fileKey, doc.fileName),
+    figmaUrl: figmaFileUrl(doc.fileKey, doc.fileName, { example: doc.source.example }),
     metadata: {
       figmaType: doc.root.type,
       fileKey: doc.fileKey,
@@ -716,6 +716,7 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
       version: doc.source.version,
       lastModified: doc.source.lastModified,
       ...(doc.source.remoteSourceLookup ? { remoteSourceLookup: doc.source.remoteSourceLookup } : {}),
+      ...(doc.source.example ? { example: true } : {}),
     },
     nodes: [...builder.nodes.values()],
     edges: [...builder.edges.values()],

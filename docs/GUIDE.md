@@ -79,7 +79,11 @@ Pictures in the README use **Acme**, a made-up library. The real public library 
 
 Learn it, then ask, check, and hand off:
 
+Copy the Material recipes, synonyms, and reviewed code map into `.resolve/` first. Without `recipes.json` the Sign in check only fills the button slot, not the username and password text fields.
+
 ```bash
+mkdir -p .resolve
+cp fixtures/material/recipes.json fixtures/material/synonyms.json fixtures/material/code-map.json .resolve/
 npm run resolve -- ingest fixtures/material/library.json --role library --name "Material 3"
 npm run resolve -- recommend "primary sign in button"
 npm run resolve -- check "Sign in"
@@ -87,7 +91,7 @@ npm run resolve -- code-map scan node_modules/@angular/material
 npm run resolve -- handoff "Sign in"
 ```
 
-`/find` in chat is the same ask as `recommend`. The Sign in check passes. Copy `fixtures/material/code-map.json` to `.resolve/code-map.json` before the handoff if you want the reviewed links. Copy `fixtures/material/recipes.json` too, so the Sign in username and password slots bind to the two text fields. The filled button comes back as:
+`/find` in chat is the same ask as `recommend`. The Sign in check passes, with all 3 slots filled. The handoff uses the reviewed code-map links. The filled button comes back as:
 
 ```text
 import { MatButtonModule } from '@angular/material/button';

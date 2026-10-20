@@ -335,4 +335,23 @@ describe("Angular Material public reference", () => {
       for (const row of card.candidates) if ("id" in row && row.id) expect(index.getNode(row.id)).toBeTruthy();
     }
   });
+
+  it("scores a fresh r2 set: descriptive phrasings, plurals, new typos, and side panels", () => {
+    const home = join(tmpdir(), "resolve-material-fresh");
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, "synonyms.json"), readFileSync(join(fix, "synonyms.json")));
+    process.env["RESOLVE_HOME"] = home;
+    clearCache();
+    const index = indexGraph(materialGraph());
+    const report = scorePhrases(index, loadPhraseCases([join(repo, "scoreboard", "material-fresh")]));
+    const detail = report.misses.map((miss) => `${miss.id} ${miss.kind} ${miss.detail}`).join("\n");
+    expect(report.totals.invented, detail).toBe(0);
+    expect(report.totals.wrongCousin, detail).toBe(0);
+    expect(report.totals.correctEmpty, detail).toBe(report.totals.emptyCases);
+    // 30 of 32. "a collapsible section" and "header with a back arrow" need a meaning link, not a spelling one.
+    expect(report.totals.top1, detail).toBeGreaterThanOrEqual(30);
+    expect(report.misses.map((miss) => miss.id).sort(), detail).toEqual(["desc-collapsible", "desc-header-back"]);
+    const side = recommendMasters(index, "side panel");
+    expect(side.candidates[0]?.name).toBe("Side sheet");
+  });
 });
