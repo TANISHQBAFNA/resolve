@@ -548,4 +548,24 @@ describe("designer briefing", () => {
       if (!/rows/.test(request)) expect(names[0], request).toBe(name);
     }
   });
+
+  it("counts a density word only when it sits right before list or row", () => {
+    const index = indexGraph(acmeGraph());
+    const brief = (request: string) => briefScreen({ request, index, recipes: starterRecipes(), decisions: [decision] });
+    const density = (request: string) => {
+      const result = brief(request);
+      return "ready" in result ? result.assumptions.find((line) => /platform and density/.test(line)) : undefined;
+    };
+    const names = (request: string) => (recommendMasters(index, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates.map((row) => row.name);
+    // Another part, a deadline, or the listed items: no density read, and no density list offered.
+    for (const request of ["a cramped-looking tight nav bar", "an intake form with a tight turnaround", "a list of roomy studio flats", "a tight button row label", "relaxed card for the promo"]) {
+      expect(density(request), request).toBeUndefined();
+      expect(names(request).slice(0, 3), request).not.toContain("Compact List");
+      expect(names(request).slice(0, 3), request).not.toContain("Comfortable List");
+    }
+    expect(asked(brief("a cramped-looking tight nav bar")).map((question) => question.topic)).toEqual(["platform"]);
+    // Right before list or row it is the density.
+    expect(density("a condensed list for the ledger")).toMatch(/compact/);
+    expect(density("spacious rows for the settings page")).toMatch(/comfortable/);
+  });
 });

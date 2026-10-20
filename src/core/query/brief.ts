@@ -4,7 +4,7 @@ import type { GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import type { BindRulesFile } from "./bindRules";
 import { exactRecipe, fillRecipe, type Recipe } from "./recipes";
-import { SYNONYM_OF } from "./recommendContext";
+import { readDensity } from "./queryTokens";
 import { recommendMasters } from "./recommendMasters";
 import type { RecommendContext } from "./recommendSupport";
 import { composeParts, composeRecipe } from "./recipeCompose";
@@ -431,8 +431,8 @@ function mentioned(request: string, options: Choice[], roles: Role[]): Choice[] 
 }
 
 function platformSaid(request: string): PlatformId | undefined {
-  // A density synonym ("dense", "roomy") says the same density as compact or comfortable.
-  const said = (id: PlatformId) => containsPhrase(request, id) || nameTokens(request).some((word) => SYNONYM_OF.get(word)?.includes(id));
+  // A density word right before list or row ("a dense list") says compact or comfortable; elsewhere it does not.
+  const said = (id: PlatformId) => containsPhrase(readDensity(request), id);
   const hits = PLATFORM_IDS.filter(said);
   hits.sort((a, b) => b.length - a.length);
   return hits[0];

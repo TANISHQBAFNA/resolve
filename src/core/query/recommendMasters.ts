@@ -13,7 +13,7 @@ import { examplePointer } from "./examples";
 import type { GraphIndex } from "./GraphIndex";
 import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RECOMMEND_BUDGET, sameNameNote, substitutionNote, variantCardName } from "./masterNames";
 import { placeReady } from "./placeReady";
-import { navFamily, tokensOf } from "./queryTokens";
+import { navFamily, readDensity, tokensOf } from "./queryTokens";
 import { appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, purposeTailTokens, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakMatchWhy, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
@@ -44,7 +44,7 @@ export function recommendMasters(
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
   const echoIntent = intent.length > 200 ? `${intent.slice(0, 199)}…` : intent;
   const publicNameSets = liveNameSets(index);
-  intent = fixOneSlip(intent, publicNameSets);
+  intent = readDensity(fixOneSlip(intent, publicNameSets));
   const analog = similarUsage(index, intent);
   const analogById = new Map(analog.variants.map((variant) => [variant.id, variant]));
   const slotRaw = options.context?.journey?.step?.trim() ?? "";

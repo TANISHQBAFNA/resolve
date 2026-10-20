@@ -2,14 +2,6 @@
   "version": 1,
   "groups": [
     {
-      "terms": ["compact", "dense", "condensed", "tight"],
-      "reason": "A dense, condensed, or tight layout is the compact density."
-    },
-    {
-      "terms": ["comfortable", "spacious", "roomy", "airy", "relaxed"],
-      "reason": "A spacious, roomy, airy, or relaxed layout is the comfortable density."
-    },
-    {
       "terms": ["button", "cta", "action", "btn", "submit"],
       "reason": "A call to action, a btn, or a submit control is a button."
     },

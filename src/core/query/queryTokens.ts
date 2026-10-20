@@ -114,3 +114,20 @@ export function navFamily(names: Iterable<string>, asked: readonly string[]): bo
   const side = (word: string, alias: string) => set.has(word) && asked.some((token) => token === word || token === alias);
   return side("top", "header") || side("bottom", "footer");
 }
+
+const DENSITY_WORD = new Map([
+  ...["dense", "condensed", "tight"].map((word) => [word, "compact"] as const),
+  ...["spacious", "roomy", "airy", "relaxed"].map((word) => [word, "comfortable"] as const),
+]);
+
+/**
+ * A density word right before list or row is that density: "a dense list" reads "a compact list", "airy rows"
+ * reads "comfortable rows". Anywhere else it stays as written: "a tight deadline", "a tight nav bar", and
+ * "a list of dense documents" (it describes the items) say nothing about list density.
+ */
+export function readDensity(text: string): string {
+  return text.replace(/\b([a-z]+)(\s+)(?=(?:list|lists|row|rows)\b)/gi, (match, word: string, space: string) => {
+    const density = DENSITY_WORD.get(word.toLowerCase());
+    return density ? `${density}${space}` : match;
+  });
+}
