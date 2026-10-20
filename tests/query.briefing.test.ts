@@ -568,4 +568,32 @@ describe("designer briefing", () => {
     expect(density("a condensed list for the ledger")).toMatch(/compact/);
     expect(density("spacious rows for the settings page")).toMatch(/comfortable/);
   });
+
+  it("reads density said after the list, and not on a row of another part", () => {
+    const index = indexGraph(acmeGraph());
+    const brief = (request: string) => briefScreen({ request, index, recipes: starterRecipes(), decisions: [decision] });
+    const density = (request: string) => {
+      const result = brief(request);
+      return "ready" in result ? result.assumptions.find((line) => /platform and density/.test(line)) : undefined;
+    };
+    const top = (request: string) => (recommendMasters(index, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates.slice(0, 3).map((row) => row.name);
+    // A row of another part: that part wins, and no density list.
+    for (const [request, name] of [["a cramped dense row of buttons", "Button"], ["airy rows of error alerts under the form", "Error Alert"]] as const) {
+      expect(density(request), request).toBeUndefined();
+      expect("ready" in brief(request) && (brief(request) as { candidates: Array<{ name: string }> }).candidates[0]?.name, request).toBe(name);
+      expect(top(request), request).not.toContain("Compact List");
+      expect(top(request), request).not.toContain("Comfortable List");
+    }
+    // Density said after the list, joined by a comma, but, or that is.
+    for (const [request, word, name] of [
+      ["the ledger list, but condensed", "compact", "Compact List"],
+      ["a settings list that is relaxed", "comfortable", "Comfortable List"],
+      ["payout rows, roomy", "comfortable", "Comfortable List"],
+    ] as const) {
+      expect(density(request), request).toMatch(word);
+      expect("ready" in brief(request) && (brief(request) as { candidates: Array<{ name: string }> }).candidates[0]?.name, request).toBe(name);
+    }
+    // Without a joint, or on the listed items, it is not the list density.
+    for (const request of ["a list dense", "a list of tight deadlines"]) expect(density(request), request).toBeUndefined();
+  });
 });

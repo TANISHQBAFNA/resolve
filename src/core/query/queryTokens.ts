@@ -121,13 +121,22 @@ const DENSITY_WORD = new Map([
 ]);
 
 /**
- * A density word right before list or row is that density: "a dense list" reads "a compact list", "airy rows"
- * reads "comfortable rows". Anywhere else it stays as written: "a tight deadline", "a tight nav bar", and
- * "a list of dense documents" (it describes the items) say nothing about list density.
+ * A density word that modifies list or row is that density. Before: "a dense list" reads "a compact list",
+ * "airy rows" reads "comfortable rows". After, joined by a comma, "but", or "that is": "a list, but dense",
+ * "a list that is roomy", "payee list, tight". Not a row of another part: "a dense row of buttons" stays as
+ * written, so Button wins. Anywhere else it stays as written too: "a tight deadline", "a tight nav bar",
+ * and "a list of dense documents" (it describes the items) say nothing about list density.
  */
 export function readDensity(text: string): string {
-  return text.replace(/\b([a-z]+)(\s+)(?=(?:list|lists|row|rows)\b)/gi, (match, word: string, space: string) => {
-    const density = DENSITY_WORD.get(word.toLowerCase());
+  const as = (word: string) => DENSITY_WORD.get(word.toLowerCase());
+  const before = text.replace(/\b([a-z]+)(\s+)(?=(list|lists|row|rows)\b(\s+of\s+[a-z])?)/gi, (match, word: string, space: string, noun: string, rowOf?: string) => {
+    if (rowOf && /^rows?$/i.test(noun)) return match;
+    const density = as(word);
     return density ? `${density}${space}` : match;
+  });
+  return before.replace(/\b(list|lists|row|rows)((?:\s*,\s*|\s+)(?:but\s+|that\s+is\s+|that's\s+)?)([a-z]+)\b/gi, (match, noun: string, joint: string, word: string) => {
+    const density = as(word);
+    // A bare "list dense" with no comma, but, or that is is not a description of the list.
+    return density && /,|but|that/i.test(joint) ? `${noun}${joint}${density}` : match;
   });
 }
