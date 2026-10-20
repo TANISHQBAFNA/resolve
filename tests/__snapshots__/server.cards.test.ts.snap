@@ -81,7 +81,7 @@ None approved for this screen yet.
 
 ## Open questions
 
-- Part Avatar [ACMEUI 30:40] (inside Payee picker) has no code link."
+- Part Avatar [ACMEUI 30:40] (inside Payee picker) has no code link. Stop and ask."
 `;
 
 exports[`Acme markdown cards > locks the Acme Markdown cards > ingredients Payee picker 1`] = `
@@ -307,8 +307,9 @@ exports[`Acme markdown cards > locks the Acme Markdown cards > verify Send money
 approved: 2
 deprecated:
   - name: Old Button | figmaNodeId: 30:50 | fileKey: ACMEUI | status: deprecated
-frame: (name: Send money)
+frame: (name: Send money, type: FRAME, figmaNodeId: 20:40, fileKey: ACMEUI)
 hint: Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. If stale, learn_library.
 textChecked: n/a
-retired: retired Old Button -> use Button (old code: AcmeOldButtonComponent from '@acme/ui-angular-legacy', <acme-old-button>, AcmeLegacyModule)"
+textReason: no text layers
+retired: retired Old Button -> use Button"
 `;

@@ -65,4 +65,4 @@ None approved for this screen yet.
 
 ## Open questions
 
-- Part Avatar [ACMEUI 30:40] (inside Payee picker) has no code link.
+- Part Avatar [ACMEUI 30:40] (inside Payee picker) has no code link. Stop and ask.
