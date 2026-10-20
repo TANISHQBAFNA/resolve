@@ -17,6 +17,7 @@ import {
   toGraph,
   writeStored,
 } from "./cliArgs";
+import { composeFromCli } from "./composeCommand";
 import { dirname, join, resolve } from "node:path";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
@@ -56,7 +57,12 @@ import {
   ingredientCard,
   ingredientCoverage,
   screenPartsCard,
-  composeCard,
+  applyBriefIntent,
+  BriefAnswerError,
+  briefAnswerLines,
+  briefAnswerParts,
+  briefAnswersFromFlags,
+  briefScreen,
 } from "@/core/query";
 import {
   deltaAgainst,
@@ -80,7 +86,6 @@ import {
   proposalDecisionBody,
   readPlaceholders,
   readSock,
-  saveSock,
   readApprovedDecisions,
   readWorkspace,
   runProposalDecision,
@@ -131,6 +136,11 @@ export async function runCli(argv: string[]): Promise<void> {
   const previous = setJsonPretty(pretty);
   try {
     await dispatchCli(pretty ? argv.filter((arg) => arg !== "--pretty") : argv);
+  } catch (error) {
+    // --json reads stdout: bad briefing input (or any brief error) is ok:false JSON, exit 1.
+    if (!argv.includes("--json") || !(error instanceof BriefAnswerError || argv[0] === "brief")) throw error;
+    printJson({ ok: false, status: "error", message: error instanceof Error ? error.message : String(error), exitCode: 1 });
+    process.exitCode = 1;
   } finally {
     setJsonPretty(previous);
   }
@@ -231,28 +241,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const bind = bindFromFlags(args);
       const sock = readSock();
       const bindRules = readBindRules();
-      if (args.includes("--compose") || args.includes("--propose")) {
-        const index = resolveGraph(flag(args, "id"))?.index;
-        const request = query?.trim() ?? "";
-        const problem = !args.includes("--compose")
-          ? "--propose needs --compose."
-          : !request
-            ? 'Compose needs a screen request: resolve recipe "<screen> with <parts>" --compose.'
-            : !index
-              ? "Compose needs a learned library. Run resolve learn first."
-              : undefined;
-        if (problem || !index) {
-          if (!args.includes("--json")) throw new Error(problem);
-          printJson({ ok: false, status: "error", query, message: problem, exitCode: 1 });
-          process.exitCode = 1;
-          return;
-        }
-        const placeholders = readPlaceholders();
-        const out = composeCard({ request, index, recipes, bind, sock, bindRules, placeholders }, args.includes("--propose"), new Date().toISOString());
-        if (out.state) saveSock(out.state);
-        printJson(out.card);
-        return;
-      }
+      if (args.includes("--compose") || args.includes("--propose")) return composeFromCli(args, query);
       if (!query || query === "list") {
         printJson(
           listRecipes(recipes, resolveGraph(flag(args, "id"))?.index, bind, sock, bindRules, readPlaceholders()),
@@ -294,12 +283,31 @@ async function dispatchCli(argv: string[]): Promise<void> {
       return;
     }
 
+    case "brief": {
+      const request = positionals(args)[0];
+      if (!request) throw new Error('Usage: resolve brief "<screen request>"');
+      const { bind, pack, context } = recommendContextFromFlags(args);
+      return printJson(briefScreen({
+        request,
+        answers: briefAnswersFromFlags(args),
+        index: requireGraph(args).index,
+        recipes: loadRecipes(),
+        decisions: readApprovedDecisions(),
+        ...(context ? { context } : {}),
+        workspace: bind.workspace,
+        sock: readSock(),
+        bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
+        placeholders: readPlaceholders(),
+      }));
+    }
+
     case "recommend": {
-      const intent = positionals(args)[0];
-      if (!intent) throw new Error('Usage: resolve recommend "<intent>"');
+      const asked = positionals(args)[0];
+      if (!asked) throw new Error('Usage: resolve recommend "<intent>"');
       const budget = Number(flag(args, "budget"));
       const { bind, pack, context } = recommendContextFromFlags(args);
       const index = requireGraph(args).index;
+      const intent = applyBriefIntent(asked, briefAnswersFromFlags(args), index);
       const screen = screenAskCard(intent, { sock: readSock(), index, recipes: loadRecipes() });
       if (screen) {
         recordGap(intent, screen);
@@ -509,7 +517,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
     }
 
     case "handoff": {
-      const VALUE_FLAGS = ["--out", "--recipe", "--depth", "--rules", "--pack", "--product", "--journey", "--domain", "--audience", "--a11y", "--packs", "--id"];
+      const VALUE_FLAGS = ["--out", "--recipe", "--depth", "--rules", "--pack", "--product", "--journey", "--domain", "--audience", "--a11y", "--packs", "--id", "--answer"];
       const frames: string[] = [];
       for (let i = 0; i < args.length; i += 1) {
         const arg = args[i]!;
@@ -520,7 +528,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
           i += 1;
           continue;
         }
-        if (arg.startsWith("--")) throw new Error(`Unknown handoff option "${arg}". Use --draft, --json, --out, --recipe, --depth, --force, --rules or ${PACK_BIND_FLAGS}.`);
+        if (arg.startsWith("--")) throw new Error(`Unknown handoff option "${arg}". Use --draft, --json, --out, --recipe, --depth, --force, --answer, --rules or ${PACK_BIND_FLAGS}.`);
         frames.push(arg);
       }
       if (!frames.length) {
@@ -532,6 +540,9 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const bind = bindFromFlags(args);
       const pack = packForRecommend(bind);
       const index = requireGraph(args).index;
+      const briefed = briefAnswersFromFlags(args);
+      const briefing = briefAnswerLines(briefed, index);
+      const briefParts = briefAnswerParts(briefed, index);
       const result = handoffSheet(index, frames, {
         draft: args.includes("--draft"),
         recipe: flag(args, "recipe"),
@@ -543,6 +554,8 @@ async function dispatchCli(argv: string[]): Promise<void> {
         placeholders: readPlaceholders(),
         rules: readLibraryRules(flag(args, "rules")),
         decisions: readApprovedDecisions(),
+        ...(briefing.length ? { briefing } : {}),
+        ...(briefParts.length ? { briefParts } : {}),
         depth,
       });
       const json = args.includes("--json");

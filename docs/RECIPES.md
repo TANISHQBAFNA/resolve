@@ -99,7 +99,7 @@ npm run resolve -- recipe "profile page with an avatar, a text field and a save 
 - Nothing is saved. `--propose` files a pending proposal; a person runs `resolve approve <id> --who <name>` to add it to `.resolve/recipes.json`. The proposal id includes the parts, so different parts are a different proposal. Proposing again after approve or reject files nothing and says why.
 - Approve refuses a private part, a variant inside a set, anything that is not a library component, a recipe with no parts or no id, and a recipe whose id or title is already saved.
 - An empty request, or a `compose` that is not true or false, is an error (`ok:false`, exit 1 in the CLI).
-- MCP: `recipe` with `compose: true` (and `propose: true`), on the advanced surface only (`RESOLVE_MCP_ADVANCED=1`). The default 7 tools do not change.
+- MCP: `recipe` with `compose: true` (and `propose: true`), on the advanced surface only (`RESOLVE_MCP_ADVANCED=1`). The default MCP tools do not change.
 
 ## Context packs
 

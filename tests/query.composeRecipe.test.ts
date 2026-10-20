@@ -128,7 +128,7 @@ describe("composed recipes", () => {
     expect(returned(cli).map((part) => part.name)).toEqual(["Avatar", "Text Field", "Save CTA"]);
 
     delete process.env["RESOLVE_MCP_ADVANCED"];
-    expect(DEFAULT_TOOL_NAMES).toHaveLength(7);
+    expect(DEFAULT_TOOL_NAMES.some((name) => /compose/.test(name))).toBe(false);
     const plain = callTool("recipe", { query: request, compose: true }) as Card;
     expect(plain.composed).toBeUndefined();
     expect(plain.compose).toMatch(/advanced/);
@@ -148,9 +148,9 @@ describe("composed recipes", () => {
 
   it("refuses --propose without --compose, and prints ok:false JSON", async () => {
     saveGraph(fixtureGraph());
-    await expect(runCli(["recipe", "a tag and a chip", "--propose"])).rejects.toThrow(/--compose/);
+    await expect(runCli(["recipe", "a tag and a chip", "--propose"])).rejects.toThrow(/propose needs compose/);
     const json = (await cliJson(["recipe", "a tag and a chip", "--propose", "--json"])) as unknown as { ok: boolean; message: string };
-    expect(json).toMatchObject({ ok: false, message: "--propose needs --compose." });
+    expect(json).toMatchObject({ ok: false, message: "propose needs compose." });
     expect(process.exitCode).toBe(1);
     process.exitCode = 0;
   });

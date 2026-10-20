@@ -25,7 +25,12 @@ import {
   ingredientCard,
   handoffSheet,
   type HandoffPack,
-  composeCard,
+  applyBriefIntent,
+  briefAnswerLines,
+  briefAnswerParts,
+  briefAnswers,
+  briefScreen,
+  BriefAnswerError,
 } from "@/core/query";
 import { trimmedStrings } from "@/core/query/recommendSupport";
 import { presentToolResult, type ToolCardFormat } from "./cards";
@@ -50,6 +55,7 @@ import {
 } from "./store";
 import { recordGap } from "./gaps";
 import { CODE_MAP_TOOLS, runCodeMapTool } from "./codeMapMcp";
+import { composeProblem, runCompose } from "./composeCommand";
 import { recordVerifyUsage } from "./verifyRecord";
 
 export { recordVerifyUsage };
@@ -88,6 +94,7 @@ const screenContextProperties = {
 export const DEFAULT_TOOL_NAMES = [
   "learn_library",
   "recipe",
+  "brief",
   "recommend",
   "resolve",
   "get_example",
@@ -188,9 +195,37 @@ export const TOOLS: ToolDefinition[] = [
         ...screenContextProperties,
         screenType: { type: "string", description: 'Screen kind, e.g. "settings" or "checkout". Same tie-break as domain.' },
         budgetChars: { type: "number", description: "Hard cap on the structured card, in characters. Default 600. Markdown is shorter." },
+        answers: {
+          type: "object",
+          description: "Briefing answers. Topics: shape, states, platform. states may be a list. At most 3 answers. Unknown topic or option is an error.",
+          additionalProperties: true,
+        },
         ...freshnessProperties,
       },
       required: ["intent"],
+    },
+  },
+  {
+    name: "brief",
+    description:
+      "Before recommend on a screen request. Asks at most 3 multiple-choice questions, and only when the request fits the library and the answer would change the component. Topics: data shape (list, form, summary, counts), states (empty, loading, error, pending; more than one allowed), and platform. No screen-type goal question. Options are live masters. Platform is asked only when the best part comes in platform versions (Desktop Nav, Mobile Nav); a platform word alone is not a component. Nothing that fits returns no match and no questions. 'Just build' (also 'go ahead and build' or 'build without asking') asks nothing; with no match it returns no candidates. Pass answers to recommend and get_handoff; they change the parts. Unknown topic, unknown option, empty value, a duplicate, or more than 3 answers is an error. Do not invent a component. Do not Read graph.json.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...graphIdProperty,
+        request: { type: "string", description: "The screen request, in the designer's words." },
+        answers: {
+          type: "object",
+          description: "Answers already given. shape and platform take one option. states takes one or more. At most 3 answers.",
+          additionalProperties: true,
+        },
+        pack: { type: "string", description: "Context pack id. Same rules as recommend." },
+        product: { type: "string" },
+        journey: { type: "string" },
+        domain: { type: "string" },
+        ...screenContextProperties,
+      },
+      required: ["request"],
     },
   },
   {
@@ -410,6 +445,11 @@ export const TOOLS: ToolDefinition[] = [
         allowWeak: { type: "boolean", description: "Draft: allow components known only from layer names (labelled name-guess) or missing from the learned files (labelled not-found). Retired components still refuse." },
         recipe: { type: "string", description: "Recipe id or intent to check the screen against. Default: matched from the screen name." },
         depth: { type: "number", description: "Levels of parts per component, 1-3. Default 3. Any other value is clamped, and depthNote says so." },
+        answers: {
+          type: "object",
+          description: "Briefing answers. Shape and state answers are added to the parts, not only listed as a note. At most 3 answers.",
+          additionalProperties: true,
+        },
         pack: { type: "string" },
         product: { type: "string" },
         journey: { type: "string" },
@@ -592,6 +632,23 @@ const REMOVED_MCP_TOOLS = new Set([
   "get_health",
 ]);
 
+function briefingAnswers(raw: unknown, index: ReturnType<typeof context>["index"]) {
+  try {
+    const answers = briefAnswers(raw);
+    return {
+      answers,
+      lines: briefAnswerLines(answers, index),
+      parts: briefAnswerParts(answers, index),
+      intent(request: string) {
+        return applyBriefIntent(request, answers, index);
+      },
+    };
+  } catch (error) {
+    if (error instanceof BriefAnswerError) throw new ToolError(error.message);
+    throw error;
+  }
+}
+
 export function callTool(name: string, rawArgs: unknown): unknown {
   if (REMOVED_MCP_TOOLS.has(name)) {
     const instead = DEPRECATED_INSTEAD[name] ?? "the current tools";
@@ -701,11 +758,32 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       return JSON.stringify(shown).length <= cap ? shown : card;
     }
 
+    case "brief": {
+      const { index } = context(args);
+      const request = asString(args["request"] ?? args["intent"] ?? args["query"], "request");
+      const { bind, pack, context: resolvedContext } = recommendContextFromArgs(args);
+      const briefing = briefingAnswers(args["answers"], index);
+      return briefScreen({
+        request,
+        answers: briefing.answers,
+        index,
+        recipes: loadRecipes(),
+        decisions: readApprovedDecisions(),
+        ...(resolvedContext ? { context: resolvedContext } : {}),
+        workspace: bind.workspace,
+        sock: readSock(),
+        bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
+        placeholders: readPlaceholders(),
+      });
+    }
+
     case "recommend": {
       const { index } = context(args);
       const budget = typeof args["budgetChars"] === "number" ? args["budgetChars"] : undefined;
       const { bind, pack, context: resolvedContext } = recommendContextFromArgs(args);
-      const intent = asString(args["intent"] ?? args["question"] ?? args["query"], "intent");
+      const intent = briefingAnswers(args["answers"], index).intent(
+        asString(args["intent"] ?? args["question"] ?? args["query"], "intent"),
+      );
       const screen = screenAskCard(intent, { sock: readSock(), index, recipes: loadRecipes() });
       if (screen) {
         recordGap(intent, screen);
@@ -791,32 +869,17 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
     case "recipe": {
       const rawQuery = args["query"] ?? args["name"] ?? args["recipe"] ?? args["intent"];
       const query = typeof rawQuery === "string" ? rawQuery.trim() : "";
-      for (const key of ["compose", "propose"]) {
-        if (args[key] !== undefined && typeof args[key] !== "boolean") throw new ToolError(`${key} must be true or false.`);
-      }
-      const compose = args["compose"] === true || args["propose"] === true;
-      if (compose && process.env["RESOLVE_MCP_ADVANCED"] === "1" && (!query || query === "list")) {
-        throw new ToolError('compose needs a screen request, e.g. "profile page with an avatar and a save button".');
-      }
+      const compose = args["compose"] !== undefined || args["propose"] !== undefined;
+      const problem = composeProblem(args["compose"], args["propose"], query);
+      if (problem?.includes("must be") || (problem && compose && process.env["RESOLVE_MCP_ADVANCED"] === "1")) throw new ToolError(problem);
       if (!query || query === "list") return listedRecipes(args);
       const intent = typeof args["intent"] === "string" ? args["intent"].trim() : "";
       const extra = intent && intent !== query ? intent : undefined;
       const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
       const recipes = loadRecipes();
       if (compose && process.env["RESOLVE_MCP_ADVANCED"] === "1") {
-        if (args["compose"] !== true) throw new ToolError("propose needs compose: true.");
-        const input = {
-          request: query,
-          index: context(args).index,
-          recipes,
-          bind: contextBindFromArgs(args),
-          sock: readSock(),
-          bindRules: loadBindRulesSafe(),
-          placeholders: readPlaceholders(),
-        };
-        const out = composeCard(input, args["propose"] === true, new Date().toISOString());
-        if (out.state) saveSock(out.state);
-        return capRecipePayload(out.card);
+        const input = { request: query, index: context(args).index, recipes, bind: contextBindFromArgs(args), sock: readSock(), bindRules: loadBindRulesSafe(), placeholders: readPlaceholders() };
+        return capRecipePayload(runCompose(input, args["propose"] === true));
       }
       const screen = screenAskCard(query, { sock: readSock(), index: resolveGraph(graphId)?.index, recipes });
       if (screen) return withPendingImprovements(screen, readSock());
@@ -861,6 +924,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           : {};
       const bind = contextBindFromArgs(args);
       const pack = packForRecommend(bind);
+      const briefing = briefingAnswers(args["answers"], index);
       const build = (d: number) =>
         handoffSheet(index, frames, {
           draft: args["allowWeak"] === true,
@@ -873,6 +937,8 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           placeholders: readPlaceholders(),
           rules: libraryRulesFromArgs(args),
           decisions: readApprovedDecisions(),
+          ...(briefing.lines.length ? { briefing: briefing.lines } : {}),
+          ...(briefing.parts.length ? { briefParts: briefing.parts } : {}),
           depth: d,
           maxCharsPerCard: HANDOFF_MCP_MAX_CHARS,
         });

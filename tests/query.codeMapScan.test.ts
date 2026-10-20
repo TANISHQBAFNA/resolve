@@ -291,8 +291,9 @@ export declare class HarborLiteComponent { static ɵcmp: i0.ɵɵComponentDeclara
     expect(JSON.stringify(json)).not.toContain("[object Object]");
   });
 
-  it("leaves the default MCP tool list at 7", () => {
-    expect(listToolDefinitions(false)).toHaveLength(7);
+  it("keeps code-map tools off the default list", () => {
+    expect(listToolDefinitions(false)).toHaveLength(8);
+    expect(listToolDefinitions(false).map((tool) => tool.name)).not.toContain("code_map_scan");
     expect(listToolDefinitions(true).map((tool) => tool.name)).toEqual(expect.arrayContaining(["code_map_scan", "code_map_suggest", "code_map_review"]));
   });
 });
