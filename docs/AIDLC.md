@@ -15,7 +15,9 @@ Before exporting, Resolve checks both files and refuses (exit 1, `ok:false` with
 
 - `handoff.json` is not JSON, was refused, or has no screens;
 - `decision.json` is not JSON, is not `schemaVersion` 1, is not a `handoff` record, or is for other screens;
-- a pick in `decision.json` is not a part that `handoff.json` lists on that screen (same name, file key and Figma id).
+- a pick in `decision.json` is not a part that `handoff.json` lists on that screen (same name, file key and Figma id), is listed twice, or differs from what Resolve builds from `handoff.json` (id, match, why); or picks or rejections were added or dropped.
+
+A write that fails (a missing folder, `--out` naming a folder) says which file and why.
 
 It never needs the current folder: the handoff folder is required.
 
@@ -60,7 +62,7 @@ What the screen was asked for, as given. Nothing is filled in by guess.
 | `match` | How sure it is (values below) |
 | `why` | One line, for example its code link |
 | `screen`, `slot` | Where it is used |
-| `rejected[]` | `what`, `reason` (weak, no match, retired, not a library component), `screen` |
+| `rejected[]` | `what`, `reason`, `screen`. Reasons: `weak, check` · `no match in the learned library` · `retired` · `not a library component` · `not found in the learned files` · `saved recipe <title> already covers this` |
 
 ### Allowed values
 

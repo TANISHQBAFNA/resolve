@@ -1,6 +1,6 @@
 import { briefAnswerIds, briefAnswerParts, briefAnswersFromFlags, composeCard, recordFromCompose, type ComposeCardLike, type ComposeInput } from "@/core/query";
 import { recordFlag } from "./decisionCommand";
-import { bindFromFlags, flag, printJson } from "./cliArgs";
+import { bindFromFlags, flag, printJson, withJsonErrors } from "./cliArgs";
 import { loadRecipes, readBindRules, readPlaceholders, readSock, resolveGraph, saveSock } from "./store";
 
 /** Input checks shared by the CLI and MCP. Returns what is wrong, or undefined. */
@@ -38,13 +38,6 @@ export function composeFromCli(args: string[], query: string | undefined): void 
   const answerParts = briefAnswerParts(answers, index);
   const input = { request, answerParts, index, recipes: loadRecipes(), bind: bindFromFlags(args), sock: readSock(), bindRules: readBindRules(), placeholders: readPlaceholders() };
   const card = runCompose(input, Boolean(propose));
-  try {
-    recordFlag(args, () => recordFromCompose({ request, answers: briefAnswerIds(answers, index), card: card as ComposeCardLike, createdAt: new Date().toISOString() }));
-  } catch (error) {
-    if (!args.includes("--json")) throw error;
-    printJson({ ok: false, status: "error", query: request, message: (error as Error).message, exitCode: 1 });
-    process.exitCode = 1;
-    return;
-  }
-  printJson(card);
+  const record = () => recordFlag(args, () => recordFromCompose({ request, answers: briefAnswerIds(answers, index), card: card as ComposeCardLike, createdAt: new Date().toISOString() }));
+  if (withJsonErrors(args, record, request)) printJson(card);
 }

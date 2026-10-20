@@ -228,7 +228,7 @@ describe("decision record and AIDLC export", () => {
         ["brief kind", { ...good, kind: "brief" }, /brief record, not a handoff record/],
         ["junk object", { hello: "world" }, /not a decision record/],
         ["other screen", { ...good, screens: ["Somewhere else"] }, /is for Somewhere else, but handoff.json is for Confirm payment/],
-        ["made-up pick", { ...good, picks: [...good.picks, { name: "Hover Board", fileKey: "ACMEUI", figmaNodeId: "99:99", source: "placed", match: "placed", screen: "Confirm payment" }] }, /picks "Hover Board" \(99:99\), which is not a part in handoff.json/],
+        ["made-up pick", { ...good, picks: [...good.picks, { name: "Hover Board", fileKey: "ACMEUI", figmaNodeId: "99:99", source: "placed", match: "placed", screen: "Confirm payment" }] }, /picks "Hover Board" \(99:99\) on Confirm payment, which is not a part in handoff.json/],
         ["unknown match value", { ...good, picks: [{ ...good.picks[0]!, match: "pretty sure" }] }, /not a decision record/],
       ];
       for (const [label, record, message] of cases) {
@@ -300,6 +300,62 @@ describe("decision record and AIDLC export", () => {
         expect(record.rejected, request).toContainEqual({ what: "velvet-avatar: Avatar", reason: "weak, check" });
         expect(record.rejected.filter((row) => row.what.startsWith("velvet-avatar")), request).toHaveLength(1);
       }
+    });
+  });
+  describe("Michigan #70 r2, negative cases", () => {
+    const folderWithRecord = async () => {
+      await cli(["handoff", "Confirm payment", "--out", work]);
+      return JSON.parse(readFileSync(join(work, "decision.json"), "utf8")) as DecisionRecord;
+    };
+    const exportWith = async (record: unknown) => {
+      writeFileSync(join(work, "decision.json"), JSON.stringify(record));
+      const out = JSON.parse(await cli(["export", "aidlc", work, "--json"])) as { ok?: boolean; message?: string };
+      process.exitCode = undefined;
+      return out;
+    };
+
+    it("L5: a pick with a changed id, match or why, a duplicate, or a dropped pick is refused", async () => {
+      const good = await folderWithRecord();
+      const first = good.picks[0]!;
+      const cases: Array<[string, DecisionRecord, RegExp]> = [
+        ["fake id", { ...good, picks: [{ ...first, id: "node:made-up" }, ...good.picks.slice(1)] }, /changes id of "/],
+        ["edited match", { ...good, picks: [{ ...first, match: "weak" }, ...good.picks.slice(1)] }, /changes match of "/],
+        ["edited why", { ...good, picks: [{ ...first, why: "Because I said so." }, ...good.picks.slice(1)] }, /changes why of ".*handoff.json gives/],
+        ["duplicate", { ...good, picks: [first, ...good.picks] }, /picks ".*" .* twice\./],
+        ["dropped", { ...good, picks: good.picks.slice(1) }, /has \d+ picks, but handoff.json has \d+ parts/],
+        ["edited rejected", { ...good, rejected: [{ what: "Old Button", reason: "retired" }] }, /rejects different parts/],
+      ];
+      for (const [label, record, message] of cases) {
+        const out = await exportWith(record);
+        expect(out.ok, label).toBe(false);
+        expect(out.message, label).toMatch(message);
+      }
+      expect((await exportWith(good)).ok, "the untouched record still exports").not.toBe(false);
+    });
+
+    it("Info: AIDLC.md names every rejected reason a record can carry", () => {
+      const doc = readFileSync(join(__dirname, "..", "docs", "AIDLC.md"), "utf8");
+      for (const reason of ["weak, check", "no match in the learned library", "retired", "not a library component", "not found in the learned files", "saved recipe <title> already covers this"]) {
+        expect(doc, reason).toContain(`\`${reason}\``);
+      }
+    });
+
+    it("L6: export --out into a missing or existing folder, and handoff --out into a used folder, give clear errors (ok:false with --json)", async () => {
+      await folderWithRecord();
+      const missing = join(work, "no-such-folder", "aidlc.json");
+      const message = `Cannot write ${missing}: the folder ${join(work, "no-such-folder")} does not exist.`;
+      const plain = await cli(["export", "aidlc", work, "--out", missing]).then(() => "", (error: Error) => error.message);
+      expect(plain).toBe(message);
+      const jsonMissing = JSON.parse(await cli(["export", "aidlc", work, "--out", missing, "--json"])) as { ok: boolean; message: string };
+      expect(jsonMissing).toMatchObject({ ok: false, message });
+      process.exitCode = undefined;
+      const jsonFolder = JSON.parse(await cli(["export", "aidlc", work, "--out", work, "--json"])) as { ok: boolean; message: string };
+      expect(jsonFolder).toMatchObject({ ok: false, message: `Cannot write ${work}: it is a folder. Pass a file name, for example --out aidlc.json.` });
+      process.exitCode = undefined;
+      const used = JSON.parse(await cli(["handoff", "Confirm payment", "--out", work, "--json"])) as { ok: boolean; message: string };
+      expect(used).toMatchObject({ ok: false });
+      expect(used.message).toMatch(/already has handoff files \(.*\)\. Add --force to replace them\./);
+      expect(process.exitCode).toBe(1);
     });
   });
 });

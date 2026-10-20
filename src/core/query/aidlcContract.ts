@@ -1,5 +1,6 @@
+import { isDeepStrictEqual } from "node:util";
 import { z } from "zod/v4";
-import { BriefAnswerIdsSchema, DecisionPickSchema, DecisionRejectSchema, type DecisionRecord } from "./decisionRecord";
+import { BriefAnswerIdsSchema, DecisionPickSchema, DecisionRejectSchema, recordFromHandoff, type DecisionPick, type DecisionRecord } from "./decisionRecord";
 import type { HandoffComponent, HandoffPack, HandoffScreen } from "./handoff";
 
 /**
@@ -97,11 +98,27 @@ export function assertRecordMatchesHandoff(pack: Extract<HandoffPack, { ok: true
   if (JSON.stringify(record.screens ?? []) !== JSON.stringify(names)) {
     throw new Error(`decision.json is for ${(record.screens ?? []).join(", ") || "no screen"}, but handoff.json is for ${names.join(", ")}.`);
   }
+  const label = (pick: DecisionPick) => `"${pick.name}"${pick.figmaNodeId ? ` (${pick.figmaNodeId})` : ""}${pick.screen ? ` on ${pick.screen}` : ""}`;
+  const key = (pick: DecisionPick) => [pick.screen, pick.fileKey, pick.figmaNodeId, pick.name].join("|");
+  const seen = new Set<string>();
   for (const pick of record.picks) {
-    const screen = pack.screens.find((row) => row.screen.name === pick.screen);
-    const part = screen?.components.find((row) => row.name === pick.name && row.figmaNodeId === pick.figmaNodeId && row.fileKey === pick.fileKey);
-    if (!part) throw new Error(`decision.json picks "${pick.name}"${pick.figmaNodeId ? ` (${pick.figmaNodeId})` : ""}, which is not a part in handoff.json${pick.screen ? ` on ${pick.screen}` : ""}.`);
+    if (seen.has(key(pick))) throw new Error(`decision.json picks ${label(pick)} twice.`);
+    seen.add(key(pick));
   }
+  // The record must be exactly what recordFromHandoff builds from this handoff.json: same picks (ids, match, why) and rejections.
+  const expected = recordFromHandoff({ pack, createdAt: record.createdAt });
+  for (const pick of record.picks) {
+    const twin = expected.picks.find((row) => key(row) === key(pick));
+    if (!twin) throw new Error(`decision.json picks ${label(pick)}, which is not a part in handoff.json.`);
+    if (!isDeepStrictEqual({ ...twin }, { ...pick })) {
+      const field = (["id", "match", "source", "why", "slot"] as const).find((name) => twin[name] !== pick[name]) ?? "a field";
+      throw new Error(`decision.json changes ${field} of ${label(pick)}; handoff.json gives ${JSON.stringify(twin[field as keyof DecisionPick] ?? null)}.`);
+    }
+  }
+  if (record.picks.length !== expected.picks.length) {
+    throw new Error(`decision.json has ${record.picks.length} picks, but handoff.json has ${expected.picks.length} parts. Run handoff --out again.`);
+  }
+  if (!isDeepStrictEqual(record.rejected, expected.rejected)) throw new Error("decision.json rejects different parts than handoff.json shows. Run handoff --out again.");
 }
 
 /** Handoff (+ its decision record, when one was written) to the AIDLC contract. Validated before it is returned. */

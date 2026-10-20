@@ -17,7 +17,7 @@ import {
 import { presentToolResult } from "./cards";
 import { writeDecision } from "./decisionCommand";
 import { PACK_BIND_FLAGS } from "./cliUsage";
-import { bindFromFlags, flag, printJson, requireGraph } from "./cliArgs";
+import { bindFromFlags, flag, printJson, requireGraph, withJsonErrors } from "./cliArgs";
 import {
   loadRecipes,
   readApprovedDecisions,
@@ -29,7 +29,12 @@ import {
 } from "./store";
 
 /** `resolve handoff` (moved out of cli.ts unchanged; cli.ts was at the 1000-line cap). */
+/** With --json, any refusal (a used --out folder, a bad flag) is ok:false JSON and exit 1, not plain text. */
 export function runHandoff(args: string[]): void {
+  withJsonErrors(args, () => handoff(args));
+}
+
+function handoff(args: string[]): void {
   const VALUE_FLAGS = ["--out", "--recipe", "--depth", "--rules", "--pack", "--product", "--journey", "--domain", "--audience", "--a11y", "--packs", "--id", "--answer"];
   const frames: string[] = [];
   for (let i = 0; i < args.length; i += 1) {
