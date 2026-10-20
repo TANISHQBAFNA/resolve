@@ -3,9 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { DesignGraph } from "@/core/model";
 import { SourceDocumentSchema } from "@/core/ingestion/types";
 import { buildGraph } from "@/core/transform";
-import { briefScreen, composeParts, composeRecipe, indexGraph, starterRecipes, type GraphIndex } from "@/core/query";
+import { briefScreen, composeParts, composeRecipe, indexGraph, starterRecipes, type GraphIndex, type Recipe } from "@/core/query";
 import { runCli } from "@/server/cli";
 import { callTool, DEFAULT_TOOL_NAMES, ToolError } from "@/server/tools";
 import { clearCache, loadRecipes, readSock, saveGraph, saveSock } from "@/server/store";
@@ -445,6 +446,60 @@ describe("composed recipes", () => {
       }
       // Other modifiers still count: an unrelated word stays weak.
       expect((compose("sheet with a tangerine toast and a chip").card as Card & { weak?: string[] }).weak).toHaveLength(1);
+    });
+  });
+  describe("r5 findings: a single on/in word must be a whole part name", () => {
+    // Each of table, row and map appears in exactly ONE longer part name here, so "names exactly one part" is not enough.
+    const NAMES: Array<[string, string]> = [
+      ["20:1", "Ledger Table"],
+      ["20:2", "Invoice Row"],
+      ["20:3", "Route Map"],
+      ["20:4", "Modal"],
+      ["20:5", "Tabs"],
+      ["20:6", "Chip"],
+      ["20:7", "Toast"],
+    ];
+    const at = "2026-01-01T00:00:00.000Z";
+    const graph = (): DesignGraph => ({
+      fileKey: "ACMEONE",
+      fileName: "Acme One",
+      builtAt: at,
+      source: { kind: "mock", ingestedAt: at },
+      warnings: [],
+      nodes: [
+        { id: "file:ACMEONE", type: "FILE", name: "Acme One", fileKey: "ACMEONE" },
+        ...NAMES.map(([id, name]) => ({ id: `node:${id}`, type: "MAIN_COMPONENT" as const, name, fileKey: "ACMEONE", figmaNodeId: id, isMainComponent: true })),
+      ],
+      edges: [],
+    });
+    const saved: Recipe = {
+      id: "chip-toast-sheet",
+      title: "Chip toast sheet",
+      intentAliases: [],
+      slots: [
+        { role: "chip", required: true, hints: ["chip"], defaultMasterId: "node:20:6" },
+        { role: "toast", required: true, hints: ["toast"], defaultMasterId: "node:20:7" },
+      ],
+    };
+    const compose = (request: string) => composeRecipe({ request, index: indexGraph(graph()), recipes: [saved] });
+
+    it("keeps a word that is only part of one longer name as context, and keeps the saved-recipe warning", () => {
+      for (const [request, context] of [
+        ["sheet with a chip and a toast on a table", "on a table"],
+        ["sheet with a chip and a toast in a row", "in a row"],
+        ["sheet with a chip and a toast inside the map", "inside the map"],
+      ] as const) {
+        const card = compose(request).card as Card & { readAsContext?: string[]; duplicates?: string[] };
+        expect(returned(card).map((part) => part.name), request).toEqual(["Chip", "Toast"]);
+        expect(card.readAsContext, request).toEqual([context]);
+        expect(card.duplicates, request).toEqual(["Chip toast sheet"]);
+      }
+    });
+
+    it("accepts a single word that is the whole name of one part, and a full longer name", () => {
+      expect(returned(compose("a chip inside a modal").card as Card).map((part) => part.name)).toEqual(["Chip", "Modal"]);
+      expect(returned(compose("a toast on the tabs").card as Card).map((part) => part.name)).toEqual(["Toast", "Tabs"]);
+      expect(returned(compose("a chip on a ledger table").card as Card).map((part) => part.name)).toEqual(["Chip", "Ledger Table"]);
     });
   });
 });

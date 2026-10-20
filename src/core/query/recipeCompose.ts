@@ -50,9 +50,13 @@ function namedParts(index: GraphIndex, words: string[]) {
     return tokens.length > 0 && tokens.every((token) => words.some((word) => has(word, token)));
   });
   if (full.length) return full;
-  // One word that names exactly one part ("modal"). A word shared by many parts ("card", "row") names none.
+  // One word that is the whole name of exactly one part ("modal" names Modal). A word that is only part of a
+  // longer name ("table" in Data Table, "row" in Payment Row) names none, however many parts share it.
   if (words.length !== 1) return [];
-  const one = parts.filter((node) => nameTokens(node.name).some((token) => has(words[0]!, token)));
+  const one = parts.filter((node) => {
+    const tokens = nameTokens(node.name);
+    return tokens.length === 1 && has(words[0]!, tokens[0]!);
+  });
   return one.length === 1 ? one : [];
 }
 
