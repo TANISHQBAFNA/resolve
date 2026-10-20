@@ -38,8 +38,10 @@ import {
   codeMapCard,
   codeMapFromCsv,
   codeMapJson,
+  csvIsReviewSheet,
   entryLabel,
   readCodeMapDocument,
+  reviewEntries,
   formatHandoffIndex,
   formatHandoffIngredients,
   formatHandoffScreen,
@@ -88,7 +90,7 @@ import {
 } from "./store";
 import { stripFiller } from "./cards";
 import { formatGaps, readGaps, recordGap } from "./gaps";
-import { runCodeMapExtra } from "./codeMapCommand";
+import { rowProblems, runCodeMapExtra } from "./codeMapCommand";
 import { recordVerifyUsage } from "./tools";
 import { learnLibrary } from "./learn";
 import { DESIGNER, designerFailure } from "./designerMessages";
@@ -420,7 +422,8 @@ async function dispatchCli(argv: string[]): Promise<void> {
         if (args.includes("--json")) throw new Error("--json is not used with --import. Use --dry-run to see the JSON that would be written.");
         if (force && replace) throw new Error("Use either --force (keep entries the CSV has no row for) or --replace (drop them), not both.");
         if (!existsSync(file)) throw new Error(`No such file: ${file}`);
-        const result = codeMapFromCsv(readFileSync(file, "utf8"));
+        const raw = codeMapFromCsv(readFileSync(file, "utf8"));
+        const result = force && csvIsReviewSheet(raw) ? reviewEntries(codeMapFromCsv(readFileSync(file, "utf8"), { blankStatus: "suggested" })) : raw;
         const ignoredCols = result.ignoredColumns.length
           ? `Ignored column${result.ignoredColumns.length > 1 ? "s" : ""} Resolve does not use: ${result.ignoredColumns.join(", ")}.\n`
           : "";
@@ -460,6 +463,12 @@ async function dispatchCli(argv: string[]): Promise<void> {
           return;
         }
         const index = requireGraph(args).index;
+        const problems = rowProblems(result.entries, index);
+        if (problems.length) {
+          process.stdout.write(`Nothing written. Fix these rows:\n${problems.slice(0, 20).map((error) => `  ${error}`).join("\n")}\n`);
+          process.exitCode = 1;
+          return;
+        }
         mkdirSync(dirname(mapPath), { recursive: true });
         writeFileSync(mapPath, json);
         process.stdout.write(

@@ -169,7 +169,7 @@ export function mergeCodeMap(old: unknown[], csv: CsvImport, replace: boolean): 
 }
 
 /** Read a code map without dropping entries. A file that is not JSON, or has no entries list, throws and must not be overwritten. */
-export function readCodeMapDocument(path: string): { entries: unknown[]; figmaVersion?: string; packageVersion?: string } {
+export function readCodeMapDocument(path: string): { entries: unknown[]; figmaVersion?: string; packageVersion?: string; packages?: Record<string, string> } {
   const text = readFileSync(path, "utf8").replace(/^\uFEFF/, "").trim();
   if (!text) return { entries: [] };
   let raw: unknown;
@@ -187,13 +187,24 @@ export function readCodeMapDocument(path: string): { entries: unknown[]; figmaVe
   if (!Array.isArray(doc["entries"])) throw new Error(`${path} entries must be a list. Nothing was written.`);
   const figmaVersion = typeof doc["figmaVersion"] === "string" && doc["figmaVersion"].trim() ? doc["figmaVersion"].trim() : undefined;
   const packageVersion = typeof doc["packageVersion"] === "string" && doc["packageVersion"].trim() ? doc["packageVersion"].trim() : undefined;
-  return { entries: doc["entries"], ...(figmaVersion ? { figmaVersion } : {}), ...(packageVersion ? { packageVersion } : {}) };
+  const packages = packageMap(doc["packages"]);
+  return { entries: doc["entries"], ...(figmaVersion ? { figmaVersion } : {}), ...(packageVersion ? { packageVersion } : {}), ...(packages ? { packages } : {}) };
 }
 
-export function codeMapJson(entries: unknown[], versions: { figmaVersion?: string; packageVersion?: string }): string {
+function packageMap(raw: unknown): Record<string, string> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === "string" && value.trim()) out[key] = value.trim();
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+export function codeMapJson(entries: unknown[], versions: { figmaVersion?: string; packageVersion?: string; packages?: Record<string, string> }): string {
   const body: Record<string, unknown> = {};
   if (versions.figmaVersion) body["figmaVersion"] = versions.figmaVersion;
-  if (versions.packageVersion) body["packageVersion"] = versions.packageVersion;
+  if (versions.packages && Object.keys(versions.packages).length) body["packages"] = versions.packages;
+  else if (versions.packageVersion) body["packageVersion"] = versions.packageVersion;
   body["entries"] = entries;
   return `${JSON.stringify(body, null, 2)}\n`;
 }
@@ -255,7 +266,7 @@ export function entriesToCsv(entries: unknown[]): string {
       id: textOf(row, "id"),
       name: textOf(row, "name"),
       component: textOf(code, "component"),
-      importPath: imported?.[2] ?? "",
+      importPath: imported,
       framework: textOf(code, "framework"),
       selector: textOf(code, "selector"),
       module: textOf(code, "module"),
@@ -273,8 +284,15 @@ export function entriesToCsv(entries: unknown[]): string {
   return `${[CSV_COLUMNS.join(","), ...lines].join("\n")}\n`;
 }
 
+const REVIEW_STATUS = new Set(["mapped", "suggested", "partial", "current", "unmapped"]);
+
+/** True when the sheet is a review (some row already has a review status). Blank cells then mean suggested. */
+export function csvIsReviewSheet(parsed: CsvImport): boolean {
+  return parsed.entries.some((entry) => REVIEW_STATUS.has(String(entry["status"] ?? "")));
+}
+
 /** Rows to entries. Any bad row is reported by its spreadsheet row number and nothing should be written. */
-export function codeMapFromCsv(text: string): CsvImport {
+export function codeMapFromCsv(text: string, options?: { blankStatus?: "suggested" }): CsvImport {
   const records = csvRecords(text);
   const headAt = records.findIndex((r) => !blank(r));
   const head = records[headAt];
@@ -325,12 +343,13 @@ export function codeMapFromCsv(text: string): CsvImport {
       ...(list("outputs").length ? { outputs: list("outputs") } : {}),
     };
     const relation = get("relation").toLowerCase();
+    const status = get("status").replace(/\u00a0/g, " ").trim().toLowerCase() || options?.blankStatus || "";
     const entry: Record<string, unknown> = {
       ...(get("fileKey") ? { fileKey: get("fileKey") } : {}),
       ...(get("id") ? { id: get("id") } : {}),
       // The design name is kept with the id too: `code-map --check "Old Button"` finds a retired part by the name designers use.
       ...(get("name") ? { name: get("name") } : {}),
-      ...(get("status") ? { status: get("status").toLowerCase() } : {}),
+      ...(status ? { status } : {}),
       ...(get("replacedBy") ? { replacedBy: get("replacedBy") } : {}),
       ...(relation ? { relation } : {}),
       ...(get("figmaVersion") ? { figmaVersion: get("figmaVersion") } : {}),
@@ -348,5 +367,26 @@ export function codeMapFromCsv(text: string): CsvImport {
       out.filledKeys.push(...keys);
     }
   });
+  const seen = new Map<string, string>();
+  for (const entry of out.entries) {
+    const code = entry["code"] as Record<string, unknown> | undefined;
+    const key = `${String(entry["fileKey"] ?? "")}\n${String(entry["id"] ?? "")}\n${String(code?.["component"] ?? "")}\n${String(entry["relation"] ?? "maps")}`;
+    const status = String(entry["status"] ?? "");
+    const previous = seen.get(key);
+    if (previous !== undefined && previous !== status) {
+      out.errors.push(`conflicting status for ${String(entry["name"] ?? entry["id"] ?? "a row")} (${previous || "blank"} and ${status || "blank"})`);
+    } else if (previous === undefined) seen.set(key, status);
+  }
+  if (out.errors.length) return out;
+  const unique: Record<string, unknown>[] = [];
+  const kept = new Set<string>();
+  for (const entry of out.entries) {
+    const code = entry["code"] as Record<string, unknown> | undefined;
+    const key = `${String(entry["fileKey"] ?? "")}\n${String(entry["id"] ?? "")}\n${String(code?.["component"] ?? "")}\n${String(entry["relation"] ?? "maps")}`;
+    if (kept.has(key)) continue;
+    kept.add(key);
+    unique.push(entry);
+  }
+  out.entries = unique;
   return out;
 }

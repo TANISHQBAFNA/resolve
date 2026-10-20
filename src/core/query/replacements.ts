@@ -100,6 +100,7 @@ function ingredientHooks(index: GraphIndex): IngredientHooks {
     codeMap: Boolean(view),
     replacement: (node) => replacementFor(index, node, view?.twin),
     cardName: (node) => variantCardName(index, node),
+    review: (node) => view?.needsReview(node),
   };
 }
 /** Retired check and replacement with the code map applied, the same rules as every card (used by the handoff sheet). */
@@ -108,6 +109,7 @@ export function retiredHooks(index: GraphIndex) {
   return {
     view,
     retired: (node: GraphNode) => isRetired(index, node) || Boolean(view?.retired(node)),
+    needsReview: (node: GraphNode) => view?.needsReview(node),
     replacement: (node: GraphNode) => {
       const found = replacementOf(index, node, view?.twin);
       if (!found) return undefined;
@@ -151,6 +153,7 @@ export function screenPartsCard(index: GraphIndex, ask: string) {
     retired?: true;
     replacement?: string;
     replacementCode?: string;
+    review?: string;
   }> = [];
   for (const instance of index.getNestedInstances(frame.id)) {
     const main = index.getMainComponent(instance.id);
@@ -160,13 +163,15 @@ export function screenPartsCard(index: GraphIndex, ask: string) {
     const retired = isRetired(index, main) || Boolean(view?.retired(main));
     const remote = Boolean(main.isRemote);
     const twin = view?.twin(main);
+    const review = !retired ? view?.needsReview(main) : undefined;
     const replacement = retired ? replacementOf(index, main, view?.twin) : undefined;
     const useTwin = replacement ? view?.twin(replacement.node) : undefined;
     parts.push({
       name: variantCardName(index, main),
       ...(main.fileKey ? { fileKey: main.fileKey } : {}),
       ...(main.figmaNodeId ? { figmaNodeId: main.figmaNodeId } : {}),
-      code: remote ? "unknown" : twin?.line ? codeText(twin) : "unmapped",
+      code: remote ? "unknown" : retired || review ? "unmapped" : twin?.line ? codeText(twin) : "unmapped",
+      ...(review ? { review } : {}),
       ...(remote ? { status: "other-library" as const } : {}),
       ...(retired
         ? {
@@ -178,12 +183,13 @@ export function screenPartsCard(index: GraphIndex, ask: string) {
     });
   }
   const unmapped = parts.some((part) => part.code === "unmapped");
+  const stale = parts.some((part) => part.review);
   return {
     ok: true as const,
     frame: frame.name,
     ...(frame.figmaNodeId ? { figmaNodeId: frame.figmaNodeId } : {}),
     parts,
-    ...(unmapped ? { ask: "An unmapped part has no confirmed code twin. Stop and ask. Do not guess." } : {}),
+    ...(stale ? { ask: "A code link needs re-review. Stop and ask. Do not guess." } : unmapped ? { ask: "An unmapped part has no confirmed code twin. Stop and ask. Do not guess." } : {}),
   };
 }
 /** Library-wide ingredient counts: composites, parts, and how many parts link to code. */

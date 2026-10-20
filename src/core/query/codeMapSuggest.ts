@@ -1,5 +1,5 @@
 import type { GraphNode } from "@/core/model";
-import { selectorWords, splitWords, type AngularComponentRecord, type AngularInventory } from "@/adapters/angular";
+import { selectorAlternatives, splitWords, type AngularComponentRecord, type AngularInventory } from "@/adapters/angular";
 import { angularInputFor } from "./componentProperties";
 import type { GraphIndex } from "./GraphIndex";
 import type { AngularTwin } from "./codeMap";
@@ -28,6 +28,8 @@ export interface SuggestedPair {
   figmaVersion?: string;
   packageVersion: string;
   because: string;
+  /** Set when the code class is marked `@deprecated`. */
+  codeDeprecated?: string;
 }
 
 export interface CodeTarget {
@@ -37,18 +39,37 @@ export interface CodeTarget {
   node: GraphNode;
 }
 
-const STOP = new Set(["acme", "component", "module"]);
+const STOP = new Set(["acme", "component", "directive", "module"]);
 
+/** Ordered words. "Header card" is not "Card header". */
 function words(raw: string): string[] {
-  return [...new Set(splitWords(raw).filter((word) => word && !STOP.has(word)))].sort();
+  return splitWords(raw).filter((word) => word && !STOP.has(word));
 }
 
 function same(left: string[], right: string[]): boolean {
   return left.length > 0 && left.length === right.length && left.every((word, index) => word === right[index]);
 }
 
-function codeWords(component: AngularComponentRecord): string[][] {
-  return [words(component.component), words(selectorWords(component.selector).join(" "))];
+function classWords(component: AngularComponentRecord): string[] {
+  return words(component.component);
+}
+
+/**
+ * A selector alias counts only when the selector list also names the class.
+ * `acme-pill` on AcmeBadgeComponent does not match Pill. `acme-dropdown` on AcmeSelectComponent does match Dropdown.
+ */
+function aliasWords(component: AngularComponentRecord, figma: string[]): boolean {
+  const cls = classWords(component);
+  const alts = selectorAlternatives(component.selector);
+  if (!alts.some((alt) => same(alt, cls))) return false;
+  return alts.some((alt) => same(alt, figma));
+}
+
+function pluralStem(figma: string[]): string[] | undefined {
+  if (figma.length !== 1) return undefined;
+  const word = figma[0]!;
+  if (word.length > 4 && word.endsWith("s") && !word.endsWith("ss")) return [word.slice(0, -1)];
+  return undefined;
 }
 
 function ioNames(items: AngularComponentRecord["inputs"]): string[] | undefined {
@@ -90,19 +111,67 @@ function toPair(
     status,
     ...(figmaVersion ? { figmaVersion } : {}),
     packageVersion: inventory.packageVersion,
-    because,
+    because: component.deprecated ? `${because}; code is @deprecated ${component.deprecated}` : because,
+    ...(component.deprecated ? { codeDeprecated: component.deprecated } : {}),
   };
 }
 
-/** Pairs only. Nothing here is written as mapped. */
-export function suggestPairs(index: GraphIndex, inventory: AngularInventory, targets: CodeTarget[]): SuggestedPair[] {
+function preferAcme(hits: AngularComponentRecord[]): AngularComponentRecord[] {
+  const prefixed = hits.filter((hit) => hit.component.startsWith("Acme"));
+  return prefixed.length === 1 ? prefixed : hits;
+}
+
+function matchesFor(wanted: string[], inventory: AngularInventory): AngularComponentRecord[] {
+  const exact = inventory.components.filter((component) => same(classWords(component), wanted));
+  if (exact.length) return preferAcme(exact);
+  const stem = pluralStem(wanted);
+  const plural = stem ? inventory.components.filter((component) => same(classWords(component), stem)) : [];
+  if (plural.length === 1) return plural;
+  const withButton = inventory.components.filter((component) => same(classWords(component), [...wanted, "button"]));
+  if (withButton.length === 1) return withButton;
+  const alias = inventory.components.filter((component) => aliasWords(component, wanted));
+  if (alias.length) return preferAcme(alias);
+  if (wanted.length === 1) {
+    const word = wanted[0]!;
+    const stemmed = inventory.components.filter((component) => {
+      const cls = classWords(component);
+      if (cls.length !== 1) return false;
+      const other = cls[0]!;
+      let shared = 0;
+      while (shared < word.length && shared < other.length && word[shared] === other[shared]) shared += 1;
+      return shared >= 6 && Math.abs(word.length - other.length) <= 3 && word !== other;
+    });
+    if (stemmed.length === 1) return stemmed;
+  }
+  const prefix = wanted.length >= 2 ? wanted.slice(0, -1) : [];
+  if (prefix.length >= 2) {
+    const family = inventory.components.filter((component) => {
+      const cls = classWords(component);
+      return cls.length === prefix.length + 1 && prefix.every((word, index) => cls[index] === word);
+    });
+    if (family.length >= 2) return family;
+  }
+  return [];
+}
+
+export interface SuggestOptions {
+  /** Library-retired parts are not suggested. */
+  retired?(node: GraphNode): boolean;
+}
+
+/** Pairs only. Nothing here is written as mapped. Retired parts are skipped. */
+export function suggestPairs(index: GraphIndex, inventory: AngularInventory, targets: CodeTarget[], options: SuggestOptions = {}): SuggestedPair[] {
   const figmaVersion = index.graph.source.version;
   const maps: SuggestedPair[] = [];
   const byFigma = new Map<string, AngularComponentRecord>();
   for (const target of targets) {
+    if (options.retired?.(target.node)) continue;
     const wanted = words(target.name);
-    const hits = inventory.components.filter((component) => codeWords(component).some((set) => same(wanted, set)));
-    const ambiguous = hits.length > 1;
+    const hits = matchesFor(wanted, inventory);
+    const ambiguous = hits.length > 1 && !hits.every((hit) => {
+      const cls = classWords(hit);
+      return wanted.length >= 2 && cls.length === wanted.length && wanted.slice(0, -1).every((word, index) => cls[index] === word);
+    });
     for (const hit of hits) {
       const inputs = ioNames(hit.inputs);
       const fit = ambiguous ? "partial" : coverage(target.node, inputs);
@@ -111,12 +180,14 @@ export function suggestPairs(index: GraphIndex, inventory: AngularInventory, tar
         : fit === "full"
           ? `name matches ${hit.component}; Figma properties match its inputs`
           : `name matches ${hit.component}; some Figma properties have no input`;
-      maps.push(toPair(target, hit, inventory, "maps", fit === "full" && !ambiguous ? "suggested" : "partial", because, figmaVersion));
-      if (!ambiguous && !byFigma.has(target.node.id)) byFigma.set(target.node.id, hit);
+      const status: SuggestStatus = fit === "full" && !ambiguous ? "suggested" : "partial";
+      maps.push(toPair(target, hit, inventory, "maps", status, because, figmaVersion));
+      if (status === "suggested" && !byFigma.has(target.node.id)) byFigma.set(target.node.id, hit);
     }
   }
   const composed: SuggestedPair[] = [];
   for (const target of targets) {
+    if (options.retired?.(target.node)) continue;
     const own = byFigma.get(target.node.id)?.component;
     const seen = new Set<string>();
     for (const instance of index.getNestedInstances(target.node.id)) {

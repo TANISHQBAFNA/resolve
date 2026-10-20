@@ -35,6 +35,8 @@ export interface HandoffHooks {
   /** A remote stub's learned library component (same published key), else the node itself. */
   real?(node: GraphNode): GraphNode;
   retired(node: GraphNode): boolean;
+  /** Why a mapped code link is stale, when the library or package version changed. */
+  needsReview?(node: GraphNode): string | undefined;
   nameGuess(node: GraphNode): boolean;
   twin(node: GraphNode): Twin | undefined;
   codeMap: boolean;
@@ -222,7 +224,7 @@ export interface HandoffRefusal {
   screen: string;
   figmaNodeId?: string;
   /** `not-found` with a component: the copy's component is in no learned file; without: the frame was not found. */
-  kind: "retired" | "identity" | "not-found";
+  kind: "retired" | "identity" | "not-found" | "review";
   component?: string;
   message: string;
 }
@@ -496,6 +498,17 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
   for (const copy of nested) {
     const main = mainOf(copy);
     const name = main ? clean(hooks.cardName(main)) : clean(copy.name);
+    if (main && hooks.needsReview?.(main)) {
+      const reason = hooks.needsReview(main);
+      refused.push({
+        screen: screenName,
+        figmaNodeId: frame.figmaNodeId,
+        kind: "review",
+        component: name,
+        message: `${name} code link needs re-review: ${reason}. Stop and ask.`,
+      });
+      continue;
+    }
     if (main && hooks.retired(main)) {
       retiredRefusal(main, `is on this screen (copy ${where(fid(index, copy), copy.figmaNodeId)})`);
     } else if (!main && missingOf(copy)) {

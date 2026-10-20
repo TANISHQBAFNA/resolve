@@ -27,6 +27,8 @@ export interface AngularComponentRecord {
   /** Path inside the package. */
   file: string;
   from: "dts" | "source";
+  /** Text after `@deprecated`, when the class comment has that tag. */
+  deprecated?: string;
 }
 
 export interface AngularInventory {
@@ -111,18 +113,18 @@ function readFile(
   const visit = (node: ts.Node) => {
     if (ts.isClassDeclaration(node) && node.name) {
       const className = node.name.text;
-      const cmp = dts ? declarationOf(node, "ComponentDeclaration") : undefined;
+      const cmp = dts ? declarationOf(node, "ComponentDeclaration") ?? declarationOf(node, "DirectiveDeclaration") : undefined;
       const mod = dts ? declarationOf(node, "NgModuleDeclaration") : undefined;
       if (cmp) {
-        const row = fromDeclaration(className, cmp, file);
-        if (row && !byName.has(className)) byName.set(className, row);
+        const row = fromDeclaration(className, cmp, file, deprecatedOf(node, source));
+        if (row) keep(byName, row);
       }
       if (mod) {
         for (const declared of tupleNames(mod.typeArguments?.[1])) modules.set(declared, className);
       }
       if (!dts && !byName.has(className)) {
-        const row = fromDecorator(node, className, file);
-        if (row) byName.set(className, row);
+        const row = fromDecorator(node, className, file, deprecatedOf(node, source));
+        if (row) keep(byName, row);
         const declared = ngModuleDeclarations(node);
         if (declared) for (const name of declared) modules.set(name, className);
       }
@@ -132,8 +134,15 @@ function readFile(
   visit(source);
 }
 
-function declarationOf(node: ts.ClassDeclaration, kind: "ComponentDeclaration" | "NgModuleDeclaration"): ts.TypeReferenceNode | undefined {
-  const want = kind === "ComponentDeclaration" ? "ɵcmp" : "ɵmod";
+function keep(byName: Map<string, AngularComponentRecord>, row: AngularComponentRecord): void {
+  if (byName.has(row.component)) return;
+  const selector = row.selector.trim();
+  for (const have of byName.values()) if (have.selector.trim() === selector) return;
+  byName.set(row.component, row);
+}
+
+function declarationOf(node: ts.ClassDeclaration, kind: "ComponentDeclaration" | "DirectiveDeclaration" | "NgModuleDeclaration"): ts.TypeReferenceNode | undefined {
+  const want = kind === "ComponentDeclaration" ? "ɵcmp" : kind === "DirectiveDeclaration" ? "ɵdir" : "ɵmod";
   for (const member of node.members) {
     if (!ts.isPropertyDeclaration(member) || !member.name || !ts.isIdentifier(member.name) || member.name.text !== want) continue;
     const type = member.type;
@@ -149,7 +158,7 @@ function typeName(node: ts.EntityName): string {
   return node.right.text;
 }
 
-function fromDeclaration(className: string, type: ts.TypeReferenceNode, file: string): AngularComponentRecord | undefined {
+function fromDeclaration(className: string, type: ts.TypeReferenceNode, file: string, deprecated?: string): AngularComponentRecord | undefined {
   const args = type.typeArguments ?? [];
   const selector = stringFromType(args[1]);
   if (!selector) return undefined;
@@ -164,16 +173,48 @@ function fromDeclaration(className: string, type: ts.TypeReferenceNode, file: st
     outputs,
     file,
     from: "dts",
+    ...(deprecated ? { deprecated } : {}),
   };
 }
 
-function fromDecorator(node: ts.ClassDeclaration, className: string, file: string): AngularComponentRecord | undefined {
-  const decorator = decoratorCall(node, "Component");
+function deprecatedOf(node: ts.Node, source: ts.SourceFile): string | undefined {
+  if (ts.isClassDeclaration(node)) {
+    const tag = ts.getJSDocDeprecatedTag(node);
+    if (tag) {
+      const comment = typeof tag.comment === "string" ? tag.comment : "";
+      return comment.trim() || "deprecated";
+    }
+  }
+  const text = source.getFullText();
+  const ranges = ts.getLeadingCommentRanges(text, node.getStart(source)) ?? [];
+  for (const range of ranges) {
+    const comment = text.slice(range.pos, range.end);
+    const at = comment.toLowerCase().indexOf("@deprecated");
+    if (at < 0) continue;
+    const reason = comment
+      .slice(at)
+      .replace(/^@deprecated\s*/i, "")
+      .replace(/\*\/[\s\S]*$/, "")
+      .replace(/^\s*\*\s?/gm, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return reason || "deprecated";
+  }
+  return undefined;
+}
+
+function literalText(expr: ts.Expression | undefined): string | undefined {
+  if (!expr) return undefined;
+  if (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) return expr.text;
+  return undefined;
+}
+
+function fromDecorator(node: ts.ClassDeclaration, className: string, file: string, deprecated?: string): AngularComponentRecord | undefined {
+  const decorator = decoratorCall(node, "Component") ?? decoratorCall(node, "Directive");
   if (!decorator) return undefined;
   const arg = decorator.arguments[0];
   if (!arg || !ts.isObjectLiteralExpression(arg)) return undefined;
-  const selectorExpr = objectProp(arg, "selector");
-  const selector = selectorExpr && ts.isStringLiteral(selectorExpr) ? selectorExpr.text : undefined;
+  const selector = literalText(objectProp(arg, "selector"));
   if (!selector) return undefined;
   const standaloneExpr = objectProp(arg, "standalone");
   const standalone = standaloneExpr && standaloneExpr.kind === ts.SyntaxKind.TrueKeyword;
@@ -203,6 +244,7 @@ function fromDecorator(node: ts.ClassDeclaration, className: string, file: strin
     outputs,
     file,
     from: "source",
+    ...(deprecated ? { deprecated } : {}),
   };
 }
 
@@ -326,11 +368,19 @@ function tupleNames(node: ts.TypeNode | undefined): string[] {
   return names;
 }
 
+/** One ordered word list per comma-separated selector. Order is the order written. */
+export function selectorAlternatives(selector: string): string[][] {
+  return selector.split(",").map((part) => partWords(part.trim())).filter((words) => words.length > 0);
+}
+
 /** Words in a selector, without the HTML tag when an attribute or class is present. Used by tests and suggest. */
 export function selectorWords(selector: string): string[] {
+  return unique(selectorAlternatives(selector).flat().filter((word) => word !== "acme"));
+}
+
+function partWords(text: string): string[] {
   const words: string[] = [];
-  for (const part of selector.split(",")) {
-    const text = part.trim();
+  {
     let i = 0;
     const readName = () => {
       let name = "";
@@ -374,7 +424,7 @@ export function selectorWords(selector: string): string[] {
       } else i += 1;
     }
   }
-  return unique(words.filter((word) => word !== "acme"));
+  return words.filter((word) => word && word !== "acme" && word !== "component" && word !== "module");
 }
 
 export function splitWords(raw: string): string[] {

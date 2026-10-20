@@ -8,7 +8,7 @@ export const NO_CODE_MAP_HINT = "No code map. Add .resolve/code-map.json next to
 const ENTRY_KEYS = ["fileKey", "id", "name", "code", "status", "replacedBy", "relation", "figmaVersion", "packageVersion"];
 const LINK_STATUS = ["current", "mapped", "suggested", "partial", "unmapped", "retired"] as const;
 export type LinkStatus = (typeof LINK_STATUS)[number];
-const ROOT_KEYS = new Set(["entries", "figmaVersion", "packageVersion"]);
+const ROOT_KEYS = new Set(["entries", "figmaVersion", "packageVersion", "packages"]);
 const CODE_KEYS = ["import", "component", "framework", "selector", "module", "standalone", "inputs", "outputs"];
 const PLAIN = /^[A-Za-z_$][\w$]{0,59}$/;
 /** One part of an Angular selector: optional element, then `[attr]`, `[attr="value"]`, `.class`, and `:not(...)`. */
@@ -123,6 +123,8 @@ export interface CodeView {
   twin(node: GraphNode): Twin | undefined;
   /** Retired by the library or by the map. */
   retired(node: GraphNode): boolean;
+  /** Why a mapped link must be reviewed again, when the library or its package changed. */
+  needsReview(node: GraphNode): string | undefined;
   report: CodeMapReport;
 }
 
@@ -272,7 +274,7 @@ let warned = "";
 const warnedClash = new Set<string>();
 
 /** Missing, empty, BOM-only = no map, quietly. Not JSON = no map plus one stderr line. */
-function load(): { rows: Row[]; ignored: Item[]; path: string; angularIgnored: Item[]; figmaVersion?: string; packageVersion?: string } | undefined {
+function load(): { rows: Row[]; ignored: Item[]; path: string; angularIgnored: Item[]; figmaVersion?: string; packageVersion?: string; packages?: Record<string, string> } | undefined {
   const path = overlayFile("code-map.json");
   if (!path || !existsSync(path)) {
     warned = "";
@@ -298,6 +300,7 @@ function load(): { rows: Row[]; ignored: Item[]; path: string; angularIgnored: I
   const rootText = (key: string) => (typeof doc[key] === "string" && doc[key].trim() ? (doc[key] as string).trim() : undefined);
   const figmaVersion = rootText("figmaVersion");
   const packageVersion = rootText("packageVersion");
+  const packages = rootPackages(doc);
   const ignored: Item[] = Object.keys(doc)
     .filter((k) => !ROOT_KEYS.has(k))
     .map((k) => ({ reason: `unsupported field '${clean(k).slice(0, 30)}'${k === "namingRule" ? " (planned)" : ""}` }));
@@ -313,16 +316,27 @@ function load(): { rows: Row[]; ignored: Item[]; path: string; angularIgnored: I
       ignored.push({ entry: i + 1, reason: String(reason) });
     }
   });
-  return { rows, ignored, path, angularIgnored, ...(figmaVersion ? { figmaVersion } : {}), ...(packageVersion ? { packageVersion } : {}) };
+  return { rows, ignored, path, angularIgnored, ...(figmaVersion ? { figmaVersion } : {}), ...(packageVersion ? { packageVersion } : {}), ...(packages ? { packages } : {}) };
 }
 
-type Loaded = { rows: Row[]; ignored: Item[]; path: string; angularIgnored: Item[]; figmaVersion?: string; packageVersion?: string };
+function rootPackages(doc: Record<string, unknown>): Record<string, string> | undefined {
+  const raw = doc["packages"];
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === "string" && value.trim()) out[key] = value.trim();
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+type Loaded = { rows: Row[]; ignored: Item[]; path: string; angularIgnored: Item[]; figmaVersion?: string; packageVersion?: string; packages?: Record<string, string> };
 
 function isSide(row: Row): boolean {
   return row.status === "suggested" || row.status === "partial" || row.status === "unmapped" || row.relation === "composed-of";
 }
 
-function resolveRows(index: GraphIndex, { rows, ignored, path, angularIgnored, packageVersion }: Loaded, hooks: Hooks): CodeView {
+function resolveRows(index: GraphIndex, loaded: Loaded, hooks: Hooks): CodeView {
+  const { rows, ignored, path, angularIgnored, packageVersion, packages } = loaded;
   const fk = (n: GraphNode) => nodeFileKey(n, index.graph.fileKey) ?? "";
   const fid = (n: GraphNode) => n.figmaNodeId ?? n.id;
   const masters = index.graph.nodes.filter(
@@ -458,19 +472,28 @@ function resolveRows(index: GraphIndex, { rows, ignored, path, angularIgnored, p
   if (composed.length) report.composed = composed;
   const figmaNow = index.graph.source.version;
   const review: Item[] = [];
+  const reviewByNode = new Map<string, string>();
   for (const row of rows) {
+    const confirmed = !row.status || row.status === "current" || row.status === "mapped";
+    if (!confirmed || row.relation === "composed-of") continue;
     const bits: string[] = [];
+    const packageNow = packages?.[row.importPath] ?? (packages ? undefined : packageVersion);
     if (row.figmaVersion && figmaNow && row.figmaVersion !== figmaNow) bits.push(`Figma library version changed from ${row.figmaVersion} to ${figmaNow}`);
-    if (row.packageVersion && packageVersion && row.packageVersion !== packageVersion) bits.push(`package version changed from ${row.packageVersion} to ${packageVersion}`);
-    if (bits.length) review.push({ name: row.name, fileKey: row.fileKey, id: row.id, entry: row.n, reason: bits.join("; ") });
+    if (row.packageVersion && packageNow && row.packageVersion !== packageNow) bits.push(`package version changed from ${row.packageVersion} to ${packageNow}`);
+    if (!bits.length) continue;
+    const reason = bits.join("; ");
+    review.push({ name: row.name, fileKey: row.fileKey, id: row.id, entry: row.n, reason });
+    const node = locate(row);
+    if (node) reviewByNode.set(node.id, reason);
   }
   if (review.length) report.needsReview = review;
+  const needsReview = (node: GraphNode) => reviewByNode.get(node.id) ?? (node.componentSetId ? reviewByNode.get(node.componentSetId) : undefined);
   const said = `${path}\n${clash.size}`;
   if (clash.size && !warnedClash.has(said)) {
     warnedClash.add(said);
     process.stderr.write(`code-map.json: ${clash.size} component(s) have a retired and a current entry; using the current one\n`);
   }
-  return { twin, retired, report };
+  return { twin, retired, needsReview, report };
 }
 
 /** The components a code map can name (real sets and standalone components), in library order. */
@@ -590,8 +613,7 @@ export function formatCodeMapReport(report: CodeMapReport, retiredOnly = false, 
   const label = (i: Item) => {
     const name = clean(i.name ?? i.id ?? "");
     const where = [i.fileKey, i.id && i.name ? i.id : ""].filter(Boolean).join(" ");
-    const code = i.code ? (i.angular ? `${i.code}, ${angularText(i.angular)}` : i.code) : "";
-    const use = i.use === undefined ? "" : `-> ${useText(i.use && clean(i.use), i.guess)}${code ? ` (old code: ${code})` : ""}`;
+    const use = i.use === undefined ? "" : `-> ${useText(i.use && clean(i.use), i.guess)}`;
     return [i.entry ? `entry ${i.entry}` : "", name, where ? `[${clean(where)}]` : "", use, i.reason ? `- ${i.reason}` : ""]
       .filter(Boolean)
       .join(" ");

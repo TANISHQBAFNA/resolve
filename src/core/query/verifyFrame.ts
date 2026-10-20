@@ -9,7 +9,7 @@ import { type BindRulesFile, verifyBindRules } from "./bindRules";
 import { attachProperUse, checkProperUse } from "./properUse";
 import { briefNode, EXACT_COMPONENT_HINT, LAYER_NAME_GUESS } from "./cardCopy";
 import { fitCardAfterCost, NAME_FLOOR, shrinkNameFields, WARNING_OVERFLOW } from "./cardFit";
-import { codeText, useText } from "./codeMap";
+import { useText } from "./codeMap";
 import { framePropertyFindings } from "./componentProperties";
 import { type AgentCost, withCost } from "./cost";
 import { type ContentWarning, frameContentWarnings, instanceTextLayers, type TextChecked } from "./examples";
@@ -118,8 +118,7 @@ export function verifyFrame(index: GraphIndex, input: VerifyInput = {}) {
     if (!view.retired(node) || names.has(name)) return [];
     names.add(name);
     const use = replacementOf(index, node, view.twin);
-    const twin = view.twin(node);
-    return [`retired ${name} -> ${useText(use?.node.name, use?.guess)}${twin ? ` (old code: ${codeText(twin)})` : ""}`];
+    return [`retired ${name} -> ${useText(use?.node.name, use?.guess)}`];
   });
   return withUse(rows.length ? withRetiredRows(card, rows) : card);
 }

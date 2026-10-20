@@ -70,7 +70,7 @@ describe("Angular fields in the code map", () => {
     expect(report).not.toHaveProperty("angularIgnored");
     const text = formatCodeMapReport(report);
     expect(text).toContain("Angular: 4 components have a selector (incl. 1 retired): 2 standalone, 2 with a module, 3 list inputs or outputs.");
-    expect(text).toContain("Retired: Old Button [ACMEUI 30:50] -> use Button (old code: AcmeOldButtonComponent from '@acme/ui-angular-legacy', <acme-old-button>, AcmeLegacyModule)");
+    expect(text).toContain("Retired: Old Button [ACMEUI 30:50] -> use Button");
     expect(report.retired[0]?.angular).toMatchObject({ selector: "acme-old-button", module: "AcmeLegacyModule" });
   });
 
@@ -184,14 +184,15 @@ describe("Angular fields in the code map", () => {
     );
   });
 
-  it("a retired part shows its own Angular code and the replacement's", () => {
+  it("a retired part hides its own code and names the replacement", () => {
     put(angularMap);
     const card = found(ingredientCard(acme(), "Old Button"));
-    expect(card.angular).toMatchObject({ selector: "acme-old-button", module: "AcmeLegacyModule" });
-    expect(card.component).toMatchObject({ use: "Button", useCode: "AcmeButtonComponent from '@acme/ui-angular'", useAngular: { selector: "acme-button" } });
+    expect(card.code).toBeNull();
+    expect(card.angular).toBeUndefined();
+    expect(card.component).toMatchObject({ status: "retired", use: "Button", useCode: "AcmeButtonComponent from '@acme/ui-angular'", useAngular: { selector: "acme-button" } });
     const text = formatIngredientCard(card);
-    expect(text).toContain("Code: AcmeOldButtonComponent from '@acme/ui-angular-legacy' (retired; use Button, code: AcmeButtonComponent from '@acme/ui-angular', <acme-button>, AcmeButtonModule)");
-    expect(text).toContain("Angular: <acme-old-button>, AcmeLegacyModule");
+    expect(text).toContain("Retired; use Button, code: AcmeButtonComponent from '@acme/ui-angular', <acme-button>, AcmeButtonModule");
+    expect(text).not.toContain("AcmeOldButtonComponent");
   });
 
   it("resolve, recommend and verify carry the Angular fields next to the code line", () => {
@@ -203,7 +204,7 @@ describe("Angular fields in the code map", () => {
     expect(rec).toMatchObject({ code: "AcmeButtonComponent from '@acme/ui-angular'", angular: "<acme-button>, AcmeButtonModule" });
     expect(rec.cost.chars).toBeLessThanOrEqual(600);
     const verify = verifyFrame(acme(), { components: ["Old Button"] }) as { retired?: string[] };
-    expect(verify.retired).toEqual(["retired Old Button -> use Button (old code: AcmeOldButtonComponent from '@acme/ui-angular-legacy', <acme-old-button>, AcmeLegacyModule)"]);
+    expect(verify.retired).toEqual(["retired Old Button -> use Button"]);
   });
 
   it("CSV: the template lists every component, filled where the map knows it; the Acme CSV imports to the Acme JSON", () => {

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { scanAngularPackage } from "@/adapters/angular";
+import { isRetired } from "@/core/rules/retired";
 import { formatCodeMapReport } from "@/core/query/codeMap";
 import {
   codeMapFromCsv,
@@ -14,6 +15,7 @@ import {
 import { mergeSuggestions, suggestionEntries, suggestPairs } from "@/core/query/codeMapSuggest";
 import { overlayFile } from "@/core/query/overlayFile";
 import { codeMapCard, libraryCodeTargets } from "@/core/query/replacements";
+import type { GraphIndex } from "@/core/query/GraphIndex";
 import { flag, printJson, requireGraph } from "./cliArgs";
 import { isRecord } from "./isRecord";
 import { storeRoot } from "./store";
@@ -91,7 +93,7 @@ function scan(args: string[]): void {
 
 export function preparedSuggestions(packageOrPath: string, index: ReturnType<typeof requireGraph>["index"]) {
   const inventory = scanAngularPackage(resolve(packageOrPath));
-  const pairs = suggestPairs(index, inventory, libraryCodeTargets(index));
+  const pairs = suggestPairs(index, inventory, libraryCodeTargets(index), { retired: (node) => isRetired(index, node) });
   return { inventory, pairs };
 }
 
@@ -100,9 +102,11 @@ export function writeSuggestions(packageOrPath: string, index: ReturnType<typeof
   const path = mapFile();
   const previous = existsSync(path) ? readCodeMapDocument(path) : { entries: [] as unknown[] };
   const entries = mergeSuggestions(previous.entries, suggestionEntries(pairs));
+  const packages = { ...(previous.packages ?? {}) };
+  packages[inventory.packageName] = inventory.packageVersion;
   const versions = {
     ...(index.graph.source.version ? { figmaVersion: index.graph.source.version } : previous.figmaVersion ? { figmaVersion: previous.figmaVersion } : {}),
-    packageVersion: inventory.packageVersion,
+    packages,
   };
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, codeMapJson(entries, versions));
@@ -138,7 +142,27 @@ export function importReview(csvText: string, replace = false) {
   const path = mapFile();
   const previous = existsSync(path) ? readCodeMapDocument(path) : { entries: [] as unknown[] };
   const merged = mergeCodeMap(previous.entries, parsed, replace);
-  return { ok: true as const, path, previous, merged };
+  return { ok: true as const, path, previous, merged, parsed };
+}
+
+/** Reject a mapped row for a retired part, and an id that is not in the learned file. */
+export function rowProblems(entries: Record<string, unknown>[], index: GraphIndex): string[] {
+  const masters = index.graph.nodes.filter(
+    (node) => (node.type === "COMPONENT_SET" || node.type === "MAIN_COMPONENT") && !node.componentSetId && !node.isRemote,
+  );
+  const fileKeys = new Set<string>([index.graph.fileKey, ...masters.flatMap((node) => (node.fileKey ? [node.fileKey] : []))]);
+  const errors: string[] = [];
+  for (const entry of entries) {
+    const fileKey = typeof entry["fileKey"] === "string" ? entry["fileKey"] : "";
+    const id = typeof entry["id"] === "string" ? entry["id"] : "";
+    const name = typeof entry["name"] === "string" ? entry["name"] : "";
+    const status = typeof entry["status"] === "string" ? entry["status"] : "";
+    const known = masters.filter((node) => !fileKey || node.fileKey === fileKey || index.graph.fileKey === fileKey);
+    const node = id ? known.find((item) => item.figmaNodeId === id || item.id === id) : known.find((item) => item.name === name);
+    if (fileKey && id && fileKeys.has(fileKey) && !node) errors.push(`unknown id ${fileKey} ${id}${name ? ` (${name})` : ""}`);
+    if ((status === "mapped" || status === "current") && node && isRetired(index, node)) errors.push(`${name || id} is retired and cannot be mapped`);
+  }
+  return errors;
 }
 
 function review(args: string[]): void {
@@ -159,8 +183,14 @@ function review(args: string[]): void {
       return;
     }
     const index = requireGraph(args).index;
+    const problems = rowProblems(result.parsed.entries, index);
+    if (problems.length) {
+      process.stdout.write(`Nothing written. Fix these rows:\n${problems.slice(0, 20).map((error) => `  ${error}`).join("\n")}\n`);
+      process.exitCode = 1;
+      return;
+    }
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, codeMapJson(result.merged.entries, result.previous));
+    writeFileSync(path, codeMapJson(result.merged.entries, { ...result.previous, packages: result.previous.packages }));
     const kept = result.merged.untouched.length
       ? `Kept ${result.merged.untouched.length} existing entr${result.merged.untouched.length === 1 ? "y" : "ies"} the CSV has no row for:\n${list(result.merged.untouched)}\n`
       : "";
