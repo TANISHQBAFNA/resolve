@@ -38,7 +38,8 @@ const FILLER = new Set([
   "use", "using", "recent", "some", "when", "into", "from", "ahead", "without", "asking", "go",
 ]);
 
-const JUST_BUILD = /\b(?:just build|just do it|don'?t ask|do not ask|skip questions|no questions|go ahead and build|build (?:it |this |them )?without asking)\b/gi;
+// No /g: .test() on a /g regex keeps lastIndex between calls.
+const JUST_BUILD = /\b(?:just build|just do it|don'?t ask|do not ask|no need to ask|skip (?:the )?questions|no questions|go ahead and build|without (?:asking|questions))\b/i;
 
 interface Role {
   id: string;
@@ -127,6 +128,8 @@ export interface BriefInput {
 interface Catalog {
   shape: Choice[];
   states: Choice[];
+  /** Platform-named parts (Desktop Nav, Compact List). id is the platform word. */
+  platform: Choice[];
 }
 
 /** Same word, or the same word with a plural or -ing/-ed ending (recommend's stems). */
@@ -202,9 +205,17 @@ function roleOptions(masters: GraphNode[], roles: Role[]): Choice[] {
   return found;
 }
 
+function platformWord(name: string): PlatformId | undefined {
+  return PLATFORM_IDS.find((id) => nameTokens(name).includes(id));
+}
+
 function catalogFor(index: GraphIndex): Catalog {
   const masters = liveMasters(index);
-  return { shape: roleOptions(masters, SHAPE), states: roleOptions(masters, STATES) };
+  const platform = masters.flatMap((master) => {
+    const id = platformComponentName(master.name) ? platformWord(master.name) : undefined;
+    return id ? [{ id, label: master.name, contrast: id, masterId: master.id }] : [];
+  });
+  return { shape: roleOptions(masters, SHAPE), states: roleOptions(masters, STATES), platform };
 }
 
 function findChoice(options: Choice[], raw: string): Choice | undefined {
@@ -298,7 +309,7 @@ function assertKnown(answers: BriefAnswers | undefined, catalog: Catalog): Map<B
     resolved.set("shape", [choice]);
   }
   if (answers.platform) {
-    const id = answers.platform.toLowerCase();
+    const id = findChoice(catalog.platform, answers.platform)?.id ?? answers.platform.trim().toLowerCase();
     if (!PLATFORM_IDS.includes(id as PlatformId)) {
       throw new BriefAnswerError(`Unknown option "${answers.platform}" for platform and density. Options: ${PLATFORM_IDS.join(", ")}.`);
     }
@@ -341,12 +352,22 @@ function steerShape(request: string, shapes: Choice[], chosen: Choice): string {
   return rest;
 }
 
-/** Component names from shape and state answers. Platform words are not component names. */
+/** The request already asks for the part a platform word picks (nav, list), so the word can steer it. */
+function asksPlatformPart(request: string, catalog: Catalog): boolean {
+  return catalog.platform.some((choice) => {
+    const rest = nameTokens(choice.label).filter((token) => !PLATFORM_WORDS.has(token));
+    return rest.length > 0 && rest.every((token) => containsPhrase(request, token));
+  });
+}
+
+/** Component names from shape and state answers. A platform answer adds its word only when the request asks for a platform part. */
 export function applyBriefIntent(request: string, answers: BriefAnswers | undefined, index: GraphIndex): string {
   if (!answers) return request;
   const catalog = catalogFor(index);
   const resolved = assertKnown(answers, catalog);
   const labels = componentChoices(resolved).map((choice) => choice.label);
+  const platform = resolved.get("platform")?.[0]?.id;
+  if (platform && asksPlatformPart(request, catalog) && !containsPhrase(request, platform)) labels.push(platform);
   if (!labels.length) return request;
   const shape = resolved.get("shape")?.[0];
   const base = shape ? steerShape(request, catalog.shape, shape) : request;
@@ -446,8 +467,9 @@ function decisionMatch(
       .sort((a, b) => b.name.length - a.name.length);
     const master = named[0];
     if (!master) continue;
-    const own = new Set(nameTokens(master.name));
-    if (tokens.some((token) => containsPhrase(text, token) && !own.has(token))) {
+    const own = nameTokens(master.name);
+    // "tables" is the part's own word too, not a word that ties the request to this decision.
+    if (tokens.some((token) => containsPhrase(text, token) && !own.some((word) => sameWord(word, token)))) {
       return { summary: row.proposal.summary, master };
     }
   }
@@ -474,11 +496,12 @@ export function briefScreen(input: BriefInput): BriefResult {
   const catalog = catalogFor(input.index);
   const resolved = assertKnown(input.answers, catalog);
   const justBuild = JUST_BUILD.test(input.request);
-  JUST_BUILD.lastIndex = 0;
-  const stripped = input.request.replace(JUST_BUILD, " ").replace(/\s+/g, " ").trim();
+  const stripped = input.request.replace(new RegExp(JUST_BUILD.source, "gi"), " ").replace(/\s+/g, " ").trim();
   const masters = liveMasters(input.index);
-  const cache = new Map<string, { rows: BriefCandidate[]; weak: boolean }>();
-  const rank = (intent: string): { rows: BriefCandidate[]; weak: boolean } => {
+  /** platformRows is empty unless recommend's top pick is itself a platform part. */
+  type Ranked = { rows: BriefCandidate[]; platformRows: BriefCandidate[]; weak: boolean };
+  const cache = new Map<string, Ranked>();
+  const rank = (intent: string): Ranked => {
     const key = intent.trim().toLowerCase();
     const hit = cache.get(key);
     if (hit) return hit;
@@ -490,11 +513,15 @@ export function briefScreen(input: BriefInput): BriefResult {
       bindRules: input.bindRules,
       placeholders: input.placeholders,
     }) as { match?: string; candidates?: Array<{ id?: string; name?: string; fileKey?: string; figmaNodeId?: string }> };
-    const rows = (card.candidates ?? []).slice(0, 3).flatMap((row) => {
-      if (!row.id || !row.name || platformComponentName(row.name)) return [];
+    const all = (card.candidates ?? []).slice(0, 3).flatMap((row) => {
+      if (!row.id || !row.name) return [];
       return [candidateOf({ id: row.id, name: row.name, fileKey: row.fileKey, figmaNodeId: row.figmaNodeId })];
     });
-    const value = { rows, weak: card.match === "weak match" };
+    const value = {
+      rows: all.filter((row) => !platformComponentName(row.name)),
+      platformRows: all[0] && platformComponentName(all[0].name) ? all.filter((row) => platformComponentName(row.name)) : [],
+      weak: card.match === "weak match",
+    };
     cache.set(key, value);
     return value;
   };
@@ -508,10 +535,12 @@ export function briefScreen(input: BriefInput): BriefResult {
   const lead = rank(stripped);
   // Recommend's own ranking decides fit. A weak lead fits only when the request names one of its words.
   const asks = contentTokens(stripped);
-  const leadRows = lead.weak
-    ? lead.rows.filter((row) => nameTokens(row.name).some((token) => asks.some((word) => sameWord(word, token))))
-    : lead.rows;
-  const leadFit = leadRows.length > 0;
+  const trusted = (rows: BriefCandidate[]) =>
+    lead.weak ? rows.filter((row) => nameTokens(row.name).some((token) => asks.some((word) => sameWord(word, token)))) : rows;
+  const leadRows = trusted(lead.rows);
+  // Platform parts (Desktop Nav) only when other words ask for them: "on desktop" alone picks nothing.
+  const platformRows = asks.length ? trusted(lead.platformRows) : [];
+  const leadFit = leadRows.length > 0 || platformRows.length > 0;
   const answerFit = componentChoices(resolved).length > 0;
   const fits = Boolean(recipe || decision || shapes.length || states.length || named.length || leadFit || answerFit);
 
@@ -533,10 +562,9 @@ export function briefScreen(input: BriefInput): BriefResult {
   const answeredShape = fromAnswer("shape") || shapes.length === 1;
   const answeredStates = fromAnswer("states") || states.length > 0;
   const shapeFork = !answeredShape && shapes.length >= 2 ? shapes : [];
-  const stateFork = answeredStates ? [] : catalog.states;
 
   const forks: Array<{ topic: BriefTopic; options: Choice[]; multiple?: true }> = [];
-  const consider = (topic: BriefTopic, options: Choice[], multiple?: true) => {
+  const consider = (topic: BriefTopic, options: Choice[]) => {
     if (options.length < 2 || !fits) return;
     const distinct: Choice[] = [];
     for (const option of options) {
@@ -546,10 +574,32 @@ export function briefScreen(input: BriefInput): BriefResult {
       distinct.push(option);
     }
     if (distinct.length < 2) return;
-    forks.push({ topic, options: distinct, ...(multiple ? { multiple: true as const } : {}) });
+    forks.push({ topic, options: distinct });
   };
   consider("shape", shapeFork);
-  consider("states", stateFork, true);
+
+  // Platform: recommend's own top parts differ only by platform word, so the answer picks one.
+  const chosenPlatform = resolved.get("platform")?.[0]?.id ?? platform;
+  let platformPick: BriefCandidate | undefined;
+  if (chosenPlatform && platformRows.length) {
+    const top = rank(`${stripped} ${chosenPlatform}`).platformRows[0];
+    if (top && platformWord(top.name) === chosenPlatform) platformPick = top;
+  } else if (fits && platformRows.length >= 2) {
+    const options: Choice[] = [];
+    for (const row of platformRows) {
+      const id = platformWord(row.name);
+      if (!id || options.some((option) => option.id === id)) continue;
+      if (rank(`${stripped} ${id}`).platformRows[0]?.name !== row.name) continue;
+      options.push({ id, label: row.name, contrast: id, masterId: row.id });
+    }
+    if (options.length >= 2) forks.push({ topic: "platform", options });
+  }
+  // States: the pick is a real part that is not a platform part (a nav has no empty or loading state),
+  // and the request names no state. Each answer adds its own part (Empty Message, Error Alert).
+  const statePart = !platformRows.length && (leadRows.length > 0 || shapes.length > 0 || named.length > 0 || answerFit);
+  if (fits && statePart && !answeredStates && catalog.states.length >= 2) {
+    forks.push({ topic: "states", options: catalog.states, multiple: true });
+  }
 
   const realCandidates = (): BriefCandidate[] => {
     const rows: BriefCandidate[] = [];
@@ -572,7 +622,9 @@ export function briefScreen(input: BriefInput): BriefResult {
         const master = masters.find((item) => item.id === choice.masterId);
         if (master) push(candidateOf(master));
       }
+      if (platformPick) push(platformPick, true);
       if (!rows.length) for (const row of leadRows) push(row);
+      if (!rows.length) for (const row of platformRows) push(row, true);
     }
     return rows;
   };

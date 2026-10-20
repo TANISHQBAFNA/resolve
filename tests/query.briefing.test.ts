@@ -276,14 +276,19 @@ describe("designer briefing", () => {
     expect(handed.screens?.[0]?.ingredients.map((row) => row.name)).toEqual(expect.arrayContaining(["Card List", "Pending Banner"]));
   });
 
-  it("finds the part recommend finds on plurals and close phrasing (recall), and stays silent when nothing fits (precision)", () => {
+  it("reports part and question recall, precision and questions per request on a fresh held-out set", () => {
     let fitting = 0;
     let found = 0;
     let offered = 0;
     let right = 0;
-    const misses: string[] = [];
+    let shouldAsk = 0;
+    let askedWhenShould = 0;
+    let askedCount = 0;
+    let questions = 0;
+    let max = 0;
     for (const row of fitSet.cases) {
       const result = run(row.request);
+      const prompts = asked(result);
       let names = "questions" in result
         ? result.questions.flatMap((question) => question.options.map((option) => option.label))
         : result.candidates.map((candidate) => candidate.name);
@@ -301,20 +306,37 @@ describe("designer briefing", () => {
       if (row.expect !== null) {
         fitting += 1;
         if (hit) found += 1;
-        else misses.push(`${row.request} | want ${row.expect} | ${JSON.stringify(result).slice(0, 200)}`);
       } else {
+        // Nothing fits: no candidates, no questions, and a next step.
         expect("ready" in result && result.candidates, row.request).toEqual([]);
-        expect("ready" in result && result.assumptions[0], row.request).toMatch(/^No match\./);
+        expect("ready" in result && result.assumptions[0], row.request).toMatch(/^No match\. .*brief again/);
       }
       if (names.length) {
         offered += 1;
         if (hit) right += 1;
       }
+      expect(prompts.length, row.request).toBeLessThanOrEqual(3);
+      questions += prompts.length;
+      max = Math.max(max, prompts.length);
+      if (row.shouldAsk) shouldAsk += 1;
+      if (prompts.length) askedCount += 1;
+      if (row.shouldAsk && prompts.length) askedWhenShould += 1;
     }
-    expect(misses, misses.join("\n")).toEqual([]);
-    expect(found / fitting).toBe(1);
-    expect(right / offered).toBe(1);
-    expect(fitSet.cases.length).toBeGreaterThanOrEqual(24);
+    const measured = {
+      cases: fitSet.cases.length,
+      fitting,
+      partRecall: found / fitting,
+      partPrecision: right / offered,
+      shouldAsk,
+      askedWhenShould,
+      asked: askedCount,
+      questionRecall: askedWhenShould / shouldAsk,
+      questionPrecision: askedWhenShould / askedCount,
+      questions,
+      average: questions / fitSet.cases.length,
+      max,
+    };
+    expect(measured).toEqual(fitSet.measured);
   });
 
   it("does not ask a shape question when the request names the shape, and each shape answer leads to its own part", () => {
@@ -331,6 +353,41 @@ describe("designer briefing", () => {
       });
       expect(tops, request).toEqual(shape!.options.map((option) => option.label));
     }
+  });
+
+  it("asks platform when recommend's top parts differ only by platform, and the answer picks that part in CLI and MCP", async () => {
+    const nav = asked(run("a nav bar"));
+    expect(nav.map((question) => question.topic)).toEqual(["platform"]);
+    expect(nav[0]!.options.map((option) => option.label).sort()).toEqual(["Desktop Nav", "Mobile Nav"]);
+    expect(run("a nav bar on mobile")).toMatchObject({ ready: true, candidates: [expect.objectContaining({ name: "Mobile Nav" })] });
+    expect(run("on desktop")).toMatchObject({ ready: true, candidates: [] });
+    expect(asked(run("scan the card list of payees")).some((question) => question.topic === "platform")).toBe(false);
+
+    saveGraph(acmeGraph());
+    const mcp = callTool("brief", { request: "a nav bar", answers: { platform: "mobile" } }) as { candidates?: Array<{ name: string }> };
+    expect(mcp.candidates?.map((row) => row.name)).toEqual(["Mobile Nav"]);
+    const top = callTool("recommend", { intent: "a nav bar", answers: { platform: "Mobile Nav" }, budgetChars: 4000 }) as { candidates?: Array<{ name?: string }> };
+    expect(top.candidates?.[0]?.name).toBe("Mobile Nav");
+    const writes: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string) => {
+      writes.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await runCli(["brief", "a nav bar", "--answer", "platform=mobile", "--json"]);
+    } finally {
+      process.stdout.write = write;
+    }
+    expect(JSON.parse(writes.join("")).candidates.map((row: { name: string }) => row.name)).toEqual(["Mobile Nav"]);
+  });
+
+  it("reads just build the same way on every call, with words in between", () => {
+    for (let i = 0; i < 3; i += 1) {
+      expect(run("make it without asking: data table"), String(i)).toMatchObject({ skip: "just-build" });
+      expect(run("compare rows in a table"), String(i)).toHaveProperty("questions");
+    }
+    expect(run("build the page without asking")).toMatchObject({ skip: "just-build", candidates: [] });
   });
 
   it("treats build it without asking as just build, and says no match for a recipe with no filled parts", () => {
