@@ -140,13 +140,13 @@ function heuristicHits(wanted: string[], inventory: AngularInventory): AngularCo
 
 /**
  * Whole words only. One exact class or selector alias can be suggested.
- * Two exact matches of the same strength are left unmatched. A character prefix is never a match.
+ * Two exact matches are both partial, never suggested. A character prefix is never a match.
  */
 function matchesFor(wanted: string[], inventory: AngularInventory): { component: AngularComponentRecord; kind: MatchKind }[] {
   if (!wanted.length) return [];
   const exact = inventory.components.filter((component) => same(classWords(component), wanted));
   if (exact.length === 1) return [{ component: exact[0]!, kind: "token" }];
-  if (exact.length > 1) return [];
+  if (exact.length > 1) return exact.map((component) => ({ component, kind: "partial" }));
   const alias = inventory.components.filter((component) => aliasWords(component, wanted));
   if (alias.length === 1) return [{ component: alias[0]!, kind: "token" }];
   if (alias.length > 1) return [];

@@ -236,6 +236,36 @@ export declare class HarborLiteComponent { static ɵcmp: i0.ɵɵComponentDeclara
     expect(scanned.components.find((row) => row.component === "HarborLiteComponent")?.selectorConflict).toEqual(["HarborComponent"]);
   });
 
+  it("prints a selector conflict in the plain scan listing", async () => {
+    const probe = mkdtempSync(join(tmpdir(), "acme-lite-text-"));
+    writeFileSync(join(probe, "package.json"), JSON.stringify({ name: "@acme/lite", version: "0.1.0" }));
+    writeFileSync(
+      join(probe, "index.d.ts"),
+      `export declare class HarborComponent { static ɵcmp: i0.ɵɵComponentDeclaration<HarborComponent, "acme-harbor", never, {}, {}, never, never, true, never>; }
+export declare class HarborLiteComponent { static ɵcmp: i0.ɵɵComponentDeclaration<HarborLiteComponent, "acme-harbor", never, {}, {}, never, never, true, never>; }
+`,
+    );
+    const capture = async (argv: string[]) => {
+      const out: string[] = [];
+      const write = process.stdout.write.bind(process.stdout);
+      process.stdout.write = ((chunk: string | Uint8Array) => (out.push(String(chunk)), true)) as typeof process.stdout.write;
+      try {
+        await runCli(argv);
+      } finally {
+        process.stdout.write = write;
+      }
+      return out.join("");
+    };
+    const text = await capture(["code-map", "scan", probe]);
+    expect(text).toContain("HarborComponent  acme-harbor  standalone  (dts)  selector conflict: HarborLiteComponent");
+    expect(text).toContain("HarborLiteComponent  acme-harbor  standalone  (dts)  selector conflict: HarborComponent");
+    expect(text).not.toContain('"selectorConflict"');
+    const json = JSON.parse(await capture(["code-map", "scan", probe, "--json"])) as {
+      components: { component: string; selectorConflict?: string[] }[];
+    };
+    expect(json.components.find((row) => row.component === "HarborComponent")?.selectorConflict).toEqual(["HarborLiteComponent"]);
+  });
+
   it("leaves the default MCP tool list at 7", () => {
     expect(listToolDefinitions(false)).toHaveLength(7);
     expect(listToolDefinitions(true).map((tool) => tool.name)).toEqual(expect.arrayContaining(["code_map_scan", "code_map_suggest", "code_map_review"]));

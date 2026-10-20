@@ -71,12 +71,14 @@ describe("code map name matching", () => {
     expect(pairs.some((pair) => pair.status === "suggested")).toBe(false);
   });
 
-  it("emits neither when two names are the same strength", () => {
+  it("returns both partial candidates when an Acme class and a decoy share a name", () => {
     const pairs = pairsFor("Nimbus", [
       { component: "NimbusComponent", selector: "acme-nimbus" },
       { component: "AcmeNimbusComponent", selector: "acme-nimbus-mark" },
     ]);
-    expect(pairs).toEqual([]);
+    expect(pairs.map((pair) => pair.status)).toEqual(["partial", "partial"]);
+    expect(pairs.map((pair) => pair.component).sort()).toEqual(["AcmeNimbusComponent", "NimbusComponent"]);
+    expect(pairs.some((pair) => pair.status === "suggested")).toBe(false);
   });
 
   it("stems a plural to partial, never suggested", () => {

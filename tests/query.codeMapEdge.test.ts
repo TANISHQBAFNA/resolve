@@ -99,11 +99,14 @@ describe("code map edge fixture", () => {
         "Radio → AcmeRadioButtonComponent",
       ].sort(),
     );
-    expect(partial.extra).toEqual([]);
-    expect(partial).toMatchObject({ proposed: 4, labelled: 49, hits: 4, precision: 1, recall: 4 / 49 });
-    expect(score.extra).toEqual([]);
-    expect(score.missed.map(label).sort()).toEqual(["Avatar → AcmeAvatarComponent", "Pagination → AcmePaginatorComponent"].sort());
-    expect(score).toMatchObject({ proposed: 47, labelled: 49, hits: 47, precision: 1, recall: 47 / 49 });
+    const avatar = pairs.filter((pair) => pair.name === "Avatar");
+    expect(avatar.map((pair) => pair.component).sort()).toEqual(["AcmeAvatarComponent", "AvatarComponent"]);
+    expect(avatar.every((pair) => pair.status === "partial")).toBe(true);
+    expect(partial.extra).toEqual([{ figma: "Avatar", component: "AvatarComponent", relation: "maps" }]);
+    expect(partial).toMatchObject({ proposed: 6, labelled: 49, hits: 5, precision: 5 / 6, recall: 5 / 49 });
+    expect(score.extra).toEqual([{ figma: "Avatar", component: "AvatarComponent", relation: "maps" }]);
+    expect(score.missed.map(label).sort()).toEqual(["Pagination → AcmePaginatorComponent"]);
+    expect(score).toMatchObject({ proposed: 49, labelled: 49, hits: 48, precision: 48 / 49, recall: 48 / 49 });
     expect(pairs.some((pair) => pair.component === "AcmeBannerComponent" && pair.codeDeprecated)).toBe(true);
   });
 

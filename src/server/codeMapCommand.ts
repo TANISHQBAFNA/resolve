@@ -86,7 +86,8 @@ function scan(args: string[]): void {
   const lines = inventory.components.map((component) => {
     const inputs = component.inputs.map((input) => (input.signal ? `${input.name} (signal)` : input.name)).join(", ");
     const where = component.module ?? (component.standalone ? "standalone" : "no module");
-    return `${component.component}  ${component.selector}  ${where}${inputs ? `  inputs: ${inputs}` : ""}  (${component.from})`;
+    const conflict = component.selectorConflict?.length ? `  selector conflict: ${component.selectorConflict.join(", ")}` : "";
+    return `${component.component}  ${component.selector}  ${where}${inputs ? `  inputs: ${inputs}` : ""}  (${component.from})${conflict}`;
   });
   process.stdout.write(`${inventory.packageName}@${inventory.packageVersion}: ${inventory.components.length} components\n${lines.join("\n")}\n`);
 }
