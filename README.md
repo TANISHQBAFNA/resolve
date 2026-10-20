@@ -11,7 +11,7 @@
 <p align="center">
 	<a href="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml"><img src="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 	<a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
-	<a href="package.json"><img src="https://img.shields.io/badge/version-0.1.0-7c3aed.svg" alt="Version 0.1.0"></a>
+	<a href="package.json"><img src="https://img.shields.io/badge/version-0.1.0-0e7490.svg" alt="Version 0.1.0"></a>
 	<a href="package.json"><img src="https://img.shields.io/badge/node-%E2%89%A522.12-339933.svg" alt="Node 22.12 or newer"></a>
 	<a href=".claude-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Claude%20Code-d97757.svg" alt="Claude Code plugin"></a>
 	<a href=".cursor-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Cursor-555555.svg" alt="Cursor plugin"></a>
@@ -173,6 +173,7 @@ Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.gra
 
 Newest first. The full list is in the [reference](docs/REFERENCE.md#version-history).
 
+- **Oct 20, 2026.** The README pictures, logo and badge changed from purple to teal. PASS stays green.
 - **Oct 19, 2026 — [PR #60](https://github.com/TANISHQBAFNA/resolve/pull/60).** This visual README. The full manual moved to `docs/REFERENCE.md`.
 - **Oct 13, 2026 — [PR #58](https://github.com/TANISHQBAFNA/resolve/pull/58).** `resolve learn` reads JSON files. A preferred library wins between parts with the same name. Slot properties are kept.
 - **Oct 13, 2026 — [PR #48](https://github.com/TANISHQBAFNA/resolve/pull/48).** Re-learning a page replaces it. Slots and hidden layers are handled.
