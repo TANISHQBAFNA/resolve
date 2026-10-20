@@ -87,14 +87,14 @@ npm run resolve -- code-map scan node_modules/@angular/material
 npm run resolve -- handoff "Sign in"
 ```
 
-`/find` in chat is the same ask as `recommend`. The Sign in check passes. Copy `fixtures/material/code-map.json` to `.resolve/code-map.json` before the handoff if you want the reviewed links. The filled button comes back as:
+`/find` in chat is the same ask as `recommend`. The Sign in check passes. Copy `fixtures/material/code-map.json` to `.resolve/code-map.json` before the handoff if you want the reviewed links. Copy `fixtures/material/recipes.json` too, so the Sign in username and password slots bind to the two text fields. The filled button comes back as:
 
 ```text
 import { MatButtonModule } from '@angular/material/button';
-<button mat-flat-button [matButton]="…">Sign in</button>
+<button matButton="filled">Sign in</button>
 ```
 
-`button[mat-flat-button]` and `MatButtonModule` are on `MatButton` in the published package. The scan file keeps every selector in the package's own order. The reviewed map puts `button[mat-flat-button]` first so the filled button is the suggested template.
+`MatButtonModule` comes from `@angular/material/button`. The Type variant sets `matButton` to `filled`, `tonal`, `outlined`, `text`, or `elevated`. A text field is `<mat-form-field appearance="fill">` around `<mat-label>` and `<input matInput>`. `MatFormFieldModule` comes from `@angular/material/form-field`.
 
 `Dialog`, `Snackbar`, and `Bottom sheet` are services in Angular Material, so the scan does not see them. The reviewed map adds those three from the public classes. `Search bar`, `Navigation bar`, `Navigation rail`, and `Side sheet` are in the Material 3 spec and have no Angular Material class, so they stay unmapped.
 

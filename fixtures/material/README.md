@@ -12,6 +12,6 @@ What was used instead:
 - Surface-container roles that this utilities version does not return are left out, rather than invented.
 - Code comes from the published `@angular/material` 22.2.3 `.d.ts` files. `@angular/cdk` 22.2.3 is pinned as the peer and is not part of the component scan.
 
-`Tabs` suggests `MatTab` (one tab). The reviewed link is `MatTabGroup`, which is the tabs bar. `Dialog`, `Snackbar`, and `Bottom sheet` are Angular services with no component metadata, so the scan cannot see them. The reviewed map adds those three from the public classes. `Search bar`, `Navigation bar`, `Navigation rail`, and `Side sheet` are in the Material 3 spec and have no matching Angular Material class, so they stay unmapped.
+`Tabs` maps to `MatTabGroup` (the tab bar). `Dialog`, `Snackbar`, and `Bottom sheet` are Angular services with no component metadata, so the scan cannot see them. The reviewed map adds those three from the public classes. `Search bar`, `Navigation bar`, `Navigation rail`, and `Side sheet` are in the Material 3 spec and have no matching Angular Material class, so they stay unmapped. `Legacy button` is deprecated and must not be offered as a live part.
 
-The reviewed Button link keeps every selector the package publishes and puts `button[mat-flat-button]` first, so a filled button handoff suggests `<button mat-flat-button>`. The scan file keeps the package's own order.
+Buttons use one syntax, `matButton`, with the Type variant (`filled`, `tonal`, `outlined`, `text`, `elevated`). A text field's filled or outlined type is `appearance` on `<mat-form-field>`, wrapping `<input matInput>` and `<mat-label>`. `M3SPEC` is not a Figma file. Handoff labels it as an example and does not print a figma.com link.

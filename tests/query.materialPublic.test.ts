@@ -9,7 +9,8 @@ import { buildGraph } from "@/core/transform/buildGraph";
 import { checkEntry } from "@/core/query/codeMap";
 import { codeMapJson } from "@/core/query/codeMapCsv";
 import { indexGraph } from "@/core/query/GraphIndex";
-import { handoffSheet, recommendMasters } from "@/core/query";
+import { formatHandoffScreen, handoffSheet, recommendMasters } from "@/core/query";
+import { mergeRecipes, parseRecipeFile, starterRecipes } from "@/core/query/recipes";
 import { loadPhraseCases, scorePhrases } from "@/core/query/phraseScore";
 import { libraryCodeTargets } from "@/core/query/replacements";
 import {
@@ -55,11 +56,67 @@ function ioList(items: { name: string; alias?: string }[] | undefined): string[]
   return unique.length && unique.length <= 40 ? unique : undefined;
 }
 
-/** Filled button first, so the handoff template is `<button mat-flat-button>`. The scan keeps package order. */
-function buttonSelector(selector: string): string {
-  const parts = selector.split(",").map((part) => part.trim());
-  const head = ["button[mat-flat-button]", "a[mat-flat-button]"].filter((part) => parts.includes(part));
-  return [...head, ...parts.filter((part) => !head.includes(part))].join(", ");
+/** One Material 3 button syntax: `matButton`, not the old `mat-flat-button` list mixed in. */
+function reviewedSelector(component: string, raw: string): string {
+  if (component === "MatButton") return "button[matButton], a[matButton]";
+  const parts = raw.replace(/\s+/g, " ").split(",").map((part) => part.trim()).filter(Boolean);
+  for (let count = Math.min(parts.length, 8); count >= 1; count -= 1) {
+    const selector = parts.slice(0, count).join(", ");
+    if (selector.length <= 200) return selector;
+  }
+  return parts[0] ?? raw;
+}
+
+function exportedSymbols(packageRoot: string): Map<string, string[]> {
+  const pkg = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")) as {
+    name: string;
+    exports: Record<string, { types?: string }>;
+  };
+  const found = new Map<string, string[]>();
+  for (const [key, value] of Object.entries(pkg.exports)) {
+    if (!key.startsWith("./") || key.includes("*") || key.includes("testing")) continue;
+    const types = value?.types;
+    if (!types?.endsWith(".d.ts")) continue;
+    const text = readFileSync(join(packageRoot, types), "utf8");
+    const spec = `${pkg.name}/${key.slice(2)}`;
+    for (const match of text.matchAll(/export\s*\{([^}]+)\}/g)) {
+      for (const part of match[1]!.split(",")) {
+        const symbol = part.trim().split(/\s+as\s+/).pop()?.trim() ?? "";
+        if (!/^[A-Za-z_$][\w$]*$/.test(symbol)) continue;
+        const list = found.get(symbol) ?? [];
+        if (!list.includes(spec)) list.push(spec);
+        found.set(symbol, list);
+      }
+    }
+  }
+  return found;
+}
+
+function pickSpec(symbol: string, found: Map<string, string[]>): string | undefined {
+  const specs = found.get(symbol) ?? [];
+  if (specs.length <= 1) return specs[0];
+  const words = symbol
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word !== "mat" && word !== "module");
+  const score = (spec: string) => {
+    const segment = spec.split("/").pop()?.replace(/-/g, " ") ?? "";
+    return words.filter((word) => segment.includes(word)).length;
+  };
+  return [...specs].sort((a, b) => score(b) - score(a) || a.length - b.length)[0];
+}
+
+function specExports(packageRoot: string, spec: string, symbol: string): boolean {
+  const pkg = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")) as {
+    name: string;
+    exports: Record<string, { types?: string }>;
+  };
+  const sub = spec.startsWith(`${pkg.name}/`) ? `./${spec.slice(pkg.name.length + 1)}` : ".";
+  const types = pkg.exports[sub]?.types;
+  if (!types) return false;
+  const text = readFileSync(join(packageRoot, types), "utf8");
+  return new RegExp(`export\\s*\\{[^}]*\\b${symbol}\\b`).test(text);
 }
 
 describe("Angular Material public reference", () => {
@@ -93,9 +150,10 @@ describe("Angular Material public reference", () => {
     expect(inventory.packageName).toBe("@angular/material");
     expect(inventory.packageVersion).toBe("22.2.3");
     const button = inventory.components.find((row) => row.component === "MatButton");
-    expect(button?.importPath).toBe("@angular/material/button");
-    expect(button?.module).toBe("MatButtonModule");
-    expect(button?.selector).toContain("button[mat-flat-button]");
+    expect(button?.selector).toContain("button[matButton]");
+    expect(button?.selector).toContain("mat-flat-button");
+    const packageRoot = join(repo, "node_modules", "@angular", "material");
+    const symbols = exportedSymbols(packageRoot);
     const index = indexGraph(materialGraph());
     const targets = libraryCodeTargets(index);
     const pairs = suggestPairs(index, inventory, targets, { retired: (node) => isRetired(index, node) });
@@ -122,13 +180,19 @@ describe("Angular Material public reference", () => {
         expect(source).toContain(`declare class ${pair.component}`);
         body["code"] = { import: `import { ${pair.component} } from '${service}'`, component: pair.component };
       } else {
-        const selector = pair.component === "MatButton" ? buttonSelector(code.selector) : code.selector;
+        const moduleName = `${code.component}Module`;
+        const moduleSpec = pickSpec(moduleName, symbols);
+        const classSpec = pickSpec(code.component, symbols);
+        const spec = moduleSpec ?? classSpec;
+        expect(spec, pair.component).toBeTruthy();
+        const imported = moduleSpec ? moduleName : code.component;
+        expect(specExports(packageRoot, spec!, imported), `${imported} from ${spec}`).toBe(true);
         const angular: Record<string, unknown> = {
           framework: "angular",
-          import: `import { ${code.module ?? code.component} } from '${code.importPath}'`,
+          import: `import { ${imported} } from '${spec}'`,
           component: code.component,
-          selector,
-          ...(code.module ? { module: code.module } : code.standalone ? { standalone: true } : {}),
+          selector: reviewedSelector(code.component, code.selector),
+          ...(moduleSpec ? { module: moduleName } : { standalone: true }),
         };
         const inputs = ioList(code.inputs);
         const outputs = ioList(code.outputs);
@@ -140,13 +204,26 @@ describe("Angular Material public reference", () => {
       return body;
     });
     expect(wrongMappedLinks(entries, key.pairs)).toEqual([]);
-    expect(score.extra.map((pair) => `${pair.figma} → ${pair.component}`)).toEqual(["Tooltip → TooltipComponent"]);
+    const tooltip = entries.find((entry) => entry["name"] === "Tooltip");
+    expect((tooltip?.["code"] as { component: string }).component).toBe("MatTooltip");
+    const formField = entries.find((entry) => entry["name"] === "Form field");
+    expect((formField?.["code"] as { import: string }).import).toBe("import { MatFormFieldModule } from '@angular/material/form-field'");
+    expect(score.extra).toEqual([]);
+    expect(score).toMatchObject({ hits: 32, proposed: 32, labelled: 40 });
+    expect(score.precision).toBe(1);
+    expect(score.recall).toBeCloseTo(32 / 40);
     expect(score.missed.map((pair) => `${pair.figma} → ${pair.component}`).sort()).toEqual(
-      ["Bottom sheet → MatBottomSheet", "Dialog → MatDialog", "Extended FAB → MatFabButton", "Snackbar → MatSnackBar", "Tabs → MatTabGroup", "Text field → MatInput"].sort(),
+      [
+        "Bottom sheet → MatBottomSheet",
+        "Date picker → MatDatepicker",
+        "Dialog → MatDialog",
+        "Extended FAB → MatFabButton",
+        "Snackbar → MatSnackBar",
+        "Tabs → MatTabGroup",
+        "Text field → MatInput",
+        "Time picker → MatTimepicker",
+      ].sort(),
     );
-    expect(score).toMatchObject({ hits: 34, proposed: 35, labelled: 40 });
-    expect(score.precision).toBeCloseTo(34 / 35);
-    expect(score.recall).toBeCloseTo(34 / 40);
 
     const home = join(tmpdir(), "resolve-material-map");
     mkdirSync(home, { recursive: true });
@@ -155,14 +232,40 @@ describe("Angular Material public reference", () => {
     const json = codeMapJson(entries, { figmaVersion: "public-spec-2026-10-20", packages: { "@angular/material": "22.2.3" } });
     writeFileSync(join(home, "code-map.json"), json);
     saveGraph(materialGraph());
-    const sheet = handoffSheet(indexGraph(materialGraph()), ["Sign in"]);
+    const recipes = mergeRecipes(starterRecipes(), parseRecipeFile(JSON.parse(readFileSync(join(fix, "recipes.json"), "utf8"))));
+    const sheet = handoffSheet(indexGraph(materialGraph()), ["Sign in"], { recipes });
     expect(sheet.ok, sheet.ok ? "" : sheet.hint).toBe(true);
     if (!sheet.ok) return;
+    const text = formatHandoffScreen(sheet.screens[0]!, false);
+    expect(text).not.toContain("figma.com/design/M3SPEC");
+    expect(text).toContain("example, not a real Figma file");
+    const username = sheet.screens[0]?.recipe?.slots.find((slot) => slot.role === "username");
+    const password = sheet.screens[0]?.recipe?.slots.find((slot) => slot.role === "password");
+    expect(username?.state).toBe("placed");
+    expect(password?.state).toBe("placed");
+    expect(username?.component?.name).toBe("Text field");
+    expect(password?.component?.name).toBe("Text field");
     const buttonRow = sheet.screens[0]?.components.find((row) => row.name === "Button");
     expect(buttonRow?.angular?.module).toBe("MatButtonModule");
     expect(buttonRow?.angular?.importPath).toBe("@angular/material/button");
-    expect(buttonRow?.angular?.selector).toContain("button[mat-flat-button]");
-    expect(buttonRow?.template).toContain("<button mat-flat-button");
+    expect(buttonRow?.template).toBe("<button matButton=\"filled\"></button>");
+    expect(buttonRow?.template).not.toContain("mat-flat-button");
+    const field = sheet.screens[0]?.components.find((row) => row.name === "Text field");
+    expect(field?.template).toBe('<mat-form-field appearance="fill"><mat-label>…</mat-label><input matInput></mat-form-field>');
+    expect(field?.template).not.toContain('type="filled"');
+    const sample = handoffSheet(indexGraph(materialGraph()), ["Field sample"], { recipes: starterRecipes() });
+    expect(sample.ok).toBe(true);
+    if (!sample.ok) return;
+    const outlined = sample.screens[0]?.components.find((row) => row.name === "Text field");
+    const tonal = sample.screens[0]?.components.find((row) => row.name === "Button");
+    const form = sample.screens[0]?.components.find((row) => row.name === "Form field");
+    expect(outlined?.template).toContain('appearance="outline"');
+    expect(tonal?.template).toBe("<button matButton=\"tonal\"></button>");
+    expect(form?.angular?.importPath).toBe("@angular/material/form-field");
+    expect(form?.angular?.module).toBe("MatFormFieldModule");
+    const legacy = index.getNodesByType("MAIN_COMPONENT").find((node) => node.name === "Legacy button");
+    expect(legacy && isRetired(index, legacy)).toBe(true);
+    expect(recommendMasters(index, "primary sign in button").candidates.some((row) => row.name === "Legacy button")).toBe(false);
 
     if (process.env["MATERIAL_WRITE"] === "1") {
       writeFileSync(join(fix, "scan.json"), `${JSON.stringify(inventory, null, 2)}\n`);
@@ -176,7 +279,7 @@ describe("Angular Material public reference", () => {
       expect(savedScan.packageVersion).toBe("22.2.3");
       expect(savedScan.components.map((row) => row.component)).toEqual(inventory.components.map((row) => row.component));
       const savedButton = savedScan.components.find((row) => row.component === "MatButton");
-      expect(savedButton).toMatchObject({ selector: button?.selector, importPath: "@angular/material/button", module: "MatButtonModule" });
+      expect(savedButton?.selector).toBe(button?.selector);
       const savedSuggestions = JSON.parse(readFileSync(join(fix, "suggestions.json"), "utf8")) as { pairs: { name: string; component: string; relation: string }[] };
       expect(savedSuggestions.pairs.map((pair) => `${pair.name}|${pair.component}|${pair.relation}`)).toEqual(
         pairs.map((pair) => `${pair.name}|${pair.component}|${pair.relation}`),
@@ -210,7 +313,24 @@ describe("Angular Material public reference", () => {
     expect(report.totals.correctEmpty).toBeGreaterThanOrEqual(baseline.emptyCorrect);
     expect(report.totals.emptyCases).toBeGreaterThanOrEqual(baseline.emptyCases);
     expect(report.totals).toMatchObject({ top1: 51, top3: 51, matchCases: 51, correctEmpty: 8, emptyCases: 8, invented: 0 });
-    for (const phrase of ["primary sign in button", "data table with sortable columns"]) {
+  });
+
+  it("scores a held-out Material set on unseen wording", () => {
+    const home = join(tmpdir(), "resolve-material-heldout");
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, "synonyms.json"), readFileSync(join(fix, "synonyms.json")));
+    process.env["RESOLVE_HOME"] = home;
+    clearCache();
+    const index = indexGraph(materialGraph());
+    const cases = loadPhraseCases([join(repo, "scoreboard", "material-heldout")]);
+    const report = scorePhrases(index, cases);
+    const detail = report.misses.map((miss) => `${miss.id} ${miss.kind} ${miss.detail}`).join("\n");
+    expect(report.totals.invented, detail).toBe(0);
+    expect(report.skipped, detail).toEqual([]);
+    expect(report.totals.correctEmpty, detail).toBe(report.totals.emptyCases);
+    expect(report.totals.top1, detail).toBe(report.totals.matchCases);
+    expect(report.totals.top3, detail).toBe(report.totals.matchCases);
+    for (const phrase of ["primary sign in button", "data table"]) {
       const card = recommendMasters(index, phrase);
       for (const row of card.candidates) if ("id" in row && row.id) expect(index.getNode(row.id)).toBeTruthy();
     }

@@ -22,12 +22,20 @@
       "reason": "Pagination controls are the paginator."
     },
     {
-      "terms": ["datepicker", "date picker"],
+      "terms": ["snackbar", "toast", "snack"],
+      "reason": "A toast or a snack is the snackbar."
+    },
+    {
+      "terms": ["accordion", "expansion", "panel"],
+      "reason": "An accordion is the expansion panel."
+    },
+    {
+      "terms": ["datepicker", "date"],
       "reason": "A datepicker is the date picker."
     },
     {
-      "terms": ["snack bar", "snackbar"],
-      "reason": "A snack bar is the snackbar."
+      "terms": ["dropdown", "select"],
+      "reason": "A dropdown of options is the select."
     }
   ]
 }

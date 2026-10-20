@@ -9,7 +9,7 @@
     "type": "DOCUMENT",
     "children": [
       {
-        "id": "1:24",
+        "id": "1:26",
         "name": "Actions",
         "type": "CANVAS",
         "children": [
@@ -495,6 +495,37 @@
           },
           {
             "id": "1:23",
+            "name": "Legacy button",
+            "type": "COMPONENT",
+            "description": "deprecated. Replaced by Button.",
+            "documentationLinks": [
+              {
+                "uri": "https://m3.material.io/components/buttons/overview"
+              }
+            ],
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 200,
+              "height": 48
+            },
+            "boundVariables": {
+              "fills": [
+                {
+                  "type": "VARIABLE_ALIAS",
+                  "id": "VariableID:color:primary"
+                }
+              ]
+            },
+            "componentPropertyDefinitions": {
+              "Label": {
+                "type": "TEXT",
+                "defaultValue": "Old"
+              }
+            }
+          },
+          {
+            "id": "1:25",
             "name": "Button toggle",
             "type": "COMPONENT",
             "description": "Segmented button. Single or multi select.",
@@ -531,12 +562,12 @@
         ]
       },
       {
-        "id": "1:35",
+        "id": "1:37",
         "name": "Communication",
         "type": "CANVAS",
         "children": [
           {
-            "id": "1:26",
+            "id": "1:28",
             "name": "Badge",
             "type": "COMPONENT",
             "description": "Small status mark on another part.",
@@ -567,7 +598,7 @@
             }
           },
           {
-            "id": "1:28",
+            "id": "1:30",
             "name": "Progress bar",
             "type": "COMPONENT",
             "description": "Linear progress indicator.",
@@ -598,7 +629,7 @@
             }
           },
           {
-            "id": "1:30",
+            "id": "1:32",
             "name": "Progress spinner",
             "type": "COMPONENT",
             "description": "Circular progress indicator.",
@@ -629,7 +660,7 @@
             }
           },
           {
-            "id": "1:32",
+            "id": "1:34",
             "name": "Snackbar",
             "type": "COMPONENT",
             "description": "Brief message at the bottom of the screen.",
@@ -663,7 +694,7 @@
             }
           },
           {
-            "id": "1:34",
+            "id": "1:36",
             "name": "Tooltip",
             "type": "COMPONENT",
             "description": "Label for an icon-only control.",
@@ -696,12 +727,12 @@
         ]
       },
       {
-        "id": "1:55",
+        "id": "1:57",
         "name": "Containment",
         "type": "CANVAS",
         "children": [
           {
-            "id": "1:37",
+            "id": "1:39",
             "name": "Bottom sheet",
             "type": "COMPONENT",
             "description": "Surface that slides up from the bottom.",
@@ -734,7 +765,7 @@
             }
           },
           {
-            "id": "1:38",
+            "id": "1:40",
             "name": "Card",
             "type": "COMPONENT_SET",
             "description": "Elevated, filled, and outlined cards.",
@@ -771,7 +802,7 @@
             },
             "children": [
               {
-                "id": "1:39",
+                "id": "1:41",
                 "name": "Type=Elevated",
                 "type": "COMPONENT",
                 "description": "Elevated, filled, and outlined cards.",
@@ -786,7 +817,7 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:38",
+                "componentSetId": "1:40",
                 "boundVariables": {
                   "fills": [
                     {
@@ -797,7 +828,7 @@
                 }
               },
               {
-                "id": "1:40",
+                "id": "1:42",
                 "name": "Type=Filled",
                 "type": "COMPONENT",
                 "description": "Elevated, filled, and outlined cards.",
@@ -812,10 +843,10 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:38"
+                "componentSetId": "1:40"
               },
               {
-                "id": "1:41",
+                "id": "1:43",
                 "name": "Type=Outlined",
                 "type": "COMPONENT",
                 "description": "Elevated, filled, and outlined cards.",
@@ -830,12 +861,12 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:38"
+                "componentSetId": "1:40"
               }
             ]
           },
           {
-            "id": "1:42",
+            "id": "1:44",
             "name": "Dialog",
             "type": "COMPONENT_SET",
             "description": "Basic dialog and full-screen dialog.",
@@ -872,7 +903,7 @@
             },
             "children": [
               {
-                "id": "1:43",
+                "id": "1:45",
                 "name": "Type=Basic",
                 "type": "COMPONENT",
                 "description": "Basic dialog and full-screen dialog.",
@@ -887,7 +918,7 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:42",
+                "componentSetId": "1:44",
                 "boundVariables": {
                   "fills": [
                     {
@@ -898,7 +929,7 @@
                 }
               },
               {
-                "id": "1:44",
+                "id": "1:46",
                 "name": "Type=Full-screen",
                 "type": "COMPONENT",
                 "description": "Basic dialog and full-screen dialog.",
@@ -913,12 +944,12 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:42"
+                "componentSetId": "1:44"
               }
             ]
           },
           {
-            "id": "1:46",
+            "id": "1:48",
             "name": "Divider",
             "type": "COMPONENT",
             "description": "Hairline between items.",
@@ -943,7 +974,7 @@
             }
           },
           {
-            "id": "1:48",
+            "id": "1:50",
             "name": "List",
             "type": "COMPONENT",
             "description": "Vertical list of rows.",
@@ -973,7 +1004,7 @@
             }
           },
           {
-            "id": "1:49",
+            "id": "1:51",
             "name": "List item",
             "type": "COMPONENT_SET",
             "description": "One, two, or three line row.",
@@ -1011,7 +1042,7 @@
             },
             "children": [
               {
-                "id": "1:50",
+                "id": "1:52",
                 "name": "Lines=One",
                 "type": "COMPONENT",
                 "description": "One, two, or three line row.",
@@ -1026,7 +1057,7 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:49",
+                "componentSetId": "1:51",
                 "boundVariables": {
                   "fills": [
                     {
@@ -1037,7 +1068,7 @@
                 }
               },
               {
-                "id": "1:51",
+                "id": "1:53",
                 "name": "Lines=Two",
                 "type": "COMPONENT",
                 "description": "One, two, or three line row.",
@@ -1052,10 +1083,10 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:49"
+                "componentSetId": "1:51"
               },
               {
-                "id": "1:52",
+                "id": "1:54",
                 "name": "Lines=Three",
                 "type": "COMPONENT",
                 "description": "One, two, or three line row.",
@@ -1070,12 +1101,12 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:49"
+                "componentSetId": "1:51"
               }
             ]
           },
           {
-            "id": "1:54",
+            "id": "1:56",
             "name": "Side sheet",
             "type": "COMPONENT",
             "description": "Sheet docked to the side. Material 3 has no separate Angular class for this.",
@@ -1107,12 +1138,12 @@
         ]
       },
       {
-        "id": "1:69",
+        "id": "1:71",
         "name": "Navigation",
         "type": "CANVAS",
         "children": [
           {
-            "id": "1:57",
+            "id": "1:59",
             "name": "Navigation bar",
             "type": "COMPONENT",
             "description": "Bottom navigation. Material 3. No matching Angular Material class.",
@@ -1142,7 +1173,7 @@
             }
           },
           {
-            "id": "1:59",
+            "id": "1:61",
             "name": "Navigation rail",
             "type": "COMPONENT",
             "description": "Side rail for a few destinations. No matching Angular Material class.",
@@ -1172,7 +1203,7 @@
             }
           },
           {
-            "id": "1:61",
+            "id": "1:63",
             "name": "Sidenav",
             "type": "COMPONENT",
             "description": "Navigation drawer.",
@@ -1202,7 +1233,7 @@
             }
           },
           {
-            "id": "1:63",
+            "id": "1:65",
             "name": "Tabs",
             "type": "COMPONENT",
             "description": "Tabs.",
@@ -1232,7 +1263,7 @@
             }
           },
           {
-            "id": "1:64",
+            "id": "1:66",
             "name": "Toolbar",
             "type": "COMPONENT_SET",
             "description": "Top app bar.",
@@ -1268,7 +1299,7 @@
             },
             "children": [
               {
-                "id": "1:65",
+                "id": "1:67",
                 "name": "Type=Center aligned",
                 "type": "COMPONENT",
                 "description": "Top app bar.",
@@ -1283,7 +1314,7 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:64",
+                "componentSetId": "1:66",
                 "boundVariables": {
                   "fills": [
                     {
@@ -1294,7 +1325,7 @@
                 }
               },
               {
-                "id": "1:66",
+                "id": "1:68",
                 "name": "Type=Small",
                 "type": "COMPONENT",
                 "description": "Top app bar.",
@@ -1309,10 +1340,10 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:64"
+                "componentSetId": "1:66"
               },
               {
-                "id": "1:67",
+                "id": "1:69",
                 "name": "Type=Medium",
                 "type": "COMPONENT",
                 "description": "Top app bar.",
@@ -1327,10 +1358,10 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:64"
+                "componentSetId": "1:66"
               },
               {
-                "id": "1:68",
+                "id": "1:70",
                 "name": "Type=Large",
                 "type": "COMPONENT",
                 "description": "Top app bar.",
@@ -1345,19 +1376,19 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:64"
+                "componentSetId": "1:66"
               }
             ]
           }
         ]
       },
       {
-        "id": "1:91",
+        "id": "1:93",
         "name": "Selection",
         "type": "CANVAS",
         "children": [
           {
-            "id": "1:71",
+            "id": "1:73",
             "name": "Checkbox",
             "type": "COMPONENT",
             "description": "Select one or more.",
@@ -1388,7 +1419,7 @@
             }
           },
           {
-            "id": "1:72",
+            "id": "1:74",
             "name": "Chip",
             "type": "COMPONENT_SET",
             "description": "Assist, filter, input, and suggestion chips.",
@@ -1428,7 +1459,7 @@
             },
             "children": [
               {
-                "id": "1:73",
+                "id": "1:75",
                 "name": "Type=Assist",
                 "type": "COMPONENT",
                 "description": "Assist, filter, input, and suggestion chips.",
@@ -1443,7 +1474,7 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:72",
+                "componentSetId": "1:74",
                 "boundVariables": {
                   "fills": [
                     {
@@ -1454,7 +1485,7 @@
                 }
               },
               {
-                "id": "1:74",
+                "id": "1:76",
                 "name": "Type=Filter",
                 "type": "COMPONENT",
                 "description": "Assist, filter, input, and suggestion chips.",
@@ -1469,10 +1500,10 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:72"
+                "componentSetId": "1:74"
               },
               {
-                "id": "1:75",
+                "id": "1:77",
                 "name": "Type=Input",
                 "type": "COMPONENT",
                 "description": "Assist, filter, input, and suggestion chips.",
@@ -1487,10 +1518,10 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:72"
+                "componentSetId": "1:74"
               },
               {
-                "id": "1:76",
+                "id": "1:78",
                 "name": "Type=Suggestion",
                 "type": "COMPONENT",
                 "description": "Assist, filter, input, and suggestion chips.",
@@ -1505,12 +1536,12 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:72"
+                "componentSetId": "1:74"
               }
             ]
           },
           {
-            "id": "1:78",
+            "id": "1:80",
             "name": "Date picker",
             "type": "COMPONENT",
             "description": "Pick a date.",
@@ -1540,7 +1571,7 @@
             }
           },
           {
-            "id": "1:80",
+            "id": "1:82",
             "name": "Menu",
             "type": "COMPONENT",
             "description": "List of choices anchored to a control.",
@@ -1570,7 +1601,7 @@
             }
           },
           {
-            "id": "1:82",
+            "id": "1:84",
             "name": "Radio button",
             "type": "COMPONENT",
             "description": "Pick one of a set.",
@@ -1601,7 +1632,7 @@
             }
           },
           {
-            "id": "1:84",
+            "id": "1:86",
             "name": "Slider",
             "type": "COMPONENT",
             "description": "Pick a value along a track.",
@@ -1632,7 +1663,7 @@
             }
           },
           {
-            "id": "1:86",
+            "id": "1:88",
             "name": "Slide toggle",
             "type": "COMPONENT",
             "description": "Switch. On or off.",
@@ -1663,7 +1694,7 @@
             }
           },
           {
-            "id": "1:88",
+            "id": "1:90",
             "name": "Time picker",
             "type": "COMPONENT",
             "description": "Pick a time.",
@@ -1693,7 +1724,7 @@
             }
           },
           {
-            "id": "1:90",
+            "id": "1:92",
             "name": "Select",
             "type": "COMPONENT",
             "description": "Closed menu of options. Angular Material select. Material 3 uses a menu for this job.",
@@ -1729,12 +1760,12 @@
         ]
       },
       {
-        "id": "1:99",
+        "id": "1:101",
         "name": "Text inputs",
         "type": "CANVAS",
         "children": [
           {
-            "id": "1:92",
+            "id": "1:94",
             "name": "Text field",
             "type": "COMPONENT_SET",
             "description": "Filled and outlined text fields.",
@@ -1779,7 +1810,7 @@
             },
             "children": [
               {
-                "id": "1:93",
+                "id": "1:95",
                 "name": "Type=Filled",
                 "type": "COMPONENT",
                 "description": "Filled and outlined text fields.",
@@ -1794,7 +1825,7 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:92",
+                "componentSetId": "1:94",
                 "boundVariables": {
                   "fills": [
                     {
@@ -1805,7 +1836,7 @@
                 }
               },
               {
-                "id": "1:94",
+                "id": "1:96",
                 "name": "Type=Outlined",
                 "type": "COMPONENT",
                 "description": "Filled and outlined text fields.",
@@ -1820,12 +1851,12 @@
                   "width": 200,
                   "height": 48
                 },
-                "componentSetId": "1:92"
+                "componentSetId": "1:94"
               }
             ]
           },
           {
-            "id": "1:96",
+            "id": "1:98",
             "name": "Form field",
             "type": "COMPONENT",
             "description": "Label, hint, and error around an input.",
@@ -1859,7 +1890,7 @@
             }
           },
           {
-            "id": "1:98",
+            "id": "1:100",
             "name": "Search bar",
             "type": "COMPONENT",
             "description": "Search. Material 3 search. Angular Material has no search-bar class.",
@@ -1898,12 +1929,12 @@
         ]
       },
       {
-        "id": "1:118",
+        "id": "1:120",
         "name": "Collections",
         "type": "CANVAS",
         "children": [
           {
-            "id": "1:101",
+            "id": "1:103",
             "name": "Table",
             "type": "COMPONENT",
             "description": "Data table.",
@@ -1936,7 +1967,7 @@
             }
           },
           {
-            "id": "1:103",
+            "id": "1:105",
             "name": "Paginator",
             "type": "COMPONENT",
             "description": "Pages of a table.",
@@ -1967,7 +1998,7 @@
             }
           },
           {
-            "id": "1:105",
+            "id": "1:107",
             "name": "Stepper",
             "type": "COMPONENT",
             "description": "Steps in a task.",
@@ -1997,7 +2028,7 @@
             }
           },
           {
-            "id": "1:107",
+            "id": "1:109",
             "name": "Expansion panel",
             "type": "COMPONENT",
             "description": "A row that opens to show more.",
@@ -2031,7 +2062,7 @@
             }
           },
           {
-            "id": "1:109",
+            "id": "1:111",
             "name": "Autocomplete",
             "type": "COMPONENT",
             "description": "Text field with suggested options.",
@@ -2061,7 +2092,7 @@
             }
           },
           {
-            "id": "1:111",
+            "id": "1:113",
             "name": "Icon",
             "type": "COMPONENT",
             "description": "Icon glyph.",
@@ -2092,7 +2123,7 @@
             }
           },
           {
-            "id": "1:113",
+            "id": "1:115",
             "name": "Sort",
             "type": "COMPONENT",
             "description": "Sortable column header.",
@@ -2123,7 +2154,7 @@
             }
           },
           {
-            "id": "1:115",
+            "id": "1:117",
             "name": "Grid list",
             "type": "COMPONENT",
             "description": "Tiles in a grid.",
@@ -2153,7 +2184,7 @@
             }
           },
           {
-            "id": "1:117",
+            "id": "1:119",
             "name": "Tree",
             "type": "COMPONENT",
             "description": "Nested rows.",
@@ -2185,12 +2216,12 @@
         ]
       },
       {
-        "id": "1:120",
+        "id": "1:122",
         "name": "Screens",
         "type": "CANVAS",
         "children": [
           {
-            "id": "1:119",
+            "id": "1:121",
             "name": "Sign in",
             "type": "FRAME",
             "absoluteBoundingBox": {
@@ -2201,34 +2232,10 @@
             },
             "children": [
               {
-                "id": "1:121",
+                "id": "1:123",
                 "name": "Toolbar",
                 "type": "INSTANCE",
-                "componentId": "1:65",
-                "absoluteBoundingBox": {
-                  "x": 16,
-                  "y": 16,
-                  "width": 358,
-                  "height": 48
-                }
-              },
-              {
-                "id": "1:122",
-                "name": "Text field",
-                "type": "INSTANCE",
-                "componentId": "1:93",
-                "absoluteBoundingBox": {
-                  "x": 16,
-                  "y": 16,
-                  "width": 358,
-                  "height": 48
-                }
-              },
-              {
-                "id": "1:123",
-                "name": "Text field",
-                "type": "INSTANCE",
-                "componentId": "1:93",
+                "componentId": "1:67",
                 "absoluteBoundingBox": {
                   "x": 16,
                   "y": 16,
@@ -2238,9 +2245,9 @@
               },
               {
                 "id": "1:124",
-                "name": "Checkbox",
+                "name": "Text field",
                 "type": "INSTANCE",
-                "componentId": "1:71",
+                "componentId": "1:95",
                 "absoluteBoundingBox": {
                   "x": 16,
                   "y": 16,
@@ -2250,9 +2257,82 @@
               },
               {
                 "id": "1:125",
+                "name": "Text field",
+                "type": "INSTANCE",
+                "componentId": "1:95",
+                "absoluteBoundingBox": {
+                  "x": 16,
+                  "y": 16,
+                  "width": 358,
+                  "height": 48
+                }
+              },
+              {
+                "id": "1:126",
+                "name": "Checkbox",
+                "type": "INSTANCE",
+                "componentId": "1:73",
+                "absoluteBoundingBox": {
+                  "x": 16,
+                  "y": 16,
+                  "width": 358,
+                  "height": 48
+                }
+              },
+              {
+                "id": "1:127",
                 "name": "Button",
                 "type": "INSTANCE",
                 "componentId": "1:2",
+                "absoluteBoundingBox": {
+                  "x": 16,
+                  "y": 16,
+                  "width": 358,
+                  "height": 48
+                }
+              }
+            ]
+          },
+          {
+            "id": "1:128",
+            "name": "Field sample",
+            "type": "FRAME",
+            "absoluteBoundingBox": {
+              "x": 420,
+              "y": 0,
+              "width": 390,
+              "height": 844
+            },
+            "children": [
+              {
+                "id": "1:129",
+                "name": "Form field",
+                "type": "INSTANCE",
+                "componentId": "1:98",
+                "absoluteBoundingBox": {
+                  "x": 16,
+                  "y": 16,
+                  "width": 358,
+                  "height": 48
+                }
+              },
+              {
+                "id": "1:130",
+                "name": "Text field",
+                "type": "INSTANCE",
+                "componentId": "1:96",
+                "absoluteBoundingBox": {
+                  "x": 16,
+                  "y": 16,
+                  "width": 358,
+                  "height": 48
+                }
+              },
+              {
+                "id": "1:131",
+                "name": "Button",
+                "type": "INSTANCE",
+                "componentId": "1:6",
                 "absoluteBoundingBox": {
                   "x": 16,
                   "y": 16,
@@ -2363,274 +2443,279 @@
       "componentSetId": "1:18"
     },
     "1:23": {
+      "key": "m3spec-legacy-button",
+      "name": "Legacy button",
+      "description": "deprecated. Replaced by Button."
+    },
+    "1:25": {
       "key": "m3spec-button-toggle",
       "name": "Button toggle",
       "description": "Segmented button. Single or multi select."
     },
-    "1:26": {
+    "1:28": {
       "key": "m3spec-badge",
       "name": "Badge",
       "description": "Small status mark on another part."
     },
-    "1:28": {
+    "1:30": {
       "key": "m3spec-progress-bar",
       "name": "Progress bar",
       "description": "Linear progress indicator."
     },
-    "1:30": {
+    "1:32": {
       "key": "m3spec-progress-spinner",
       "name": "Progress spinner",
       "description": "Circular progress indicator."
     },
-    "1:32": {
+    "1:34": {
       "key": "m3spec-snackbar",
       "name": "Snackbar",
       "description": "Brief message at the bottom of the screen."
     },
-    "1:34": {
+    "1:36": {
       "key": "m3spec-tooltip",
       "name": "Tooltip",
       "description": "Label for an icon-only control."
     },
-    "1:37": {
+    "1:39": {
       "key": "m3spec-bottom-sheet",
       "name": "Bottom sheet",
       "description": "Surface that slides up from the bottom."
     },
-    "1:39": {
+    "1:41": {
       "key": "m3spec-card-type-elevated",
       "name": "Type=Elevated",
       "description": "Elevated, filled, and outlined cards.",
-      "componentSetId": "1:38"
+      "componentSetId": "1:40"
     },
-    "1:40": {
+    "1:42": {
       "key": "m3spec-card-type-filled",
       "name": "Type=Filled",
       "description": "Elevated, filled, and outlined cards.",
-      "componentSetId": "1:38"
+      "componentSetId": "1:40"
     },
-    "1:41": {
+    "1:43": {
       "key": "m3spec-card-type-outlined",
       "name": "Type=Outlined",
       "description": "Elevated, filled, and outlined cards.",
-      "componentSetId": "1:38"
+      "componentSetId": "1:40"
     },
-    "1:43": {
+    "1:45": {
       "key": "m3spec-dialog-type-basic",
       "name": "Type=Basic",
       "description": "Basic dialog and full-screen dialog.",
-      "componentSetId": "1:42"
+      "componentSetId": "1:44"
     },
-    "1:44": {
+    "1:46": {
       "key": "m3spec-dialog-type-full-screen",
       "name": "Type=Full-screen",
       "description": "Basic dialog and full-screen dialog.",
-      "componentSetId": "1:42"
+      "componentSetId": "1:44"
     },
-    "1:46": {
+    "1:48": {
       "key": "m3spec-divider",
       "name": "Divider",
       "description": "Hairline between items."
     },
-    "1:48": {
+    "1:50": {
       "key": "m3spec-list",
       "name": "List",
       "description": "Vertical list of rows."
     },
-    "1:50": {
+    "1:52": {
       "key": "m3spec-list-item-lines-one",
       "name": "Lines=One",
       "description": "One, two, or three line row.",
-      "componentSetId": "1:49"
+      "componentSetId": "1:51"
     },
-    "1:51": {
+    "1:53": {
       "key": "m3spec-list-item-lines-two",
       "name": "Lines=Two",
       "description": "One, two, or three line row.",
-      "componentSetId": "1:49"
+      "componentSetId": "1:51"
     },
-    "1:52": {
+    "1:54": {
       "key": "m3spec-list-item-lines-three",
       "name": "Lines=Three",
       "description": "One, two, or three line row.",
-      "componentSetId": "1:49"
+      "componentSetId": "1:51"
     },
-    "1:54": {
+    "1:56": {
       "key": "m3spec-side-sheet",
       "name": "Side sheet",
       "description": "Sheet docked to the side. Material 3 has no separate Angular class for this."
     },
-    "1:57": {
+    "1:59": {
       "key": "m3spec-navigation-bar",
       "name": "Navigation bar",
       "description": "Bottom navigation. Material 3. No matching Angular Material class."
     },
-    "1:59": {
+    "1:61": {
       "key": "m3spec-navigation-rail",
       "name": "Navigation rail",
       "description": "Side rail for a few destinations. No matching Angular Material class."
     },
-    "1:61": {
+    "1:63": {
       "key": "m3spec-sidenav",
       "name": "Sidenav",
       "description": "Navigation drawer."
     },
-    "1:63": {
+    "1:65": {
       "key": "m3spec-tabs",
       "name": "Tabs",
       "description": "Tabs."
     },
-    "1:65": {
+    "1:67": {
       "key": "m3spec-toolbar-type-center-aligned",
       "name": "Type=Center aligned",
       "description": "Top app bar.",
-      "componentSetId": "1:64"
+      "componentSetId": "1:66"
     },
-    "1:66": {
+    "1:68": {
       "key": "m3spec-toolbar-type-small",
       "name": "Type=Small",
       "description": "Top app bar.",
-      "componentSetId": "1:64"
+      "componentSetId": "1:66"
     },
-    "1:67": {
+    "1:69": {
       "key": "m3spec-toolbar-type-medium",
       "name": "Type=Medium",
       "description": "Top app bar.",
-      "componentSetId": "1:64"
+      "componentSetId": "1:66"
     },
-    "1:68": {
+    "1:70": {
       "key": "m3spec-toolbar-type-large",
       "name": "Type=Large",
       "description": "Top app bar.",
-      "componentSetId": "1:64"
+      "componentSetId": "1:66"
     },
-    "1:71": {
+    "1:73": {
       "key": "m3spec-checkbox",
       "name": "Checkbox",
       "description": "Select one or more."
     },
-    "1:73": {
+    "1:75": {
       "key": "m3spec-chip-type-assist",
       "name": "Type=Assist",
       "description": "Assist, filter, input, and suggestion chips.",
-      "componentSetId": "1:72"
+      "componentSetId": "1:74"
     },
-    "1:74": {
+    "1:76": {
       "key": "m3spec-chip-type-filter",
       "name": "Type=Filter",
       "description": "Assist, filter, input, and suggestion chips.",
-      "componentSetId": "1:72"
+      "componentSetId": "1:74"
     },
-    "1:75": {
+    "1:77": {
       "key": "m3spec-chip-type-input",
       "name": "Type=Input",
       "description": "Assist, filter, input, and suggestion chips.",
-      "componentSetId": "1:72"
+      "componentSetId": "1:74"
     },
-    "1:76": {
+    "1:78": {
       "key": "m3spec-chip-type-suggestion",
       "name": "Type=Suggestion",
       "description": "Assist, filter, input, and suggestion chips.",
-      "componentSetId": "1:72"
+      "componentSetId": "1:74"
     },
-    "1:78": {
+    "1:80": {
       "key": "m3spec-date-picker",
       "name": "Date picker",
       "description": "Pick a date."
     },
-    "1:80": {
+    "1:82": {
       "key": "m3spec-menu",
       "name": "Menu",
       "description": "List of choices anchored to a control."
     },
-    "1:82": {
+    "1:84": {
       "key": "m3spec-radio-button",
       "name": "Radio button",
       "description": "Pick one of a set."
     },
-    "1:84": {
+    "1:86": {
       "key": "m3spec-slider",
       "name": "Slider",
       "description": "Pick a value along a track."
     },
-    "1:86": {
+    "1:88": {
       "key": "m3spec-slide-toggle",
       "name": "Slide toggle",
       "description": "Switch. On or off."
     },
-    "1:88": {
+    "1:90": {
       "key": "m3spec-time-picker",
       "name": "Time picker",
       "description": "Pick a time."
     },
-    "1:90": {
+    "1:92": {
       "key": "m3spec-select",
       "name": "Select",
       "description": "Closed menu of options. Angular Material select. Material 3 uses a menu for this job."
     },
-    "1:93": {
+    "1:95": {
       "key": "m3spec-text-field-type-filled",
       "name": "Type=Filled",
       "description": "Filled and outlined text fields.",
-      "componentSetId": "1:92"
+      "componentSetId": "1:94"
     },
-    "1:94": {
+    "1:96": {
       "key": "m3spec-text-field-type-outlined",
       "name": "Type=Outlined",
       "description": "Filled and outlined text fields.",
-      "componentSetId": "1:92"
+      "componentSetId": "1:94"
     },
-    "1:96": {
+    "1:98": {
       "key": "m3spec-form-field",
       "name": "Form field",
       "description": "Label, hint, and error around an input."
     },
-    "1:98": {
+    "1:100": {
       "key": "m3spec-search-bar",
       "name": "Search bar",
       "description": "Search. Material 3 search. Angular Material has no search-bar class."
     },
-    "1:101": {
+    "1:103": {
       "key": "m3spec-table",
       "name": "Table",
       "description": "Data table."
     },
-    "1:103": {
+    "1:105": {
       "key": "m3spec-paginator",
       "name": "Paginator",
       "description": "Pages of a table."
     },
-    "1:105": {
+    "1:107": {
       "key": "m3spec-stepper",
       "name": "Stepper",
       "description": "Steps in a task."
     },
-    "1:107": {
+    "1:109": {
       "key": "m3spec-expansion-panel",
       "name": "Expansion panel",
       "description": "A row that opens to show more."
     },
-    "1:109": {
+    "1:111": {
       "key": "m3spec-autocomplete",
       "name": "Autocomplete",
       "description": "Text field with suggested options."
     },
-    "1:111": {
+    "1:113": {
       "key": "m3spec-icon",
       "name": "Icon",
       "description": "Icon glyph."
     },
-    "1:113": {
+    "1:115": {
       "key": "m3spec-sort",
       "name": "Sort",
       "description": "Sortable column header."
     },
-    "1:115": {
+    "1:117": {
       "key": "m3spec-grid-list",
       "name": "Grid list",
       "description": "Tiles in a grid."
     },
-    "1:117": {
+    "1:119": {
       "key": "m3spec-tree",
       "name": "Tree",
       "description": "Nested rows."
@@ -2657,32 +2742,32 @@
       "name": "Extended FAB",
       "description": "Floating action button with a label."
     },
-    "1:38": {
+    "1:40": {
       "key": "m3spec-card",
       "name": "Card",
       "description": "Elevated, filled, and outlined cards."
     },
-    "1:42": {
+    "1:44": {
       "key": "m3spec-dialog",
       "name": "Dialog",
       "description": "Basic dialog and full-screen dialog."
     },
-    "1:49": {
+    "1:51": {
       "key": "m3spec-list-item",
       "name": "List item",
       "description": "One, two, or three line row."
     },
-    "1:64": {
+    "1:66": {
       "key": "m3spec-toolbar",
       "name": "Toolbar",
       "description": "Top app bar."
     },
-    "1:72": {
+    "1:74": {
       "key": "m3spec-chip",
       "name": "Chip",
       "description": "Assist, filter, input, and suggestion chips."
     },
-    "1:92": {
+    "1:94": {
       "key": "m3spec-text-field",
       "name": "Text field",
       "description": "Filled and outlined text fields."

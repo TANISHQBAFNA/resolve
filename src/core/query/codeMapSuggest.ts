@@ -39,7 +39,8 @@ export interface CodeTarget {
   node: GraphNode;
 }
 
-const STOP = new Set(["acme", "component", "directive", "module"]);
+/** `mat` is the Angular Material class prefix, so MatButton is the Button. */
+const STOP = new Set(["acme", "component", "directive", "module", "mat"]);
 
 /** Ordered words. "Header card" is not "Card header". */
 function words(raw: string): string[] {
@@ -146,7 +147,12 @@ function matchesFor(wanted: string[], inventory: AngularInventory): { component:
   if (!wanted.length) return [];
   const exact = inventory.components.filter((component) => same(classWords(component), wanted));
   if (exact.length === 1) return [{ component: exact[0]!, kind: "token" }];
-  if (exact.length > 1) return exact.map((component) => ({ component, kind: "partial" }));
+  if (exact.length > 1) {
+    const prefixed = exact.filter((component) => component.component.startsWith("Mat"));
+    if (prefixed.length === 1) return [{ component: prefixed[0]!, kind: "token" }];
+    const rows = prefixed.length > 1 ? prefixed : exact;
+    return rows.map((component) => ({ component, kind: "partial" }));
+  }
   const alias = inventory.components.filter((component) => aliasWords(component, wanted));
   if (alias.length === 1) return [{ component: alias[0]!, kind: "token" }];
   if (alias.length > 1) return [];

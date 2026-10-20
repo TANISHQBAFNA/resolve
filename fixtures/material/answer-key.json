@@ -4,14 +4,14 @@
   "cdk": "@angular/cdk@22.2.3",
   "note": "Reviewed links from the public Material 3 spec to Angular Material 22.2.3. Services have no component metadata. Search bar, navigation bar, navigation rail, and side sheet have no Angular Material class.",
   "score": {
-    "proposed": 35,
+    "proposed": 32,
     "labelled": 40,
-    "hits": 34,
-    "precision": 0.9714285714285714,
-    "recall": 0.85,
+    "hits": 32,
+    "precision": 1,
+    "recall": 0.8,
     "wrongMapped": 0,
-    "extra": ["Tooltip → TooltipComponent"],
-    "missed": ["Bottom sheet → MatBottomSheet", "Dialog → MatDialog", "Extended FAB → MatFabButton", "Snackbar → MatSnackBar", "Tabs → MatTabGroup", "Text field → MatInput"]
+    "extra": [],
+    "missed": ["Bottom sheet → MatBottomSheet", "Date picker → MatDatepicker", "Dialog → MatDialog", "Extended FAB → MatFabButton", "Snackbar → MatSnackBar", "Tabs → MatTabGroup", "Text field → MatInput", "Time picker → MatTimepicker"]
   },
   "services": {
     "MatDialog": "@angular/material/dialog",

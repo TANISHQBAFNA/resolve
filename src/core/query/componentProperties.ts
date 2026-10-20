@@ -111,7 +111,12 @@ export function angularInputFor(propertyName: string, angular: AngularTwin | und
   if (folded) return folded;
   const aliases = ALIASES[wanted] ?? [];
   const alias = inputs.find((input) => aliases.includes(fold(input)));
-  return alias ?? "unmapped";
+  if (alias) return alias;
+  // Material text fields use `type` for the HTML input type. Filled/outlined is the form-field appearance, not that input.
+  if (wanted === "type" && angular?.selector.includes("matInput")) return "unmapped";
+  // Material buttons: Figma Type=Filled|Tonal|Outlined|Text|Elevated binds to matButton.
+  if ((wanted === "type" || wanted === "variant") && inputs.includes("matButton")) return "matButton";
+  return "unmapped";
 }
 
 function definitionHost(index: GraphIndex, node: GraphNode): GraphNode {

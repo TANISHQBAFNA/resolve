@@ -253,8 +253,14 @@ const slotCoverage = (slots: HandoffSlot[]) => {
 };
 const fid = (index: GraphIndex, n: GraphNode) => nodeFileKey(n, index.graph.fileKey);
 export const where = (fileKey?: string, id?: string) => [fileKey, id].filter(Boolean).join(" ");
-export const figmaLink = (fileKey?: string, id?: string) =>
-  fileKey && id && /^[A-Za-z0-9]{2,40}$/.test(fileKey) && /^\d+[:-]\d+$/.test(id) ? `https://www.figma.com/design/${fileKey}/?node-id=${id.replace(":", "-")}` : undefined;
+/** Made-up fixture keys. A figma.com URL for these would look like a real file. */
+const EXAMPLE_FILE_KEYS = new Set(["M3SPEC"]);
+export const exampleFileNote = "example, not a real Figma file";
+export const figmaLink = (fileKey?: string, id?: string) => {
+  if (!fileKey || !id || !/^\d+[:-]\d+$/.test(id)) return undefined;
+  if (EXAMPLE_FILE_KEYS.has(fileKey)) return exampleFileNote;
+  return /^[A-Za-z0-9]{2,40}$/.test(fileKey) ? `https://www.figma.com/design/${fileKey}/?node-id=${id.replace(":", "-")}` : undefined;
+};
 const setOf = (index: GraphIndex, n: GraphNode) =>
   n.type === "COMPONENT_SET" ? n : n.componentSetId ? index.getNode(n.componentSetId) : undefined;
 const familyKey = (index: GraphIndex, n: GraphNode) => setOf(index, n)?.id ?? n.id;
@@ -289,8 +295,10 @@ export function inputHints(props: Record<string, string> | undefined, angular: A
   if (!props || !angular?.inputs?.length) return [];
   const hints: InputHint[] = [];
   for (const [prop, raw] of Object.entries(props)) {
-    const input = angular.inputs.map(bindingName).find((i) => norm(i) === norm(prop));
+    let input = angular.inputs.map(bindingName).find((i) => norm(i) === norm(prop));
+    if (!input && norm(prop) === "type" && angular.inputs.map(bindingName).includes("matButton")) input = "matButton";
     if (!input) continue;
+    if (input === "type" && angular.selector.includes("matInput")) continue;
     const bool = /^(true|false|yes|no|on|off)$/i.test(raw.trim());
     const value = bool ? String(/^(true|yes|on)$/i.test(raw.trim())) : kebab(raw);
     if (!value) continue;
@@ -325,7 +333,11 @@ export function angularTemplate(angular: AngularTwin | undefined, hints: InputHi
   // An attribute the selector already sets (`acme-button[variant="primary"]`) is written once, as the selector has it.
   const used = new Set<string>(attrs.map((a) => a.split("=")[0]!));
   for (const h of hints) {
-    if (used.has(h.input)) continue;
+    if (used.has(h.input)) {
+      const at = bits.findIndex((bit) => bit === h.input);
+      if (at >= 0) bits[at] = `${h.input}="${h.value}"`;
+      continue;
+    }
     used.add(h.input);
     bits.push(/^(true|false)$/.test(h.value) ? `[${h.input}]="${h.value}"` : `${h.input}="${h.value}"`);
   }
@@ -340,6 +352,19 @@ export function angularTemplate(angular: AngularTwin | undefined, hints: InputHi
   for (const o of outs) if (!used.has(o)) bits.push(`(${o})="…"`);
   const shown = bits.slice(0, 8);
   return `<${el}${shown.length ? ` ${shown.join(" ")}` : ""}${bits.length > shown.length ? " …" : ""}></${el}>`;
+}
+
+/**
+ * Filled or outlined is the form-field appearance, wrapping the input and a label.
+ * It is not `<input type="filled">`.
+ */
+export function materialTextFieldTemplate(angular: AngularTwin | undefined, props?: Record<string, string>): string | undefined {
+  if (!angular) return undefined;
+  const input = angular.selector.split(",").map((part) => part.trim()).find((part) => part.startsWith("input[matInput]"));
+  if (!input) return undefined;
+  const raw = props?.["Type"] ?? props?.["Appearance"] ?? "";
+  const appearance = /outline/i.test(raw) ? "outline" : "fill";
+  return `<mat-form-field appearance="${appearance}"><mat-label>…</mat-label><input matInput></mat-form-field>`;
 }
 
 function trimParts(parts: IngredientPart[] | undefined): HandoffPart[] {
@@ -693,7 +718,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
       open.push(`${name}: the selector only matches ${pinned[0]}="${pinned[1]}"; this copy is ${h.from.slice(h.from.indexOf("=") + 1)} (${h.from}). Check how the code builds this variant.`);
       return false;
     });
-    const template = angularTemplate(twin?.angular, hints, conflicts);
+    const template = materialTextFieldTemplate(twin?.angular, props) ?? angularTemplate(twin?.angular, hints, conflicts);
     const card = hooks.ingredient(`${fid(index, first) ?? ""}:${first.figmaNodeId ?? first.id}`.replace(/^:/, ""), depth, options.maxCharsPerCard);
     const parts = card.found ? trimParts(card.parts) : [];
     const guess = !main ? !missing : hooks.nameGuess(main);

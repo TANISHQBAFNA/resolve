@@ -45,6 +45,7 @@ jobs:
           set -o pipefail
           mkdir -p "$RESOLVE_HOME"
           cp fixtures/material/synonyms.json "$RESOLVE_HOME/synonyms.json"
+          cp fixtures/material/recipes.json "$RESOLVE_HOME/recipes.json"
           npm run resolve -- ingest fixtures/material/library.json --role library --name "Material 3"
           npm run resolve -- score phrases --phrases scoreboard/material-phrases --json > "$RUNNER_TEMP/material-phrases.json"
           node scripts/check-material-floor.mjs scoreboard/material-baseline.json "$RUNNER_TEMP/material-phrases.json"

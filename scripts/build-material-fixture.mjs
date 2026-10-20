@@ -171,6 +171,9 @@ const PAGES = [
         prop("Label", "TEXT", "Create"),
         prop("Icon", "SLOT"),
       ], "md.sys.color.primary-container"),
+      spec("Legacy button", BUTTONS, "deprecated. Replaced by Button.", [], [
+        prop("Label", "TEXT", "Old"),
+      ], "md.sys.color.primary"),
       spec("Button toggle", SEGMENTED, "Segmented button. Single or multi select.", [], [
         prop("Selected", "BOOLEAN", false),
         prop("Label", "TEXT", "Option"),
@@ -429,7 +432,9 @@ for (const page of PAGES) {
         };
       }
       variantNodes.push(node);
-      if (!placed[item.name]) placed[item.name] = { variantId, setId: axes.length ? setId : undefined };
+      if (!placed[item.name]) placed[item.name] = { variantId, setId: axes.length ? setId : undefined, byValue: {} };
+      const axisValue = combo[0]?.[1];
+      if (axisValue) placed[item.name].byValue[axisValue] = variantId;
     }
     if (axes.length) {
       const setNode = {
@@ -461,6 +466,8 @@ const email = placed["Text field"].variantId;
 const button = placed["Button"].variantId;
 const checkbox = placed["Checkbox"].variantId;
 const toolbar = placed["Toolbar"].variantId;
+const outlined = placed["Text field"].byValue["Outlined"];
+const tonal = placed["Button"].byValue["Tonal"];
 pages.push({
   id: nid(),
   name: "Screens",
@@ -479,8 +486,20 @@ pages.push({
         instance(nid(), "Button", button),
       ],
     },
+    {
+      id: nid(),
+      name: "Field sample",
+      type: "FRAME",
+      absoluteBoundingBox: { x: 420, y: 0, width: 390, height: 844 },
+      children: [
+        instance(nid(), "Form field", placed["Form field"].variantId),
+        instance(nid(), "Text field", outlined),
+        instance(nid(), "Button", tonal),
+      ],
+    },
   ],
 });
+
 
 function instance(id, name, componentId) {
   return {

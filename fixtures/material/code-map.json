@@ -6,7 +6,7 @@
   "entries": [
     {
       "fileKey": "M3SPEC",
-      "id": "1:109",
+      "id": "1:111",
       "name": "Autocomplete",
       "status": "mapped",
       "relation": "maps",
@@ -40,7 +40,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:26",
+      "id": "1:28",
       "name": "Badge",
       "status": "mapped",
       "relation": "maps",
@@ -66,7 +66,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:37",
+      "id": "1:39",
       "name": "Bottom sheet",
       "status": "mapped",
       "relation": "maps",
@@ -89,7 +89,7 @@
         "framework": "angular",
         "import": "import { MatButtonModule } from '@angular/material/button'",
         "component": "MatButton",
-        "selector": "button[mat-flat-button], a[mat-flat-button], button[matButton], a[matButton], button[mat-button], button[mat-raised-button], button[mat-stroked-button], a[mat-button], a[mat-raised-button], a[mat-stroked-button]",
+        "selector": "button[matButton], a[matButton]",
         "module": "MatButtonModule",
         "inputs": [
           "appearance: matButton"
@@ -98,7 +98,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:23",
+      "id": "1:25",
       "name": "Button toggle",
       "status": "mapped",
       "relation": "maps",
@@ -130,7 +130,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:38",
+      "id": "1:40",
       "name": "Card",
       "status": "mapped",
       "relation": "maps",
@@ -149,7 +149,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:71",
+      "id": "1:73",
       "name": "Checkbox",
       "status": "mapped",
       "relation": "maps",
@@ -189,7 +189,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:72",
+      "id": "1:74",
       "name": "Chip",
       "status": "mapped",
       "relation": "maps",
@@ -197,10 +197,10 @@
       "packageVersion": "22.2.3",
       "code": {
         "framework": "angular",
-        "import": "import { MatChipsModule } from '@angular/material/chips'",
+        "import": "import { MatChip } from '@angular/material/chips'",
         "component": "MatChip",
         "selector": "mat-basic-chip, [mat-basic-chip], mat-chip, [mat-chip]",
-        "module": "MatChipsModule",
+        "standalone": true,
         "inputs": [
           "role",
           "id",
@@ -221,7 +221,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:78",
+      "id": "1:80",
       "name": "Date picker",
       "status": "mapped",
       "relation": "maps",
@@ -237,7 +237,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:42",
+      "id": "1:44",
       "name": "Dialog",
       "status": "mapped",
       "relation": "maps",
@@ -250,7 +250,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:46",
+      "id": "1:48",
       "name": "Divider",
       "status": "mapped",
       "relation": "maps",
@@ -270,7 +270,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:107",
+      "id": "1:109",
       "name": "Expansion panel",
       "status": "mapped",
       "relation": "maps",
@@ -278,10 +278,10 @@
       "packageVersion": "22.2.3",
       "code": {
         "framework": "angular",
-        "import": "import { MatExpansionModule } from '@angular/material/expansion'",
+        "import": "import { MatExpansionPanel } from '@angular/material/expansion'",
         "component": "MatExpansionPanel",
         "selector": "mat-expansion-panel",
-        "module": "MatExpansionModule",
+        "standalone": true,
         "inputs": [
           "hideToggle",
           "togglePosition"
@@ -302,10 +302,10 @@
       "packageVersion": "22.2.3",
       "code": {
         "framework": "angular",
-        "import": "import { MatButtonModule } from '@angular/material/button'",
+        "import": "import { MatFabButton } from '@angular/material/button'",
         "component": "MatFabButton",
         "selector": "button[mat-fab], a[mat-fab], button[matFab], a[matFab]",
-        "module": "MatButtonModule",
+        "standalone": true,
         "inputs": [
           "extended"
         ]
@@ -321,10 +321,10 @@
       "packageVersion": "22.2.3",
       "code": {
         "framework": "angular",
-        "import": "import { MatButtonModule } from '@angular/material/button'",
+        "import": "import { MatFabButton } from '@angular/material/button'",
         "component": "MatFabButton",
         "selector": "button[mat-fab], a[mat-fab], button[matFab], a[matFab]",
-        "module": "MatButtonModule",
+        "standalone": true,
         "inputs": [
           "extended"
         ]
@@ -332,7 +332,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:96",
+      "id": "1:98",
       "name": "Form field",
       "status": "mapped",
       "relation": "maps",
@@ -340,7 +340,7 @@
       "packageVersion": "22.2.3",
       "code": {
         "framework": "angular",
-        "import": "import { MatFormFieldModule } from '@angular/material/input'",
+        "import": "import { MatFormFieldModule } from '@angular/material/form-field'",
         "component": "MatFormField",
         "selector": "mat-form-field",
         "module": "MatFormFieldModule",
@@ -356,7 +356,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:115",
+      "id": "1:117",
       "name": "Grid list",
       "status": "mapped",
       "relation": "maps",
@@ -377,7 +377,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:111",
+      "id": "1:113",
       "name": "Icon",
       "status": "mapped",
       "relation": "maps",
@@ -408,15 +408,15 @@
       "packageVersion": "22.2.3",
       "code": {
         "framework": "angular",
-        "import": "import { MatButtonModule } from '@angular/material/button'",
+        "import": "import { MatIconButton } from '@angular/material/button'",
         "component": "MatIconButton",
         "selector": "button[mat-icon-button], a[mat-icon-button], button[matIconButton], a[matIconButton]",
-        "module": "MatButtonModule"
+        "standalone": true
       }
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:48",
+      "id": "1:50",
       "name": "List",
       "status": "mapped",
       "relation": "maps",
@@ -432,7 +432,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:49",
+      "id": "1:51",
       "name": "List item",
       "status": "mapped",
       "relation": "maps",
@@ -440,10 +440,10 @@
       "packageVersion": "22.2.3",
       "code": {
         "framework": "angular",
-        "import": "import { MatListModule } from '@angular/material/list'",
+        "import": "import { MatListItem } from '@angular/material/list'",
         "component": "MatListItem",
         "selector": "mat-list-item, a[mat-list-item], button[mat-list-item]",
-        "module": "MatListModule",
+        "standalone": true,
         "inputs": [
           "activated"
         ]
@@ -451,7 +451,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:80",
+      "id": "1:82",
       "name": "Menu",
       "status": "mapped",
       "relation": "maps",
@@ -491,15 +491,15 @@
       "packageVersion": "22.2.3",
       "code": {
         "framework": "angular",
-        "import": "import { MatButtonModule } from '@angular/material/button'",
+        "import": "import { MatMiniFabButton } from '@angular/material/button'",
         "component": "MatMiniFabButton",
         "selector": "button[mat-mini-fab], a[mat-mini-fab], button[matMiniFab], a[matMiniFab]",
-        "module": "MatButtonModule"
+        "standalone": true
       }
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:103",
+      "id": "1:105",
       "name": "Paginator",
       "status": "mapped",
       "relation": "maps",
@@ -529,7 +529,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:28",
+      "id": "1:30",
       "name": "Progress bar",
       "status": "mapped",
       "relation": "maps",
@@ -554,7 +554,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:30",
+      "id": "1:32",
       "name": "Progress spinner",
       "status": "mapped",
       "relation": "maps",
@@ -577,7 +577,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:82",
+      "id": "1:84",
       "name": "Radio button",
       "status": "mapped",
       "relation": "maps",
@@ -585,10 +585,10 @@
       "packageVersion": "22.2.3",
       "code": {
         "framework": "angular",
-        "import": "import { MatRadioModule } from '@angular/material/radio'",
+        "import": "import { MatRadioButton } from '@angular/material/radio'",
         "component": "MatRadioButton",
         "selector": "mat-radio-button",
-        "module": "MatRadioModule",
+        "standalone": true,
         "inputs": [
           "id",
           "name",
@@ -612,7 +612,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:90",
+      "id": "1:92",
       "name": "Select",
       "status": "mapped",
       "relation": "maps",
@@ -657,7 +657,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:61",
+      "id": "1:63",
       "name": "Sidenav",
       "status": "mapped",
       "relation": "maps",
@@ -678,7 +678,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:86",
+      "id": "1:88",
       "name": "Slide toggle",
       "status": "mapped",
       "relation": "maps",
@@ -715,7 +715,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:84",
+      "id": "1:86",
       "name": "Slider",
       "status": "mapped",
       "relation": "maps",
@@ -742,7 +742,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:32",
+      "id": "1:34",
       "name": "Snackbar",
       "status": "mapped",
       "relation": "maps",
@@ -755,7 +755,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:113",
+      "id": "1:115",
       "name": "Sort",
       "status": "mapped",
       "relation": "maps",
@@ -781,7 +781,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:105",
+      "id": "1:107",
       "name": "Stepper",
       "status": "mapped",
       "relation": "maps",
@@ -809,7 +809,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:101",
+      "id": "1:103",
       "name": "Table",
       "status": "mapped",
       "relation": "maps",
@@ -825,7 +825,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:63",
+      "id": "1:65",
       "name": "Tabs",
       "status": "mapped",
       "relation": "maps",
@@ -833,10 +833,10 @@
       "packageVersion": "22.2.3",
       "code": {
         "framework": "angular",
-        "import": "import { MatTabsModule } from '@angular/material/tabs'",
+        "import": "import { MatTabGroup } from '@angular/material/tabs'",
         "component": "MatTabGroup",
         "selector": "mat-tab-group",
-        "module": "MatTabsModule",
+        "standalone": true,
         "inputs": [
           "color",
           "fitInkBarToContent",
@@ -864,7 +864,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:92",
+      "id": "1:94",
       "name": "Text field",
       "status": "mapped",
       "relation": "maps",
@@ -893,7 +893,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:88",
+      "id": "1:90",
       "name": "Time picker",
       "status": "mapped",
       "relation": "maps",
@@ -922,7 +922,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:64",
+      "id": "1:66",
       "name": "Toolbar",
       "status": "mapped",
       "relation": "maps",
@@ -941,7 +941,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:34",
+      "id": "1:36",
       "name": "Tooltip",
       "status": "mapped",
       "relation": "maps",
@@ -967,7 +967,7 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:117",
+      "id": "1:119",
       "name": "Tree",
       "status": "mapped",
       "relation": "maps",

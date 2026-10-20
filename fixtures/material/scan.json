@@ -9,8 +9,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/_badge-chunk.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material"
+      "from": "dts"
     },
     {
       "component": "_MatInternalFormField",
@@ -23,8 +22,7 @@
       ],
       "outputs": [],
       "file": "types/core.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material/core"
+      "from": "dts"
     },
     {
       "component": "_StructuralStylesLoader",
@@ -33,8 +31,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/core.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material/core"
+      "from": "dts"
     },
     {
       "component": "MatAccordion",
@@ -53,9 +50,7 @@
       ],
       "outputs": [],
       "file": "types/expansion.d.ts",
-      "from": "dts",
-      "module": "MatExpansionModule",
-      "importPath": "@angular/material/expansion"
+      "from": "dts"
     },
     {
       "component": "MatActionList",
@@ -64,9 +59,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/list.d.ts",
-      "from": "dts",
-      "module": "MatListModule",
-      "importPath": "@angular/material/list"
+      "from": "dts"
     },
     {
       "component": "MatAutocomplete",
@@ -122,9 +115,7 @@
         }
       ],
       "file": "types/autocomplete.d.ts",
-      "from": "dts",
-      "module": "MatAutocompleteModule",
-      "importPath": "@angular/material/autocomplete"
+      "from": "dts"
     },
     {
       "component": "MatAutocompleteOrigin",
@@ -133,9 +124,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/autocomplete.d.ts",
-      "from": "dts",
-      "module": "MatAutocompleteModule",
-      "importPath": "@angular/material/autocomplete"
+      "from": "dts"
     },
     {
       "component": "MatAutocompleteTrigger",
@@ -165,9 +154,7 @@
       ],
       "outputs": [],
       "file": "types/autocomplete.d.ts",
-      "from": "dts",
-      "module": "MatAutocompleteModule",
-      "importPath": "@angular/material/autocomplete"
+      "from": "dts"
     },
     {
       "component": "MatBadge",
@@ -209,9 +196,7 @@
       ],
       "outputs": [],
       "file": "types/_badge-chunk.d.ts",
-      "from": "dts",
-      "module": "MatBadgeModule",
-      "importPath": "@angular/material/badge"
+      "from": "dts"
     },
     {
       "component": "MatBottomSheetContainer",
@@ -220,13 +205,11 @@
       "inputs": [],
       "outputs": [],
       "file": "types/bottom-sheet.d.ts",
-      "from": "dts",
-      "module": "MatBottomSheetModule",
-      "importPath": "@angular/material/bottom-sheet"
+      "from": "dts"
     },
     {
       "component": "MatButton",
-      "selector": "button[matButton], a[matButton], button[mat-button], button[mat-raised-button], button[mat-flat-button], button[mat-stroked-button], a[mat-button], a[mat-raised-button], a[mat-flat-button], a[mat-stroked-button]",
+      "selector": "    button[matButton], a[matButton], button[mat-button], button[mat-raised-button],    button[mat-flat-button], button[mat-stroked-button], a[mat-button], a[mat-raised-button],    a[mat-flat-button], a[mat-stroked-button]  ",
       "standalone": true,
       "inputs": [
         {
@@ -236,9 +219,7 @@
       ],
       "outputs": [],
       "file": "types/button.d.ts",
-      "from": "dts",
-      "module": "MatButtonModule",
-      "importPath": "@angular/material/button"
+      "from": "dts"
     },
     {
       "component": "MatButtonToggle",
@@ -287,9 +268,7 @@
         }
       ],
       "file": "types/_button-toggle-chunk.d.ts",
-      "from": "dts",
-      "module": "MatButtonToggleModule",
-      "importPath": "@angular/material/button-toggle"
+      "from": "dts"
     },
     {
       "component": "MatButtonToggleGroup",
@@ -333,9 +312,7 @@
         }
       ],
       "file": "types/_button-toggle-chunk.d.ts",
-      "from": "dts",
-      "module": "MatButtonToggleModule",
-      "importPath": "@angular/material/button-toggle"
+      "from": "dts"
     },
     {
       "component": "MatCalendar",
@@ -400,9 +377,7 @@
         }
       ],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatCalendarBody",
@@ -476,9 +451,7 @@
         }
       ],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatCalendarHeader",
@@ -487,9 +460,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatCard",
@@ -502,9 +473,7 @@
       ],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCardActions",
@@ -517,9 +486,7 @@
       ],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCardAvatar",
@@ -528,9 +495,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCardContent",
@@ -539,9 +504,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCardFooter",
@@ -550,9 +513,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCardHeader",
@@ -561,9 +522,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCardImage",
@@ -572,9 +531,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCardLgImage",
@@ -583,9 +540,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCardMdImage",
@@ -594,9 +549,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCardSmImage",
@@ -605,9 +558,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCardSubtitle",
@@ -616,9 +567,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCardTitle",
@@ -627,9 +576,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCardTitleGroup",
@@ -638,9 +585,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCardXlImage",
@@ -649,9 +594,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/card.d.ts",
-      "from": "dts",
-      "module": "MatCardModule",
-      "importPath": "@angular/material/card"
+      "from": "dts"
     },
     {
       "component": "MatCell",
@@ -660,9 +603,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatCellDef",
@@ -671,9 +612,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatCheckbox",
@@ -750,9 +689,7 @@
         }
       ],
       "file": "types/checkbox.d.ts",
-      "from": "dts",
-      "module": "MatCheckboxModule",
-      "importPath": "@angular/material/checkbox"
+      "from": "dts"
     },
     {
       "component": "MatChip",
@@ -801,9 +738,7 @@
         }
       ],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "module": "MatChipsModule",
-      "importPath": "@angular/material/chips"
+      "from": "dts"
     },
     {
       "component": "MatChipAction",
@@ -812,8 +747,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material"
+      "from": "dts"
     },
     {
       "component": "MatChipAvatar",
@@ -822,9 +756,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "module": "MatChipsModule",
-      "importPath": "@angular/material/chips"
+      "from": "dts"
     },
     {
       "component": "MatChipContent",
@@ -843,8 +775,7 @@
       ],
       "outputs": [],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material"
+      "from": "dts"
     },
     {
       "component": "MatChipEdit",
@@ -853,9 +784,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "module": "MatChipsModule",
-      "importPath": "@angular/material/chips"
+      "from": "dts"
     },
     {
       "component": "MatChipEditInput",
@@ -864,9 +793,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "module": "MatChipsModule",
-      "importPath": "@angular/material/chips"
+      "from": "dts"
     },
     {
       "component": "MatChipGrid",
@@ -898,9 +825,7 @@
         }
       ],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "module": "MatChipsModule",
-      "importPath": "@angular/material/chips"
+      "from": "dts"
     },
     {
       "component": "MatChipInput",
@@ -943,9 +868,7 @@
         }
       ],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "module": "MatChipsModule",
-      "importPath": "@angular/material/chips"
+      "from": "dts"
     },
     {
       "component": "MatChipListbox",
@@ -981,9 +904,7 @@
         }
       ],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "module": "MatChipsModule",
-      "importPath": "@angular/material/chips"
+      "from": "dts"
     },
     {
       "component": "MatChipOption",
@@ -1003,9 +924,7 @@
         }
       ],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "module": "MatChipsModule",
-      "importPath": "@angular/material/chips"
+      "from": "dts"
     },
     {
       "component": "MatChipRemove",
@@ -1014,9 +933,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "module": "MatChipsModule",
-      "importPath": "@angular/material/chips"
+      "from": "dts"
     },
     {
       "component": "MatChipRow",
@@ -1033,9 +950,7 @@
         }
       ],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "module": "MatChipsModule",
-      "importPath": "@angular/material/chips"
+      "from": "dts"
     },
     {
       "component": "MatChipSet",
@@ -1054,9 +969,7 @@
       ],
       "outputs": [],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "module": "MatChipsModule",
-      "importPath": "@angular/material/chips"
+      "from": "dts"
     },
     {
       "component": "MatChipTrailingIcon",
@@ -1065,9 +978,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/chips.d.ts",
-      "from": "dts",
-      "module": "MatChipsModule",
-      "importPath": "@angular/material/chips"
+      "from": "dts"
     },
     {
       "component": "MatColumnDef",
@@ -1081,9 +992,7 @@
       ],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatContextMenuTrigger",
@@ -1116,9 +1025,7 @@
         }
       ],
       "file": "types/menu.d.ts",
-      "from": "dts",
-      "module": "MatMenuModule",
-      "importPath": "@angular/material/menu"
+      "from": "dts"
     },
     {
       "component": "MatDatepicker",
@@ -1127,9 +1034,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatDatepickerActions",
@@ -1138,9 +1043,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatDatepickerApply",
@@ -1149,9 +1052,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatDatepickerCancel",
@@ -1160,9 +1061,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatDatepickerContent",
@@ -1175,9 +1074,7 @@
       ],
       "outputs": [],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatDatepickerInput",
@@ -1200,9 +1097,7 @@
       ],
       "outputs": [],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatDatepickerToggle",
@@ -1229,9 +1124,7 @@
       ],
       "outputs": [],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatDatepickerToggleIcon",
@@ -1240,9 +1133,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatDateRangeInput",
@@ -1279,9 +1170,7 @@
       ],
       "outputs": [],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatDateRangePicker",
@@ -1290,9 +1179,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatDialogActions",
@@ -1305,9 +1192,7 @@
       ],
       "outputs": [],
       "file": "types/dialog.d.ts",
-      "from": "dts",
-      "module": "MatDialogModule",
-      "importPath": "@angular/material/dialog"
+      "from": "dts"
     },
     {
       "component": "MatDialogClose",
@@ -1332,9 +1217,7 @@
       ],
       "outputs": [],
       "file": "types/dialog.d.ts",
-      "from": "dts",
-      "module": "MatDialogModule",
-      "importPath": "@angular/material/dialog"
+      "from": "dts"
     },
     {
       "component": "MatDialogContainer",
@@ -1343,9 +1226,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/_dialog-chunk.d.ts",
-      "from": "dts",
-      "module": "MatDialogModule",
-      "importPath": "@angular/material/dialog"
+      "from": "dts"
     },
     {
       "component": "MatDialogContent",
@@ -1354,9 +1235,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/dialog.d.ts",
-      "from": "dts",
-      "module": "MatDialogModule",
-      "importPath": "@angular/material/dialog"
+      "from": "dts"
     },
     {
       "component": "MatDialogTitle",
@@ -1369,9 +1248,7 @@
       ],
       "outputs": [],
       "file": "types/dialog.d.ts",
-      "from": "dts",
-      "module": "MatDialogModule",
-      "importPath": "@angular/material/dialog"
+      "from": "dts"
     },
     {
       "component": "MatDivider",
@@ -1387,9 +1264,7 @@
       ],
       "outputs": [],
       "file": "types/divider.d.ts",
-      "from": "dts",
-      "module": "MatDividerModule",
-      "importPath": "@angular/material/divider"
+      "from": "dts"
     },
     {
       "component": "MatDrawer",
@@ -1436,9 +1311,7 @@
         }
       ],
       "file": "types/sidenav.d.ts",
-      "from": "dts",
-      "module": "MatSidenavModule",
-      "importPath": "@angular/material/sidenav"
+      "from": "dts"
     },
     {
       "component": "MatDrawerContainer",
@@ -1458,9 +1331,7 @@
         }
       ],
       "file": "types/sidenav.d.ts",
-      "from": "dts",
-      "module": "MatSidenavModule",
-      "importPath": "@angular/material/sidenav"
+      "from": "dts"
     },
     {
       "component": "MatDrawerContent",
@@ -1469,9 +1340,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/sidenav.d.ts",
-      "from": "dts",
-      "module": "MatSidenavModule",
-      "importPath": "@angular/material/sidenav"
+      "from": "dts"
     },
     {
       "component": "MatEndDate",
@@ -1487,9 +1356,7 @@
         }
       ],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatError",
@@ -1502,9 +1369,7 @@
       ],
       "outputs": [],
       "file": "types/_form-field-chunk.d.ts",
-      "from": "dts",
-      "module": "MatFormFieldModule",
-      "importPath": "@angular/material/input"
+      "from": "dts"
     },
     {
       "component": "MatExpansionPanel",
@@ -1527,9 +1392,7 @@
         }
       ],
       "file": "types/expansion.d.ts",
-      "from": "dts",
-      "module": "MatExpansionModule",
-      "importPath": "@angular/material/expansion"
+      "from": "dts"
     },
     {
       "component": "MatExpansionPanelActionRow",
@@ -1538,9 +1401,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/expansion.d.ts",
-      "from": "dts",
-      "module": "MatExpansionModule",
-      "importPath": "@angular/material/expansion"
+      "from": "dts"
     },
     {
       "component": "MatExpansionPanelContent",
@@ -1549,9 +1410,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/expansion.d.ts",
-      "from": "dts",
-      "module": "MatExpansionModule",
-      "importPath": "@angular/material/expansion"
+      "from": "dts"
     },
     {
       "component": "MatExpansionPanelDescription",
@@ -1560,9 +1419,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/expansion.d.ts",
-      "from": "dts",
-      "module": "MatExpansionModule",
-      "importPath": "@angular/material/expansion"
+      "from": "dts"
     },
     {
       "component": "MatExpansionPanelHeader",
@@ -1581,9 +1438,7 @@
       ],
       "outputs": [],
       "file": "types/expansion.d.ts",
-      "from": "dts",
-      "module": "MatExpansionModule",
-      "importPath": "@angular/material/expansion"
+      "from": "dts"
     },
     {
       "component": "MatExpansionPanelTitle",
@@ -1592,9 +1447,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/expansion.d.ts",
-      "from": "dts",
-      "module": "MatExpansionModule",
-      "importPath": "@angular/material/expansion"
+      "from": "dts"
     },
     {
       "component": "MatFabButton",
@@ -1607,9 +1460,7 @@
       ],
       "outputs": [],
       "file": "types/button.d.ts",
-      "from": "dts",
-      "module": "MatButtonModule",
-      "importPath": "@angular/material/button"
+      "from": "dts"
     },
     {
       "component": "MatFooterCell",
@@ -1618,9 +1469,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatFooterCellDef",
@@ -1629,9 +1478,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatFooterRow",
@@ -1640,9 +1487,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatFooterRowDef",
@@ -1660,9 +1505,7 @@
       ],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatFormField",
@@ -1690,9 +1533,7 @@
       ],
       "outputs": [],
       "file": "types/_form-field-chunk.d.ts",
-      "from": "dts",
-      "module": "MatFormFieldModule",
-      "importPath": "@angular/material/input"
+      "from": "dts"
     },
     {
       "component": "MatFormFieldFloatingLabel",
@@ -1708,8 +1549,7 @@
       ],
       "outputs": [],
       "file": "types/_form-field-chunk.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material"
+      "from": "dts"
     },
     {
       "component": "MatFormFieldLineRipple",
@@ -1718,8 +1558,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/_form-field-chunk.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material"
+      "from": "dts"
     },
     {
       "component": "MatFormFieldNotchedOutline",
@@ -1733,8 +1572,7 @@
       ],
       "outputs": [],
       "file": "types/_form-field-chunk.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material"
+      "from": "dts"
     },
     {
       "component": "MatGridAvatarCssMatStyler",
@@ -1743,9 +1581,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/grid-list.d.ts",
-      "from": "dts",
-      "module": "MatGridListModule",
-      "importPath": "@angular/material/grid-list"
+      "from": "dts"
     },
     {
       "component": "MatGridList",
@@ -1764,9 +1600,7 @@
       ],
       "outputs": [],
       "file": "types/grid-list.d.ts",
-      "from": "dts",
-      "module": "MatGridListModule",
-      "importPath": "@angular/material/grid-list"
+      "from": "dts"
     },
     {
       "component": "MatGridTile",
@@ -1782,9 +1616,7 @@
       ],
       "outputs": [],
       "file": "types/grid-list.d.ts",
-      "from": "dts",
-      "module": "MatGridListModule",
-      "importPath": "@angular/material/grid-list"
+      "from": "dts"
     },
     {
       "component": "MatGridTileFooterCssMatStyler",
@@ -1793,9 +1625,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/grid-list.d.ts",
-      "from": "dts",
-      "module": "MatGridListModule",
-      "importPath": "@angular/material/grid-list"
+      "from": "dts"
     },
     {
       "component": "MatGridTileHeaderCssMatStyler",
@@ -1804,9 +1634,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/grid-list.d.ts",
-      "from": "dts",
-      "module": "MatGridListModule",
-      "importPath": "@angular/material/grid-list"
+      "from": "dts"
     },
     {
       "component": "MatGridTileText",
@@ -1815,9 +1643,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/grid-list.d.ts",
-      "from": "dts",
-      "module": "MatGridListModule",
-      "importPath": "@angular/material/grid-list"
+      "from": "dts"
     },
     {
       "component": "MatHeaderCell",
@@ -1826,9 +1652,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatHeaderCellDef",
@@ -1837,9 +1661,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatHeaderRow",
@@ -1848,9 +1670,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatHeaderRowDef",
@@ -1868,9 +1688,7 @@
       ],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatHint",
@@ -1886,9 +1704,7 @@
       ],
       "outputs": [],
       "file": "types/_form-field-chunk.d.ts",
-      "from": "dts",
-      "module": "MatFormFieldModule",
-      "importPath": "@angular/material/input"
+      "from": "dts"
     },
     {
       "component": "MatIcon",
@@ -1913,9 +1729,7 @@
       ],
       "outputs": [],
       "file": "types/_icon-module-chunk.d.ts",
-      "from": "dts",
-      "module": "MatIconModule",
-      "importPath": "@angular/material/icon"
+      "from": "dts"
     },
     {
       "component": "MatIconButton",
@@ -1924,13 +1738,11 @@
       "inputs": [],
       "outputs": [],
       "file": "types/button.d.ts",
-      "from": "dts",
-      "module": "MatButtonModule",
-      "importPath": "@angular/material/button"
+      "from": "dts"
     },
     {
       "component": "MatInput",
-      "selector": "input[matInput], textarea[matInput], select[matNativeControl], input[matNativeControl], textarea[matNativeControl]",
+      "selector": "input[matInput], textarea[matInput], select[matNativeControl],      input[matNativeControl], textarea[matNativeControl]",
       "standalone": true,
       "inputs": [
         {
@@ -1970,9 +1782,7 @@
       ],
       "outputs": [],
       "file": "types/input.d.ts",
-      "from": "dts",
-      "module": "MatInputModule",
-      "importPath": "@angular/material/input"
+      "from": "dts"
     },
     {
       "component": "MatLabel",
@@ -1981,9 +1791,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/_form-field-module-chunk.d.ts",
-      "from": "dts",
-      "module": "MatFormFieldModule",
-      "importPath": "@angular/material/input"
+      "from": "dts"
     },
     {
       "component": "MatLine",
@@ -1992,9 +1800,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/_line-chunk.d.ts",
-      "from": "dts",
-      "module": "MatLineModule",
-      "importPath": "@angular/material/core"
+      "from": "dts"
     },
     {
       "component": "MatList",
@@ -2003,9 +1809,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/list.d.ts",
-      "from": "dts",
-      "module": "MatListModule",
-      "importPath": "@angular/material/list"
+      "from": "dts"
     },
     {
       "component": "MatListItem",
@@ -2018,9 +1822,7 @@
       ],
       "outputs": [],
       "file": "types/list.d.ts",
-      "from": "dts",
-      "module": "MatListModule",
-      "importPath": "@angular/material/list"
+      "from": "dts"
     },
     {
       "component": "MatListItemAvatar",
@@ -2029,9 +1831,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/list.d.ts",
-      "from": "dts",
-      "module": "MatListModule",
-      "importPath": "@angular/material/list"
+      "from": "dts"
     },
     {
       "component": "MatListItemIcon",
@@ -2040,9 +1840,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/list.d.ts",
-      "from": "dts",
-      "module": "MatListModule",
-      "importPath": "@angular/material/list"
+      "from": "dts"
     },
     {
       "component": "MatListItemLine",
@@ -2051,9 +1849,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/list.d.ts",
-      "from": "dts",
-      "module": "MatListModule",
-      "importPath": "@angular/material/list"
+      "from": "dts"
     },
     {
       "component": "MatListItemMeta",
@@ -2062,9 +1858,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/list.d.ts",
-      "from": "dts",
-      "module": "MatListModule",
-      "importPath": "@angular/material/list"
+      "from": "dts"
     },
     {
       "component": "MatListItemTitle",
@@ -2073,9 +1867,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/list.d.ts",
-      "from": "dts",
-      "module": "MatListModule",
-      "importPath": "@angular/material/list"
+      "from": "dts"
     },
     {
       "component": "MatListOption",
@@ -2101,9 +1893,7 @@
         }
       ],
       "file": "types/list.d.ts",
-      "from": "dts",
-      "module": "MatListModule",
-      "importPath": "@angular/material/list"
+      "from": "dts"
     },
     {
       "component": "MatListSubheaderCssMatStyler",
@@ -2112,9 +1902,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/list.d.ts",
-      "from": "dts",
-      "module": "MatListModule",
-      "importPath": "@angular/material/list"
+      "from": "dts"
     },
     {
       "component": "MatMenu",
@@ -2165,9 +1953,7 @@
         }
       ],
       "file": "types/menu.d.ts",
-      "from": "dts",
-      "module": "MatMenuModule",
-      "importPath": "@angular/material/menu"
+      "from": "dts"
     },
     {
       "component": "MatMenuContent",
@@ -2176,9 +1962,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/menu.d.ts",
-      "from": "dts",
-      "module": "MatMenuModule",
-      "importPath": "@angular/material/menu"
+      "from": "dts"
     },
     {
       "component": "MatMenuItem",
@@ -2200,9 +1984,7 @@
       ],
       "outputs": [],
       "file": "types/menu.d.ts",
-      "from": "dts",
-      "module": "MatMenuModule",
-      "importPath": "@angular/material/menu"
+      "from": "dts"
     },
     {
       "component": "MatMenuTrigger",
@@ -2241,9 +2023,7 @@
         }
       ],
       "file": "types/menu.d.ts",
-      "from": "dts",
-      "module": "MatMenuModule",
-      "importPath": "@angular/material/menu"
+      "from": "dts"
     },
     {
       "component": "MatMiniFabButton",
@@ -2252,9 +2032,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/button.d.ts",
-      "from": "dts",
-      "module": "MatButtonModule",
-      "importPath": "@angular/material/button"
+      "from": "dts"
     },
     {
       "component": "MatMonthView",
@@ -2313,9 +2091,7 @@
         }
       ],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatMultiYearView",
@@ -2353,9 +2129,7 @@
         }
       ],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatNavList",
@@ -2364,9 +2138,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/list.d.ts",
-      "from": "dts",
-      "module": "MatListModule",
-      "importPath": "@angular/material/list"
+      "from": "dts"
     },
     {
       "component": "MatNestedTreeNode",
@@ -2393,9 +2165,7 @@
         }
       ],
       "file": "types/tree.d.ts",
-      "from": "dts",
-      "module": "MatTreeModule",
-      "importPath": "@angular/material/tree"
+      "from": "dts"
     },
     {
       "component": "MatNoDataRow",
@@ -2404,9 +2174,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatOptgroup",
@@ -2422,9 +2190,7 @@
       ],
       "outputs": [],
       "file": "types/_option-chunk.d.ts",
-      "from": "dts",
-      "module": "MatOptionModule",
-      "importPath": "@angular/material/core"
+      "from": "dts"
     },
     {
       "component": "MatOption",
@@ -2447,9 +2213,7 @@
         }
       ],
       "file": "types/_option-chunk.d.ts",
-      "from": "dts",
-      "module": "MatOptionModule",
-      "importPath": "@angular/material/core"
+      "from": "dts"
     },
     {
       "component": "MatPaginator",
@@ -2490,9 +2254,7 @@
         }
       ],
       "file": "types/_paginator-chunk.d.ts",
-      "from": "dts",
-      "module": "MatPaginatorModule",
-      "importPath": "@angular/material/paginator"
+      "from": "dts"
     },
     {
       "component": "MatPrefix",
@@ -2506,9 +2268,7 @@
       ],
       "outputs": [],
       "file": "types/_form-field-chunk.d.ts",
-      "from": "dts",
-      "module": "MatFormFieldModule",
-      "importPath": "@angular/material/input"
+      "from": "dts"
     },
     {
       "component": "MatProgressBar",
@@ -2534,9 +2294,7 @@
         }
       ],
       "file": "types/progress-bar.d.ts",
-      "from": "dts",
-      "module": "MatProgressBarModule",
-      "importPath": "@angular/material/progress-bar"
+      "from": "dts"
     },
     {
       "component": "MatProgressSpinner",
@@ -2561,9 +2319,7 @@
       ],
       "outputs": [],
       "file": "types/_progress-spinner-chunk.d.ts",
-      "from": "dts",
-      "module": "MatProgressSpinnerModule",
-      "importPath": "@angular/material/progress-spinner"
+      "from": "dts"
     },
     {
       "component": "MatPseudoCheckbox",
@@ -2582,9 +2338,7 @@
       ],
       "outputs": [],
       "file": "types/_pseudo-checkbox-module-chunk.d.ts",
-      "from": "dts",
-      "module": "MatPseudoCheckboxModule",
-      "importPath": "@angular/material/core"
+      "from": "dts"
     },
     {
       "component": "MatRadioButton",
@@ -2643,9 +2397,7 @@
         }
       ],
       "file": "types/radio.d.ts",
-      "from": "dts",
-      "module": "MatRadioModule",
-      "importPath": "@angular/material/radio"
+      "from": "dts"
     },
     {
       "component": "MatRadioGroup",
@@ -2683,9 +2435,7 @@
         }
       ],
       "file": "types/radio.d.ts",
-      "from": "dts",
-      "module": "MatRadioModule",
-      "importPath": "@angular/material/radio"
+      "from": "dts"
     },
     {
       "component": "MatRecycleRows",
@@ -2695,9 +2445,7 @@
       "outputs": [],
       "file": "types/table.d.ts",
       "from": "dts",
-      "deprecated": "This directive is a no-op and will be removed.",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "deprecated": "This directive is a no-op and will be removed."
     },
     {
       "component": "MatRipple",
@@ -2735,9 +2483,7 @@
       ],
       "outputs": [],
       "file": "types/_ripple-chunk.d.ts",
-      "from": "dts",
-      "module": "MatRippleModule",
-      "importPath": "@angular/material/core"
+      "from": "dts"
     },
     {
       "component": "MatRow",
@@ -2746,9 +2492,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatRowDef",
@@ -2766,9 +2510,7 @@
       ],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatSelect",
@@ -2859,9 +2601,7 @@
         }
       ],
       "file": "types/select.d.ts",
-      "from": "dts",
-      "module": "MatSelectModule",
-      "importPath": "@angular/material/select"
+      "from": "dts"
     },
     {
       "component": "MatSelectionList",
@@ -2890,9 +2630,7 @@
         }
       ],
       "file": "types/list.d.ts",
-      "from": "dts",
-      "module": "MatListModule",
-      "importPath": "@angular/material/list"
+      "from": "dts"
     },
     {
       "component": "MatSelectTrigger",
@@ -2901,9 +2639,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/select.d.ts",
-      "from": "dts",
-      "module": "MatSelectModule",
-      "importPath": "@angular/material/select"
+      "from": "dts"
     },
     {
       "component": "MatSidenav",
@@ -2922,9 +2658,7 @@
       ],
       "outputs": [],
       "file": "types/sidenav.d.ts",
-      "from": "dts",
-      "module": "MatSidenavModule",
-      "importPath": "@angular/material/sidenav"
+      "from": "dts"
     },
     {
       "component": "MatSidenavContainer",
@@ -2933,9 +2667,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/sidenav.d.ts",
-      "from": "dts",
-      "module": "MatSidenavModule",
-      "importPath": "@angular/material/sidenav"
+      "from": "dts"
     },
     {
       "component": "MatSidenavContent",
@@ -2944,9 +2676,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/sidenav.d.ts",
-      "from": "dts",
-      "module": "MatSidenavModule",
-      "importPath": "@angular/material/sidenav"
+      "from": "dts"
     },
     {
       "component": "MatSlider",
@@ -2983,9 +2713,7 @@
       ],
       "outputs": [],
       "file": "types/slider.d.ts",
-      "from": "dts",
-      "module": "MatSliderModule",
-      "importPath": "@angular/material/slider"
+      "from": "dts"
     },
     {
       "component": "MatSliderRangeThumb",
@@ -2994,9 +2722,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/slider.d.ts",
-      "from": "dts",
-      "module": "MatSliderModule",
-      "importPath": "@angular/material/slider"
+      "from": "dts"
     },
     {
       "component": "MatSliderThumb",
@@ -3019,9 +2745,7 @@
         }
       ],
       "file": "types/slider.d.ts",
-      "from": "dts",
-      "module": "MatSliderModule",
-      "importPath": "@angular/material/slider"
+      "from": "dts"
     },
     {
       "component": "MatSliderVisualThumb",
@@ -3040,8 +2764,7 @@
       ],
       "outputs": [],
       "file": "types/slider.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material/slider"
+      "from": "dts"
     },
     {
       "component": "MatSlideToggle",
@@ -3106,9 +2829,7 @@
         }
       ],
       "file": "types/slide-toggle.d.ts",
-      "from": "dts",
-      "module": "MatSlideToggleModule",
-      "importPath": "@angular/material/slide-toggle"
+      "from": "dts"
     },
     {
       "component": "MatSnackBarAction",
@@ -3117,9 +2838,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/snack-bar.d.ts",
-      "from": "dts",
-      "module": "MatSnackBarModule",
-      "importPath": "@angular/material/snack-bar"
+      "from": "dts"
     },
     {
       "component": "MatSnackBarActions",
@@ -3128,9 +2847,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/snack-bar.d.ts",
-      "from": "dts",
-      "module": "MatSnackBarModule",
-      "importPath": "@angular/material/snack-bar"
+      "from": "dts"
     },
     {
       "component": "MatSnackBarContainer",
@@ -3139,9 +2856,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/snack-bar.d.ts",
-      "from": "dts",
-      "module": "MatSnackBarModule",
-      "importPath": "@angular/material/snack-bar"
+      "from": "dts"
     },
     {
       "component": "MatSnackBarLabel",
@@ -3150,9 +2865,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/snack-bar.d.ts",
-      "from": "dts",
-      "module": "MatSnackBarModule",
-      "importPath": "@angular/material/snack-bar"
+      "from": "dts"
     },
     {
       "component": "MatSort",
@@ -3187,9 +2900,7 @@
         }
       ],
       "file": "types/_sort-chunk.d.ts",
-      "from": "dts",
-      "module": "MatSortModule",
-      "importPath": "@angular/material/sort"
+      "from": "dts"
     },
     {
       "component": "MatSortHeader",
@@ -3218,9 +2929,7 @@
       ],
       "outputs": [],
       "file": "types/sort.d.ts",
-      "from": "dts",
-      "module": "MatSortModule",
-      "importPath": "@angular/material/sort"
+      "from": "dts"
     },
     {
       "component": "MatStartDate",
@@ -3236,9 +2945,7 @@
         }
       ],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "MatStep",
@@ -3251,9 +2958,7 @@
       ],
       "outputs": [],
       "file": "types/stepper.d.ts",
-      "from": "dts",
-      "module": "MatStepperModule",
-      "importPath": "@angular/material/stepper"
+      "from": "dts"
     },
     {
       "component": "MatStepContent",
@@ -3262,9 +2967,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/stepper.d.ts",
-      "from": "dts",
-      "module": "MatStepperModule",
-      "importPath": "@angular/material/stepper"
+      "from": "dts"
     },
     {
       "component": "MatStepHeader",
@@ -3304,9 +3007,7 @@
       ],
       "outputs": [],
       "file": "types/stepper.d.ts",
-      "from": "dts",
-      "module": "MatStepperModule",
-      "importPath": "@angular/material/stepper"
+      "from": "dts"
     },
     {
       "component": "MatStepLabel",
@@ -3315,9 +3016,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/stepper.d.ts",
-      "from": "dts",
-      "module": "MatStepperModule",
-      "importPath": "@angular/material/stepper"
+      "from": "dts"
     },
     {
       "component": "MatStepper",
@@ -3354,9 +3053,7 @@
         }
       ],
       "file": "types/stepper.d.ts",
-      "from": "dts",
-      "module": "MatStepperModule",
-      "importPath": "@angular/material/stepper"
+      "from": "dts"
     },
     {
       "component": "MatStepperIcon",
@@ -3370,9 +3067,7 @@
       ],
       "outputs": [],
       "file": "types/stepper.d.ts",
-      "from": "dts",
-      "module": "MatStepperModule",
-      "importPath": "@angular/material/stepper"
+      "from": "dts"
     },
     {
       "component": "MatStepperNext",
@@ -3381,9 +3076,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/stepper.d.ts",
-      "from": "dts",
-      "module": "MatStepperModule",
-      "importPath": "@angular/material/stepper"
+      "from": "dts"
     },
     {
       "component": "MatStepperPrevious",
@@ -3392,9 +3085,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/stepper.d.ts",
-      "from": "dts",
-      "module": "MatStepperModule",
-      "importPath": "@angular/material/stepper"
+      "from": "dts"
     },
     {
       "component": "MatSuffix",
@@ -3408,9 +3099,7 @@
       ],
       "outputs": [],
       "file": "types/_form-field-chunk.d.ts",
-      "from": "dts",
-      "module": "MatFormFieldModule",
-      "importPath": "@angular/material/input"
+      "from": "dts"
     },
     {
       "component": "MatTab",
@@ -3444,9 +3133,7 @@
       ],
       "outputs": [],
       "file": "types/tabs.d.ts",
-      "from": "dts",
-      "module": "MatTabsModule",
-      "importPath": "@angular/material/tabs"
+      "from": "dts"
     },
     {
       "component": "MatTabBody",
@@ -3479,8 +3166,7 @@
         }
       ],
       "file": "types/tabs.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material/tabs"
+      "from": "dts"
     },
     {
       "component": "MatTabBodyPortal",
@@ -3489,8 +3175,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/tabs.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material/tabs"
+      "from": "dts"
     },
     {
       "component": "MatTabContent",
@@ -3499,9 +3184,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/tabs.d.ts",
-      "from": "dts",
-      "module": "MatTabsModule",
-      "importPath": "@angular/material/tabs"
+      "from": "dts"
     },
     {
       "component": "MatTabGroup",
@@ -3573,9 +3256,7 @@
         }
       ],
       "file": "types/tabs.d.ts",
-      "from": "dts",
-      "module": "MatTabsModule",
-      "importPath": "@angular/material/tabs"
+      "from": "dts"
     },
     {
       "component": "MatTabHeader",
@@ -3596,8 +3277,7 @@
       ],
       "outputs": [],
       "file": "types/tabs.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material/tabs"
+      "from": "dts"
     },
     {
       "component": "MatTabLabel",
@@ -3606,9 +3286,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/tabs.d.ts",
-      "from": "dts",
-      "module": "MatTabsModule",
-      "importPath": "@angular/material/tabs"
+      "from": "dts"
     },
     {
       "component": "MatTabLabelWrapper",
@@ -3621,8 +3299,7 @@
       ],
       "outputs": [],
       "file": "types/tabs.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material/tabs"
+      "from": "dts"
     },
     {
       "component": "MatTable",
@@ -3631,9 +3308,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatTabLink",
@@ -3658,9 +3333,7 @@
       ],
       "outputs": [],
       "file": "types/tabs.d.ts",
-      "from": "dts",
-      "module": "MatTabsModule",
-      "importPath": "@angular/material/tabs"
+      "from": "dts"
     },
     {
       "component": "MatTabNav",
@@ -3692,9 +3365,7 @@
       ],
       "outputs": [],
       "file": "types/tabs.d.ts",
-      "from": "dts",
-      "module": "MatTabsModule",
-      "importPath": "@angular/material/tabs"
+      "from": "dts"
     },
     {
       "component": "MatTabNavPanel",
@@ -3707,9 +3378,7 @@
       ],
       "outputs": [],
       "file": "types/tabs.d.ts",
-      "from": "dts",
-      "module": "MatTabsModule",
-      "importPath": "@angular/material/tabs"
+      "from": "dts"
     },
     {
       "component": "MatTextColumn",
@@ -3718,9 +3387,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/table.d.ts",
-      "from": "dts",
-      "module": "MatTableModule",
-      "importPath": "@angular/material/table"
+      "from": "dts"
     },
     {
       "component": "MatTimepicker",
@@ -3766,9 +3433,7 @@
         }
       ],
       "file": "types/timepicker.d.ts",
-      "from": "dts",
-      "module": "MatTimepickerModule",
-      "importPath": "@angular/material/timepicker"
+      "from": "dts"
     },
     {
       "component": "MatTimepickerInput",
@@ -3812,9 +3477,7 @@
         }
       ],
       "file": "types/timepicker.d.ts",
-      "from": "dts",
-      "module": "MatTimepickerModule",
-      "importPath": "@angular/material/timepicker"
+      "from": "dts"
     },
     {
       "component": "MatTimepickerToggle",
@@ -3851,9 +3514,7 @@
       ],
       "outputs": [],
       "file": "types/timepicker.d.ts",
-      "from": "dts",
-      "module": "MatTimepickerModule",
-      "importPath": "@angular/material/timepicker"
+      "from": "dts"
     },
     {
       "component": "MatToolbar",
@@ -3866,9 +3527,7 @@
       ],
       "outputs": [],
       "file": "types/toolbar.d.ts",
-      "from": "dts",
-      "module": "MatToolbarModule",
-      "importPath": "@angular/material/toolbar"
+      "from": "dts"
     },
     {
       "component": "MatToolbarRow",
@@ -3877,9 +3536,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/toolbar.d.ts",
-      "from": "dts",
-      "module": "MatToolbarModule",
-      "importPath": "@angular/material/toolbar"
+      "from": "dts"
     },
     {
       "component": "MatTooltip",
@@ -3921,9 +3578,7 @@
       ],
       "outputs": [],
       "file": "types/tooltip.d.ts",
-      "from": "dts",
-      "module": "MatTooltipModule",
-      "importPath": "@angular/material/tooltip"
+      "from": "dts"
     },
     {
       "component": "MatTree",
@@ -3932,9 +3587,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/tree.d.ts",
-      "from": "dts",
-      "module": "MatTreeModule",
-      "importPath": "@angular/material/tree"
+      "from": "dts"
     },
     {
       "component": "MatTreeNode",
@@ -3958,9 +3611,7 @@
         }
       ],
       "file": "types/tree.d.ts",
-      "from": "dts",
-      "module": "MatTreeModule",
-      "importPath": "@angular/material/tree"
+      "from": "dts"
     },
     {
       "component": "MatTreeNodeDef",
@@ -3978,9 +3629,7 @@
       ],
       "outputs": [],
       "file": "types/tree.d.ts",
-      "from": "dts",
-      "module": "MatTreeModule",
-      "importPath": "@angular/material/tree"
+      "from": "dts"
     },
     {
       "component": "MatTreeNodeOutlet",
@@ -3989,9 +3638,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/tree.d.ts",
-      "from": "dts",
-      "module": "MatTreeModule",
-      "importPath": "@angular/material/tree"
+      "from": "dts"
     },
     {
       "component": "MatTreeNodePadding",
@@ -4009,9 +3656,7 @@
       ],
       "outputs": [],
       "file": "types/tree.d.ts",
-      "from": "dts",
-      "module": "MatTreeModule",
-      "importPath": "@angular/material/tree"
+      "from": "dts"
     },
     {
       "component": "MatTreeNodeToggle",
@@ -4025,9 +3670,7 @@
       ],
       "outputs": [],
       "file": "types/tree.d.ts",
-      "from": "dts",
-      "module": "MatTreeModule",
-      "importPath": "@angular/material/tree"
+      "from": "dts"
     },
     {
       "component": "MatYearView",
@@ -4065,9 +3708,7 @@
         }
       ],
       "file": "types/datepicker.d.ts",
-      "from": "dts",
-      "module": "MatDatepickerModule",
-      "importPath": "@angular/material/datepicker"
+      "from": "dts"
     },
     {
       "component": "SimpleSnackBar",
@@ -4076,8 +3717,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/snack-bar.d.ts",
-      "from": "dts",
-      "importPath": "@angular/material/snack-bar"
+      "from": "dts"
     },
     {
       "component": "TooltipComponent",
@@ -4086,9 +3726,7 @@
       "inputs": [],
       "outputs": [],
       "file": "types/tooltip.d.ts",
-      "from": "dts",
-      "module": "MatTooltipModule",
-      "importPath": "@angular/material/tooltip"
+      "from": "dts"
     }
   ]
 }

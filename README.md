@@ -113,15 +113,14 @@ cp fixtures/material/code-map.json .resolve/code-map.json
 npm run resolve -- handoff "Sign in"
 ```
 
-The scan suggests 35 links and 34 are right (precision 34/35, recall 34/40). The reviewed map has 0 wrong confirmed links. The Sign in handoff for the filled button says:
+The scan suggests 32 links and all 32 are right (precision 1, recall 32/40). The reviewed map has 0 wrong confirmed links. The Sign in handoff for the filled button says:
 
 ```text
-Code: MatButton from '@angular/material/button'
-Angular: button[mat-flat-button], …, MatButtonModule (import MatButtonModule from '@angular/material/button')
-Template (suggested): <button mat-flat-button [matButton]="…"></button>
+import { MatButtonModule } from '@angular/material/button'
+Template (suggested): <button matButton="filled"></button>
 ```
 
-The sign-in label is the text in that button: `<button mat-flat-button>Sign in</button>`.
+Tonal is `matButton="tonal"`. Outlined is `matButton="outlined"`. The sign-in label sits in the button: `<button matButton="filled">Sign in</button>`.
 
 The Material phrase board is separate from the sample-library board: top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0. The sample board stays top-1 83/88, top-3 85/88. See [Scoreboard](docs/SCOREBOARD.md#material-board) and the [guide](docs/GUIDE.md#real-example-angular-material).
 
@@ -220,7 +219,7 @@ Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.gra
 
 Newest first. The full list is in the [reference](docs/REFERENCE.md#version-history).
 
-- **Oct 20, 2026 — [PR #68](https://github.com/TANISHQBAFNA/resolve/pull/68).** Angular Material 22.2.3 is the real public example: a Material 3 fixture from the public spec, a code-map scan of the published package (precision 34/35, recall 34/40, 0 wrong confirmed links), and a separate phrase board (top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0). The sample phrase board is unchanged.
+- **Oct 20, 2026 — [PR #68](https://github.com/TANISHQBAFNA/resolve/pull/68).** Angular Material 22.2.3 is the real public example: a Material 3 fixture from the public spec, a code-map scan of the published package (precision 1, recall 32/40, 0 wrong confirmed links), and a separate phrase board (top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0). The sample phrase board is unchanged.
 - **Oct 20, 2026 — [PR #64](https://github.com/TANISHQBAFNA/resolve/pull/64).** The README pictures, logo and badge use a brighter teal. In light mode, words are near-black and the teal is in fills, chips and underlines. PASS stays green.
 - **Oct 20, 2026 — [PR #63](https://github.com/TANISHQBAFNA/resolve/pull/63).** `resolve code-map scan` reads a made-up Acme Angular package. `suggest` proposes Figma-to-code pairs and never treats them as truth. `review` confirms them through the CSV. Only a mapped pair shows on `/parts` and `/handoff`. An unmapped part means stop and ask. On the Acme edge fixture, suggested pairs score precision 1 and recall 43/49, and partial pairs score precision 5/6 and recall 5/49. Accepting every suggestion makes 0 wrong mapped links. Phrase score unchanged: top-1 83/88, top-3 85/88. 928 tests.
 - **Oct 20, 2026 — [PR #61](https://github.com/TANISHQBAFNA/resolve/pull/61).** A failed check now says `pass: false` in JSON, including when proper use fails. Status still prints local time with a zone name, and the tests accept that. Tests stop with one clear message on Node older than 22.12. CI fails if the phrase score drops below 83 of 88 first picks or 85 of 88 in the top 3. CI runs on Node 22 and 24, in UTC and India time, and the browser checks include Firefox.

@@ -358,6 +358,22 @@ export function modifierWord(token: string): boolean {
   if (UI_MODIFIER.has(token) || LABEL_FILLER.has(token)) return true;
   return inflectionStems(token).some((stem) => UI_MODIFIER.has(stem) || LABEL_FILLER.has(stem));
 }
+/** The token is the whole component name, or a synonym that covers every word of it. */
+function longestCoveredName(token: string, nameSets: readonly Set<string>[]): number {
+  let best = 0;
+  for (const names of nameSets) {
+    if (!names.size) continue;
+    const joined = [...names].join("");
+    const alias = !names.has(token) && [...names].every((part) => synonymIn(token, new Set([part]), false));
+    const whole =
+      joined === token ||
+      (names.size === 1 && (names.has(token) || synonymIn(token, names, false))) ||
+      alias;
+    if (whole) best = Math.max(best, joined.length, token.length);
+  }
+  return best;
+}
+
 function keepsCompany(token: string, previous: string | undefined, exempt: ReadonlySet<string>): boolean {
   if (modifierWord(token) || exempt.has(token)) return true;
   if (!previous) return false;
@@ -392,9 +408,17 @@ export function askGate(
   );
   if (hit.filter(Boolean).length !== 1) return open;
   const head = hit.lastIndexOf(true);
+  let trailingJunk = false;
   for (let i = head + 1; i < content.length; i += 1) {
     const token = content[i];
-    if (!token || !keepsCompany(token, content[i - 1], exempt)) return { outOfDomain: true, lowConfidence: false };
+    if (!token || !keepsCompany(token, content[i - 1], exempt)) trailingJunk = true;
+  }
+  // A long whole name ("snackbar", "datepicker") stays a match when one extra word follows.
+  // Short names ("chip shop", "divider wall") stay empty: the extra word is the subject.
+  if (trailingJunk) {
+    const headToken = content[head] ?? "";
+    if (longestCoveredName(headToken, nameSets) >= 8) return { outOfDomain: false, lowConfidence: true };
+    return { outOfDomain: true, lowConfidence: false };
   }
   let unknown = 0;
   for (let i = 0; i < head; i += 1) {
@@ -423,14 +447,34 @@ function adjacentSwap(query: string, name: string): boolean {
 }
 /**
  * Typo against the whole name, spaces removed. At least 5 letters.
- * A missing letter or a neighbouring swap. Not a substituted letter.
+ * A missing letter, a neighbouring swap, or one substituted letter.
  * Never used while an exact, phrase, or synonym match exists.
  */
+/** Same length, one different letter. "expantion" is "expansion". */
+function oneSubstitution(query: string, name: string): boolean {
+  if (query.length !== name.length || query.length < 6) return false;
+  let diff = 0;
+  for (let i = 0; i < query.length; i += 1) if (query[i] !== name[i]) diff += 1;
+  return diff === 1;
+}
+
 export function wholeNameTypo(ask: string, name: string): boolean {
   const query = collapsedName(ask);
   const master = collapsedName(name);
   if (query.length < 5 || master.length < 5 || query === master) return false;
-  return oneCharMissing(query, master) || adjacentSwap(query, master);
+  if (oneCharMissing(query, master) || adjacentSwap(query, master)) return true;
+  const masterTokens = tokensOf(name);
+  if (!masterTokens.length) return false;
+  for (const group of allSynonymGroups()) {
+    const singles = group.terms.filter((term) => !term.includes(" "));
+    if (!masterTokens.every((part) => singles.includes(part))) continue;
+    for (const term of group.terms) {
+      const folded = collapsedName(term);
+      if (folded.length < 8 || folded === query) continue;
+      if (oneCharMissing(query, folded) || adjacentSwap(query, folded) || oneSubstitution(query, folded)) return true;
+    }
+  }
+  return false;
 }
 /** "button" and "cta"/"action" are the same generic control word. */
 function genericQuery(query: string): boolean {
