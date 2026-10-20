@@ -15,6 +15,7 @@
     "commands",
     "dist-server",
     "docs",
+    "schemas",
     "rules",
     "skills/resolve",
     "hooks",
