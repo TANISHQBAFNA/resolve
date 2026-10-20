@@ -1,0 +1,59 @@
+{
+  "note": "Fresh compose set for the scoreboard fixture library, written and labelled before composeRecipe existed. expect is the set of parts a designer would place for the parts the request names; [] when nothing fits (no-fit or typo-heavy). composed is false when fewer than 2 parts fit. tune rows may guide fixes; heldout rows are only measured, never tuned on. Slot precision: returned parts that are expected. Slot recall: expected parts that were returned. Invented: a returned id that is not a live master in the graph. First run (measured, nothing tuned after it): tune slot precision 32/34, recall 32/34; held-out slot precision 28/31, recall 28/32; composed-or-not right 15/15 both; No match right 2/2 both; invented 0. Misses: danger, primary and secondary button return the Button set, not the variant (both splits); held-out 'modal with radios and a danger button' reads modal as the screen name, so Modal is not a slot. Scored strictly by name. r1 fixes (head word must match, with synonyms): tune 31/33 precision, 31/34 recall, composed-or-not 14/15 ('radio list' is now weak: its head word is list); held-out unchanged 28/31, 28/32, 15/15. r2: container words (list, group, set, stack, collection) are not the part word, so 'radio list' fits Radio again: tune 32/34, 32/34, 15/15; held-out unchanged. r3 (Michigan r2 M1: every main word must match the name, a variant name or a synonym): 'payee search field', 'legacy alert' and 'apply button' are now weak, check. Tune 30/32, 30/34, 14/15; held-out 27/30, 27/32, 14/15; invented 0.",
+  "cases": [
+    { "split": "tune", "request": "transfer screen with a payee search field, payment rows and a pay button", "expect": [ "Search Field", "Payment Row", "Pay CTA" ], "composed": true },
+    { "split": "tune", "request": "profile page with an avatar, a text field and a save button", "expect": [ "Avatar", "Text Field", "Save CTA" ], "composed": true },
+    { "split": "tune", "request": "order review with a summary card, a coupon field and a pay cta", "expect": [ "Summary Card", "Coupon Field", "Pay CTA" ], "composed": true },
+    { "split": "tune", "request": "cart with list rows, a quantity stepper and a price", "expect": [ "List Row", "Quantity Stepper", "Price" ], "composed": true },
+    { "split": "tune", "request": "notifications screen with a header bar, toasts and badges", "expect": [ "Header Bar", "Toast", "Badge" ], "composed": true },
+    { "split": "tune", "request": "filter panel with chips, checkboxes and a switch", "expect": [ "Chip", "Checkbox", "Switch" ], "composed": true },
+    { "split": "tune", "request": "confirm delete dialog with a modal and a danger button", "expect": [ "Modal", "Button Danger" ], "composed": true },
+    { "split": "tune", "request": "account settings with tabs, text fields and a save cta", "expect": [ "Tabs", "Text Field", "Save CTA" ], "composed": true },
+    { "split": "tune", "request": "a header bar, breadcrumbs and a divider", "expect": [ "Header Bar", "Breadcrumb", "Divider" ], "composed": true },
+    { "split": "tune", "request": "promo screen with a banner, a promo field and a primary button", "expect": [ "Banner", "Promo Field", "Button Primary" ], "composed": true },
+    { "split": "tune", "request": "warp drive console with flux gauges and a hologram", "expect": [], "composed": false },
+    { "split": "tune", "request": "srch fld and pymnt rws", "expect": [], "composed": false },
+    { "split": "tune", "request": "a tag", "expect": [ "Tag" ], "composed": false },
+    { "split": "tune", "request": "page with a legacy alert and a link button", "expect": [ "Alert", "Link Button" ], "composed": true },
+    { "split": "tune", "request": "checkout with a radio list for delivery and a footer bar", "expect": [ "Radio", "Footer Bar" ], "composed": true },
+    { "split": "heldout", "request": "beneficiary list with list rows, avatars and a search field", "expect": [ "List Row", "Avatar", "Search Field" ], "composed": true },
+    { "split": "heldout", "request": "payment success screen with a toast and a link button", "expect": [ "Toast", "Link Button" ], "composed": true },
+    { "split": "heldout", "request": "loan summary with summary cards, prices and a save button", "expect": [ "Summary Card", "Price", "Save CTA" ], "composed": true },
+    { "split": "heldout", "request": "sign-up with text fields, a checkbox and a primary button", "expect": [ "Text Field", "Checkbox", "Button Primary" ], "composed": true },
+    { "split": "heldout", "request": "error page with an alert and a secondary button", "expect": [ "Alert", "Button Secondary" ], "composed": true },
+    { "split": "heldout", "request": "nav with nav items, a header bar and badges", "expect": [ "Nav Item", "Header Bar", "Badge" ], "composed": true },
+    { "split": "heldout", "request": "empty inbox with an empty message and a button", "expect": [ "Empty Message", "Button" ], "composed": true },
+    { "split": "heldout", "request": "a quantity stepper, a price and a close icon", "expect": [ "Quantity Stepper", "Price", "Icon Close" ], "composed": true },
+    { "split": "heldout", "request": "time machine with chrono dials and tachyon meters", "expect": [], "composed": false },
+    { "split": "heldout", "request": "dashbord wth crds and grafs", "expect": [], "composed": false },
+    { "split": "heldout", "request": "a switch", "expect": [ "Switch" ], "composed": false },
+    { "split": "heldout", "request": "settings with tabs and switches", "expect": [ "Tabs", "Switch" ], "composed": true },
+    { "split": "heldout", "request": "coupon entry with a coupon field and an apply button", "expect": [ "Coupon Field", "Button" ], "composed": true },
+    { "split": "heldout", "request": "modal with radios and a danger button", "expect": [ "Modal", "Radio", "Button Danger" ], "composed": true },
+    { "split": "heldout", "request": "receipt with payment rows, a divider and a footer bar", "expect": [ "Payment Row", "Divider", "Footer Bar" ], "composed": true }
+  ],
+  "measured": {
+    "tune": {
+      "cases": 15,
+      "returned": 32,
+      "right": 30,
+      "expected": 34,
+      "found": 30,
+      "composedOk": 14,
+      "noMatchOk": 2,
+      "noMatchCases": 2,
+      "invented": 0
+    },
+    "heldout": {
+      "cases": 15,
+      "returned": 30,
+      "right": 27,
+      "expected": 32,
+      "found": 27,
+      "composedOk": 14,
+      "noMatchOk": 2,
+      "noMatchCases": 2,
+      "invented": 0
+    }
+  }
+}

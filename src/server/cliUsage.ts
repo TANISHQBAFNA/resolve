@@ -28,6 +28,8 @@ export function usage(): void {
       "      Screen packs. Overlay .resolve/recipes.json still wins.",
       "      After ingest, list/get bind slots to live masters (or next recommend query).",
       "      Matching .resolve/context-packs.json scopes slot fills + nextRecommend.",
+      "      --compose: no saved recipe fits, so build one from the parts the request names. Not saved. --propose files it for approval.",
+      "      --answer topic=option (with --compose): briefing answers add their parts as slots.",
       "      Never invents node ids. Unbound: recommend then verify_frame.",
       `  resolve brief "<screen request>" [--answer <topic>=<option>] ${PACK_BIND_FLAGS}`,
       "      Before recommend. At most 3 multiple-choice questions, only when the answer changes the component.",

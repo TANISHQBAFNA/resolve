@@ -28,6 +28,7 @@ import {
   type ContextPack,
 } from "./contextPacks";
 import type { WorkspaceManifest } from "./workspace";
+import { inflectionStems } from "./screenInventory";
 
 /**
  * Screen recipes — named packs of library masters for a common screen job.
@@ -241,7 +242,7 @@ function compactCardMaster(master: RecipeMaster) {
   };
 }
 
-function compactCardSlot(slot: FilledSlot) {
+export function compactCardSlot(slot: FilledSlot) {
   const unbound =
     slot.status === "unbound" || slot.status === "missing" || slot.status === "deprecated";
   const hint = slot.master ? undefined : oneLineHint(slot.hint);
@@ -555,7 +556,11 @@ function masterFromCandidate(candidate: RecommendCandidate, sock?: SockState, gr
 function hintOverlap(candidate: RecommendCandidate, hints: string[]): number {
   if (!hints.length) return 1;
   const haystack = `${candidate.name} ${candidate.set ?? ""} ${Object.values(candidate.variantProperties ?? {}).join(" ")}`.toLowerCase();
-  return hints.reduce((count, hint) => count + (haystack.includes(hint.toLowerCase()) ? 1 : 0), 0);
+  // Plurals and -ing/-ed forms count: "toasts" fits Toast.
+  return hints.reduce((count, hint) => {
+    const word = hint.toLowerCase();
+    return count + ([word, ...inflectionStems(word)].some((form) => haystack.includes(form)) ? 1 : 0);
+  }, 0);
 }
 
 const CONTENT_SLOT = /^(?:content|body|detail|message)$/i;

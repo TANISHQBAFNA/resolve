@@ -11,13 +11,13 @@ import {
   parseTextsFlag,
   positionals,
   printJson,
-  exitQuietlyOnClosedPipe,
   readDesignContextFile,
   requireGraph,
   setJsonPretty,
   toGraph,
   writeStored,
 } from "./cliArgs";
+import { composeFromCli } from "./composeCommand";
 import { dirname, join, resolve } from "node:path";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
@@ -241,6 +241,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const bind = bindFromFlags(args);
       const sock = readSock();
       const bindRules = readBindRules();
+      if (args.includes("--compose") || args.includes("--propose")) return composeFromCli(args, query);
       if (!query || query === "list") {
         printJson(
           listRecipes(recipes, resolveGraph(flag(args, "id"))?.index, bind, sock, bindRules, readPlaceholders()),
@@ -991,7 +992,6 @@ async function dispatchCli(argv: string[]): Promise<void> {
 }
 
 if (!process.env["VITEST"]) {
-  exitQuietlyOnClosedPipe();
   runCli(process.argv.slice(2)).catch((error) => {
     const raw = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${designerFailure(raw)}\n`);

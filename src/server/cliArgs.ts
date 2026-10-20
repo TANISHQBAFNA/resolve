@@ -239,3 +239,5 @@ export function exitQuietlyOnClosedPipe(): void {
     });
   }
 }
+// Only CLI code imports this module. Tests register the guard themselves.
+if (!process.env["VITEST"]) exitQuietlyOnClosedPipe();
