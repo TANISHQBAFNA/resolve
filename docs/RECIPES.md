@@ -81,6 +81,27 @@ To replace a starter recipe, reuse its `id` (for example `checkout-summary`) in 
 
 Optional: bind a context pack from the recipe side with `"contextPackId": "storefront-checkout-summary"`. Prefer listing `recipeIds` on the pack so one product/journey file owns the bind.
 
+### Compose a recipe
+
+When no saved recipe fits, ask Resolve to compose one. It only does this when you ask.
+
+```bash
+npm run resolve -- recipe "profile page with an avatar, a text field and a save button" --compose
+```
+
+- Words before "with" name the screen. Each part after it ("an avatar", "a text field", "a save button") becomes a slot. Place words ("next to", "under", "beside") join two parts: "a toast next to the header bar" is two slots. Words after "on", "in", "inside" or "within" are a part only when they hold a full part name ("on a summary card") or are one word that is the whole name of exactly one part ("inside a modal", "on the tabs"). A word that is only part of a longer name ("on a table" when the part is Ledger Table), or that no part has, stays context. Otherwise, and always for device, theme and density words ("on mobile", "in dark mode"), they are context, listed under `readAsContext`. When every part is weak, the hint says so instead of No match. "A set of chips" or "a list of badges" names the chips or badges.
+- Each slot is filled by `recommend`, the same way a saved recipe's slot is. It never invents a part or an id.
+- A part with no fit stays in the card as **No match**, with the `recommend` to try. Every such part is listed, in the one-part answer too.
+- Every main word of the part must be in the part found: its name, one of its variant names, or a synonym (a save button fits Save CTA; a danger button fits Button, which has a Danger variant). Container words (list, group, set, stack, collection) and density words (compact, dense, condensed, spacious) do not count, so a radio list fits Radio and a compact toast fits Toast. If any main word is missing ("payee search field" finds Search Field, "header image" finds Header Bar), the slot says **weak, check**, names the missing words, and is not counted as a fit.
+- Briefing answers fill slots too: `--answer states=empty --answer states=error` (MCP `answers`) adds Empty Message and the error part as slots, bound to those real parts. A part you already named is not added twice. `brief` offers to compose (`composeOffer`) only when compose would build a recipe and no saved recipe covers it; when a saved recipe has the same title or parts, brief says `savedRecipe` instead, the same answer compose gives. It never composes by itself.
+- If a saved recipe has the same title or the same parts, the card warns and names it, and `--propose` files nothing.
+- Fewer than 2 parts fit: no recipe. One part says "use recommend". None says "No match".
+- A saved recipe with that exact name wins, and nothing is composed.
+- Nothing is saved. `--propose` files a pending proposal; a person runs `resolve approve <id> --who <name>` to add it to `.resolve/recipes.json`. The proposal id includes the parts, so different parts are a different proposal. Proposing again after approve or reject files nothing and says why.
+- Approve refuses a private part, a variant inside a set, anything that is not a library component, a recipe with no id, fewer than 2 parts (also when trimmed by hand), and a recipe whose id or title is already saved.
+- An empty request, or a `compose` that is not true or false, is an error (`ok:false`, exit 1 in the CLI).
+- MCP: `recipe` with `compose: true` (and `propose: true`), on the advanced surface only (`RESOLVE_MCP_ADVANCED=1`). The default MCP tools do not change.
+
 ## Context packs
 
 Designers that share one Figma library across products add a **product + journey** pack so `recipe` / `recommend` pick masters for *this* product and *this* step — not a generic name match.

@@ -5,6 +5,7 @@
  * Usage facts write themselves. Rules never do.
  */
 
+import type { Recipe } from "./recipes";
 import { isGenericScreenToken, jobOfName } from "./screenJobs";
 
 export const DEFAULT_USAGE_THRESHOLD = 3;
@@ -145,6 +146,8 @@ export interface SociProposal {
   confidence?: UsageConfidence;
   suggestedRule?: SociSuggestedRule;
   suggestedRecipe?: SociSuggestedRecipe;
+  /** recipe-update that adds a whole composed recipe. Approval writes it to the overlay. */
+  suggestedNewRecipe?: Recipe;
   suggestedVariant?: SociSuggestedVariant;
   suggestedDeprecation?: SociSuggestedDeprecation;
   namingFix?: string;

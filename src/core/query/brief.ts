@@ -6,7 +6,8 @@ import type { BindRulesFile } from "./bindRules";
 import { exactRecipe, fillRecipe, type Recipe } from "./recipes";
 import { recommendMasters } from "./recommendMasters";
 import type { RecommendContext } from "./recommendSupport";
-import { inflectionStems } from "./screenInventory";
+import { composeParts, composeRecipe } from "./recipeCompose";
+import { sameWordForm } from "./screenInventory";
 import type { SociProposal, SockState } from "./sock";
 import type { WorkspaceManifest } from "./workspace";
 
@@ -102,9 +103,15 @@ export interface BriefAnswers {
 
 export type BriefSkip = "just-build" | "recipe" | "decision" | "answered" | "one-candidate" | "no-match";
 
-export type BriefResult =
+export type BriefResult = (
   | { questions: BriefQuestion[] }
-  | { ready: true; assumptions: string[]; candidates: BriefCandidate[]; skip: BriefSkip };
+  | { ready: true; assumptions: string[]; candidates: BriefCandidate[]; skip: BriefSkip }
+) & {
+  /** An offer only. Brief never composes; the person or agent runs recipe compose. */
+  composeOffer?: string;
+  /** A saved recipe already covers the named parts (same check compose uses). Use it instead of composing. */
+  savedRecipe?: string;
+};
 
 interface Choice extends BriefOption {
   contrast: string;
@@ -137,13 +144,6 @@ interface Catalog {
   platform: Choice[];
 }
 
-/** Same word, or the same word with a plural or -ing/-ed ending (recommend's stems). */
-function sameWord(a: string, b: string): boolean {
-  if (a === b) return true;
-  const forms = [a, ...inflectionStems(a)];
-  return [b, ...inflectionStems(b)].some((form) => forms.includes(form));
-}
-
 /** Where the phrase's words sit in hay, in order, as [start, end). Plurals and stems count. */
 function phraseSpan(hay: string, phrase: string): [number, number] | undefined {
   if (phrase.trim().length < 3) return undefined;
@@ -151,7 +151,7 @@ function phraseSpan(hay: string, phrase: string): [number, number] | undefined {
   const words = nameTokens(hay);
   if (!needle.length) return undefined;
   for (let start = 0; start + needle.length <= words.length; start += 1) {
-    if (needle.every((word, offset) => sameWord(words[start + offset]!, word))) return [start, start + needle.length];
+    if (needle.every((word, offset) => sameWordForm(words[start + offset]!, word))) return [start, start + needle.length];
   }
   return undefined;
 }
@@ -474,7 +474,7 @@ function decisionMatch(
     if (!master) continue;
     const own = nameTokens(master.name);
     // "tables" is the part's own word too, not a word that ties the request to this decision.
-    if (tokens.some((token) => containsPhrase(text, token) && !own.some((word) => sameWord(word, token)))) {
+    if (tokens.some((token) => containsPhrase(text, token) && !own.some((word) => sameWordForm(word, token)))) {
       return { summary: row.proposal.summary, master };
     }
   }
@@ -496,7 +496,32 @@ function ready(skip: BriefSkip, assumptions: string[], candidates: BriefCandidat
 
 const NO_MATCH = "No match. Name a component from the learned library or check the spelling, then brief again.";
 
+/** Brief, plus an offer to compose when no saved recipe or decision fits and the request names two or more parts. */
 export function briefScreen(input: BriefInput): BriefResult {
+  const result = briefRequest(input);
+  if ("skip" in result && ["recipe", "decision", "no-match"].includes(result.skip)) return result;
+  const request = input.request.replace(new RegExp(JUST_BUILD.source, "gi"), " ").trim();
+  if (composeParts(request).phrases.length < 2) return result;
+  // Same answer compose would give: a saved recipe that covers it, a recipe it would build, or nothing to offer.
+  const preview = composeRecipe({
+    request,
+    index: input.index,
+    recipes: input.recipes ?? [],
+    ...(input.workspace ? { bind: { packs: [], workspace: input.workspace } } : {}),
+    sock: input.sock,
+    bindRules: input.bindRules,
+    placeholders: input.placeholders,
+  });
+  const saved = preview.duplicates?.[0] ?? (preview.card.composed === false && "recipe" in preview.card ? preview.card.recipe?.title : undefined);
+  if (saved) return { ...result, savedRecipe: `Saved recipe ${saved} already covers this. Use recipe "${saved}"; no need to compose.` };
+  if (!preview.recipe) return result;
+  return {
+    ...result,
+    composeOffer: `No saved recipe fits. To compose one from the parts you named, run recipe "${request}" with compose (CLI --compose; MCP compose: true, advanced). Not run.`,
+  };
+}
+
+function briefRequest(input: BriefInput): BriefResult {
   const recipes = input.recipes ?? [];
   const catalog = catalogFor(input.index);
   const resolved = assertKnown(input.answers, catalog);
@@ -542,7 +567,7 @@ export function briefScreen(input: BriefInput): BriefResult {
   const asks = contentTokens(stripped);
   // A weak recommend lead counts only when the request names one of the part's words.
   const fitRows = (ranked: Ranked, words: string[]) =>
-    ranked.weak ? ranked.rows.filter((row) => nameTokens(row.name).some((token) => words.some((word) => sameWord(word, token)))) : ranked.rows;
+    ranked.weak ? ranked.rows.filter((row) => nameTokens(row.name).some((token) => words.some((word) => sameWordForm(word, token)))) : ranked.rows;
   const trusted = (rows: BriefCandidate[]) => fitRows({ ...lead, rows }, asks);
   const leadRows = trusted(lead.rows);
   // Platform parts (Desktop Nav) only when other words ask for them: "on desktop" alone picks nothing.
@@ -614,7 +639,7 @@ export function briefScreen(input: BriefInput): BriefResult {
   // and the request names no state. Each answer adds its own part (Empty Message, Error Alert).
   // A request that names a part plus a context ("summary cards for the order") is specific: no states question.
   const partWords = [...shapes.map((choice) => choice.label), ...named.map((master) => master.name)].flatMap(nameTokens);
-  const context = asks.filter((word) => !partWords.some((part) => sameWord(part, word)));
+  const context = asks.filter((word) => !partWords.some((part) => sameWordForm(part, word)));
   const specific = (shapes.length > 0 || named.length > 0) && context.length > 0;
   // A state option only when picking it adds a part the request does not already have.
   const have = new Set([...named.map((master) => master.id), ...leadRows.map((row) => row.id)]);
