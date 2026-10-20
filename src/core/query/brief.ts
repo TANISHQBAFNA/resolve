@@ -40,7 +40,7 @@ const FILLER = new Set([
   "place", "put", "add", "scan", "compare", "read", "review", "display", "see", "browse",
 ]);
 
-// "show all payments", "payee list": a collection with no shape named.
+// "show all data", "list every data row": a collection with no shape named.
 const LIST_ASK = /\b(?:all|every|lists?)\b/i;
 
 // No /g: .test() on a /g regex keeps lastIndex between calls.
@@ -540,20 +540,25 @@ export function briefScreen(input: BriefInput): BriefResult {
   const lead = rank(stripped);
   // Recommend's own ranking decides fit. A weak lead fits only when the request names one of its words.
   const asks = contentTokens(stripped);
-  const trusted = (rows: BriefCandidate[]) =>
-    lead.weak ? rows.filter((row) => nameTokens(row.name).some((token) => asks.some((word) => sameWord(word, token)))) : rows;
+  // A weak recommend lead counts only when the request names one of the part's words.
+  const fitRows = (ranked: Ranked, words: string[]) =>
+    ranked.weak ? ranked.rows.filter((row) => nameTokens(row.name).some((token) => words.some((word) => sameWord(word, token)))) : ranked.rows;
+  const trusted = (rows: BriefCandidate[]) => fitRows({ ...lead, rows }, asks);
   const leadRows = trusted(lead.rows);
   // Platform parts (Desktop Nav) only when other words ask for them: "on desktop" alone picks nothing.
   const platformRows = asks.length ? trusted(lead.platformRows) : [];
   const leadFit = leadRows.length > 0 || platformRows.length > 0;
   const answerFit = componentChoices(resolved).length > 0;
   // Product rule (r3): a list ask with no shape or part named, where a card list and a table both exist, asks list or table.
+  // r4: only when recommend finds a part from the other words. The list words alone ("all", "list of") never fit.
+  const listWords = asks.filter((word) => !LIST_ASK.test(word));
+  const listFound = LIST_ASK.test(stripped) && listWords.length > 0 && fitRows(rank(listWords.join(" ")), listWords).length > 0;
   const listShapes =
-    !resolved.has("shape") && !shapes.length && !named.length && LIST_ASK.test(stripped)
+    listFound && !resolved.has("shape") && !shapes.length && !named.length && LIST_ASK.test(stripped)
       ? catalog.shape.filter((choice) => choice.id === "cards" || choice.id === "table")
       : [];
   const listAsk = listShapes.length === 2;
-  const fits = Boolean(recipe || decision || shapes.length || states.length || named.length || leadFit || answerFit || listAsk);
+  const fits = Boolean(recipe || decision || shapes.length || states.length || named.length || leadFit || answerFit);
 
   const notes: string[] = [];
   const fromAnswer = (topic: BriefTopic) => resolved.has(topic);

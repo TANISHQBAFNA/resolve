@@ -399,7 +399,7 @@ describe("designer briefing", () => {
 
   it("asks one list-or-table question on a list ask with no shape named, and each answer picks its part", () => {
     saveGraph(acmeGraph());
-    for (const request of ["show all payments", "a list of invoices", "every transfer this month"]) {
+    for (const request of ["show all data", "list every data row", "all data"]) {
       const questions = asked(run(request));
       expect(questions.map((question) => question.topic), request).toEqual(["shape"]);
       expect(questions[0]!.options.map((option) => option.label).sort(), request).toEqual(["Card List", "Data Table"]);
@@ -410,6 +410,29 @@ describe("designer briefing", () => {
     }
     for (const request of ["show all payments in a table", "all payees as cards", "the compact list of payees"]) {
       expect(asked(run(request)).some((question) => question.topic === "shape"), request).toBe(false);
+    }
+  });
+
+  it("never asks list or table when recommend finds no part, by category, and says No match", () => {
+    const categories: Record<string, string[]> = {
+      "off-topic": ["show all the flux capacitors", "all the hologram widgets", "every warp gauge", "a list of quasars"],
+      "bare list words": ["all", "every", "all of them", "show all"],
+      "typo nouns": ["list all the pymnts", "show all the trnsfrs", "every invcs"],
+      "no part in this library": ["show all payments", "a list of invoices", "list all the orders"],
+    };
+    for (const [category, requests] of Object.entries(categories)) {
+      for (const request of requests) {
+        const result = run(request);
+        expect(asked(result), `${category}: ${request}`).toEqual([]);
+        expect(result, `${category}: ${request}`).toMatchObject({ ready: true, skip: "no-match", candidates: [] });
+        expect("ready" in result && result.assumptions, `${category}: ${request}`).toEqual([expect.stringMatching(/^No match\. .*brief again/)]);
+      }
+    }
+    for (const request of ["just build all the quasars", "build every flux widget without asking", "no need to ask, list all the pymnts"]) {
+      const result = run(request);
+      expect(result, request).toMatchObject({ ready: true, skip: "just-build", candidates: [] });
+      expect("ready" in result && result.assumptions, request).toEqual([expect.stringMatching(/^No match\./)]);
+      expect(JSON.stringify(result), request).not.toMatch(/Assumed data shape/);
     }
   });
 
