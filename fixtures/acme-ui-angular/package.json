@@ -1,0 +1,7 @@
+{
+  "name": "@acme/ui-angular",
+  "version": "1.4.0",
+  "private": true,
+  "description": "Synthetic Acme Angular components for the code-map fixture. Made-up names only.",
+  "types": "index.d.ts"
+}

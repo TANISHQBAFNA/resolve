@@ -247,7 +247,7 @@
       },
       "decisions": [],
       "openQuestions": [
-        "Part Avatar [ACMEUI 30:40] (inside Payee picker) has no code link."
+        "Part Avatar [ACMEUI 30:40] (inside Payee picker) has no code link. Stop and ask."
       ],
       "summary": {
         "components": 3,

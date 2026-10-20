@@ -32,6 +32,8 @@ export interface IngredientHooks {
   replacement(node: GraphNode): GraphNode | undefined;
   /** Card label: `Button / Size=Medium` for a variant, the plain name otherwise. */
   cardName(node: GraphNode): string;
+  /** Set when a mapped code link was checked against an older library or package. */
+  review?(node: GraphNode): string | undefined;
 }
 
 export type PartStatus = "current" | "retired" | "unconfirmed" | "other-library" | "not-found";
@@ -398,16 +400,19 @@ function describePart(walk: Walk, group: Group, level: number, seen: Set<string>
   } else {
     const twin = hooks.twin(main);
     const retired = hooks.retired(main) || Boolean(twin?.retired);
+    const review = !retired ? hooks.review?.(main) : undefined;
     const use = retired ? hooks.replacement(main) : undefined;
     const useTwin = use ? hooks.twin(use) : undefined;
+    const show = !retired && !review ? twin : undefined;
     part = {
       name,
       id: main.id,
       ...where,
       ...base,
       status: retired ? "retired" : "current",
-      code: twin ? twin.line : null,
-      ...(twin?.angular ? { angular: twin.angular } : {}),
+      code: show ? show.line : null,
+      ...(show?.angular ? { angular: show.angular } : {}),
+      ...(review ? { why: `Needs re-review: ${review}. Stop and ask.` } : {}),
       ...internal,
       ...(use ? { use: clean(hooks.cardName(use)) } : {}),
       ...(useTwin && !useTwin.retired ? { useCode: useTwin.line, ...(useTwin.angular ? { useAngular: useTwin.angular } : {}) } : {}),
@@ -637,6 +642,7 @@ function buildCardOnce(index: GraphIndex, ask: string, hooks: IngredientHooks, o
   if (kinds < summary.parts) summary.differentComponents = kinds;
   const twin = hooks.twin(scope);
   const retired = hooks.retired(scope) || Boolean(twin?.retired);
+  const review = !retired ? hooks.review?.(scope) : undefined;
   const guessed = hooks.nameGuess(scope);
   const remoteStub = scope.isRemote && !groups.length;
   const label = clean(hooks.cardName(owner));
@@ -646,6 +652,7 @@ function buildCardOnce(index: GraphIndex, ask: string, hooks: IngredientHooks, o
   const useAngular = useCode ? ownUseTwin?.angular : undefined;
 
   const hints: string[] = [];
+  if (review) hints.push(`Needs re-review: ${review}. Stop and ask.`);
   if (retired) {
     hints.push(
       `${label} is retired${ownUse ? `. Use ${clean(hooks.cardName(ownUse))} instead${useCode ? ` (code: ${codeText({ line: useCode, angular: useAngular })})` : ""}` : ". There is no current replacement"}.`,
@@ -697,8 +704,8 @@ function buildCardOnce(index: GraphIndex, ask: string, hooks: IngredientHooks, o
     ...(instance
       ? { instance: { name: clean(instance.name), id: instance.id, ...where(instance), how: how!, ...(ins.fromMain ? { partsFrom: walk.fromMain ?? FROM_MAIN } : {}) } }
       : {}),
-    code: twin ? twin.line : null,
-    ...(twin?.angular ? { angular: twin.angular } : {}),
+    code: !retired && !review && twin ? twin.line : null,
+    ...(!retired && !review && twin?.angular ? { angular: twin.angular } : {}),
     codeMap: hooks.codeMap,
     parts,
     summary,
@@ -803,8 +810,9 @@ function partLine(p: IngredientPart, indent: string, headKey?: string): string[]
     p.of ? `${p.count} of ${plural(p.of, "copy", "copies")}` : p.count > 1 ? `x${p.count}` : "",
     p.status === "current" ? code : "",
     p.status === "retired"
-      ? `retired, ${code}${p.use ? `; use ${p.use}${useCode}` : "; no current replacement"}`
+      ? `retired${p.use ? `; use ${p.use}${useCode}` : "; no current replacement"}`
       : "",
+    p.why && p.status === "current" ? p.why : "",
     p.status === "unconfirmed" ? PART_GUESS : "",
     p.status === "other-library" ? "from a library that is not learned" : "",
     p.status === "not-found" ? "component not found" : "",
@@ -848,7 +856,7 @@ export function formatIngredientCard(card: IngredientCard): string {
   }
   lines.push(
     c.status === "retired"
-      ? `Code: ${code} (retired${c.use ? `; use ${c.use}${c.useCode ? `, code: ${codeText({ line: c.useCode, angular: c.useAngular })}` : ""}` : ""})`
+      ? `Retired${c.use ? `; use ${c.use}${c.useCode ? `, code: ${codeText({ line: c.useCode, angular: c.useAngular })}` : ""}` : "; no current replacement"}.`
       : `Code: ${code}`,
   );
   if (card.angular) lines.push(`Angular: ${angularText(card.angular, true)}`);

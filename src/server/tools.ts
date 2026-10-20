@@ -48,6 +48,7 @@ import {
   runProposalDecision,
 } from "./store";
 import { recordGap } from "./gaps";
+import { CODE_MAP_TOOLS, runCodeMapTool } from "./codeMapMcp";
 import { recordVerifyUsage } from "./verifyRecord";
 
 export { recordVerifyUsage };
@@ -414,6 +415,7 @@ export const TOOLS: ToolDefinition[] = [
       },
     },
   },
+  ...CODE_MAP_TOOLS,
   {
     name: "list_graphs",
     description:
@@ -891,7 +893,10 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       };
     }
 
-    default:
+    default: {
+      if (name === "code_map_scan") return runCodeMapTool(name, args);
+      if (name === "code_map_suggest" || name === "code_map_review") return runCodeMapTool(name, args, context(args).index);
       throw new ToolError(`Unknown tool \`${name}\`.`);
+    }
   }
 }

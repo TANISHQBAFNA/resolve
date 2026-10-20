@@ -20,6 +20,7 @@ export default defineConfig({
         mcp: fileURLToPath(new URL("./src/server/mcp.ts", import.meta.url)),
         cli: fileURLToPath(new URL("./src/server/cli.ts", import.meta.url)),
       },
+      external: ["typescript"],
       output: { format: "esm", entryFileNames: "[name].mjs" },
     },
   },
