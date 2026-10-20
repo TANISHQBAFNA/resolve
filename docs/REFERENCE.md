@@ -811,10 +811,26 @@ For the last two, `--draft` (MCP `allowWeak: true`) makes a draft instead. A dra
 
 A refused handoff writes nothing and exits with an error. On the Acme sample, `handoff "Send money"` is refused because of the retired Old Button. With that copy swapped for Button, it exports cleanly; the golden output is in [`tests/fixtures/handoff/send-money.md`](../tests/fixtures/handoff/send-money.md).
 
-Without `--out` it prints the sheet (`--json` prints the data). `--out <dir>` writes `handoff.md` (an index), one `screen-<name>.md` per screen, `ingredients.md` (every part across the screens) and `handoff.json`. If the folder already holds any of these files it refuses unless you add `--force`; with `--force`, older `screen-*.md` files from an earlier handoff there are removed (and listed). Other files in the folder are left alone. A path that is a file, or a folder you cannot write to, gives a one-line error. A screen found by a loose name match (not its exact name or id) says so at the top. Names from Figma are escaped in the markdown, so a name cannot add links or HTML.
+Without `--out` it prints the sheet (`--json` prints the data). `--out <dir>` writes `handoff.md` (an index), one `screen-<name>.md` per screen, `ingredients.md` (every part across the screens) and `handoff.json`. If the folder already holds any of these files it refuses unless you add `--force`; with `--force`, older `screen-*.md` files from an earlier handoff there are removed (and listed). Other files in the folder are left alone. A path that is a file, or a folder you cannot write to, gives a one-line error. `--out` also writes `decision.json` and `decision.md` next to the handoff: what was asked, which parts were picked and why, what was rejected, and the recipe (see [Decision records](#decision-records)). `--no-record` skips them and removes an older pair from that folder. A screen found by a loose name match (not its exact name or id) says so at the top. Names from Figma are escaped in the markdown, so a name cannot add links or HTML.
 
 A screen that is one placed copy (for example a page shell shared as the screen) is its own single component, with everything on it listed as its parts. The MCP version is `get_handoff`; like `get_ingredients` it is off by default (`RESOLVE_MCP_ADVANCED=1`). Over MCP a handoff larger than 40,000 characters lists its parts one level less deep at a time until it fits; the open questions and the summary still come from the full sheet, and `cut` says how many parts are listed (`35 of 62 parts are listed`). A `depth` that is not 1, 2 or 3 is clamped, and `depthNote` says so.
 
+
+#### Decision records
+
+A decision record says what Resolve was asked, which parts it picked and why, and what it rejected. It only reports what the result already said. It never ranks or picks anything itself, and every picked id is a real part from the learned files.
+
+- `handoff --out <dir>`: always writes `decision.json` + `decision.md` next to the handoff (`--no-record` to skip).
+- `brief "<request>" --record <dir>` and `recipe "<screen> with <parts>" --compose --record <dir>`: write `decision-brief` or `decision-compose` `.json` + `.md` there. Without `--record` nothing is written, and the printed answer is the same.
+- MCP (advanced): `record: true` on `brief`, `recipe` (with `compose`) and `get_handoff` stores the record in `.resolve/decisions/` and adds only its path as `decisionRecord`. `decision_record` reads one back.
+
+Fields (`schemaVersion` 1): `kind` (brief, compose, handoff), `createdAt`, `request` or `screens`, `context`, `asked`, `answers`, `assumptions`, `skip`, `picks` (name, ids, `source`, `match`: fit, bound, placed, to-add, weak, name-guess; `why`, `slot`, `screen`), `rejected` (what and why: weak, no match, retired, not a library component), `recipe` (saved, composed, matched or asked; proposal id), `readAsContext`, `openQuestions`, `next` (brief's compose offer or saved recipe).
+
+Follow-up, not in this version: an approved record does not yet skip future brief questions.
+
+#### export aidlc
+
+`resolve export aidlc <handoff folder> [--out aidlc.json] [--json]` (MCP advanced: `export_aidlc`). Opt-in. It reads `handoff.json` and `decision.json` from a `handoff --out` folder and prints the `resolve.aidlc` contract, schemaVersion 1: `requirementsContext` (what AIDLC takes in) and `designHandoff` (what Resolve hands out). Schema: [`schemas/aidlc-handoff.schema.json`](../schemas/aidlc-handoff.schema.json). Contract in plain words: [`docs/AIDLC.md`](AIDLC.md). `--json` errors print `ok:false` and exit 1.
 #### rules, soci, approve, reject
 
 ```bash

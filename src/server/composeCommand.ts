@@ -1,4 +1,5 @@
-import { briefAnswerParts, briefAnswersFromFlags, composeCard, type ComposeInput } from "@/core/query";
+import { briefAnswerParts, briefAnswersFromFlags, composeCard, recordFromCompose, type ComposeCardLike, type ComposeInput } from "@/core/query";
+import { recordFlag } from "./decisionCommand";
 import { bindFromFlags, flag, printJson } from "./cliArgs";
 import { loadRecipes, readBindRules, readPlaceholders, readSock, resolveGraph, saveSock } from "./store";
 
@@ -33,7 +34,10 @@ export function composeFromCli(args: string[], query: string | undefined): void 
     return;
   }
   // Bad answers throw BriefAnswerError; runCli prints that as ok:false JSON with --json.
-  const answerParts = briefAnswerParts(briefAnswersFromFlags(args), index);
+  const answers = briefAnswersFromFlags(args);
+  const answerParts = briefAnswerParts(answers, index);
   const input = { request, answerParts, index, recipes: loadRecipes(), bind: bindFromFlags(args), sock: readSock(), bindRules: readBindRules(), placeholders: readPlaceholders() };
-  printJson(runCompose(input, Boolean(propose)));
+  const card = runCompose(input, Boolean(propose));
+  recordFlag(args, () => recordFromCompose({ request, answers, card: card as ComposeCardLike, createdAt: new Date().toISOString() }));
+  printJson(card);
 }

@@ -10,9 +10,11 @@ import {
   handoffSheet,
   mergeBindRules,
   packForRecommend,
+  recordFromHandoff,
   screenSlug,
 } from "@/core/query";
 import { presentToolResult } from "./cards";
+import { writeDecision } from "./decisionCommand";
 import { PACK_BIND_FLAGS } from "./cliUsage";
 import { bindFromFlags, flag, printJson, requireGraph } from "./cliArgs";
 import {
@@ -31,14 +33,14 @@ export function runHandoff(args: string[]): void {
   const frames: string[] = [];
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i]!;
-    if (arg === "--json" || arg === "--draft" || arg === "--force") continue;
+    if (arg === "--json" || arg === "--draft" || arg === "--force" || arg === "--no-record") continue;
     if (VALUE_FLAGS.includes(arg)) {
       const value = args[i + 1];
       if (value === undefined || value.startsWith("--")) throw new Error(`${arg} needs a value.`);
       i += 1;
       continue;
     }
-    if (arg.startsWith("--")) throw new Error(`Unknown handoff option "${arg}". Use --draft, --json, --out, --recipe, --depth, --force, --answer, --rules or ${PACK_BIND_FLAGS}.`);
+    if (arg.startsWith("--")) throw new Error(`Unknown handoff option "${arg}". Use --draft, --json, --out, --no-record, --recipe, --depth, --force, --answer, --rules or ${PACK_BIND_FLAGS}.`);
     frames.push(arg);
   }
   if (!frames.length) {
@@ -83,9 +85,11 @@ export function runHandoff(args: string[]): void {
     }
     const force = args.includes("--force");
     if (existsSync(target) && !statSync(target).isDirectory()) throw new Error(`${target} is a file, not a folder. Pass a folder for --out.`);
-    // Our files only: handoff.md, handoff.json, ingredients.md and screen-*.md. Anything else in the folder is left alone.
-    const ours = (f: string) => ["handoff.md", "handoff.json", "ingredients.md"].includes(f) || /^screen-.+\.md$/.test(f);
-    const existing = existsSync(target) ? readdirSync(target).filter(ours) : [];
+    // Our files only: handoff.md, handoff.json, ingredients.md, decision.json/.md and screen-*.md. Anything else in the folder is left alone.
+    const ours = (f: string) => ["handoff.md", "handoff.json", "ingredients.md", "decision.json", "decision.md"].includes(f) || /^screen-.+\.md$/.test(f);
+    // The decision record sits next to the handoff unless --no-record; an older one is then removed so it cannot mislead.
+    const record = !args.includes("--no-record");
+    const existing = existsSync(target) ? readdirSync(target).filter(ours).sort() : [];
     if (existing.length && !force) {
       throw new Error(`${target} already has handoff files (${existing.slice(0, 3).join(", ")}${existing.length > 3 ? ", …" : ""}). Add --force to replace them.`);
     }
@@ -96,7 +100,7 @@ export function runHandoff(args: string[]): void {
       used.add(name);
       return `${name}.md`;
     });
-    const stale = existing.filter((f) => f.startsWith("screen-") && !files.includes(f));
+    const stale = existing.filter((f) => (f.startsWith("screen-") && !files.includes(f)) || (!record && f.startsWith("decision.")));
     try {
       mkdirSync(target, { recursive: true });
       accessSync(target, fsConstants.W_OK);
@@ -104,6 +108,7 @@ export function runHandoff(args: string[]): void {
       writeFileSync(join(target, "ingredients.md"), formatHandoffIngredients(result));
       writeFileSync(join(target, "handoff.json"), `${JSON.stringify(result, null, 2)}\n`);
       writeFileSync(join(target, "handoff.md"), formatHandoffIndex(result, files));
+      if (record) writeDecision(target, recordFromHandoff({ pack: result, ...(briefed ? { answers: briefed } : {}), createdAt: new Date().toISOString() }));
       for (const f of stale) rmSync(join(target, f), { force: true });
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
@@ -120,7 +125,7 @@ export function runHandoff(args: string[]): void {
       throw new Error(`Cannot write the handoff files to ${target}: ${why}. Pass another --out folder.`);
     }
     process.stdout.write(
-      `Wrote ${target}: handoff.md, ${files.join(", ")}, ingredients.md, handoff.json${result.draft ? " (DRAFT, not for build)" : ""}.\n${stale.length ? `Removed ${stale.length} older screen file${stale.length === 1 ? "" : "s"} from an earlier handoff there: ${stale.join(", ")}.\n` : ""}`,
+      `Wrote ${target}: handoff.md, ${files.join(", ")}, ingredients.md, handoff.json${record ? ", decision.json, decision.md" : ""}${result.draft ? " (DRAFT, not for build)" : ""}.\n${stale.length ? `Removed ${stale.length} older ${stale.every((f) => f.startsWith("screen-")) ? "screen " : ""}file${stale.length === 1 ? "" : "s"} from an earlier handoff there: ${stale.join(", ")}.\n` : ""}`,
     );
     return;
   }

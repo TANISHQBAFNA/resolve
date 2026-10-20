@@ -39,3 +39,20 @@ export function withDeprecation<T>(name: string, result: T): T {
   }
   return result;
 }
+
+/** MCP tools that were removed; calling one says what to use instead (DEPRECATED_INSTEAD). */
+export const REMOVED_MCP_TOOLS = new Set([
+  "orient",
+  "query",
+  "path",
+  "explain",
+  "check_frame",
+  "get_recipe",
+  "find_nodes",
+  "get_node",
+  "get_screen_inventory",
+  "get_component_usage",
+  "get_related",
+  "get_subgraph",
+  "get_health",
+]);

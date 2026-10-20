@@ -19,6 +19,7 @@ import {
 } from "./cliArgs";
 import { composeFromCli } from "./composeCommand";
 import { runHandoff } from "./handoffCommand";
+import { contextFromFlags, recordFlag, runExport } from "./decisionCommand";
 import { dirname, join, resolve } from "node:path";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
@@ -56,6 +57,8 @@ import {
   applyBriefIntent,
   BriefAnswerError,
   briefAnswersFromFlags,
+  briefAnswerParts,
+  recordFromBrief,
   briefScreen,
 } from "@/core/query";
 import {
@@ -91,7 +94,7 @@ import {
 } from "./store";
 import { stripFiller } from "./cards";
 import { formatGaps, readGaps, recordGap } from "./gaps";
-import { rowProblems, runCodeMapExtra } from "./codeMapCommand";
+import { refuseBadRows, runCodeMapExtra } from "./codeMapCommand";
 import { recordVerifyUsage } from "./tools";
 import { learnLibrary } from "./learn";
 import { DESIGNER, designerFailure } from "./designerMessages";
@@ -115,7 +118,16 @@ function recommendContextFromFlags(args: string[]) {
   const bind = bindFromFlags(args);
   const pack = packForRecommend(bind);
   const screenType = flag(args, "screen-type");
-  return { bind, pack, context: withScreenType(pack, screenType) };
+  const context = withScreenType(pack, screenType);
+  // The options brief and recommend both rank with.
+  const ranking = {
+    ...(context ? { context } : {}),
+    workspace: bind.workspace,
+    sock: readSock(),
+    bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
+    placeholders: readPlaceholders(),
+  };
+  return { bind, pack, context, ranking };
 }
 
 /**
@@ -280,26 +292,23 @@ async function dispatchCli(argv: string[]): Promise<void> {
     case "brief": {
       const request = positionals(args)[0];
       if (!request) throw new Error('Usage: resolve brief "<screen request>"');
-      const { bind, pack, context } = recommendContextFromFlags(args);
-      return printJson(briefScreen({
-        request,
-        answers: briefAnswersFromFlags(args),
-        index: requireGraph(args).index,
-        recipes: loadRecipes(),
-        decisions: readApprovedDecisions(),
-        ...(context ? { context } : {}),
-        workspace: bind.workspace,
-        sock: readSock(),
-        bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
-        placeholders: readPlaceholders(),
-      }));
+      const { ranking } = recommendContextFromFlags(args);
+      const answers = briefAnswersFromFlags(args);
+      const index = requireGraph(args).index;
+      const result = briefScreen({ request, answers, index, recipes: loadRecipes(), decisions: readApprovedDecisions(), ...ranking });
+      const createdAt = new Date().toISOString();
+      recordFlag(args, () => recordFromBrief({ request, answers, answerParts: briefAnswerParts(answers, index), context: contextFromFlags(args), result, createdAt }));
+      return printJson(result);
     }
+
+    case "export":
+      return runExport(args);
 
     case "recommend": {
       const asked = positionals(args)[0];
       if (!asked) throw new Error('Usage: resolve recommend "<intent>"');
       const budget = Number(flag(args, "budget"));
-      const { bind, pack, context } = recommendContextFromFlags(args);
+      const { ranking } = recommendContextFromFlags(args);
       const index = requireGraph(args).index;
       const intent = applyBriefIntent(asked, briefAnswersFromFlags(args), index);
       const screen = screenAskCard(intent, { sock: readSock(), index, recipes: loadRecipes() });
@@ -310,11 +319,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       }
       const card = recommendMasters(index, intent, {
         budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
-        ...(context ? { context } : {}),
-        workspace: bind.workspace,
-        sock: readSock(),
-        bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
-        placeholders: readPlaceholders(),
+        ...ranking,
       });
       recordGap(intent, card);
       printJson(card);
@@ -489,12 +494,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
           return;
         }
         const index = requireGraph(args).index;
-        const problems = rowProblems(result.entries, index);
-        if (problems.length) {
-          process.stdout.write(`Nothing written. Fix these rows:\n${problems.slice(0, 20).map((error) => `  ${error}`).join("\n")}\n`);
-          process.exitCode = 1;
-          return;
-        }
+        if (refuseBadRows(result.entries, index)) return;
         mkdirSync(dirname(mapPath), { recursive: true });
         writeFileSync(mapPath, json);
         process.stdout.write(
