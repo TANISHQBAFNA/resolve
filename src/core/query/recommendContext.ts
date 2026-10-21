@@ -117,9 +117,30 @@ function synonymOverlayFile(): string | undefined {
   return overlayFile("synonyms.json");
 }
 /** Per-library words. Missing or broken file changes nothing. */
+let phraseVocab: { oneWord: Set<string>; tokens: Set<string>; phrases: Set<string> } | null = null;
+/** One-word terms, phrase keys, and every synonym word, built once per loaded library. */
+export function synonymPhraseVocab(): { oneWord: Set<string>; tokens: Set<string>; phrases: Set<string> } {
+  if (phraseVocab) return phraseVocab;
+  const oneWord = new Set<string>();
+  const tokens = new Set<string>();
+  const phrases = new Set<string>();
+  for (const group of allSynonymGroups()) {
+    for (const term of group.terms) {
+      const lower = term.toLowerCase();
+      const parts = lower.split(/[^a-z0-9]+/).filter((part) => part.length > 1);
+      for (const part of parts) tokens.add(part);
+      const key = parts.join("");
+      if (lower.includes(" ")) phrases.add(key);
+      else if (parts[0]) oneWord.add(parts[0]);
+    }
+  }
+  phraseVocab = { oneWord, tokens, phrases };
+  return phraseVocab;
+}
 export function loadSynonymOverlay(): void {
   extraGroups = [];
   extraSynonym.clear();
+  phraseVocab = null;
   const path = synonymOverlayFile();
   if (!path) return;
   try {

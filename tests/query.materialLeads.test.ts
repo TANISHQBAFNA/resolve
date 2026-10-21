@@ -113,6 +113,16 @@ describe("Material leads after the #68 merge (r17)", () => {
     }
   });
 
+  it("a plural of a multi-word synonym is a full match, same as the singular", () => {
+    for (const [plural, singular] of [["tick boxes", "tick box"], ["text boxes", "text box"], ["floating action buttons", "floating action button"], ["drop downs", "dropdown"], ["list items", "list item"], ["top app bars", "top app bar"]] as const) {
+      const one = ask(singular);
+      const many = ask(plural);
+      expect(many.candidates[0]?.name, plural).toBe(one.candidates[0]?.name);
+      expect(many.match, plural).toBe(one.match);
+      expect(many.match, plural).toBeUndefined();
+    }
+  });
+
   it("an empty answer never carries the weak flag", () => {
     for (const text of ["promo banner", "banner", "toggled"]) {
       const card = ask(text);

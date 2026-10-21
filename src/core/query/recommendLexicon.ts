@@ -8,9 +8,8 @@ import type { GraphIndex } from "./GraphIndex";
 import { familyNameOf, MASTER_TYPES, VARIANT_PROP_NAME, variantCardName } from "./masterNames";
 import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
 import { adjacentSwap, innerGap, keySlip, typoHeavy, wordSlip } from "./typo";
-import { allSynonymGroups, DEMOTE_UNASKED, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
+import { allSynonymGroups, DEMOTE_UNASKED, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, synonymPhraseVocab, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
-import { purposeTailTokens } from "./meaning/purpose";
 import { inflectionStems, isScreen } from "./screenInventory";
 import { propertyAliases } from "./synonymLayer";
 import type { WorkspaceManifest } from "./workspace";
@@ -100,6 +99,54 @@ export function intentNamesMaster(index: GraphIndex, askedTokens: string[]): boo
   return false;
 }
 export const RETIRED_NAME_TOKENS = new Set(["legacy", "old", "deprecated", "retired", "hidden"]);
+/**
+ * The asked words as name matching should read them, for -ed and -ing words before a part noun.
+ * One that only describes the noun is left out, so its stem cannot name a part: "selected tab" is a tab,
+ * "sorted table" a table (not Select or Sort). One whose stem names the part with the noun is read as that
+ * stem: "searching bar" and "dated picker" match as "search bar" and "date picker". The stem also counts when
+ * it is one word of a longer name and the noun is shared ("searching field", as "search field" is Search bar).
+ * A word that is a part word as written ("loading" in Loading Spinner) is left as it is.
+ */
+export function readInflections(tokens: readonly string[], nameSets: readonly Set<string>[]): { tokens: string[]; shared: SharedGuess[] } {
+  const directPartWordIn = (names: Set<string>, token: string) =>
+    names.has(token) || [...names].some((name) => [`${name}s`, `${name}es`].includes(token) || [`${token}s`, `${token}es`].includes(name));
+  const partWordIn = (names: Set<string>, token: string) => directPartWordIn(names, token) || synonymIn(token, names, false);
+  const partWord = (token: string) => nameSets.some((names) => partWordIn(names, token));
+  const wholePart = (token: string) => nameSets.some((names) => names.size === 1 && partWordIn(names, token));
+  const stemFor = (token: string, later: readonly string[]): { stem: string; shared?: SharedGuess } | undefined => {
+    let guess: { stem: string; shared?: SharedGuess } | undefined;
+    for (const names of nameSets) {
+      const stem = inflectionStems(token).find((form) => names.has(form));
+      if (!stem) continue;
+      if (later.some((word) => word !== token && directPartWordIn(names, word))) return { stem };
+      const shared = later.find((word) => word !== token && names.size > 1 && GENERIC_NAME_TOKENS.has(word) && !wholePart(word));
+      if (shared && !guess) guess = { stem, shared: { word: shared, part: [...names] } };
+    }
+    return guess;
+  };
+  const shared: SharedGuess[] = [];
+  const read = tokens.flatMap((token, i) => {
+    const later = tokens.slice(i + 1);
+    if (!/(?:ed|ing)$/.test(token) || partWord(token) || !later.some(partWord)) return [token];
+    const found = stemFor(token, later);
+    if (found?.shared) shared.push(found.shared);
+    return found ? [found.stem] : token === "warning" ? [token] : [];
+  });
+  return { tokens: read, shared };
+}
+/** A shared noun ("item") that kept an -ed/-ing word only as a guess, and the part (name words) it pointed to. */
+export interface SharedGuess {
+  word: string;
+  part: string[];
+}
+/**
+ * The shared nouns that make this lead a guess: only when the lead is the part the guess pointed to, and the
+ * noun is not already in the lead's name ("timed progress bar" is a full name, not a guess).
+ */
+export function guessesFor(shared: readonly SharedGuess[], leadName: string): string[] {
+  const lead = new Set(tokensOf(leadName));
+  return shared.filter((guess) => guess.part.every((word) => lead.has(word)) && !lead.has(guess.word)).map((guess) => guess.word);
+}
 /** The why line of a weak lead. Always set, even on a compact card that dropped why. */
 export function weakCheckWhy(why: string | undefined, guesses: readonly string[], intent: string, name: string): string {
   if (why?.startsWith("Weak, check") || why?.startsWith("replaces ")) return why;
@@ -315,6 +362,40 @@ export function xMeansClose(text: string): boolean {
   const chrome = left === "icon" || right === "icon" || left === "button" || right === "button";
   return mark && chrome;
 }
+/** A plural's singular form. "boxes" is "box", "queries" is "query". A word that is not a plural stays. */
+function stemOf(word: string): string {
+  if (word.length >= 5 && word.endsWith("ies")) return `${word.slice(0, -3)}y`;
+  if (word.length >= 4 && word.endsWith("es")) {
+    const stem = word.slice(0, -2);
+    if (/(?:s|x|z|ch|sh)$/.test(stem)) return stem;
+  }
+  if (word.length >= 4 && word.endsWith("s") && !word.endsWith("ss")) return word.slice(0, -1);
+  return word;
+}
+/**
+ * The ask the normal matcher should see. Singularize every word whose singular is a synonym word,
+ * once. When the whole ask is a split spelling of a one-word synonym ("drop downs"), join it ("dropdown").
+ * Built from the memoized synonym vocabulary, not a scan per token.
+ */
+export function normalizeAsk(text: string): string {
+  const vocab = synonymPhraseVocab();
+  const bits = text.split(/([A-Za-z0-9]+)/);
+  let changed = false;
+  const singular: string[] = [];
+  for (let i = 1; i < bits.length; i += 2) {
+    const lower = (bits[i] ?? "").toLowerCase();
+    const stem = stemOf(lower);
+    const next = stem !== lower && !DEMOTE_UNASKED.has(stem) && (vocab.tokens.has(stem) || vocab.oneWord.has(stem)) ? stem : lower;
+    if (next !== lower) changed = true;
+    bits[i] = next;
+    singular.push(next);
+  }
+  const content = tokensOf(singular.join(" "));
+  const joined = content.join("");
+  // "drop downs" is the one-word synonym "dropdown". A phrase that is already a synonym ("text field") stays split.
+  if (content.length >= 2 && vocab.oneWord.has(joined) && !vocab.phrases.has(joined)) return joined;
+  return changed ? bits.join("") : text;
+}
 /** Multi-word synonym phrases, such as "tick box" for Checkbox. Single words stay in SYNONYM_OF. */
 export function phraseNamesMatch(ask: string, name: string): boolean {
   const collapsedAsk = collapsedName(ask);
@@ -339,9 +420,7 @@ export function phraseFamilyHit(ask: string, familyName: string): boolean {
   const familyTokens = tokensOf(familyName);
   const familyCollapsed = collapsedName(familyName);
   return allSynonymGroups().some((group) => {
-    const said = group.terms.filter(
-      (term) => term.includes(" ") && tokensOf(term).every((token) => askTokens.has(token)),
-    );
+    const said = group.terms.filter((term) => term.includes(" ") && tokensOf(term).every((token) => askTokens.has(token)));
     if (!said.length) return false;
     const familyTerm = group.terms.find((term) => {
       if (collapsedName(term) === familyCollapsed) return true;
@@ -365,9 +444,7 @@ export function phraseAliasBonus(ask: string, familyName: string): number {
   if (familyTokens.length !== 1) return 0;
   const familyCollapsed = collapsedName(familyName);
   for (const group of allSynonymGroups()) {
-    const said = group.terms.some(
-      (term) => term.includes(" ") && tokensOf(term).every((token) => askTokens.has(token)),
-    );
+    const said = group.terms.some((term) => term.includes(" ") && tokensOf(term).every((token) => askTokens.has(token)));
     if (!said) continue;
     const short = group.terms.some((term) => !term.includes(" ") && collapsedName(term) === familyCollapsed);
     if (short) return 500;
@@ -415,6 +492,14 @@ export function contextWords(context?: RecommendContext): string[] {
       .filter((part): part is string => Boolean(part))
       .join(" "),
   );
+}
+const PURPOSE_WORD = new Set(["to", "for", "on", "when"]);
+/** Words after to, for, on, or when are why the part is used, not a different component. */
+export function purposeTailTokens(ask: string): Set<string> {
+  const parts = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const at = parts.findIndex((part) => PURPOSE_WORD.has(part));
+  if (at < 0) return new Set();
+  return new Set(tokensOf(parts.slice(at + 1).join(" ")));
 }
 /** A UI modifier, a scene word, or a trailing UI noun such as "window" after modal. */
 export function modifierWord(token: string): boolean {

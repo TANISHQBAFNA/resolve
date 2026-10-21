@@ -646,6 +646,46 @@ describe("designer briefing", () => {
       expect(density(request), request).toMatch(word);
       expect("ready" in brief(request) && (brief(request) as { candidates: Array<{ name: string }> }).candidates[0]?.name, request).toBe(name);
     }
+    // A density word and a desktop word together: brief keeps the density part recommend leads with.
+    const withRow = acmeGraph();
+    withRow.nodes.push(node("node:10:18", "MAIN_COMPONENT", "List Row", { figmaNodeId: "10:18", isMainComponent: true }));
+    const rowIndex = indexGraph(withRow);
+    const agree = (request: string, name: string) => {
+      const recommended = (recommendMasters(rowIndex, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+      const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
+      expect(recommended, request).toBe(name);
+      expect("ready" in result && result.candidates[0]?.name, request).toBe(name);
+    };
+    agree("list, compact for desktop", "Compact List");
+    agree("compact list for desktop", "Compact List");
+    agree("comfortable list for desktop", "Comfortable List");
+    agree("compact list for phone", "Compact List");
+    agree("compact list for tablet", "Compact List");
+    // A density word before the head list, with a noun in between, is still that density.
+    agree("a dense contact list", "Compact List");
+    agree("a roomy task list", "Comfortable List");
+    agree("a dense contact list for desktop", "Compact List");
+    agree("a roomy task list for desktop", "Comfortable List");
+    agree("a compact task list", "Compact List");
+    agree("a dense list", "Compact List");
+    for (const request of ["a dense contact list", "a roomy task list", "a dense contact list for desktop", "a roomy task list for desktop"]) {
+      const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
+      expect(asked(result).some((question) => question.topic === "states"), request).toBe(false);
+      expect("ready" in result && result.candidates[0]?.name, request).not.toBe("List Row");
+    }
+    for (const request of ["a tight deadline and a list", "a list of dense documents", "a dense row of buttons"]) {
+      const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
+      expect("ready" in result && result.candidates[0]?.name, request).not.toBe("Compact List");
+      expect("ready" in result && result.candidates[0]?.name, request).not.toBe("Comfortable List");
+    }
+    // The word describes the noun, not the list: ask, and do not commit to a density part.
+    for (const request of ["a dense history list", "a tight deadline list", "an airy room list", "a compact car list", "a comfortable chair list", "a dense biography list"]) {
+      const recommended = (recommendMasters(rowIndex, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+      expect(recommended, request).not.toMatch(/Compact List|Comfortable List/);
+      const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
+      expect(asked(result).length, request).toBeGreaterThan(0);
+      if ("ready" in result) expect(result.candidates[0]?.name, request).not.toMatch(/Compact List|Comfortable List/);
+    }
     // The part's own word is never weaker than a synonym: "compact" after the list stays Compact List.
     for (const request of ["a ledger list, compact for phones", "a ledger list, compact for now", "a list, compact in notes"]) {
       expect(top(request)[0], request).toBe("Compact List");

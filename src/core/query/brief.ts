@@ -4,7 +4,7 @@ import type { GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import type { BindRulesFile } from "./bindRules";
 import { exactRecipe, fillRecipe, type Recipe } from "./recipes";
-import { normalizeDensity } from "./meaning/language";
+import { readDensity } from "./queryTokens";
 import { recommendMasters } from "./recommendMasters";
 import type { RecommendContext } from "./recommendSupport";
 import { composeParts, composeRecipe } from "./recipeCompose";
@@ -455,7 +455,7 @@ function mentioned(request: string, options: Choice[], roles: Role[]): Choice[] 
 
 function platformSaid(request: string): PlatformId | undefined {
   // A density word right before list or row ("a dense list") says compact or comfortable; elsewhere it does not.
-  const said = (id: PlatformId) => containsPhrase(normalizeDensity(request), id);
+  const said = (id: PlatformId) => containsPhrase(readDensity(request), id);
   const hits = PLATFORM_IDS.filter(said);
   hits.sort((a, b) => b.length - a.length);
   return hits[0];
@@ -650,6 +650,11 @@ function briefRequest(input: BriefInput): BriefResult {
   // Platform: recommend's own top parts differ only by platform word, so the answer picks one.
   const chosenPlatform = resolved.get("platform")?.[0]?.id ?? platform;
   let platformPick: BriefCandidate | undefined;
+  // When recommend already picked a density variant, that is the part. A desktop or phone word does not replace it.
+  const densityLead = lead.platformRows[0];
+  if (densityLead && (platformWord(densityLead.name) === "compact" || platformWord(densityLead.name) === "comfortable")) {
+    platformPick = densityLead;
+  }
   if (chosenPlatform && platformRows.length) {
     const top = rank(`${stripped} ${chosenPlatform}`).platformRows[0];
     if (top && platformWord(top.name) === chosenPlatform) platformPick = top;
