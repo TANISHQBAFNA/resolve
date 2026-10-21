@@ -141,7 +141,9 @@ describe("meaning probes", () => {
   });
 
   it("does not copy a scoreboard or held-out phrase", () => {
-    const taken = new Set<string>();
+    const exact = new Set<string>();
+    const held = new Set<string>();
+    const norm = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/ +/g, " ");
     const walk = (dir: string) => {
       for (const name of readdirSync(dir)) {
         const path = join(dir, name);
@@ -151,17 +153,28 @@ describe("meaning probes", () => {
           continue;
         }
         if (!name.endsWith(".json")) continue;
-        const parsed = JSON.parse(readFileSync(path, "utf8")) as { cases?: Array<Record<string, unknown>> };
-        for (const row of parsed.cases ?? []) {
+        const parsed = JSON.parse(readFileSync(path, "utf8")) as { cases?: Array<Record<string, unknown>>; phrases?: Array<Record<string, unknown>> };
+        const rows = [...(parsed.cases ?? []), ...(parsed.phrases ?? [])];
+        const heldFile = path.includes("held");
+        for (const row of rows) {
           for (const key of ["phrase", "q", "request"]) {
             const value = row[key];
-            if (typeof value === "string") taken.add(value.trim().toLowerCase());
+            if (typeof value !== "string") continue;
+            const cleaned = norm(value);
+            if (!cleaned) continue;
+            exact.add(cleaned);
+            if (heldFile) held.add(cleaned);
           }
         }
       }
     };
     walk(join(repo, "scoreboard"));
-    const copies = (probesFile.cases as Probe[]).filter((row) => taken.has(row.phrase.trim().toLowerCase()));
+    const copies = (probesFile.cases as Probe[]).filter((row) => {
+      const phrase = norm(row.phrase);
+      if (exact.has(phrase)) return true;
+      const padded = ` ${phrase} `;
+      return [...held].some((value) => value.length >= 3 && padded.includes(` ${value} `));
+    });
     expect(copies.map((row) => row.phrase)).toEqual([]);
   });
 

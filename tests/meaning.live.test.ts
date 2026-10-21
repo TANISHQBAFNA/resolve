@@ -115,6 +115,15 @@ describe("meaning layer changes live answers", () => {
     const material = materialIndex();
     expect(top(acme, "a button, not a link")).toBe("Button");
     expect(top(acme, "a link button, not button")).toBe("Link Button");
+    const contrast = (phrase: string) => recommendMasters(acme, phrase, { budgetChars: 4000 }) as { match?: string; candidates: Array<{ name?: string }> };
+    for (const phrase of ["a button rather than a link", "a button instead of a link"]) {
+      const card = contrast(phrase);
+      expect(card.candidates[0]?.name, phrase).toBe("Button");
+      expect(card.match, phrase).toBeUndefined();
+    }
+    expect(top(acme, "a widget to save the draft")).toBe("Save CTA");
+    expect(top(acme, "a control to search orders")).toBe("Search Field");
+    expect(top(acme, "a way to pay the invoice")).toBe("Pay CTA");
     expect(top(material, "something to pick a date")).toBe("Date picker");
     expect(top(material, "picker to choose a flavor")).toBe("");
   });

@@ -7,6 +7,7 @@ import { SourceDocumentSchema } from "@/core/ingestion/types";
 import { adaptFigmaRestFile } from "@/core/ingestion/adapters/figmaRest";
 import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
 import { buildMeaningDictionary, meaningDictionary, rankMeaning } from "@/core/query/meaning";
+import { recommendMasters } from "@/core/query/recommendMasters";
 import acmeFile from "../src/data/meaning/acme.json";
 import materialFile from "../src/data/meaning/material.json";
 import { loadSynonymOverlay } from "@/core/query/recommendContext";
@@ -83,8 +84,9 @@ describe("meaning dictionary", () => {
     const loadedMat = meaningDictionary(material());
     expect(loadedAcme.language.density["compact"]).toContain("dense");
     expect(loadedAcme.language.device).toContain("landscape");
-    expect(loadedMat.language.device).toEqual(materialFile.language.device);
-    expect(loadedMat.language.density["compact"]).not.toContain("condensed");
+    expect(loadedMat.language.device).toEqual(expect.arrayContaining(materialFile.language.device));
+    expect(loadedMat.language.density["compact"]).toContain("condensed");
+    expect(loadedMat.language.device).toContain("landscape");
     expect(loadedMat.entries.find((entry) => entry.name === "Date picker")?.synonyms).toContain("datepicker");
     expect(loadedAcme.entries.find((entry) => entry.name === "Button")?.not.length).toBeGreaterThan(0);
   });
@@ -112,5 +114,28 @@ describe("meaning dictionary", () => {
     const card = rankMeaning("a card that is dated", mat);
     expect(card.hits[0]?.name).toBe("Card");
     expect(card.intent.attributes.map((row) => row.value)).toContain("date");
+  });
+
+  it("a copy of the Acme library under another name keeps density and device answers", () => {
+    delete process.env["RESOLVE_HOME"];
+    clearCache();
+    loadSynonymOverlay();
+    const named = acmeLists();
+    const copyGraph: DesignGraph = {
+      ...named.graph,
+      fileKey: "HARBOR",
+      fileName: "Harbor Kit",
+      nodes: named.graph.nodes.map((item) => ({ ...item, fileKey: "HARBOR" })),
+    };
+    const copy = indexGraph(copyGraph);
+    const asks = ["a tight list", "a condensed list", "an airy list", "list, compact for phones", "a list, roomy on the phone"];
+    for (const ask of asks) {
+      const acmeLead = (recommendMasters(named, ask, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+      const copyLead = (recommendMasters(copy, ask, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+      expect(copyLead, ask).toBe(acmeLead);
+    }
+    const language = meaningDictionary(copy).language;
+    expect(language.density["compact"]).toEqual(expect.arrayContaining(["tight", "condensed", "dense"]));
+    expect(language.device).toEqual(expect.arrayContaining(["phone", "landscape", "handset"]));
   });
 });

@@ -6,7 +6,8 @@ import type { MeaningDictionary, MeaningEntry, MeaningLanguage, ParsedAttribute 
 const GAP_STOP = new Set(["a", "an", "the", "and", "or", "but", "of", "for", "to", "with", "on", "in", "my", "your", "our", "their", "from", "into"]);
 const PURPOSE_WORD = new Set(["to", "for", "on", "when"]);
 const CHOOSE = new Set(["choose", "pick", "grab", "select"]);
-const FILLER_HEAD = new Set(["something", "anything", "stuff", "thing", "things"]);
+const FILLER_HEAD = new Set(["something", "anything", "stuff", "thing", "things", "widget", "control", "way"]);
+const CONTRAST = /\b(?:rather\s+than|instead\s+of|not)\b/i;
 
 export interface MeaningDecision {
   text: string;
@@ -136,8 +137,13 @@ function deviceOf(text: string, device: readonly string[]): string | undefined {
     });
 }
 
+function withoutContrast(text: string): string {
+  const match = CONTRAST.exec(text);
+  return match?.index === undefined ? text : text.slice(0, match.index).trim();
+}
+
 function exclusions(text: string, dictionary: MeaningDictionary): string[] {
-  const match = text.match(/\bnot\s+([a-z0-9][a-z0-9\s-]{0,48})$/i);
+  const match = text.match(/\b(?:rather\s+than|instead\s+of|not)\s+([a-z0-9][\s\S]{0,80})$/i);
   if (!match?.[1]) return [];
   const phrase = match[1].trim().toLowerCase();
   const words = tokensOf(phrase);
@@ -169,10 +175,12 @@ function genericHead(token: string | null): boolean {
  */
 export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningDecision {
   const language = languageOf(dictionary.language);
-  const text = densityText(raw, language);
-  const { purpose, purposeTokens } = purposeSplit(raw);
+  const kept = withoutContrast(raw);
+  const { purpose, purposeTokens } = purposeSplit(kept);
+  const fillerLead = /^(?:a|an|the\s+)?(?:widget|control|way)\b/i.test(kept);
+  const text = densityText(fillerLead && purpose ? purpose : kept, language);
   const excluded = exclusions(raw, dictionary);
-  const beforePurpose = raw.toLowerCase().split(/\b(?:to|for|on|when)\b/)[0] ?? raw;
+  const beforePurpose = kept.toLowerCase().split(/\b(?:to|for|on|when)\b/)[0] ?? kept;
   const content = tokensOf(beforePurpose);
   const read = interpretInflections(content.length ? content : tokensOf(text), dictionary);
   const attributes = [...read.attributes];
@@ -219,7 +227,7 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
     }
   }
   if (!leadName && excluded.length) {
-    const before = tokensOf((raw.split(/\bnot\b/i)[0] ?? ""));
+    const before = tokensOf(withoutContrast(raw));
     const hits = live.filter((entry) => !excluded.includes(entry.name) && entry.nameTokens.length > 0 && entry.nameTokens.every((token) => before.includes(token)));
     if (hits.length === 1 && hits[0]) {
       leadName = hits[0].name;

@@ -9,6 +9,7 @@ import { allSynonymGroups, loadSynonymOverlay } from "../recommendContext";
 import { tokensOf } from "../queryTokens";
 import { inflectionStems } from "../screenInventory";
 import acmeDictionary from "@/data/meaning/acme.json";
+import defaultDictionary from "@/data/meaning/default.json";
 import materialDictionary from "@/data/meaning/material.json";
 import { languageOf } from "./parse";
 import type { MeaningAttribute, MeaningDictionary, MeaningEntry, MeaningLanguage } from "./types";
@@ -190,6 +191,30 @@ export function buildMeaningDictionary(index: GraphIndex, library?: string): Mea
 }
 
 const BUNDLED = [acmeDictionary, materialDictionary] as unknown as MeaningDictionary[];
+const DEFAULT_LANGUAGE = languageOf((defaultDictionary as { language?: Partial<MeaningLanguage> }).language);
+
+function addWords(into: Record<string, string[]>, extra: Record<string, string[]> | undefined): void {
+  for (const [key, words] of Object.entries(extra ?? {})) {
+    const bucket = into[key] ?? [];
+    for (const word of words) {
+      const lower = word.toLowerCase();
+      if (!bucket.includes(lower)) bucket.push(lower);
+    }
+    into[key] = bucket;
+  }
+}
+
+/** Library words are added to the shared default. They never replace it. */
+export function mergeLanguage(base: MeaningLanguage, extra: Partial<MeaningLanguage> | undefined): MeaningLanguage {
+  const density: Record<string, string[]> = {};
+  addWords(density, base.density);
+  addWords(density, extra?.density);
+  const describes: Record<string, string[]> = {};
+  addWords(describes, base.describes);
+  addWords(describes, extra?.describes);
+  const device = [...new Set([...base.device, ...(extra?.device ?? [])].map((word) => word.toLowerCase()))].sort();
+  return { density, device, describes };
+}
 
 function derivedLanguage(entries: readonly MeaningEntry[]): MeaningLanguage {
   const density: Record<string, string[]> = {};
@@ -207,19 +232,17 @@ function derivedLanguage(entries: readonly MeaningEntry[]): MeaningLanguage {
   return { density, device: [...device].sort(), describes: {} };
 }
 
-function matchBundled(built: MeaningDictionary, fileName: string): MeaningDictionary | undefined {
-  const names = new Set(built.entries.map((entry) => entry.name.toLowerCase()));
-  let best: { dict: MeaningDictionary; score: number } | undefined;
-  for (const dict of BUNDLED) {
-    const library = dict.library.toLowerCase();
-    const named = fileName.toLowerCase().includes(library);
-    const overlap = dict.entries.filter((entry) => names.has(entry.name.toLowerCase())).length;
-    const ratio = names.size ? overlap / names.size : 0;
-    if (!named && ratio < 0.5) continue;
-    const score = (named ? 1000 : 0) + ratio;
-    if (!best || score > best.score) best = { dict, score };
-  }
-  return best?.dict;
+function namedLibrary(fileName: string, library: string): boolean {
+  const file = fileName.toLowerCase();
+  const name = library.toLowerCase();
+  if (file.includes(name)) return true;
+  if (name.includes("material") && file.includes("material")) return true;
+  if (name.includes("acme") && file.includes("acme")) return true;
+  return false;
+}
+
+function matchBundled(fileName: string): MeaningDictionary | undefined {
+  return BUNDLED.find((dict) => namedLibrary(fileName, dict.library));
 }
 
 function withBundled(built: MeaningDictionary, bundled: MeaningDictionary): MeaningDictionary {
@@ -227,7 +250,6 @@ function withBundled(built: MeaningDictionary, bundled: MeaningDictionary): Mean
   return {
     ...built,
     library: bundled.library,
-    language: languageOf(bundled.language),
     entries: built.entries.map((entry) => {
       const known = saved.get(entry.name.toLowerCase());
       if (!known) return entry;
@@ -248,8 +270,9 @@ export function meaningDictionary(index: GraphIndex): MeaningDictionary {
   if (hit) return hit;
   loadSynonymOverlay();
   const built = buildMeaningDictionary(index);
-  const bundled = matchBundled(built, index.graph.fileName);
-  const dictionary = bundled ? withBundled(built, bundled) : built;
+  const bundled = matchBundled(index.graph.fileName);
+  const merged = bundled ? withBundled(built, bundled) : built;
+  const dictionary = { ...merged, language: mergeLanguage(DEFAULT_LANGUAGE, mergeLanguage(built.language, bundled?.language)) };
   cache.set(index, dictionary);
   return dictionary;
 }

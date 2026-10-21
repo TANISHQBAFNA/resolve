@@ -69,7 +69,7 @@
       "id": "m-para-dropdown",
       "library": "material",
       "kind": "paraphrase",
-      "phrase": "please show the country dropdown",
+      "phrase": "a select for a nation",
       "expect": "Select"
     },
     {
@@ -442,7 +442,7 @@
       "id": "m-use-date",
       "library": "material",
       "kind": "purpose",
-      "phrase": "please show the datepicker for the birthday",
+      "phrase": "a calendar to choose the birth date",
       "expect": "Date picker"
     },
     {
@@ -603,7 +603,7 @@
       "id": "m-empty-captcha",
       "library": "material",
       "kind": "empty",
-      "phrase": "please show the captcha challenge widget",
+      "phrase": "a human-check puzzle",
       "expect": null
     },
     {
