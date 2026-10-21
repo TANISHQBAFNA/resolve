@@ -14,9 +14,9 @@ import type { GraphIndex } from "./GraphIndex";
 import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RECOMMEND_BUDGET, sameNameNote, substitutionNote, variantCardName } from "./masterNames";
 import { placeReady } from "./placeReady";
 import { navFamily, readDensity, tokensOf } from "./queryTokens";
-import { appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
+import { allSynonymGroups, appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
-import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, purposeTailTokens, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakMatchWhy, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, guessesFor, headTokenBonus, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, purposeTailTokens, readInflections, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakCheckWhy, weakMatchWhy, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { type RecommendAlternate, type RecommendCandidate, type RecommendContext, type RecommendHit, refreshHintFor, slotsForComponent, whereUsedRows } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
 import { inflectionStems, overlap, similarUsage } from "./screenInventory";
@@ -52,8 +52,24 @@ export function recommendMasters(
   const slotRole = slotIsComponentRole(slotTokens);
   const namesHit = (token: string) =>
     publicNameSets.some((names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false));
-  const brief = splitBrief(intent, namesHit);
-  const askedTokens = withSynonymStopwords(brief.role, tokensOf(brief.role));
+  const brief = splitBrief(partBeforeLink(intent, publicNameSets, false, screenWords(index)) ?? intent, namesHit);
+  const reading = readInflections(withSynonymStopwords(brief.role, tokensOf(brief.role)), publicNameSets);
+  const roleTokens = tokensOf(brief.role);
+  const phraseExpanded = new Set<string>();
+  const expandBlocked = new Set([
+    "list", "table", "row", "rows", "item", "items", "card", "cards", "data",
+    "top", "bottom", "left", "right", "header", "footer", "mobile", "desktop", "compact", "comfortable",
+  ]);
+  const askedSet = new Set(roleTokens);
+  for (const group of allSynonymGroups()) {
+    const said = group.terms.filter((term) => term.includes(" ") && tokensOf(term).every((token) => askedSet.has(token)));
+    if (!said.length) continue;
+    for (const term of group.terms) {
+      if (said.includes(term)) continue;
+      for (const token of tokensOf(term)) if (!expandBlocked.has(token)) phraseExpanded.add(token);
+    }
+  }
+  const askedTokens = [...new Set([...reading.tokens, ...phraseExpanded])];
   if (xMeansClose(brief.role) && !askedTokens.includes("close")) askedTokens.push("close");
   // Exclusive family only when the slot is a component role and the intent is a
   // screen job ("sign in"). "input chip" and "checkout summary" already name a
@@ -172,7 +188,20 @@ export function recommendMasters(
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
       if (nameTokens.length > 0 && matched === nameTokens.length) lexical += 25;
       const asked = new Set([...tokens, ...extraTokens]);
+      if (nameTokens.length > 1 && nameTokens.every((token) => asked.has(token))) lexical += 250;
       if (nameTokens.some((token) => DEMOTE_UNASKED.has(token) && !asked.has(token))) lexical -= 15;
+      const askHas = (word: string) => asked.has(word);
+      if (askHas("menu") && nameTokens.includes("menu")) lexical += 40;
+      if (askHas("row") && !askHas("list") && !askHas("table") && nameTokens.includes("row")) lexical += 70;
+      if (askHas("badge") && nameTokens.includes("badge")) lexical += 40;
+      if (
+        !askHas("badge") &&
+        ["warning", "notice", "announcement"].some((word) => askHas(word)) &&
+        (nameTokens.includes("alert") || nameTokens.includes("banner"))
+      ) lexical += 90;
+      if (askHas("action") && nameTokens.includes("cta")) lexical += 70;
+      if (askHas("button") && askHas("filled") && nameTokens.includes("button")) lexical += 50;
+      if (askHas("button") && !askHas("floating") && !askHas("fab") && nameTokens.includes("fab")) lexical -= 60;
     }
 
     const analogHit = analogById.get(node.id);
@@ -261,6 +290,8 @@ export function recommendMasters(
     if (shouldDemoteIcon(index, node, set, tokens, askedExact, workspace, intent)) score -= 500_000;
     if (asksIcon(tokens, intent) && !iconLike && !nameHasIcon && !askedExact) score -= 500_000;
     if (internal && !tokens.includes("base") && !askedExact) score -= 500_000;
+    const askCovered = hits.covered + (extraHits?.covered ?? 0);
+    const nameCoversAsk = setCoversAsk(intentNeedle, stripTier(host || set?.name || node.name));
 
     return {
       node,
@@ -272,11 +303,11 @@ export function recommendMasters(
       instances,
       setName: host && host !== node.name ? host : undefined,
       exactName,
-      covered: hits.covered + (extraHits?.covered ?? 0),
+      covered: askCovered,
       askCovered: hits.covered,
       weak:
         !exactName &&
-        !setCoversAsk(intentNeedle, stripTier(host || set?.name || node.name)) &&
+        !nameCoversAsk &&
         hits.specific === 0 &&
         (extraHits?.specific ?? 0) === 0 &&
         (hits.name + hits.synonym + (extraHits?.name ?? 0) + (extraHits?.synonym ?? 0) > 0 ||
@@ -288,7 +319,6 @@ export function recommendMasters(
   const retired: Scored[] = [];
   let privateCovered = 0;
   const toRank = mastersToRank(index, workspace, graphFileKey, intent);
-  const rankable = new Set(toRank.map((node) => node.id));
   for (const node of toRank) {
     const set = setOf(index, node);
     if (deniedByRules(index, node, packRules)) continue;
@@ -490,18 +520,18 @@ export function recommendMasters(
   const asFamilyRow = (entry: Scored): Scored => {
     const set = setOf(index, entry.node);
     if (!set || set.id === entry.node.id) return entry;
-    const covers = setCoversAsk(intentNeedle, set.name);
+    const namesSet = namesThisNode(intentNeedle, set, index);
     const propertyOnly = isSetModifierVariant(entry.node, set);
     if (namesThisNode(intentNeedle, entry.node, index) || !propertyOnly) {
       return {
         ...entry,
-        weak: covers ? false : entry.weak,
+        weak: namesSet ? false : entry.weak,
       };
     }
-    if (entry.analog && !covers) {
+    if (entry.analog && !namesSet) {
       return {
         ...entry,
-        weak: covers ? false : entry.weak,
+        weak: namesSet ? false : entry.weak,
       };
     }
     return {
@@ -510,8 +540,8 @@ export function recommendMasters(
       setName: undefined,
       instances: computeComponentUsage(index, set).instanceCount,
       deprecated: isRetired(index, set),
-      exactName: entry.exactName || covers,
-      weak: covers ? false : entry.weak,
+      exactName: entry.exactName || namesSet,
+      weak: namesSet ? false : entry.weak,
     };
   };
   const collapsed: Scored[] = [];
@@ -610,7 +640,6 @@ export function recommendMasters(
   // is the top pick, ahead of a similar name that only shares collapsed letters.
   // A listed icon still loses a generic ask ("search" → Search field, not the Search icon).
   const exactLive = realMastersNamed(index, intent.trim()).filter((node) => {
-    if (!rankable.has(node.id)) return false;
     if (isPrivateMaster(index, node) || isRetired(index, node) || view?.retired(node)) return false;
     const set = setOf(index, node);
     const askedExact =
@@ -730,7 +759,9 @@ export function recommendMasters(
 
   const leadCandidate = (entry: Scored, top: boolean): RecommendCandidate => {
     const full = toCandidate(entry, false, 0);
-    if (
+    if (entry === kept[0] && guessesFor(reading.shared, familyCardName(entry)).length > 0) {
+      full.why = `Weak, check: ${guessesFor(reading.shared, familyCardName(entry)).map((word) => `"${word}"`).join(", ")} not in ${familyCardName(entry)}.`;
+    } else if (
       entry.weak &&
       entry === kept[0] &&
       /used \d+× in file/.test(full.why) &&
@@ -813,12 +844,23 @@ export function recommendMasters(
   let contextEcho = applied ? { ...applied } : undefined;
   const echoBag: { hint?: string } = {};
   const leadNode = kept[0]?.node;
-  const weakLead = Boolean(kept[0]?.weak) && !kept[0]?.exactName;
+  const leadSetName = leadNode
+    ? setOf(index, leadNode)?.name ?? leadNode.name
+    : "";
+  const leadSetCovers = leadSetName ? setCoversAsk(intentNeedle, leadSetName) : false;
+  const leadCovered = kept[0]?.covered ?? 0;
+  const leadNameTokens = kept[0] ? tokensOf(familyCardName(kept[0])) : [];
+  const bannerMismatch = tokens.includes("banner") && !leadNameTokens.includes("banner");
+  // A lead reached only through a shared noun after an -ed/-ing word ("dated item") is a guess: weak, like compose.
+  const weakLead = (kept[0] !== undefined && guessesFor(reading.shared, familyCardName(kept[0])).length > 0) ||
+    bannerMismatch ||
+    (Boolean(kept[0]?.weak) && !(kept[0]?.exactName) && !(leadSetCovers && leadCovered >= tokens.length));
   const leadClashes = leadNode ? realMastersNamed(index, leadNode.name) : [];
   const clashNote = leadNode ? sameNameNote(index, leadClashes, leadNode) : undefined;
   const subNote = substitutionNote(index, intent, leadNode);
   const extraNote = [clashNote, subNote].filter(Boolean).join(" ") || undefined;
   const payloadOf = () => {
+    if (weakLead && candidates[0]) Object.assign(candidates[0], { why: weakCheckWhy((candidates[0] as { why?: string }).why, guessesFor(reading.shared, kept[0] ? familyCardName(kept[0]) : ""), intent, candidates[0].name) });
     const base = {
       intent: echoIntent,
       candidates,

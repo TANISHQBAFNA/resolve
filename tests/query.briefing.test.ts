@@ -516,10 +516,16 @@ describe("designer briefing", () => {
     const index = indexGraph(graph);
     const lead = (recommendMasters(index, "a list", { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
     expect(lead).toBe("Card List");
+    const expectLead = new Map<string, string>([
+      ["a form with a list", "Text Field"],
+      ["form and list", "Text Field"],
+      ["settings form with my trips list, tight deadline", "Text Field"],
+    ]);
     for (const request of ["a form with a list", "a signup form with a list of saved cards", "form and list", "settings form with my trips list, tight deadline"]) {
       const result = briefScreen({ request, index, recipes: starterRecipes(), decisions: [decision] });
       expect(asked(result).some((question) => question.topic === "platform"), request).toBe(false);
-      if ("ready" in result) expect(result.candidates[0]?.name, request).toBe("Text Field");
+      const lead = expectLead.get(request);
+      if (lead && "ready" in result) expect(result.candidates[0]?.name, request).toBe(lead);
     }
     const names = (recommendMasters(index, "settings form with my trips list, tight deadline", { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates.slice(0, 3).map((row) => row.name);
     expect(names).not.toContain("Compact List");
@@ -611,12 +617,22 @@ describe("designer briefing", () => {
       ["a settings list that is relaxed", "comfortable", "Comfortable List"],
       ["rows that are airy", "comfortable", "Comfortable List"],
       ["a list which is compact please", "compact", "Compact List"],
+      ["a list, dense for mobile", "compact", "Compact List"],
+      ["a list, roomy on desktop", "comfortable", "Comfortable List"],
+      ["a list, compact in ios", "compact", "Compact List"],
+      ["a list, airy;", "comfortable", "Comfortable List"],
+      ["rows, dense!", "compact", "Compact List"],
       ["payout rows, roomy", "comfortable", "Comfortable List"],
     ] as const) {
       expect(density(request), request).toMatch(word);
       expect("ready" in brief(request) && (brief(request) as { candidates: Array<{ name: string }> }).candidates[0]?.name, request).toBe(name);
     }
-    // Without a joint, or on the listed items, it is not the list density.
-    for (const request of ["a list dense", "a list of tight deadlines"]) expect(density(request), request).toBeUndefined();
+    const mobileTop = top("a list, dense on mobile");
+    expect(density("a list, dense on mobile")).toMatch(/compact/);
+    expect(mobileTop[0]).toBe("Compact List");
+    // Without a joint, or on words that are not platform/device words, it is not the list density.
+    for (const request of ["a list dense", "a list of tight deadlines", "a list, dense for time", "a list, airy on details", "a list, compact in notes"]) {
+      expect(density(request), request).toBeUndefined();
+    }
   });
 });

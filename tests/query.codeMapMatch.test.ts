@@ -6,9 +6,9 @@ import { suggestPairs, type CodeTarget } from "@/core/query/codeMapSuggest";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
 
-function inventory(components: { component: string; selector: string }[]): AngularInventory {
+function inventory(components: { component: string; selector: string }[], packageName = "@acme/match"): AngularInventory {
   return {
-    packageName: "@acme/match",
+    packageName,
     packageVersion: "1.0.0",
     components: components.map((row) => ({
       component: row.component,
@@ -21,7 +21,7 @@ function inventory(components: { component: string; selector: string }[]): Angul
   };
 }
 
-function pairsFor(name: string, components: { component: string; selector: string }[]) {
+function pairsFor(name: string, components: { component: string; selector: string }[], packageName?: string) {
   const nodes: GraphNode[] = [
     { id: "file:ACMEMATCH", type: "FILE", name: "Acme Match", fileKey: "ACMEMATCH" },
     { id: "node:1", type: "COMPONENT_SET", name, figmaNodeId: "1:1", fileKey: "ACMEMATCH", isMainComponent: true },
@@ -38,7 +38,7 @@ function pairsFor(name: string, components: { component: string; selector: strin
   const index = indexGraph(graph);
   const node = index.graph.nodes.find((item) => item.name === name)!;
   const targets: CodeTarget[] = [{ fileKey: "ACMEMATCH", id: "1:1", name, node }];
-  return suggestPairs(index, inventory(components), targets);
+  return suggestPairs(index, inventory(components, packageName), targets);
 }
 
 describe("code map name matching", () => {
@@ -86,5 +86,14 @@ describe("code map name matching", () => {
     expect(pairs.map((pair) => ({ component: pair.component, status: pair.status }))).toEqual([
       { component: "LanternComponent", status: "partial" },
     ]);
+  });
+
+  it("drops the Mat prefix only for @angular/material, and never inside a word like Matrix", () => {
+    const other = pairsFor("Chip", [{ component: "MatChip", selector: "acme-mat-chip" }]);
+    expect(other).toEqual([]);
+    const material = pairsFor("Chip", [{ component: "MatChip", selector: "mat-chip" }], "@angular/material");
+    expect(material.map((pair) => pair.component)).toEqual(["MatChip"]);
+    expect(pairsFor("Rix", [{ component: "Matrix", selector: "acme-matrix" }], "@angular/material")).toEqual([]);
+    expect(pairsFor("Matrix", [{ component: "Matrix", selector: "acme-matrix" }]).map((pair) => pair.component)).toEqual(["Matrix"]);
   });
 });

@@ -99,7 +99,7 @@ for (const group of synonymFile.groups) {
   for (const term of terms) SYNONYM_OF.set(term, terms);
 }
 /** Label words that can sit beside a control. They match, and the card is partial. */
-export const LABEL_FILLER = new Set(["sign", "terms", "submit", "submitting", "phone", "number", "country", "edit"]);
+export const LABEL_FILLER = new Set(["sign", "terms", "submit", "submitting", "phone", "number", "country", "edit", "hidden"]);
 /**
  * Unasked position, platform, and density words. "app bar" is the top bar, not the bottom bar; "a list" is the
  * plain list, not Compact List or Comfortable List.

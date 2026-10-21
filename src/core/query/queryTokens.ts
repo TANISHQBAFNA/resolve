@@ -132,6 +132,8 @@ const DENSITY_WORD = new Map([
  */
 export function readDensity(text: string): string {
   const as = (word: string) => DENSITY_WORD.get(word.toLowerCase());
+  const allowedTail = (tail: string) =>
+    /^(?:\s*$|\s*,|\s*[.;!]|\s+please\b|\s+(?:for|on|in)\s+(?:mobile|desktop|tablet|phone|web|ios|android)\b)/i.test(tail);
   const before = text.replace(
     /\b([a-z]+)(\s+)(?=(list|lists|row|rows)\b((?:\s+of|\s+containing|\s+full\s+of|\s+with)\s+[a-z])?)/gi,
     (match, word: string, space: string, noun: string, rowPart?: string) => {
@@ -144,12 +146,21 @@ export function readDensity(text: string): string {
     }
     return density ? `${density}${space}` : match;
   });
-  return before.replace(
-    /\b(list|lists|row|rows)((?:\s*,\s*|\s+)(?:but\s+|that\s+is\s+|that\s+are\s+|which\s+is\s+|that's\s+)?)([a-z]+)\b(?=(?:\s*$|\s*,|\s*\.|\s+please\b))/gi,
+  const after = before.replace(
+    /\b(list|lists|row|rows)((?:\s*,\s*|\s+)(?:but\s+|that\s+is\s+|that\s+are\s+|which\s+is\s+|that's\s+)?)([a-z]+)\b(?=(?:\s*$|\s*,|\s*[.;!]|\s+please\b|\s+(?:for|on|in)\s+(?:mobile|desktop|tablet|phone|web|ios|android)\b))/gi,
     (match, noun: string, joint: string, word: string) => {
       const density = as(word);
       // A bare "list dense" with no comma, but, which is, or that is/are is not a list density.
       return density && /,|but|that|which|that's/i.test(joint) ? `${noun}${joint}${density}` : match;
+    },
+  );
+  return after.replace(
+    /\b(list|lists|row|rows)((?:\s*,\s*|\s+)(?:but\s+|that\s+is\s+|that\s+are\s+|which\s+is\s+|that's\s+)?)(compact|comfortable)\b/gi,
+    (match, noun: string, joint: string, word: string, offset: number, whole: string) => {
+      if (!/,|but|that|which|that's/i.test(joint)) return match;
+      const tail = whole.slice(offset + match.length);
+      if (allowedTail(tail)) return match;
+      return `${noun}${joint}${word.toLowerCase() === "compact" ? "dense" : "airy"}`;
     },
   );
 }

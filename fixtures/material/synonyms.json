@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "terms": ["toolbar", "top app bar", "app bar"],
+      "reason": "The Material 3 top app bar is the toolbar."
+    },
+    {
+      "terms": ["sidenav", "navigation drawer", "drawer"],
+      "reason": "The Material 3 navigation drawer is the sidenav."
+    },
+    {
+      "terms": ["slide toggle", "switch"],
+      "reason": "The Material 3 switch is the slide toggle."
+    },
+    {
+      "terms": ["segmented button", "button toggle"],
+      "reason": "A segmented button is the button toggle."
+    },
+    {
+      "terms": ["pagination", "paginator"],
+      "reason": "Pagination controls are the paginator."
+    },
+    {
+      "terms": ["snackbar", "toast", "snack"],
+      "reason": "A toast or a snack is the snackbar."
+    },
+    {
+      "terms": ["sheet", "panel"],
+      "reason": "Material 3 calls a panel docked to an edge a sheet: a side panel is the side sheet."
+    },
+    {
+      "terms": ["accordion", "expansion"],
+      "reason": "An accordion is the expansion panel."
+    },
+    {
+      "terms": ["datepicker", "date"],
+      "reason": "A datepicker is the date picker."
+    },
+    {
+      "terms": ["dropdown", "select"],
+      "reason": "A dropdown of options is the select."
+    }
+  ]
+}
