@@ -26,7 +26,7 @@
 <p align="center">Without Resolve the AI guesses. With Resolve the check passes.</p>
 
 > [!NOTE]
-> Every example and picture here uses **Acme**, a made-up design system. The pictures are illustrations, not screenshots.
+> The pictures use **Acme**, a made-up design system. They are illustrations, not screenshots. The real public example is [Angular Material](#real-example-angular-material).
 
 ## What Resolve is
 
@@ -114,6 +114,39 @@ Then fill in two settings: your **Figma token** and the **library file key**. Th
 > Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md
 
 Codex, Claude Desktop and by-hand steps: [Install in detail](docs/REFERENCE.md#install-in-detail).
+
+## Real example: Angular Material
+
+Acme, in the pictures above, is a story. Angular Material is a real design system with a real Angular package. This repo pins `@angular/material` and `@angular/cdk` at **22.2.3**. The library file is `fixtures/material/library.json`. It describes Material 3 components (button, icon button, FAB, card, chips, text field, form field, select, checkbox, radio, slide toggle, slider, list, menu, dialog, bottom sheet, snackbar, tabs, toolbar, sidenav, table, paginator, progress, badge, tooltip, date picker, stepper, expansion panel, and more), with variants, slots, and tokens such as `md.sys.color.primary`.
+
+The official Material 3 Figma kit was not read. The connected seat cannot open that community file. No Figma key is stored. The fixture follows the public spec at [m3.material.io](https://m3.material.io/components). Details are in `fixtures/material/README.md`.
+
+```bash
+npm run resolve -- ingest fixtures/material/library.json --role library --name "Material 3"
+npm run resolve -- recommend "primary sign in button"
+npm run resolve -- check "Sign in"
+```
+
+In chat, `/find primary sign in button` is the same ask. The check on the Sign in frame passes.
+
+Code map. Scan the published `.d.ts` files, then use the reviewed links:
+
+```bash
+npm run resolve -- code-map scan node_modules/@angular/material
+cp fixtures/material/code-map.json .resolve/code-map.json
+npm run resolve -- handoff "Sign in"
+```
+
+The scan suggests 32 links and all 32 are right (precision 1, recall 32/40). The reviewed map has 0 wrong confirmed links. The Sign in handoff for the filled button says:
+
+```text
+import { MatButtonModule } from '@angular/material/button'
+Template (suggested): <button matButton="filled"></button>
+```
+
+Tonal is `matButton="tonal"`. Outlined is `matButton="outlined"`. The sign-in label sits in the button: `<button matButton="filled">Sign in</button>`.
+
+The Material phrase board is separate from the sample-library board: top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0. The sample board stays top-1 83/88, top-3 85/88. See [Scoreboard](docs/SCOREBOARD.md#material-board) and the [guide](docs/GUIDE.md#real-example-angular-material).
 
 ## Quick start
 
@@ -210,6 +243,7 @@ Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.gra
 
 Newest first. The full list is in the [reference](docs/REFERENCE.md#version-history).
 
+- **Oct 20, 2026 — [PR #68](https://github.com/TANISHQBAFNA/resolve/pull/68).** Angular Material 22.2.3 is the real public example: a Material 3 fixture from the public spec, a code-map scan of the published package (precision 1, recall 32/40, 0 wrong confirmed links), and a separate phrase board (top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0). Matching is general: a describing tail ("slider for volume"), plurals, and a one-letter slip on any name word keep the match. The part named before "to", "for", or "with" wins. A fresh set scores 30/33. The sample phrase board rose to top-1 84/88, top-3 86/88.
 - **Oct 20, 2026 — [PR #69](https://github.com/TANISHQBAFNA/resolve/pull/69).** When no saved recipe fits, `recipe --compose` (MCP `compose: true`, advanced only) builds one from the parts you name, each filled by `recommend`. It never invents a part; a part with no fit says No match. Fewer than 2 fitting parts is not a recipe. Nothing is saved until a person approves the `--propose` proposal. Fresh set: held-out slot precision 28/31, recall 28/32, invented 0. Round 1: a part whose last word does not match is marked weak, not a fit; parts after place words are kept and every no-fit part is listed; a saved recipe with the same title or parts is named as a warning and not proposed; the proposal id includes the parts and a decided proposal is refused; approve refuses private parts, variants, non-components, empty or duplicate recipes; empty input is an error. Held-out unchanged: precision 28/31, recall 28/32. Round 2: `brief` offers to compose when no saved recipe fits and two or more parts are named (offer only); briefing answers fill composed slots with their real parts; container words (list, group, set) are not the part word, so a radio list fits Radio. Round 3: a part fits only when every main word is in its name, a variant name or a synonym, otherwise weak, check; approve needs 2 or more parts; on/in phrases are context, not parts; a set of X takes X; brief says savedRecipe when compose would warn. Held-out 27/30 precision, 27/32 recall, invented 0. Round 4: words after on/in/inside are a part when they fit a library part (a row inside a modal), else context; device, theme and density words stay context; all-weak results say weak, not No match. Round 5: on/in words are a part only when they hold a full part name or one word names exactly one part, else context; density words (compact, dense) before a part do not make it weak. Round 6: a single on/in word is a part only when it is the whole name of one part (Modal, Tabs); a word that is only part of a longer name stays context. Default MCP tools unchanged. Phrase score unchanged.
 - **Oct 20, 2026 — [PR #67](https://github.com/TANISHQBAFNA/resolve/pull/67).** Before picking parts for a screen, Resolve asks at most 3 multiple-choice questions, and only when the request fits and the answer would change the component. No screen-type question. States can take more than one answer. No match asks nothing and invents nothing. Answers change the handoff parts. Round 2: the fit check uses recommend's own ranking, so plurals and close phrasing fit. A nav with no platform asks desktop or mobile. States are asked for any real part, except a nav, when the request names none. A fresh 41-request held-out set: question recall 10/12, question precision 10/15, 0.41 questions per request (max 2), part recall 28/30, part precision 1. Round 3: a request that names a part plus a context ("summary cards for the order") is not asked states. A state option is offered only when it adds a part the request does not already have. A list ask with no shape named asks one question: list or table. Held-out set now 49 requests: question recall 7/9, precision 7/8, 0.16 questions per request (max 1), part recall 36/38. Round 4: the list-or-table question is asked only when recommend finds a part from the request's other words; "all", "every" or "list of" with an off-topic or misspelt noun says No match and asks nothing. Held-out (54): question recall 4/6, precision 4/5, 0.09 questions per request. Phrase score unchanged.
 - **Oct 20, 2026 — [PR #65](https://github.com/TANISHQBAFNA/resolve/pull/65).** New README pictures: real screens instead of boxes, two short animations that play once, a full code map and new icons. Text in the pictures shows at 22px or more on GitHub. A "From design to code" section comes before Install.

@@ -73,9 +73,40 @@ For clone flags, tokens, and the optional browser map, see [For developers](REFE
 
 ---
 
+## Real example: Angular Material
+
+Pictures in the README use **Acme**, a made-up library. The real public library in this repo is **Angular Material 22.2.3**, which follows [Material 3](https://m3.material.io/components). The fixture is `fixtures/material/library.json`. It was built from the public spec, not from the official Figma kit. That kit was not opened. No Figma key is in the repo.
+
+Learn it, then ask, check, and hand off:
+
+Copy the Material recipes, synonyms, and reviewed code map into `.resolve/` first. Without `recipes.json` the Sign in check only fills the button slot, not the username and password text fields.
+
+```bash
+mkdir -p .resolve
+cp fixtures/material/recipes.json fixtures/material/synonyms.json fixtures/material/code-map.json .resolve/
+npm run resolve -- ingest fixtures/material/library.json --role library --name "Material 3"
+npm run resolve -- recommend "primary sign in button"
+npm run resolve -- check "Sign in"
+npm run resolve -- code-map scan node_modules/@angular/material
+npm run resolve -- handoff "Sign in"
+```
+
+`/find` in chat is the same ask as `recommend`. The Sign in check passes, with all 3 slots filled. The handoff uses the reviewed code-map links. The filled button comes back as:
+
+```text
+import { MatButtonModule } from '@angular/material/button';
+<button matButton="filled">Sign in</button>
+```
+
+`MatButtonModule` comes from `@angular/material/button`. The Type variant sets `matButton` to `filled`, `tonal`, `outlined`, `text`, or `elevated`. A text field is `<mat-form-field appearance="fill">` around `<mat-label>` and `<input matInput>`. `MatFormFieldModule` comes from `@angular/material/form-field`.
+
+`Dialog`, `Snackbar`, and `Bottom sheet` are services in Angular Material, so the scan does not see them. The reviewed map adds those three from the public classes. `Search bar`, `Navigation bar`, `Navigation rail`, and `Side sheet` are in the Material 3 spec and have no Angular Material class, so they stay unmapped.
+
+The Material phrase board (`scoreboard/material-phrases`) is separate from the sample-library board. See [Scoreboard](SCOREBOARD.md#material-board).
+
 ## Happy path (what you do, what you get)
 
-Use a checkout summary as the running example. Swap the words for your screen.
+The steps below are the same for any library. The Material commands above are the ones to copy when you want a real package. A checkout summary is the generic screen. Swap the words for yours.
 
 ### 1. Refresh the library (learn / ingest)
 

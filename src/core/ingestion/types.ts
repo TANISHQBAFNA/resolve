@@ -257,6 +257,8 @@ export const SourceDocumentSchema = z.object({
      * `skipped` = nothing to look up. `failed` = 403/404/network, stubs stay unknown.
      */
     remoteSourceLookup: z.enum(["ok", "failed", "partial", "skipped"]).optional(),
+    /** A made-up example file (fixture). Links say so instead of pointing at figma.com. */
+    example: z.boolean().optional(),
   }),
 });
 export type SourceDocument = z.infer<typeof SourceDocumentSchema>;

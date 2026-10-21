@@ -1,0 +1,282 @@
+{
+  "version": 1,
+  "note": "Fresh r2 set, written for this round and not tuned against. Descriptive phrasings, plurals, an extra describing word, new one-letter slips (none named in a report), and side panels. Not part of the CI floor. \"settings panel\" keeps Expansion panel: its head noun names that part.",
+  "cases": [
+    {
+      "id": "desc-table-cols",
+      "type": "fresh",
+      "phrase": "a table with columns",
+      "expect": [
+        "Table"
+      ]
+    },
+    {
+      "id": "desc-table-sort",
+      "type": "fresh",
+      "phrase": "table with sortable columns",
+      "expect": [
+        "Table"
+      ]
+    },
+    {
+      "id": "desc-collapsible",
+      "type": "fresh",
+      "phrase": "a collapsible section",
+      "expect": [
+        "Expansion panel"
+      ]
+    },
+    {
+      "id": "desc-date-use",
+      "type": "fresh",
+      "phrase": "date picker for the due date",
+      "expect": [
+        "Date picker"
+      ]
+    },
+    {
+      "id": "desc-header-back",
+      "type": "fresh",
+      "phrase": "header with a back arrow",
+      "expect": [
+        "Toolbar"
+      ]
+    },
+    {
+      "id": "desc-appbar-back",
+      "type": "fresh",
+      "phrase": "top app bar with a back arrow",
+      "expect": [
+        "Toolbar"
+      ]
+    },
+    {
+      "id": "desc-outlined-purpose",
+      "type": "fresh",
+      "phrase": "outlined button to cancel",
+      "expect": [
+        "Button"
+      ]
+    },
+    {
+      "id": "desc-outlined-export",
+      "type": "fresh",
+      "phrase": "outlined button for export",
+      "expect": [
+        "Button"
+      ]
+    },
+    {
+      "id": "desc-slider-use",
+      "type": "fresh",
+      "phrase": "sliders for volume",
+      "expect": [
+        "Slider"
+      ]
+    },
+    {
+      "id": "desc-chips-use",
+      "type": "fresh",
+      "phrase": "chips for tags",
+      "expect": [
+        "Chip"
+      ]
+    },
+    {
+      "id": "desc-tabs-use",
+      "type": "fresh",
+      "phrase": "tabs for sections",
+      "expect": [
+        "Tabs"
+      ]
+    },
+    {
+      "id": "desc-stepper-use",
+      "type": "fresh",
+      "phrase": "stepper for checkout",
+      "expect": [
+        "Stepper"
+      ]
+    },
+    {
+      "id": "desc-dialog-use",
+      "type": "fresh",
+      "phrase": "dialogs to confirm delete",
+      "expect": [
+        "Dialog"
+      ]
+    },
+    {
+      "id": "desc-list-of",
+      "type": "fresh",
+      "phrase": "a list of contacts",
+      "expect": [
+        "List"
+      ]
+    },
+    {
+      "id": "desc-tree-of",
+      "type": "fresh",
+      "phrase": "tree of folders",
+      "expect": [
+        "Tree"
+      ]
+    },
+    {
+      "id": "desc-grid-of",
+      "type": "fresh",
+      "phrase": "grid of photos",
+      "expect": [
+        "Grid list"
+      ]
+    },
+    {
+      "id": "desc-tooltip-hover",
+      "type": "fresh",
+      "phrase": "a tooltip on hover",
+      "expect": [
+        "Tooltip"
+      ]
+    },
+    {
+      "id": "desc-rail-tablet",
+      "type": "fresh",
+      "phrase": "navigation rail on tablet",
+      "expect": [
+        "Navigation rail"
+      ]
+    },
+    {
+      "id": "side-panel",
+      "type": "fresh",
+      "phrase": "side panel",
+      "expect": [
+        "Side sheet"
+      ]
+    },
+    {
+      "id": "side-panel-filters",
+      "type": "fresh",
+      "phrase": "side panel with filters",
+      "expect": [
+        "Side sheet"
+      ]
+    },
+    {
+      "id": "plural-checkboxes",
+      "type": "fresh",
+      "phrase": "checkboxes for the terms",
+      "expect": [
+        "Checkbox"
+      ]
+    },
+    {
+      "id": "plural-progress",
+      "type": "fresh",
+      "phrase": "progress bars",
+      "expect": [
+        "Progress bar"
+      ]
+    },
+    {
+      "id": "plural-tooltips",
+      "type": "fresh",
+      "phrase": "tooltips",
+      "expect": [
+        "Tooltip"
+      ]
+    },
+    {
+      "id": "slip-checkbox",
+      "type": "fresh",
+      "phrase": "chekcbox for terms",
+      "expect": [
+        "Checkbox"
+      ]
+    },
+    {
+      "id": "slip-slider",
+      "type": "fresh",
+      "phrase": "slidr for volume",
+      "expect": [
+        "Slider"
+      ]
+    },
+    {
+      "id": "slip-progress",
+      "type": "fresh",
+      "phrase": "progres bar",
+      "expect": [
+        "Progress bar"
+      ]
+    },
+    {
+      "id": "slip-paginator",
+      "type": "fresh",
+      "phrase": "paginatr",
+      "expect": [
+        "Paginator"
+      ]
+    },
+    {
+      "id": "slip-stepper",
+      "type": "fresh",
+      "phrase": "stepepr for checkout",
+      "expect": [
+        "Stepper"
+      ]
+    },
+    {
+      "id": "slip-rail",
+      "type": "fresh",
+      "phrase": "navigation rial",
+      "expect": [
+        "Navigation rail"
+      ]
+    },
+    {
+      "id": "slip-sheet",
+      "type": "fresh",
+      "phrase": "bottom shet",
+      "expect": [
+        "Bottom sheet"
+      ]
+    },
+    {
+      "id": "slip-radio",
+      "type": "fresh",
+      "phrase": "radio buttin for size",
+      "expect": [
+        "Radio button"
+      ]
+    },
+    {
+      "id": "slip-toolbar",
+      "type": "fresh",
+      "phrase": "toolbsr with back arrow",
+      "expect": [
+        "Toolbar"
+      ]
+    },
+    {
+      "id": "head-panel",
+      "type": "fresh",
+      "phrase": "settings panel",
+      "expect": [
+        "Expansion panel"
+      ]
+    },
+    {
+      "id": "none-stock",
+      "type": "fresh",
+      "phrase": "stock ticker for the lobby",
+      "expect": "none"
+    },
+    {
+      "id": "none-chip-shop",
+      "type": "fresh",
+      "phrase": "chip shop",
+      "expect": "none"
+    }
+  ]
+}

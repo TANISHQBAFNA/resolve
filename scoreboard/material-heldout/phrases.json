@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "note": "Held out from scoreboard/material-phrases. Written after the board, to see unseen wording. Not part of the CI floor.",
+  "cases": [
+    { "id": "hold-toast-extra", "type": "held-out", "phrase": "toast after saving the record", "expect": ["Snackbar"] },
+    { "id": "hold-snack-typo", "type": "held-out", "phrase": "snakbar", "expect": ["Snackbar"] },
+    { "id": "hold-snack-tail", "type": "held-out", "phrase": "snackbar confirmation", "expect": ["Snackbar"] },
+    { "id": "hold-accordion", "type": "held-out", "phrase": "accordion for shipping details", "expect": ["Expansion panel"] },
+    { "id": "hold-expand-typo", "type": "held-out", "phrase": "expantion panel", "expect": ["Expansion panel"] },
+    { "id": "hold-dropdown", "type": "held-out", "phrase": "country dropdown", "expect": ["Select"], "mustNot": ["Menu"] },
+    { "id": "hold-dropdown-tail", "type": "held-out", "phrase": "dropdown for a country", "expect": ["Select"], "mustNot": ["Menu"] },
+    { "id": "hold-date-extra", "type": "held-out", "phrase": "datepicker for the birthday", "expect": ["Date picker"] },
+    { "id": "hold-date-typo", "type": "held-out", "phrase": "datepickr", "expect": ["Date picker"] },
+    { "id": "hold-date-miss", "type": "held-out", "phrase": "date pickr", "expect": ["Date picker"] },
+    { "id": "hold-button-tail", "type": "held-out", "phrase": "snackbar please now", "expect": ["Snackbar"] },
+    { "id": "hold-none-captcha", "type": "held-out", "phrase": "captcha challenge widget", "expect": "none" }
+  ]
+}
