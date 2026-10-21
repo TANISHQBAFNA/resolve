@@ -8,7 +8,7 @@ import type { GraphIndex } from "./GraphIndex";
 import { familyNameOf, MASTER_TYPES, VARIANT_PROP_NAME, variantCardName } from "./masterNames";
 import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
 import { adjacentSwap, innerGap, keySlip, typoHeavy, wordSlip } from "./typo";
-import { allSynonymGroups, DEMOTE_UNASKED, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, synonymPhraseVocab, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
+import { allSynonymGroups, DEMOTE_UNASKED, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems, isScreen } from "./screenInventory";
 import { propertyAliases } from "./synonymLayer";
@@ -324,37 +324,108 @@ function stemOf(word: string): string {
   if (word.length >= 4 && word.endsWith("s") && !word.endsWith("ss")) return word.slice(0, -1);
   return word;
 }
+/** Spaces and hyphens removed, no stemming. The citation form of a name or synonym. */
+function citationForm(text: string): string {
+  return text.toLowerCase().split(/[^a-z0-9]+/).filter((part) => part.length > 0).join("");
+}
+
+/** Spaces and hyphens removed, last word singular. "top app bars", "top-app-bars", and "topappbars" share one form. */
+export function compactForm(text: string): string {
+  const parts = text.toLowerCase().split(/[^a-z0-9]+/).filter((part) => part.length > 0);
+  if (!parts.length) return "";
+  const last = parts.length - 1;
+  parts[last] = stemOf(parts[last] ?? "");
+  return parts.join("");
+}
+
+/** Possible singulars. "closes" is "close" or "clos"; the catalog decides which one exists. */
+function stemChoices(word: string): string[] {
+  const choices = [word];
+  if (word.length >= 5 && word.endsWith("ies")) choices.push(`${word.slice(0, -3)}y`);
+  if (word.length >= 4 && word.endsWith("es")) choices.push(word.slice(0, -2));
+  if (word.length >= 4 && word.endsWith("s") && !word.endsWith("ss")) choices.push(word.slice(0, -1));
+  return [...new Set(choices)];
+}
+
+function formCatalog(names?: Iterable<string>): { forms: Map<string, string[]>; nameSet: Set<string> } {
+  const forms = new Map<string, string[]>();
+  const nameSet = new Set<string>();
+  const add = (term: string, isName: boolean) => {
+    const cleaned = term.trim().toLowerCase();
+    if (!cleaned || cleaned.startsWith(".") || cleaned.startsWith("_") || cleaned.includes("=")) return;
+    const form = citationForm(cleaned);
+    if (form.length < 4) return;
+    const list = forms.get(form) ?? [];
+    if (!list.includes(cleaned)) list.push(cleaned);
+    forms.set(form, list);
+    if (isName) nameSet.add(cleaned);
+  };
+  for (const group of allSynonymGroups()) for (const term of group.terms) add(term, false);
+  if (names) for (const name of names) add(name, true);
+  return { forms, nameSet };
+}
+
+function preferredSurface(options: string[], nameSet: Set<string>): string | undefined {
+  if (!options.length) return undefined;
+  return options.find((option) => nameSet.has(option)) ?? options.find((option) => option.includes(" ")) ?? options.find((option) => option.includes("-")) ?? options[0];
+}
+
 /**
- * The ask the normal matcher should see. Singularize every word whose singular is a synonym word,
- * once. When the whole ask is a split spelling of a one-word synonym ("drop downs"), join it ("dropdown").
- * Built from the memoized synonym vocabulary, not a scan per token.
+ * The ask the normal matcher should see. A joined, split, or hyphenated spelling, singular or plural,
+ * is rewritten to the synonym or component name with the same compacted form.
  */
-export function normalizeAsk(text: string): string {
-  const vocab = synonymPhraseVocab();
-  const bits = text.split(/([A-Za-z0-9]+)/);
-  let changed = false;
-  const singular: string[] = [];
-  for (let i = 1; i < bits.length; i += 2) {
-    const lower = (bits[i] ?? "").toLowerCase();
-    const stem = stemOf(lower);
-    const next = stem !== lower && !DEMOTE_UNASKED.has(stem) && (vocab.tokens.has(stem) || vocab.oneWord.has(stem)) ? stem : lower;
-    if (next !== lower) changed = true;
-    bits[i] = next;
-    singular.push(next);
+export function normalizeAsk(text: string, names?: Iterable<string>): string {
+  const { forms, nameSet } = formCatalog(names);
+  const matches = [...text.matchAll(/[A-Za-z0-9]+/g)];
+  const words = matches.map((match) => match[0].toLowerCase());
+  const used = new Set<number>();
+  const replacements: Array<{ start: number; end: number; text: string }> = [];
+  const max = Math.min(4, words.length);
+  for (let length = max; length >= 1; length -= 1) {
+    for (let start = 0; start + length <= words.length; start += 1) {
+      if ([...Array(length).keys()].some((offset) => used.has(start + offset))) continue;
+      const slice = words.slice(start, start + length);
+      const last = slice[slice.length - 1] ?? "";
+      const head = slice.slice(0, -1);
+      const asWritten = [...head, last].join("");
+      // "tabs" is already the name Tabs. Do not shorten it to Tab.
+      const stems = stemChoices(last).filter((stem) => !(DEMOTE_UNASKED.has(stem) && stem !== last));
+      const hits = forms.has(asWritten)
+        ? [asWritten]
+        : stems
+            .map((stem) => [...head, stem].join(""))
+            .filter((form) => forms.has(form))
+            .sort((a, b) => b.length - a.length);
+      const form = hits[0];
+      const surface = form ? preferredSurface(forms.get(form) ?? [], nameSet) : undefined;
+      if (!surface) continue;
+      const canonical = surface.split(/[^a-z0-9]+/).filter(Boolean).join(" ");
+      for (let offset = 0; offset < length; offset += 1) used.add(start + offset);
+      if (slice.join(" ") === canonical) continue;
+      const first = matches[start];
+      const lastMatch = matches[start + length - 1];
+      if (first?.index === undefined || !lastMatch) continue;
+      replacements.push({ start: first.index, end: lastMatch.index + lastMatch[0].length, text: canonical });
+    }
   }
-  const content = tokensOf(singular.join(" "));
-  const joined = content.join("");
-  // "drop downs" is the one-word synonym "dropdown". A phrase that is already a synonym ("text field") stays split.
-  if (content.length >= 2 && vocab.oneWord.has(joined) && !vocab.phrases.has(joined)) return joined;
-  return changed ? bits.join("") : text;
+  if (!replacements.length) return text;
+  let result = text;
+  replacements.sort((a, b) => b.start - a.start);
+  for (const replacement of replacements) result = `${result.slice(0, replacement.start)}${replacement.text}${result.slice(replacement.end)}`;
+  return result;
 }
 /** Multi-word synonym phrases, such as "tick box" for Checkbox. Single words stay in SYNONYM_OF. */
 export function phraseNamesMatch(ask: string, name: string): boolean {
   const collapsedAsk = collapsedName(ask);
   const collapsedMaster = collapsedName(name);
   if (!collapsedAsk || !collapsedMaster) return false;
+  const askWords = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const nameWords = name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  // Joined or split spellings share a form. A one-word plural does not swallow a shorter name: "tabs" is not "tab".
+  if (compactForm(ask) === compactForm(name) && (askWords.length > 1 || nameWords.length > 1 || askWords.join("") === nameWords.join(""))) return true;
+  const askedForm = compactForm(ask);
   return allSynonymGroups().some((group) => {
-    const asked = group.terms.some((term) => term.includes(" ") && collapsedName(term) === collapsedAsk);
+    const asked = group.terms.some((term) => term.includes(" ") && (collapsedName(term) === collapsedAsk || compactForm(term) === askedForm));
     if (!asked) return false;
     return group.terms.some((term) => collapsedName(term) === collapsedMaster);
   });

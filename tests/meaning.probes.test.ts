@@ -10,6 +10,7 @@ import { buildGraph } from "@/core/transform/buildGraph";
 import { clearCache } from "@/server/store";
 import probesFile from "../scoreboard/meaning/probes.json";
 import freshFile from "../scoreboard/meaning/fresh.json";
+import r21File from "../scoreboard/meaning/r21.json";
 
 const repo = join(fileURLToPath(new URL("..", import.meta.url)));
 const FROZEN = "2026-01-01T00:00:00.000Z";
@@ -176,5 +177,30 @@ describe("meaning probes", () => {
     }
     process.stdout.write(`fresh probes ${correct}/${rows.length}\n${misses.join("\n")}\n`);
     expect(correct).toBeGreaterThanOrEqual(18);
+  });
+
+  it("scores 30 probes for an unlisted noun, a device word, and a joined plural", () => {
+    const rows = r21File.cases as Probe[];
+    expect(rows.length).toBe(30);
+    let correct = 0;
+    const misses: string[] = [];
+    const byKind: Record<string, [number, number]> = {};
+    for (const probe of rows) {
+      const index = probe.library === "acme" ? acme : material;
+      const got = offered(index, probe.phrase);
+      const hit = right(probe, got.name);
+      const pair = byKind[probe.kind] ?? [0, 0];
+      pair[1] += 1;
+      if (hit) {
+        pair[0] += 1;
+        correct += 1;
+      } else misses.push(`${probe.kind} "${probe.phrase}" → ${got.name ?? "∅"} (want ${probe.expect ?? "∅"})`);
+      byKind[probe.kind] = pair;
+    }
+    const kinds = Object.entries(byKind)
+      .map(([kind, pair]) => `${kind} ${pair[0]}/${pair[1]}`)
+      .join(" ");
+    process.stdout.write(`r21 probes ${correct}/${rows.length} ${kinds}\n${misses.join("\n")}\n`);
+    expect(correct).toBe(rows.length);
   });
 });

@@ -160,47 +160,7 @@
         "form",
         "sedan"
       ]
-    },
-    "listItems": [
-      "contact",
-      "task",
-      "payee",
-      "person",
-      "user",
-      "friend",
-      "message",
-      "email",
-      "file",
-      "photo",
-      "song",
-      "product",
-      "order",
-      "invoice",
-      "trip",
-      "name",
-      "result",
-      "option",
-      "chip",
-      "card",
-      "row",
-      "item",
-      "entry",
-      "customer",
-      "member",
-      "guest",
-      "ticket",
-      "issue",
-      "comment",
-      "note",
-      "image",
-      "video",
-      "link",
-      "tag",
-      "field",
-      "button",
-      "icon",
-      "record"
-    ]
+    }
   },
   "synonymGroups": [
     [

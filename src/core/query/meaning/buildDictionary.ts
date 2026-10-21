@@ -204,7 +204,7 @@ function derivedLanguage(entries: readonly MeaningEntry[]): MeaningLanguage {
       if (token === "phone" || token === "mobile" || token === "desktop" || token === "tablet") device.add(token);
     }
   }
-  return { density, device: [...device].sort(), describes: {}, listItems: [] };
+  return { density, device: [...device].sort(), describes: {} };
 }
 
 function matchBundled(built: MeaningDictionary, fileName: string): MeaningDictionary | undefined {

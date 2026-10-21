@@ -37,17 +37,40 @@ function leadOf(index: GraphIndex, text: string): { name?: string; match?: strin
 /** Position words are not plurals of a part. "bottoms" is not the footer. */
 const NOT_A_PLURAL = new Set(["bottom", "secondary", "right", "compact", "comfortable", "desktop", "mobile"]);
 
-function sameLead(index: GraphIndex, terms: string[]): void {
+/** Joined, split, and hyphenated plurals of a multi-word name. "top app bar" also yields "topappbars" and "top-app-bars". */
+function spellingPlurals(term: string): string[] {
+  const words = term.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  if (words.length < 2) return [];
+  const head = words.slice(0, -1);
+  const last = pluralWord(words[words.length - 1] ?? "");
+  return [`${head.join(" ")} ${last}`, `${head.join("")}${last}`, `${head.join("-")}-${last}`];
+}
+
+function componentNames(index: GraphIndex): string[] {
+  return index
+    .getNodesByType("COMPONENT_SET", "MAIN_COMPONENT")
+    .map((node) => node.name)
+    .filter((name) => name.includes(" ") && !name.startsWith(".") && !name.startsWith("_") && !name.includes("="));
+}
+
+function sameLead(index: GraphIndex, terms: string[], names: string[] = []): void {
   const misses: string[] = [];
+  const check = (label: string, left: string, right: string) => {
+    const one = leadOf(index, left);
+    const many = leadOf(index, right);
+    if (one.name !== many.name || one.match !== many.match) {
+      misses.push(`${label}: ${one.name ?? "empty"}/${one.match ?? "strong"} vs ${many.name ?? "empty"}/${many.match ?? "strong"}`);
+    }
+  };
   for (const term of terms) {
     const plural = pluralTerm(term);
     // "bottoms" is not the footer. A position word with an extra s is not that part's plural.
     if (NOT_A_PLURAL.has(term)) continue;
-    const one = leadOf(index, term);
-    const many = leadOf(index, plural);
-    if (one.name !== many.name || one.match !== many.match) {
-      misses.push(`${term} → ${plural}: ${one.name ?? "empty"}/${one.match ?? "strong"} vs ${many.name ?? "empty"}/${many.match ?? "strong"}`);
-    }
+    check(`${term} → ${plural}`, term, plural);
+    for (const spelling of spellingPlurals(term)) check(`${term} → ${spelling}`, term, spelling);
+  }
+  for (const name of names) {
+    for (const spelling of spellingPlurals(name)) check(`${name} → ${spelling}`, name, spelling);
   }
   expect(misses).toEqual([]);
 }
@@ -65,7 +88,7 @@ describe("a synonym's plural matches its singular", () => {
     clearCache();
     const raw: unknown = JSON.parse(readFileSync(join(repo, "scoreboard", "fixture", "library.json"), "utf8"));
     const index = indexGraph(buildGraph(SourceDocumentSchema.parse(raw), { builtAt: "2026-01-01T00:00:00.000Z" }));
-    sameLead(index, termsIn(join(repo, "src", "data", "synonyms.json")));
+    sameLead(index, termsIn(join(repo, "src", "data", "synonyms.json")), componentNames(index));
   });
 
   it("every Material synonym on the Material library", () => {
@@ -82,6 +105,6 @@ describe("a synonym's plural matches its singular", () => {
         { builtAt: "2026-10-21T00:00:00.000Z" },
       ),
     );
-    sameLead(index, [...termsIn(join(fix, "synonyms.json")), ...termsIn(join(repo, "src", "data", "synonyms.json"))]);
+    sameLead(index, [...termsIn(join(fix, "synonyms.json")), ...termsIn(join(repo, "src", "data", "synonyms.json"))], componentNames(index));
   });
 });

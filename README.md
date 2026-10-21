@@ -150,7 +150,7 @@ The Material phrase board is separate from the sample-library board: top-1 51/51
 
 ## What a component means
 
-`recommend` and `brief` load a dictionary for the library they are looking at. Acme's words are in `src/data/meaning/acme.json`. Angular Material's words are in `src/data/meaning/material.json`. The two files do not share one word list. Each file says which words mean compact or comfortable, and which words are a device.
+`recommend` and `brief` load a dictionary for the library they are looking at. Acme's words are in `src/data/meaning/acme.json`. Angular Material's words are in `src/data/meaning/material.json`. The two files do not share one word list. Each file says which words mean compact or comfortable, and which words are a device. A density word one or two words before `list` is that list's density, unless the file says the word describes the noun right after it. A joined, split, or hyphenated plural matches the same name.
 
 The parse reads your ask before anything is ranked:
 

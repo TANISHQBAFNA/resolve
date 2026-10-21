@@ -30,7 +30,6 @@ export function languageOf(raw: Partial<MeaningLanguage> | undefined): MeaningLa
     density: raw?.density ?? {},
     device: raw?.device ?? [],
     describes: raw?.describes ?? {},
-    listItems: raw?.listItems ?? [],
   };
 }
 
@@ -51,12 +50,11 @@ function nounStem(word: string): string {
   return lower;
 }
 
-function describesNoun(language: MeaningLanguage, word: string, noun: string): boolean | "unsure" {
+/** True only when this library says the density word describes that noun. Anything else is not a description. */
+function describesNoun(language: MeaningLanguage, word: string, noun: string): boolean {
   const stem = nounStem(noun);
   const described = language.describes[word.toLowerCase()] ?? [];
-  if (described.includes(stem) || described.includes(noun.toLowerCase())) return true;
-  if (language.listItems.includes(stem) || language.listItems.includes(noun.toLowerCase())) return false;
-  return "unsure";
+  return described.includes(stem) || described.includes(noun.toLowerCase());
 }
 
 function deviceSource(device: readonly string[]): string {
@@ -100,9 +98,9 @@ export function densityText(text: string, language: MeaningLanguage): string {
         const between = gap.trim().split(/\s+/).filter(Boolean);
         if (between.some((token) => GAP_STOP.has(token))) return match;
         if (between.length === 0) return `${density}${gap}`;
-        if (!known.has(word.toLowerCase())) return match;
-        if (between.some((token) => describesNoun(language, word, token) !== false)) {
-          if (word.toLowerCase() === "compact" || word.toLowerCase() === "comfortable") return gap;
+        // The noun right after the density word. Only a clear description blocks the list reading.
+        if (describesNoun(language, word, between[0] ?? "")) {
+          if (word.toLowerCase() === density) return gap;
           return match;
         }
         return `${density}${gap}`;
@@ -237,6 +235,17 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
     ? read.shared.filter((guess) => guess.part.every((word) => lead.nameTokens.includes(word)) && !lead.nameTokens.includes(guess.word)).map((guess) => guess.word)
     : [];
   const device = deviceOf(raw, language.device);
+  if (!leadName && device && read.tokens.some((token) => token === "nav" || token === "navigation")) {
+    const navs = live.filter((entry) => entry.nameTokens.includes("nav") || entry.nameTokens.includes("navigation"));
+    const direct = navs.filter((entry) => entry.nameTokens.includes(device));
+    const handheld = new Set(["phone", "mobile", "handset", "iphone", "ios", "android", "ipad", "tablet", "watch"]);
+    const desk = new Set(["desktop", "web", "laptop", "tv"]);
+    const picked = direct.length === 1 ? direct[0] : handheld.has(device) ? navs.find((entry) => entry.nameTokens.includes("mobile")) : desk.has(device) ? navs.find((entry) => entry.nameTokens.includes("desktop")) : undefined;
+    if (picked) {
+      leadName = picked.name;
+      reasons.push(`${device} selects ${picked.name}.`);
+    }
+  }
   const screen = tokensOf(raw).find((token) => token === "screen" || token === "page");
   return {
     text,

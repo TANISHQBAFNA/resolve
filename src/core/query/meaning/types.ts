@@ -31,8 +31,6 @@ export interface MeaningLanguage {
   device: string[];
   /** Nouns a density word describes on its own, keyed by the word that was said. */
   describes: Record<string, string[]>;
-  /** Nouns a list holds. A density word before one of these is still the list's density. */
-  listItems: string[];
 }
 
 export interface MeaningDictionary {

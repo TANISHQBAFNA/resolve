@@ -2,6 +2,8 @@
 
 ## Unreleased — meaning dictionary
 
+Oct 21, 2026. A density word one or two words before `list` is that list's density, for any noun or device in between. The hand-written list-noun list is gone. The reading is blocked only when the library says the density word describes the noun right after it; otherwise the variant leads and the brief does not ask states. A joined, split, or hyphenated spelling, singular or plural, matches the synonym or name with spaces and hyphens removed and the last word singular. A nav ask that names a phone leads with the mobile nav.
+
 Oct 21, 2026. `recommend` and `brief` load the Acme or Angular Material dictionary and parse the ask before ranking. The parse chooses the head part, the density, size, state, or style attribute, and whether the answer is empty or weak. Density words and device words come from that library's file, not from one shared list. "a card that is dated" is the card. "something to pick a date" is the date picker. "picker to choose a flavor" is empty. "button, not link" does not lead with the link. The lexical scorer only orders a tie and a one-letter typo. `readDensity`, `normalizeDensity`, `purposeTailTokens`, `guessesFor`, and `readInflections` are deleted. CLI and MCP cards keep the same shape.
 
 ## Unreleased — PR #59 round 18: Material parity

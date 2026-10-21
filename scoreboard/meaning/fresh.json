@@ -8,7 +8,7 @@
     { "library": "acme", "phrase": "tight rows for a tablet", "expect": "Compact List" },
     { "library": "acme", "phrase": "button that saves the draft", "expect": "Save CTA" },
     { "library": "acme", "phrase": "a dated summary card", "expect": "Summary Card" },
-    { "library": "acme", "phrase": "nav for phones", "expect": "Mobile Nav" },
+    { "library": "acme", "phrase": "navigation aimed at a handset", "expect": "Mobile Nav" },
     { "library": "acme", "phrase": "nav for a desktop screen", "expect": "Desktop Nav" },
     { "library": "acme", "phrase": "picker to choose a fruit", "expect": null },
     { "library": "acme", "phrase": "a button, not a banner", "expect": "Button" },

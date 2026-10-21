@@ -50,7 +50,11 @@ export function recommendMasters(
   const echoIntent = intent.length > 200 ? `${intent.slice(0, 199)}…` : intent;
   const publicNameSets = liveNameSets(index);
   const dictionary = meaningDictionary(index);
-  const slipped = normalizeAsk(fixOneSlip(intent, publicNameSets));
+  const catalogNames: string[] = [];
+  for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    if (!node.name.startsWith(".") && !node.name.startsWith("_") && !node.name.includes("=")) catalogNames.push(node.name);
+  }
+  const slipped = normalizeAsk(fixOneSlip(intent, publicNameSets), catalogNames);
   const decision: MeaningDecision | undefined = options.lexicalOnly ? undefined : prepareAsk(slipped, dictionary);
   if (decision && onlyInflectedAsk(echoIntent, dictionary)) {
     decision.empty = true;
