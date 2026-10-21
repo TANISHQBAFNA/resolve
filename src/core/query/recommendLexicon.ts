@@ -366,21 +366,33 @@ export function xMeansClose(text: string): boolean {
   const chrome = left === "icon" || right === "icon" || left === "button" || right === "button";
   return mark && chrome;
 }
+/** Every word of a multi-word synonym is in the ask, plural included: "boxes" covers "box". */
+export function phraseTokenHit(asked: ReadonlySet<string>, term: string): boolean {
+  const parts = tokensOf(term);
+  return parts.length > 1 && parts.every((token) => [...asked].some((word) => word === token || inflectsName(word, token)));
+}
+/** The same multi-word synonym, including a plural of one of its words: "tick boxes" is "tick box". */
+function samePhrase(ask: string, term: string): boolean {
+  if (collapsedName(ask) === collapsedName(term)) return true;
+  const asked = tokensOf(ask);
+  const named = tokensOf(term);
+  if (named.length < 2 || asked.length !== named.length) return false;
+  return asked.every((token, i) => token === named[i] || inflectsName(token, named[i]!));
+}
 /** Multi-word synonym phrases, such as "tick box" for Checkbox. Single words stay in SYNONYM_OF. */
 export function phraseNamesMatch(ask: string, name: string): boolean {
   const collapsedAsk = collapsedName(ask);
   const collapsedMaster = collapsedName(name);
   if (!collapsedAsk || !collapsedMaster) return false;
   return allSynonymGroups().some((group) => {
-    const asked = group.terms.some((term) => term.includes(" ") && collapsedName(term) === collapsedAsk);
+    const asked = group.terms.some((term) => term.includes(" ") && samePhrase(ask, term));
     if (!asked) return false;
     return group.terms.some((term) => collapsedName(term) === collapsedMaster);
   });
 }
 function phraseCoversAsk(ask: string): boolean {
-  const collapsedAsk = collapsedName(ask);
   return allSynonymGroups().some((group) =>
-    group.terms.some((term) => term.includes(" ") && collapsedName(term) === collapsedAsk),
+    group.terms.some((term) => term.includes(" ") && samePhrase(ask, term)),
   );
 }
 /** Ask contains a multi-word synonym, and the family name covers that phrase. */
@@ -390,9 +402,7 @@ export function phraseFamilyHit(ask: string, familyName: string): boolean {
   const familyTokens = tokensOf(familyName);
   const familyCollapsed = collapsedName(familyName);
   return allSynonymGroups().some((group) => {
-    const said = group.terms.filter(
-      (term) => term.includes(" ") && tokensOf(term).every((token) => askTokens.has(token)),
-    );
+    const said = group.terms.filter((term) => phraseTokenHit(askTokens, term));
     if (!said.length) return false;
     const familyTerm = group.terms.find((term) => {
       if (collapsedName(term) === familyCollapsed) return true;
@@ -416,9 +426,7 @@ export function phraseAliasBonus(ask: string, familyName: string): number {
   if (familyTokens.length !== 1) return 0;
   const familyCollapsed = collapsedName(familyName);
   for (const group of allSynonymGroups()) {
-    const said = group.terms.some(
-      (term) => term.includes(" ") && tokensOf(term).every((token) => askTokens.has(token)),
-    );
+    const said = group.terms.some((term) => phraseTokenHit(askTokens, term));
     if (!said) continue;
     const short = group.terms.some((term) => !term.includes(" ") && collapsedName(term) === familyCollapsed);
     if (short) return 500;

@@ -646,6 +646,21 @@ describe("designer briefing", () => {
       expect(density(request), request).toMatch(word);
       expect("ready" in brief(request) && (brief(request) as { candidates: Array<{ name: string }> }).candidates[0]?.name, request).toBe(name);
     }
+    // A density word and a desktop word together: brief keeps the density part recommend leads with.
+    const withRow = acmeGraph();
+    withRow.nodes.push(node("node:10:18", "MAIN_COMPONENT", "List Row", { figmaNodeId: "10:18", isMainComponent: true }));
+    const rowIndex = indexGraph(withRow);
+    const agree = (request: string, name: string) => {
+      const recommended = (recommendMasters(rowIndex, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+      const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
+      expect(recommended, request).toBe(name);
+      expect("ready" in result && result.candidates[0]?.name, request).toBe(name);
+    };
+    agree("list, compact for desktop", "Compact List");
+    agree("compact list for desktop", "Compact List");
+    agree("comfortable list for desktop", "Comfortable List");
+    agree("compact list for phone", "Compact List");
+    agree("compact list for tablet", "Compact List");
     // The part's own word is never weaker than a synonym: "compact" after the list stays Compact List.
     for (const request of ["a ledger list, compact for phones", "a ledger list, compact for now", "a list, compact in notes"]) {
       expect(top(request)[0], request).toBe("Compact List");

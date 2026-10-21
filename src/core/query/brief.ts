@@ -457,6 +457,10 @@ function platformSaid(request: string): PlatformId | undefined {
   // A density word right before list or row ("a dense list") says compact or comfortable; elsewhere it does not.
   const said = (id: PlatformId) => containsPhrase(readDensity(request), id);
   const hits = PLATFORM_IDS.filter(said);
+  const density = hits.find((id) => id === "compact" || id === "comfortable");
+  const place = hits.some((id) => id === "desktop" || id === "mobile" || id === "phone");
+  // "compact" and "desktop" are the same length, so a list that is both keeps the density part.
+  if (density && place && /\b(?:lists?|rows?)\b/i.test(request)) return density;
   hits.sort((a, b) => b.length - a.length);
   return hits[0];
 }
