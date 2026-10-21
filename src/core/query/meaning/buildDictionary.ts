@@ -8,8 +8,10 @@ import { isPrivateMaster } from "../recommendLexicon";
 import { allSynonymGroups, loadSynonymOverlay } from "../recommendContext";
 import { tokensOf } from "../queryTokens";
 import { inflectionStems } from "../screenInventory";
-import { MEANING_LANGUAGE } from "./language";
-import type { MeaningAttribute, MeaningDictionary, MeaningEntry } from "./types";
+import acmeDictionary from "@/data/meaning/acme.json";
+import materialDictionary from "@/data/meaning/material.json";
+import { languageOf } from "./parse";
+import type { MeaningAttribute, MeaningDictionary, MeaningEntry, MeaningLanguage } from "./types";
 
 const GENERIC = new Set(["button", "card", "list", "bar", "field", "icon", "menu", "chip", "tab", "row", "item", "input", "text"]);
 const KIND_OF = new Map<string, MeaningAttribute["kind"]>([
@@ -181,18 +183,73 @@ export function buildMeaningDictionary(index: GraphIndex, library?: string): Mea
   return {
     version: 1,
     library: library?.trim() || index.graph.fileName || "library",
-    language: MEANING_LANGUAGE,
+    language: derivedLanguage(entries),
     synonymGroups: groups.map((group) => [...group].sort()),
     entries,
   };
 }
 
-/** Dictionary for this graph. Reused until the graph object changes. */
+const BUNDLED = [acmeDictionary, materialDictionary] as unknown as MeaningDictionary[];
+
+function derivedLanguage(entries: readonly MeaningEntry[]): MeaningLanguage {
+  const density: Record<string, string[]> = {};
+  const device = new Set<string>();
+  for (const entry of entries) {
+    for (const attribute of entry.attributes) {
+      if (attribute.kind !== "density") continue;
+      for (const value of attribute.values) if (!density[value]) density[value] = [value];
+    }
+    for (const token of entry.nameTokens) {
+      if (token === "compact" || token === "comfortable") density[token] = density[token] ?? [token];
+      if (token === "phone" || token === "mobile" || token === "desktop" || token === "tablet") device.add(token);
+    }
+  }
+  return { density, device: [...device].sort(), describes: {}, listItems: [] };
+}
+
+function matchBundled(built: MeaningDictionary, fileName: string): MeaningDictionary | undefined {
+  const names = new Set(built.entries.map((entry) => entry.name.toLowerCase()));
+  let best: { dict: MeaningDictionary; score: number } | undefined;
+  for (const dict of BUNDLED) {
+    const library = dict.library.toLowerCase();
+    const named = fileName.toLowerCase().includes(library);
+    const overlap = dict.entries.filter((entry) => names.has(entry.name.toLowerCase())).length;
+    const ratio = names.size ? overlap / names.size : 0;
+    if (!named && ratio < 0.5) continue;
+    const score = (named ? 1000 : 0) + ratio;
+    if (!best || score > best.score) best = { dict, score };
+  }
+  return best?.dict;
+}
+
+function withBundled(built: MeaningDictionary, bundled: MeaningDictionary): MeaningDictionary {
+  const saved = new Map(bundled.entries.map((entry) => [entry.name.toLowerCase(), entry]));
+  return {
+    ...built,
+    library: bundled.library,
+    language: languageOf(bundled.language),
+    entries: built.entries.map((entry) => {
+      const known = saved.get(entry.name.toLowerCase());
+      if (!known) return entry;
+      return {
+        ...entry,
+        synonyms: [...new Set([...entry.synonyms, ...known.synonyms])].sort(),
+        altNames: [...new Set([...entry.altNames, ...known.altNames])].sort(),
+        purpose: known.purpose.length ? known.purpose : entry.purpose,
+        not: known.not.length ? known.not : entry.not,
+      };
+    }),
+  };
+}
+
+/** Dictionary for this graph. A checked-in library file supplies that library's words. */
 export function meaningDictionary(index: GraphIndex): MeaningDictionary {
   const hit = cache.get(index);
   if (hit) return hit;
   loadSynonymOverlay();
   const built = buildMeaningDictionary(index);
-  cache.set(index, built);
-  return built;
+  const bundled = matchBundled(built, index.graph.fileName);
+  const dictionary = bundled ? withBundled(built, bundled) : built;
+  cache.set(index, dictionary);
+  return dictionary;
 }

@@ -2,7 +2,7 @@
 
 ## Unreleased — meaning dictionary
 
-Oct 21, 2026. Resolve keeps a dictionary for each library: the component's real name, other names, word forms, what it is for, the attributes that pick a variant (density, size, state, style), and which components it is not. Acme and Angular Material are checked in as JSON a person can read. An ask is read as a head word, modifiers, attributes, a purpose, and context such as a phone. "a card that is dated" is Card with a date attribute. "list, compact for phones" is Compact List when that part exists, and nothing when it does not. "picker for fruit" is no match. A lead is weak only when part of the ask names a different part. Nothing is invented. The old density word list in the tokenizer, the -ed/-ing reader, and the "dated picked" special case are gone. Their job is this dictionary. Recommend, the CLI, and MCP cards keep the same shape.
+Oct 21, 2026. `recommend` and `brief` load the Acme or Angular Material dictionary and parse the ask before ranking. The parse chooses the head part, the density, size, state, or style attribute, and whether the answer is empty or weak. Density words and device words come from that library's file, not from one shared list. "a card that is dated" is the card. "something to pick a date" is the date picker. "picker to choose a flavor" is empty. "button, not link" does not lead with the link. The lexical scorer only orders a tie and a one-letter typo. `readDensity`, `normalizeDensity`, `purposeTailTokens`, `guessesFor`, and `readInflections` are deleted. CLI and MCP cards keep the same shape.
 
 ## Unreleased — PR #59 round 18: Material parity
 

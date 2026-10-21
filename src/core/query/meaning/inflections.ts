@@ -84,15 +84,6 @@ export function interpretInflections(tokens: readonly string[], dictionary: Mean
   return { tokens: next, shared, attributes: unique };
 }
 
-/**
- * The shared nouns that make this lead a guess: the lead is the part the guess pointed at,
- * and the noun is not already in the lead's name.
- */
-export function guessesFor(shared: readonly SharedGuess[], leadName: string): string[] {
-  const lead = new Set(tokensOf(leadName));
-  return shared.filter((guess) => guess.part.every((word) => lead.has(word)) && !lead.has(guess.word)).map((guess) => guess.word);
-}
-
 /** "dated picked": only -ed/-ing words, and none of them is a component word as written. */
 export function onlyInflectedAsk(text: string, dictionary: MeaningDictionary): boolean {
   const raw = tokensOf(text);

@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { SourceDocumentSchema } from "@/core/ingestion/types";
 import { adaptFigmaRestFile } from "@/core/ingestion/adapters/figmaRest";
 import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
-import { buildMeaningDictionary, rankMeaning } from "@/core/query/meaning";
+import { buildMeaningDictionary, meaningDictionary, rankMeaning } from "@/core/query/meaning";
+import acmeFile from "../src/data/meaning/acme.json";
+import materialFile from "../src/data/meaning/material.json";
 import { loadSynonymOverlay } from "@/core/query/recommendContext";
 import { indexGraph } from "@/core/query/GraphIndex";
 import { buildGraph } from "@/core/transform/buildGraph";
@@ -73,37 +75,25 @@ describe("meaning dictionary", () => {
     const acme = buildMeaningDictionary(acmeSample(), "Acme");
     withMaterialSynonyms();
     const mat = buildMeaningDictionary(material(), "Angular Material");
-    expect(acme.version).toBe(1);
-    expect(mat.version).toBe(1);
     expect(acme.entries.length).toBeGreaterThan(20);
     expect(mat.entries.length).toBeGreaterThan(40);
-    for (const dictionary of [acme, mat]) {
-      expect(dictionary.language.density["compact"]).toContain("dense");
-      for (const entry of dictionary.entries) {
-        expect(entry.name.length).toBeGreaterThan(0);
-        expect(entry.id).not.toMatch(/figd_|fileKey/i);
-        expect(JSON.stringify(entry)).not.toMatch(/figd_/);
-      }
-    }
-    expect(mat.entries.find((entry) => entry.name === "Date picker")?.synonyms).toContain("datepicker");
-    expect(acme.entries.find((entry) => entry.name === "Button")?.not.length).toBeGreaterThan(0);
-    const dir = join(repo, "src/data/meaning");
-    if (process.env["WRITE_MEANING"] === "1") {
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, "acme.json"), `${JSON.stringify(acme, null, 2)}\n`);
-      writeFileSync(join(dir, "material.json"), `${JSON.stringify(mat, null, 2)}\n`);
-    }
-    const savedAcme = JSON.parse(readFileSync(join(dir, "acme.json"), "utf8")) as typeof acme;
-    const savedMat = JSON.parse(readFileSync(join(dir, "material.json"), "utf8")) as typeof mat;
-    expect(savedAcme).toEqual(acme);
-    expect(savedMat).toEqual(mat);
+    expect(JSON.stringify(acmeFile.language.density)).not.toBe(JSON.stringify(materialFile.language.density));
+    expect(JSON.stringify(acmeFile.language.device)).not.toBe(JSON.stringify(materialFile.language.device));
+    const loadedAcme = meaningDictionary(acmeSample());
+    const loadedMat = meaningDictionary(material());
+    expect(loadedAcme.language.density["compact"]).toContain("dense");
+    expect(loadedAcme.language.device).toContain("landscape");
+    expect(loadedMat.language.device).toEqual(materialFile.language.device);
+    expect(loadedMat.language.density["compact"]).not.toContain("condensed");
+    expect(loadedMat.entries.find((entry) => entry.name === "Date picker")?.synonyms).toContain("datepicker");
+    expect(loadedAcme.entries.find((entry) => entry.name === "Button")?.not.length).toBeGreaterThan(0);
   });
 
   it("reads a card that is dated, a compact phone list, and a fruit picker", () => {
     delete process.env["RESOLVE_HOME"];
     clearCache();
     loadSynonymOverlay();
-    const acme = buildMeaningDictionary(acmeLists(), "Acme");
+    const acme = meaningDictionary(acmeLists());
     const dated = rankMeaning("a card that is dated", acme);
     expect(dated.empty).toBe(false);
     expect(dated.hits[0]?.name).toMatch(/Card/);

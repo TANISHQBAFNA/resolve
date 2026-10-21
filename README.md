@@ -150,19 +150,24 @@ The Material phrase board is separate from the sample-library board: top-1 51/51
 
 ## What a component means
 
-Resolve is a dictionary. You say what you mean. Resolve looks up the real component. It does not guess a name.
+`recommend` and `brief` load a dictionary for the library they are looking at. Acme's words are in `src/data/meaning/acme.json`. Angular Material's words are in `src/data/meaning/material.json`. The two files do not share one word list. Each file says which words mean compact or comfortable, and which words are a device.
 
-Each component has a card in the dictionary: its name, other names people use, word forms (dated, buttons), what it is for, and the knobs that pick a version (density, size, state, style). It also lists components it is not, so a date on a card is not the date picker.
+The parse reads your ask before anything is ranked:
 
-Acme example, when the library has Summary Card and Compact List:
+- the head word ("card", "list", "tabs")
+- modifiers and variant attributes (density, size, state, style, date)
+- the purpose, the part after to / for / on / when
+- context, such as a phone or a landscape screen
+- a contrast: "button, not link" will not lead with the link
 
-- "list, compact for phones" means Compact List. Compact is the density. Phones is the device.
-- "a card that is dated" means Summary Card. Dated is a date attribute on that card, not a different component.
-- "picker for fruit" means nothing. Fruit is not a component, so the answer is empty.
+Acme, when the library has Compact List:
 
-If the library has no Compact List, that phone list is empty too. Resolve does not invent a part.
+- "a dense list" and "list, compact for phones" mean Compact List. Dense is Acme's word for compact. Phones is the device.
+- "a card that is dated" means the card, and dated is a date attribute.
+- "picker for fruit" and "picker to choose a flavor" mean nothing. Resolve does not invent a part.
+- "something to pick a date" on Material means Date picker, because that is what the part is for.
 
-The dictionaries you can read are `src/data/meaning/acme.json` (the Acme sample) and `src/data/meaning/material.json` (Angular Material).
+If two parts tie, the older word score breaks the tie. A one-letter typo still finds the part. A lead is weak only when part of the ask names a different part.
 
 ## Quick start
 

@@ -6,7 +6,6 @@ import { isFigmaSlot } from "./placed";
 import modifierFile from "@/data/ui-modifiers.json";
 import { GENERIC_NAME_TOKENS, tokensOf } from "./queryTokens";
 import { allSynonymGroups, SYNONYM_OF } from "./recommendContext";
-import { purposeTailTokens } from "./meaning/purpose";
 import { CATEGORY_TAIL, modifierWord, PLAIN_NOUN, setCoversAsk, SLOT_QUALIFIERS, synonymIn, variantValueText } from "./recommendLexicon";
 import { inflectionStems } from "./screenInventory";
 import { oneSlipFix } from "./typo";
@@ -126,6 +125,7 @@ export function flagUncovered<T extends { exactName: boolean; weak?: boolean; as
   tokens: string[],
   familyOf: (entry: T) => string,
   namesPart: (token: string) => boolean = () => true,
+  purpose: ReadonlySet<string> = new Set(),
 ): void {
   for (const entry of entries) {
     if (entry.exactName || entry.weak) continue;
@@ -142,7 +142,7 @@ export function flagUncovered<T extends { exactName: boolean; weak?: boolean; as
     if ((entry.askCovered ?? tokens.length) >= tokens.length) continue;
     // Only a word left over makes it weak: not a purpose tail, a synonym, or a short form of a name word.
     const names = new Set(tokensOf(family));
-    const tail = purposeTailTokens(ask);
+    const tail = purpose;
     // Found by its name or a synonym: a leftover word that names no part is detail. Found only by a description: any leftover is a miss.
     // A family that is a group or set of the part ("Badge group") is not the part itself: stay strict.
     const container = [...names].some((name) => CONTAINER_WORD.has(name) && !tokens.includes(name));

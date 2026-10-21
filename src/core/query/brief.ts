@@ -4,7 +4,8 @@ import type { GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import type { BindRulesFile } from "./bindRules";
 import { exactRecipe, fillRecipe, type Recipe } from "./recipes";
-import { readDensity } from "./queryTokens";
+import { meaningDictionary } from "./meaning/buildDictionary";
+import { prepareAsk } from "./meaning/parse";
 import { recommendMasters } from "./recommendMasters";
 import type { RecommendContext } from "./recommendSupport";
 import { composeParts, composeRecipe } from "./recipeCompose";
@@ -453,12 +454,13 @@ function mentioned(request: string, options: Choice[], roles: Role[]): Choice[] 
   return hits;
 }
 
-function platformSaid(request: string): PlatformId | undefined {
-  // A density word right before list or row ("a dense list") says compact or comfortable; elsewhere it does not.
-  const said = (id: PlatformId) => containsPhrase(readDensity(request), id);
-  const hits = PLATFORM_IDS.filter(said);
-  hits.sort((a, b) => b.length - a.length);
-  return hits[0];
+function platformSaid(request: string, index: GraphIndex): PlatformId | undefined {
+  const decision = prepareAsk(request, meaningDictionary(index));
+  const density = decision.attributes.find((row) => row.kind === "density");
+  if (density?.value === "compact" || density?.value === "comfortable") return density.value;
+  const said = PLATFORM_IDS.filter((id) => id !== "compact" && id !== "comfortable" && containsPhrase(decision.text, id));
+  said.sort((a, b) => b.length - a.length);
+  return said[0];
 }
 
 function namedMasters(request: string, masters: GraphNode[]): GraphNode[] {
@@ -585,7 +587,7 @@ function briefRequest(input: BriefInput): BriefResult {
 
   const shapes = mentioned(stripped, catalog.shape, SHAPE);
   const states = mentioned(stripped, catalog.states, STATES);
-  const platform = platformSaid(stripped);
+  const platform = platformSaid(stripped, input.index);
   const named = namedMasters(stripped, masters).filter((master) => !platformComponentName(master.name) || containsPhrase(stripped, master.name));
   const recipe = recipeMatch(recipes, stripped);
   const decision = recipe ? undefined : decisionMatch(stripped, input.decisions ?? [], masters);

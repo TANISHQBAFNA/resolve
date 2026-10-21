@@ -5,36 +5,36 @@
     "density": {
       "compact": [
         "compact",
-        "dense",
-        "condensed",
-        "tight"
+        "dense"
       ],
       "comfortable": [
         "comfortable",
-        "spacious",
-        "roomy",
-        "airy",
-        "relaxed"
+        "roomy"
       ]
     },
     "device": [
-      "mobile",
-      "desktop",
-      "tablet",
       "phone",
-      "web",
-      "ios",
-      "android",
-      "ipad",
-      "iphone",
-      "pixel",
-      "galaxy",
-      "laptop",
-      "watch",
-      "tv",
-      "handset",
-      "portrait",
-      "landscape"
+      "tablet",
+      "desktop",
+      "mobile"
+    ],
+    "describes": {
+      "dense": [
+        "fog",
+        "traffic"
+      ],
+      "tight": [
+        "deadline"
+      ],
+      "compact": [
+        "camera"
+      ]
+    },
+    "listItems": [
+      "chip",
+      "row",
+      "item",
+      "card"
     ]
   },
   "synonymGroups": [

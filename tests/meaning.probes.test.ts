@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +9,7 @@ import { indexGraph, recommendMasters, type GraphIndex } from "@/core/query";
 import { buildGraph } from "@/core/transform/buildGraph";
 import { clearCache } from "@/server/store";
 import probesFile from "../scoreboard/meaning/probes.json";
+import freshFile from "../scoreboard/meaning/fresh.json";
 
 const repo = join(fileURLToPath(new URL("..", import.meta.url)));
 const FROZEN = "2026-01-01T00:00:00.000Z";
@@ -136,5 +137,44 @@ describe("meaning probes", () => {
     const line = `meaning probes ${correct}/${all} acme ${totals["acme"]?.[0]}/${totals["acme"]?.[1]} material ${totals["material"]?.[0]}/${totals["material"]?.[1]}`;
     process.stdout.write(`${line}\n${misses.join("\n")}\n`);
     expect(correct).toBe(all);
+  });
+
+  it("does not copy a scoreboard or held-out phrase", () => {
+    const taken = new Set<string>();
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (path.includes(`${join("scoreboard", "meaning")}`)) continue;
+        if (statSync(path).isDirectory()) {
+          walk(path);
+          continue;
+        }
+        if (!name.endsWith(".json")) continue;
+        const parsed = JSON.parse(readFileSync(path, "utf8")) as { cases?: Array<Record<string, unknown>> };
+        for (const row of parsed.cases ?? []) {
+          for (const key of ["phrase", "q", "request"]) {
+            const value = row[key];
+            if (typeof value === "string") taken.add(value.trim().toLowerCase());
+          }
+        }
+      }
+    };
+    walk(join(repo, "scoreboard"));
+    const copies = (probesFile.cases as Probe[]).filter((row) => taken.has(row.phrase.trim().toLowerCase()));
+    expect(copies.map((row) => row.phrase)).toEqual([]);
+  });
+
+  it("scores a fresh set written after the parse was wired", () => {
+    const rows = freshFile.cases as Probe[];
+    let correct = 0;
+    const misses: string[] = [];
+    for (const probe of rows) {
+      const index = probe.library === "acme" ? acme : material;
+      const got = offered(index, probe.phrase);
+      if (right(probe, got.name)) correct += 1;
+      else misses.push(`${probe.phrase} → ${got.name ?? "∅"} (want ${probe.expect ?? "∅"})`);
+    }
+    process.stdout.write(`fresh probes ${correct}/${rows.length}\n${misses.join("\n")}\n`);
+    expect(correct).toBeGreaterThanOrEqual(18);
   });
 });
