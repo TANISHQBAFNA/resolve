@@ -14,7 +14,11 @@ export function slugifyFileName(fileName: string): string {
   return slug.length ? slug : "Untitled";
 }
 
-export function figmaFileUrl(fileKey: string, fileName: string): string {
+/** A made-up example file (its JSON says `"example": true`) must not grow a figma.com address. */
+export const EXAMPLE_FILE_NOTE = "example, not a real Figma file";
+
+export function figmaFileUrl(fileKey: string, fileName: string, options: { example?: boolean } = {}): string {
+  if (options.example) return `${EXAMPLE_FILE_NOTE} (${fileKey} ${fileName})`;
   return `https://www.figma.com/design/${encodeURIComponent(fileKey)}/${encodeURIComponent(
     slugifyFileName(fileName),
   )}`;
@@ -24,8 +28,9 @@ export function figmaNodeUrl(
   fileKey: string,
   fileName: string,
   figmaNodeId: string,
-  options: { devMode?: boolean } = {},
+  options: { devMode?: boolean; example?: boolean } = {},
 ): string {
+  if (options.example) return `${EXAMPLE_FILE_NOTE} (${fileKey} ${figmaNodeId})`;
   const url = new URL(figmaFileUrl(fileKey, fileName));
   url.searchParams.set("node-id", figmaNodeId.replace(/:/g, "-"));
   if (options.devMode) url.searchParams.set("m", "dev");

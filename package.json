@@ -58,6 +58,8 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@angular/cdk": "22.2.3",
+    "@angular/material": "22.2.3",
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.4",

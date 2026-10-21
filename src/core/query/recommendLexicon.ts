@@ -7,7 +7,8 @@ import modifierFile from "@/data/ui-modifiers.json";
 import type { GraphIndex } from "./GraphIndex";
 import { familyNameOf, MASTER_TYPES, VARIANT_PROP_NAME, variantCardName } from "./masterNames";
 import { GENERIC_NAME_TOKENS, tokensOf } from "./queryTokens";
-import { allSynonymGroups, extraSynonym, fromIconLibrary, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
+import { adjacentSwap, keySlip, wordSlip } from "./typo";
+import { allSynonymGroups, DEMOTE_UNASKED, extraSynonym, fromIconLibrary, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems, isScreen } from "./screenInventory";
 import { propertyAliases } from "./synonymLayer";
@@ -84,6 +85,62 @@ export function intentNamesMaster(index: GraphIndex, askedTokens: string[]): boo
   return false;
 }
 export const RETIRED_NAME_TOKENS = new Set(["legacy", "old", "deprecated", "retired"]);
+/**
+ * The asked words as name matching should read them, for -ed and -ing words before a part noun.
+ * One that only describes the noun is left out, so its stem cannot name a part: "selected tab" is a tab,
+ * "sorted table" a table (not Select or Sort). One whose stem names the part with the noun is read as that
+ * stem: "searching bar" and "dated picker" match as "search bar" and "date picker". The stem also counts when
+ * it is one word of a longer name and the noun is shared ("searching field", as "search field" is Search bar).
+ * A word that is a part word as written ("loading" in Loading Spinner) is left as it is.
+ */
+export function readInflections(tokens: readonly string[], nameSets: readonly Set<string>[]): { tokens: string[]; shared: SharedGuess[] } {
+  const partWordIn = (names: Set<string>, token: string) =>
+    names.has(token) || [...names].some((name) => [`${name}s`, `${name}es`].includes(token) || [`${token}s`, `${token}es`].includes(name)) || synonymIn(token, names, false);
+  const partWord = (token: string) => nameSets.some((names) => partWordIn(names, token));
+  // A shared noun that is a part on its own ("card" is Card) names that part, not a longer one.
+  const wholePart = (token: string) => nameSets.some((names) => names.size === 1 && partWordIn(names, token));
+  // `shared` is the shared noun when only the shared-noun branch kept the word ("dated item"): a guess, read as weak.
+  const stemFor = (token: string, later: readonly string[]): { stem: string; shared?: SharedGuess } | undefined => {
+    let guess: { stem: string; shared?: SharedGuess } | undefined;
+    for (const names of nameSets) {
+      const stem = inflectionStems(token).find((form) => names.has(form));
+      if (!stem) continue;
+      if (later.some((word) => word !== token && partWordIn(names, word))) return { stem };
+      const shared = later.find((word) => word !== token && names.size > 1 && GENERIC_NAME_TOKENS.has(word) && !wholePart(word));
+      if (shared && !guess) guess = { stem, shared: { word: shared, part: [...names] } };
+    }
+    return guess;
+  };
+  const shared: SharedGuess[] = [];
+  const read = tokens.flatMap((token, i) => {
+    const later = tokens.slice(i + 1);
+    if (!/(?:ed|ing)$/.test(token) || partWord(token) || !later.some(partWord)) return [token];
+    const found = stemFor(token, later);
+    if (found?.shared) shared.push(found.shared);
+    return found ? [found.stem] : [];
+  });
+  return { tokens: read, shared };
+}
+/** A shared noun ("item") that kept an -ed/-ing word only as a guess, and the part (name words) it pointed to. */
+export interface SharedGuess {
+  word: string;
+  part: string[];
+}
+
+/**
+ * The shared nouns that make this lead a guess: only when the lead is the part the guess pointed to, and the
+ * noun is not already in the lead's name ("timed progress bar" is a full name, not a guess).
+ */
+export function guessesFor(shared: readonly SharedGuess[], leadName: string): string[] {
+  const lead = new Set(tokensOf(leadName));
+  return shared.filter((guess) => guess.part.every((word) => lead.has(word)) && !lead.has(guess.word)).map((guess) => guess.word);
+}
+/** The why line of a weak lead. Always set, even on a compact card that dropped why. */
+export function weakCheckWhy(why: string | undefined, guesses: readonly string[], intent: string, name: string): string {
+  if (why?.startsWith("Weak, check")) return why;
+  if (guesses.length) return `Weak, check: ${guesses.map((word) => `"${word}"`).join(", ")} not in ${name}.`;
+  return `Weak, check: ${why ?? weakMatchWhy(intent, name)}`;
+}
 export function synonymIn(token: string, names: Set<string>, allowClip = false): boolean {
   const group = termsFor(token, allowClip);
   if (!group) return false;
@@ -110,7 +167,13 @@ function clippingGroup(token: string): readonly string[] | undefined {
   return found;
 }
 function termsFor(token: string, allowClip: boolean): readonly string[] | undefined {
-  const base = extraSynonym.get(token) ?? SYNONYM_OF.get(token) ?? (allowClip ? clippingGroup(token) : undefined);
+  // A plural reads its stem's group: "side panels" is the panel/sheet group. Only plurals: an -ed or -ing
+  // form describes the noun after it ("toggled switch" is a switch). Not for a position, variant, or
+  // modifier stem: "bottoms" is not the footer.
+  const partStem = (stem: string) =>
+    (token === `${stem}s` || token === `${stem}es`) && !DEMOTE_UNASKED.has(stem) && !SLOT_QUALIFIERS.has(stem) && !modifierWord(stem);
+  const stemmed = () => inflectionStems(token).filter(partStem).map((stem) => extraSynonym.get(stem) ?? SYNONYM_OF.get(stem)).find(Boolean);
+  const base = extraSynonym.get(token) ?? SYNONYM_OF.get(token) ?? stemmed() ?? (allowClip ? clippingGroup(token) : undefined);
   const alias = propertyAliases(token);
   if (!alias) return base;
   if (!base) return alias;
@@ -237,9 +300,13 @@ function inflectsName(query: string, nameToken: string): boolean {
   const rest = longer.slice(shorter.length);
   return rest === "s" || rest === "es" || rest === "ing" || rest === "ed";
 }
+/** A one-letter slip on a name word. Never onto a variant word like primary. */
+function slipsTo(query: string, nameToken: string): boolean {
+  return !SLOT_QUALIFIERS.has(nameToken) && wordSlip(query, nameToken);
+}
 export function tokenMatchesName(query: string, nameToken: string, allowClip = false): boolean {
   if (query === nameToken || inflectsName(query, nameToken)) return true;
-  return synonymIn(query, new Set([nameToken]), allowClip);
+  return synonymIn(query, new Set([nameToken]), allowClip) || slipsTo(query, nameToken);
 }
 /** "x" means close only as the whole ask, or right beside icon/button. "x ray" does not. */
 export function xMeansClose(text: string): boolean {
@@ -358,6 +425,84 @@ export function modifierWord(token: string): boolean {
   if (UI_MODIFIER.has(token) || LABEL_FILLER.has(token)) return true;
   return inflectionStems(token).some((stem) => UI_MODIFIER.has(stem) || LABEL_FILLER.has(stem));
 }
+/** The token is the whole component name, or a synonym that covers every word of it. */
+function longestCoveredName(token: string, nameSets: readonly Set<string>[]): number {
+  let best = 0;
+  for (const names of nameSets) {
+    if (!names.size) continue;
+    const joined = [...names].join("");
+    const alias = !names.has(token) && [...names].every((part) => synonymIn(token, new Set([part]), false));
+    const whole =
+      joined === token ||
+      (names.size === 1 && (names.has(token) || synonymIn(token, names, false))) ||
+      alias;
+    if (whole) best = Math.max(best, joined.length, token.length);
+  }
+  return best;
+}
+
+/** Words that start a description of the part: what it is for, what it holds, where it sits. */
+const DESCRIBING_WORD = new Set(["for", "to", "with", "when", "while", "on", "under", "above", "below", "after", "before", "showing", "holding"]);
+
+type NameSets = readonly Set<string>[];
+const namedIn = (names: Set<string>, token: string, allowClip: boolean) =>
+  nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip);
+
+/**
+ * Where the first describing word sits. "slider for volume": volume says what the slider is for.
+ * "of" describes only before a plural, and only after a part's whole name: "list of contacts" with a List.
+ * "badge of honor" and "a list of quasars" (Card List is not just "list") stay phrases of their own.
+ */
+function describingSplit(ask: string, nameSets: NameSets, allowClip: boolean): { words: string[]; at: number } {
+  const words = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const wholePart = (end: number) => {
+    const lead = tokensOf(words.slice(0, end).join(" "));
+    return nameSets.some((names) => [...names].every((name) => lead.some((token) => namedIn(new Set([name]), token, allowClip))));
+  };
+  const at = words.findIndex(
+    (word, i) => DESCRIBING_WORD.has(word) || (word === "of" && /[^s]s$/.test(words[i + 1] ?? "") && wholePart(i)),
+  );
+  return { words, at };
+}
+function describingTail(ask: string, nameSets: NameSets, allowClip: boolean): Set<string> {
+  const { words, at } = describingSplit(ask, nameSets, allowClip);
+  // The describing word itself is part of the tail: "holding" in "toolbar holding other items" is not junk.
+  return new Set(at < 1 ? [] : words.slice(at));
+}
+/**
+ * The part named before the first describing word wins: "button to open the dialog" is a Button.
+ * A later word that names a different part is dropped; one that sharpens the same part stays
+ * ("nav bar on mobile" keeps mobile, for Mobile Nav).
+ * Undefined when nothing before that word names a part, or it names a screen ("dashboard with a button").
+ */
+export function partBeforeLink(ask: string, nameSets: NameSets, allowClip: boolean, screens: readonly string[]): string | undefined {
+  const { words, at } = describingSplit(ask, nameSets, allowClip);
+  if (at < 1) return undefined;
+  const lead = tokensOf(words.slice(0, at).join(" "));
+  // "checkout summary with primary button": the lead is a screen, so the part after the link is the ask.
+  if (lead.every((token) => screens.includes(token))) return undefined;
+  const leadSets = nameSets.filter((names) => lead.some((token) => namedIn(names, token, allowClip)));
+  if (!leadSets.length) return undefined;
+  const tail = tokensOf(words.slice(at + 1).join(" ")).filter(
+    (token) => !nameSets.some((names) => namedIn(names, token, allowClip)) || leadSets.some((names) => namedIn(names, token, allowClip)),
+  );
+  return [...lead, words[at]!, ...tail].join(" ");
+}
+
+/**
+ * A one-letter slip counts only when every other word is known: a name word, a synonym, a modifier,
+ * a scene word, or a describing tail. "primary botton" stays; "lodaing spinnr" and "pyament screeen tabel"
+ * are typo-heavy and stay empty.
+ */
+function typoHeavy(content: string[], nameSets: NameSets, exempt: ReadonlySet<string>, tail: ReadonlySet<string>, allowClip: boolean): boolean {
+  const exact = (token: string) =>
+    nameSets.some((names) => names.has(token) || [...names].some((name) => inflectsName(token, name)) || synonymIn(token, names, allowClip));
+  const slipOnly = (token: string) => !exact(token) && nameSets.some((names) => [...names].some((name) => wordSlip(token, name)));
+  const slips = content.filter(slipOnly);
+  if (!slips.length) return false;
+  return slips.length > 1 || content.some((token) => !slipOnly(token) && !exact(token) && !modifierWord(token) && !exempt.has(token) && !tail.has(token));
+}
+
 function keepsCompany(token: string, previous: string | undefined, exempt: ReadonlySet<string>): boolean {
   if (modifierWord(token) || exempt.has(token)) return true;
   if (!previous) return false;
@@ -390,11 +535,22 @@ export function askGate(
       (names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip),
     ),
   );
+  if (typoHeavy(content, nameSets, exempt, describingTail(ask, nameSets, allowClip), allowClip)) return { outOfDomain: true, lowConfidence: false };
   if (hit.filter(Boolean).length !== 1) return open;
   const head = hit.lastIndexOf(true);
+  const tail = describingTail(ask, nameSets, allowClip);
+  let trailingJunk = false;
   for (let i = head + 1; i < content.length; i += 1) {
     const token = content[i];
-    if (!token || !keepsCompany(token, content[i - 1], exempt)) return { outOfDomain: true, lowConfidence: false };
+    if (token && tail.has(token)) continue;
+    if (!token || !keepsCompany(token, content[i - 1], exempt)) trailingJunk = true;
+  }
+  // A long whole name ("snackbar", "datepicker") stays a match when one extra word follows.
+  // Short names ("chip shop", "divider wall") stay empty: the extra word is the subject.
+  if (trailingJunk) {
+    const headToken = content[head] ?? "";
+    if (longestCoveredName(headToken, nameSets) >= 8) return { outOfDomain: false, lowConfidence: true };
+    return { outOfDomain: true, lowConfidence: false };
   }
   let unknown = 0;
   for (let i = 0; i < head; i += 1) {
@@ -412,25 +568,29 @@ function oneCharMissing(query: string, name: string): boolean {
   while (i < query.length && query[i] === name[i]) i += 1;
   return query.slice(i) === name.slice(i + 1);
 }
-/** Neighbouring letters swapped, and nothing else. */
-function adjacentSwap(query: string, name: string): boolean {
-  if (query.length !== name.length || query.length < 2) return false;
-  let i = 0;
-  while (i < query.length && query[i] === name[i]) i += 1;
-  if (i >= query.length - 1) return false;
-  if (query[i] !== name[i + 1] || query[i + 1] !== name[i]) return false;
-  return query.slice(i + 2) === name.slice(i + 2);
-}
 /**
  * Typo against the whole name, spaces removed. At least 5 letters.
- * A missing letter or a neighbouring swap. Not a substituted letter.
+ * A missing letter, a neighbouring swap, or one substituted letter.
  * Never used while an exact, phrase, or synonym match exists.
  */
+
 export function wholeNameTypo(ask: string, name: string): boolean {
   const query = collapsedName(ask);
   const master = collapsedName(name);
   if (query.length < 5 || master.length < 5 || query === master) return false;
-  return oneCharMissing(query, master) || adjacentSwap(query, master);
+  if (oneCharMissing(query, master) || adjacentSwap(query, master)) return true;
+  const masterTokens = tokensOf(name);
+  if (!masterTokens.length) return false;
+  for (const group of allSynonymGroups()) {
+    const singles = group.terms.filter((term) => !term.includes(" "));
+    if (!masterTokens.every((part) => singles.includes(part))) continue;
+    for (const term of group.terms) {
+      const folded = collapsedName(term);
+      if (folded.length < 8 || folded === query) continue;
+      if (oneCharMissing(query, folded) || adjacentSwap(query, folded) || keySlip(query, folded)) return true;
+    }
+  }
+  return false;
 }
 /** "button" and "cta"/"action" are the same generic control word. */
 function genericQuery(query: string): boolean {
@@ -506,7 +666,7 @@ export function withoutGenericCousins<T extends { node: { name: string }; setNam
 export function nameTokenFor(token: string, names: Set<string>, used: Set<string>): string | undefined {
   if (names.has(token) && !used.has(token)) return token;
   for (const name of names) {
-    if (!used.has(name) && inflectsName(token, name)) return name;
+    if (!used.has(name) && (inflectsName(token, name) || slipsTo(token, name))) return name;
   }
   return undefined;
 }

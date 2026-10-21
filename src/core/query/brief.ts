@@ -97,6 +97,8 @@ export interface BriefCandidate {
   name: string;
   fileKey?: string;
   figmaNodeId?: string;
+  /** Recommend's lead was a weak match: check before placing. */
+  weak?: true;
 }
 
 export interface BriefAnswers {
@@ -564,9 +566,10 @@ function briefRequest(input: BriefInput): BriefResult {
       bindRules: input.bindRules,
       placeholders: input.placeholders,
     }) as { match?: string; candidates?: Array<{ id?: string; name?: string; fileKey?: string; figmaNodeId?: string }> };
-    const all = (card.candidates ?? []).slice(0, 3).flatMap((row) => {
+    const all = (card.candidates ?? []).slice(0, 3).flatMap((row, i) => {
       if (!row.id || !row.name) return [];
-      return [candidateOf({ id: row.id, name: row.name, fileKey: row.fileKey, figmaNodeId: row.figmaNodeId })];
+      const lead = candidateOf({ id: row.id, name: row.name, fileKey: row.fileKey, figmaNodeId: row.figmaNodeId });
+      return [i === 0 && card.match === "weak match" ? { ...lead, weak: true as const } : lead];
     });
     const value = {
       rows: all.filter((row) => !platformComponentName(row.name)),
@@ -727,7 +730,11 @@ function briefRequest(input: BriefInput): BriefResult {
 
   const candidates = realCandidates();
   if (!candidates.length) return ready("no-match", [NO_MATCH], []);
-  const assumptions = notes.length ? notes : [candidates.length === 1 ? "Only one candidate fits." : "No question would change the component."];
+  const weakPick = candidates.find((row) => row.weak);
+  const fallback = weakPick
+    ? `Weak, check: ${weakPick.name} is a weak match for this request. Confirm it before placing.`
+    : candidates.length === 1 ? "Only one candidate fits." : "No question would change the component.";
+  const assumptions = notes.length ? (weakPick ? [...notes, fallback] : notes) : [fallback];
   return ready(candidates.length === 1 ? "one-candidate" : "answered", assumptions, candidates);
 }
 

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "recipes": [
+    {
+      "id": "sign-in",
+      "title": "Sign in",
+      "intentAliases": ["sign in", "login", "log in", "auth", "authenticate"],
+      "notes": "Username and password are both the Text field. The primary button is the filled Button.",
+      "slots": [
+        { "role": "username", "required": true, "hints": ["text field"] },
+        { "role": "password", "required": true, "hints": ["text field"] },
+        { "role": "primary-cta", "required": true, "hints": ["button", "primary"] }
+      ]
+    }
+  ]
+}

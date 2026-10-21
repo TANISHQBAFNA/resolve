@@ -30,6 +30,8 @@ const RawFileSchema = z
     lastModified: z.string().optional(),
     version: z.string().optional(),
     thumbnailUrl: z.string().optional(),
+    /** Not a Figma field: a fixture marks itself as a made-up example file. */
+    example: z.boolean().optional(),
     document: z.object({ id: z.string(), type: z.string() }).passthrough(),
     components: z.record(z.unknown()).optional(),
     componentSets: z.record(z.unknown()).optional(),
@@ -516,6 +518,7 @@ export function adaptFigmaRestFile(
   };
   if (file.version) source.version = file.version;
   if (file.lastModified) source.lastModified = file.lastModified;
+  if (file.example) source.example = true;
   if (truncated) source.truncated = true;
 
   return {
