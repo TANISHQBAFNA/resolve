@@ -303,7 +303,7 @@ export function setCoversAsk(ask: string, setName: string): boolean {
   if (!askFold || !nameFold) return false;
   const askTokens = tokensOf(askFold);
   const covers = (label: string) => {
-    if (label === askFold || collapsedName(label) === collapsedName(askFold)) return true;
+    if (label === askFold || namesMatch(askFold, label)) return true;
     const nameTokens = tokensOf(label);
     return nameTokens.length > 0 && nameTokens.every((token) => askTokens.includes(token));
   };
@@ -314,7 +314,7 @@ export function namesThisNode(ask: string, node: GraphNode, index: GraphIndex): 
   const needle = ask.trim().toLowerCase();
   if (!needle) return false;
   if (node.name.toLowerCase() === needle || stripTier(node.name).toLowerCase() === needle) return true;
-  if (collapsedName(node.name) === collapsedName(needle) || collapsedName(stripTier(node.name)) === collapsedName(needle)) return true;
+  if (namesMatch(needle, node.name) || namesMatch(needle, stripTier(node.name))) return true;
   if (phraseNamesMatch(needle, node.name)) return true;
   return variantCardName(index, node).toLowerCase() === needle;
 }
@@ -366,34 +366,54 @@ export function xMeansClose(text: string): boolean {
   const chrome = left === "icon" || right === "icon" || left === "button" || right === "button";
   return mark && chrome;
 }
+/** Last word of a phrase, as a singular: "downs" is "down", "boxes" is "box". A word that is not a plural stays. */
+function singularOf(word: string): string {
+  if (word.length >= 5 && word.endsWith("ies")) return `${word.slice(0, -3)}y`;
+  if (word.length >= 4 && word.endsWith("es")) {
+    const stem = word.slice(0, -2);
+    if (/(?:s|x|z|ch|sh)$/.test(stem)) return stem;
+  }
+  if (word.length >= 4 && word.endsWith("s") && !word.endsWith("ss")) return word.slice(0, -1);
+  return word;
+}
+/** Phrase with its last word singularized and spaces removed. "drop downs" and "dropdown" are one key. */
+function phraseKey(text: string): string {
+  const words = text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  if (!words.length) return "";
+  words[words.length - 1] = singularOf(words[words.length - 1]!);
+  return words.join("");
+}
+/**
+ * The same name once the last word is singular. A one-word plural ("buttons", "panels") stays on the
+ * single-word path. A two-word spelling of a one-word name ("drop downs", "dropdown") matches here.
+ */
+export function namesMatch(ask: string, name: string): boolean {
+  if (collapsedName(ask) === collapsedName(name)) return true;
+  if (tokensOf(ask).length < 2) return false;
+  return phraseKey(ask) === phraseKey(name);
+}
 /** Every word of a multi-word synonym is in the ask, plural included: "boxes" covers "box". */
 export function phraseTokenHit(asked: ReadonlySet<string>, term: string): boolean {
   const parts = tokensOf(term);
   return parts.length > 1 && parts.every((token) => [...asked].some((word) => word === token || inflectsName(word, token)));
 }
-/** The same multi-word synonym, including a plural of one of its words: "tick boxes" is "tick box". */
+/** Synonym phrases compared after the last word is singularized. A one-word ask is not a phrase. */
 function samePhrase(ask: string, term: string): boolean {
-  if (collapsedName(ask) === collapsedName(term)) return true;
-  const asked = tokensOf(ask);
-  const named = tokensOf(term);
-  if (named.length < 2 || asked.length !== named.length) return false;
-  return asked.every((token, i) => token === named[i] || inflectsName(token, named[i]!));
+  if (tokensOf(ask).length < 2 && tokensOf(term).length < 2) return false;
+  return phraseKey(ask) === phraseKey(term);
 }
 /** Multi-word synonym phrases, such as "tick box" for Checkbox. Single words stay in SYNONYM_OF. */
 export function phraseNamesMatch(ask: string, name: string): boolean {
-  const collapsedAsk = collapsedName(ask);
   const collapsedMaster = collapsedName(name);
-  if (!collapsedAsk || !collapsedMaster) return false;
+  if (!collapsedMaster) return false;
   return allSynonymGroups().some((group) => {
-    const asked = group.terms.some((term) => term.includes(" ") && samePhrase(ask, term));
+    const asked = group.terms.some((term) => samePhrase(ask, term));
     if (!asked) return false;
-    return group.terms.some((term) => collapsedName(term) === collapsedMaster);
+    return group.terms.some((term) => namesMatch(term, name) || collapsedName(term) === collapsedMaster);
   });
 }
 function phraseCoversAsk(ask: string): boolean {
-  return allSynonymGroups().some((group) =>
-    group.terms.some((term) => term.includes(" ") && samePhrase(ask, term)),
-  );
+  return allSynonymGroups().some((group) => group.terms.some((term) => samePhrase(ask, term)));
 }
 /** Ask contains a multi-word synonym, and the family name covers that phrase. */
 export function phraseFamilyHit(ask: string, familyName: string): boolean {

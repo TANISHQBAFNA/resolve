@@ -457,10 +457,6 @@ function platformSaid(request: string): PlatformId | undefined {
   // A density word right before list or row ("a dense list") says compact or comfortable; elsewhere it does not.
   const said = (id: PlatformId) => containsPhrase(readDensity(request), id);
   const hits = PLATFORM_IDS.filter(said);
-  const density = hits.find((id) => id === "compact" || id === "comfortable");
-  const place = hits.some((id) => id === "desktop" || id === "mobile" || id === "phone");
-  // "compact" and "desktop" are the same length, so a list that is both keeps the density part.
-  if (density && place && /\b(?:lists?|rows?)\b/i.test(request)) return density;
   hits.sort((a, b) => b.length - a.length);
   return hits[0];
 }
@@ -654,6 +650,11 @@ function briefRequest(input: BriefInput): BriefResult {
   // Platform: recommend's own top parts differ only by platform word, so the answer picks one.
   const chosenPlatform = resolved.get("platform")?.[0]?.id ?? platform;
   let platformPick: BriefCandidate | undefined;
+  // When recommend already picked a density variant, that is the part. A desktop or phone word does not replace it.
+  const densityLead = lead.platformRows[0];
+  if (densityLead && (platformWord(densityLead.name) === "compact" || platformWord(densityLead.name) === "comfortable")) {
+    platformPick = densityLead;
+  }
   if (chosenPlatform && platformRows.length) {
     const top = rank(`${stripped} ${chosenPlatform}`).platformRows[0];
     if (top && platformWord(top.name) === chosenPlatform) platformPick = top;

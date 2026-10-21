@@ -661,6 +661,23 @@ describe("designer briefing", () => {
     agree("comfortable list for desktop", "Comfortable List");
     agree("compact list for phone", "Compact List");
     agree("compact list for tablet", "Compact List");
+    // A density word before the head list, with a noun in between, is still that density.
+    agree("a dense contact list", "Compact List");
+    agree("a roomy task list", "Comfortable List");
+    agree("a dense contact list for desktop", "Compact List");
+    agree("a roomy task list for desktop", "Comfortable List");
+    agree("a compact task list", "Compact List");
+    agree("a dense list", "Compact List");
+    for (const request of ["a dense contact list", "a roomy task list", "a dense contact list for desktop", "a roomy task list for desktop"]) {
+      const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
+      expect(asked(result).some((question) => question.topic === "states"), request).toBe(false);
+      expect("ready" in result && result.candidates[0]?.name, request).not.toBe("List Row");
+    }
+    for (const request of ["a tight deadline and a list", "a list of dense documents", "a dense row of buttons"]) {
+      const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
+      expect("ready" in result && result.candidates[0]?.name, request).not.toBe("Compact List");
+      expect("ready" in result && result.candidates[0]?.name, request).not.toBe("Comfortable List");
+    }
     // The part's own word is never weaker than a synonym: "compact" after the list stays Compact List.
     for (const request of ["a ledger list, compact for phones", "a ledger list, compact for now", "a list, compact in notes"]) {
       expect(top(request)[0], request).toBe("Compact List");

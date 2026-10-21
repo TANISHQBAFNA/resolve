@@ -1,7 +1,7 @@
 /** Rank library masters for one intent. */
 import type { GraphNode } from "@/core/model";
 import { sameFamily, setOf } from "@/core/rules/family";
-import { collapsedName, isNameInferredMaster } from "@/core/rules/names";
+import { isNameInferredMaster } from "@/core/rules/names";
 import { isRetired } from "@/core/rules/retired";
 import { computeComponentUsage } from "./analytics";
 import { bindRuleHit, type BindRulesFile, filterAndScoreByBindRules, fitBindRuleWarnings, packJourneyPhrase, preferDelta, whyLineForMaster } from "./bindRules";
@@ -16,7 +16,7 @@ import { placeReady } from "./placeReady";
 import { GENERIC_NAME_TOKENS, navFamily, readDensity, tokensOf } from "./queryTokens";
 import { allSynonymGroups, appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
-import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, guessesFor, headTokenBonus, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, phraseTokenHit, purposeTailTokens, readInflections, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakCheckWhy, weakMatchWhy, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, guessesFor, headTokenBonus, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesMatch, namesThisNode, nameTokenFor, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, phraseTokenHit, purposeTailTokens, readInflections, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakCheckWhy, weakMatchWhy, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { type RecommendAlternate, type RecommendCandidate, type RecommendContext, type RecommendHit, refreshHintFor, slotsForComponent, whereUsedRows } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
 import { inflectionStems, overlap, similarUsage } from "./screenInventory";
@@ -143,22 +143,21 @@ export function recommendMasters(
       ? headBase.slice(0, -1)
       : headBase;
   const scoreNode = (node: GraphNode, set: GraphNode | undefined): Scored | undefined => {
-    const collapsedAsk = collapsedName(intentNeedle);
     const host = hostFamilyName(index, node, set);
     const familyLabel = familyHaystack(node, set, host);
     let exactName =
       Boolean(intentNeedle) &&
       (node.name.toLowerCase() === intentNeedle ||
-        collapsedName(node.name) === collapsedAsk ||
-        collapsedName(stripTier(node.name)) === collapsedAsk ||
+        namesMatch(intentNeedle, node.name) ||
+        namesMatch(intentNeedle, stripTier(node.name)) ||
         phraseNamesMatch(intentNeedle, node.name) ||
         phraseNamesMatch(intentNeedle, familyLabel) ||
         phraseFamilyHit(intentNeedle, familyLabel) ||
-        (set !== undefined && collapsedName(stripTier(set.name)) === collapsedAsk) ||
+        (set !== undefined && namesMatch(intentNeedle, stripTier(set.name))) ||
         (Boolean(set) &&
           node.type === "COMPONENT_SET" &&
           (set!.name.toLowerCase() === intentNeedle ||
-            collapsedName(set!.name) === collapsedAsk ||
+            namesMatch(intentNeedle, set!.name) ||
             phraseNamesMatch(intentNeedle, set!.name))));
     const nameHaystack = familyLabel;
     const matched = matchHaystack(node, set);
@@ -296,7 +295,7 @@ export function recommendMasters(
       Boolean(intentNeedle) &&
       (node.name.toLowerCase() === intentNeedle ||
         (set && set.name.toLowerCase() === intentNeedle) ||
-        collapsedName(node.name) === collapsedAsk);
+        namesMatch(intentNeedle, node.name));
     const nameHasIcon =
       tokensOf(node.name).includes("icon") || tokensOf(set?.name ?? "").includes("icon");
     if (shouldDemoteIcon(index, node, set, tokens, askedExact, workspace, intent)) score -= 500_000;

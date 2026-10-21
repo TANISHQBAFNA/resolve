@@ -141,10 +141,13 @@ const CLAUSE_END = new RegExp(
  * Anywhere else it stays as written too: "a tight deadline", "a tight nav bar", and "a list of dense
  * documents" (it describes the items) say nothing about list density.
  */
+/** Words that break a noun phrase, so a density word before them does not modify the list. */
+const DENSITY_GAP_STOP = new Set(["a", "an", "the", "and", "or", "but", "of", "for", "to", "with", "on", "in", "my", "your", "our", "their", "from", "into"]);
+
 export function readDensity(text: string): string {
   const as = (word: string) => DENSITY_WORD.get(word.toLowerCase());
-  const before = text.replace(
-    /\b([a-z]+)(\s+)(?=(list|lists|row|rows)\b((?:\s+of|\s+containing|\s+full\s+of|\s+with)\s+[a-z])?)/gi,
+  const beforeRow = text.replace(
+    /\b([a-z]+)(\s+)(?=(rows?)\b((?:\s+of|\s+containing|\s+full\s+of|\s+with)\s+[a-z])?)/gi,
     (match, word: string, space: string, noun: string, rowPart?: string) => {
     const lower = word.toLowerCase();
     const density = as(word);
@@ -155,6 +158,18 @@ export function readDensity(text: string): string {
     }
     return density ? `${density}${space}` : match;
   });
+  // The head "list" can have up to two words between it and the density word: "a dense contact list".
+  const densityWord = [...DENSITY_WORD.keys()].join("|");
+  const before = beforeRow.replace(
+    new RegExp(String.raw`\b(${densityWord})(\s+(?:[a-z]+\s+){0,2})(?=lists?\b)`, "gi"),
+    (match, word: string, gap: string) => {
+      const density = as(word);
+      if (!density) return match;
+      const between = gap.trim().split(/\s+/).filter(Boolean);
+      if (between.some((token) => DENSITY_GAP_STOP.has(token))) return match;
+      return `${density}${gap}`;
+    },
+  );
   const after = before.replace(
     new RegExp(String.raw`\b(list|lists|row|rows)((?:\s*,\s*|\s+)(?:but\s+|that\s+is\s+|that\s+are\s+|which\s+is\s+|that's\s+)?)([a-z]+)\b(?=${CLAUSE_END.source.slice(1)})`, "gi"),
     (match, noun: string, joint: string, word: string) => {
