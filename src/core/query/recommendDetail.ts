@@ -6,7 +6,8 @@ import { isFigmaSlot } from "./placed";
 import modifierFile from "@/data/ui-modifiers.json";
 import { GENERIC_NAME_TOKENS, tokensOf } from "./queryTokens";
 import { allSynonymGroups, SYNONYM_OF } from "./recommendContext";
-import { CATEGORY_TAIL, modifierWord, PLAIN_NOUN, purposeTailTokens, setCoversAsk, SLOT_QUALIFIERS, synonymIn, variantValueText } from "./recommendLexicon";
+import { purposeTailTokens } from "./meaning/purpose";
+import { CATEGORY_TAIL, modifierWord, PLAIN_NOUN, setCoversAsk, SLOT_QUALIFIERS, synonymIn, variantValueText } from "./recommendLexicon";
 import { inflectionStems } from "./screenInventory";
 import { oneSlipFix } from "./typo";
 

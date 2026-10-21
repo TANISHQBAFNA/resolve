@@ -10,6 +10,7 @@ import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
 import { adjacentSwap, innerGap, keySlip, typoHeavy, wordSlip } from "./typo";
 import { allSynonymGroups, DEMOTE_UNASKED, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
+import { purposeTailTokens } from "./meaning/purpose";
 import { inflectionStems, isScreen } from "./screenInventory";
 import { propertyAliases } from "./synonymLayer";
 import type { WorkspaceManifest } from "./workspace";
@@ -53,8 +54,6 @@ const SIZE_OR_A11Y = new Set([
   "wcag",
   "a11y",
 ]);
-const PURPOSE_WORD = new Set(["to", "for", "on", "when"]);
-
 const TRAILING_AFTER = new Map<string, ReadonlySet<string>>(
   modifierFile.trailing.map((row) => [
     row.term.toLowerCase(),
@@ -101,56 +100,6 @@ export function intentNamesMaster(index: GraphIndex, askedTokens: string[]): boo
   return false;
 }
 export const RETIRED_NAME_TOKENS = new Set(["legacy", "old", "deprecated", "retired", "hidden"]);
-/**
- * The asked words as name matching should read them, for -ed and -ing words before a part noun.
- * One that only describes the noun is left out, so its stem cannot name a part: "selected tab" is a tab,
- * "sorted table" a table (not Select or Sort). One whose stem names the part with the noun is read as that
- * stem: "searching bar" and "dated picker" match as "search bar" and "date picker". The stem also counts when
- * it is one word of a longer name and the noun is shared ("searching field", as "search field" is Search bar).
- * A word that is a part word as written ("loading" in Loading Spinner) is left as it is.
- */
-export function readInflections(tokens: readonly string[], nameSets: readonly Set<string>[]): { tokens: string[]; shared: SharedGuess[] } {
-  const directPartWordIn = (names: Set<string>, token: string) =>
-    names.has(token) || [...names].some((name) => [`${name}s`, `${name}es`].includes(token) || [`${token}s`, `${token}es`].includes(name));
-  const partWordIn = (names: Set<string>, token: string) => directPartWordIn(names, token) || synonymIn(token, names, false);
-  const partWord = (token: string) => nameSets.some((names) => partWordIn(names, token));
-  // A shared noun that is a part on its own ("card" is Card) names that part, not a longer one.
-  const wholePart = (token: string) => nameSets.some((names) => names.size === 1 && partWordIn(names, token));
-  // `shared` is the shared noun when only the shared-noun branch kept the word ("dated item"): a guess, read as weak.
-  const stemFor = (token: string, later: readonly string[]): { stem: string; shared?: SharedGuess } | undefined => {
-    let guess: { stem: string; shared?: SharedGuess } | undefined;
-    for (const names of nameSets) {
-      const stem = inflectionStems(token).find((form) => names.has(form));
-      if (!stem) continue;
-      if (later.some((word) => word !== token && directPartWordIn(names, word))) return { stem };
-      const shared = later.find((word) => word !== token && names.size > 1 && GENERIC_NAME_TOKENS.has(word) && !wholePart(word));
-      if (shared && !guess) guess = { stem, shared: { word: shared, part: [...names] } };
-    }
-    return guess;
-  };
-  const shared: SharedGuess[] = [];
-  const read = tokens.flatMap((token, i) => {
-    const later = tokens.slice(i + 1);
-    if (!/(?:ed|ing)$/.test(token) || partWord(token) || !later.some(partWord)) return [token];
-    const found = stemFor(token, later);
-    if (found?.shared) shared.push(found.shared);
-    return found ? [found.stem] : token === "warning" ? [token] : [];
-  });
-  return { tokens: read, shared };
-}
-/** A shared noun ("item") that kept an -ed/-ing word only as a guess, and the part (name words) it pointed to. */
-export interface SharedGuess {
-  word: string;
-  part: string[];
-}
-/**
- * The shared nouns that make this lead a guess: only when the lead is the part the guess pointed to, and the
- * noun is not already in the lead's name ("timed progress bar" is a full name, not a guess).
- */
-export function guessesFor(shared: readonly SharedGuess[], leadName: string): string[] {
-  const lead = new Set(tokensOf(leadName));
-  return shared.filter((guess) => guess.part.every((word) => lead.has(word)) && !lead.has(guess.word)).map((guess) => guess.word);
-}
 /** The why line of a weak lead. Always set, even on a compact card that dropped why. */
 export function weakCheckWhy(why: string | undefined, guesses: readonly string[], intent: string, name: string): string {
   if (why?.startsWith("Weak, check") || why?.startsWith("replaces ")) return why;
@@ -472,14 +421,6 @@ export function modifierWord(token: string): boolean {
   if (UI_MODIFIER.has(token) || LABEL_FILLER.has(token)) return true;
   return inflectionStems(token).some((stem) => UI_MODIFIER.has(stem) || LABEL_FILLER.has(stem));
 }
-/** Words after to/for/on/when are why the part is used, not a different component. */
-export function purposeTailTokens(ask: string): Set<string> {
-  const parts = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-  const at = parts.findIndex((part) => PURPOSE_WORD.has(part));
-  if (at < 0) return new Set();
-  return new Set(tokensOf(parts.slice(at + 1).join(" ")));
-}
-
 function learnedLibrary(node: GraphNode, keys: Set<string> | undefined): boolean {
   if (!keys) return false;
   const key = nodeFileKey(node)?.toLowerCase();

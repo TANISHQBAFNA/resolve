@@ -13,10 +13,12 @@ import { examplePointer } from "./examples";
 import type { GraphIndex } from "./GraphIndex";
 import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RECOMMEND_BUDGET, sameNameNote, substitutionNote, variantCardName } from "./masterNames";
 import { placeReady } from "./placeReady";
-import { GENERIC_NAME_TOKENS, navFamily, readDensity, tokensOf } from "./queryTokens";
+import { guessesFor, interpretInflections, meaningDictionary, moreSpecificName, normalizeDensity, onlyInflectedAsk } from "./meaning";
+import { purposeTailTokens } from "./meaning/purpose";
+import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
 import { allSynonymGroups, appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
-import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, guessesFor, headTokenBonus, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, purposeTailTokens, readInflections, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakCheckWhy, weakMatchWhy, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakCheckWhy, weakMatchWhy, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { type RecommendAlternate, type RecommendCandidate, type RecommendContext, type RecommendHit, refreshHintFor, slotsForComponent, whereUsedRows } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
 import { inflectionStems, overlap, similarUsage } from "./screenInventory";
@@ -44,7 +46,8 @@ export function recommendMasters(
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
   const echoIntent = intent.length > 200 ? `${intent.slice(0, 199)}…` : intent;
   const publicNameSets = liveNameSets(index);
-  intent = readDensity(fixOneSlip(intent, publicNameSets));
+  const dictionary = meaningDictionary(index);
+  intent = normalizeDensity(fixOneSlip(intent, publicNameSets));
   const analog = similarUsage(index, intent);
   const analogById = new Map(analog.variants.map((variant) => [variant.id, variant]));
   const slotRaw = options.context?.journey?.step?.trim() ?? "";
@@ -53,7 +56,7 @@ export function recommendMasters(
   const namesHit = (token: string) =>
     publicNameSets.some((names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false));
   const brief = splitBrief(partBeforeLink(intent, publicNameSets, false, screenWords(index)) ?? intent, namesHit);
-  const reading = readInflections(withSynonymStopwords(brief.role, tokensOf(brief.role)), publicNameSets);
+  const reading = interpretInflections(withSynonymStopwords(brief.role, tokensOf(brief.role)), dictionary);
   const roleTokens = tokensOf(brief.role);
   const phraseExpanded = new Set<string>();
   const expandBlocked = new Set([
@@ -573,10 +576,19 @@ export function recommendMasters(
     if (!preferred || preferred.id === entry.node.id) return true;
     return !isWeakerNameStub(index, entry.node, preferred);
   });
-  // Only -ed/-ing words, none a part word as written ("dated picked"): they describe, and name no part.
-  const asWritten = (token: string) => publicNameSets.some((names) => names.has(token)) || allSynonymGroups().some((group) => group.terms.includes(token));
-  const rawTokens = tokensOf(echoIntent);
-  if (rawTokens.length >= 2 && rawTokens.every((token) => /(?:ed|ing)$/.test(token) && !asWritten(token))) kept = [];
+  if (onlyInflectedAsk(echoIntent, dictionary)) kept = [];
+  const leadLabel = kept[0] ? kept[0].setName || kept[0].node.name : "";
+  const specific = leadLabel && kept[0]?.weak ? moreSpecificName(echoIntent, leadLabel, dictionary) : undefined;
+  if (specific) {
+    const idx = kept.findIndex((entry) => (entry.setName || entry.node.name).toLowerCase() === specific.toLowerCase());
+    if (idx > 0) {
+      const [hit] = kept.splice(idx, 1);
+      if (hit) {
+        hit.weak = false;
+        kept.unshift(hit);
+      }
+    }
+  }
   if (kept.length > 1) {
     const leadName = kept[0]!.node.name;
     const same = kept.filter((entry) => entry.node.name === leadName);

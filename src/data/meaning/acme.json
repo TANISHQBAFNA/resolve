@@ -1,0 +1,1132 @@
+{
+  "version": 1,
+  "library": "Acme",
+  "language": {
+    "density": {
+      "compact": [
+        "compact",
+        "dense",
+        "condensed",
+        "tight"
+      ],
+      "comfortable": [
+        "comfortable",
+        "spacious",
+        "roomy",
+        "airy",
+        "relaxed"
+      ]
+    },
+    "device": [
+      "mobile",
+      "desktop",
+      "tablet",
+      "phone",
+      "web",
+      "ios",
+      "android",
+      "ipad",
+      "iphone",
+      "pixel",
+      "galaxy",
+      "laptop",
+      "watch",
+      "tv",
+      "handset",
+      "portrait",
+      "landscape"
+    ]
+  },
+  "synonymGroups": [
+    [
+      "action",
+      "btn",
+      "button",
+      "cta",
+      "submit"
+    ],
+    [
+      "avatar",
+      "headshot",
+      "image",
+      "photo",
+      "picture",
+      "profile"
+    ],
+    [
+      "header",
+      "heading",
+      "masthead",
+      "title",
+      "top"
+    ],
+    [
+      "find",
+      "query",
+      "search"
+    ],
+    [
+      "amount",
+      "cost",
+      "money",
+      "price"
+    ],
+    [
+      "cancel",
+      "close",
+      "dismiss",
+      "exit"
+    ],
+    [
+      "blank",
+      "empty",
+      "nothing"
+    ],
+    [
+      "alert",
+      "notice",
+      "notification",
+      "warning"
+    ],
+    [
+      "switch",
+      "toggle"
+    ],
+    [
+      "dialog",
+      "modal",
+      "popup"
+    ],
+    [
+      "bottom",
+      "footer"
+    ],
+    [
+      "snackbar",
+      "toast"
+    ],
+    [
+      "divider",
+      "rule",
+      "separator"
+    ],
+    [
+      "badge",
+      "bubble",
+      "pill"
+    ],
+    [
+      "coupon",
+      "discount",
+      "promo",
+      "voucher"
+    ],
+    [
+      "hyperlink",
+      "link"
+    ],
+    [
+      "nav",
+      "navigation"
+    ],
+    [
+      "help",
+      "info",
+      "information"
+    ],
+    [
+      "checkbox",
+      "tick box"
+    ],
+    [
+      "nav item",
+      "sidebar item"
+    ],
+    [
+      "list item",
+      "list row",
+      "table row"
+    ],
+    [
+      "loading",
+      "progress",
+      "spinner"
+    ],
+    [
+      "fab",
+      "floating",
+      "floating action button"
+    ],
+    [
+      "drop down",
+      "dropdown",
+      "menu",
+      "select"
+    ],
+    [
+      "chip",
+      "tag"
+    ],
+    [
+      "drawer",
+      "rail",
+      "sidebar"
+    ],
+    [
+      "field",
+      "input",
+      "text",
+      "text box",
+      "text field",
+      "textbox",
+      "textfield"
+    ],
+    [
+      "app bar",
+      "top app bar"
+    ],
+    [
+      "breadcrumb",
+      "crumb",
+      "trail"
+    ],
+    [
+      "announcement",
+      "banner"
+    ]
+  ],
+  "entries": [
+    {
+      "id": "alert",
+      "name": "Alert",
+      "synonyms": [
+        "notice",
+        "notification",
+        "warning"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "alerted",
+        "alerting",
+        "alerts"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Legacy Alert"
+      ],
+      "nameTokens": [
+        "alert"
+      ]
+    },
+    {
+      "id": "avatar",
+      "name": "Avatar",
+      "synonyms": [
+        "headshot",
+        "image",
+        "photo",
+        "picture",
+        "profile"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "avatared",
+        "avataring",
+        "avatars"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "avatar"
+      ]
+    },
+    {
+      "id": "badge",
+      "name": "Badge",
+      "synonyms": [
+        "bubble",
+        "pill"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "badged",
+        "badges",
+        "badging"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "badge"
+      ]
+    },
+    {
+      "id": "banner",
+      "name": "Banner",
+      "synonyms": [
+        "announcement"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "bannered",
+        "bannering",
+        "banners"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Legacy Banner"
+      ],
+      "nameTokens": [
+        "banner"
+      ]
+    },
+    {
+      "id": "breadcrumb",
+      "name": "Breadcrumb",
+      "synonyms": [
+        "crumb",
+        "trail"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "breadcrumbed",
+        "breadcrumbing",
+        "breadcrumbs"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "breadcrumb"
+      ]
+    },
+    {
+      "id": "button",
+      "name": "Button",
+      "synonyms": [
+        "action",
+        "btn",
+        "cta",
+        "submit"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "buttons"
+      ],
+      "purpose": [],
+      "attributes": [
+        {
+          "kind": "style",
+          "name": "Style",
+          "values": [
+            "danger",
+            "primary",
+            "secondary"
+          ]
+        }
+      ],
+      "not": [
+        "Link Button",
+        "Pay CTA",
+        "Save CTA"
+      ],
+      "nameTokens": [
+        "button"
+      ]
+    },
+    {
+      "id": "checkbox",
+      "name": "Checkbox",
+      "synonyms": [
+        "tick box"
+      ],
+      "altNames": [
+        "tick box"
+      ],
+      "wordForms": [
+        "checkboxed",
+        "checkboxing",
+        "checkboxs"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "checkbox"
+      ]
+    },
+    {
+      "id": "chip",
+      "name": "Chip",
+      "synonyms": [
+        "tag"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "chips"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Tag"
+      ],
+      "nameTokens": [
+        "chip"
+      ]
+    },
+    {
+      "id": "coupon-field",
+      "name": "Coupon Field",
+      "synonyms": [
+        "coupon",
+        "discount",
+        "field",
+        "input",
+        "promo",
+        "text",
+        "text box",
+        "text field",
+        "textbox",
+        "textfield",
+        "voucher"
+      ],
+      "altNames": [
+        "text box",
+        "text field"
+      ],
+      "wordForms": [
+        "couponed",
+        "couponing",
+        "coupons",
+        "fields"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Promo Field",
+        "Search Field",
+        "Text Field",
+        "Input"
+      ],
+      "nameTokens": [
+        "coupon",
+        "field"
+      ]
+    },
+    {
+      "id": "divider",
+      "name": "Divider",
+      "synonyms": [
+        "rule",
+        "separator"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "dividered",
+        "dividering",
+        "dividers"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "divider"
+      ]
+    },
+    {
+      "id": "empty-message",
+      "name": "Empty Message",
+      "synonyms": [
+        "blank",
+        "empty",
+        "nothing"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "empties",
+        "emptyed",
+        "emptying",
+        "emptys",
+        "messaged",
+        "messages",
+        "messaging"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "empty",
+        "message"
+      ]
+    },
+    {
+      "id": "footer-bar",
+      "name": "Footer Bar",
+      "synonyms": [
+        "bottom",
+        "footer"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "bars",
+        "footered",
+        "footering",
+        "footers"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Header Bar"
+      ],
+      "nameTokens": [
+        "footer",
+        "bar"
+      ]
+    },
+    {
+      "id": "header-bar",
+      "name": "Header Bar",
+      "synonyms": [
+        "header",
+        "heading",
+        "masthead",
+        "title",
+        "top"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "bars",
+        "headered",
+        "headering",
+        "headers"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Footer Bar"
+      ],
+      "nameTokens": [
+        "header",
+        "bar"
+      ]
+    },
+    {
+      "id": "icon-close",
+      "name": "Icon Close",
+      "synonyms": [
+        "cancel",
+        "close",
+        "dismiss",
+        "exit"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "closed",
+        "closes",
+        "closing",
+        "icons"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "icon",
+        "close"
+      ]
+    },
+    {
+      "id": "input",
+      "name": "Input",
+      "synonyms": [
+        "field",
+        "text",
+        "text box",
+        "text field",
+        "textbox",
+        "textfield"
+      ],
+      "altNames": [
+        "text box",
+        "text field"
+      ],
+      "wordForms": [
+        "inputs"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Coupon Field",
+        "Promo Field",
+        "Search Field",
+        "Text Field"
+      ],
+      "nameTokens": [
+        "input"
+      ]
+    },
+    {
+      "id": "legacy-alert",
+      "name": "Legacy Alert",
+      "synonyms": [
+        "alert",
+        "notice",
+        "notification",
+        "warning"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "alerted",
+        "alerting",
+        "alerts",
+        "legacies",
+        "legacyed",
+        "legacying",
+        "legacys"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Alert",
+        "Legacy Banner"
+      ],
+      "retired": true,
+      "nameTokens": [
+        "legacy",
+        "alert"
+      ]
+    },
+    {
+      "id": "legacy-banner",
+      "name": "Legacy Banner",
+      "synonyms": [
+        "announcement",
+        "banner"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "bannered",
+        "bannering",
+        "banners",
+        "legacies",
+        "legacyed",
+        "legacying",
+        "legacys"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Banner",
+        "Legacy Alert"
+      ],
+      "retired": true,
+      "nameTokens": [
+        "legacy",
+        "banner"
+      ]
+    },
+    {
+      "id": "link-button",
+      "name": "Link Button",
+      "synonyms": [
+        "action",
+        "btn",
+        "button",
+        "cta",
+        "hyperlink",
+        "link",
+        "submit"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "buttons",
+        "linked",
+        "linking",
+        "links"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Button",
+        "Pay CTA",
+        "Save CTA"
+      ],
+      "nameTokens": [
+        "link",
+        "button"
+      ]
+    },
+    {
+      "id": "list-row",
+      "name": "List Row",
+      "synonyms": [
+        "list item",
+        "table row"
+      ],
+      "altNames": [
+        "list item",
+        "table row"
+      ],
+      "wordForms": [
+        "lists",
+        "rows"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Payment Row"
+      ],
+      "nameTokens": [
+        "list",
+        "row"
+      ]
+    },
+    {
+      "id": "main-card",
+      "name": "Main Card",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "cards",
+        "mained",
+        "maining",
+        "mains"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Summary Card"
+      ],
+      "nameTokens": [
+        "main",
+        "card"
+      ]
+    },
+    {
+      "id": "modal",
+      "name": "Modal",
+      "synonyms": [
+        "dialog",
+        "popup"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "modaled",
+        "modaling",
+        "modals"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "modal"
+      ]
+    },
+    {
+      "id": "nav-item",
+      "name": "Nav Item",
+      "synonyms": [
+        "nav",
+        "navigation",
+        "sidebar item"
+      ],
+      "altNames": [
+        "sidebar item"
+      ],
+      "wordForms": [
+        "items",
+        "naved",
+        "naving",
+        "navs"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "nav",
+        "item"
+      ]
+    },
+    {
+      "id": "old-price",
+      "name": "Old Price",
+      "synonyms": [
+        "amount",
+        "cost",
+        "money",
+        "price"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "olded",
+        "olding",
+        "olds",
+        "priced",
+        "prices",
+        "pricing"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Price"
+      ],
+      "retired": true,
+      "nameTokens": [
+        "old",
+        "price"
+      ]
+    },
+    {
+      "id": "pay-cta",
+      "name": "Pay CTA",
+      "synonyms": [
+        "action",
+        "btn",
+        "button",
+        "cta",
+        "submit"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "ctaed",
+        "ctaing",
+        "ctas",
+        "payed",
+        "paying",
+        "pays"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Save CTA",
+        "Button",
+        "Link Button"
+      ],
+      "nameTokens": [
+        "pay",
+        "cta"
+      ]
+    },
+    {
+      "id": "payment-row",
+      "name": "Payment Row",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "paymented",
+        "paymenting",
+        "payments",
+        "rows"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "List Row"
+      ],
+      "nameTokens": [
+        "payment",
+        "row"
+      ]
+    },
+    {
+      "id": "price",
+      "name": "Price",
+      "synonyms": [
+        "amount",
+        "cost",
+        "money"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "priced",
+        "prices",
+        "pricing"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Old Price"
+      ],
+      "nameTokens": [
+        "price"
+      ]
+    },
+    {
+      "id": "promo-field",
+      "name": "Promo Field",
+      "synonyms": [
+        "coupon",
+        "discount",
+        "field",
+        "input",
+        "promo",
+        "text",
+        "text box",
+        "text field",
+        "textbox",
+        "textfield",
+        "voucher"
+      ],
+      "altNames": [
+        "text box",
+        "text field"
+      ],
+      "wordForms": [
+        "fields",
+        "promoed",
+        "promoing",
+        "promos"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Coupon Field",
+        "Search Field",
+        "Text Field",
+        "Input"
+      ],
+      "nameTokens": [
+        "promo",
+        "field"
+      ]
+    },
+    {
+      "id": "quantity-stepper",
+      "name": "Quantity Stepper",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "quantities",
+        "quantityed",
+        "quantitying",
+        "quantitys",
+        "steppered",
+        "steppering",
+        "steppers"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "quantity",
+        "stepper"
+      ]
+    },
+    {
+      "id": "radio",
+      "name": "Radio",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "radioed",
+        "radioing",
+        "radios"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "radio"
+      ]
+    },
+    {
+      "id": "save-cta",
+      "name": "Save CTA",
+      "synonyms": [
+        "action",
+        "btn",
+        "button",
+        "cta",
+        "submit"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "ctaed",
+        "ctaing",
+        "ctas",
+        "saved",
+        "saves",
+        "saving"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Pay CTA",
+        "Button",
+        "Link Button"
+      ],
+      "nameTokens": [
+        "save",
+        "cta"
+      ]
+    },
+    {
+      "id": "search-field",
+      "name": "Search Field",
+      "synonyms": [
+        "field",
+        "find",
+        "input",
+        "query",
+        "search",
+        "text",
+        "text box",
+        "text field",
+        "textbox",
+        "textfield"
+      ],
+      "altNames": [
+        "text box",
+        "text field"
+      ],
+      "wordForms": [
+        "fields",
+        "searched",
+        "searching",
+        "searchs"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Coupon Field",
+        "Promo Field",
+        "Text Field",
+        "Input"
+      ],
+      "nameTokens": [
+        "search",
+        "field"
+      ]
+    },
+    {
+      "id": "summary-card",
+      "name": "Summary Card",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "cards",
+        "summaries",
+        "summaryed",
+        "summarying",
+        "summarys"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Main Card"
+      ],
+      "nameTokens": [
+        "summary",
+        "card"
+      ]
+    },
+    {
+      "id": "switch",
+      "name": "Switch",
+      "synonyms": [
+        "toggle"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "switched",
+        "switching",
+        "switchs"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "switch"
+      ]
+    },
+    {
+      "id": "tabs",
+      "name": "Tabs",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "tabsed",
+        "tabsing"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "tabs"
+      ]
+    },
+    {
+      "id": "tag",
+      "name": "Tag",
+      "synonyms": [
+        "chip"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "taged",
+        "taging",
+        "tags"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Chip"
+      ],
+      "nameTokens": [
+        "tag"
+      ]
+    },
+    {
+      "id": "text-field",
+      "name": "Text Field",
+      "synonyms": [
+        "field",
+        "input",
+        "text",
+        "text box",
+        "textbox",
+        "textfield"
+      ],
+      "altNames": [
+        "text box"
+      ],
+      "wordForms": [
+        "fields",
+        "texts"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [
+        "Coupon Field",
+        "Promo Field",
+        "Search Field",
+        "Input"
+      ],
+      "nameTokens": [
+        "text",
+        "field"
+      ]
+    },
+    {
+      "id": "toast",
+      "name": "Toast",
+      "synonyms": [
+        "snackbar"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "toasted",
+        "toasting",
+        "toasts"
+      ],
+      "purpose": [],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "toast"
+      ]
+    }
+  ]
+}

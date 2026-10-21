@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — meaning dictionary
+
+Oct 21, 2026. Resolve keeps a dictionary for each library: the component's real name, other names, word forms, what it is for, the attributes that pick a variant (density, size, state, style), and which components it is not. Acme and Angular Material are checked in as JSON a person can read. An ask is read as a head word, modifiers, attributes, a purpose, and context such as a phone. "a card that is dated" is Card with a date attribute. "list, compact for phones" is Compact List when that part exists, and nothing when it does not. "picker for fruit" is no match. A lead is weak only when part of the ask names a different part. Nothing is invented. The old density word list in the tokenizer, the -ed/-ing reader, and the "dated picked" special case are gone. Their job is this dictionary. Recommend, the CLI, and MCP cards keep the same shape.
+
 ## Unreleased — PR #59 round 18: Material parity
 
 Oct 21, 2026 IST. A property name or sample text of a part ("Header" slot, "Steps") counts like its description, not like a variant value, so a lone style word ("tonal", "outlined") is empty again and a top-of-screen bar still leads with Toolbar. An ask of only -ed/-ing words ("dated picked") is empty. "<parts> in the <x> list" leads with the part. A "menu" boost no longer beats Select when the ask says dropdown or select. A lead found by its name or a listed synonym is not weak because of a detail word that names no other part ("modal window", "toast notice", "floating compose button"); a group family ("Badge group") or a detail word that belongs to another part ("count" on an alert) still is. A device word ends the density clause only when the text ends, or punctuation or "please" follows it: "a list, dense for a phone plan" has no density.

@@ -148,6 +148,22 @@ Tonal is `matButton="tonal"`. Outlined is `matButton="outlined"`. The sign-in la
 
 The Material phrase board is separate from the sample-library board: top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0. The sample board stays top-1 83/88, top-3 85/88. See [Scoreboard](docs/SCOREBOARD.md#material-board) and the [guide](docs/GUIDE.md#real-example-angular-material).
 
+## What a component means
+
+Resolve is a dictionary. You say what you mean. Resolve looks up the real component. It does not guess a name.
+
+Each component has a card in the dictionary: its name, other names people use, word forms (dated, buttons), what it is for, and the knobs that pick a version (density, size, state, style). It also lists components it is not, so a date on a card is not the date picker.
+
+Acme example, when the library has Summary Card and Compact List:
+
+- "list, compact for phones" means Compact List. Compact is the density. Phones is the device.
+- "a card that is dated" means Summary Card. Dated is a date attribute on that card, not a different component.
+- "picker for fruit" means nothing. Fruit is not a component, so the answer is empty.
+
+If the library has no Compact List, that phone list is empty too. Resolve does not invent a part.
+
+The dictionaries you can read are `src/data/meaning/acme.json` (the Acme sample) and `src/data/meaning/material.json` (Angular Material).
+
 ## Quick start
 
 1. **Learn your library.** Paste the link to your design system file.
