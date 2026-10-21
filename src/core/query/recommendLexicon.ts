@@ -8,7 +8,7 @@ import type { GraphIndex } from "./GraphIndex";
 import { familyNameOf, MASTER_TYPES, VARIANT_PROP_NAME, variantCardName } from "./masterNames";
 import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
 import { adjacentSwap, innerGap, keySlip, typoHeavy, wordSlip } from "./typo";
-import { allSynonymGroups, DEMOTE_UNASKED, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
+import { allSynonymGroups, DEMOTE_UNASKED, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, synonymEpoch, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems, isScreen } from "./screenInventory";
 import { propertyAliases } from "./synonymLayer";
@@ -347,7 +347,13 @@ function stemChoices(word: string): string[] {
   return [...new Set(choices)];
 }
 
+let catalogCache: { epoch: number; names: string; forms: Map<string, string[]>; nameSet: Set<string> } | undefined;
+
 function formCatalog(names?: Iterable<string>): { forms: Map<string, string[]>; nameSet: Set<string> } {
+  const nameKey = names ? [...names].join("\n") : "";
+  if (catalogCache && catalogCache.epoch === synonymEpoch && catalogCache.names === nameKey) {
+    return catalogCache;
+  }
   const forms = new Map<string, string[]>();
   const nameSet = new Set<string>();
   const add = (term: string, isName: boolean) => {
@@ -362,7 +368,8 @@ function formCatalog(names?: Iterable<string>): { forms: Map<string, string[]>; 
   };
   for (const group of allSynonymGroups()) for (const term of group.terms) add(term, false);
   if (names) for (const name of names) add(name, true);
-  return { forms, nameSet };
+  catalogCache = { epoch: synonymEpoch, names: nameKey, forms, nameSet };
+  return catalogCache;
 }
 
 function preferredSurface(options: string[], nameSet: Set<string>): string | undefined {

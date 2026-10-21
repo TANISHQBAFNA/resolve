@@ -137,10 +137,13 @@ export function synonymPhraseVocab(): { oneWord: Set<string>; tokens: Set<string
   phraseVocab = { oneWord, tokens, phrases };
   return phraseVocab;
 }
+/** Bumps when the synonym overlay reloads, so ask normalization can drop its catalog. */
+export let synonymEpoch = 0;
 export function loadSynonymOverlay(): void {
   extraGroups = [];
   extraSynonym.clear();
   phraseVocab = null;
+  synonymEpoch += 1;
   const path = synonymOverlayFile();
   if (!path) return;
   try {

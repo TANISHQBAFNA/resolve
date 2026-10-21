@@ -55,9 +55,17 @@ function componentNames(index: GraphIndex): string[] {
 
 function sameLead(index: GraphIndex, terms: string[], names: string[] = []): void {
   const misses: string[] = [];
+  const seen = new Map<string, { name?: string; match?: string }>();
+  const lead = (text: string) => {
+    const hit = seen.get(text);
+    if (hit) return hit;
+    const next = leadOf(index, text);
+    seen.set(text, next);
+    return next;
+  };
   const check = (label: string, left: string, right: string) => {
-    const one = leadOf(index, left);
-    const many = leadOf(index, right);
+    const one = lead(left);
+    const many = lead(right);
     if (one.name !== many.name || one.match !== many.match) {
       misses.push(`${label}: ${one.name ?? "empty"}/${one.match ?? "strong"} vs ${many.name ?? "empty"}/${many.match ?? "strong"}`);
     }
@@ -105,6 +113,23 @@ describe("a synonym's plural matches its singular", () => {
         { builtAt: "2026-10-21T00:00:00.000Z" },
       ),
     );
-    sameLead(index, [...termsIn(join(fix, "synonyms.json")), ...termsIn(join(repo, "src", "data", "synonyms.json"))], componentNames(index));
+    sameLead(index, [...termsIn(join(fix, "synonyms.json")), ...termsIn(join(repo, "src", "data", "synonyms.json"))]);
+  });
+
+  it("every multi-word Material name, joined split and hyphenated", () => {
+    const home = join(tmpdir(), "resolve-synonym-plural-names");
+    mkdirSync(home, { recursive: true });
+    const fix = join(repo, "fixtures", "material");
+    writeFileSync(join(home, "synonyms.json"), readFileSync(join(fix, "synonyms.json")));
+    process.env["RESOLVE_HOME"] = home;
+    clearCache();
+    const payload = JSON.parse(readFileSync(join(fix, "library.json"), "utf8")) as { fileKey: string; variables: unknown };
+    const index = indexGraph(
+      buildGraph(
+        adaptFigmaRestFile({ fileKey: payload.fileKey, file: payload, variables: payload.variables, kind: "json", ingestedAt: "2026-10-21T00:00:00.000Z" }),
+        { builtAt: "2026-10-21T00:00:00.000Z" },
+      ),
+    );
+    sameLead(index, [], componentNames(index));
   });
 });
