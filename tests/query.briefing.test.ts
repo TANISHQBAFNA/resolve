@@ -678,6 +678,14 @@ describe("designer briefing", () => {
       expect("ready" in result && result.candidates[0]?.name, request).not.toBe("Compact List");
       expect("ready" in result && result.candidates[0]?.name, request).not.toBe("Comfortable List");
     }
+    // The word describes the noun, not the list: ask, and do not commit to a density part.
+    for (const request of ["a dense history list", "a tight deadline list", "an airy room list", "a compact car list", "a comfortable chair list", "a dense biography list"]) {
+      const recommended = (recommendMasters(rowIndex, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+      expect(recommended, request).not.toMatch(/Compact List|Comfortable List/);
+      const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
+      expect(asked(result).length, request).toBeGreaterThan(0);
+      if ("ready" in result) expect(result.candidates[0]?.name, request).not.toMatch(/Compact List|Comfortable List/);
+    }
     // The part's own word is never weaker than a synonym: "compact" after the list stays Compact List.
     for (const request of ["a ledger list, compact for phones", "a ledger list, compact for now", "a list, compact in notes"]) {
       expect(top(request)[0], request).toBe("Compact List");

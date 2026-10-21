@@ -143,6 +143,39 @@ const CLAUSE_END = new RegExp(
  */
 /** Words that break a noun phrase, so a density word before them does not modify the list. */
 const DENSITY_GAP_STOP = new Set(["a", "an", "the", "and", "or", "but", "of", "for", "to", "with", "on", "in", "my", "your", "our", "their", "from", "into"]);
+/** Density words that can sit before a noun and still mean the list, when that noun is a listed thing. */
+const LIST_DENSITY = new Set(["compact", "comfortable", "dense", "condensed", "tight", "roomy", "airy", "spacious"]);
+/** Nouns a list holds. A density word before one of these is about the list, not the noun. */
+const LIST_ITEM = new Set(["contact", "task", "payee", "person", "user", "friend", "message", "email", "file", "photo", "song", "product", "order", "invoice", "trip", "name", "result", "option", "chip", "card", "row", "item", "entry", "customer", "member", "guest", "ticket", "issue", "comment", "note", "image", "video", "link", "tag", "field", "button", "icon", "record"]);
+/** Nouns these words describe on their own. "dense history", "tight deadline", "compact car". An unknown noun stays a question. */
+const DESCRIBES: Record<string, Set<string>> = {
+  dense: new Set(["history", "text", "prose", "fog", "forest", "crowd", "traffic", "story", "narrative", "book", "novel", "detail", "document", "material", "population", "archive", "data", "writing", "passage", "chapter", "copy", "thicket", "jungle", "biography", "chronicle"]),
+  condensed: new Set(["milk", "version", "summary", "book", "novel", "text", "soup", "story", "prose"]),
+  tight: new Set(["deadline", "budget", "schedule", "turnaround", "timeline", "margin", "race", "spot", "space", "squeeze"]),
+  roomy: new Set(["room", "seat", "cabin", "interior", "pocket", "space", "kitchen", "car", "bag", "hall", "office", "house", "home", "loft", "apartment"]),
+  airy: new Set(["room", "space", "kitchen", "layout", "loft", "hall", "office", "house", "home", "interior", "hero"]),
+  spacious: new Set(["room", "kitchen", "interior", "cabin", "office", "home", "house", "hall", "apartment", "loft", "seat", "car", "hero"]),
+  comfortable: new Set(["chair", "seat", "shoe", "bed", "sofa", "couch", "fit", "margin"]),
+  compact: new Set(["car", "camera", "suv", "disc", "disk", "appliance", "kitchen", "form", "sedan"]),
+};
+function nounStem(word: string): string {
+  const lower = word.toLowerCase();
+  if (lower.length >= 5 && lower.endsWith("ies")) return `${lower.slice(0, -3)}y`;
+  if (lower.length >= 4 && lower.endsWith("es")) {
+    const stem = lower.slice(0, -2);
+    if (/(?:s|x|z|ch|sh)$/.test(stem)) return stem;
+  }
+  if (lower.length >= 4 && lower.endsWith("s") && !lower.endsWith("ss")) return lower.slice(0, -1);
+  return lower;
+}
+/** True when the density word describes the noun, false when the noun is a listed thing, otherwise unsure. */
+function densityDescribesNoun(word: string, noun: string): boolean | "unsure" {
+  const stem = nounStem(noun);
+  const described = DESCRIBES[word.toLowerCase()];
+  if (described?.has(stem) || described?.has(noun.toLowerCase())) return true;
+  if (LIST_ITEM.has(stem) || LIST_ITEM.has(noun.toLowerCase())) return false;
+  return "unsure";
+}
 
 export function readDensity(text: string): string {
   const as = (word: string) => DENSITY_WORD.get(word.toLowerCase());
@@ -167,6 +200,16 @@ export function readDensity(text: string): string {
       if (!density) return match;
       const between = gap.trim().split(/\s+/).filter(Boolean);
       if (between.some((token) => DENSITY_GAP_STOP.has(token))) return match;
+      // Nothing between the word and list: "a dense list" is the list's density.
+      if (between.length === 0) return `${density}${gap}`;
+      // A noun in between: only a known density word, and only when it does not describe that noun.
+      // An unknown noun keeps main's question instead of committing to Compact or Comfortable.
+      if (!LIST_DENSITY.has(word.toLowerCase())) return match;
+      if (between.some((token) => densityDescribesNoun(word, token) !== false)) {
+        // "compact car list" is a list of compact cars, not Compact List. Drop the variant word.
+        if (word.toLowerCase() === "compact" || word.toLowerCase() === "comfortable") return gap;
+        return match;
+      }
       return `${density}${gap}`;
     },
   );

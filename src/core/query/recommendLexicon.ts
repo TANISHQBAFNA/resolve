@@ -8,7 +8,7 @@ import type { GraphIndex } from "./GraphIndex";
 import { familyNameOf, MASTER_TYPES, VARIANT_PROP_NAME, variantCardName } from "./masterNames";
 import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
 import { adjacentSwap, innerGap, keySlip, typoHeavy, wordSlip } from "./typo";
-import { allSynonymGroups, DEMOTE_UNASKED, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
+import { allSynonymGroups, DEMOTE_UNASKED, extraSynonym, fromIconLibrary, iconShelf, LABEL_FILLER, synonymPhraseVocab, SYNONYM_GROUPS, SYNONYM_OF } from "./recommendContext";
 import type { RecommendContext } from "./recommendSupport";
 import { inflectionStems, isScreen } from "./screenInventory";
 import { propertyAliases } from "./synonymLayer";
@@ -303,7 +303,7 @@ export function setCoversAsk(ask: string, setName: string): boolean {
   if (!askFold || !nameFold) return false;
   const askTokens = tokensOf(askFold);
   const covers = (label: string) => {
-    if (label === askFold || namesMatch(askFold, label)) return true;
+    if (label === askFold || collapsedName(label) === collapsedName(askFold)) return true;
     const nameTokens = tokensOf(label);
     return nameTokens.length > 0 && nameTokens.every((token) => askTokens.includes(token));
   };
@@ -314,7 +314,7 @@ export function namesThisNode(ask: string, node: GraphNode, index: GraphIndex): 
   const needle = ask.trim().toLowerCase();
   if (!needle) return false;
   if (node.name.toLowerCase() === needle || stripTier(node.name).toLowerCase() === needle) return true;
-  if (namesMatch(needle, node.name) || namesMatch(needle, stripTier(node.name))) return true;
+  if (collapsedName(node.name) === collapsedName(needle) || collapsedName(stripTier(node.name)) === collapsedName(needle)) return true;
   if (phraseNamesMatch(needle, node.name)) return true;
   return variantCardName(index, node).toLowerCase() === needle;
 }
@@ -366,8 +366,8 @@ export function xMeansClose(text: string): boolean {
   const chrome = left === "icon" || right === "icon" || left === "button" || right === "button";
   return mark && chrome;
 }
-/** Last word of a phrase, as a singular: "downs" is "down", "boxes" is "box". A word that is not a plural stays. */
-function singularOf(word: string): string {
+/** A plural's singular form. "boxes" is "box", "queries" is "query". A word that is not a plural stays. */
+function stemOf(word: string): string {
   if (word.length >= 5 && word.endsWith("ies")) return `${word.slice(0, -3)}y`;
   if (word.length >= 4 && word.endsWith("es")) {
     const stem = word.slice(0, -2);
@@ -376,44 +376,46 @@ function singularOf(word: string): string {
   if (word.length >= 4 && word.endsWith("s") && !word.endsWith("ss")) return word.slice(0, -1);
   return word;
 }
-/** Phrase with its last word singularized and spaces removed. "drop downs" and "dropdown" are one key. */
-function phraseKey(text: string): string {
-  const words = text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-  if (!words.length) return "";
-  words[words.length - 1] = singularOf(words[words.length - 1]!);
-  return words.join("");
-}
 /**
- * The same name once the last word is singular. A one-word plural ("buttons", "panels") stays on the
- * single-word path. A two-word spelling of a one-word name ("drop downs", "dropdown") matches here.
+ * The ask the normal matcher should see. Singularize every word whose singular is a synonym word,
+ * once. When the whole ask is a split spelling of a one-word synonym ("drop downs"), join it ("dropdown").
+ * Built from the memoized synonym vocabulary, not a scan per token.
  */
-export function namesMatch(ask: string, name: string): boolean {
-  if (collapsedName(ask) === collapsedName(name)) return true;
-  if (tokensOf(ask).length < 2) return false;
-  return phraseKey(ask) === phraseKey(name);
-}
-/** Every word of a multi-word synonym is in the ask, plural included: "boxes" covers "box". */
-export function phraseTokenHit(asked: ReadonlySet<string>, term: string): boolean {
-  const parts = tokensOf(term);
-  return parts.length > 1 && parts.every((token) => [...asked].some((word) => word === token || inflectsName(word, token)));
-}
-/** Synonym phrases compared after the last word is singularized. A one-word ask is not a phrase. */
-function samePhrase(ask: string, term: string): boolean {
-  if (tokensOf(ask).length < 2 && tokensOf(term).length < 2) return false;
-  return phraseKey(ask) === phraseKey(term);
+export function normalizeAsk(text: string): string {
+  const vocab = synonymPhraseVocab();
+  const bits = text.split(/([A-Za-z0-9]+)/);
+  let changed = false;
+  const singular: string[] = [];
+  for (let i = 1; i < bits.length; i += 2) {
+    const lower = (bits[i] ?? "").toLowerCase();
+    const stem = stemOf(lower);
+    const next = stem !== lower && !DEMOTE_UNASKED.has(stem) && (vocab.tokens.has(stem) || vocab.oneWord.has(stem)) ? stem : lower;
+    if (next !== lower) changed = true;
+    bits[i] = next;
+    singular.push(next);
+  }
+  const content = tokensOf(singular.join(" "));
+  const joined = content.join("");
+  // "drop downs" is the one-word synonym "dropdown". A phrase that is already a synonym ("text field") stays split.
+  if (content.length >= 2 && vocab.oneWord.has(joined) && !vocab.phrases.has(joined)) return joined;
+  return changed ? bits.join("") : text;
 }
 /** Multi-word synonym phrases, such as "tick box" for Checkbox. Single words stay in SYNONYM_OF. */
 export function phraseNamesMatch(ask: string, name: string): boolean {
+  const collapsedAsk = collapsedName(ask);
   const collapsedMaster = collapsedName(name);
-  if (!collapsedMaster) return false;
+  if (!collapsedAsk || !collapsedMaster) return false;
   return allSynonymGroups().some((group) => {
-    const asked = group.terms.some((term) => samePhrase(ask, term));
+    const asked = group.terms.some((term) => term.includes(" ") && collapsedName(term) === collapsedAsk);
     if (!asked) return false;
-    return group.terms.some((term) => namesMatch(term, name) || collapsedName(term) === collapsedMaster);
+    return group.terms.some((term) => collapsedName(term) === collapsedMaster);
   });
 }
 function phraseCoversAsk(ask: string): boolean {
-  return allSynonymGroups().some((group) => group.terms.some((term) => samePhrase(ask, term)));
+  const collapsedAsk = collapsedName(ask);
+  return allSynonymGroups().some((group) =>
+    group.terms.some((term) => term.includes(" ") && collapsedName(term) === collapsedAsk),
+  );
 }
 /** Ask contains a multi-word synonym, and the family name covers that phrase. */
 export function phraseFamilyHit(ask: string, familyName: string): boolean {
@@ -422,7 +424,7 @@ export function phraseFamilyHit(ask: string, familyName: string): boolean {
   const familyTokens = tokensOf(familyName);
   const familyCollapsed = collapsedName(familyName);
   return allSynonymGroups().some((group) => {
-    const said = group.terms.filter((term) => phraseTokenHit(askTokens, term));
+    const said = group.terms.filter((term) => term.includes(" ") && tokensOf(term).every((token) => askTokens.has(token)));
     if (!said.length) return false;
     const familyTerm = group.terms.find((term) => {
       if (collapsedName(term) === familyCollapsed) return true;
@@ -446,7 +448,7 @@ export function phraseAliasBonus(ask: string, familyName: string): number {
   if (familyTokens.length !== 1) return 0;
   const familyCollapsed = collapsedName(familyName);
   for (const group of allSynonymGroups()) {
-    const said = group.terms.some((term) => phraseTokenHit(askTokens, term));
+    const said = group.terms.some((term) => term.includes(" ") && tokensOf(term).every((token) => askTokens.has(token)));
     if (!said) continue;
     const short = group.terms.some((term) => !term.includes(" ") && collapsedName(term) === familyCollapsed);
     if (short) return 500;
