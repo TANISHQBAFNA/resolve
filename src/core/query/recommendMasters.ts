@@ -13,7 +13,7 @@ import { examplePointer } from "./examples";
 import type { GraphIndex } from "./GraphIndex";
 import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RECOMMEND_BUDGET, sameNameNote, substitutionNote, variantCardName } from "./masterNames";
 import { placeReady } from "./placeReady";
-import { navFamily, readDensity, tokensOf } from "./queryTokens";
+import { GENERIC_NAME_TOKENS, navFamily, readDensity, tokensOf } from "./queryTokens";
 import { allSynonymGroups, appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, guessesFor, headTokenBonus, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, purposeTailTokens, readInflections, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, weakCheckWhy, weakMatchWhy, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
@@ -133,6 +133,13 @@ export function recommendMasters(
   };
 
   const beforePurposeTail = tokens.filter((token) => !purposeTailTokens(intent).has(token));
+  // "<part> list": the list word only groups the named part, so the part is the head ("chip list" is Chip).
+  const headBase = beforePurposeTail.length ? beforePurposeTail : tokens;
+  const headTokens =
+    headBase.length >= 2 && ["list", "lists", "group", "set"].includes(headBase[headBase.length - 1]!) &&
+    componentWord(headBase[headBase.length - 2]!) && !["list", "lists", "row", "rows", "item", "items"].includes(headBase[headBase.length - 2]!)
+      ? headBase.slice(0, -1)
+      : headBase;
   const scoreNode = (node: GraphNode, set: GraphNode | undefined): Scored | undefined => {
     const collapsedAsk = collapsedName(intentNeedle);
     const host = hostFamilyName(index, node, set);
@@ -181,12 +188,15 @@ export function recommendMasters(
       const aliasBonus = phraseAliasBonus(intentNeedle, familyLabel);
       if (lexical === 0 && aliasBonus === 0) return undefined;
       lexical += aliasBonus;
-      lexical += headTokenBonus(familyLabel, beforePurposeTail.length ? beforePurposeTail : tokens, allowClip, false) + categoryHeadBonus(familyLabel, tokens, allowClip);
+      lexical += headTokenBonus(familyLabel, headTokens, allowClip, false) + categoryHeadBonus(familyLabel, tokens, allowClip);
       lexical += repeatedSynonym(familyLabel, tokens, allowClip) * 20;
-      if (genericOnlyMiss(familyLabel, beforePurposeTail, allowClip, componentWord, synonymWord)) return undefined;
+      // Only a generic word before the tail ("picker for fruit") still needs the tail to fit.
+      const missTokens = beforePurposeTail.length && !beforePurposeTail.every((token) => GENERIC_NAME_TOKENS.has(token)) ? beforePurposeTail : tokens;
+      if (genericOnlyMiss(familyLabel, missTokens, allowClip, componentWord, synonymWord)) return undefined;
       const nameTokens = tokensOf(familyLabel);
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
-      if (nameTokens.length > 0 && matched === nameTokens.length) lexical += 25;
+      const onlyContainer = headTokens !== headBase && nameTokens.every((token) => ["list", "lists", "group", "set"].includes(token));
+      if (nameTokens.length > 0 && matched === nameTokens.length && !onlyContainer) lexical += 25;
       const asked = new Set([...tokens, ...extraTokens]);
       if (nameTokens.length > 1 && nameTokens.every((token) => asked.has(token))) lexical += 250;
       if (nameTokens.some((token) => DEMOTE_UNASKED.has(token) && !asked.has(token))) lexical -= 15;
@@ -510,8 +520,14 @@ export function recommendMasters(
   const variantWordOnly =
     askedTokens.length > 0 && askedTokens.every((token) => modifierWord(token));
   const hasGrounded = kept.some(grounded);
+  // A slot or property word ("Header" slot) that outscores every name or description hit still names the part.
+  const groundedBest = Math.max(0, ...kept.filter(grounded).map((entry) => entry.lexical));
   kept = kept.filter((entry) => {
     if (grounded(entry)) return true;
+    if (!variantWordOnly && entry.why.includes("variant") && entry.lexical > groundedBest) {
+      entry.weak = true;
+      return true;
+    }
     if (hasGrounded || !variantWordOnly) return false;
     return entry.why.includes("variant");
   });
@@ -555,7 +571,7 @@ export function recommendMasters(
   flagUncovered(collapsed, intentNeedle, tokens, (entry) => stripTier(entry.setName || setOf(index, entry.node)?.name || entry.node.name));
   const navAsk = /(?:^| )(?:nav|navigation)(?: bar)?$/.test(tokens.join(" "));
   kept = collapsed.filter((entry) => {
-    if (navAsk && !navFamily(tokensOf(stripTier(entry.setName || entry.node.name)), tokens)) return false;
+    if (navAsk && !entry.exactName && !navFamily(tokensOf(stripTier(entry.setName || entry.node.name)), tokens)) return false;
     const namesakes = realMastersNamed(index, entry.node.name);
     const preferred = preferNamedMaster(index, namesakes, workspace, intent, ruleBonus);
     if (!preferred || preferred.id === entry.node.id) return true;
@@ -852,9 +868,11 @@ export function recommendMasters(
   const leadNameTokens = kept[0] ? tokensOf(familyCardName(kept[0])) : [];
   const bannerMismatch = tokens.includes("banner") && !leadNameTokens.includes("banner");
   // A lead reached only through a shared noun after an -ed/-ing word ("dated item") is a guess: weak, like compose.
-  const weakLead = (kept[0] !== undefined && guessesFor(reading.shared, familyCardName(kept[0])).length > 0) ||
+  // An empty answer is never weak: weak means there is a lead to check.
+  const weakLead = kept[0] !== undefined && (
+    guessesFor(reading.shared, familyCardName(kept[0])).length > 0 ||
     bannerMismatch ||
-    (Boolean(kept[0]?.weak) && !(kept[0]?.exactName) && !(leadSetCovers && leadCovered >= tokens.length));
+    (Boolean(kept[0].weak) && !kept[0].exactName && !(leadSetCovers && leadCovered >= tokens.length)));
   const leadClashes = leadNode ? realMastersNamed(index, leadNode.name) : [];
   const clashNote = leadNode ? sameNameNote(index, leadClashes, leadNode) : undefined;
   const subNote = substitutionNote(index, intent, leadNode);

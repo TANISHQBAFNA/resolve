@@ -26,7 +26,7 @@
 <p align="center">Without Resolve the AI guesses. With Resolve the check passes.</p>
 
 > [!NOTE]
-> Every example and picture here uses **Acme**, a made-up design system. The pictures are illustrations, not screenshots.
+> The pictures use **Acme**, a made-up design system. They are illustrations, not screenshots. The real public example is [Angular Material](#real-example-angular-material).
 
 ## What Resolve is
 
@@ -114,6 +114,39 @@ Then fill in two settings: your **Figma token** and the **library file key**. Th
 > Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md
 
 Codex, Claude Desktop and by-hand steps: [Install in detail](docs/REFERENCE.md#install-in-detail).
+
+## Real example: Angular Material
+
+Acme, in the pictures above, is a story. Angular Material is a real design system with a real Angular package. This repo pins `@angular/material` and `@angular/cdk` at **22.2.3**. The library file is `fixtures/material/library.json`. It describes Material 3 components (button, icon button, FAB, card, chips, text field, form field, select, checkbox, radio, slide toggle, slider, list, menu, dialog, bottom sheet, snackbar, tabs, toolbar, sidenav, table, paginator, progress, badge, tooltip, date picker, stepper, expansion panel, and more), with variants, slots, and tokens such as `md.sys.color.primary`.
+
+The official Material 3 Figma kit was not read. The connected seat cannot open that community file. No Figma key is stored. The fixture follows the public spec at [m3.material.io](https://m3.material.io/components). Details are in `fixtures/material/README.md`.
+
+```bash
+npm run resolve -- ingest fixtures/material/library.json --role library --name "Material 3"
+npm run resolve -- recommend "primary sign in button"
+npm run resolve -- check "Sign in"
+```
+
+In chat, `/find primary sign in button` is the same ask. The check on the Sign in frame passes.
+
+Code map. Scan the published `.d.ts` files, then use the reviewed links:
+
+```bash
+npm run resolve -- code-map scan node_modules/@angular/material
+cp fixtures/material/code-map.json .resolve/code-map.json
+npm run resolve -- handoff "Sign in"
+```
+
+The scan suggests 32 links and all 32 are right (precision 1, recall 32/40). The reviewed map has 0 wrong confirmed links. The Sign in handoff for the filled button says:
+
+```text
+import { MatButtonModule } from '@angular/material/button'
+Template (suggested): <button matButton="filled"></button>
+```
+
+Tonal is `matButton="tonal"`. Outlined is `matButton="outlined"`. The sign-in label sits in the button: `<button matButton="filled">Sign in</button>`.
+
+The Material phrase board is separate from the sample-library board: top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0. The sample board stays top-1 83/88, top-3 85/88. See [Scoreboard](docs/SCOREBOARD.md#material-board) and the [guide](docs/GUIDE.md#real-example-angular-material).
 
 ## Quick start
 

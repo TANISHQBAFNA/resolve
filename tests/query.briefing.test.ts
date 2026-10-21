@@ -631,8 +631,24 @@ describe("designer briefing", () => {
     expect(density("a list, dense on mobile")).toMatch(/compact/);
     expect(mobileTop[0]).toBe("Compact List");
     // Without a joint, or on words that are not platform/device words, it is not the list density.
-    for (const request of ["a list dense", "a list of tight deadlines", "a list, dense for time", "a list, airy on details", "a list, compact in notes"]) {
+    for (const request of ["a list dense", "a list of tight deadlines", "a list, dense for time", "a list, airy on details", "a list, roomy in notes", "a list, tight for the weekend"]) {
       expect(density(request), request).toBeUndefined();
+    }
+    // A device after for/on/in, plural, with an article, a brand, a screen size, or an orientation still ends the clause.
+    for (const [request, word, name] of [
+      ["a list, dense for tablets", "compact", "Compact List"],
+      ["a list, roomy on the phone", "comfortable", "Comfortable List"],
+      ["refund rows, tight on an ipad", "compact", "Compact List"],
+      ["a list, airy for small displays", "comfortable", "Comfortable List"],
+      ["a list, dense in landscape", "compact", "Compact List"],
+      ["a list, spacious in portrait", "comfortable", "Comfortable List"],
+    ] as const) {
+      expect(density(request), request).toMatch(word);
+      expect("ready" in brief(request) && (brief(request) as { candidates: Array<{ name: string }> }).candidates[0]?.name, request).toBe(name);
+    }
+    // The part's own word is never weaker than a synonym: "compact" after the list stays Compact List.
+    for (const request of ["a ledger list, compact for phones", "a ledger list, compact for now", "a list, compact in notes"]) {
+      expect(top(request)[0], request).toBe("Compact List");
     }
   });
 });

@@ -113,7 +113,6 @@ export function readInflections(tokens: readonly string[], nameSets: readonly Se
   const directPartWordIn = (names: Set<string>, token: string) =>
     names.has(token) || [...names].some((name) => [`${name}s`, `${name}es`].includes(token) || [`${token}s`, `${token}es`].includes(name));
   const partWordIn = (names: Set<string>, token: string) => directPartWordIn(names, token) || synonymIn(token, names, false);
-  const directPartWord = (token: string) => nameSets.some((names) => directPartWordIn(names, token));
   const partWord = (token: string) => nameSets.some((names) => partWordIn(names, token));
   // A shared noun that is a part on its own ("card" is Card) names that part, not a longer one.
   const wholePart = (token: string) => nameSets.some((names) => names.size === 1 && partWordIn(names, token));
@@ -132,7 +131,7 @@ export function readInflections(tokens: readonly string[], nameSets: readonly Se
   const shared: SharedGuess[] = [];
   const read = tokens.flatMap((token, i) => {
     const later = tokens.slice(i + 1);
-    if (!/(?:ed|ing)$/.test(token) || directPartWord(token) || !later.some(partWord)) return [token];
+    if (!/(?:ed|ing)$/.test(token) || partWord(token) || !later.some(partWord)) return [token];
     const found = stemFor(token, later);
     if (found?.shared) shared.push(found.shared);
     return found ? [found.stem] : token === "warning" ? [token] : [];
@@ -192,12 +191,16 @@ function termsFor(token: string, allowClip: boolean): readonly string[] | undefi
   const partStem = (stem: string) =>
     (token === `${stem}s` || token === `${stem}es`) && !DEMOTE_UNASKED.has(stem) && !SLOT_QUALIFIERS.has(stem) && !modifierWord(stem);
   const pluralStemmed = inflectionStems(token).filter(partStem).map((stem) => extraSynonym.get(stem) ?? SYNONYM_OF.get(stem)).find(Boolean);
-  const inflected = token.endsWith("ing") || token.endsWith("ed") ? inflectionStems(token).reduce<readonly string[] | undefined>((found, stem) => found ?? SYNONYM_OF.get(stem), undefined) : undefined;
+  // An -ed or -ing word alone describes, it does not name a part ("toggled" is empty). Only an action verb of
+  // the button group ("submitting") still reads as the button that does it.
+  const actionVerb = token.endsWith("ing") || token.endsWith("ed")
+    ? inflectionStems(token).map((stem) => SYNONYM_OF.get(stem)).find((group) => group?.includes("button"))
+    : undefined;
   const groups = allSynonymGroups();
   const phraseGroup = extraSynonym.has(token)
     ? [...groups].reverse().find((group) => group.terms.some((term) => term.toLowerCase() === token))?.terms
     : groups.find((group) => group.terms.some((term) => term.toLowerCase() === token))?.terms;
-  const base = extraSynonym.get(token) ?? SYNONYM_OF.get(token) ?? pluralStemmed ?? inflected ?? phraseGroup ?? (allowClip ? clippingGroup(token) : undefined);
+  const base = extraSynonym.get(token) ?? SYNONYM_OF.get(token) ?? pluralStemmed ?? actionVerb ?? phraseGroup ?? (allowClip ? clippingGroup(token) : undefined);
   const alias = propertyAliases(token);
   const merged = phraseGroup && base ? [...new Set([...base, ...phraseGroup])] : base;
   if (!alias) return merged;
@@ -792,7 +795,8 @@ export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: 
     const names = familyNames(entry);
     const unmatched = content.filter((token) => !nounHit(token, names, allowClip));
     if (!unmatched.length) {
-      next.push({ ...entry, weak: false });
+      // A lone generic word ("picker") fits several parts: it stays weak.
+      next.push(content.every((token) => GENERIC_NAME_TOKENS.has(token)) ? entry : { ...entry, weak: false });
       continue;
     }
     const control = content.some((token) => controlNoun(token) && nounHit(token, names, allowClip));

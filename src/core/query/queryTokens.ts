@@ -122,6 +122,14 @@ const DENSITY_WORD = new Map([
   ...["spacious", "roomy", "airy", "relaxed"].map((word) => [word, "comfortable"] as const),
 ]);
 
+/** Device and platform words a density can be said for: "compact for phones", "on the tablet", "in landscape". */
+const DEVICE_WORD = String.raw`(?:mobile|desktop|tablet|phone|web|ios|android|ipad|iphone|pixel|galaxy|laptop|watch|tv|handset|(?:small|large|big|wide|narrow)\s+(?:screen|display)|portrait|landscape)`;
+/** Where a density said after the list ends its clause: end, comma, ; ! . or please, or for/on/in a device. */
+const CLAUSE_END = new RegExp(
+  String.raw`^(?:\s*$|\s*,|\s*[.;!]|\s+please\b|\s+(?:for|on|in)\s+(?:(?:the|a|an|my|your|our)\s+)?${DEVICE_WORD}(?:e?s)?\b)`,
+  "i",
+);
+
 /**
  * A density word that modifies list or row is that density. Before: "a dense list" reads "a compact list",
  * "airy rows" reads "comfortable rows". After, joined by a comma, "but", or "that is": "a list, but dense",
@@ -132,8 +140,6 @@ const DENSITY_WORD = new Map([
  */
 export function readDensity(text: string): string {
   const as = (word: string) => DENSITY_WORD.get(word.toLowerCase());
-  const allowedTail = (tail: string) =>
-    /^(?:\s*$|\s*,|\s*[.;!]|\s+please\b|\s+(?:for|on|in)\s+(?:mobile|desktop|tablet|phone|web|ios|android)\b)/i.test(tail);
   const before = text.replace(
     /\b([a-z]+)(\s+)(?=(list|lists|row|rows)\b((?:\s+of|\s+containing|\s+full\s+of|\s+with)\s+[a-z])?)/gi,
     (match, word: string, space: string, noun: string, rowPart?: string) => {
@@ -147,20 +153,12 @@ export function readDensity(text: string): string {
     return density ? `${density}${space}` : match;
   });
   const after = before.replace(
-    /\b(list|lists|row|rows)((?:\s*,\s*|\s+)(?:but\s+|that\s+is\s+|that\s+are\s+|which\s+is\s+|that's\s+)?)([a-z]+)\b(?=(?:\s*$|\s*,|\s*[.;!]|\s+please\b|\s+(?:for|on|in)\s+(?:mobile|desktop|tablet|phone|web|ios|android)\b))/gi,
+    new RegExp(String.raw`\b(list|lists|row|rows)((?:\s*,\s*|\s+)(?:but\s+|that\s+is\s+|that\s+are\s+|which\s+is\s+|that's\s+)?)([a-z]+)\b(?=${CLAUSE_END.source.slice(1)})`, "gi"),
     (match, noun: string, joint: string, word: string) => {
       const density = as(word);
       // A bare "list dense" with no comma, but, which is, or that is/are is not a list density.
       return density && /,|but|that|which|that's/i.test(joint) ? `${noun}${joint}${density}` : match;
     },
   );
-  return after.replace(
-    /\b(list|lists|row|rows)((?:\s*,\s*|\s+)(?:but\s+|that\s+is\s+|that\s+are\s+|which\s+is\s+|that's\s+)?)(compact|comfortable)\b/gi,
-    (match, noun: string, joint: string, word: string, offset: number, whole: string) => {
-      if (!/,|but|that|which|that's/i.test(joint)) return match;
-      const tail = whole.slice(offset + match.length);
-      if (allowedTail(tail)) return match;
-      return `${noun}${joint}${word.toLowerCase() === "compact" ? "dense" : "airy"}`;
-    },
-  );
+  return after;
 }

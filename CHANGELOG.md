@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — PR #59 round 17: Material leads after the #68 merge
+
+Oct 21, 2026 IST. The #68 Material docs are back in the README and the reference. On the Angular Material example: an -ed or -ing word alone describes and names no part ("toggled" is empty), but a synonym word that ends that way ("floating") still counts; a generic top-of-screen bar leads with Toolbar when a slot word names it; "<part> list" leads with that part (the list word only groups it); a lone generic word before a purpose tail ("picker for fruit") stays empty; a word of a part's own synonym phrase ("action" for FAB) or a synonym of its name does not make the lead weak. An empty answer is never marked weak. A density said after the list also ends its clause before a device in plural, with an article, a brand, a screen size, or portrait/landscape ("a list, dense for tablets", "on the phone", "in landscape"); "for time" and "on details" still do not. The literal word "compact" after the list stays Compact List before any word. Phrase score unchanged: top-1 87/88, top-3 87/88, empty 30/30. Material board 51/51, 51/51, 8/8; held-out and golden unchanged.
+
 ## Unreleased — 24×24 tap target and the check line
 
 Oct 20, 2026. The default tap target is 24 by 24. That is the WCAG 2.2 AA size, so it stays. The bigger 44 by 44 target is still an option: use `--a11y wcag-aaa` (or set the pack to `wcag-aaa`). That option also asks for stronger contrast. Commit 843ec2e changed the Acme Misused fixture: Button 80:41 went from 30×30 to 20×20. The 20×20 control fails the default 24×24 bar. 44×44 stays on `wcag-aaa`.

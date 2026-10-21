@@ -5,8 +5,8 @@ import { VARIANT_PROP_NAME } from "./masterNames";
 import { isFigmaSlot } from "./placed";
 import modifierFile from "@/data/ui-modifiers.json";
 import { tokensOf } from "./queryTokens";
-import { SYNONYM_OF } from "./recommendContext";
-import { CATEGORY_TAIL, modifierWord, PLAIN_NOUN, setCoversAsk, SLOT_QUALIFIERS, variantValueText } from "./recommendLexicon";
+import { allSynonymGroups, SYNONYM_OF } from "./recommendContext";
+import { CATEGORY_TAIL, modifierWord, PLAIN_NOUN, purposeTailTokens, setCoversAsk, SLOT_QUALIFIERS, synonymIn, variantValueText } from "./recommendLexicon";
 import { inflectionStems } from "./screenInventory";
 import { oneSlipFix } from "./typo";
 
@@ -91,6 +91,11 @@ export function searchDetail(index: GraphIndex, node: GraphNode, set?: GraphNode
 function familyHas(token: string, family: string): boolean {
   const names = tokensOf(family);
   if (names.some((name) => name === token || name === `${token}s` || token === `${name}s`)) return true;
+  if (synonymIn(token, new Set(names)) || (token === "nav" && names.includes("navigation"))) return true;
+  // A word of the family's own synonym phrase ("action" in "floating action button" for FAB) is covered.
+  const whole = family.toLowerCase();
+  const own = allSynonymGroups().filter((group) => group.terms.some((term) => term.toLowerCase() === whole));
+  if (own.some((group) => group.terms.some((term) => term.includes(" ") && tokensOf(term).includes(token)))) return true;
   if (token !== "button" && token !== "cta" && token !== "action" && token !== "icon") return false;
   return names.some((name) => name === "button" || name === "cta" || name === "action" || name === "icon");
 }
@@ -118,7 +123,20 @@ export function flagUncovered<T extends { exactName: boolean; weak?: boolean; as
       if (entry.why?.includes("name") || entry.why?.includes("typo") || entry.why?.includes("bind-rule")) continue;
       if (setCoversAsk(ask, family)) continue;
     }
-    if (kind || (entry.askCovered ?? tokens.length) < tokens.length) entry.weak = true;
+    if (kind) {
+      entry.weak = true;
+      continue;
+    }
+    if ((entry.askCovered ?? tokens.length) >= tokens.length) continue;
+    // Only a word left over makes it weak: not a purpose tail, a synonym, or a short form of a name word.
+    const names = new Set(tokensOf(family));
+    const tail = purposeTailTokens(ask);
+    const leftover = tokens.filter(
+      (token) =>
+        !familyHas(token, family) && !synonymIn(token, names) && !tail.has(token) &&
+        !(token === "nav" && names.has("navigation")),
+    );
+    if (leftover.length) entry.weak = true;
   }
 }
 
