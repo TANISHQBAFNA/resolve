@@ -35,7 +35,7 @@ import {
 import { trimmedStrings } from "@/core/query/recommendSupport";
 import { presentToolResult, type ToolCardFormat } from "./cards";
 import { learnLibrary } from "./learn";
-import { DEPRECATED_INSTEAD, withDeprecation } from "./deprecations";
+import { DEPRECATED_INSTEAD, REMOVED_MCP_TOOLS, withDeprecation } from "./deprecations";
 import {
   listGraphs,
   loadContextBind,
@@ -55,6 +55,7 @@ import {
 } from "./store";
 import { recordGap } from "./gaps";
 import { CODE_MAP_TOOLS, runCodeMapTool } from "./codeMapMcp";
+import { DECISION_TOOLS, RECORD_PROPERTY, recordProblem, runDecisionTool, withDecisionRecord } from "./decisionMcp";
 import { composeProblem, runCompose } from "./composeCommand";
 import { recordVerifyUsage } from "./verifyRecord";
 
@@ -212,6 +213,7 @@ export const TOOLS: ToolDefinition[] = [
     inputSchema: {
       type: "object",
       properties: {
+        ...RECORD_PROPERTY,
         ...graphIdProperty,
         request: { type: "string", description: "The screen request, in the designer's words." },
         answers: {
@@ -397,6 +399,7 @@ export const TOOLS: ToolDefinition[] = [
     inputSchema: {
       type: "object",
       properties: {
+        ...RECORD_PROPERTY,
         ...graphIdProperty,
         query: {
           type: "string",
@@ -440,6 +443,7 @@ export const TOOLS: ToolDefinition[] = [
     inputSchema: {
       type: "object",
       properties: {
+        ...RECORD_PROPERTY,
         ...graphIdProperty,
         frame: { type: "string", description: "Frame name, graph id, figma node id or fileKey:nodeId." },
         frames: { type: "array", items: { type: "string" }, description: "Several frames for one handoff pack." },
@@ -460,6 +464,7 @@ export const TOOLS: ToolDefinition[] = [
     },
   },
   ...CODE_MAP_TOOLS,
+  ...DECISION_TOOLS,
   {
     name: "list_graphs",
     description:
@@ -617,22 +622,6 @@ function attachCardMeta(result: unknown, args: Record<string, unknown>): unknown
   return freshness ? { ...result, freshness } : result;
 }
 
-const REMOVED_MCP_TOOLS = new Set([
-  "orient",
-  "query",
-  "path",
-  "explain",
-  "check_frame",
-  "get_recipe",
-  "find_nodes",
-  "get_node",
-  "get_screen_inventory",
-  "get_component_usage",
-  "get_related",
-  "get_subgraph",
-  "get_health",
-]);
-
 function briefingAnswers(raw: unknown, index: ReturnType<typeof context>["index"]) {
   try {
     const answers = briefAnswers(raw);
@@ -663,7 +652,9 @@ export function callTool(name: string, rawArgs: unknown): unknown {
     );
   }
   const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
-  const result = attachCardMeta(withDeprecation(name, dispatchTool(name, args)), args);
+  const recordIssue = recordProblem(name, args);
+  if (recordIssue) throw new ToolError(recordIssue);
+  const result = attachCardMeta(withDeprecation(name, withDecisionRecord(name, args, dispatchTool(name, args), advanced)), args);
   if (result && typeof result === "object" && "cost" in result) return result;
   if (result && typeof result === "object" && !Array.isArray(result)) return withCost(result);
   return result;
@@ -991,6 +982,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
     default: {
       if (name === "code_map_scan") return runCodeMapTool(name, args);
       if (name === "code_map_suggest" || name === "code_map_review") return runCodeMapTool(name, args, context(args).index);
+      if (name === "decision_record" || name === "export_aidlc") return runDecisionTool(name, args);
       throw new ToolError(`Unknown tool \`${name}\`.`);
     }
   }

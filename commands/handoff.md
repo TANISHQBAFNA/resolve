@@ -11,6 +11,7 @@ This is the developer build sheet. Resolve only reads. `/parts` is the short lis
 3. If it refuses, show the reason in plain words and what to change (for example a retired component to swap, or a library file that is not learned yet). Do not use `--draft` unless the designer asks; a draft is not for build.
 4. If it works, show the developer build sheet: the components with their Figma id and mapped code twin, the parts inside each, the recipe slots (placed, inside another component, or missing), verify PASS or FAIL, and the open questions. Show only mapped code twins. A suggestion is not code. If a part is unmapped, stop and ask.
 5. If the frame or the design system is not learned, tell the designer to run `/design-system <link>` first.
+6. With `--out`, the folder also gets `decision.md`: what was asked, which parts were picked and why, and what was rejected. Point the designer to it. If AIDLC needs the handoff, run `resolve-figma export aidlc <folder> --out aidlc.json` only when asked.
 
 Never guess code. "unmapped" and "unknown" stay as they are. An unmapped part means stop and ask. Never invent a component, name or node id.
 

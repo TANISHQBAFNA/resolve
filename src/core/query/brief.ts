@@ -28,7 +28,11 @@ const TOPIC_NAME: Record<BriefTopic, string> = {
   platform: "platform and density",
 };
 
-const PLATFORM_IDS = ["desktop", "mobile", "phone", "compact", "comfortable"] as const;
+/** Option ids a briefing answer resolves to. The decision record and the AIDLC contract use these as enums. */
+export const BRIEF_SHAPE_IDS = ["table", "cards", "form", "summary", "counts"] as const;
+export const BRIEF_STATE_IDS = ["empty", "loading", "error", "pending"] as const;
+export const BRIEF_PLATFORM_IDS = ["desktop", "mobile", "phone", "compact", "comfortable"] as const;
+const PLATFORM_IDS = BRIEF_PLATFORM_IDS;
 type PlatformId = (typeof PLATFORM_IDS)[number];
 const PLATFORM_WORDS = new Set<string>(PLATFORM_IDS);
 const PLATFORM_GENERIC = new Set(["nav", "bar", "list", "view", "shell", "layout", "screen", "row"]);
@@ -53,7 +57,7 @@ interface Role {
   contrast: string;
 }
 
-const SHAPE: Role[] = [
+const SHAPE: Array<Role & { id: (typeof BRIEF_SHAPE_IDS)[number] }> = [
   { id: "table", phrases: ["data table", "table"], contrast: "compare rows" },
   { id: "cards", phrases: ["card list", "cards", "card"], contrast: "scan items" },
   { id: "form", phrases: ["text field", "input", "form"], contrast: "fill in fields" },
@@ -61,7 +65,7 @@ const SHAPE: Role[] = [
   { id: "counts", phrases: ["stat block", "counts", "count", "stat", "price"], contrast: "read counts" },
 ];
 
-const STATES: Role[] = [
+const STATES: Array<Role & { id: (typeof BRIEF_STATE_IDS)[number] }> = [
   { id: "empty", phrases: ["empty"], contrast: "empty" },
   { id: "loading", phrases: ["loading", "spinner", "skeleton"], contrast: "loading" },
   { id: "error", phrases: ["error", "alert"], contrast: "error" },
@@ -391,6 +395,23 @@ export function briefAnswerLines(answers: BriefAnswers | undefined, index: Graph
     lines.push(`You answered ${TOPIC_NAME[topic]}: ${choices.map((choice) => choice.label).join(", ")}.`);
   }
   return lines;
+}
+
+/** Answers as option ids (a label like "Data Table" becomes "table"), for records and the AIDLC export. */
+export interface BriefAnswerIds {
+  shape?: (typeof BRIEF_SHAPE_IDS)[number];
+  platform?: (typeof BRIEF_PLATFORM_IDS)[number];
+  states: Array<(typeof BRIEF_STATE_IDS)[number]>;
+}
+
+export function briefAnswerIds(answers: BriefAnswers | undefined, index: GraphIndex): BriefAnswerIds | undefined {
+  if (!answers) return undefined;
+  const resolved = assertBriefAnswers(answers, index);
+  // Choice ids come from SHAPE, STATES and PLATFORM_IDS, which are typed to these lists.
+  const shape = resolved.get("shape")?.[0]?.id as BriefAnswerIds["shape"];
+  const platform = resolved.get("platform")?.[0]?.id as BriefAnswerIds["platform"];
+  const states = (resolved.get("states") ?? []).map((choice) => choice.id) as BriefAnswerIds["states"];
+  return { ...(shape ? { shape } : {}), ...(platform ? { platform } : {}), states };
 }
 
 /** Masters the answers selected. These are the parts a handoff must add. */

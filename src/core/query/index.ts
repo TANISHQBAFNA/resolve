@@ -9,6 +9,8 @@ export * from "./agentSurface";
 export * from "./contextPacks";
 export * from "./recipes";
 export * from "./recipeCompose";
+export * from "./decisionRecord";
+export * from "./aidlcContract";
 export * from "./workspace";
 export * from "./workspaceMerge";
 export * from "./cousins";
@@ -74,6 +76,11 @@ export {
   BriefAnswerError,
   platformComponentName,
   BRIEF_QUESTION_CAP,
+  BRIEF_PLATFORM_IDS,
+  BRIEF_SHAPE_IDS,
+  BRIEF_STATE_IDS,
+  briefAnswerIds,
+  type BriefAnswerIds,
   BRIEF_TOPICS,
   type BriefAnswers,
   type BriefCandidate,
