@@ -333,6 +333,23 @@ describe("decision record and AIDLC export", () => {
       expect((await exportWith(good)).ok, "the untouched record still exports").not.toBe(false);
     });
 
+    it("L7: export refuses edited handoff context fields (request, assumptions, openQuestions, asked, answers); untouched still exports", async () => {
+      const good = await folderWithRecord();
+      const cases: Array<[string, DecisionRecord, RegExp]> = [
+        ["emptied openQuestions", { ...good, openQuestions: [] }, /changes openQuestions/],
+        ["added assumption", { ...good, assumptions: [...good.assumptions, "manual note"] }, /changes assumptions/],
+        ["added request", { ...good, request: "manual request" }, /changes request/],
+        ["added asked", { ...good, asked: [{ topic: "shape", prompt: "Which shape?", options: ["cards"] }] }, /changes asked/],
+        ["added answers", { ...good, answers: { states: ["empty"] } }, /changes answers/],
+      ];
+      for (const [label, record, message] of cases) {
+        const out = await exportWith(record);
+        expect(out.ok, label).toBe(false);
+        expect(out.message, label).toMatch(message);
+      }
+      expect((await exportWith(good)).ok, "the untouched record still exports").not.toBe(false);
+    });
+
     it("Info: AIDLC.md names every rejected reason a record can carry", () => {
       const doc = readFileSync(join(__dirname, "..", "docs", "AIDLC.md"), "utf8");
       for (const reason of ["weak, check", "no match in the learned library", "retired", "not a library component", "not found in the learned files", "saved recipe <title> already covers this"]) {
@@ -348,6 +365,7 @@ describe("decision record and AIDLC export", () => {
       expect(plain).toBe(message);
       const jsonMissing = JSON.parse(await cli(["export", "aidlc", work, "--out", missing, "--json"])) as { ok: boolean; message: string };
       expect(jsonMissing).toMatchObject({ ok: false, message });
+      expect(jsonMissing.message).not.toMatch(/ENOENT|ENOTDIR|EISDIR/);
       process.exitCode = undefined;
       const jsonFolder = JSON.parse(await cli(["export", "aidlc", work, "--out", work, "--json"])) as { ok: boolean; message: string };
       expect(jsonFolder).toMatchObject({ ok: false, message: `Cannot write ${work}: it is a folder. Pass a file name, for example --out aidlc.json.` });
@@ -356,6 +374,14 @@ describe("decision record and AIDLC export", () => {
       expect(used).toMatchObject({ ok: false });
       expect(used.message).toMatch(/already has handoff files \(.*\)\. Add --force to replace them\./);
       expect(process.exitCode).toBe(1);
+    });
+
+    it("L8: export accepts a decision.json file that starts with a UTF-8 BOM", async () => {
+      const good = await folderWithRecord();
+      writeFileSync(join(work, "decision.json"), `\uFEFF${JSON.stringify(good)}`);
+      const out = JSON.parse(await cli(["export", "aidlc", work, "--json"])) as { ok?: boolean; schemaVersion?: number };
+      expect(out.ok, "BOM should not break parsing").not.toBe(false);
+      expect(out.schemaVersion).toBe(1);
     });
   });
 });

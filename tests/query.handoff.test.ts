@@ -350,6 +350,25 @@ describe("resolve handoff (CLI) and get_handoff (MCP)", () => {
     expect(md.startsWith("# Handoff: Send money\n")).toBe(true);
   });
 
+  it("handoff --out --json returns JSON success with output paths", async () => {
+    saveGraph(fixedGraph());
+    writeFileSync(join(home, "code-map.json"), JSON.stringify(angularMap));
+    const dir = join(home, "json-out");
+    const out = JSON.parse(await cli(["handoff", "Send money", "--out", dir, "--json"])) as {
+      ok: boolean;
+      outDir: string;
+      paths: { handoffMd: string; handoffJson: string; ingredientsMd: string; screens: string[]; decisionJson?: string; decisionMd?: string };
+    };
+    expect(out.ok).toBe(true);
+    expect(out.outDir).toBe(dir);
+    expect(out.paths.handoffMd).toBe(join(dir, "handoff.md"));
+    expect(out.paths.handoffJson).toBe(join(dir, "handoff.json"));
+    expect(out.paths.ingredientsMd).toBe(join(dir, "ingredients.md"));
+    expect(out.paths.screens).toEqual([join(dir, "screen-send-money.md")]);
+    expect(out.paths.decisionJson).toBe(join(dir, "decision.json"));
+    expect(out.paths.decisionMd).toBe(join(dir, "decision.md"));
+  });
+
   it("option and frame errors are one plain line", async () => {
     saveGraph(fixedGraph());
     await expect(cli(["handoff"])).rejects.toThrow('Usage: resolve handoff "<frame>"');

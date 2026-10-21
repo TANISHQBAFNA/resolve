@@ -72,7 +72,7 @@ export function readDecision(ref: string): DecisionRecord {
   if (!existsSync(path)) throw new Error(`No decision record "${asked}". Records are in ${dir} or next to a handoff (decision.json).`);
   let raw: unknown;
   try {
-    raw = JSON.parse(readFileSync(path, "utf8"));
+    raw = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, ""));
   } catch {
     throw new Error(`${basename(path)} is not JSON.`);
   }
@@ -81,7 +81,7 @@ export function readDecision(ref: string): DecisionRecord {
 
 function readJson(path: string, name: string): unknown {
   try {
-    return JSON.parse(readFileSync(path, "utf8"));
+    return JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, ""));
   } catch {
     throw new Error(`${name} in ${resolve(path, "..")} is not JSON.`);
   }
@@ -142,7 +142,18 @@ function writeExport(path: string, text: string): void {
     writeFileSync(path, text);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
-    const why = code === "EACCES" || code === "EPERM" ? "no permission to write there" : code === "ENOTDIR" ? "part of that path is a file, not a folder" : (error as Error).message.split("\n")[0];
+    const why =
+      code === "EACCES" || code === "EPERM"
+        ? "no permission to write there"
+        : code === "ENOTDIR" || code === "EISDIR"
+          ? "part of that path is a file, not a folder"
+          : code === "ENOENT"
+            ? `the folder ${folder} does not exist`
+            : code === "EROFS"
+              ? "the file system is read-only"
+              : code === "ENOSPC"
+                ? "the disk is full"
+                : "could not write the file";
     throw new Error(`Cannot write ${path}: ${why}.`);
   }
 }

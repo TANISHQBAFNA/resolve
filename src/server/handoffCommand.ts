@@ -123,12 +123,29 @@ function handoff(args: string[]): void {
           ? "no permission to write there"
           : code === "EEXIST" || code === "ENOTDIR"
             ? "part of that path is a file, not a folder"
+            : code === "ENOENT"
+              ? "that folder path does not exist"
             : code === "EROFS"
               ? "the file system is read-only"
               : code === "ENOSPC"
                 ? "the disk is full"
-                : String((error as Error).message ?? error).split("\n")[0];
+                : "could not write files there";
       throw new Error(`Cannot write the handoff files to ${target}: ${why}. Pass another --out folder.`);
+    }
+    if (json) {
+      printJson({
+        ok: true,
+        outDir: target,
+        paths: {
+          handoffMd: join(target, "handoff.md"),
+          handoffJson: join(target, "handoff.json"),
+          ingredientsMd: join(target, "ingredients.md"),
+          screens: files.map((file) => join(target, file)),
+          ...(record ? { decisionJson: join(target, "decision.json"), decisionMd: join(target, "decision.md") } : {}),
+        },
+        ...(stale.length ? { removed: stale.map((file) => join(target, file)) } : {}),
+      });
+      return;
     }
     process.stdout.write(
       `Wrote ${target}: handoff.md, ${files.join(", ")}, ingredients.md, handoff.json${record ? ", decision.json, decision.md" : ""}${result.draft ? " (DRAFT, not for build)" : ""}.\n${stale.length ? `Removed ${stale.length} older ${stale.every((f) => f.startsWith("screen-")) ? "screen " : ""}file${stale.length === 1 ? "" : "s"} from an earlier handoff there: ${stale.join(", ")}.\n` : ""}`,

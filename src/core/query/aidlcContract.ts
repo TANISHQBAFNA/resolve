@@ -107,6 +107,11 @@ export function assertRecordMatchesHandoff(pack: Extract<HandoffPack, { ok: true
   }
   // The record must be exactly what recordFromHandoff builds from this handoff.json: same picks (ids, match, why) and rejections.
   const expected = recordFromHandoff({ pack, createdAt: record.createdAt });
+  for (const field of ["request", "assumptions", "openQuestions", "asked", "answers"] as const) {
+    if (isDeepStrictEqual(record[field], expected[field])) continue;
+    if (field === "request") throw new Error("decision.json changes request; handoff records must not set request.");
+    throw new Error(`decision.json changes ${field}; handoff.json gives ${JSON.stringify(expected[field] ?? null)}.`);
+  }
   for (const pick of record.picks) {
     const twin = expected.picks.find((row) => key(row) === key(pick));
     if (!twin) throw new Error(`decision.json picks ${label(pick)}, which is not a part in handoff.json.`);
