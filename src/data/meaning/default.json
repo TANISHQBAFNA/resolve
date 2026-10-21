@@ -41,7 +41,18 @@
       "wide screen",
       "narrow screen",
       "small display",
-      "large display"
+      "large display",
+      "big display",
+      "wide display",
+      "narrow display"
+    ],
+    "items": [
+      "item",
+      "row",
+      "entry",
+      "result",
+      "record",
+      "line"
     ],
     "describes": {
       "dense": [

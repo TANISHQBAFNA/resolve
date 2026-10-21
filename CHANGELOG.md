@@ -2,6 +2,10 @@
 
 ## Unreleased — meaning dictionary
 
+Oct 21, 2026. Density before `list` applies only when the noun is a library part or a generic item (`item`, `row`, `entry`, `result`, and the other words in the shared base). `list of <plural>` is singularized first. A comfort word plus `rows` is empty when the library has no density variant. `big display`, `wide display`, and `narrow display` are back in the shared device words. A breadcrumb ask that also says nav leads with Breadcrumb. Hyphens in a call to action are read as spaces.
+
+
+
 Oct 21, 2026. Every library starts from `src/data/meaning/default.json`. A library file adds density, device, and exclusion words and does not replace them, so a file that is not named Acme or Material still reads density and device. "rather than" and "instead of" exclude the named part the same way "not" does, and that answer is not weak. "a widget, control or way to <verb> <object>" ranks by the verb and object.
 
 

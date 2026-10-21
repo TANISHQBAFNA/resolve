@@ -720,7 +720,12 @@ export function recommendMasters(
       const idx = kept.findIndex((entry) => familyCardName(entry).toLowerCase() === wanted || entry.node.name.toLowerCase() === wanted);
       if (idx > 0) {
         const [hit] = kept.splice(idx, 1);
-        if (hit) kept.unshift(hit);
+        if (hit) {
+          if (decision.reasons.some((reason) => reason.startsWith("A breadcrumb"))) hit.weak = false;
+          kept.unshift(hit);
+        }
+      } else if (idx === 0 && kept[0] && decision.reasons.some((reason) => reason.startsWith("A breadcrumb"))) {
+        kept[0].weak = false;
       } else if (idx < 0) {
         const node = realMastersNamed(index, decision.leadName).find((item) => !isRetired(index, item) && !isPrivateMaster(index, item));
         if (node) {

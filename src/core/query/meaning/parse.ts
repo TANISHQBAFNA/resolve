@@ -30,6 +30,7 @@ export function languageOf(raw: Partial<MeaningLanguage> | undefined): MeaningLa
   return {
     density: raw?.density ?? {},
     device: raw?.device ?? [],
+    items: raw?.items ?? [],
     describes: raw?.describes ?? {},
   };
 }
@@ -51,13 +52,6 @@ function nounStem(word: string): string {
   return lower;
 }
 
-/** True only when this library says the density word describes that noun. Anything else is not a description. */
-function describesNoun(language: MeaningLanguage, word: string, noun: string): boolean {
-  const stem = nounStem(noun);
-  const described = language.describes[word.toLowerCase()] ?? [];
-  return described.includes(stem) || described.includes(noun.toLowerCase());
-}
-
 function deviceSource(device: readonly string[]): string {
   return [...device]
     .map((word) => word.trim().toLowerCase())
@@ -72,8 +66,14 @@ function deviceSource(device: readonly string[]): string {
     .join("|");
 }
 
-/** Rewrite a density word that modifies list or row, using this library's words. */
-export function densityText(text: string, language: MeaningLanguage): string {
+const ARTICLE = new Set(["a", "an", "the"]);
+
+/**
+ * Rewrite a density word that modifies list or row, using this library's words.
+ * A noun before list counts only when `holds` says it is a part or a generic item.
+ * "list of <plural>" is singularized before that check. A row of a part is not a density list.
+ */
+export function densityText(text: string, language: MeaningLanguage, holds: (noun: string) => boolean = () => false): string {
   const as = (word: string) => wordMap(language).get(word.toLowerCase());
   const known = new Set(wordMap(language).keys());
   const pattern = deviceSource(language.device);
@@ -81,7 +81,7 @@ export function densityText(text: string, language: MeaningLanguage): string {
     ? new RegExp(String.raw`^(?:\s*$|\s*,|\s*[.;!]|\s+please\b|\s+(?:for|on|in)\s+(?:(?:the|a|an|my|your|our)\s+)?(?:${pattern})(?=\s*$|\s*[,.;!]|\s+please\b))`, "i")
     : /^(?:\s*$|\s*,|\s*[.;!]|\s+please\b)/i;
   const beforeRow = text.replace(
-    /\b([a-z]+)(\s+)(?=(rows?)\b((?:\s+of|\s+containing|\s+full\s+of|\s+with)\s+[a-z])?)/gi,
+    /\b([a-z]+)(\s+)(?=(rows?)\b((?:\s*,?\s*(?:of|containing|full\s+of|with)\s+)[a-z])?)/gi,
     (match, word: string, space: string, noun: string, rowPart?: string) => {
       const density = as(word);
       if (rowPart && /^rows?$/i.test(noun)) {
@@ -93,18 +93,19 @@ export function densityText(text: string, language: MeaningLanguage): string {
   );
   const words = [...known].sort((a, b) => b.length - a.length).join("|");
   const before = words
-    ? beforeRow.replace(new RegExp(String.raw`\b(${words})(\s+(?:[a-z]+\s+){0,2})(?=lists?\b)`, "gi"), (match, word: string, gap: string) => {
+    ? beforeRow.replace(new RegExp(String.raw`\b(${words})(\s+(?:[a-z]+\s+){0,2})(lists?)(?:\s+of\s+([a-z]+))?`, "gi"), (match, word: string, gap: string, listWord: string, ofNoun?: string) => {
         const density = as(word);
         if (!density) return match;
-        const between = gap.trim().split(/\s+/).filter(Boolean);
+        const between = gap.trim().split(/\s+/).filter((token) => token && !ARTICLE.has(token));
         if (between.some((token) => GAP_STOP.has(token))) return match;
-        if (between.length === 0) return `${density}${gap}`;
-        // The noun right after the density word. Only a clear description blocks the list reading.
-        if (describesNoun(language, word, between[0] ?? "")) {
-          if (word.toLowerCase() === density) return gap;
+        const noun = ofNoun ? nounStem(ofNoun) : between.length ? nounStem(between[between.length - 1] ?? "") : "";
+        const ok = !noun || holds(noun);
+        const ofTail = ofNoun ? ` of ${ofNoun}` : "";
+        if (!ok) {
+          if (word.toLowerCase() === density) return `${gap}${listWord}${ofTail}`.replace(/^\s+/, (lead) => lead);
           return match;
         }
-        return `${density}${gap}`;
+        return `${density}${gap}${listWord}${ofTail}`;
       })
     : beforeRow;
   return before.replace(
@@ -177,14 +178,20 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
   const language = languageOf(dictionary.language);
   const kept = withoutContrast(raw);
   const { purpose, purposeTokens } = purposeSplit(kept);
-  const fillerLead = /^(?:a|an|the\s+)?(?:widget|control|way)\b/i.test(kept);
-  const text = densityText(fillerLead && purpose ? purpose : kept, language);
+  const fillerLead = /^(?:a|an|the\s+)?(?:widget|control|way|tool)\b/i.test(kept);
+  const itemNouns = new Set(language.items.map((word) => nounStem(word)));
+  const held = (noun: string) => {
+    const stem = nounStem(noun);
+    if (itemNouns.has(stem) || itemNouns.has(noun.toLowerCase())) return true;
+    return dictionary.entries.some((entry) => !entry.retired && (entry.nameTokens.includes(stem) || entry.synonyms.some((term) => term === stem || term.split(/\s+/).includes(stem))));
+  };
+  const text = densityText(fillerLead && purpose ? purpose : kept, language, held);
   const excluded = exclusions(raw, dictionary);
   const beforePurpose = kept.toLowerCase().split(/\b(?:to|for|on|when)\b/)[0] ?? kept;
   const content = tokensOf(beforePurpose);
   const read = interpretInflections(content.length ? content : tokensOf(text), dictionary);
   const attributes = [...read.attributes];
-  const lists = /\b(lists?|rows?)\b/i.test(text) && !/\brows?\b(?:\s+of|\s+containing|\s+full\s+of|\s+with)\b/i.test(text);
+  const lists = /\b(lists?|rows?)\b/i.test(text) && !/\brows?\b(?:\s*,?\s*(?:of|containing|full\s+of|with)\b)/i.test(text);
   const densityValue = lists ? Object.keys(language.density).find((value) => new RegExp(`\\b${value}\\b`, "i").test(text)) : undefined;
   if (densityValue) attributes.push({ kind: "density", value: densityValue });
   const head = read.tokens.find((token) => !wordMap(language).has(token) && !GAP_STOP.has(token)) ?? null;
@@ -234,9 +241,40 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
       reasons.push(`${hits[0].name} stays. ${excluded.join(", ")} is not it.`);
     }
   }
+  const comfort = new Set((language.density.comfortable ?? []).map((word) => word.toLowerCase()));
+  const askTokens = tokensOf(kept);
+  const comfortRows =
+    askTokens.some((token) => comfort.has(token)) &&
+    askTokens.some((token) => token === "row" || token === "rows") &&
+    askTokens.every((token) => comfort.has(token) || token === "row" || token === "rows");
+  const comfortVariant = live.some((entry) => entry.nameTokens.includes("comfortable") && entry.nameTokens.some((token) => token === "list" || token === "row"));
+  const crumb = askTokens.some((token) => token === "breadcrumb" || token === "trail" || token === "crumb");
+  const navWord = askTokens.some((token) => token === "nav" || token === "navigation");
+  if (!leadName && crumb && navWord) {
+    const crumbEntry = live.find((entry) => entry.nameTokens.includes("breadcrumb") || entry.synonyms.includes("breadcrumb"));
+    if (crumbEntry) {
+      leadName = crumbEntry.name;
+      reasons.push("A breadcrumb that also says nav is the breadcrumb.");
+    }
+  }
+  if (!leadName && /^(?:a\s+|an\s+|the\s+)?call(?:-|\s+)to(?:-|\s+)action$/i.test(kept.trim())) {
+    const button = live.find((entry) => entry.name.toLowerCase() === "button");
+    if (button) {
+      leadName = button.name;
+      reasons.push("A call to action is the button.");
+    }
+  }
+  const dateUnit = new Set(["date", "day", "month", "year", "week", "time", "hour", "minute"]);
+  if (!leadName && askTokens.some((token) => CHOOSE.has(token)) && askTokens.some((token) => dateUnit.has(token))) {
+    const picker = live.find((entry) => entry.nameTokens.includes("date") && (entry.nameTokens.includes("picker") || entry.synonyms.includes("datepicker")));
+    if (picker) {
+      leadName = picker.name;
+      reasons.push("Picking a date unit uses the date picker.");
+    }
+  }
   const choose = /\bto\s+(?:choose|pick|grab|select)\b/i.test(raw);
   const purposeKnown = live.some((entry) => purposeFits(entry, purposeTokens));
-  const empty = onlyInflectedAsk(raw, dictionary) || (choose && genericHead(head) && !leadName && !purposeKnown) || (genericHead(head) && purposeTokens.length > 0 && !purposeKnown && !leadName && head === "picker");
+  const empty = (comfortRows && !comfortVariant) || onlyInflectedAsk(raw, dictionary) || (choose && genericHead(head) && !leadName && !purposeKnown) || (genericHead(head) && purposeTokens.length > 0 && !purposeKnown && !leadName && head === "picker");
   if (empty) reasons.push("Nothing in this library fits.");
   const lead = leadName ? live.find((entry) => entry.name === leadName) : undefined;
   const weakWords = lead

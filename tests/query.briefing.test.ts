@@ -661,17 +661,19 @@ describe("designer briefing", () => {
     agree("comfortable list for desktop", "Comfortable List");
     agree("compact list for phone", "Compact List");
     agree("compact list for tablet", "Compact List");
-    // A density word before the head list, with a noun in between, is still that density.
-    agree("a dense contact list", "Compact List");
-    agree("a roomy task list", "Comfortable List");
-    agree("a dense contact list for desktop", "Compact List");
-    agree("a roomy task list for desktop", "Comfortable List");
-    agree("a compact task list", "Compact List");
+    // A density word before list counts when the noun is a part or a generic item.
+    agree("a dense nav list", "Compact List");
+    agree("a roomy list of rows", "Comfortable List");
+    agree("a compact list of rows", "Compact List");
     agree("a dense list", "Compact List");
-    for (const request of ["a dense contact list", "a roomy task list", "a dense contact list for desktop", "a roomy task list for desktop"]) {
+    for (const request of ["a dense nav list", "a roomy list of rows", "a dense list of buttons"]) {
       const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
       expect(asked(result).some((question) => question.topic === "states"), request).toBe(false);
       expect("ready" in result && result.candidates[0]?.name, request).not.toBe("List Row");
+    }
+    for (const request of ["a dense contact list", "a roomy task list", "a compact task list", "a dense wool list"]) {
+      const recommended = (recommendMasters(rowIndex, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+      expect(recommended, request).not.toMatch(/Compact List|Comfortable List/);
     }
     for (const request of ["a tight deadline and a list", "a list of dense documents", "a dense row of buttons"]) {
       const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });

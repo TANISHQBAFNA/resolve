@@ -29,6 +29,8 @@ export interface MeaningLanguage {
   density: Record<string, string[]>;
   /** Devices this library treats as context, not as a component. */
   device: string[];
+  /** Nouns a list holds: a library part, or one of these generic item words. */
+  items: string[];
   /** Nouns a density word describes on its own, keyed by the word that was said. */
   describes: Record<string, string[]>;
 }
