@@ -116,6 +116,8 @@ export function navFamily(names: Iterable<string>, asked: readonly string[]): bo
 }
 
 const DENSITY_WORD = new Map([
+  ["compact", "compact"],
+  ["comfortable", "comfortable"],
   ...["dense", "condensed", "tight"].map((word) => [word, "compact"] as const),
   ...["spacious", "roomy", "airy", "relaxed"].map((word) => [word, "comfortable"] as const),
 ]);
@@ -124,19 +126,30 @@ const DENSITY_WORD = new Map([
  * A density word that modifies list or row is that density. Before: "a dense list" reads "a compact list",
  * "airy rows" reads "comfortable rows". After, joined by a comma, "but", or "that is": "a list, but dense",
  * "a list that is roomy", "payee list, tight". Not a row of another part: "a dense row of buttons" stays as
- * written, so Button wins. Anywhere else it stays as written too: "a tight deadline", "a tight nav bar",
- * and "a list of dense documents" (it describes the items) say nothing about list density.
+ * written, so Button wins. "row(s) with/containing/full of <part>" is the same: that named part wins.
+ * Anywhere else it stays as written too: "a tight deadline", "a tight nav bar", and "a list of dense
+ * documents" (it describes the items) say nothing about list density.
  */
 export function readDensity(text: string): string {
   const as = (word: string) => DENSITY_WORD.get(word.toLowerCase());
-  const before = text.replace(/\b([a-z]+)(\s+)(?=(list|lists|row|rows)\b(\s+of\s+[a-z])?)/gi, (match, word: string, space: string, noun: string, rowOf?: string) => {
-    if (rowOf && /^rows?$/i.test(noun)) return match;
+  const before = text.replace(
+    /\b([a-z]+)(\s+)(?=(list|lists|row|rows)\b((?:\s+of|\s+containing|\s+full\s+of|\s+with)\s+[a-z])?)/gi,
+    (match, word: string, space: string, noun: string, rowPart?: string) => {
+    const lower = word.toLowerCase();
     const density = as(word);
+    if (rowPart && /^rows?$/i.test(noun)) {
+      // "compact row of buttons" should not say list density.
+      if (density && lower === density) return `${density === "compact" ? "dense" : "airy"}${space}`;
+      return match;
+    }
     return density ? `${density}${space}` : match;
   });
-  return before.replace(/\b(list|lists|row|rows)((?:\s*,\s*|\s+)(?:but\s+|that\s+is\s+|that's\s+)?)([a-z]+)\b/gi, (match, noun: string, joint: string, word: string) => {
-    const density = as(word);
-    // A bare "list dense" with no comma, but, or that is is not a description of the list.
-    return density && /,|but|that/i.test(joint) ? `${noun}${joint}${density}` : match;
-  });
+  return before.replace(
+    /\b(list|lists|row|rows)((?:\s*,\s*|\s+)(?:but\s+|that\s+is\s+|that\s+are\s+|which\s+is\s+|that's\s+)?)([a-z]+)\b(?=(?:\s*$|\s*,|\s*\.|\s+please\b))/gi,
+    (match, noun: string, joint: string, word: string) => {
+      const density = as(word);
+      // A bare "list dense" with no comma, but, which is, or that is/are is not a list density.
+      return density && /,|but|that|which|that's/i.test(joint) ? `${noun}${joint}${density}` : match;
+    },
+  );
 }

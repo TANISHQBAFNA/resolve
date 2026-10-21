@@ -516,11 +516,14 @@ describe("designer briefing", () => {
     const index = indexGraph(graph);
     const lead = (recommendMasters(index, "a list", { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
     expect(lead).toBe("Card List");
-    for (const request of ["a form with a list", "a signup form with a list of saved cards", "form and list"]) {
+    for (const request of ["a form with a list", "a signup form with a list of saved cards", "form and list", "settings form with my trips list, tight deadline"]) {
       const result = briefScreen({ request, index, recipes: starterRecipes(), decisions: [decision] });
       expect(asked(result).some((question) => question.topic === "platform"), request).toBe(false);
       if ("ready" in result) expect(result.candidates[0]?.name, request).toBe("Text Field");
     }
+    const names = (recommendMasters(index, "settings form with my trips list, tight deadline", { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates.slice(0, 3).map((row) => row.name);
+    expect(names).not.toContain("Compact List");
+    expect(names).not.toContain("Comfortable List");
   });
 
   it("reads density synonyms as compact or comfortable on a list ask", () => {
@@ -558,7 +561,17 @@ describe("designer briefing", () => {
     };
     const names = (request: string) => (recommendMasters(index, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates.map((row) => row.name);
     // Another part, a deadline, or the listed items: no density read, and no density list offered.
-    for (const request of ["a cramped-looking tight nav bar", "an intake form with a tight turnaround", "a list of roomy studio flats", "a tight button row label", "relaxed card for the promo"]) {
+    for (const request of [
+      "a cramped-looking tight nav bar",
+      "an intake form with a tight turnaround",
+      "a list of roomy studio flats",
+      "a tight button row label",
+      "relaxed card for the promo",
+      "my trips list, tight deadline",
+      "my trips list, spacious hero",
+      "my trips list but airy hero image",
+      "my trips list, dense nav bar",
+    ]) {
       expect(density(request), request).toBeUndefined();
       expect(names(request).slice(0, 3), request).not.toContain("Compact List");
       expect(names(request).slice(0, 3), request).not.toContain("Comfortable List");
@@ -578,7 +591,14 @@ describe("designer briefing", () => {
     };
     const top = (request: string) => (recommendMasters(index, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates.slice(0, 3).map((row) => row.name);
     // A row of another part: that part wins, and no density list.
-    for (const [request, name] of [["a cramped dense row of buttons", "Button"], ["airy rows of error alerts under the form", "Error Alert"]] as const) {
+    for (const [request, name] of [
+      ["a cramped dense row of buttons", "Button"],
+      ["airy rows of error alerts under the form", "Error Alert"],
+      ["a compact row of buttons", "Button"],
+      ["comfortable rows containing error alerts under the form", "Error Alert"],
+      ["dense rows full of error alerts under the form", "Error Alert"],
+      ["airy rows with error alerts under the form", "Error Alert"],
+    ] as const) {
       expect(density(request), request).toBeUndefined();
       expect("ready" in brief(request) && (brief(request) as { candidates: Array<{ name: string }> }).candidates[0]?.name, request).toBe(name);
       expect(top(request), request).not.toContain("Compact List");
@@ -587,7 +607,10 @@ describe("designer briefing", () => {
     // Density said after the list, joined by a comma, but, or that is.
     for (const [request, word, name] of [
       ["the ledger list, but condensed", "compact", "Compact List"],
+      ["a list, but dense", "compact", "Compact List"],
       ["a settings list that is relaxed", "comfortable", "Comfortable List"],
+      ["rows that are airy", "comfortable", "Comfortable List"],
+      ["a list which is compact please", "compact", "Compact List"],
       ["payout rows, roomy", "comfortable", "Comfortable List"],
     ] as const) {
       expect(density(request), request).toMatch(word);
