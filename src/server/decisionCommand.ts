@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
+  BriefAnswerIdsSchema,
   aidlcExport,
   decisionSlug,
   formatDecisionRecord,
@@ -93,13 +94,19 @@ export function aidlcFromFolder(dir: string): AidlcHandoff {
   const folder = resolve(dir);
   const handoffPath = join(folder, "handoff.json");
   if (!existsSync(handoffPath)) throw new Error(`No handoff.json in ${folder}. Run resolve handoff "<frame>" --out ${dir} first.`);
-  const pack = readJson(handoffPath, "handoff.json") as HandoffPack;
+  const raw = readJson(handoffPath, "handoff.json");
+  const pack = raw as HandoffPack;
   if (!pack || typeof pack !== "object" || pack.ok !== true || !Array.isArray(pack.screens) || !pack.screens.length) {
     throw new Error(`handoff.json in ${folder} is not a passing handoff with screens, so there is nothing to export.`);
   }
+  const handoffAnswersRaw = raw && typeof raw === "object" ? (raw as { answers?: unknown }).answers : undefined;
+  const parsedAnswers = BriefAnswerIdsSchema.safeParse(handoffAnswersRaw);
+  if (handoffAnswersRaw !== undefined && !parsedAnswers.success) {
+    throw new Error(`handoff.json in ${folder} has invalid answers. Run resolve handoff "<frame>" --out ${dir} again.`);
+  }
   const recordPath = join(folder, "decision.json");
   const record = existsSync(recordPath) ? parseDecisionRecord(readJson(recordPath, "decision.json"), "decision.json") : undefined;
-  return aidlcExport(pack, record);
+  return aidlcExport(pack, record, parsedAnswers.success ? parsedAnswers.data : undefined);
 }
 
 /** The requirements context the person passed as flags (as given, never guessed). */
@@ -148,7 +155,9 @@ function writeExport(path: string, text: string): void {
         : code === "ENOTDIR" || code === "EISDIR"
           ? "part of that path is a file, not a folder"
           : code === "ENOENT"
-            ? `the folder ${folder} does not exist`
+            ? existsSync(folder)
+              ? `the folder ${folder} cannot be written`
+              : `the folder ${folder} does not exist`
             : code === "EROFS"
               ? "the file system is read-only"
               : code === "ENOSPC"

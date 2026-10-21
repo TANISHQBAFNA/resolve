@@ -92,7 +92,7 @@ const defined = <T extends object>(row: T) => Object.fromEntries(Object.entries(
  * A decision record may go into the export only when it is this handoff's record: kind handoff, the same screens,
  * and every pick a part that handoff.json lists on that screen. Anything else is refused, never exported.
  */
-export function assertRecordMatchesHandoff(pack: Extract<HandoffPack, { ok: true }>, record: DecisionRecord): void {
+export function assertRecordMatchesHandoff(pack: Extract<HandoffPack, { ok: true }>, record: DecisionRecord, handoffAnswers?: DecisionRecord["answers"]): void {
   if (record.kind !== "handoff") throw new Error(`decision.json is a ${record.kind} record, not a handoff record.`);
   const names = pack.screens.map((screen) => screen.screen.name);
   if (JSON.stringify(record.screens ?? []) !== JSON.stringify(names)) {
@@ -106,7 +106,7 @@ export function assertRecordMatchesHandoff(pack: Extract<HandoffPack, { ok: true
     seen.add(key(pick));
   }
   // The record must be exactly what recordFromHandoff builds from this handoff.json: same picks (ids, match, why) and rejections.
-  const expected = recordFromHandoff({ pack, createdAt: record.createdAt });
+  const expected = recordFromHandoff({ pack, ...(handoffAnswers ? { answers: handoffAnswers } : {}), createdAt: record.createdAt });
   for (const field of ["request", "assumptions", "openQuestions", "asked", "answers"] as const) {
     if (isDeepStrictEqual(record[field], expected[field])) continue;
     if (field === "request") throw new Error("decision.json changes request; handoff records must not set request.");
@@ -127,8 +127,8 @@ export function assertRecordMatchesHandoff(pack: Extract<HandoffPack, { ok: true
 }
 
 /** Handoff (+ its decision record, when one was written) to the AIDLC contract. Validated before it is returned. */
-export function aidlcExport(pack: Extract<HandoffPack, { ok: true }>, record?: DecisionRecord): AidlcHandoff {
-  if (record) assertRecordMatchesHandoff(pack, record);
+export function aidlcExport(pack: Extract<HandoffPack, { ok: true }>, record?: DecisionRecord, handoffAnswers?: DecisionRecord["answers"]): AidlcHandoff {
+  if (record) assertRecordMatchesHandoff(pack, record, handoffAnswers);
   const context = pack.screens[0]?.context ?? {};
   const doc: AidlcHandoff = {
     schemaVersion: AIDLC_SCHEMA_VERSION,
@@ -140,7 +140,7 @@ export function aidlcExport(pack: Extract<HandoffPack, { ok: true }>, record?: D
       journey: context.journey,
       audience: context.audience,
       a11y: context.a11y ?? context.accessibility,
-      answers: record?.answers,
+      answers: record?.answers ?? handoffAnswers,
       assumptions: record?.assumptions ?? pack.screens.flatMap((screen) => screen.briefing ?? []),
       openQuestions: record?.openQuestions ?? pack.screens.flatMap((screen) => screen.openQuestions),
     }),

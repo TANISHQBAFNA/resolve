@@ -59,6 +59,7 @@ function handoff(args: string[]): void {
   const pack = packForRecommend(bind);
   const index = requireGraph(args).index;
   const briefed = briefAnswersFromFlags(args);
+  const answerIds = briefed ? briefAnswerIds(briefed, index) : undefined;
   const briefing = briefAnswerLines(briefed, index);
   const briefParts = briefAnswerParts(briefed, index);
   const result = handoffSheet(index, frames, {
@@ -112,9 +113,11 @@ function handoff(args: string[]): void {
       accessSync(target, fsConstants.W_OK);
       result.screens.forEach((sheet, n) => writeFileSync(join(target, files[n]!), formatHandoffScreen(sheet, result.draft)));
       writeFileSync(join(target, "ingredients.md"), formatHandoffIngredients(result));
-      writeFileSync(join(target, "handoff.json"), `${JSON.stringify(result, null, 2)}\n`);
+      // Keep resolved briefing answers in handoff.json so later AIDLC export can verify decision answers against the same source.
+      const handoffJson = answerIds ? { ...result, answers: answerIds } : result;
+      writeFileSync(join(target, "handoff.json"), `${JSON.stringify(handoffJson, null, 2)}\n`);
       writeFileSync(join(target, "handoff.md"), formatHandoffIndex(result, files));
-      if (record) writeDecision(target, recordFromHandoff({ pack: result, ...(briefed ? { answers: briefAnswerIds(briefed, index) } : {}), createdAt: new Date().toISOString() }));
+      if (record) writeDecision(target, recordFromHandoff({ pack: result, ...(answerIds ? { answers: answerIds } : {}), createdAt: new Date().toISOString() }));
       for (const f of stale) rmSync(join(target, f), { force: true });
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;

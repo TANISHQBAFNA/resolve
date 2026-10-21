@@ -350,6 +350,26 @@ describe("decision record and AIDLC export", () => {
       expect((await exportWith(good)).ok, "the untouched record still exports").not.toBe(false);
     });
 
+    it("M1 regression: handoff --answer exports through CLI + MCP, and tampered answers are still refused", async () => {
+      process.env["RESOLVE_MCP_ADVANCED"] = "1";
+      await cli(["handoff", "Confirm payment", "--answer", "platform=mobile", "--out", work, "--force"]);
+      const handoff = JSON.parse(readFileSync(join(work, "handoff.json"), "utf8")) as { answers?: { platform?: string; states: string[] } };
+      expect(handoff.answers).toMatchObject({ platform: "mobile", states: [] });
+
+      const doc = JSON.parse(await cli(["export", "aidlc", work])) as { requirementsContext: { answers?: { platform?: string; states: string[] } } };
+      expect(doc.requirementsContext.answers).toMatchObject({ platform: "mobile", states: [] });
+      const { cost: _cost, ...viaMcp } = callTool("export_aidlc", { folder: work }) as { cost: unknown; requirementsContext: { answers?: { platform?: string; states: string[] } } };
+      expect(viaMcp).toEqual(doc);
+
+      const good = JSON.parse(readFileSync(join(work, "decision.json"), "utf8")) as DecisionRecord;
+      const tampered = { ...good, answers: { ...(good.answers ?? { states: [] }), platform: "desktop", states: good.answers?.states ?? [] } };
+      writeFileSync(join(work, "decision.json"), JSON.stringify(tampered));
+      const out = JSON.parse(await cli(["export", "aidlc", work, "--json"])) as { ok: boolean; message: string };
+      expect(out.ok).toBe(false);
+      expect(out.message).toMatch(/changes answers/);
+      process.exitCode = undefined;
+    });
+
     it("Info: AIDLC.md names every rejected reason a record can carry", () => {
       const doc = readFileSync(join(__dirname, "..", "docs", "AIDLC.md"), "utf8");
       for (const reason of ["weak, check", "no match in the learned library", "retired", "not a library component", "not found in the learned files", "saved recipe <title> already covers this"]) {
@@ -374,6 +394,17 @@ describe("decision record and AIDLC export", () => {
       expect(used).toMatchObject({ ok: false });
       expect(used.message).toMatch(/already has handoff files \(.*\)\. Add --force to replace them\./);
       expect(process.exitCode).toBe(1);
+    });
+
+    it("Info: export --out to /proc says the folder cannot be written", async () => {
+      await folderWithRecord();
+      if (!existsSync("/proc")) return;
+      const target = "/proc/resolve-aidlc.json";
+      const out = JSON.parse(await cli(["export", "aidlc", work, "--out", target, "--json"])) as { ok: boolean; message: string };
+      expect(out.ok).toBe(false);
+      expect(out.message).toBe(`Cannot write ${target}: the folder /proc cannot be written.`);
+      expect(out.message).not.toContain("does not exist");
+      process.exitCode = undefined;
     });
 
     it("L8: export accepts a decision.json file that starts with a UTF-8 BOM", async () => {
