@@ -219,6 +219,19 @@ export function printJson(value: unknown): void {
   process.stdout.write(`${text}\n`);
 }
 
+/** Run a command. With --json, an error is ok:false JSON on stdout and exit 1; without it, the error is thrown as before. True when it ran. */
+export function withJsonErrors(args: string[], run: () => void, query?: string): boolean {
+  try {
+    run();
+    return true;
+  } catch (error) {
+    if (!args.includes("--json")) throw error;
+    printJson({ ok: false, status: "error", ...(query !== undefined ? { query } : {}), message: error instanceof Error ? error.message : String(error), exitCode: 1 });
+    process.exitCode = 1;
+    return false;
+  }
+}
+
 export function defaultGoldenDir(): string {
   const stored = join(storeRoot(), "scoreboard", "golden");
   if (existsSync(stored)) return stored;

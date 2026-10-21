@@ -1,4 +1,4 @@
-import { accessSync, constants as fsConstants, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { PACK_BIND_FLAGS, usage } from "./cliUsage";
 import {
   bindFromFlags,
@@ -18,6 +18,8 @@ import {
   writeStored,
 } from "./cliArgs";
 import { composeFromCli } from "./composeCommand";
+import { runHandoff } from "./handoffCommand";
+import { contextFromFlags, recordFlag, runDecisions, runExport } from "./decisionCommand";
 import { dirname, join, resolve } from "node:path";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
@@ -43,11 +45,6 @@ import {
   entryLabel,
   readCodeMapDocument,
   reviewEntries,
-  formatHandoffIndex,
-  formatHandoffIngredients,
-  formatHandoffScreen,
-  handoffSheet,
-  screenSlug,
   mergeCodeMap,
   codeMapRows,
   codeMapTemplate,
@@ -60,9 +57,10 @@ import {
   screenPartsCard,
   applyBriefIntent,
   BriefAnswerError,
-  briefAnswerLines,
-  briefAnswerParts,
   briefAnswersFromFlags,
+  briefAnswerParts,
+  briefAnswerIds,
+  recordFromBrief,
   briefScreen,
 } from "@/core/query";
 import {
@@ -98,7 +96,7 @@ import {
 } from "./store";
 import { stripFiller } from "./cards";
 import { formatGaps, readGaps, recordGap } from "./gaps";
-import { rowProblems, runCodeMapExtra } from "./codeMapCommand";
+import { refuseBadRows, runCodeMapExtra } from "./codeMapCommand";
 import { recordVerifyUsage } from "./tools";
 import { learnLibrary } from "./learn";
 import { DESIGNER, designerFailure } from "./designerMessages";
@@ -122,7 +120,16 @@ function recommendContextFromFlags(args: string[]) {
   const bind = bindFromFlags(args);
   const pack = packForRecommend(bind);
   const screenType = flag(args, "screen-type");
-  return { bind, pack, context: withScreenType(pack, screenType) };
+  const context = withScreenType(pack, screenType);
+  // The options brief and recommend both rank with.
+  const ranking = {
+    ...(context ? { context } : {}),
+    workspace: bind.workspace,
+    sock: readSock(),
+    bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
+    placeholders: readPlaceholders(),
+  };
+  return { bind, pack, context, ranking };
 }
 
 /**
@@ -286,26 +293,26 @@ async function dispatchCli(argv: string[]): Promise<void> {
     case "brief": {
       const request = positionals(args)[0];
       if (!request) throw new Error('Usage: resolve brief "<screen request>"');
-      const { bind, pack, context } = recommendContextFromFlags(args);
-      return printJson(briefScreen({
-        request,
-        answers: briefAnswersFromFlags(args),
-        index: requireGraph(args).index,
-        recipes: loadRecipes(),
-        decisions: readApprovedDecisions(),
-        ...(context ? { context } : {}),
-        workspace: bind.workspace,
-        sock: readSock(),
-        bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
-        placeholders: readPlaceholders(),
-      }));
+      const { ranking } = recommendContextFromFlags(args);
+      const answers = briefAnswersFromFlags(args);
+      const index = requireGraph(args).index;
+      const result = briefScreen({ request, answers, index, recipes: loadRecipes(), decisions: readApprovedDecisions(), ...ranking });
+      const createdAt = new Date().toISOString();
+      recordFlag(args, () => recordFromBrief({ request, answers: briefAnswerIds(answers, index), answerParts: briefAnswerParts(answers, index), context: contextFromFlags(args), result, createdAt }));
+      return printJson(result);
     }
+
+    case "export":
+      return runExport(args);
+
+    case "decisions":
+      return runDecisions(args);
 
     case "recommend": {
       const asked = positionals(args)[0];
       if (!asked) throw new Error('Usage: resolve recommend "<intent>"');
       const budget = Number(flag(args, "budget"));
-      const { bind, pack, context } = recommendContextFromFlags(args);
+      const { ranking } = recommendContextFromFlags(args);
       const index = requireGraph(args).index;
       const intent = applyBriefIntent(asked, briefAnswersFromFlags(args), index);
       const screen = screenAskCard(intent, { sock: readSock(), index, recipes: loadRecipes() });
@@ -316,11 +323,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       }
       const card = recommendMasters(index, intent, {
         budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
-        ...(context ? { context } : {}),
-        workspace: bind.workspace,
-        sock: readSock(),
-        bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
-        placeholders: readPlaceholders(),
+        ...ranking,
       });
       recordGap(intent, card);
       printJson(card);
@@ -495,12 +498,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
           return;
         }
         const index = requireGraph(args).index;
-        const problems = rowProblems(result.entries, index);
-        if (problems.length) {
-          process.stdout.write(`Nothing written. Fix these rows:\n${problems.slice(0, 20).map((error) => `  ${error}`).join("\n")}\n`);
-          process.exitCode = 1;
-          return;
-        }
+        if (refuseBadRows(result.entries, index)) return;
         mkdirSync(dirname(mapPath), { recursive: true });
         writeFileSync(mapPath, json);
         process.stdout.write(
@@ -516,111 +514,8 @@ async function dispatchCli(argv: string[]): Promise<void> {
       return;
     }
 
-    case "handoff": {
-      const VALUE_FLAGS = ["--out", "--recipe", "--depth", "--rules", "--pack", "--product", "--journey", "--domain", "--audience", "--a11y", "--packs", "--id", "--answer"];
-      const frames: string[] = [];
-      for (let i = 0; i < args.length; i += 1) {
-        const arg = args[i]!;
-        if (arg === "--json" || arg === "--draft" || arg === "--force") continue;
-        if (VALUE_FLAGS.includes(arg)) {
-          const value = args[i + 1];
-          if (value === undefined || value.startsWith("--")) throw new Error(`${arg} needs a value.`);
-          i += 1;
-          continue;
-        }
-        if (arg.startsWith("--")) throw new Error(`Unknown handoff option "${arg}". Use --draft, --json, --out, --recipe, --depth, --force, --answer, --rules or ${PACK_BIND_FLAGS}.`);
-        frames.push(arg);
-      }
-      if (!frames.length) {
-        throw new Error('Usage: resolve handoff "<frame>" ["<frame>" ...] [--draft] [--json] [--out <dir>] [--recipe <id>] [--depth 1-3]');
-      }
-      const rawDepth = flag(args, "depth");
-      const depth = rawDepth === undefined ? 3 : Number(rawDepth);
-      if (!Number.isInteger(depth) || depth < 1 || depth > 3) throw new Error("--depth must be 1, 2 or 3.");
-      const bind = bindFromFlags(args);
-      const pack = packForRecommend(bind);
-      const index = requireGraph(args).index;
-      const briefed = briefAnswersFromFlags(args);
-      const briefing = briefAnswerLines(briefed, index);
-      const briefParts = briefAnswerParts(briefed, index);
-      const result = handoffSheet(index, frames, {
-        draft: args.includes("--draft"),
-        recipe: flag(args, "recipe"),
-        recipes: loadRecipes(),
-        ...(pack ? { context: pack } : {}),
-        bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
-        sock: readSock(),
-        workspace: bind.workspace ?? readWorkspace(),
-        placeholders: readPlaceholders(),
-        rules: readLibraryRules(flag(args, "rules")),
-        decisions: readApprovedDecisions(),
-        ...(briefing.length ? { briefing } : {}),
-        ...(briefParts.length ? { briefParts } : {}),
-        depth,
-      });
-      const json = args.includes("--json");
-      if (!result.ok) {
-        if (json) printJson(result);
-        else process.stdout.write(`${presentToolResult(result, "markdown", "get_handoff")}\n`);
-        process.exitCode = 1;
-        return;
-      }
-      const out = flag(args, "out");
-      if (out) {
-        const target = resolve(out);
-        if (/^\/(proc|sys|dev)(\/|$)/.test(target)) {
-          throw new Error(`Cannot write the handoff files to ${target}: that is not a folder for a handoff. Pass another --out folder.`);
-        }
-        const force = args.includes("--force");
-        if (existsSync(target) && !statSync(target).isDirectory()) throw new Error(`${target} is a file, not a folder. Pass a folder for --out.`);
-        // Our files only: handoff.md, handoff.json, ingredients.md and screen-*.md. Anything else in the folder is left alone.
-        const ours = (f: string) => ["handoff.md", "handoff.json", "ingredients.md"].includes(f) || /^screen-.+\.md$/.test(f);
-        const existing = existsSync(target) ? readdirSync(target).filter(ours) : [];
-        if (existing.length && !force) {
-          throw new Error(`${target} already has handoff files (${existing.slice(0, 3).join(", ")}${existing.length > 3 ? ", …" : ""}). Add --force to replace them.`);
-        }
-        const used = new Set<string>();
-        const files = result.screens.map((sheet) => {
-          let name = `screen-${screenSlug(sheet.screen.name)}`;
-          for (let n = 2; used.has(name); n += 1) name = `screen-${screenSlug(sheet.screen.name)}-${n}`;
-          used.add(name);
-          return `${name}.md`;
-        });
-        const stale = existing.filter((f) => f.startsWith("screen-") && !files.includes(f));
-        try {
-          mkdirSync(target, { recursive: true });
-          accessSync(target, fsConstants.W_OK);
-          result.screens.forEach((sheet, n) => writeFileSync(join(target, files[n]!), formatHandoffScreen(sheet, result.draft)));
-          writeFileSync(join(target, "ingredients.md"), formatHandoffIngredients(result));
-          writeFileSync(join(target, "handoff.json"), `${JSON.stringify(result, null, 2)}\n`);
-          writeFileSync(join(target, "handoff.md"), formatHandoffIndex(result, files));
-          for (const f of stale) rmSync(join(target, f), { force: true });
-        } catch (error) {
-          const code = (error as NodeJS.ErrnoException).code;
-          const why =
-            code === "EACCES" || code === "EPERM"
-              ? "no permission to write there"
-              : code === "EEXIST" || code === "ENOTDIR"
-                ? "part of that path is a file, not a folder"
-                : code === "EROFS"
-                  ? "the file system is read-only"
-                  : code === "ENOSPC"
-                    ? "the disk is full"
-                    : String((error as Error).message ?? error).split("\n")[0];
-          throw new Error(`Cannot write the handoff files to ${target}: ${why}. Pass another --out folder.`);
-        }
-        process.stdout.write(
-          `Wrote ${target}: handoff.md, ${files.join(", ")}, ingredients.md, handoff.json${result.draft ? " (DRAFT, not for build)" : ""}.\n${stale.length ? `Removed ${stale.length} older screen file${stale.length === 1 ? "" : "s"} from an earlier handoff there: ${stale.join(", ")}.\n` : ""}`,
-        );
-        return;
-      }
-      if (json) {
-        printJson(result);
-        return;
-      }
-      process.stdout.write(`${presentToolResult(result, "markdown", "get_handoff")}\n`);
-      return;
-    }
+    case "handoff":
+      return runHandoff(args);
 
     case "parts": {
       const ask = positionals(args).join(" ").trim();

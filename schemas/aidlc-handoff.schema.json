@@ -1,0 +1,405 @@
+{
+  "$id": "https://github.com/TANISHQBAFNA/resolve/schemas/aidlc-handoff.schema.json",
+  "title": "Resolve to AIDLC handoff",
+  "description": "requirementsContext in, designHandoff out. schemaVersion 1. Generated from src/core/query/aidlcContract.ts.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "const": "resolve.aidlc"
+    },
+    "requirementsContext": {
+      "type": "object",
+      "properties": {
+        "request": {
+          "type": "string"
+        },
+        "screens": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "product": {
+          "type": "string"
+        },
+        "journey": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "a11y": {
+          "type": "string"
+        },
+        "answers": {
+          "type": "object",
+          "properties": {
+            "shape": {
+              "type": "string",
+              "enum": [
+                "table",
+                "cards",
+                "form",
+                "summary",
+                "counts"
+              ]
+            },
+            "platform": {
+              "type": "string",
+              "enum": [
+                "desktop",
+                "mobile",
+                "phone",
+                "compact",
+                "comfortable"
+              ]
+            },
+            "states": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "empty",
+                  "loading",
+                  "error",
+                  "pending"
+                ]
+              }
+            }
+          },
+          "required": [
+            "states"
+          ],
+          "additionalProperties": false
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "openQuestions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "screens",
+        "assumptions",
+        "openQuestions"
+      ],
+      "additionalProperties": false
+    },
+    "designHandoff": {
+      "type": "object",
+      "properties": {
+        "draft": {
+          "type": "boolean"
+        },
+        "codeMap": {
+          "type": "boolean"
+        },
+        "screens": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "fileKey": {
+                "type": "string"
+              },
+              "figmaNodeId": {
+                "type": "string"
+              },
+              "recipe": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "matchedBy": {
+                    "type": "string",
+                    "enum": [
+                      "asked",
+                      "screen name"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "matchedBy"
+                ],
+                "additionalProperties": false
+              },
+              "parts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "variant": {
+                      "type": "string"
+                    },
+                    "fileKey": {
+                      "type": "string"
+                    },
+                    "figmaNodeId": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "identity": {
+                      "type": "string",
+                      "enum": [
+                        "confirmed",
+                        "name-guess",
+                        "not-found",
+                        "to-add"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "current",
+                        "retired",
+                        "not-found",
+                        "other-library"
+                      ]
+                    },
+                    "slot": {
+                      "type": "string"
+                    },
+                    "codeStatus": {
+                      "type": "string",
+                      "enum": [
+                        "mapped",
+                        "unmapped",
+                        "unknown"
+                      ]
+                    },
+                    "code": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "angular": {
+                      "type": "object",
+                      "properties": {
+                        "selector": {
+                          "type": "string"
+                        },
+                        "importPath": {
+                          "type": "string"
+                        },
+                        "module": {
+                          "type": "string"
+                        },
+                        "standalone": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "selector",
+                        "importPath"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "states": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "count",
+                    "identity",
+                    "status",
+                    "codeStatus",
+                    "code"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "verify": {
+                "type": "object",
+                "properties": {
+                  "pass": {
+                    "type": "boolean"
+                  },
+                  "retired": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "unresolved": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "pass",
+                  "retired",
+                  "unresolved"
+                ],
+                "additionalProperties": false
+              },
+              "openItems": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "name",
+              "parts",
+              "verify",
+              "openItems"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "decisions": {
+          "type": "object",
+          "properties": {
+            "recorded": {
+              "type": "boolean"
+            },
+            "picks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "fileKey": {
+                    "type": "string"
+                  },
+                  "figmaNodeId": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "brief",
+                      "answer",
+                      "recipe",
+                      "decision",
+                      "compose",
+                      "placed"
+                    ]
+                  },
+                  "match": {
+                    "type": "string",
+                    "enum": [
+                      "fit",
+                      "bound",
+                      "placed",
+                      "to-add",
+                      "weak",
+                      "name-guess"
+                    ]
+                  },
+                  "why": {
+                    "type": "string"
+                  },
+                  "screen": {
+                    "type": "string"
+                  },
+                  "slot": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "source",
+                  "match"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "rejected": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "what": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "screen": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "what",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "recorded",
+            "picks",
+            "rejected"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "draft",
+        "codeMap",
+        "screens",
+        "decisions"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "kind",
+    "requirementsContext",
+    "designHandoff"
+  ],
+  "additionalProperties": false
+}

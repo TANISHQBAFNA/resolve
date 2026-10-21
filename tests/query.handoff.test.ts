@@ -339,15 +339,34 @@ describe("resolve handoff (CLI) and get_handoff (MCP)", () => {
     const dir = join(home, "artifacts", "acme-142", "handoff");
     const said = await cli(["handoff", "Send money", "Confirm payment", "--out", dir]);
     expect(said).toContain("Wrote");
-    expect(readdirSync(dir).sort()).toEqual(["handoff.json", "handoff.md", "ingredients.md", "screen-confirm-payment.md", "screen-send-money.md"]);
+    expect(readdirSync(dir).sort()).toEqual(["decision.json", "decision.md", "handoff.json", "handoff.md", "ingredients.md", "screen-confirm-payment.md", "screen-send-money.md"]);
     const json = JSON.parse(readFileSync(join(dir, "handoff.json"), "utf8")) as { screens: unknown[]; ingredients: Array<{ screens: string[] }> };
     expect(json.screens).toHaveLength(2);
     expect(json.ingredients[0]?.screens).toEqual(["Send money", "Confirm payment"]);
     expect(readFileSync(join(dir, "handoff.md"), "utf8")).toContain("- [Send money](screen-send-money.md): 3 components, 3 linked to code, verify PASS");
-    await expect(cli(["handoff", "Send money", "--out", dir])).rejects.toThrow("already has handoff files (handoff.json, handoff.md, ingredients.md, …). Add --force to replace them.");
+    await expect(cli(["handoff", "Send money", "--out", dir])).rejects.toThrow("already has handoff files (decision.json, decision.md, handoff.json, …). Add --force to replace them.");
     expect(await cli(["handoff", "Send money", "--out", dir, "--force"])).toContain("Wrote");
     const md = await cli(["handoff", "Send money"]);
     expect(md.startsWith("# Handoff: Send money\n")).toBe(true);
+  });
+
+  it("handoff --out --json returns JSON success with output paths", async () => {
+    saveGraph(fixedGraph());
+    writeFileSync(join(home, "code-map.json"), JSON.stringify(angularMap));
+    const dir = join(home, "json-out");
+    const out = JSON.parse(await cli(["handoff", "Send money", "--out", dir, "--json"])) as {
+      ok: boolean;
+      outDir: string;
+      paths: { handoffMd: string; handoffJson: string; ingredientsMd: string; screens: string[]; decisionJson?: string; decisionMd?: string };
+    };
+    expect(out.ok).toBe(true);
+    expect(out.outDir).toBe(dir);
+    expect(out.paths.handoffMd).toBe(join(dir, "handoff.md"));
+    expect(out.paths.handoffJson).toBe(join(dir, "handoff.json"));
+    expect(out.paths.ingredientsMd).toBe(join(dir, "ingredients.md"));
+    expect(out.paths.screens).toEqual([join(dir, "screen-send-money.md")]);
+    expect(out.paths.decisionJson).toBe(join(dir, "decision.json"));
+    expect(out.paths.decisionMd).toBe(join(dir, "decision.md"));
   });
 
   it("option and frame errors are one plain line", async () => {
@@ -665,7 +684,7 @@ describe("handoff fixes after PR #37 UAT", () => {
     await expect(cli(["handoff", "Send money", "--out", lone])).rejects.toThrow("already has handoff files (handoff.md). Add --force to replace them.");
     const again = await cli(["handoff", "Send money", "--out", dir, "--force"]);
     expect(again).toContain("Removed 1 older screen file from an earlier handoff there: screen-confirm-payment.md.");
-    expect(readdirSync(dir).sort()).toEqual(["handoff.json", "handoff.md", "ingredients.md", "screen-send-money.md"]);
+    expect(readdirSync(dir).sort()).toEqual(["decision.json", "decision.md", "handoff.json", "handoff.md", "ingredients.md", "screen-send-money.md"]);
     const file = join(home, "a-file");
     writeFileSync(file, "x");
     await expect(cli(["handoff", "Send money", "--out", file])).rejects.toThrow(`${file} is a file, not a folder. Pass a folder for --out.`);

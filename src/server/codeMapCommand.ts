@@ -147,6 +147,15 @@ export function importReview(csvText: string, replace = false) {
 }
 
 /** Reject a mapped row for a retired part, and an id that is not in the learned file. */
+/** Print the row problems and set exit 1. True when there were any (nothing may be written). */
+export function refuseBadRows(entries: Record<string, unknown>[], index: GraphIndex): boolean {
+  const problems = rowProblems(entries, index);
+  if (!problems.length) return false;
+  process.stdout.write(`Nothing written. Fix these rows:\n${problems.slice(0, 20).map((error) => `  ${error}`).join("\n")}\n`);
+  process.exitCode = 1;
+  return true;
+}
+
 export function rowProblems(entries: Record<string, unknown>[], index: GraphIndex): string[] {
   const masters = index.graph.nodes.filter(
     (node) => (node.type === "COMPONENT_SET" || node.type === "MAIN_COMPONENT") && !node.componentSetId && !node.isRemote,
@@ -184,12 +193,7 @@ function review(args: string[]): void {
       return;
     }
     const index = requireGraph(args).index;
-    const problems = rowProblems(result.parsed.entries, index);
-    if (problems.length) {
-      process.stdout.write(`Nothing written. Fix these rows:\n${problems.slice(0, 20).map((error) => `  ${error}`).join("\n")}\n`);
-      process.exitCode = 1;
-      return;
-    }
+    if (refuseBadRows(result.parsed.entries, index)) return;
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, codeMapJson(result.merged.entries, { ...result.previous, packages: result.previous.packages }));
     const kept = result.merged.untouched.length
