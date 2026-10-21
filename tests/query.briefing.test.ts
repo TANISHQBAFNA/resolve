@@ -631,7 +631,7 @@ describe("designer briefing", () => {
     expect(density("a list, dense on mobile")).toMatch(/compact/);
     expect(mobileTop[0]).toBe("Compact List");
     // Without a joint, or on words that are not platform/device words, it is not the list density.
-    for (const request of ["a list dense", "a list of tight deadlines", "a list, dense for time", "a list, airy on details", "a list, roomy in notes", "a list, tight for the weekend"]) {
+    for (const request of ["a list dense", "a list of tight deadlines", "a list, dense for time", "a list, airy on details", "a list, roomy in notes", "a list, tight for the weekend", "a list, dense for a phone plan", "a list, roomy for tv dinners", "rows, airy on the laptop sleeve", "a list, tight for tablet owners"]) {
       expect(density(request), request).toBeUndefined();
     }
     // A device after for/on/in, plural, with an article, a brand, a screen size, or an orientation still ends the clause.

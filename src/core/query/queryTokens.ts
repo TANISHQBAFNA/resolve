@@ -124,9 +124,12 @@ const DENSITY_WORD = new Map([
 
 /** Device and platform words a density can be said for: "compact for phones", "on the tablet", "in landscape". */
 const DEVICE_WORD = String.raw`(?:mobile|desktop|tablet|phone|web|ios|android|ipad|iphone|pixel|galaxy|laptop|watch|tv|handset|(?:small|large|big|wide|narrow)\s+(?:screen|display)|portrait|landscape)`;
-/** Where a density said after the list ends its clause: end, comma, ; ! . or please, or for/on/in a device. */
+/**
+ * Where a density said after the list ends its clause: end, comma, ; ! . or please, or for/on/in a device that
+ * itself ends the text or is followed by punctuation or please. "for a watch party" describes a party, not a device.
+ */
 const CLAUSE_END = new RegExp(
-  String.raw`^(?:\s*$|\s*,|\s*[.;!]|\s+please\b|\s+(?:for|on|in)\s+(?:(?:the|a|an|my|your|our)\s+)?${DEVICE_WORD}(?:e?s)?\b)`,
+  String.raw`^(?:\s*$|\s*,|\s*[.;!]|\s+please\b|\s+(?:for|on|in)\s+(?:(?:the|a|an|my|your|our)\s+)?${DEVICE_WORD}(?:e?s)?(?=\s*$|\s*[,.;!]|\s+please\b))`,
   "i",
 );
 

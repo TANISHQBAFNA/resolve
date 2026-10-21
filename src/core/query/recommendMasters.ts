@@ -135,7 +135,9 @@ export function recommendMasters(
   const beforePurposeTail = tokens.filter((token) => !purposeTailTokens(intent).has(token));
   // "<part> list": the list word only groups the named part, so the part is the head ("chip list" is Chip).
   const headBase = beforePurposeTail.length ? beforePurposeTail : tokens;
-  const headTokens =
+  const placedIn = /^(.+?)\s+(?:in|inside|within|on)\s+(?:the\s+|a\s+|an\s+|my\s+|your\s+)?(?:[a-z]+\s+)*?(?:list|lists|group|set)\s*$/i.exec(intent.trim());
+  const placedPart = placedIn ? tokensOf(placedIn[1]!).filter((token) => componentWord(token)) : [];
+  const headTokens = placedPart.length ? placedPart :
     headBase.length >= 2 && ["list", "lists", "group", "set"].includes(headBase[headBase.length - 1]!) &&
     componentWord(headBase[headBase.length - 2]!) && !["list", "lists", "row", "rows", "item", "items"].includes(headBase[headBase.length - 2]!)
       ? headBase.slice(0, -1)
@@ -201,7 +203,7 @@ export function recommendMasters(
       if (nameTokens.length > 1 && nameTokens.every((token) => asked.has(token))) lexical += 250;
       if (nameTokens.some((token) => DEMOTE_UNASKED.has(token) && !asked.has(token))) lexical -= 15;
       const askHas = (word: string) => asked.has(word);
-      if (askHas("menu") && nameTokens.includes("menu")) lexical += 40;
+      if (askHas("menu") && !askHas("dropdown") && !askHas("select") && nameTokens.includes("menu")) lexical += 40;
       if (askHas("row") && !askHas("list") && !askHas("table") && nameTokens.includes("row")) lexical += 70;
       if (askHas("badge") && nameTokens.includes("badge")) lexical += 40;
       if (
@@ -520,14 +522,8 @@ export function recommendMasters(
   const variantWordOnly =
     askedTokens.length > 0 && askedTokens.every((token) => modifierWord(token));
   const hasGrounded = kept.some(grounded);
-  // A slot or property word ("Header" slot) that outscores every name or description hit still names the part.
-  const groundedBest = Math.max(0, ...kept.filter(grounded).map((entry) => entry.lexical));
   kept = kept.filter((entry) => {
     if (grounded(entry)) return true;
-    if (!variantWordOnly && entry.why.includes("variant") && entry.lexical > groundedBest) {
-      entry.weak = true;
-      return true;
-    }
     if (hasGrounded || !variantWordOnly) return false;
     return entry.why.includes("variant");
   });
@@ -568,7 +564,7 @@ export function recommendMasters(
     seenFamily.add(key);
     collapsed.push(asFamilyRow(entry));
   }
-  flagUncovered(collapsed, intentNeedle, tokens, (entry) => stripTier(entry.setName || setOf(index, entry.node)?.name || entry.node.name));
+  flagUncovered(collapsed, intentNeedle, tokens, (entry) => stripTier(entry.setName || setOf(index, entry.node)?.name || entry.node.name), componentWord);
   const navAsk = /(?:^| )(?:nav|navigation)(?: bar)?$/.test(tokens.join(" "));
   kept = collapsed.filter((entry) => {
     if (navAsk && !entry.exactName && !navFamily(tokensOf(stripTier(entry.setName || entry.node.name)), tokens)) return false;
@@ -577,6 +573,10 @@ export function recommendMasters(
     if (!preferred || preferred.id === entry.node.id) return true;
     return !isWeakerNameStub(index, entry.node, preferred);
   });
+  // Only -ed/-ing words, none a part word as written ("dated picked"): they describe, and name no part.
+  const asWritten = (token: string) => publicNameSets.some((names) => names.has(token)) || allSynonymGroups().some((group) => group.terms.includes(token));
+  const rawTokens = tokensOf(echoIntent);
+  if (rawTokens.length >= 2 && rawTokens.every((token) => /(?:ed|ing)$/.test(token) && !asWritten(token))) kept = [];
   if (kept.length > 1) {
     const leadName = kept[0]!.node.name;
     const same = kept.filter((entry) => entry.node.name === leadName);

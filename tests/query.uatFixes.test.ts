@@ -517,7 +517,7 @@ describe("an older single-library store", () => {
     expect(tabs.candidates[0]?.name).toBe("Tabs");
     expect(tabs.match).not.toBe("weak match");
     const detail = searchDetail(index, field);
-    expect(detail.variant.toLowerCase()).toContain("courier");
+    expect(detail.describe.toLowerCase()).toContain("courier");
     expect(detail.describe).toContain("Caption");
     const font = recommendMasters(index, "courier field", { workspace });
     expect(font.candidates[0]?.name).toBe("Text field");

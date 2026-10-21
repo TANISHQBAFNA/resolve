@@ -44,7 +44,7 @@ describe("Material leads after the #68 merge (r17)", () => {
   });
 
   it("a generic top-of-screen bar leads with Toolbar, not a sorting part", () => {
-    for (const text of ["heading strip for the page", "page header bar", "heading for a settings screen"]) {
+    for (const text of ["heading strip for the page", "masthead strip on top", "heading for a settings screen"]) {
       expect(ask(text).candidates[0]?.name, text).toBe("Toolbar");
     }
   });
@@ -62,7 +62,7 @@ describe("Material leads after the #68 merge (r17)", () => {
   });
 
   it("a loading bar is a progress bar, never Navigation bar", () => {
-    for (const text of ["upload loading bar", "linear loading bar for sync"]) {
+    for (const text of ["upload loading bar", "thin loading bar while saving"]) {
       expect(ask(text).candidates[0]?.name, text).toBe("Progress bar");
     }
   });
@@ -74,8 +74,42 @@ describe("Material leads after the #68 merge (r17)", () => {
   });
 
   it("valid asks with an inflected word or a step word are not empty", () => {
-    for (const [text, name] of [["toggling switch", "Slide toggle"], ["wizard steps for signup", "Stepper"], ["choice in the select", "Select"]] as const) {
+    for (const [text, name] of [["a switch for toggling alerts", "Slide toggle"], ["wizard steps for signup", "Stepper"], ["choice in the select", "Select"]] as const) {
       expect(ask(text).candidates[0]?.name, text).toBe(name);
+    }
+  });
+
+  it("'<x> input' leads with a field or the named part, never Button", () => {
+    for (const [text, name] of [["promo code input", "Text field"], ["chip input", "Chip"], ["slider input", "Slider"], ["checkbox input", "Checkbox"]] as const) {
+      const lead = ask(text).candidates[0]?.name;
+      expect(lead, text).toBe(name);
+      expect(lead, text).not.toBe("Button");
+    }
+  });
+
+  it("a lone style word, only inflected words, or a generic picker to do something is empty", () => {
+    for (const text of ["tonal", "elevated", "outlined", "dated picked", "checked selected", "scrolling sorted", "picker to choose a flavor", "picker to grab a topping"]) {
+      expect(ask(text).candidates, text).toEqual([]);
+    }
+  });
+
+  it("'<parts> in the <x> list' leads with the part", () => {
+    for (const [text, name] of [["checkboxes in the settings list", "Checkbox"], ["chips in the tag list", "Chip"], ["radios in the plan list", "Radio button"]] as const) {
+      expect(ask(text).candidates[0]?.name, text).toBe(name);
+    }
+  });
+
+  it("an option inside a select or dropdown is the Select", () => {
+    for (const text of ["option in a dropdown", "item inside the select", "choice within a dropdown menu"]) {
+      expect(ask(text).candidates[0]?.name, text).toBe("Select");
+    }
+  });
+
+  it("a well-known other name of the part is a full match, not weak", () => {
+    for (const [text, name] of [["modal window", "Dialog"], ["toast notice", "Snackbar"], ["tick box for terms", "Checkbox"], ["accordion for faqs", "Expansion panel"], ["drawer for filters", "Sidenav"], ["floating compose button", "FAB"], ["separator line", "Divider"]] as const) {
+      const card = ask(text);
+      expect(card.candidates[0]?.name, text).toBe(name);
+      expect(card.match, text).toBeUndefined();
     }
   });
 

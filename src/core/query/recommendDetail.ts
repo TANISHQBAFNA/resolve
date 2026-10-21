@@ -4,7 +4,7 @@ import type { GraphIndex } from "./GraphIndex";
 import { VARIANT_PROP_NAME } from "./masterNames";
 import { isFigmaSlot } from "./placed";
 import modifierFile from "@/data/ui-modifiers.json";
-import { tokensOf } from "./queryTokens";
+import { GENERIC_NAME_TOKENS, tokensOf } from "./queryTokens";
 import { allSynonymGroups, SYNONYM_OF } from "./recommendContext";
 import { CATEGORY_TAIL, modifierWord, PLAIN_NOUN, purposeTailTokens, setCoversAsk, SLOT_QUALIFIERS, synonymIn, variantValueText } from "./recommendLexicon";
 import { inflectionStems } from "./screenInventory";
@@ -59,12 +59,13 @@ export function searchDetail(index: GraphIndex, node: GraphNode, set?: GraphNode
       ...Object.keys(props ?? {}),
       ...(item.propertyDefinitions ?? []).map((def) => def.name),
     ].filter((name) => !modifierWord(name.toLowerCase()));
-    if (propNames.length) variant.push(propNames.join(" "));
+    // A property name ("Header", "Steps") says what the part holds, like a description; only values are variants.
+    if (propNames.length) describe.push(propNames.join(" "));
     for (const def of item.propertyDefinitions ?? []) {
       if (def.description) describe.push(def.description);
       if (def.options?.length) variant.push(def.options.join(" "));
       const value = def.defaultValue?.trim();
-      if (value && value !== "true" && value !== "false" && /[a-z]/i.test(value)) variant.push(value);
+      if (value && value !== "true" && value !== "false" && /[a-z]/i.test(value)) describe.push(value); // sample text, like a description
     }
     if (item.description) describe.push(item.description);
   };
@@ -88,6 +89,15 @@ export function searchDetail(index: GraphIndex, node: GraphNode, set?: GraphNode
   return { variant: variant.join(" "), describe: describe.join(" ") };
 }
 
+const CONTAINER_WORD = new Set(["group", "set", "list", "stack"]);
+const MODIFIER_REASON = new Map(modifierFile.words.map((row) => [row.term.toLowerCase(), row.reason]));
+/** A detail word whose meaning belongs to another part: "count" is a quantity on a badge, so not on an alert. */
+function pointsElsewhere(token: string, family: string, namesPart: (token: string) => boolean): boolean {
+  const reason = MODIFIER_REASON.get(token);
+  if (!reason) return false;
+  return tokensOf(reason).some((word) => word !== token && namesPart(word) && !GENERIC_NAME_TOKENS.has(word) && !familyHas(word, family));
+}
+
 function familyHas(token: string, family: string): boolean {
   const names = tokensOf(family);
   if (names.some((name) => name === token || name === `${token}s` || token === `${name}s`)) return true;
@@ -104,7 +114,7 @@ function familyHas(token: string, family: string): boolean {
 function uncoveredKind(tokens: string[], family: string): boolean {
   return tokens.some(
     (token) =>
-      (PLAIN_NOUN.has(token) || CATEGORY_TAIL.has(token)) && !modifierWord(token) && !familyHas(token, family),
+      (PLAIN_NOUN.has(token) || CATEGORY_TAIL.has(token)) && !GENERIC_NAME_TOKENS.has(token) && !modifierWord(token) && !familyHas(token, family),
   );
 }
 
@@ -114,6 +124,7 @@ export function flagUncovered<T extends { exactName: boolean; weak?: boolean; as
   ask: string,
   tokens: string[],
   familyOf: (entry: T) => string,
+  namesPart: (token: string) => boolean = () => true,
 ): void {
   for (const entry of entries) {
     if (entry.exactName || entry.weak) continue;
@@ -131,10 +142,16 @@ export function flagUncovered<T extends { exactName: boolean; weak?: boolean; as
     // Only a word left over makes it weak: not a purpose tail, a synonym, or a short form of a name word.
     const names = new Set(tokensOf(family));
     const tail = purposeTailTokens(ask);
+    // Found by its name or a synonym: a leftover word that names no part is detail. Found only by a description: any leftover is a miss.
+    // A family that is a group or set of the part ("Badge group") is not the part itself: stay strict.
+    const container = [...names].some((name) => CONTAINER_WORD.has(name) && !tokens.includes(name));
+    const byName = !container && Boolean(entry.why?.includes("name") || entry.why?.includes("synonym"));
     const leftover = tokens.filter(
       (token) =>
         !familyHas(token, family) && !synonymIn(token, names) && !tail.has(token) &&
-        !(token === "nav" && names.has("navigation")),
+        !(token === "nav" && names.has("navigation")) &&
+        // A word that names no part ("window", "notice", "circle") or a generic one ("input") is detail, not a miss.
+        (!byName || (namesPart(token) && !GENERIC_NAME_TOKENS.has(token)) || pointsElsewhere(token, family, namesPart)),
     );
     if (leftover.length) entry.weak = true;
   }
