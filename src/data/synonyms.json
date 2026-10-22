@@ -114,7 +114,7 @@
       "reason": "An app bar means the top app bar unless the ask says bottom."
     },
     {
-      "terms": ["breadcrumb", "trail", "crumb"],
+      "terms": ["breadcrumb", "trail", "crumb", "nav breadcrumb", "breadcrumb nav"],
       "reason": "A trail or a crumb is the path back, a breadcrumb."
     },
     {

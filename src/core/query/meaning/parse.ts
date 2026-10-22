@@ -178,34 +178,89 @@ function purposeFits(entry: MeaningEntry, purposeTokens: readonly string[]): boo
   return meaningful.every((token) => hay.has(token));
 }
 
-function purposeLead(askTokens: readonly string[], live: readonly MeaningEntry[]): MeaningEntry | undefined {
-  const generic = new Set(["list", "row", "item", "button", "card", "message", "field", "bar", "icon", "text", "input"]);
-  const content = askTokens.filter((token) => token.length > 2 && !GAP_STOP.has(token) && !FILLER_HEAD.has(token) && !CHOOSE.has(token));
-  if (!content.length) return undefined;
+const PURPOSE_COMMON = new Set(["message", "list", "button", "card", "text", "item", "row", "header", "page", "show", "open", "control", "action", "screen", "bottom", "top", "small", "brief", "little", "icon", "bar", "field", "menu", "part", "value", "name", "type", "form", "input", "label", "title", "view", "panel", "sheet", "data", "user"]);
+
+function purposeWordsHit(token: string, word: string): boolean {
+  const stem = nounStem(token);
+  const other = nounStem(word);
+  if (token === word || stem === other) return true;
+  const short = stem.length <= other.length ? stem : other;
+  const long = stem.length <= other.length ? other : stem;
+  return short.length >= 4 && long.startsWith(short);
+}
+
+/**
+ * Purpose text is a fallback for an ask that matched no part.
+ * Two content words, or one rare word, must match. One common word does not.
+ */
+export function purposeFallback(askTokens: readonly string[], live: readonly MeaningEntry[]): MeaningEntry | undefined {
+  const namesAPart = live.some((entry) => entry.nameTokens.some((token) => token.length > 2 && (askTokens.includes(token) || askTokens.includes(`${token}s`)) && (entry.nameTokens.length === 1 || entry.name.toLowerCase() === token)));
+  if (namesAPart) return undefined;
   const styleValue = new Set(live.flatMap((entry) => entry.attributes.flatMap((row) => row.values.map((value) => value.toLowerCase()))));
-  if (content.every((token) => styleValue.has(token))) return undefined;
-  const named = live.some((entry) => askTokens.includes(entry.name.toLowerCase()) || entry.nameTokens.some((token) => token.length > 3 && !generic.has(token) && (askTokens.includes(token) || askTokens.includes(`${token}s`))));
-  if (named) return undefined;
-  const hit = (token: string, word: string) => {
-    const stem = nounStem(token);
-    const other = nounStem(word);
-    if (token === word || stem === other) return true;
-    const short = stem.length <= other.length ? stem : other;
-    const long = stem.length <= other.length ? other : stem;
-    return short.length >= 4 && long.startsWith(short);
-  };
+  const content = askTokens.filter((token) => token.length > 2 && !GAP_STOP.has(token) && !FILLER_HEAD.has(token) && !CHOOSE.has(token) && !styleValue.has(token));
+  if (!content.length) return undefined;
+  const hayOf = (entry: MeaningEntry) => tokensOf(entry.purpose.join(" "));
+  const hitsWord = (token: string, entry: MeaningEntry) => hayOf(entry).some((word) => purposeWordsHit(token, word));
+  const owners = (token: string) => live.filter((entry) => hitsWord(token, entry)).length;
   const scored = live
     .map((entry) => {
-      const hay = tokensOf(entry.purpose.join(" "));
-      const score = content.filter((token) => hay.some((word) => hit(token, word))).length;
-      return { entry, score };
+      const matched = content.filter((token) => hitsWord(token, entry));
+      const rare = matched.filter((token) => !PURPOSE_COMMON.has(nounStem(token)) && owners(token) === 1);
+      return { entry, score: matched.length, rare: rare.length };
     })
-    .filter((row) => row.score > 0)
-    .sort((a, b) => b.score - a.score || a.entry.name.localeCompare(b.entry.name));
+    .filter((row) => row.score >= 2 || row.rare >= 1)
+    .sort((a, b) => b.score - a.score || b.rare - a.rare || a.entry.name.localeCompare(b.entry.name));
   const best = scored[0];
-  if (!best || (scored[1] && scored[1].score === best.score)) return undefined;
-  if (best.score >= 2 || content.length === 1) return best.entry;
-  return undefined;
+  if (!best || (scored[1] && scored[1].score === best.score && scored[1].rare === best.rare)) return undefined;
+  return best.entry;
+}
+
+const HELD_RECORD = new Set(["list", "row", "item", "entry", "result", "record", "line", "card", "name"]);
+
+function densityWordSet(language: MeaningLanguage): Set<string> {
+  return new Set(Object.values(language.density).flat().map((word) => word.toLowerCase()));
+}
+
+function senseStems(language: MeaningLanguage): Set<string> {
+  const stems = new Set<string>();
+  for (const words of Object.values(language.senses)) for (const word of words) stems.add(nounStem(word));
+  return stems;
+}
+
+/** The noun a density word sits on: the word before list, or the singular of list-of. */
+function governedNoun(text: string, language: MeaningLanguage): string {
+  const density = densityWordSet(language);
+  const tokens = text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (!density.has(tokens[index] ?? "")) continue;
+    const ahead = tokens.slice(index + 1, index + 4);
+    const listAt = ahead.findIndex((token) => /^lists?$/.test(token));
+    if (listAt < 0) continue;
+    const between = ahead.slice(0, listAt).filter((token) => !ARTICLE.has(token) && !GAP_STOP.has(token));
+    const listIndex = index + 1 + listAt;
+    if (tokens[listIndex + 1] === "of" && tokens[listIndex + 2]) return nounStem(tokens[listIndex + 2] ?? "");
+    if (between.length) return nounStem(between[between.length - 1] ?? "");
+  }
+  return "";
+}
+
+function partsNamed(stem: string, entries: readonly MeaningEntry[]): MeaningEntry[] {
+  if (!stem || HELD_RECORD.has(stem)) return [];
+  return entries.filter((entry) => !entry.retired && entry.nameTokens.includes(stem));
+}
+
+function isPartNoun(stem: string, entries: readonly MeaningEntry[]): boolean {
+  return partsNamed(stem, entries).length > 0;
+}
+
+function isSenseNoun(stem: string, language: MeaningLanguage, entries: readonly MeaningEntry[]): boolean {
+  if (!stem || isPartNoun(stem, entries) || HELD_RECORD.has(stem)) return false;
+  return senseStems(language).has(stem);
+}
+
+function stripDensity(text: string, language: MeaningLanguage): string {
+  const density = densityWordSet(language);
+  return text.replace(/\b[a-z]+\b/gi, (word) => (density.has(word.toLowerCase()) ? "" : word)).replace(/\s+/g, " ").trim();
 }
 
 function genericHead(token: string | null): boolean {
@@ -222,7 +277,11 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
   const kept = withoutContrast(raw);
   const { purpose, purposeTokens } = purposeSplit(kept);
   const fillerLead = /^(?:a|an|the\s+)?(?:widget|control|way|tool)\b/i.test(kept);
-  const text = densityText(fillerLead && purpose ? purpose : kept, language);
+  const governed = governedNoun(kept, language);
+  const senseNoun = governed !== "" && isSenseNoun(governed, language, dictionary.entries);
+  const partNoun = governed !== "" && !senseNoun && isPartNoun(governed, dictionary.entries);
+  const source = senseNoun || partNoun ? stripDensity(fillerLead && purpose ? purpose : kept, language) : fillerLead && purpose ? purpose : kept;
+  const text = densityText(source, language);
   const excluded = exclusions(raw, dictionary);
   const beforePurpose = kept.toLowerCase().split(/\b(?:to|for|on|when)\b/)[0] ?? kept;
   const content = tokensOf(beforePurpose);
@@ -303,13 +362,23 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
     }
     }
   }
-  const crumb = askTokens.some((token) => token === "breadcrumb" || token === "trail" || token === "crumb");
-  const navWord = askTokens.some((token) => token === "nav" || token === "navigation");
-  if (!leadName && crumb && navWord) {
-    const crumbEntry = live.find((entry) => entry.nameTokens.includes("breadcrumb") || entry.synonyms.includes("breadcrumb"));
-    if (crumbEntry) {
-      leadName = crumbEntry.name;
-      reasons.push("A breadcrumb that also says nav is the breadcrumb.");
+  if (!leadName && partNoun) {
+    const parts = partsNamed(governed, live).sort((a, b) => a.nameTokens.length - b.nameTokens.length || a.name.localeCompare(b.name));
+    const exact = parts.find((entry) => entry.name.toLowerCase() === governed);
+    const part = exact ?? parts[0];
+    if (part) {
+      leadName = part.name;
+      reasons.push("The noun names a part, so the list density does not.");
+    }
+  }
+  const rowsThatAre = /\brows?\s+that\s+are\s+[a-z]+\b/i.test(kept);
+  if (!leadName && rowsThatAre && density) {
+    const plain = live.find((entry) => entry.nameTokens.length === 1 && entry.nameTokens[0] === "list");
+    if (plain) {
+      leadName = plain.name;
+      reasons.push("No density variant. The plain part stays.");
+    } else {
+      reasons.push("No density variant.");
     }
   }
   const dateUnits = new Set(["date", "day", "week", "month", "year"]);
@@ -326,17 +395,10 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
       reasons.push(wantsTime ? "A time unit uses the time picker." : "A date unit uses the date picker.");
     }
   }
-  if (!leadName) {
-    const described = purposeLead(askTokens, live);
-    if (described) {
-      leadName = described.name;
-      reasons.push(`Purpose matches ${described.name}.`);
-    }
-  }
   const choose = /\bto\s+(?:choose|pick|grab|select)\b/i.test(raw);
   const purposeKnown = live.some((entry) => purposeFits(entry, purposeTokens));
   const noVariant = reasons.some((reason) => reason === "No density variant.");
-  const empty = noVariant || onlyInflectedAsk(raw, dictionary) || (choose && genericHead(head) && !leadName && !purposeKnown) || (genericHead(head) && purposeTokens.length > 0 && !purposeKnown && !leadName && head === "picker");
+  const empty = senseNoun || noVariant || onlyInflectedAsk(raw, dictionary) || (choose && genericHead(head) && !leadName && !purposeKnown) || (genericHead(head) && purposeTokens.length > 0 && !purposeKnown && !leadName && head === "picker");
   if (empty) reasons.push("Nothing in this library fits.");
   const lead = leadName ? live.find((entry) => entry.name === leadName) : undefined;
   const weakWords = lead

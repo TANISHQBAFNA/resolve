@@ -13,7 +13,7 @@ import { examplePointer } from "./examples";
 import type { GraphIndex } from "./GraphIndex";
 import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RECOMMEND_BUDGET, sameNameNote, substitutionNote, variantCardName } from "./masterNames";
 import { placeReady } from "./placeReady";
-import { prepareAsk, type MeaningDecision } from "./meaning/parse";
+import { prepareAsk, purposeFallback, type MeaningDecision } from "./meaning/parse";
 import { meaningDictionary } from "./meaning/buildDictionary";
 import { interpretInflections, onlyInflectedAsk } from "./meaning/inflections";
 import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
@@ -596,6 +596,24 @@ export function recommendMasters(
     return !isWeakerNameStub(index, entry.node, preferred);
   });
   if (decision?.empty) kept = kept.filter((entry) => entry.why.includes("typo"));
+  if (kept.length === 0 && decision && !decision.empty && !onlyInflectedAsk(echoIntent, dictionary)) {
+    const fallback = purposeFallback(tokensOf(echoIntent), dictionary.entries.filter((entry) => !entry.retired));
+    const node = fallback ? realMastersNamed(index, fallback.name).find((item) => !isRetired(index, item) && !isPrivateMaster(index, item)) : undefined;
+    if (node) {
+      kept = [{
+        node,
+        score: 800_000,
+        lexical: 800,
+        why: ["name"],
+        analog: false,
+        deprecated: false,
+        instances: computeComponentUsage(index, node).instanceCount,
+        exactName: false,
+        covered: tokens.length,
+        weak: false,
+      }];
+    }
+  }
   if (kept.length > 1) {
     const leadName = kept[0]!.node.name;
     const same = kept.filter((entry) => entry.node.name === leadName);

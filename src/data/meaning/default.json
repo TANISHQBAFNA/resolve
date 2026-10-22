@@ -169,7 +169,11 @@
       "fabric": ["velvet", "silk", "cotton", "wool", "linen", "denim", "canvas"],
       "paper": ["paper", "vellum", "parchment", "cardstock"],
       "document": ["document", "notebook", "history", "biography", "novel", "book", "prose", "chapter", "memo", "essay"],
-      "clothing": ["shirt", "shoe", "coat", "dress", "jacket", "sock", "glove", "hat", "scarf"]
+      "clothing": ["shirt", "shoe", "coat", "dress", "jacket", "sock", "glove", "hat", "scarf"],
+      "food": ["bread", "fruit", "cheese", "rice", "meat", "soup", "apple", "grain"],
+      "garden": ["flower", "leaf", "seed", "plant", "soil", "garden"],
+      "finance": ["budget", "tax", "mortgage", "salary", "interest", "dividend"],
+      "review": ["contract", "policy", "spec", "thesis", "article", "report"]
     }
   }
 }

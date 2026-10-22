@@ -2,6 +2,10 @@
 
 ## Unreleased — meaning dictionary
 
+Oct 22, 2026. Purpose text is used only when no part name or synonym matched, and not when the ask is empty from an inflection alone. A match needs two content words, or one rare word. Header asks lead with Toolbar. A sense noun is singularized on both sides, and food, garden, finance, and review nouns are senses too. A density word before a nav list leads with the nav part. A bare list is List. `rows that are <density>` is the plain list or empty. `call to action buttons` is Button. A breadcrumb said with nav is Breadcrumb through its synonym, not a special case.
+
+
+
 Oct 22, 2026. A density word before `list`, or before `list of` a plural, applies for any noun except one the word itself describes: a material, fabric, paper, document, or clothing noun. A library with no density variant falls back to the plain list, or answers empty, instead of an unrelated weak part. Minute, hour, and time of day lead the time picker. Day, week, month, and year lead the date picker. Paging, hover, expand, and a saved-message ask match the purpose text on the part. `call to action` is a button alias, and a named CTA still wins.
 
 

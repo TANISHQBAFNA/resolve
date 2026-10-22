@@ -12,6 +12,7 @@ import probesFile from "../scoreboard/meaning/probes.json";
 import freshFile from "../scoreboard/meaning/fresh.json";
 import r21File from "../scoreboard/meaning/r21.json";
 import r5File from "../scoreboard/meaning/r5.json";
+import r6File from "../scoreboard/meaning/r6.json";
 
 const repo = join(fileURLToPath(new URL("..", import.meta.url)));
 const FROZEN = "2026-01-01T00:00:00.000Z";
@@ -240,6 +241,21 @@ describe("meaning probes", () => {
       .map(([kind, pair]) => `${kind} ${pair[0]}/${pair[1]}`)
       .join(" ");
     process.stdout.write(`r5 probes ${correct}/${rows.length} ${kinds}\n${misses.join("\n")}\n`);
+    expect(correct).toBe(rows.length);
+  });
+
+  it("scores 25 fresh probes for purpose fallback, sense nouns, and plain lists", () => {
+    const rows = r6File.cases as Probe[];
+    expect(rows.length).toBe(25);
+    let correct = 0;
+    const misses: string[] = [];
+    for (const probe of rows) {
+      const index = probe.library === "acme" ? acme : material;
+      const got = offered(index, probe.phrase);
+      if (right(probe, got.name)) correct += 1;
+      else misses.push(`${probe.kind} "${probe.phrase}" → ${got.name ?? "∅"} (want ${probe.expect ?? "∅"})`);
+    }
+    process.stdout.write(`r6 probes ${correct}/${rows.length}\n${misses.join("\n")}\n`);
     expect(correct).toBe(rows.length);
   });
 });

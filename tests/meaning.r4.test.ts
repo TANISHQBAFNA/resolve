@@ -47,12 +47,12 @@ describe("r4 density, device, date, and acme wording", () => {
     delete process.env["RESOLVE_HOME"];
     clearCache();
     const index = acmeIndex();
-    expect(lead(index, "a tight nav list").name).toBe("Compact List");
+    expect(lead(index, "a tight nav list").name).toMatch(/Nav/);
     expect(lead(index, "a dense people list").name).toBe("Compact List");
     expect(lead(index, "a relaxed list of rows").name).toBe("Comfortable List");
     expect(lead(index, "a compact row, of buttons").name).toBe("Button");
     for (const phrase of ["a dense velvet list", "a compact marble list", "a roomy notebook list", "a tight vellum list"]) {
-      expect(lead(index, phrase).name, phrase).not.toMatch(/Compact List|Comfortable List/);
+      expect(lead(index, phrase).name, phrase).toBe("");
     }
     expect(meaningDictionary(index).language.density.comfortable).toContain("relaxed");
   });
@@ -70,12 +70,12 @@ describe("r4 density, device, date, and acme wording", () => {
         { builtAt: FROZEN },
       ),
     );
-    expect(lead(index, "roomy rows").name).toBe("List");
-    expect(lead(index, "airy rows").name).toBe("List");
-    const compact = lead(index, "compact rows");
+    expect(lead(index, "spacious rows").name).toBe("List");
+    expect(lead(index, "relaxed rows").name).toBe("List");
+    const compact = lead(index, "condensed rows");
     expect(compact.name).toBe("List");
     expect(compact.match).toBeUndefined();
-    const brief = briefScreen({ request: "compact rows", index, recipes: starterRecipes(), decisions: [] });
+    const brief = briefScreen({ request: "rows that are spacious", index, recipes: starterRecipes(), decisions: [] });
     const topics = "questions" in brief ? brief.questions.map((question) => question.topic) : [];
     expect(topics).not.toContain("states");
   });
@@ -113,8 +113,8 @@ describe("r4 density, device, date, and acme wording", () => {
     const acme = indexGraph(buildGraph(SourceDocumentSchema.parse(raw), { builtAt: FROZEN }));
     expect(lead(acme, "a tool to save the draft").name).toBe("Save CTA");
     expect(lead(acme, "breadcrumb nav").name).toBe("Breadcrumb");
-    expect(lead(acme, "breadcrumb nav").match).toBeUndefined();
     expect(lead(acme, "breadcrumb-nav").name).toBe("Breadcrumb");
+    expect(lead(acme, "call to action buttons").name).toBe("Button");
     expect(lead(acme, "call-to-action").name).toBe("Button");
     expect(lead(acme, "save-call-to-action").name).toBe("Save CTA");
     expect(lead(acme, "save-call-to-action").match).toBeUndefined();
