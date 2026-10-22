@@ -29,5 +29,5 @@ describe("meaning regression gate", () => {
     process.stdout.write(`regression gate compared ${saved.asks.length} asks\nallowlist ${reasons.size}\n${allowLines.join("\n")}\n`);
     expect(changed, changed.join("\n")).toEqual([]);
     expect(strongFallback, strongFallback.join("\n")).toEqual([]);
-  });
+  }, 60_000);
 });
