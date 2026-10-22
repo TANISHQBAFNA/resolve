@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { scoreAsks } from "../scripts/score-meaning-asks.mts";
+import { scoreAsks } from "./meaning.score";
 
 interface SavedAsk {
   id: string;

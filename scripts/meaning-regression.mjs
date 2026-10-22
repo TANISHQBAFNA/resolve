@@ -97,7 +97,7 @@ function mainCorrect(expect, lead) {
 }
 
 function runScorer(cwd, asks, out) {
-  const script = join(root, "scripts/score-meaning-asks.mts");
+  const script = join(root, "tests/meaning.score.ts");
   const input = join(tmpdir(), "meaning-regression-asks.json");
   writeFileSync(input, JSON.stringify(asks));
   execFileSync("npx", ["vite-node", "--config", join(cwd, "vite.config.ts"), script, input, out], {
