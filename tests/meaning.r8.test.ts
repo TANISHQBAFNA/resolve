@@ -67,8 +67,8 @@ describe("r8 regressions against main", () => {
   it("lets an explicit form win over a density word, and keeps a non-name lead weak", () => {
     delete process.env["RESOLVE_HOME"];
     clearCache();
-    const acme = graph(["Form", "Compact List", "Comfortable List", "Card List", "Button"]);
-    for (const phrase of ["a form for a compact guest with a list", "form for a comfortable name with a list"]) {
+    const acme = graph(["Form", "Compact List", "Comfortable List", "Card List", "Button", "Chip"]);
+    for (const phrase of ["a form for a compact guest with a list", "form for a comfortable name with a list", "a form for a compact chip with a list"]) {
       const got = lead(acme, phrase);
       expect(got.name, phrase).toBe("Form");
       expect(got.match, phrase).toBeUndefined();
@@ -88,6 +88,9 @@ describe("r8 regressions against main", () => {
     const form = lead(material, "a form for a compact guest with a list");
     expect(form.name).toBe("Form field");
     expect(form.match).toBeUndefined();
+    const chipForm = lead(material, "a form for a compact chip with a list");
+    expect(chipForm.name).toBe("Form field");
+    expect(chipForm.match).toBeUndefined();
     const paging = lead(material, "paging");
     expect(paging.name).toBe("Paginator");
     expect(paging.match).toBe("weak match");

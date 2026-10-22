@@ -278,6 +278,18 @@ function isSenseSpan(span: readonly string[], language: MeaningLanguage, entries
   return span.every((stem) => stems.has(stem) && !HELD_RECORD.has(stem));
 }
 
+/** A part named before the density word, such as "form" in "a form for a compact chip". */
+function partBeforeDensity(text: string, language: MeaningLanguage, entries: readonly MeaningEntry[]): MeaningEntry | undefined {
+  const density = densityWordSet(language);
+  const tokens = text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const at = tokens.findIndex((token) => density.has(token));
+  if (at <= 0) return undefined;
+  const before = new Set(tokens.slice(0, at).filter((token) => !ARTICLE.has(token) && !GAP_STOP.has(token)));
+  const hits = entries.filter((entry) => !entry.retired && entry.nameTokens.some((token) => before.has(token)));
+  hits.sort((a, b) => Number(!a.nameTokens.includes("form")) - Number(!b.nameTokens.includes("form")) || a.nameTokens.length - b.nameTokens.length || a.name.localeCompare(b.name));
+  return hits[0];
+}
+
 function partFromSpan(span: readonly string[], entries: readonly MeaningEntry[]): MeaningEntry | undefined {
   for (const stem of [...span].reverse()) {
     const parts = partsNamed(stem, entries).sort((a, b) => a.nameTokens.length - b.nameTokens.length || a.name.localeCompare(b.name));
@@ -398,6 +410,12 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
       reasons.push("No density variant.");
     }
     }
+  }
+  const earlier = namedPart ? partBeforeDensity(kept, language, live) : undefined;
+  if (earlier && earlier.name !== namedPart?.name && (leadName === namedPart?.name || densityLead || !leadName)) {
+    leadName = earlier.name;
+    densityLead = false;
+    reasons.push(`The named part ${earlier.name} is said before the density word.`);
   }
   let secondName: string | undefined;
   if (densityLead && namedPart && leadName !== namedPart.name) {
