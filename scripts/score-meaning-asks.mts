@@ -99,23 +99,25 @@ function score(index: GraphIndex, phrase: string): { lead: string; weak: boolean
   return { lead, weak, via };
 }
 
-const asks = JSON.parse(readFileSync(process.argv[2] ?? "", "utf8")) as Ask[];
-const home = join(tmpdir(), "resolve-meaning-regression");
-mkdirSync(home, { recursive: true });
-writeFileSync(join(home, "synonyms.json"), readFileSync(join(root, "fixtures/material/synonyms.json")));
+export function scoreAsks(asks: Ask[]): Array<{ id: string; lead: string; weak: boolean; via: string }> {
+  const home = join(tmpdir(), "resolve-meaning-regression");
+  mkdirSync(home, { recursive: true });
+  writeFileSync(join(home, "synonyms.json"), readFileSync(join(root, "fixtures/material/synonyms.json")));
+  withHome(undefined);
+  const fixture = fixtureIndex();
+  withHome(home);
+  const material = materialIndex();
+  const acme = acmeSmall();
+  return asks.map((ask) => {
+    if (ask.library === "fixture") withHome(undefined);
+    else withHome(home);
+    const index = ask.library === "fixture" ? fixture : ask.library === "material" ? material : acme;
+    return { id: ask.id, ...score(index, ask.phrase) };
+  });
+}
 
-withHome(undefined);
-const fixture = fixtureIndex();
-withHome(home);
-const material = materialIndex();
-const acme = acmeSmall();
-
-const rows = asks.map((ask) => {
-  if (ask.library === "fixture") withHome(undefined);
-  else withHome(home);
-  const index = ask.library === "fixture" ? fixture : ask.library === "material" ? material : acme;
-  const got = score(index, ask.phrase);
-  return { id: ask.id, ...got };
-});
-
-writeFileSync(process.argv[3] ?? "", `${JSON.stringify(rows)}\n`);
+const direct = process.argv[1]?.includes("score-meaning-asks");
+if (direct && process.argv[2] && process.argv[3]) {
+  const asks = JSON.parse(readFileSync(process.argv[2], "utf8")) as Ask[];
+  writeFileSync(process.argv[3], `${JSON.stringify(scoreAsks(asks))}\n`);
+}
