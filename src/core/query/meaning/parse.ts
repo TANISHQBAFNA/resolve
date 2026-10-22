@@ -17,6 +17,8 @@ export interface MeaningDecision {
   weakWords: string[];
   empty: boolean;
   leadName?: string;
+  /** When a density list leads, the named part in the ask. */
+  secondName?: string;
   excluded: string[];
   attributes: ParsedAttribute[];
   purposeTokens: string[];
@@ -215,6 +217,16 @@ export function purposeFallback(askTokens: readonly string[], live: readonly Mea
   return best.entry;
 }
 
+/** One inflected form of a single part, and nothing else. A guess, so the lead stays weak. */
+export function wordFormFallback(askTokens: readonly string[], live: readonly MeaningEntry[]): MeaningEntry | undefined {
+  const content = askTokens.filter((token) => token.length > 2 && !GAP_STOP.has(token) && !FILLER_HEAD.has(token) && !ARTICLE.has(token));
+  if (content.length !== 1) return undefined;
+  const token = content[0]!;
+  const hits = live.filter((entry) => entry.wordForms.includes(token));
+  if (hits.length !== 1) return undefined;
+  return hits[0];
+}
+
 const HELD_RECORD = new Set(["list", "row", "item", "entry", "result", "record", "line", "card", "name"]);
 
 function densityWordSet(language: MeaningLanguage): Set<string> {
@@ -227,21 +239,35 @@ function senseStems(language: MeaningLanguage): Set<string> {
   return stems;
 }
 
-/** The noun a density word sits on: the word before list, or the singular of list-of. */
-function governedNoun(text: string, language: MeaningLanguage): string {
+/** Words a density word sits on: the words before list, or list-of, each singular. */
+function governedSpan(text: string, language: MeaningLanguage): string[] {
   const density = densityWordSet(language);
   const tokens = text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
   for (let index = 0; index < tokens.length; index += 1) {
     if (!density.has(tokens[index] ?? "")) continue;
-    const ahead = tokens.slice(index + 1, index + 4);
+    const ahead = tokens.slice(index + 1, index + 6);
     const listAt = ahead.findIndex((token) => /^lists?$/.test(token));
     if (listAt < 0) continue;
     const between = ahead.slice(0, listAt).filter((token) => !ARTICLE.has(token) && !GAP_STOP.has(token));
     const listIndex = index + 1 + listAt;
-    if (tokens[listIndex + 1] === "of" && tokens[listIndex + 2]) return nounStem(tokens[listIndex + 2] ?? "");
-    if (between.length) return nounStem(between[between.length - 1] ?? "");
+    if (tokens[listIndex + 1] === "of") {
+      const object = tokens.slice(listIndex + 2, listIndex + 5).filter((token) => !ARTICLE.has(token) && !GAP_STOP.has(token));
+      if (object.length) return object.map(nounStem);
+    }
+    if (between.length) return between.map(nounStem);
   }
-  return "";
+  return [];
+}
+
+function senseCompounds(language: MeaningLanguage): string[][] {
+  const compounds: string[][] = [];
+  for (const words of Object.values(language.senses)) {
+    for (const word of words) {
+      const parts = word.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(nounStem);
+      if (parts.length > 1) compounds.push(parts);
+    }
+  }
+  return compounds;
 }
 
 function partsNamed(stem: string, entries: readonly MeaningEntry[]): MeaningEntry[] {
@@ -249,13 +275,22 @@ function partsNamed(stem: string, entries: readonly MeaningEntry[]): MeaningEntr
   return entries.filter((entry) => !entry.retired && entry.nameTokens.includes(stem));
 }
 
-function isPartNoun(stem: string, entries: readonly MeaningEntry[]): boolean {
-  return partsNamed(stem, entries).length > 0;
+function isSenseSpan(span: readonly string[], language: MeaningLanguage, entries: readonly MeaningEntry[]): boolean {
+  if (!span.length || span.some((stem) => partsNamed(stem, entries).length > 0)) return false;
+  const stems = senseStems(language);
+  const compound = senseCompounds(language).some((parts) => parts.length === span.length && parts.every((part, index) => part === span[index]));
+  if (compound) return true;
+  return span.every((stem) => stems.has(stem) && !HELD_RECORD.has(stem));
 }
 
-function isSenseNoun(stem: string, language: MeaningLanguage, entries: readonly MeaningEntry[]): boolean {
-  if (!stem || isPartNoun(stem, entries) || HELD_RECORD.has(stem)) return false;
-  return senseStems(language).has(stem);
+function partFromSpan(span: readonly string[], entries: readonly MeaningEntry[]): MeaningEntry | undefined {
+  for (const stem of [...span].reverse()) {
+    const parts = partsNamed(stem, entries).sort((a, b) => a.nameTokens.length - b.nameTokens.length || a.name.localeCompare(b.name));
+    const exact = parts.find((entry) => entry.name.toLowerCase() === stem);
+    const part = exact ?? parts[0];
+    if (part) return part;
+  }
+  return undefined;
 }
 
 function stripDensity(text: string, language: MeaningLanguage): string {
@@ -277,10 +312,10 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
   const kept = withoutContrast(raw);
   const { purpose, purposeTokens } = purposeSplit(kept);
   const fillerLead = /^(?:a|an|the\s+)?(?:widget|control|way|tool)\b/i.test(kept);
-  const governed = governedNoun(kept, language);
-  const senseNoun = governed !== "" && isSenseNoun(governed, language, dictionary.entries);
-  const partNoun = governed !== "" && !senseNoun && isPartNoun(governed, dictionary.entries);
-  const source = senseNoun || partNoun ? stripDensity(fillerLead && purpose ? purpose : kept, language) : fillerLead && purpose ? purpose : kept;
+  const span = governedSpan(kept, language);
+  const senseNoun = isSenseSpan(span, language, dictionary.entries);
+  const namedPart = senseNoun ? undefined : partFromSpan(span, dictionary.entries);
+  const source = senseNoun ? stripDensity(fillerLead && purpose ? purpose : kept, language) : fillerLead && purpose ? purpose : kept;
   const text = densityText(source, language);
   const excluded = exclusions(raw, dictionary);
   const beforePurpose = kept.toLowerCase().split(/\b(?:to|for|on|when)\b/)[0] ?? kept;
@@ -362,14 +397,14 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
     }
     }
   }
-  if (!leadName && partNoun) {
-    const parts = partsNamed(governed, live).sort((a, b) => a.nameTokens.length - b.nameTokens.length || a.name.localeCompare(b.name));
-    const exact = parts.find((entry) => entry.name.toLowerCase() === governed);
-    const part = exact ?? parts[0];
-    if (part) {
-      leadName = part.name;
-      reasons.push("The noun names a part, so the list density does not.");
-    }
+  let secondName: string | undefined;
+  if (leadName && namedPart && density) {
+    secondName = namedPart.name;
+    reasons.push(`${namedPart.name} stays second. The density list leads.`);
+  }
+  if (!leadName && namedPart) {
+    leadName = namedPart.name;
+    reasons.push("The noun names a part, so the list density does not.");
   }
   const rowsThatAre = /\brows?\s+that\s+are\s+[a-z]+\b/i.test(kept);
   if (!leadName && rowsThatAre && density) {
@@ -424,6 +459,7 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
     weakWords,
     empty,
     ...(leadName ? { leadName } : {}),
+    ...(secondName ? { secondName } : {}),
     excluded,
     attributes,
     purposeTokens,

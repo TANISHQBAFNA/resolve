@@ -2,6 +2,10 @@
 
 ## Unreleased — meaning dictionary
 
+Oct 22, 2026. A regression gate scores every in-repo ask against origin/main and fails when a correct main lead changes, unless that ask is allowlisted with a reason. A purpose or word-form fallback lead is always weak. A density word on a named part's list leads with the density list and keeps the part second. Fabric plurals and food, garden, and budget compounds are senses. `calls to action` is Button. A breadcrumb said with nav stays strong.
+
+
+
 Oct 22, 2026. Purpose text is used only when no part name or synonym matched, and not when the ask is empty from an inflection alone. A match needs two content words, or one rare word. Header asks lead with Toolbar. A sense noun is singularized on both sides, and food, garden, finance, and review nouns are senses too. A density word before a nav list leads with the nav part. A bare list is List. `rows that are <density>` is the plain list or empty. `call to action buttons` is Button. A breadcrumb said with nav is Breadcrumb through its synonym, not a special case.
 
 

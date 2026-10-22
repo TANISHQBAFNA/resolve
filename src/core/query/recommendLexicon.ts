@@ -403,9 +403,14 @@ export function normalizeAsk(text: string, names?: Iterable<string>): string {
             .map((stem) => [...head, stem].join(""))
             .filter((form) => forms.has(form))
             .sort((a, b) => b.length - a.length);
-      const form = hits[0];
+      let form = hits[0];
+      if (!form && length >= 2) {
+        const stemmed = slice.map((word) => stemOf(word)).join("");
+        if (stemmed !== asWritten && forms.has(stemmed)) form = stemmed;
+      }
       const surface = form ? preferredSurface(forms.get(form) ?? [], nameSet) : undefined;
-      if (!surface) continue;
+      // A plural on the alias itself ("calls to action") rewrites to the phrase, not to a part name.
+      if (!surface || (length >= 2 && form && !hits[0] && nameSet.has(surface))) continue;
       const canonical = surface.split(/[^a-z0-9]+/).filter(Boolean).join(" ");
       for (let offset = 0; offset < length; offset += 1) used.add(start + offset);
       if (slice.join(" ") === canonical) continue;

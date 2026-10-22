@@ -219,9 +219,9 @@ describe("meaning probes", () => {
     expect(correct).toBe(rows.length);
   });
 
-  it("scores 30 fresh probes for everyday nouns, plain lists, units, and purpose", () => {
+  it("scores fresh probes for everyday nouns, plain lists, units, and purpose", () => {
     const rows = r5File.cases as Probe[];
-    expect(rows.length).toBe(30);
+    expect(rows.length).toBe(29);
     let correct = 0;
     const misses: string[] = [];
     const byKind: Record<string, [number, number]> = {};

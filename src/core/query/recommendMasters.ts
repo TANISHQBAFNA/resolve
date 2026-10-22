@@ -13,7 +13,7 @@ import { examplePointer } from "./examples";
 import type { GraphIndex } from "./GraphIndex";
 import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RECOMMEND_BUDGET, sameNameNote, substitutionNote, variantCardName } from "./masterNames";
 import { placeReady } from "./placeReady";
-import { prepareAsk, purposeFallback, type MeaningDecision } from "./meaning/parse";
+import { prepareAsk, purposeFallback, wordFormFallback, type MeaningDecision } from "./meaning/parse";
 import { meaningDictionary } from "./meaning/buildDictionary";
 import { interpretInflections, onlyInflectedAsk } from "./meaning/inflections";
 import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
@@ -42,6 +42,8 @@ export function recommendMasters(
     placeholders?: string[];
     /** Plain token overlap, without the meaning parse. For the live-difference test. */
     lexicalOnly?: boolean;
+    /** Skip purpose and word-form fallback. The regression gate uses this to see which leads those paths added. */
+    skipFallback?: boolean;
   } = {},
 ) {
   loadSynonymOverlay();
@@ -152,6 +154,7 @@ export function recommendMasters(
     covered: number;
     askCovered?: number;
     weak?: boolean;
+    fallback?: "purpose" | "word-form";
   };
 
   const beforePurposeTail = tokens.filter((token) => !purpose.has(token));
@@ -596,8 +599,12 @@ export function recommendMasters(
     return !isWeakerNameStub(index, entry.node, preferred);
   });
   if (decision?.empty) kept = kept.filter((entry) => entry.why.includes("typo"));
-  if (kept.length === 0 && decision && !decision.empty && !onlyInflectedAsk(echoIntent, dictionary)) {
-    const fallback = purposeFallback(tokensOf(echoIntent), dictionary.entries.filter((entry) => !entry.retired));
+  if (!options.skipFallback && kept.length === 0 && decision && !decision.empty && !decision.leadName && !onlyInflectedAsk(echoIntent, dictionary)) {
+    const liveEntries = dictionary.entries.filter((entry) => !entry.retired);
+    const askTokens = tokensOf(echoIntent);
+    const purposeHit = purposeFallback(askTokens, liveEntries);
+    const formHit = purposeHit ? undefined : wordFormFallback(askTokens, liveEntries);
+    const fallback = purposeHit ?? formHit;
     const node = fallback ? realMastersNamed(index, fallback.name).find((item) => !isRetired(index, item) && !isPrivateMaster(index, item)) : undefined;
     if (node) {
       kept = [{
@@ -610,7 +617,8 @@ export function recommendMasters(
         instances: computeComponentUsage(index, node).instanceCount,
         exactName: false,
         covered: tokens.length,
-        weak: false,
+        weak: true,
+        fallback: purposeHit ? "purpose" : "word-form",
       }];
     }
   }
@@ -763,6 +771,42 @@ export function recommendMasters(
         }
       }
     }
+    if (decision.secondName && kept.length) {
+      const wanted = decision.secondName.toLowerCase();
+      const at = kept.findIndex((entry) => familyCardName(entry).toLowerCase() === wanted || entry.node.name.toLowerCase() === wanted);
+      if (at > 1) {
+        const [hit] = kept.splice(at, 1);
+        if (hit) kept.splice(1, 0, hit);
+      } else if (at < 0) {
+        const node = realMastersNamed(index, decision.secondName).find((item) => !isRetired(index, item) && !isPrivateMaster(index, item));
+        if (node) {
+          const set = setOf(index, node);
+          kept.splice(1, 0, {
+            node: set && set.id !== node.id ? set : node,
+            score: 700_000,
+            lexical: 700,
+            why: ["name"],
+            analog: false,
+            deprecated: false,
+            instances: computeComponentUsage(index, node).instanceCount,
+            exactName: false,
+            covered: tokens.length,
+            weak: false,
+          });
+        }
+      }
+    }
+  }
+  if (kept[0] && !kept[0].fallback) {
+    const leadLabel = familyCardName(kept[0]).toLowerCase();
+    const asked = new Set(tokensOf(echoIntent));
+    const says = (part: string) => [...asked].some((token) => token === part || token === `${part}s` || token === `${part}es`);
+    const strongAlias = allSynonymGroups().some((group) => {
+      const namesLead = group.terms.some((term) => term.toLowerCase() === leadLabel);
+      if (!namesLead) return false;
+      return group.terms.some((term) => term.includes(" ") && tokensOf(term).every((part) => says(part)));
+    });
+    if (strongAlias) kept[0].weak = false;
   }
 
   const settingsOf = (node: GraphNode): string | undefined => {
@@ -942,6 +986,7 @@ export function recommendMasters(
   // A lead reached only through a shared noun after an -ed/-ing word ("dated item") is a guess: weak, like compose.
   // An empty answer is never weak: weak means there is a lead to check.
   const weakLead = kept[0] !== undefined && (
+    Boolean(kept[0].fallback) ||
     sharedMiss(familyCardName(kept[0])).length > 0 ||
     bannerMismatch ||
     (Boolean(kept[0].weak) && !kept[0].exactName && !(leadSetCovers && leadCovered >= tokens.length)));

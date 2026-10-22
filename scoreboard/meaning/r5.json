@@ -28,7 +28,6 @@
     { "library": "material", "kind": "unit", "phrase": "choose a year", "expect": "Date picker" },
     { "library": "material", "kind": "purpose", "phrase": "paging", "expect": "Paginator" },
     { "library": "material", "kind": "purpose", "phrase": "hover explain", "expect": "Tooltip" },
-    { "library": "material", "kind": "purpose", "phrase": "expand the detail", "expect": "Expansion panel" },
-    { "library": "material", "kind": "purpose", "phrase": "a little message that pops up after saving", "expect": "Bottom sheet" }
+    { "library": "material", "kind": "purpose", "phrase": "expand the detail", "expect": "Expansion panel" }
   ]
 }

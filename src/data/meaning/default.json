@@ -166,13 +166,13 @@
     },
     "senses": {
       "material": ["marble", "stone", "wood", "metal", "glass", "concrete", "ceramic", "plastic", "granite"],
-      "fabric": ["velvet", "silk", "cotton", "wool", "linen", "denim", "canvas"],
+      "fabric": ["velvet", "silk", "cotton", "wool", "linen", "denim", "canvas", "fabric"],
       "paper": ["paper", "vellum", "parchment", "cardstock"],
       "document": ["document", "notebook", "history", "biography", "novel", "book", "prose", "chapter", "memo", "essay"],
       "clothing": ["shirt", "shoe", "coat", "dress", "jacket", "sock", "glove", "hat", "scarf"],
-      "food": ["bread", "fruit", "cheese", "rice", "meat", "soup", "apple", "grain"],
-      "garden": ["flower", "leaf", "seed", "plant", "soil", "garden"],
-      "finance": ["budget", "tax", "mortgage", "salary", "interest", "dividend"],
+      "food": ["bread", "fruit", "cheese", "rice", "meat", "soup", "apple", "grain", "food", "comfort food", "fast food"],
+      "garden": ["flower", "leaf", "seed", "plant", "soil", "garden", "flower garden", "vegetable garden", "herb garden"],
+      "finance": ["budget", "tax", "mortgage", "salary", "interest", "dividend", "budget report", "budget plan", "household budget", "food budget"],
       "review": ["contract", "policy", "spec", "thesis", "article", "report"]
     }
   }

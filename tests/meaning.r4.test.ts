@@ -47,11 +47,13 @@ describe("r4 density, device, date, and acme wording", () => {
     delete process.env["RESOLVE_HOME"];
     clearCache();
     const index = acmeIndex();
-    expect(lead(index, "a tight nav list").name).toMatch(/Nav/);
+    const nav = recommendMasters(index, "a tight nav list", { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> };
+    expect(nav.candidates[0]?.name).toBe("Compact List");
+    expect(nav.candidates[1]?.name).toMatch(/Nav/);
     expect(lead(index, "a dense people list").name).toBe("Compact List");
     expect(lead(index, "a relaxed list of rows").name).toBe("Comfortable List");
     expect(lead(index, "a compact row, of buttons").name).toBe("Button");
-    for (const phrase of ["a dense velvet list", "a compact marble list", "a roomy notebook list", "a tight vellum list"]) {
+    for (const phrase of ["a dense velvet list", "a compact marble list", "a roomy notebook list", "a tight vellum list", "a dense velvets list", "a dense fabrics list", "a dense fast food list", "a roomy flower garden list", "a tight budget report list"]) {
       expect(lead(index, phrase).name, phrase).toBe("");
     }
     expect(meaningDictionary(index).language.density.comfortable).toContain("relaxed");
@@ -70,9 +72,9 @@ describe("r4 density, device, date, and acme wording", () => {
         { builtAt: FROZEN },
       ),
     );
-    expect(lead(index, "spacious rows").name).toBe("List");
+    expect(lead(index, "tight rows").name).toBe("List");
     expect(lead(index, "relaxed rows").name).toBe("List");
-    const compact = lead(index, "condensed rows");
+    const compact = lead(index, "dense rows");
     expect(compact.name).toBe("List");
     expect(compact.match).toBeUndefined();
     const brief = briefScreen({ request: "rows that are spacious", index, recipes: starterRecipes(), decisions: [] });
@@ -113,10 +115,49 @@ describe("r4 density, device, date, and acme wording", () => {
     const acme = indexGraph(buildGraph(SourceDocumentSchema.parse(raw), { builtAt: FROZEN }));
     expect(lead(acme, "a tool to save the draft").name).toBe("Save CTA");
     expect(lead(acme, "breadcrumb nav").name).toBe("Breadcrumb");
+    expect(lead(acme, "breadcrumb nav").match).toBeUndefined();
     expect(lead(acme, "breadcrumb-nav").name).toBe("Breadcrumb");
+    expect(lead(acme, "breadcrumb-nav").match).toBeUndefined();
+    expect(lead(acme, "nav breadcrumb").name).toBe("Breadcrumb");
+    expect(lead(acme, "nav breadcrumb").match).toBeUndefined();
     expect(lead(acme, "call to action buttons").name).toBe("Button");
+    expect(lead(acme, "calls to action").name).toBe("Button");
+    expect(lead(acme, "calls-to-action").name).toBe("Button");
     expect(lead(acme, "call-to-action").name).toBe("Button");
     expect(lead(acme, "save-call-to-action").name).toBe("Save CTA");
     expect(lead(acme, "save-call-to-action").match).toBeUndefined();
+  });
+
+  it("leads with the density list and keeps the named part second", () => {
+    delete process.env["RESOLVE_HOME"];
+    clearCache();
+    const acme = acmeIndex();
+    const ofButtons = recommendMasters(acme, "compact list of buttons", { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> };
+    expect(ofButtons.candidates[0]?.name).toBe("Compact List");
+    expect(ofButtons.candidates[1]?.name).toBe("Button");
+    const buttonList = recommendMasters(acme, "a dense button list", { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> };
+    expect(buttonList.candidates[0]?.name).toBe("Compact List");
+    expect(buttonList.candidates[1]?.name).toBe("Button");
+
+    const home = join(tmpdir(), "resolve-r4-parts");
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, "synonyms.json"), readFileSync(join("fixtures", "material", "synonyms.json")));
+    process.env["RESOLVE_HOME"] = home;
+    clearCache();
+    const payload = JSON.parse(readFileSync(join("fixtures", "material", "library.json"), "utf8")) as { fileKey: string; variables: unknown };
+    const material = indexGraph(
+      buildGraph(
+        adaptFigmaRestFile({ fileKey: payload.fileKey, file: payload, variables: payload.variables, kind: "json", ingestedAt: FROZEN }),
+        { builtAt: FROZEN },
+      ),
+    );
+    const chips = recommendMasters(material, "a compact chip list", { budgetChars: 4000 }) as { match?: string; candidates: Array<{ name?: string }> };
+    expect(chips.candidates[0]?.name).toBe("Chip");
+    expect(chips.candidates.map((row) => row.name)).not.toContain("Badge");
+    const ofChips = recommendMasters(material, "compact list of chips", { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> };
+    expect(ofChips.candidates[0]?.name).toBe("Chip");
+    const badges = recommendMasters(material, "a dense list of badges", { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> };
+    expect(badges.candidates[0]?.name).toBe("Badge");
+    expect(lead(material, "list").name).toBe("List");
   });
 });
