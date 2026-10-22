@@ -1246,7 +1246,9 @@
         "toasting",
         "toasts"
       ],
-      "purpose": [],
+      "purpose": [
+        "A little message pops up after saving or finishing an action"
+      ],
       "attributes": [],
       "not": [],
       "nameTokens": [

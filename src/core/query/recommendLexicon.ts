@@ -896,14 +896,28 @@ function bareSegment(label: string): string {
 }
 
 /** "primary button" stays Button. "card" stays Card. "radio group" stays Radio, not a button group. */
+function absorbedAlias(tokens: readonly string[]): { noun: string; rest: string[] } | undefined {
+  for (const group of allSynonymGroups()) {
+    const phrase = group.terms.find((term) => term.includes(" ") && tokensOf(term).every((part) => tokens.includes(part)));
+    if (!phrase) continue;
+    const noun = group.terms.find((term) => !term.includes(" ") && PLAIN_NOUN.has(term));
+    if (!noun) continue;
+    const covered = new Set(tokensOf(phrase));
+    for (const term of group.terms) if (!term.includes(" ")) covered.add(term);
+    return { noun, rest: tokens.filter((token) => !covered.has(token)) };
+  }
+  return undefined;
+}
+
 export function plainNounOverComposite<T extends { node: { name: string }; setName?: string }>(
   entries: T[],
   queryTokens: string[],
 ): T[] {
-  const nouns = queryTokens.filter((token) => plainNounToken(token));
+  const alias = absorbedAlias(queryTokens);
+  const nouns = alias ? [alias.noun] : queryTokens.filter((token) => plainNounToken(token));
   if (nouns.length !== 1 || entries.length < 2) return entries;
   const noun = nouns[0]!;
-  const rest = queryTokens.filter((token) => token !== noun);
+  const rest = alias ? alias.rest : queryTokens.filter((token) => token !== noun);
   if (rest.some((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token) && !SHAPE_WORD.has(token))) return entries;
   // "save button": a family named by another asked word (not a variant or size word) that is this control is more specific.
   const specific = entries.filter((entry) => nounHit(noun, familyNames(entry), false) && rest.some((token) => !SLOT_QUALIFIERS.has(token) && !SIZE_OR_A11Y.has(token) && familyNames(entry).has(token)));

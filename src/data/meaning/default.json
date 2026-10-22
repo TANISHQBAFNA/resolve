@@ -46,14 +46,6 @@
       "wide display",
       "narrow display"
     ],
-    "items": [
-      "item",
-      "row",
-      "entry",
-      "result",
-      "record",
-      "line"
-    ],
     "describes": {
       "dense": [
         "history",
@@ -171,6 +163,13 @@
         "form",
         "sedan"
       ]
+    },
+    "senses": {
+      "material": ["marble", "stone", "wood", "metal", "glass", "concrete", "ceramic", "plastic", "granite"],
+      "fabric": ["velvet", "silk", "cotton", "wool", "linen", "denim", "canvas"],
+      "paper": ["paper", "vellum", "parchment", "cardstock"],
+      "document": ["document", "notebook", "history", "biography", "novel", "book", "prose", "chapter", "memo", "essay"],
+      "clothing": ["shirt", "shoe", "coat", "dress", "jacket", "sock", "glove", "hat", "scarf"]
     }
   }
 }

@@ -2,7 +2,7 @@
   "version": 1,
   "groups": [
     {
-      "terms": ["button", "cta", "action", "btn", "submit"],
+      "terms": ["button", "cta", "action", "btn", "submit", "call to action"],
       "reason": "A call to action, a btn, or a submit control is a button."
     },
     {

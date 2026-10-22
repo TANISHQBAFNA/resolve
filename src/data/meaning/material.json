@@ -480,7 +480,7 @@
         "pickers"
       ],
       "purpose": [
-        "Pick a date"
+        "Pick a day, a week, a month, or a year"
       ],
       "attributes": [
         {
@@ -578,7 +578,7 @@
         "panels"
       ],
       "purpose": [
-        "A row that opens to show more"
+        "Expand a row or section to show more detail"
       ],
       "attributes": [],
       "not": [
@@ -1024,7 +1024,7 @@
         "paginators"
       ],
       "purpose": [
-        "Pages of a table"
+        "Paging through the pages of a long table or list"
       ],
       "attributes": [],
       "not": [],
@@ -1297,7 +1297,7 @@
         "snackbars"
       ],
       "purpose": [
-        "Brief message at the bottom of the screen"
+        "A little message pops up after saving or finishing an action"
       ],
       "attributes": [],
       "not": [],
@@ -1433,7 +1433,7 @@
         "timing"
       ],
       "purpose": [
-        "Pick a time"
+        "Pick a minute, an hour, or a time of day"
       ],
       "attributes": [
         {
@@ -1507,7 +1507,7 @@
         "tooltips"
       ],
       "purpose": [
-        "Label for an icon-only control"
+        "Explain a control when you hover it"
       ],
       "attributes": [],
       "not": [],

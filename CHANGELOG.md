@@ -2,6 +2,10 @@
 
 ## Unreleased — meaning dictionary
 
+Oct 22, 2026. A density word before `list`, or before `list of` a plural, applies for any noun except one the word itself describes: a material, fabric, paper, document, or clothing noun. A library with no density variant falls back to the plain list, or answers empty, instead of an unrelated weak part. Minute, hour, and time of day lead the time picker. Day, week, month, and year lead the date picker. Paging, hover, expand, and a saved-message ask match the purpose text on the part. `call to action` is a button alias, and a named CTA still wins.
+
+
+
 Oct 21, 2026. Density before `list` applies only when the noun is a library part or a generic item (`item`, `row`, `entry`, `result`, and the other words in the shared base). `list of <plural>` is singularized first. A comfort word plus `rows` is empty when the library has no density variant. `big display`, `wide display`, and `narrow display` are back in the shared device words. A breadcrumb ask that also says nav leads with Breadcrumb. Hyphens in a call to action are read as spaces.
 
 

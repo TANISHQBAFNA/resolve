@@ -2,8 +2,8 @@
   "version": 1,
   "note": "Written after the parse was wired. Not used to change ranking.",
   "cases": [
-    { "library": "acme", "phrase": "give me a condensed list of rows", "expect": "Compact List" },
-    { "library": "acme", "phrase": "the comfortable list of entries", "expect": "Comfortable List" },
+    { "library": "acme", "phrase": "give me a condensed list of payees", "expect": "Compact List" },
+    { "library": "acme", "phrase": "the comfortable list of names", "expect": "Comfortable List" },
     { "library": "acme", "phrase": "an airy list for the phone", "expect": "Comfortable List" },
     { "library": "acme", "phrase": "tight rows for a tablet", "expect": "Compact List" },
     { "library": "acme", "phrase": "button that saves the draft", "expect": "Save CTA" },

@@ -43,20 +43,18 @@ describe("r4 density, device, date, and acme wording", () => {
     else process.env["RESOLVE_HOME"] = previous;
   });
 
-  it("reads density only for a part or a generic item, including nav and row of a part", () => {
+  it("reads density for an everyday noun, and not when the noun is a material or a fabric", () => {
     delete process.env["RESOLVE_HOME"];
     clearCache();
     const index = acmeIndex();
     expect(lead(index, "a tight nav list").name).toBe("Compact List");
-    expect(lead(index, "an airy list of entries").name).toBe("Comfortable List");
+    expect(lead(index, "a dense people list").name).toBe("Compact List");
     expect(lead(index, "a relaxed list of rows").name).toBe("Comfortable List");
     expect(lead(index, "a compact row, of buttons").name).toBe("Button");
     for (const phrase of ["a dense velvet list", "a compact marble list", "a roomy notebook list", "a tight vellum list"]) {
       expect(lead(index, phrase).name, phrase).not.toMatch(/Compact List|Comfortable List/);
     }
-    const language = meaningDictionary(index).language;
-    expect(language.density.comfortable).toContain("relaxed");
-    expect(language.items).toEqual(expect.arrayContaining(["item", "row", "entry", "result"]));
+    expect(meaningDictionary(index).language.density.comfortable).toContain("relaxed");
   });
 
   it("returns empty for a comfort word on rows when the library has no density variant", () => {
@@ -72,11 +70,11 @@ describe("r4 density, device, date, and acme wording", () => {
         { builtAt: FROZEN },
       ),
     );
-    expect(lead(index, "roomy rows").name).toBe("");
-    expect(lead(index, "airy rows").name).toBe("");
+    expect(lead(index, "roomy rows").name).toBe("List");
+    expect(lead(index, "airy rows").name).toBe("List");
     const compact = lead(index, "compact rows");
-    expect(compact.name).not.toBe("");
-    expect(compact.match).toBe("weak match");
+    expect(compact.name).toBe("List");
+    expect(compact.match).toBeUndefined();
     const brief = briefScreen({ request: "compact rows", index, recipes: starterRecipes(), decisions: [] });
     const topics = "questions" in brief ? brief.questions.map((question) => question.topic) : [];
     expect(topics).not.toContain("states");

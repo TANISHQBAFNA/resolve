@@ -213,8 +213,10 @@ export function mergeLanguage(base: MeaningLanguage, extra: Partial<MeaningLangu
   addWords(describes, base.describes);
   addWords(describes, extra?.describes);
   const device = [...new Set([...base.device, ...(extra?.device ?? [])].map((word) => word.toLowerCase()))].sort();
-  const items = [...new Set([...(base.items ?? []), ...(extra?.items ?? [])].map((word) => word.toLowerCase()))].sort();
-  return { density, device, items, describes };
+  const senses: Record<string, string[]> = {};
+  addWords(senses, base.senses);
+  addWords(senses, extra?.senses);
+  return { density, device, describes, senses };
 }
 
 function derivedLanguage(entries: readonly MeaningEntry[]): MeaningLanguage {
@@ -230,7 +232,7 @@ function derivedLanguage(entries: readonly MeaningEntry[]): MeaningLanguage {
       if (token === "phone" || token === "mobile" || token === "desktop" || token === "tablet") device.add(token);
     }
   }
-  return { density, device: [...device].sort(), items: [], describes: {} };
+  return { density, device: [...device].sort(), describes: {}, senses: {} };
 }
 
 function namedLibrary(fileName: string, library: string): boolean {

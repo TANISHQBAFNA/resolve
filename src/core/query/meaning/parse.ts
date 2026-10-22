@@ -30,8 +30,8 @@ export function languageOf(raw: Partial<MeaningLanguage> | undefined): MeaningLa
   return {
     density: raw?.density ?? {},
     device: raw?.device ?? [],
-    items: raw?.items ?? [],
     describes: raw?.describes ?? {},
+    senses: raw?.senses ?? {},
   };
 }
 
@@ -68,12 +68,25 @@ function deviceSource(device: readonly string[]): string {
 
 const ARTICLE = new Set(["a", "an", "the"]);
 
+function nounDescribed(language: MeaningLanguage, word: string, noun: string): boolean {
+  const stem = nounStem(noun);
+  const lower = noun.toLowerCase();
+  const canonical = wordMap(language).get(word.toLowerCase());
+  const keys = [word.toLowerCase(), ...(canonical ? [canonical] : [])];
+  for (const key of keys) {
+    const described = language.describes[key] ?? [];
+    if (described.includes(stem) || described.includes(lower)) return true;
+  }
+  return Object.values(language.senses).some((words) => words.includes(stem) || words.includes(lower));
+}
+
 /**
- * Rewrite a density word that modifies list or row, using this library's words.
- * A noun before list counts only when `holds` says it is a part or a generic item.
- * "list of <plural>" is singularized before that check. A row of a part is not a density list.
+ * Rewrite a density word that modifies list or row.
+ * Any noun before list counts, and so does list of a plural once that plural is singular.
+ * A density word that plainly describes the noun (a material, fabric, paper, document, or clothing sense) does not.
+ * A row of a part is not a density list.
  */
-export function densityText(text: string, language: MeaningLanguage, holds: (noun: string) => boolean = () => false): string {
+export function densityText(text: string, language: MeaningLanguage): string {
   const as = (word: string) => wordMap(language).get(word.toLowerCase());
   const known = new Set(wordMap(language).keys());
   const pattern = deviceSource(language.device);
@@ -99,7 +112,7 @@ export function densityText(text: string, language: MeaningLanguage, holds: (nou
         const between = gap.trim().split(/\s+/).filter((token) => token && !ARTICLE.has(token));
         if (between.some((token) => GAP_STOP.has(token))) return match;
         const noun = ofNoun ? nounStem(ofNoun) : between.length ? nounStem(between[between.length - 1] ?? "") : "";
-        const ok = !noun || holds(noun);
+        const ok = !noun || !nounDescribed(language, word, noun);
         const ofTail = ofNoun ? ` of ${ofNoun}` : "";
         if (!ok) {
           if (word.toLowerCase() === density) return `${gap}${listWord}${ofTail}`.replace(/^\s+/, (lead) => lead);
@@ -165,6 +178,36 @@ function purposeFits(entry: MeaningEntry, purposeTokens: readonly string[]): boo
   return meaningful.every((token) => hay.has(token));
 }
 
+function purposeLead(askTokens: readonly string[], live: readonly MeaningEntry[]): MeaningEntry | undefined {
+  const generic = new Set(["list", "row", "item", "button", "card", "message", "field", "bar", "icon", "text", "input"]);
+  const content = askTokens.filter((token) => token.length > 2 && !GAP_STOP.has(token) && !FILLER_HEAD.has(token) && !CHOOSE.has(token));
+  if (!content.length) return undefined;
+  const styleValue = new Set(live.flatMap((entry) => entry.attributes.flatMap((row) => row.values.map((value) => value.toLowerCase()))));
+  if (content.every((token) => styleValue.has(token))) return undefined;
+  const named = live.some((entry) => askTokens.includes(entry.name.toLowerCase()) || entry.nameTokens.some((token) => token.length > 3 && !generic.has(token) && (askTokens.includes(token) || askTokens.includes(`${token}s`))));
+  if (named) return undefined;
+  const hit = (token: string, word: string) => {
+    const stem = nounStem(token);
+    const other = nounStem(word);
+    if (token === word || stem === other) return true;
+    const short = stem.length <= other.length ? stem : other;
+    const long = stem.length <= other.length ? other : stem;
+    return short.length >= 4 && long.startsWith(short);
+  };
+  const scored = live
+    .map((entry) => {
+      const hay = tokensOf(entry.purpose.join(" "));
+      const score = content.filter((token) => hay.some((word) => hit(token, word))).length;
+      return { entry, score };
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || a.entry.name.localeCompare(b.entry.name));
+  const best = scored[0];
+  if (!best || (scored[1] && scored[1].score === best.score)) return undefined;
+  if (best.score >= 2 || content.length === 1) return best.entry;
+  return undefined;
+}
+
 function genericHead(token: string | null): boolean {
   if (!token) return true;
   return FILLER_HEAD.has(token) || token === "picker" || token === "tool" || token === "widget";
@@ -179,13 +222,7 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
   const kept = withoutContrast(raw);
   const { purpose, purposeTokens } = purposeSplit(kept);
   const fillerLead = /^(?:a|an|the\s+)?(?:widget|control|way|tool)\b/i.test(kept);
-  const itemNouns = new Set(language.items.map((word) => nounStem(word)));
-  const held = (noun: string) => {
-    const stem = nounStem(noun);
-    if (itemNouns.has(stem) || itemNouns.has(noun.toLowerCase())) return true;
-    return dictionary.entries.some((entry) => !entry.retired && (entry.nameTokens.includes(stem) || entry.synonyms.some((term) => term === stem || term.split(/\s+/).includes(stem))));
-  };
-  const text = densityText(fillerLead && purpose ? purpose : kept, language, held);
+  const text = densityText(fillerLead && purpose ? purpose : kept, language);
   const excluded = exclusions(raw, dictionary);
   const beforePurpose = kept.toLowerCase().split(/\b(?:to|for|on|when)\b/)[0] ?? kept;
   const content = tokensOf(beforePurpose);
@@ -241,13 +278,31 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
       reasons.push(`${hits[0].name} stays. ${excluded.join(", ")} is not it.`);
     }
   }
-  const comfort = new Set((language.density.comfortable ?? []).map((word) => word.toLowerCase()));
   const askTokens = tokensOf(kept);
-  const comfortRows =
-    askTokens.some((token) => comfort.has(token)) &&
-    askTokens.some((token) => token === "row" || token === "rows") &&
-    askTokens.every((token) => comfort.has(token) || token === "row" || token === "rows");
-  const comfortVariant = live.some((entry) => entry.nameTokens.includes("comfortable") && entry.nameTokens.some((token) => token === "list" || token === "row"));
+  if (density && !leadName) {
+    const densityWords = new Set(Object.values(language.density).flat().map((word) => word.toLowerCase()));
+    const beforeList = new RegExp(String.raw`\b(?:${[...densityWords].join("|")})\s+(?:[a-z]+\s+){0,2}(?:lists?|rows?)\b`, "i").test(kept);
+    const butRow = /\brows?\b(?:\s*,\s*|\s+)but\b/i.test(kept);
+    if (!beforeList && !butRow) {
+      // density said after the list stays unanswered when this library has no such variant
+    } else {
+    const covers = (token: string) => askTokens.includes(token) || askTokens.includes(`${token}s`) || askTokens.includes(`${token}es`);
+    const named = live
+      .filter((entry) => {
+        const own = entry.nameTokens.filter((token) => !densityWords.has(token));
+        return own.length > 0 && own.every((token) => covers(token));
+      })
+      .sort((a, b) => b.nameTokens.length - a.nameTokens.length || a.name.localeCompare(b.name));
+    const plain = live.find((entry) => entry.nameTokens.length === 1 && entry.nameTokens[0] === "list");
+    const fallback = named[0] ?? plain;
+    if (fallback) {
+      leadName = fallback.name;
+      reasons.push("No density variant. The plain part stays.");
+    } else {
+      reasons.push("No density variant.");
+    }
+    }
+  }
   const crumb = askTokens.some((token) => token === "breadcrumb" || token === "trail" || token === "crumb");
   const navWord = askTokens.some((token) => token === "nav" || token === "navigation");
   if (!leadName && crumb && navWord) {
@@ -257,24 +312,31 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
       reasons.push("A breadcrumb that also says nav is the breadcrumb.");
     }
   }
-  if (!leadName && /^(?:a\s+|an\s+|the\s+)?call(?:-|\s+)to(?:-|\s+)action$/i.test(kept.trim())) {
-    const button = live.find((entry) => entry.name.toLowerCase() === "button");
-    if (button) {
-      leadName = button.name;
-      reasons.push("A call to action is the button.");
+  const dateUnits = new Set(["date", "day", "week", "month", "year"]);
+  const timeUnits = new Set(["time", "hour", "minute"]);
+  const unitWords = askTokens.filter((token) => dateUnits.has(token) || timeUnits.has(token));
+  if (!leadName && unitWords.length) {
+    const wantsTime = unitWords.some((token) => timeUnits.has(token));
+    const picker = wantsTime
+      ? live.find((entry) => entry.nameTokens.includes("time") && entry.nameTokens.includes("picker"))
+      : live.find((entry) => entry.nameTokens.includes("date") && (entry.nameTokens.includes("picker") || entry.synonyms.includes("datepicker")));
+    const otherPart = live.some((entry) => entry.nameTokens.some((token) => token.length > 3 && !dateUnits.has(token) && !timeUnits.has(token) && token !== "picker" && askTokens.includes(token)));
+    if (picker && !otherPart) {
+      leadName = picker.name;
+      reasons.push(wantsTime ? "A time unit uses the time picker." : "A date unit uses the date picker.");
     }
   }
-  const dateUnit = new Set(["date", "day", "month", "year", "week", "time", "hour", "minute"]);
-  if (!leadName && askTokens.some((token) => CHOOSE.has(token)) && askTokens.some((token) => dateUnit.has(token))) {
-    const picker = live.find((entry) => entry.nameTokens.includes("date") && (entry.nameTokens.includes("picker") || entry.synonyms.includes("datepicker")));
-    if (picker) {
-      leadName = picker.name;
-      reasons.push("Picking a date unit uses the date picker.");
+  if (!leadName) {
+    const described = purposeLead(askTokens, live);
+    if (described) {
+      leadName = described.name;
+      reasons.push(`Purpose matches ${described.name}.`);
     }
   }
   const choose = /\bto\s+(?:choose|pick|grab|select)\b/i.test(raw);
   const purposeKnown = live.some((entry) => purposeFits(entry, purposeTokens));
-  const empty = (comfortRows && !comfortVariant) || onlyInflectedAsk(raw, dictionary) || (choose && genericHead(head) && !leadName && !purposeKnown) || (genericHead(head) && purposeTokens.length > 0 && !purposeKnown && !leadName && head === "picker");
+  const noVariant = reasons.some((reason) => reason === "No density variant.");
+  const empty = noVariant || onlyInflectedAsk(raw, dictionary) || (choose && genericHead(head) && !leadName && !purposeKnown) || (genericHead(head) && purposeTokens.length > 0 && !purposeKnown && !leadName && head === "picker");
   if (empty) reasons.push("Nothing in this library fits.");
   const lead = leadName ? live.find((entry) => entry.name === leadName) : undefined;
   const weakWords = lead

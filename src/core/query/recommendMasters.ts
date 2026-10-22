@@ -721,10 +721,10 @@ export function recommendMasters(
       if (idx > 0) {
         const [hit] = kept.splice(idx, 1);
         if (hit) {
-          if (decision.reasons.some((reason) => reason.startsWith("A breadcrumb"))) hit.weak = false;
+          if (decision.reasons.some((reason) => reason.startsWith("A breadcrumb") || reason.startsWith("No density variant"))) hit.weak = false;
           kept.unshift(hit);
         }
-      } else if (idx === 0 && kept[0] && decision.reasons.some((reason) => reason.startsWith("A breadcrumb"))) {
+      } else if (idx === 0 && kept[0] && decision.reasons.some((reason) => reason.startsWith("A breadcrumb") || reason.startsWith("No density variant"))) {
         kept[0].weak = false;
       } else if (idx < 0) {
         const node = realMastersNamed(index, decision.leadName).find((item) => !isRetired(index, item) && !isPrivateMaster(index, item));
@@ -740,7 +740,7 @@ export function recommendMasters(
             instances: computeComponentUsage(index, node).instanceCount,
             exactName: false,
             covered: tokens.length,
-            weak: decision.weakWords.length > 0,
+            weak: decision.weakWords.length > 0 && !decision.reasons.some((reason) => reason.startsWith("No density variant")),
           });
         }
       }
