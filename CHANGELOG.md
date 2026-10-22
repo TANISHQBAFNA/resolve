@@ -2,6 +2,10 @@
 
 ## Unreleased — meaning dictionary
 
+Oct 22, 2026. On a library with no density list, `<density> list of <part>` leads with that part. A form named in the ask wins over a density word that is not on the list. A single inflected word that does not name a component stays empty.
+
+
+
 Oct 22, 2026. A regression gate scores every in-repo ask against origin/main and fails when a correct main lead changes, unless that ask is allowlisted with a reason. A purpose or word-form fallback lead is always weak. A density word on a named part's list leads with the density list and keeps the part second. Fabric plurals and food, garden, and budget compounds are senses. `calls to action` is Button. A breadcrumb said with nav stays strong.
 
 

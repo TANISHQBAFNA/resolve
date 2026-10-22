@@ -15,7 +15,6 @@ import { buildGraph } from "@/core/transform/buildGraph";
 import { clearCache } from "@/server/store";
 
 type PurposeFallback = typeof import("@/core/query/meaning/parse").purposeFallback;
-type WordFormFallback = typeof import("@/core/query/meaning/parse").wordFormFallback;
 type MeaningDictionaryFn = typeof import("@/core/query/meaning/buildDictionary").meaningDictionary;
 
 interface Ask {
@@ -71,17 +70,14 @@ function withHome(home: string | undefined): void {
 }
 
 let purposeFallback: PurposeFallback | undefined;
-let wordFormFallback: WordFormFallback | undefined;
 let meaningDictionary: MeaningDictionaryFn | undefined;
 try {
   const parse = await import("@/core/query/meaning/parse");
   const dictionary = await import("@/core/query/meaning/buildDictionary");
   purposeFallback = parse.purposeFallback;
-  wordFormFallback = parse.wordFormFallback;
   meaningDictionary = dictionary.meaningDictionary;
 } catch {
   purposeFallback = undefined;
-  wordFormFallback = undefined;
   meaningDictionary = undefined;
 }
 
@@ -90,14 +86,12 @@ function score(index: GraphIndex, phrase: string): { lead: string; weak: boolean
   const lead = card.candidates[0]?.name ?? "";
   const weak = card.match === "weak match";
   let via = "";
-  if (lead && purposeFallback && wordFormFallback && meaningDictionary) {
+  if (lead && purposeFallback && meaningDictionary) {
     const skipped = recommendMasters(index, phrase, { budgetChars: 4000, skipFallback: true }) as { candidates: Array<{ name?: string }> };
     if ((skipped.candidates[0]?.name ?? "") !== lead) {
       const tokens = phrase.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
       const live = meaningDictionary(index).entries.filter((entry) => !entry.retired);
-      if (purposeFallback(tokens, live)?.name === lead) via = "purpose";
-      else if (wordFormFallback(tokens, live)?.name === lead) via = "word-form";
-      else via = "fallback";
+      via = purposeFallback(tokens, live)?.name === lead ? "purpose" : "fallback";
     }
   }
   return { lead, weak, via };

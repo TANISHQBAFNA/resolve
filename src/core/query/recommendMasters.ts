@@ -13,7 +13,7 @@ import { examplePointer } from "./examples";
 import type { GraphIndex } from "./GraphIndex";
 import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RECOMMEND_BUDGET, sameNameNote, substitutionNote, variantCardName } from "./masterNames";
 import { placeReady } from "./placeReady";
-import { prepareAsk, purposeFallback, wordFormFallback, type MeaningDecision } from "./meaning/parse";
+import { prepareAsk, purposeFallback, type MeaningDecision } from "./meaning/parse";
 import { meaningDictionary } from "./meaning/buildDictionary";
 import { interpretInflections, onlyInflectedAsk } from "./meaning/inflections";
 import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
@@ -599,13 +599,18 @@ export function recommendMasters(
     return !isWeakerNameStub(index, entry.node, preferred);
   });
   if (decision?.empty) kept = kept.filter((entry) => entry.why.includes("typo"));
-  if (!options.skipFallback && kept.length === 0 && decision && !decision.empty && !decision.leadName && !onlyInflectedAsk(echoIntent, dictionary)) {
+  const loneWord = tokensOf(echoIntent).length === 1 ? tokensOf(echoIntent)[0] : undefined;
+  const stemNamesPart = Boolean(
+    loneWord &&
+      /(?:ed|ing)$/.test(loneWord) &&
+      inflectionStems(loneWord).some((stem) =>
+        dictionary.entries.some((entry) => !entry.retired && (entry.nameTokens.includes(stem) || entry.synonyms.includes(stem))),
+      ),
+  );
+  if (!options.skipFallback && !stemNamesPart && kept.length === 0 && decision && !decision.empty && !decision.leadName && !onlyInflectedAsk(echoIntent, dictionary)) {
     const liveEntries = dictionary.entries.filter((entry) => !entry.retired);
-    const askTokens = tokensOf(echoIntent);
-    const purposeHit = purposeFallback(askTokens, liveEntries);
-    const formHit = purposeHit ? undefined : wordFormFallback(askTokens, liveEntries);
-    const fallback = purposeHit ?? formHit;
-    const node = fallback ? realMastersNamed(index, fallback.name).find((item) => !isRetired(index, item) && !isPrivateMaster(index, item)) : undefined;
+    const purposeHit = purposeFallback(tokensOf(echoIntent), liveEntries);
+    const node = purposeHit ? realMastersNamed(index, purposeHit.name).find((item) => !isRetired(index, item) && !isPrivateMaster(index, item)) : undefined;
     if (node) {
       kept = [{
         node,
@@ -618,10 +623,13 @@ export function recommendMasters(
         exactName: false,
         covered: tokens.length,
         weak: true,
-        fallback: purposeHit ? "purpose" : "word-form",
+        fallback: "purpose",
       }];
     }
   }
+  const loneInflected = Boolean(loneWord && /(?:ed|ing)$/.test(loneWord));
+  const listedSynonym = Boolean(loneWord && dictionary.synonymGroups.some((group) => group.includes(loneWord)));
+  if (loneInflected && !listedSynonym && kept[0] && !kept[0].why.some((item) => item === "name" || item === "synonym" || item === "typo")) kept = [];
   if (kept.length > 1) {
     const leadName = kept[0]!.node.name;
     const same = kept.filter((entry) => entry.node.name === leadName);

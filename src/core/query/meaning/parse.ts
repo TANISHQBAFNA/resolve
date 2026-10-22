@@ -201,6 +201,11 @@ export function purposeFallback(askTokens: readonly string[], live: readonly Mea
   const styleValue = new Set(live.flatMap((entry) => entry.attributes.flatMap((row) => row.values.map((value) => value.toLowerCase()))));
   const content = askTokens.filter((token) => token.length > 2 && !GAP_STOP.has(token) && !FILLER_HEAD.has(token) && !CHOOSE.has(token) && !styleValue.has(token));
   if (!content.length) return undefined;
+  if (content.length === 1 && /(?:ed|ing)$/.test(content[0] ?? "")) {
+    const token = content[0]!;
+    const leads = live.filter((entry) => entry.purpose.some((line) => tokensOf(line)[0] === token));
+    return leads.length === 1 ? leads[0] : undefined;
+  }
   const hayOf = (entry: MeaningEntry) => tokensOf(entry.purpose.join(" "));
   const hitsWord = (token: string, entry: MeaningEntry) => hayOf(entry).some((word) => purposeWordsHit(token, word));
   const owners = (token: string) => live.filter((entry) => hitsWord(token, entry)).length;
@@ -215,16 +220,6 @@ export function purposeFallback(askTokens: readonly string[], live: readonly Mea
   const best = scored[0];
   if (!best || (scored[1] && scored[1].score === best.score && scored[1].rare === best.rare)) return undefined;
   return best.entry;
-}
-
-/** One inflected form of a single part, and nothing else. A guess, so the lead stays weak. */
-export function wordFormFallback(askTokens: readonly string[], live: readonly MeaningEntry[]): MeaningEntry | undefined {
-  const content = askTokens.filter((token) => token.length > 2 && !GAP_STOP.has(token) && !FILLER_HEAD.has(token) && !ARTICLE.has(token));
-  if (content.length !== 1) return undefined;
-  const token = content[0]!;
-  const hits = live.filter((entry) => entry.wordForms.includes(token));
-  if (hits.length !== 1) return undefined;
-  return hits[0];
 }
 
 const HELD_RECORD = new Set(["list", "row", "item", "entry", "result", "record", "line", "card", "name"]);
@@ -323,17 +318,20 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
   const read = interpretInflections(content.length ? content : tokensOf(text), dictionary);
   const attributes = [...read.attributes];
   const lists = /\b(lists?|rows?)\b/i.test(text) && !/\brows?\b(?:\s*,?\s*(?:of|containing|full\s+of|with)\b)/i.test(text);
-  const densityValue = lists ? Object.keys(language.density).find((value) => new RegExp(`\\b${value}\\b`, "i").test(text)) : undefined;
+  const besideList = (value: string) => new RegExp(String.raw`\b${value}\s+(?:[a-z]+\s+){0,2}(?:lists?|rows?)\b|\b(?:lists?|rows?)\b(?:\s*,\s*|\s+)(?:but\s+|that\s+(?:is|are)\s+|which\s+is\s+|that's\s+)?${value}\b`, "i").test(text);
+  const densityValue = lists ? Object.keys(language.density).find((value) => besideList(value)) : undefined;
   if (densityValue) attributes.push({ kind: "density", value: densityValue });
   const head = read.tokens.find((token) => !wordMap(language).has(token) && !GAP_STOP.has(token)) ?? null;
   const reasons: string[] = [];
   let leadName: string | undefined;
   const live = dictionary.entries.filter((entry) => !entry.retired);
   const density = attributes.find((row) => row.kind === "density");
+  let densityLead = false;
   if (density) {
     const hits = live.filter((entry) => entry.nameTokens.includes(density.value) && entry.nameTokens.some((token) => token === "list" || token === "row"));
     if (hits.length === 1 && hits[0]) {
       leadName = hits[0].name;
+      densityLead = true;
       reasons.push(`${density.kind} ${density.value} selects ${hits[0].name}.`);
     }
   }
@@ -380,7 +378,10 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
     if (!beforeList && !butRow) {
       // density said after the list stays unanswered when this library has no such variant
     } else {
-    const covers = (token: string) => askTokens.includes(token) || askTokens.includes(`${token}s`) || askTokens.includes(`${token}es`);
+    const covers = (token: string) => {
+      const plural = token.endsWith("y") ? `${token.slice(0, -1)}ies` : `${token}s`;
+      return askTokens.includes(token) || askTokens.includes(plural) || askTokens.includes(`${token}es`);
+    };
     const named = live
       .filter((entry) => {
         const own = entry.nameTokens.filter((token) => !densityWords.has(token));
@@ -388,7 +389,8 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
       })
       .sort((a, b) => b.nameTokens.length - a.nameTokens.length || a.name.localeCompare(b.name));
     const plain = live.find((entry) => entry.nameTokens.length === 1 && entry.nameTokens[0] === "list");
-    const fallback = named[0] ?? plain;
+    const specific = named.filter((entry) => !(entry.nameTokens.length === 1 && (entry.nameTokens[0] === "list" || entry.nameTokens[0] === "row")));
+    const fallback = specific[0] ?? namedPart ?? plain;
     if (fallback) {
       leadName = fallback.name;
       reasons.push("No density variant. The plain part stays.");
@@ -398,7 +400,7 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
     }
   }
   let secondName: string | undefined;
-  if (leadName && namedPart && density) {
+  if (densityLead && namedPart && leadName !== namedPart.name) {
     secondName = namedPart.name;
     reasons.push(`${namedPart.name} stays second. The density list leads.`);
   }
