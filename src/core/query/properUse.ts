@@ -5,6 +5,7 @@ import { hexFromColor, payloadHasBindings, paintsByNodeId } from "@/core/ingesti
 import { setOf } from "@/core/rules/family";
 import { foldLibName, isNameInferredMaster, isPrivateMasterName } from "@/core/rules/names";
 import { isRetired } from "@/core/rules/retired";
+import { NAME_FLOOR } from "./cardFit";
 import { type AgentCost, withCost } from "./cost";
 import { instancePropertyFindings } from "./componentProperties";
 import type { GraphIndex } from "./GraphIndex";
@@ -129,7 +130,7 @@ function barsFor(level: A11yLevel): Bars {
     case "aa-minimum":
       return { level: "wcag-aa-minimum", normal: 4.5, large: 3, tap: 24, contrast: true };
     case "aa":
-      return { level: "wcag-aa", normal: 4.5, large: 3, tap: 44, contrast: true };
+      return { level: "wcag-aa", normal: 4.5, large: 3, tap: 24, contrast: true };
     default: {
       const unexpected: never = level;
       return unexpected;
@@ -792,27 +793,51 @@ export function verifyExitCode(result: { pass?: boolean; properUse?: { exitCode?
   return code === 0 ? 0 : code;
 }
 
-/**
- * JSON `pass` for a check. True only when the verdict exit code is 0.
- * A proper-use failure keeps the component pass on the object verify uses for
- * Markdown (`Components: PASS`), and this copy sets `pass` false for exit 7.
- */
+/** JSON `pass` is true only when the verdict exit code is 0. Exit 7 sets `result` to `proper_use_failed`. */
 function withPass(value: object): value is { pass: boolean; properUse?: { exitCode?: number } } {
   return "pass" in value && typeof value.pass === "boolean";
 }
 
 export function publishedVerdict<T>(result: T): T {
   if (!result || typeof result !== "object" || Array.isArray(result) || !withPass(result)) return result;
-  const pass = verifyExitCode(result) === 0;
-  if (result.pass === pass) return result;
-  return { ...result, pass } as T;
+  const exit = verifyExitCode(result);
+  const pass = exit === 0;
+  const properUseFailed = exit === 7;
+  const current = "result" in result && typeof result.result === "string" ? result.result : undefined;
+  if (result.pass === pass && (!properUseFailed || current === "proper_use_failed")) return result;
+  return { ...result, pass, ...(properUseFailed ? { result: "proper_use_failed" as const } : {}) } as T;
+}
+
+function skippedCopy(frame: GraphNode, level: string): ProperUseReport {
+  return {
+    summary: "Proper use was not run: this placed copy has no main component in the learned library.",
+    errors: 0,
+    warnings: 0,
+    unknown: 1,
+    exitCode: 0,
+    level,
+    findings: [
+      {
+        severity: "info",
+        check: "unknown",
+        name: frame.name,
+        ...(frame.figmaNodeId ? { figmaNodeId: frame.figmaNodeId } : {}),
+        problem: "Proper use was not run: this placed copy has no main component in the learned library.",
+        fix: "Learn the library file that holds this component, then check again.",
+      },
+    ],
+  };
 }
 
 export function checkProperUse(index: GraphIndex, frameName: string | undefined, options: ProperUseOptions = {}): ProperUseReport | undefined {
   const asked = frameName?.trim();
   if (!asked) return undefined;
-  const frame = resolveNode(index, asked);
-  if (!frame || frame.type === "COMPONENT_INSTANCE") return undefined;
+  const askedNode = resolveNode(index, asked);
+  if (!askedNode) return undefined;
+  const placed = askedNode.type === "COMPONENT_INSTANCE";
+  const main = placed ? index.getMainComponent(askedNode.id) : askedNode;
+  if (!main) return skippedCopy(askedNode, barsFor(a11yLevel(options.a11y)).level);
+  const frame = main;
   const bars = barsFor(a11yLevel(options.a11y));
   const overlay = options.designContext !== undefined ? paintsByNodeId(options.designContext) : new Map<string, SourcePaint>();
   const paintAt = (node: GraphNode) => paintOf(node, overlay);
@@ -866,6 +891,31 @@ function shedProperUseHost(host: Record<string, unknown>, step: number): boolean
       return dropKey(host, "hint");
     default:
       return false;
+  }
+}
+
+function clipEnd(text: string): string {
+  if (text.length <= 48) return text;
+  return `${text.slice(0, NAME_FLOOR - 1)}…`;
+}
+
+function clipNameRecord(record: Record<string, unknown>): void {
+  for (const field of ["name", "given"]) {
+    const text = record[field];
+    if (typeof text === "string") record[field] = clipEnd(text);
+  }
+  const meant = record["didYouMean"];
+  if (meant && typeof meant === "object") clipNameRecord(meant as Record<string, unknown>);
+}
+
+/** End-clip echoed names so a zero-error proper-use line still fits. */
+function clipListedNames(host: Record<string, unknown>): void {
+  for (const key of ["resolved", "unresolved", "invents", "deprecated"]) {
+    const rows = host[key];
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      if (row && typeof row === "object") clipNameRecord(row as Record<string, unknown>);
+    }
   }
 }
 
@@ -923,6 +973,28 @@ export function attachProperUse<T extends object>(
     } else break;
     priced = build();
   }
-  if (JSON.stringify(priced).length > budget && report.errors === 0) return card;
+  if (JSON.stringify(priced).length > budget && report.errors === 0) {
+    shown = [];
+    truncated = undefined;
+    priced = build();
+    if (JSON.stringify(priced).length > budget) {
+      clipListedNames(host);
+      for (const key of ["deprecated", "unresolved", "resolved"]) {
+        const rows = host[key];
+        if (Array.isArray(rows) && rows.length === 0) delete host[key];
+      }
+      priced = build();
+    }
+    const hint = host["hint"];
+    if (!host["frame"] && JSON.stringify(priced).length > budget && typeof hint === "string" && hint.length > 48) {
+      host["hint"] = `${hint.slice(0, 47)}…`;
+      priced = build();
+    }
+    if (JSON.stringify(priced).length > budget) {
+      const slim = report as { level?: string; unknown?: number; warnings?: number };
+      delete slim.level; delete slim.unknown; if (!slim.warnings) delete slim.warnings; priced = build();
+    }
+    if (JSON.stringify(priced).length > budget) return price(card) as T & { properUse?: ProperUseReport; cost?: AgentCost };
+  }
   return priced as T & { properUse?: ProperUseReport; cost?: AgentCost };
 }

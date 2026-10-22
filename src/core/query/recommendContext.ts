@@ -99,9 +99,12 @@ for (const group of synonymFile.groups) {
   for (const term of terms) SYNONYM_OF.set(term, terms);
 }
 /** Label words that can sit beside a control. They match, and the card is partial. */
-export const LABEL_FILLER = new Set(["sign", "terms", "submit", "submitting", "phone", "number", "country", "edit"]);
-/** Unasked position words. "app bar" is the top bar, not the bottom bar. */
-export const DEMOTE_UNASKED = new Set(["bottom", "secondary", "right"]);
+export const LABEL_FILLER = new Set(["sign", "terms", "submit", "submitting", "phone", "number", "country", "edit", "hidden"]);
+/**
+ * Unasked position, platform, and density words. "app bar" is the top bar, not the bottom bar; "a list" is the
+ * plain list, not Compact List or Comfortable List.
+ */
+export const DEMOTE_UNASKED = new Set(["bottom", "secondary", "right", "compact", "comfortable", "desktop", "mobile"]);
 interface SynonymGroup {
   terms: string[];
 }
@@ -114,9 +117,33 @@ function synonymOverlayFile(): string | undefined {
   return overlayFile("synonyms.json");
 }
 /** Per-library words. Missing or broken file changes nothing. */
+let phraseVocab: { oneWord: Set<string>; tokens: Set<string>; phrases: Set<string> } | null = null;
+/** One-word terms, phrase keys, and every synonym word, built once per loaded library. */
+export function synonymPhraseVocab(): { oneWord: Set<string>; tokens: Set<string>; phrases: Set<string> } {
+  if (phraseVocab) return phraseVocab;
+  const oneWord = new Set<string>();
+  const tokens = new Set<string>();
+  const phrases = new Set<string>();
+  for (const group of allSynonymGroups()) {
+    for (const term of group.terms) {
+      const lower = term.toLowerCase();
+      const parts = lower.split(/[^a-z0-9]+/).filter((part) => part.length > 1);
+      for (const part of parts) tokens.add(part);
+      const key = parts.join("");
+      if (lower.includes(" ")) phrases.add(key);
+      else if (parts[0]) oneWord.add(parts[0]);
+    }
+  }
+  phraseVocab = { oneWord, tokens, phrases };
+  return phraseVocab;
+}
+/** Bumps when the synonym overlay reloads, so ask normalization can drop its catalog. */
+export let synonymEpoch = 0;
 export function loadSynonymOverlay(): void {
   extraGroups = [];
   extraSynonym.clear();
+  phraseVocab = null;
+  synonymEpoch += 1;
   const path = synonymOverlayFile();
   if (!path) return;
   try {
@@ -291,6 +318,15 @@ export function fromIconLibrary(
     if (entryHitsMainLibrary(entry, main)) return false;
     return entryHitsAnchors(entry, anchors);
   });
+}
+const ICON_SHELF_WORD = /(?:^|[^a-z0-9])(?:icons?|glyphs?|symbols?)(?:[^a-z0-9]|$)/;
+/**
+ * A page or file whose name is an icon shelf. Remote icon stubs live here
+ * even when icon-libraries.json is empty, so they stay in the ranking pool.
+ */
+export function iconShelf(index: GraphIndex, node: GraphNode, workspace?: WorkspaceManifest): boolean {
+  const anchors = nodeIconAnchors(index, node, workspace);
+  return [...anchors.names, ...anchors.pages].some((value) => ICON_SHELF_WORD.test(value));
 }
 let emittedIconLibraryWarningKey = "";
 export function emitIconLibraryWarningsOnce(lines: readonly string[]): void {

@@ -243,3 +243,14 @@ export function setJsonPretty(next: boolean): boolean {
   jsonPretty = next;
   return previous;
 }
+
+/** A closed pipe (`resolve ... | head`) ends the CLI quietly instead of throwing EPIPE. */
+export function exitQuietlyOnClosedPipe(): void {
+  for (const stream of [process.stdout, process.stderr]) {
+    stream.on("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EPIPE") process.exit(0);
+    });
+  }
+}
+// Only CLI code imports this module. Tests register the guard themselves.
+if (!process.env["VITEST"]) exitQuietlyOnClosedPipe();

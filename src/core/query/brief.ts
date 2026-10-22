@@ -4,6 +4,8 @@ import type { GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
 import type { BindRulesFile } from "./bindRules";
 import { exactRecipe, fillRecipe, type Recipe } from "./recipes";
+import { meaningDictionary } from "./meaning/buildDictionary";
+import { prepareAsk } from "./meaning/parse";
 import { recommendMasters } from "./recommendMasters";
 import type { RecommendContext } from "./recommendSupport";
 import { composeParts, composeRecipe } from "./recipeCompose";
@@ -452,10 +454,13 @@ function mentioned(request: string, options: Choice[], roles: Role[]): Choice[] 
   return hits;
 }
 
-function platformSaid(request: string): PlatformId | undefined {
-  const hits = PLATFORM_IDS.filter((id) => containsPhrase(request, id));
-  hits.sort((a, b) => b.length - a.length);
-  return hits[0];
+function platformSaid(request: string, index: GraphIndex): PlatformId | undefined {
+  const decision = prepareAsk(request, meaningDictionary(index));
+  const density = decision.attributes.find((row) => row.kind === "density");
+  if (density?.value === "compact" || density?.value === "comfortable") return density.value;
+  const said = PLATFORM_IDS.filter((id) => id !== "compact" && id !== "comfortable" && containsPhrase(decision.text, id));
+  said.sort((a, b) => b.length - a.length);
+  return said[0];
 }
 
 function namedMasters(request: string, masters: GraphNode[]): GraphNode[] {
@@ -582,7 +587,7 @@ function briefRequest(input: BriefInput): BriefResult {
 
   const shapes = mentioned(stripped, catalog.shape, SHAPE);
   const states = mentioned(stripped, catalog.states, STATES);
-  const platform = platformSaid(stripped);
+  const platform = platformSaid(stripped, input.index);
   const named = namedMasters(stripped, masters).filter((master) => !platformComponentName(master.name) || containsPhrase(stripped, master.name));
   const recipe = recipeMatch(recipes, stripped);
   const decision = recipe ? undefined : decisionMatch(stripped, input.decisions ?? [], masters);
@@ -635,7 +640,8 @@ function briefRequest(input: BriefInput): BriefResult {
     for (const option of options) {
       const base = topic === "shape" ? steerShape(stripped, catalog.shape, option) : stripped;
       const top = rank(`${base} ${option.label}`.trim());
-      if (top.weak || top.rows[0]?.name !== option.label) continue;
+      const listed = top.rows.some((row) => row.name === option.label);
+      if (top.weak || (top.rows[0]?.name !== option.label && !(topic === "shape" && listAsk && listed))) continue;
       distinct.push(option);
     }
     if (distinct.length < 2) return;
@@ -646,10 +652,16 @@ function briefRequest(input: BriefInput): BriefResult {
   // Platform: recommend's own top parts differ only by platform word, so the answer picks one.
   const chosenPlatform = resolved.get("platform")?.[0]?.id ?? platform;
   let platformPick: BriefCandidate | undefined;
+  // When recommend already picked a density variant, that is the part. A desktop or phone word does not replace it.
+  const densityLead = lead.platformRows[0];
+  if (densityLead && (platformWord(densityLead.name) === "compact" || platformWord(densityLead.name) === "comfortable")) {
+    platformPick = densityLead;
+  }
   if (chosenPlatform && platformRows.length) {
     const top = rank(`${stripped} ${chosenPlatform}`).platformRows[0];
     if (top && platformWord(top.name) === chosenPlatform) platformPick = top;
-  } else if (fits && platformRows.length >= 2) {
+  } else if (fits && platformRows.length >= 2 && !shapes.length && !named.length) {
+    // A request that already names its part or shape ("a form with a list") is not asked platform.
     const options: Choice[] = [];
     for (const row of platformRows) {
       const id = platformWord(row.name);
@@ -658,6 +670,14 @@ function briefRequest(input: BriefInput): BriefResult {
       options.push({ id, label: row.name, contrast: id, masterId: row.id });
     }
     if (options.length >= 2) forks.push({ topic: "platform", options });
+  }
+  // The request states a density or platform ("a dense list of rows") and the library has that version of
+  // the asked part (Compact List): pick it, even when a plainer part (List Row) ranks first.
+  if (chosenPlatform && !platformPick) {
+    const kind = (choice: Choice) => nameTokens(choice.label).filter((token) => token !== choice.id);
+    const own = catalog.platform.find((choice) => choice.id === chosenPlatform && kind(choice).length > 0 && kind(choice).every((token) => asks.some((word) => sameWordForm(word, token))));
+    const master = own ? masters.find((item) => item.id === own.masterId) : undefined;
+    if (master) platformPick = candidateOf(master);
   }
   // States: the pick is a real part that is not a platform part (a nav has no empty or loading state),
   // and the request names no state. Each answer adds its own part (Empty Message, Error Alert).
@@ -668,7 +688,7 @@ function briefRequest(input: BriefInput): BriefResult {
   // A state option only when picking it adds a part the request does not already have.
   const have = new Set([...named.map((master) => master.id), ...leadRows.map((row) => row.id)]);
   const stateOptions = catalog.states.filter((choice) => !have.has(choice.masterId));
-  const statePart = !platformRows.length && (leadRows.length > 0 || shapes.length > 0 || named.length > 0 || answerFit);
+  const statePart = !platformRows.length && !platformPick && (leadRows.length > 0 || shapes.length > 0 || named.length > 0 || answerFit);
   if (fits && statePart && !specific && !answeredStates && !listAsk && stateOptions.length >= 2) {
     forks.push({ topic: "states", options: stateOptions, multiple: true });
   }

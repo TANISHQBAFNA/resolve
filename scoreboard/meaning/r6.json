@@ -1,0 +1,29 @@
+{
+  "cases": [
+    { "library": "acme", "kind": "everyday", "phrase": "a compact crew list", "expect": "Compact List" },
+    { "library": "acme", "kind": "everyday", "phrase": "a roomy parcel list", "expect": "Comfortable List" },
+    { "library": "acme", "kind": "everyday", "phrase": "dense signup list", "expect": "Compact List" },
+    { "library": "acme", "kind": "everyday", "phrase": "a tight volunteer list", "expect": "Compact List" },
+    { "library": "acme", "kind": "everyday", "phrase": "an airy booking list", "expect": "Comfortable List" },
+    { "library": "acme", "kind": "everyday", "phrase": "condensed list of visitors", "expect": "Compact List" },
+    { "library": "acme", "kind": "sense", "phrase": "a dense soup list", "expect": null },
+    { "library": "acme", "kind": "sense", "phrase": "compact granite list", "expect": null },
+    { "library": "acme", "kind": "sense", "phrase": "a roomy seed list", "expect": null },
+    { "library": "acme", "kind": "sense", "phrase": "tight mortgage list", "expect": null },
+    { "library": "acme", "kind": "sense", "phrase": "a comfortable thesis list", "expect": null },
+    { "library": "acme", "kind": "nav", "phrase": "a roomy nav list", "expect": "Comfortable List" },
+    { "library": "acme", "kind": "part", "phrase": "compact list of buttons", "expect": "Compact List" },
+    { "library": "acme", "kind": "cta", "phrase": "call to action buttons", "expect": "Button" },
+    { "library": "acme", "kind": "cta", "phrase": "call-to-action buttons", "expect": "Button" },
+    { "library": "material", "kind": "plain", "phrase": "list", "expect": "List" },
+    { "library": "material", "kind": "plain", "phrase": "rows that are spacious", "expect": "List" },
+    { "library": "material", "kind": "sense", "phrase": "a dense parchment list", "expect": null },
+    { "library": "material", "kind": "part", "phrase": "compact list of chips", "expect": "Chip" },
+    { "library": "material", "kind": "part", "phrase": "a dense list of badges", "expect": "Badge" },
+    { "library": "material", "kind": "header", "phrase": "header", "expect": "Toolbar" },
+    { "library": "material", "kind": "header", "phrase": "page header", "expect": "Toolbar" },
+    { "library": "material", "kind": "unit", "phrase": "choose an hour", "expect": "Time picker" },
+    { "library": "material", "kind": "purpose", "phrase": "a brief message after saving", "expect": "Snackbar" },
+    { "library": "material", "kind": "purpose", "phrase": "paging through results", "expect": "Paginator" }
+  ]
+}

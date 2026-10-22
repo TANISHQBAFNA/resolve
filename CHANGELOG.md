@@ -1,5 +1,55 @@
 # Changelog
 
+## Unreleased — meaning dictionary
+
+Oct 22, 2026. On a library with no density list, `<density> list of <part>` leads with that part. A form named in the ask wins over a density word that is not on the list. A single inflected word that does not name a component stays empty.
+
+
+
+Oct 22, 2026. A regression gate scores every in-repo ask against origin/main and fails when a correct main lead changes, unless that ask is allowlisted with a reason. A purpose or word-form fallback lead is always weak. A density word on a named part's list leads with the density list and keeps the part second. Fabric plurals and food, garden, and budget compounds are senses. `calls to action` is Button. A breadcrumb said with nav stays strong.
+
+
+
+Oct 22, 2026. Purpose text is used only when no part name or synonym matched, and not when the ask is empty from an inflection alone. A match needs two content words, or one rare word. Header asks lead with Toolbar. A sense noun is singularized on both sides, and food, garden, finance, and review nouns are senses too. A density word before a nav list leads with the nav part. A bare list is List. `rows that are <density>` is the plain list or empty. `call to action buttons` is Button. A breadcrumb said with nav is Breadcrumb through its synonym, not a special case.
+
+
+
+Oct 22, 2026. A density word before `list`, or before `list of` a plural, applies for any noun except one the word itself describes: a material, fabric, paper, document, or clothing noun. A library with no density variant falls back to the plain list, or answers empty, instead of an unrelated weak part. Minute, hour, and time of day lead the time picker. Day, week, month, and year lead the date picker. Paging, hover, expand, and a saved-message ask match the purpose text on the part. `call to action` is a button alias, and a named CTA still wins.
+
+
+
+Oct 21, 2026. Density before `list` applies only when the noun is a library part or a generic item (`item`, `row`, `entry`, `result`, and the other words in the shared base). `list of <plural>` is singularized first. A comfort word plus `rows` is empty when the library has no density variant. `big display`, `wide display`, and `narrow display` are back in the shared device words. A breadcrumb ask that also says nav leads with Breadcrumb. Hyphens in a call to action are read as spaces.
+
+
+
+Oct 21, 2026. Every library starts from `src/data/meaning/default.json`. A library file adds density, device, and exclusion words and does not replace them, so a file that is not named Acme or Material still reads density and device. "rather than" and "instead of" exclude the named part the same way "not" does, and that answer is not weak. "a widget, control or way to <verb> <object>" ranks by the verb and object.
+
+
+
+Oct 21, 2026. A density word one or two words before `list` is that list's density, for any noun or device in between. The hand-written list-noun list is gone. The reading is blocked only when the library says the density word describes the noun right after it; otherwise the variant leads and the brief does not ask states. A joined, split, or hyphenated spelling, singular or plural, matches the synonym or name with spaces and hyphens removed and the last word singular. A nav ask that names a phone leads with the mobile nav.
+
+Oct 21, 2026. `recommend` and `brief` load the Acme or Angular Material dictionary and parse the ask before ranking. The parse chooses the head part, the density, size, state, or style attribute, and whether the answer is empty or weak. Density words and device words come from that library's file, not from one shared list. "a card that is dated" is the card. "something to pick a date" is the date picker. "picker to choose a flavor" is empty. "button, not link" does not lead with the link. The lexical scorer only orders a tie and a one-letter typo. `readDensity`, `normalizeDensity`, `purposeTailTokens`, `guessesFor`, and `readInflections` are deleted. CLI and MCP cards keep the same shape.
+
+## Unreleased — PR #59 round 18: Material parity
+
+Oct 21, 2026 IST. A property name or sample text of a part ("Header" slot, "Steps") counts like its description, not like a variant value, so a lone style word ("tonal", "outlined") is empty again and a top-of-screen bar still leads with Toolbar. An ask of only -ed/-ing words ("dated picked") is empty. "<parts> in the <x> list" leads with the part. A "menu" boost no longer beats Select when the ask says dropdown or select. A lead found by its name or a listed synonym is not weak because of a detail word that names no other part ("modal window", "toast notice", "floating compose button"); a group family ("Badge group") or a detail word that belongs to another part ("count" on an alert) still is. A device word ends the density clause only when the text ends, or punctuation or "please" follows it: "a list, dense for a phone plan" has no density.
+
+## Unreleased — PR #59 round 17: Material leads after the #68 merge
+
+Oct 21, 2026 IST. The #68 Material docs are back in the README and the reference. On the Angular Material example: an -ed or -ing word alone describes and names no part ("toggled" is empty), but a synonym word that ends that way ("floating") still counts; a generic top-of-screen bar leads with Toolbar when a slot word names it; "<part> list" leads with that part (the list word only groups it); a lone generic word before a purpose tail ("picker for fruit") stays empty; a word of a part's own synonym phrase ("action" for FAB) or a synonym of its name does not make the lead weak. An empty answer is never marked weak. A density said after the list also ends its clause before a device in plural, with an article, a brand, a screen size, or portrait/landscape ("a list, dense for tablets", "on the phone", "in landscape"); "for time" and "on details" still do not. The literal word "compact" after the list stays Compact List before any word. Phrase score unchanged: top-1 87/88, top-3 87/88, empty 30/30. Material board 51/51, 51/51, 8/8; held-out and golden unchanged.
+
+## Unreleased — 24×24 tap target and the check line
+
+Oct 20, 2026. The default tap target is 24 by 24. That is the WCAG 2.2 AA size, so it stays. The bigger 44 by 44 target is still an option: use `--a11y wcag-aaa` (or set the pack to `wcag-aaa`). That option also asks for stronger contrast. Commit 843ec2e changed the Acme Misused fixture: Button 80:41 went from 30×30 to 20×20. The 20×20 control fails the default 24×24 bar. 44×44 stays on `wcag-aaa`.
+
+On a clean check the first line is `PASS · Components: PASS · Proper use: PASS`. PASS stays the first word. A component list with no frame stays `NOTHING CHECKED` and does not add a proper-use block. JSON still includes `builtAt`, plus empty `deprecated` and `unresolved` arrays.
+
+A navigation ask (including "navigation bar") is answered by a nav part, a header or footer, or a top or bottom bar only when the ask names that side; an action, progress, or loading bar is not a navigation bar. A one-letter typo now works on any name word: a neighbour swap, a missing or extra letter, or one wrong letter in a word of 6+ letters, on a nearby key unless the word has 8+ letters ("chrckbox", "avatsr"). It never lands on a variant word such as primary, so it cannot pick the Marketing Primary decoy. One misspelled word in an otherwise known ask is read as the known word first, so a typo of primary or information gets the same handling as the real word. "Save button" and a slot that says save fill with Save CTA, not the plain Button. A word after on, for, to, or when ("list on mobile") no longer heads the ask, so a device word does not lift Mobile Nav or Desktop Nav.
+
+## Unreleased — check verdict line
+
+Oct 20, 2026. The check card's first line is the overall verdict. It is plain `PASS` only when the exit code is 0. A proper-use failure (exit 7) starts `FAIL: proper use (N errors, M warnings) · components pass`. JSON `result` is `proper_use_failed` on that exit, not `verified`. JSON `pass` stays false whenever the exit code is not 0.
+
 ## Unreleased — decision records and AIDLC hook
 
 Oct 20, 2026 IST. A decision record (schemaVersion 1) says what was asked, the answers and assumptions, which parts were picked and why, what was rejected, and the recipe, built only from what brief, compose and handoff already returned. `handoff --out` writes `decision.json` + `decision.md` next to the handoff (`--no-record` skips and removes an older pair). `brief` and `recipe --compose` write one with `--record <dir>`; without it nothing is written and the output is unchanged. MCP `record: true` on `brief`, `recipe` and `get_handoff` (advanced) stores it in `.resolve/decisions/` and returns its path; `decision_record` reads it. `resolve export aidlc <handoff folder>` (MCP `export_aidlc`, advanced) is the opt-in AIDLC hook: `resolve.aidlc` schemaVersion 1, `requirementsContext` in and `designHandoff` out, with `schemas/aidlc-handoff.schema.json` generated from the zod contract and an Acme + Angular sample. Round 1 fixes: the contract uses enums (match, source, identity, status, codeStatus, matchedBy, answers) with a values table in docs/AIDLC.md; export checks decision.json (version, kind, screens) and refuses any pick that is not a part in handoff.json; decision_record reads only stored records or decision*.json and lists them with no ref; `resolve decisions` lists records; --record needs --force to replace; record names are unique. Round 2: export refuses a record whose picks differ from what handoff.json gives (ids, match, why), or that repeats or drops a pick; export --out and handoff --out errors are plain sentences, and ok:false JSON with --json. The handoff CLI moved to its own file. Default MCP tools still 8; advanced 20. Phrase score unchanged.

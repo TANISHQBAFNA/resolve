@@ -54,7 +54,8 @@ describe("designer phrase scoreboard", () => {
     const report = scorePhrases(fixtureIndex(), loadPhraseCases([phrasesDir]));
     expect(report.totals.matchCases).toBe(88);
     expect(report.totals.emptyCases).toBe(30);
-    expect(report.totals.top3).toBeGreaterThanOrEqual(80);
+    expect(report.totals.top1).toBeGreaterThanOrEqual(85);
+    expect(report.totals.top3).toBeGreaterThanOrEqual(87);
     expect(report.totals.correctEmpty).toBe(30);
     expect(report.totals.invented).toBe(0);
     expect(report.totals.retiredRecommended).toBe(0);
@@ -69,6 +70,18 @@ describe("designer phrase scoreboard", () => {
     expect(report.inventRate).toBe(0);
     expect(report.pass).toBe(true);
     expect(phraseExitCode(report)).toBe(0);
+  });
+
+  it("fails the phrase score when top-3 is 50 percent", () => {
+    const report = scorePhrases(fixtureIndex(), [
+      { id: "hit", phrase: "Button", type: "exact", expect: ["Button"] },
+      { id: "miss", phrase: "zzqx flurb", type: "exact", expect: ["Button"] },
+    ]);
+    expect(report.totals.matchCases).toBe(2);
+    expect(report.totals.top3).toBe(1);
+    expect(report.pass).toBe(false);
+    expect(formatPhraseTable(report)).toMatch(/Top-3 is under 80%/);
+    expect(formatPhraseTable(report)).toMatch(/Result: FAIL/);
   });
 
   it("exits 1 when the gate fails, and a retired part asked for by name is not offered", () => {

@@ -158,7 +158,7 @@ function tally(count: number, singular: string): string {
   return `${count} ${count === 1 ? singular : `${singular}s`}`;
 }
 
-/** Both results on one line. Proper-use errors fail it. Warnings stay a pass, with the count. */
+/** Overall verdict. Exit 0 starts with PASS, then the component and proper-use results. */
 function verifyHeadline(record: Record<string, unknown>): string | undefined {
   const components = componentVerdict(record);
   if (!components) return undefined;
@@ -166,11 +166,17 @@ function verifyHeadline(record: Record<string, unknown>): string | undefined {
   if (!isRecord(proper) || typeof proper["errors"] !== "number") return components;
   const errors = proper["errors"];
   const warnings = typeof proper["warnings"] === "number" ? proper["warnings"] : 0;
-  if (errors > 0) {
-    return `Components: ${components} · Proper use: FAIL (${tally(errors, "error")}, ${tally(warnings, "warning")})`;
+  const properFailed = errors > 0 || proper["exitCode"] === 7;
+  if (!properFailed && record["pass"] === true) {
+    const use = warnings > 0 ? `PASS (${tally(warnings, "warning")})` : "PASS";
+    return `PASS · Components: PASS · Proper use: ${use}`;
   }
-  if (warnings > 0) return `Components: ${components} · Proper use: PASS (${tally(warnings, "warning")})`;
-  return `Components: ${components} · Proper use: PASS`;
+  if (properFailed && record["pass"] === true) {
+    return `FAIL: proper use (${tally(errors, "error")}, ${tally(warnings, "warning")}) · components pass`;
+  }
+  if (properFailed) return `FAIL: components · proper use (${tally(errors, "error")}, ${tally(warnings, "warning")})`;
+  if (warnings > 0) return `${components} · Proper use: PASS (${tally(warnings, "warning")})`;
+  return `${components} · Proper use: PASS`;
 }
 
 function skipMarkdownValue(key: string, value: unknown): boolean {

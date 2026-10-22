@@ -113,7 +113,7 @@ describe("Acme proper use", () => {
     expect(findings.find((finding) => finding.check === "effect")?.token).toBe("Effect/Card shadow");
     expect(findings.filter((finding) => finding.check === "spacing").every((finding) => finding.token === "space/16")).toBe(true);
     expect(findings.find((finding) => finding.check === "contrast")?.problem).toMatch(/below 4\.5:1 for wcag-aa/);
-    expect(findings.find((finding) => finding.check === "tap")?.problem).toMatch(/30×30, under the 44×44/);
+    expect(findings.find((finding) => finding.check === "tap")?.problem).toMatch(/20×20, under the 24×24/);
     expect(findings.find((finding) => finding.check === "icon")?.problem).toMatch(/no label or description/);
     expect(findings.find((finding) => finding.figmaNodeId === "80:32")?.fix).toMatch(/translucent/);
     expect(findings.find((finding) => finding.figmaNodeId === "80:1")?.problem).toMatch(/no size/);
@@ -158,7 +158,7 @@ describe("Acme proper use", () => {
     ]);
     expect(misused.properUse?.truncated).toBe("+9 more. resolve check --all, or verify_frame all:true");
     const markdown = presentToolResult(misused, "markdown", "verify_frame");
-    expect(markdown.startsWith("Components: PASS · Proper use: FAIL (5 errors, 7 warnings)")).toBe(true);
+    expect(markdown.startsWith("FAIL: proper use (5 errors, 7 warnings) · components pass")).toBe(true);
     const moreAt = markdown.indexOf("+9 more");
     expect(moreAt).toBeGreaterThan(markdown.indexOf("80:51"));
     expect(markdown.indexOf("80:51")).toBeGreaterThan(markdown.indexOf("80:11"));
@@ -172,11 +172,13 @@ describe("Acme proper use", () => {
     expect(props?.findings.find((finding) => finding.check === "placeholder")?.problem).toMatch(/Button/);
   });
 
-  it("drops the tap error at the 24px AA-minimum bar", () => {
-    const report = checkProperUse(index, "Misused", { a11y: "wcag-aa-minimum" });
-    expect(report?.level).toBe("wcag-aa-minimum");
-    expect(report?.findings.some((finding) => finding.check === "tap")).toBe(false);
-    expect(report?.findings.some((finding) => finding.check === "contrast")).toBe(true);
+  it("uses 24px for AA and AA-minimum, and 44px for AAA", () => {
+    const aa = checkProperUse(index, "Misused");
+    expect(aa?.findings.find((finding) => finding.check === "tap")?.problem).toMatch(/under the 24×24 tap target for wcag-aa/);
+    const minimum = checkProperUse(index, "Misused", { a11y: "wcag-aa-minimum" });
+    expect(minimum?.findings.find((finding) => finding.check === "tap")?.problem).toMatch(/under the 24×24 tap target for wcag-aa-minimum/);
+    const aaa = checkProperUse(index, "Misused", { a11y: "wcag-aaa" });
+    expect(aaa?.findings.find((finding) => finding.check === "tap")?.problem).toMatch(/under the 44×44 tap target for wcag-aaa/);
   });
 
   it("says unknown on a Figma MCP capture that has no bindings", () => {
@@ -197,7 +199,7 @@ describe("Acme proper use", () => {
   it("prints a Proper use section on the check card", () => {
     const card = verifyFrame(index, { frame: "Paid screen" });
     const markdown = presentToolResult(card, "markdown", "verify_frame");
-    expect(markdown.startsWith("Components: PASS · Proper use: PASS")).toBe(true);
+    expect(markdown.startsWith("PASS · Components: PASS · Proper use: PASS")).toBe(true);
     expect(markdown).toContain("Proper use: 0 errors");
     const json = JSON.parse(presentToolResult(card, "json", "verify_frame")) as { pass?: boolean; properUse?: { summary?: string } };
     expect(json.pass).toBe(true);
@@ -213,7 +215,7 @@ describe("Acme proper use", () => {
       "markdown",
       "verify_frame",
     );
-    expect(noted.startsWith("Components: PASS · Proper use: PASS (2 warnings)")).toBe(true);
+    expect(noted.startsWith("PASS · Components: PASS · Proper use: PASS (2 warnings)")).toBe(true);
     const schema = TOOLS.find((tool) => tool.name === "verify_frame")?.inputSchema as { properties: Record<string, unknown> };
     expect(schema.properties).toHaveProperty("all");
     const full = verifyFrame(index, { frame: "Misused", all: true });

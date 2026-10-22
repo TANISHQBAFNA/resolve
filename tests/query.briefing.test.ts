@@ -488,4 +488,214 @@ describe("designer briefing", () => {
     expect(text).toContain("**to-add**");
     expect(text).not.toMatch(/Data Table ×1/);
   });
+
+  it("prefers the save family for a save slot, asks no platform on form-and-list asks, and keeps the form ahead of a state", () => {
+    saveGraph(acmeGraph());
+    const index = indexGraph(acmeGraph());
+    const top = (intent: string) => (recommendMasters(index, intent, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+    expect(top("save button")).toBe("Save CTA");
+    expect(top("primary button")).toBe("Button");
+    expect(top("large button")).toBe("Button");
+    for (const request of ["a form with a list for tablet", "form plus a list on phone", "a form and a list of rows on desktop"]) {
+      expect(asked(run(request)).some((question) => question.topic === "platform"), request).toBe(false);
+    }
+    expect(top("a list for tablet")).not.toMatch(/Nav/);
+    for (const intent of ["a signup form on phone with an error alert", "profile form for tablet with an error alert"]) {
+      const card = callTool("recommend", { intent, answers: { shape: "form" }, budgetChars: 4000 }) as { candidates?: Array<{ name?: string }> };
+      expect(card.candidates?.[0]?.name, intent).toBe("Text Field");
+    }
+  });
+
+  it("keeps the form first and asks no platform when a density list leads a form-with-list ask", () => {
+    // Same shape as the report: a form plus a list, where the density variants are the used lists.
+    const graph = acmeGraph();
+    for (const [id, master] of [["1:3", "10:14"], ["1:4", "10:14"], ["1:5", "10:13"]] as const) {
+      graph.nodes.push(node(`node:${id}`, "COMPONENT_INSTANCE", "List", { parentId: "node:1:1", figmaNodeId: id, mainComponentId: `node:${master}` }));
+      graph.edges.push({ id: `e${id}`, source: `node:${id}`, target: `node:${master}`, type: "INSTANCE_OF" });
+    }
+    const index = indexGraph(graph);
+    const lead = (recommendMasters(index, "a list", { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+    expect(lead).toBe("Card List");
+    const expectLead = new Map<string, string>([
+      ["a form with a list", "Text Field"],
+      ["form and list", "Text Field"],
+      ["settings form with my trips list, tight deadline", "Text Field"],
+    ]);
+    for (const request of ["a form with a list", "a signup form with a list of saved cards", "form and list", "settings form with my trips list, tight deadline"]) {
+      const result = briefScreen({ request, index, recipes: starterRecipes(), decisions: [decision] });
+      expect(asked(result).some((question) => question.topic === "platform"), request).toBe(false);
+      const lead = expectLead.get(request);
+      if (lead && "ready" in result) expect(result.candidates[0]?.name, request).toBe(lead);
+    }
+    const names = (recommendMasters(index, "settings form with my trips list, tight deadline", { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates.slice(0, 3).map((row) => row.name);
+    expect(names).not.toContain("Compact List");
+    expect(names).not.toContain("Comfortable List");
+  });
+
+  it("reads density synonyms as compact or comfortable on a list ask", () => {
+    const graph = acmeGraph();
+    // Comfortable List is the used list, as in the form-with-list case.
+    graph.nodes.push(node("node:1:9", "COMPONENT_INSTANCE", "List", { parentId: "node:1:1", figmaNodeId: "1:9", mainComponentId: "node:10:14" }));
+    graph.edges.push({ id: "e19", source: "node:1:9", target: "node:10:14", type: "INSTANCE_OF" });
+    // A plain List Row part too, so a density word must still pick its density part.
+    graph.nodes.push(node("node:10:18", "MAIN_COMPONENT", "List Row", { figmaNodeId: "10:18", isMainComponent: true }));
+    const index = indexGraph(graph);
+    const brief = (request: string) => briefScreen({ request, index, recipes: starterRecipes(), decisions: [decision] });
+    for (const [request, name] of [
+      ["a squeezed-in dense list of rows", "Compact List"],
+      ["a tight list", "Compact List"],
+      ["condensed list view", "Compact List"],
+      ["a roomy list", "Comfortable List"],
+      ["an airy list of rows", "Comfortable List"],
+    ] as const) {
+      const result = brief(request);
+      expect(asked(result), request).toEqual([]);
+      expect("ready" in result && result.candidates[0]?.name, request).toBe(name);
+      // Recommend keeps the density part near the top; a literal "rows" may put List Row first.
+      const names = (recommendMasters(index, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates.slice(0, 3).map((row) => row.name);
+      expect(names, request).toContain(name);
+      if (!/rows/.test(request)) expect(names[0], request).toBe(name);
+    }
+  });
+
+  it("counts a density word only when it sits right before list or row", () => {
+    const index = indexGraph(acmeGraph());
+    const brief = (request: string) => briefScreen({ request, index, recipes: starterRecipes(), decisions: [decision] });
+    const density = (request: string) => {
+      const result = brief(request);
+      return "ready" in result ? result.assumptions.find((line) => /platform and density/.test(line)) : undefined;
+    };
+    const names = (request: string) => (recommendMasters(index, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates.map((row) => row.name);
+    // Another part, a deadline, or the listed items: no density read, and no density list offered.
+    for (const request of [
+      "a cramped-looking tight nav bar",
+      "an intake form with a tight turnaround",
+      "a list of roomy studio flats",
+      "a tight button row label",
+      "relaxed card for the promo",
+      "my trips list, tight deadline",
+      "my trips list, spacious hero",
+      "my trips list but airy hero image",
+      "my trips list, dense nav bar",
+    ]) {
+      expect(density(request), request).toBeUndefined();
+      expect(names(request).slice(0, 3), request).not.toContain("Compact List");
+      expect(names(request).slice(0, 3), request).not.toContain("Comfortable List");
+    }
+    expect(asked(brief("a cramped-looking tight nav bar")).map((question) => question.topic)).toEqual(["platform"]);
+    // Right before list or row it is the density.
+    expect(density("a condensed list for the ledger")).toMatch(/compact/);
+    expect(density("spacious rows for the settings page")).toMatch(/comfortable/);
+  });
+
+  it("reads density said after the list, and not on a row of another part", () => {
+    const index = indexGraph(acmeGraph());
+    const brief = (request: string) => briefScreen({ request, index, recipes: starterRecipes(), decisions: [decision] });
+    const density = (request: string) => {
+      const result = brief(request);
+      return "ready" in result ? result.assumptions.find((line) => /platform and density/.test(line)) : undefined;
+    };
+    const top = (request: string) => (recommendMasters(index, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates.slice(0, 3).map((row) => row.name);
+    // A row of another part: that part wins, and no density list.
+    for (const [request, name] of [
+      ["a cramped dense row of buttons", "Button"],
+      ["airy rows of error alerts under the form", "Error Alert"],
+      ["a compact row of buttons", "Button"],
+      ["comfortable rows containing error alerts under the form", "Error Alert"],
+      ["dense rows full of error alerts under the form", "Error Alert"],
+      ["airy rows with error alerts under the form", "Error Alert"],
+    ] as const) {
+      expect(density(request), request).toBeUndefined();
+      expect("ready" in brief(request) && (brief(request) as { candidates: Array<{ name: string }> }).candidates[0]?.name, request).toBe(name);
+      expect(top(request), request).not.toContain("Compact List");
+      expect(top(request), request).not.toContain("Comfortable List");
+    }
+    // Density said after the list, joined by a comma, but, or that is.
+    for (const [request, word, name] of [
+      ["the ledger list, but condensed", "compact", "Compact List"],
+      ["a list, but dense", "compact", "Compact List"],
+      ["a settings list that is relaxed", "comfortable", "Comfortable List"],
+      ["rows that are airy", "comfortable", "Comfortable List"],
+      ["a list which is compact please", "compact", "Compact List"],
+      ["a list, dense for mobile", "compact", "Compact List"],
+      ["a list, roomy on desktop", "comfortable", "Comfortable List"],
+      ["a list, compact in ios", "compact", "Compact List"],
+      ["a list, airy;", "comfortable", "Comfortable List"],
+      ["rows, dense!", "compact", "Compact List"],
+      ["payout rows, roomy", "comfortable", "Comfortable List"],
+    ] as const) {
+      expect(density(request), request).toMatch(word);
+      expect("ready" in brief(request) && (brief(request) as { candidates: Array<{ name: string }> }).candidates[0]?.name, request).toBe(name);
+    }
+    const mobileTop = top("a list, dense on mobile");
+    expect(density("a list, dense on mobile")).toMatch(/compact/);
+    expect(mobileTop[0]).toBe("Compact List");
+    // Without a joint, or on words that are not platform/device words, it is not the list density.
+    for (const request of ["a list dense", "a list of tight deadlines", "a list, dense for time", "a list, airy on details", "a list, roomy in notes", "a list, tight for the weekend", "a list, dense for a phone plan", "a list, roomy for tv dinners", "rows, airy on the laptop sleeve", "a list, tight for tablet owners"]) {
+      expect(density(request), request).toBeUndefined();
+    }
+    // A device after for/on/in, plural, with an article, a brand, a screen size, or an orientation still ends the clause.
+    for (const [request, word, name] of [
+      ["a list, dense for tablets", "compact", "Compact List"],
+      ["a list, roomy on the phone", "comfortable", "Comfortable List"],
+      ["refund rows, tight on an ipad", "compact", "Compact List"],
+      ["a list, airy for small displays", "comfortable", "Comfortable List"],
+      ["a list, dense in landscape", "compact", "Compact List"],
+      ["a list, spacious in portrait", "comfortable", "Comfortable List"],
+    ] as const) {
+      expect(density(request), request).toMatch(word);
+      expect("ready" in brief(request) && (brief(request) as { candidates: Array<{ name: string }> }).candidates[0]?.name, request).toBe(name);
+    }
+    // A density word and a desktop word together: brief keeps the density part recommend leads with.
+    const withRow = acmeGraph();
+    withRow.nodes.push(node("node:10:18", "MAIN_COMPONENT", "List Row", { figmaNodeId: "10:18", isMainComponent: true }));
+    const rowIndex = indexGraph(withRow);
+    const agree = (request: string, name: string) => {
+      const recommended = (recommendMasters(rowIndex, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+      const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
+      expect(recommended, request).toBe(name);
+      expect("ready" in result && result.candidates[0]?.name, request).toBe(name);
+    };
+    agree("list, compact for desktop", "Compact List");
+    agree("compact list for desktop", "Compact List");
+    agree("comfortable list for desktop", "Comfortable List");
+    agree("compact list for phone", "Compact List");
+    agree("compact list for tablet", "Compact List");
+    // A density word before the head list, with a noun in between, is still that density.
+    agree("a dense contact list", "Compact List");
+    agree("a roomy task list", "Comfortable List");
+    agree("a dense contact list for desktop", "Compact List");
+    agree("a roomy task list for desktop", "Comfortable List");
+    agree("a compact task list", "Compact List");
+    agree("a dense list", "Compact List");
+    for (const request of ["a dense contact list", "a roomy task list", "a dense contact list for desktop", "a roomy task list for desktop"]) {
+      const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
+      expect(asked(result).some((question) => question.topic === "states"), request).toBe(false);
+      expect("ready" in result && result.candidates[0]?.name, request).not.toBe("List Row");
+    }
+    for (const request of ["a tight deadline and a list", "a list of dense documents", "a dense row of buttons"]) {
+      const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
+      expect("ready" in result && result.candidates[0]?.name, request).not.toBe("Compact List");
+      expect("ready" in result && result.candidates[0]?.name, request).not.toBe("Comfortable List");
+    }
+    // A document sense is empty. A word that only describes the noun asks, and does not commit to a density part.
+    for (const request of ["a dense history list", "a dense biography list"]) {
+      const recommended = (recommendMasters(rowIndex, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+      expect(recommended, request).toBeUndefined();
+      const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
+      expect(asked(result), request).toEqual([]);
+      if ("ready" in result) expect(result.candidates, request).toEqual([]);
+    }
+    for (const request of ["a tight deadline list", "an airy room list", "a compact car list", "a comfortable chair list"]) {
+      const recommended = (recommendMasters(rowIndex, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates[0]?.name;
+      expect(recommended ?? "", request).not.toMatch(/Compact List|Comfortable List/);
+      const result = briefScreen({ request, index: rowIndex, recipes: starterRecipes(), decisions: [decision] });
+      expect(asked(result).length, request).toBeGreaterThan(0);
+      if ("ready" in result) expect(result.candidates[0]?.name, request).not.toMatch(/Compact List|Comfortable List/);
+    }
+    // The part's own word is never weaker than a synonym: "compact" after the list stays Compact List.
+    for (const request of ["a ledger list, compact for phones", "a ledger list, compact for now", "a list, compact in notes"]) {
+      expect(top(request)[0], request).toBe("Compact List");
+    }
+  });
 });

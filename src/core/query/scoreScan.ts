@@ -138,11 +138,13 @@ const COMPONENT_NAME_PARENTS = new Set(["component", "master", "candidates", "co
 const LOCATION_NAME_PARENTS = new Set(["whereUsed", "screen", "byScreen", "pages", "page"]);
 
 /** Ids in hint / why, and a frame name only when the text quotes it as a component. */
-function scanFreeText(value: unknown, bag: RefBag, known: GraphVocab): void {
+function scanFreeText(value: unknown, bag: RefBag, known: GraphVocab, key?: string): void {
   const text = stringOf(value);
   if (!text) return;
   for (const match of text.matchAll(/\bnode:[A-Za-z0-9:_./-]+/g)) bag.ids.push(match[0]);
   for (const match of text.matchAll(/\b\d+:\d+\b/g)) bag.ids.push(match[0]);
+  // "why" explains a pick in words ("only the word 'main' matched"): a quoted word there is not an offered part.
+  if (key === "why") return;
   for (const match of text.matchAll(/"([^"]{1,80})"|'([^']{1,80})'/g)) {
     const quoted = (match[1] ?? match[2] ?? "").trim();
     if (!quoted || known.componentNames.has(quoted)) continue;
@@ -165,7 +167,7 @@ function collectCardRefs(value: unknown, parentKey: string | undefined, bag: Ref
   const given = stringOf(record["given"]);
   for (const [key, child] of Object.entries(record)) {
     if (FREE_TEXT_KEYS.has(key)) {
-      scanFreeText(child, bag, known);
+      scanFreeText(child, bag, known, key);
       continue;
     }
     if (key === "id" || key === "figmaNodeId" || key === "nodeId" || key === "masterId" || key === "componentKey") {

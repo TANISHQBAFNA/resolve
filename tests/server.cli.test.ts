@@ -1,9 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chdir } from "node:process";
 import { runCli } from "@/server/cli";
+import { exitQuietlyOnClosedPipe } from "@/server/cliArgs";
 import { callTool } from "@/server/tools";
 import { clearCache, loadGraph, workspacePath } from "@/server/store";
 
@@ -158,6 +159,84 @@ describe("resolve ingest --role", () => {
     expect(text).toMatch(/"result":\s*"nothing checked"/);
     expect(text.toLowerCase()).not.toContain("verified");
     process.exitCode = undefined;
+  });
+
+  it("keeps a component list with no frame on the nothing-checked headline", async () => {
+    const xmlPath = join(process.env["RESOLVE_HOME"]!, "named-a11y.xml");
+    writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
+    await runCli(["ingest", xmlPath, "--file-key", "LIB"]);
+    const chunks: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    process.exitCode = undefined;
+    try {
+      await runCli(["check", "--components", "Button", "--a11y", "wcag-a"]);
+    } finally {
+      process.stdout.write = write;
+    }
+    const first = chunks.join("").split("\n")[0] ?? "";
+    expect(first).toBe("NOTHING CHECKED");
+    expect(first).not.toContain("Proper use");
+    chunks.length = 0;
+    process.exitCode = undefined;
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await runCli(["check", "--components", "Button", "--json"]);
+    } finally {
+      process.stdout.write = write;
+    }
+    const card = JSON.parse(chunks.join("")) as {
+      result?: string;
+      properUse?: unknown;
+      deprecated?: unknown[];
+      unresolved?: unknown[];
+    };
+    expect(card.result).toBe("nothing checked");
+    expect(card.properUse).toBeUndefined();
+    expect(card.deprecated).toEqual([]);
+    expect(card.unresolved).toEqual([]);
+    process.exitCode = undefined;
+  });
+
+  it("prints the full verdict line for a component id", async () => {
+    const xmlPath = join(process.env["RESOLVE_HOME"]!, "id-check.xml");
+    writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
+    await runCli(["ingest", xmlPath, "--file-key", "LIB"]);
+    const chunks: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    process.exitCode = undefined;
+    try {
+      await runCli(["check", "--components", "9:9"]);
+    } finally {
+      process.stdout.write = write;
+    }
+    const first = chunks.join("").split("\n")[0] ?? "";
+    expect(first.startsWith("PASS") || first.startsWith("FAIL") || first.startsWith("NOTHING CHECKED")).toBe(true);
+    expect(first).not.toContain("Proper use");
+    process.exitCode = undefined;
+  });
+
+  it("treats a closed pipe as a clean exit", () => {
+    const exit = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new Error(`exit:${code}`);
+    }) as typeof process.exit);
+    const error = Object.assign(new Error("write EPIPE"), { code: "EPIPE" });
+    exitQuietlyOnClosedPipe();
+    try {
+      expect(() => process.stdout.emit("error", error)).toThrow("exit:0");
+    } finally {
+      exit.mockRestore();
+    }
   });
 
   it("score --init writes masters, a synonym, and empty asks", async () => {

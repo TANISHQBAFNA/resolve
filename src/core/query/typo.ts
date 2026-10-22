@@ -55,3 +55,31 @@ export function wordSlip(query: string, name: string): boolean {
   if (query === name || query.length < 5 || name.length < 5) return false;
   return adjacentSwap(query, name) || innerGap(query, name) || keySlip(query, name);
 }
+
+/**
+ * A one-letter slip counts only when every other word is known. Two slips, or a slip beside an unknown word,
+ * make a typo-heavy ask that stays empty: "lodaing spinnr", "pyament screeen tabel". "primary botton" stays.
+ */
+export function typoHeavy(
+  words: readonly string[],
+  exact: (word: string) => boolean,
+  slips: (word: string) => boolean,
+  known: (word: string) => boolean,
+): boolean {
+  const slipOnly = (word: string) => !exact(word) && slips(word);
+  const count = words.filter(slipOnly).length;
+  if (!count) return false;
+  return count > 1 || words.some((word) => !slipOnly(word) && !exact(word) && !known(word));
+}
+
+/**
+ * The one misspelled word of an otherwise known ask, and the single known word it slips to.
+ * Two unknown words, or a slip that fits two known words, corrects nothing.
+ */
+export function oneSlipFix(words: readonly string[], known: (word: string) => boolean, vocab: Iterable<string>): { word: string; fix: string } | undefined {
+  const unknown = words.filter((word) => !known(word));
+  if (unknown.length !== 1) return undefined;
+  const word = unknown[0]!;
+  const fixes = [...vocab].filter((term) => wordSlip(word, term));
+  return fixes.length === 1 ? { word, fix: fixes[0]! } : undefined;
+}

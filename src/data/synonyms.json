@@ -2,8 +2,8 @@
   "version": 1,
   "groups": [
     {
-      "terms": ["button", "cta", "action"],
-      "reason": "A call to action is a button."
+      "terms": ["button", "cta", "action", "btn", "submit", "call to action"],
+      "reason": "A call to action, a btn, or a submit control is a button."
     },
     {
       "terms": ["avatar", "profile", "photo", "image", "picture", "headshot"],
@@ -70,6 +70,10 @@
       "reason": "Navigation is the full word for nav."
     },
     {
+      "terms": ["info", "information", "help"],
+      "reason": "An information mark or a help mark is the info icon."
+    },
+    {
       "terms": ["checkbox", "tick box"],
       "reason": "A tick box is a checkbox."
     },
@@ -110,7 +114,7 @@
       "reason": "An app bar means the top app bar unless the ask says bottom."
     },
     {
-      "terms": ["breadcrumb", "trail", "crumb"],
+      "terms": ["breadcrumb", "trail", "crumb", "nav breadcrumb", "breadcrumb nav"],
       "reason": "A trail or a crumb is the path back, a breadcrumb."
     },
     {

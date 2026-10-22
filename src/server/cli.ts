@@ -50,6 +50,7 @@ import {
   codeMapTemplate,
   formatCodeMapReport,
   checkComponentFiles,
+  checkNamesFromNodes,
   packValidation,
   ingredientCard,
   ingredientCoverage,
@@ -144,7 +145,6 @@ export async function runCli(argv: string[]): Promise<void> {
   try {
     await dispatchCli(pretty ? argv.filter((arg) => arg !== "--pretty") : argv);
   } catch (error) {
-    // --json reads stdout: bad briefing input (or any brief error) is ok:false JSON, exit 1.
     if (!argv.includes("--json") || !(error instanceof BriefAnswerError || argv[0] === "brief")) throw error;
     printJson({ ok: false, status: "error", message: error instanceof Error ? error.message : String(error), exitCode: 1 });
     process.exitCode = 1;
@@ -431,7 +431,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
           throw new Error('Usage: resolve code-map --check "<name>" [--handoff <handoff.json>] [--json]');
         }
         const handoff = handoffGiven ?? handoffDefault;
-        const checked = checkComponentFiles(name, mapPath, handoff);
+        const checked = checkComponentFiles(name, mapPath, handoff, checkNamesFromNodes(resolveGraph()?.index.getNodesByType("COMPONENT_SET", "MAIN_COMPONENT") ?? []));
         if (args.includes("--json")) printJson(checked);
         else process.stdout.write(`${checked.message}\n`);
         if (checked.exitCode !== 0) process.exitCode = checked.exitCode;

@@ -1,0 +1,1132 @@
+{
+  "version": 1,
+  "note": "Made-up Acme and Angular Material asks. expect null means the library has no such part. accept lists other right names.",
+  "cases": [
+    {
+      "id": "m-para-primary",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "primary button",
+      "expect": "Button"
+    },
+    {
+      "id": "m-para-icon-btn",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "icon button",
+      "expect": "Icon button"
+    },
+    {
+      "id": "m-para-fab",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "floating action button",
+      "expect": "FAB"
+    },
+    {
+      "id": "m-para-appbar",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "top app bar",
+      "expect": "Toolbar"
+    },
+    {
+      "id": "m-para-drawer",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "please show the navigation drawer",
+      "expect": "Sidenav"
+    },
+    {
+      "id": "m-para-side",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "please show the side panel",
+      "expect": "Side sheet"
+    },
+    {
+      "id": "m-para-toast",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "toast message",
+      "expect": "Snackbar"
+    },
+    {
+      "id": "m-para-accordion",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "accordion",
+      "expect": "Expansion panel"
+    },
+    {
+      "id": "m-para-datepicker",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "datepicker",
+      "expect": "Date picker"
+    },
+    {
+      "id": "m-para-dropdown",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "a select for a nation",
+      "expect": "Select"
+    },
+    {
+      "id": "m-para-switch",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "switch",
+      "expect": "Slide toggle"
+    },
+    {
+      "id": "m-para-checkbox",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "please show the checkbox",
+      "expect": "Checkbox"
+    },
+    {
+      "id": "m-para-radio",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "radio button",
+      "expect": "Radio button"
+    },
+    {
+      "id": "m-para-tabs",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "please show the tabs",
+      "expect": "Tabs"
+    },
+    {
+      "id": "m-para-table",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "please show the data table",
+      "expect": "Table"
+    },
+    {
+      "id": "m-para-dialog",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "dialog",
+      "expect": "Dialog"
+    },
+    {
+      "id": "m-para-spinner",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "progress spinner",
+      "expect": "Progress spinner"
+    },
+    {
+      "id": "m-para-bottom-nav",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "bottom navigation",
+      "expect": "Navigation bar"
+    },
+    {
+      "id": "m-para-rail",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "please show the navigation rail",
+      "expect": "Navigation rail"
+    },
+    {
+      "id": "m-para-pager",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "pagination",
+      "expect": "Paginator"
+    },
+    {
+      "id": "m-para-tooltip",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "tooltip",
+      "expect": "Tooltip"
+    },
+    {
+      "id": "m-para-badge",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "badge",
+      "expect": "Badge"
+    },
+    {
+      "id": "m-para-chip",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "chip",
+      "expect": "Chip"
+    },
+    {
+      "id": "m-para-slider",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "slider",
+      "expect": "Slider"
+    },
+    {
+      "id": "m-para-stepper",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "stepper",
+      "expect": "Stepper"
+    },
+    {
+      "id": "m-para-divider",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "divider",
+      "expect": "Divider"
+    },
+    {
+      "id": "m-para-list-item",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "list item",
+      "expect": "List item"
+    },
+    {
+      "id": "m-para-search",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "search bar",
+      "expect": "Search bar"
+    },
+    {
+      "id": "m-para-field",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "please show the text field",
+      "expect": "Text field"
+    },
+    {
+      "id": "m-para-menu",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "menu",
+      "expect": "Menu"
+    },
+    {
+      "id": "m-para-card",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "please show the card",
+      "expect": "Card"
+    },
+    {
+      "id": "m-para-list",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "list",
+      "expect": "List"
+    },
+    {
+      "id": "m-syn-toast",
+      "library": "material",
+      "kind": "synonym",
+      "phrase": "a toast notice",
+      "expect": "Snackbar"
+    },
+    {
+      "id": "m-syn-modal",
+      "library": "material",
+      "kind": "synonym",
+      "phrase": "modal window",
+      "expect": "Dialog"
+    },
+    {
+      "id": "m-syn-tick",
+      "library": "material",
+      "kind": "synonym",
+      "phrase": "tick box for terms",
+      "expect": "Checkbox"
+    },
+    {
+      "id": "m-syn-drawer",
+      "library": "material",
+      "kind": "synonym",
+      "phrase": "drawer for filters",
+      "expect": "Sidenav"
+    },
+    {
+      "id": "m-syn-appbar",
+      "library": "material",
+      "kind": "synonym",
+      "phrase": "app bar",
+      "expect": "Toolbar"
+    },
+    {
+      "id": "m-syn-float",
+      "library": "material",
+      "kind": "synonym",
+      "phrase": "a floating button",
+      "expect": "FAB"
+    },
+    {
+      "id": "m-syn-sheet",
+      "library": "material",
+      "kind": "synonym",
+      "phrase": "side panels",
+      "expect": "Side sheet"
+    },
+    {
+      "id": "m-syn-expand",
+      "library": "material",
+      "kind": "synonym",
+      "phrase": "expansion panel",
+      "expect": "Expansion panel"
+    },
+    {
+      "id": "m-syn-snack",
+      "library": "material",
+      "kind": "synonym",
+      "phrase": "snack",
+      "expect": "Snackbar"
+    },
+    {
+      "id": "m-syn-select",
+      "library": "material",
+      "kind": "synonym",
+      "phrase": "select",
+      "expect": "Select"
+    },
+    {
+      "id": "m-inf-toggle",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "a toggled switch",
+      "expect": "Slide toggle"
+    },
+    {
+      "id": "m-inf-checks",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "checked checkboxes",
+      "expect": "Checkbox"
+    },
+    {
+      "id": "m-inf-tab",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "the selected tab",
+      "expect": "Tabs"
+    },
+    {
+      "id": "m-inf-sort",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "a sorted data table",
+      "expect": "Table"
+    },
+    {
+      "id": "m-inf-selected",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "selected",
+      "expect": "Select"
+    },
+    {
+      "id": "m-inf-search",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "a searching bar up top",
+      "expect": "Search bar"
+    },
+    {
+      "id": "m-inf-dated-picker",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "a dated picker for the invoice",
+      "expect": "Date picker"
+    },
+    {
+      "id": "m-inf-dated-card",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "a dated card on the statement",
+      "expect": "Card"
+    },
+    {
+      "id": "m-inf-card-dated",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "a card that is dated",
+      "expect": "Card"
+    },
+    {
+      "id": "m-inf-timed-card",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "the timed card",
+      "expect": "Card"
+    },
+    {
+      "id": "m-inf-timed-picker",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "the timed picker on the alarm screen",
+      "expect": "Time picker"
+    },
+    {
+      "id": "m-inf-dated-item",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "dated item",
+      "expect": "Date picker",
+      "weak": true
+    },
+    {
+      "id": "m-inf-search-field",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "searching field",
+      "expect": "Search bar",
+      "weak": true
+    },
+    {
+      "id": "m-inf-buttons",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "buttons",
+      "expect": "Button"
+    },
+    {
+      "id": "m-inf-toasts",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "the toasts",
+      "expect": "Snackbar"
+    },
+    {
+      "id": "m-inf-accordions",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "three accordions",
+      "expect": "Expansion panel"
+    },
+    {
+      "id": "m-inf-toggling",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "the toggling switch",
+      "expect": "Slide toggle"
+    },
+    {
+      "id": "m-use-slider",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "slider for volume",
+      "expect": "Slider"
+    },
+    {
+      "id": "m-use-button",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "button to open the dialog",
+      "expect": "Button"
+    },
+    {
+      "id": "m-use-toolbar",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "a toolbar holding a title and two actions",
+      "expect": "Toolbar"
+    },
+    {
+      "id": "m-use-date",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "a calendar to choose the birth date",
+      "expect": "Date picker"
+    },
+    {
+      "id": "m-use-acc",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "accordion for faqs",
+      "expect": "Expansion panel"
+    },
+    {
+      "id": "m-use-side",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "side panel for map layers",
+      "expect": "Side sheet"
+    },
+    {
+      "id": "m-use-switch",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "a switch for toggling alerts",
+      "expect": "Slide toggle"
+    },
+    {
+      "id": "m-use-nav",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "bottom navigation for the main sections",
+      "expect": "Navigation bar"
+    },
+    {
+      "id": "m-use-chip-list",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "chip list",
+      "expect": "Chip"
+    },
+    {
+      "id": "m-use-in-list",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "checkboxes in the settings list",
+      "expect": "Checkbox"
+    },
+    {
+      "id": "m-use-option",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "option in a dropdown",
+      "expect": "Select"
+    },
+    {
+      "id": "m-use-steps",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "wizard steps for signup",
+      "expect": "Stepper"
+    },
+    {
+      "id": "m-use-loading",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "upload loading bar",
+      "expect": "Progress bar"
+    },
+    {
+      "id": "m-ctx-phone",
+      "library": "material",
+      "kind": "context",
+      "phrase": "a list, compact for phones",
+      "expect": null
+    },
+    {
+      "id": "m-ctx-dense",
+      "library": "material",
+      "kind": "context",
+      "phrase": "a dense list of rows",
+      "expect": "List"
+    },
+    {
+      "id": "m-ctx-search-mobile",
+      "library": "material",
+      "kind": "context",
+      "phrase": "search bar on the phone",
+      "expect": "Search bar"
+    },
+    {
+      "id": "m-empty-toggled",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "toggled",
+      "expect": null
+    },
+    {
+      "id": "m-empty-fetched",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "fetched",
+      "expect": null
+    },
+    {
+      "id": "m-empty-fruit",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "picker for fruit",
+      "expect": null
+    },
+    {
+      "id": "m-empty-flavor",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "picker to choose a flavor",
+      "expect": null
+    },
+    {
+      "id": "m-empty-tonal",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "tonal",
+      "expect": null
+    },
+    {
+      "id": "m-empty-outlined",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "outlined",
+      "expect": null
+    },
+    {
+      "id": "m-empty-elevated",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "elevated",
+      "expect": null
+    },
+    {
+      "id": "m-empty-dated-picked",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "dated picked",
+      "expect": null
+    },
+    {
+      "id": "m-empty-checked",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "checked selected",
+      "expect": null
+    },
+    {
+      "id": "m-empty-banner",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "please show the promo banner",
+      "expect": null
+    },
+    {
+      "id": "m-empty-captcha",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "a human-check puzzle",
+      "expect": null
+    },
+    {
+      "id": "m-empty-crop",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "image cropper",
+      "expect": null
+    },
+    {
+      "id": "m-empty-meter",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "please show the password strength meter",
+      "expect": null
+    },
+    {
+      "id": "m-empty-scroll",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "scrolling sorted",
+      "expect": null
+    },
+    {
+      "id": "a-para-save",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "save button",
+      "expect": "Save CTA"
+    },
+    {
+      "id": "a-para-pay",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "pay button",
+      "expect": "Pay CTA"
+    },
+    {
+      "id": "a-para-search",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "please show the search field",
+      "expect": "Search Field"
+    },
+    {
+      "id": "a-para-text",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "please show the text field",
+      "expect": "Text Field"
+    },
+    {
+      "id": "a-para-summary",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "please show the summary card",
+      "expect": "Summary Card"
+    },
+    {
+      "id": "a-para-table",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "please show the data table",
+      "expect": "Data Table"
+    },
+    {
+      "id": "a-para-mobile",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "mobile navigation",
+      "expect": "Mobile Nav"
+    },
+    {
+      "id": "a-para-desktop",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "desktop navigation",
+      "expect": "Desktop Nav"
+    },
+    {
+      "id": "a-para-error",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "error alert",
+      "expect": "Error Alert"
+    },
+    {
+      "id": "a-para-empty",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "please show the empty message",
+      "expect": "Empty Message"
+    },
+    {
+      "id": "a-para-spin",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "loading spinner",
+      "expect": "Loading Spinner"
+    },
+    {
+      "id": "a-para-button",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "please show the button",
+      "expect": "Button"
+    },
+    {
+      "id": "a-para-banner",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "pending banner",
+      "expect": "Pending Banner"
+    },
+    {
+      "id": "a-para-stat",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "stat block",
+      "expect": "Stat Block"
+    },
+    {
+      "id": "a-syn-cta",
+      "library": "acme",
+      "kind": "synonym",
+      "phrase": "pay call to action",
+      "expect": "Pay CTA"
+    },
+    {
+      "id": "a-syn-input",
+      "library": "acme",
+      "kind": "synonym",
+      "phrase": "text input",
+      "expect": "Text Field"
+    },
+    {
+      "id": "a-syn-search-box",
+      "library": "acme",
+      "kind": "synonym",
+      "phrase": "search box",
+      "expect": "Search Field"
+    },
+    {
+      "id": "a-syn-nav",
+      "library": "acme",
+      "kind": "synonym",
+      "phrase": "mobile nav",
+      "expect": "Mobile Nav"
+    },
+    {
+      "id": "a-syn-cards",
+      "library": "acme",
+      "kind": "synonym",
+      "phrase": "summary cards",
+      "expect": "Summary Card"
+    },
+    {
+      "id": "a-syn-table",
+      "library": "acme",
+      "kind": "synonym",
+      "phrase": "data tables",
+      "expect": "Data Table"
+    },
+    {
+      "id": "a-inf-tables",
+      "library": "acme",
+      "kind": "inflection",
+      "phrase": "tables",
+      "expect": "Data Table"
+    },
+    {
+      "id": "a-inf-buttons",
+      "library": "acme",
+      "kind": "inflection",
+      "phrase": "buttons",
+      "expect": "Button"
+    },
+    {
+      "id": "a-inf-saving",
+      "library": "acme",
+      "kind": "inflection",
+      "phrase": "saving button",
+      "expect": "Save CTA"
+    },
+    {
+      "id": "a-inf-searched",
+      "library": "acme",
+      "kind": "inflection",
+      "phrase": "searched field",
+      "expect": "Search Field"
+    },
+    {
+      "id": "a-use-save",
+      "library": "acme",
+      "kind": "purpose",
+      "phrase": "button to save the form",
+      "expect": "Save CTA"
+    },
+    {
+      "id": "a-use-pay",
+      "library": "acme",
+      "kind": "purpose",
+      "phrase": "button to pay the invoice",
+      "expect": "Pay CTA"
+    },
+    {
+      "id": "a-use-search",
+      "library": "acme",
+      "kind": "purpose",
+      "phrase": "search field for payees",
+      "expect": "Search Field"
+    },
+    {
+      "id": "a-use-error",
+      "library": "acme",
+      "kind": "purpose",
+      "phrase": "error alert for a failed payment",
+      "expect": "Error Alert"
+    },
+    {
+      "id": "a-use-empty",
+      "library": "acme",
+      "kind": "purpose",
+      "phrase": "empty message when nothing is here",
+      "expect": "Empty Message"
+    },
+    {
+      "id": "a-use-table",
+      "library": "acme",
+      "kind": "purpose",
+      "phrase": "data table of transactions",
+      "expect": "Data Table"
+    },
+    {
+      "id": "a-use-summary",
+      "library": "acme",
+      "kind": "purpose",
+      "phrase": "summary card for the order",
+      "expect": "Summary Card"
+    },
+    {
+      "id": "a-den-dense",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "a dense list",
+      "expect": "Compact List"
+    },
+    {
+      "id": "a-den-tight",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "a tight list",
+      "expect": "Compact List"
+    },
+    {
+      "id": "a-den-airy",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "an airy list of rows",
+      "expect": "Comfortable List"
+    },
+    {
+      "id": "a-den-roomy",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "a roomy list",
+      "expect": "Comfortable List"
+    },
+    {
+      "id": "a-den-phones",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "list, compact for phones",
+      "expect": "Compact List"
+    },
+    {
+      "id": "a-den-mobile",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "a list, dense for mobile",
+      "expect": "Compact List"
+    },
+    {
+      "id": "a-den-desktop",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "a list, roomy on desktop",
+      "expect": "Comfortable List"
+    },
+    {
+      "id": "a-den-tablets",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "a list, dense for tablets",
+      "expect": "Compact List"
+    },
+    {
+      "id": "a-den-rows",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "rows that are airy",
+      "expect": "Comfortable List"
+    },
+    {
+      "id": "a-den-please",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "a list which is compact please",
+      "expect": "Compact List"
+    },
+    {
+      "id": "a-den-landscape",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "a list, dense in landscape",
+      "expect": "Compact List"
+    },
+    {
+      "id": "a-den-phone",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "a list, roomy on the phone",
+      "expect": "Comfortable List"
+    },
+    {
+      "id": "a-den-not-plan",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "a list, dense for a phone plan",
+      "expect": null
+    },
+    {
+      "id": "a-den-not-row",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "a compact row of buttons",
+      "expect": "Button"
+    },
+    {
+      "id": "a-den-not-deadline",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "a list of tight deadlines",
+      "expect": null
+    },
+    {
+      "id": "a-ctx-mobile-nav",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "nav bar on mobile",
+      "expect": "Mobile Nav"
+    },
+    {
+      "id": "a-ctx-desktop-nav",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "navigation bar on desktop",
+      "expect": "Desktop Nav"
+    },
+    {
+      "id": "a-empty-fruit",
+      "library": "acme",
+      "kind": "empty",
+      "phrase": "picker for fruit",
+      "expect": null
+    },
+    {
+      "id": "a-empty-dated",
+      "library": "acme",
+      "kind": "empty",
+      "phrase": "dated picked",
+      "expect": null
+    },
+    {
+      "id": "a-empty-captcha",
+      "library": "acme",
+      "kind": "empty",
+      "phrase": "captcha widget",
+      "expect": null
+    },
+    {
+      "id": "a-empty-flux",
+      "library": "acme",
+      "kind": "empty",
+      "phrase": "quantum flux capacitor",
+      "expect": null
+    },
+    {
+      "id": "a-empty-tonal",
+      "library": "acme",
+      "kind": "empty",
+      "phrase": "tonal",
+      "expect": null
+    },
+    {
+      "id": "a-empty-crop",
+      "library": "acme",
+      "kind": "empty",
+      "phrase": "image cropper for avatars",
+      "expect": null
+    },
+    {
+      "id": "a-empty-fetched",
+      "library": "acme",
+      "kind": "empty",
+      "phrase": "fetched",
+      "expect": null
+    },
+    {
+      "id": "a-card-dated",
+      "library": "acme",
+      "kind": "inflection",
+      "phrase": "a card that is dated",
+      "expect": "Summary Card",
+      "accept": [
+        "Card List",
+        "Summary Card"
+      ]
+    },
+    {
+      "id": "m-syn-hyper",
+      "library": "material",
+      "kind": "synonym",
+      "phrase": "hyperlink",
+      "expect": null
+    },
+    {
+      "id": "m-para-icon",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "info icon",
+      "expect": "Icon"
+    },
+    {
+      "id": "m-para-form",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "please show the form field",
+      "expect": "Form field"
+    },
+    {
+      "id": "m-para-time",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "please show the time picker",
+      "expect": "Time picker"
+    },
+    {
+      "id": "m-para-tree",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "tree",
+      "expect": "Tree"
+    },
+    {
+      "id": "m-use-input",
+      "library": "material",
+      "kind": "purpose",
+      "phrase": "promo code input",
+      "expect": "Text field"
+    },
+    {
+      "id": "m-inf-progress",
+      "library": "material",
+      "kind": "inflection",
+      "phrase": "a timed progress bar on upload",
+      "expect": "Progress bar"
+    },
+    {
+      "id": "a-para-cards",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "card list",
+      "expect": "Card List"
+    },
+    {
+      "id": "a-use-spinner",
+      "library": "acme",
+      "kind": "purpose",
+      "phrase": "spinner while the payment submits",
+      "expect": "Loading Spinner"
+    },
+    {
+      "id": "a-syn-blank",
+      "library": "acme",
+      "kind": "synonym",
+      "phrase": "please show the blank message",
+      "expect": "Empty Message"
+    },
+    {
+      "id": "a-ctx-ios",
+      "library": "acme",
+      "kind": "context",
+      "phrase": "a list, compact in ios",
+      "expect": "Compact List"
+    },
+    {
+      "id": "m-empty-topping",
+      "library": "material",
+      "kind": "empty",
+      "phrase": "picker to grab a topping",
+      "expect": null
+    },
+    {
+      "id": "m-para-mini",
+      "library": "material",
+      "kind": "paraphrase",
+      "phrase": "mini floating action button",
+      "expect": "Mini FAB"
+    },
+    {
+      "id": "m-para-badge2",
+      "library": "material",
+      "kind": "synonym",
+      "phrase": "count bubble",
+      "expect": "Badge"
+    },
+    {
+      "id": "a-empty-banner",
+      "library": "acme",
+      "kind": "paraphrase",
+      "phrase": "please show the promo banner",
+      "expect": "Pending Banner"
+    }
+  ]
+}

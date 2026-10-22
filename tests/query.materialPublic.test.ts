@@ -350,10 +350,9 @@ describe("Angular Material public reference", () => {
     expect(report.totals.invented, detail).toBe(0);
     expect(report.totals.wrongCousin, detail).toBe(0);
     expect(report.totals.correctEmpty, detail).toBe(report.totals.emptyCases);
-    // 30 of 33. "a collapsible section" and "header with a back arrow" need a meaning link, not a spelling one.
-    // "grid of photos": "of" describes only after a part's whole name, and "grid" is half of Grid list.
+    // 32 of 33. "header with a back arrow" still needs a meaning link. "a collapsible section" and "grid of photos" now lead the expected part.
     expect(report.totals.top1, detail).toBeGreaterThanOrEqual(30);
-    expect(report.misses.map((miss) => miss.id).sort(), detail).toEqual(["desc-collapsible", "desc-grid-of", "desc-header-back"]);
+    expect(report.misses.map((miss) => miss.id).sort(), detail).toEqual(["desc-header-back"]);
   });
 
   it("keeps the part named before a linking word, and keeps split two-word asks empty", () => {

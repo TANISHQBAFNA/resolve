@@ -523,7 +523,8 @@ export function filterAndScoreByBindRules<T extends { node: GraphNode; score: nu
 
   next = next.map((entry) => {
     const delta = preferDelta(rules, entry.node, options);
-    return delta ? { ...entry, score: entry.score + delta } : entry;
+    // One name token is 1000 times a context point. Prefer must beat usage, not a better name.
+    return delta ? { ...entry, score: entry.score + delta * 1000 } : entry;
   });
 
   const requireRules = rules.rules.filter(

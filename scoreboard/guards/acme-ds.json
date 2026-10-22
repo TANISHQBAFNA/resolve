@@ -1,0 +1,98 @@
+{
+  "fileKey": "ACMEDS",
+  "fileName": "Acme DS",
+  "root": {
+    "id": "0:0",
+    "name": "Acme DS",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "1:1",
+        "name": "Components",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "10:1",
+            "name": "Button",
+            "type": "COMPONENT_SET",
+            "children": [
+              {
+                "id": "10:2",
+                "name": "Type=Primary, Size=Large",
+                "type": "COMPONENT",
+                "componentSetId": "10:1",
+                "variantProperties": { "Type": "Primary", "Size": "Large" }
+              }
+            ]
+          },
+          { "id": "10:3", "name": "Card", "type": "COMPONENT" },
+          { "id": "10:4", "name": "Radio", "type": "COMPONENT" },
+          {
+            "id": "40:1",
+            "name": "Bottom action bar",
+            "type": "COMPONENT",
+            "children": [
+              { "id": "40:11", "name": "Button", "type": "INSTANCE", "componentId": "10:2" },
+              { "id": "40:12", "name": "Button", "type": "INSTANCE", "componentId": "10:2" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "1:2",
+        "name": "Icons",
+        "type": "CANVAS",
+        "children": [
+          { "id": "50:1", "name": "Info", "type": "COMPONENT" },
+          {
+            "id": "50:2",
+            "name": "Arrows",
+            "type": "COMPONENT_SET",
+            "children": [
+              {
+                "id": "50:3",
+                "name": "Direction=Right",
+                "type": "COMPONENT",
+                "componentSetId": "50:2",
+                "variantProperties": { "Direction": "Right" }
+              }
+            ]
+          },
+          {
+            "id": "50:4",
+            "name": "Icons",
+            "type": "COMPONENT_SET",
+            "children": [
+              {
+                "id": "50:5",
+                "name": "Name=Star",
+                "type": "COMPONENT",
+                "componentSetId": "50:4",
+                "variantProperties": { "Name": "Star" }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "components": {
+    "10:2": { "id": "10:2", "name": "Type=Primary, Size=Large", "key": "acme-btn-primary", "componentSetId": "10:1" },
+    "10:3": { "id": "10:3", "name": "Card", "key": "acme-card" },
+    "10:4": { "id": "10:4", "name": "Radio", "key": "acme-radio" },
+    "40:1": { "id": "40:1", "name": "Bottom action bar", "key": "acme-bar" },
+    "50:1": { "id": "50:1", "name": "Info", "key": "acme-icon-info" },
+    "50:3": { "id": "50:3", "name": "Direction=Right", "key": "acme-icon-arrow", "componentSetId": "50:2" },
+    "50:5": { "id": "50:5", "name": "Name=Star", "key": "acme-icon-star", "componentSetId": "50:4" }
+  },
+  "componentSets": {
+    "10:1": { "id": "10:1", "name": "Button", "key": "acme-btn-set" },
+    "50:2": { "id": "50:2", "name": "Arrows", "key": "acme-arrows" },
+    "50:4": { "id": "50:4", "name": "Icons", "key": "acme-icons" }
+  },
+  "styles": {},
+  "variables": {},
+  "variableCollections": {},
+  "libraries": {},
+  "source": { "kind": "mock", "ingestedAt": "2026-01-01T00:00:00.000Z" }
+}

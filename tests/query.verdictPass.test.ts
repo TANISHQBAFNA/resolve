@@ -51,11 +51,12 @@ describe("JSON pass matches the verdict exit code", () => {
     expect(card.pass, type).toBe(type === "component-fail" || type === "name-only" || type === "nothing-checked" ? false : true);
   });
 
-  it("keeps Components: PASS on the text card when only proper use fails", () => {
+  it("leads with FAIL when only proper use fails, and JSON result is not verified", () => {
     const text = presentToolResult(sample("proper-use"), "markdown", "verify_frame");
-    expect(text.startsWith("Components: PASS · Proper use: FAIL")).toBe(true);
-    const json = JSON.parse(presentToolResult(sample("proper-use"), "json", "verify_frame")) as { pass?: boolean };
+    expect(text.startsWith("FAIL: proper use (2 errors, 0 warnings) · components pass")).toBe(true);
+    const json = JSON.parse(presentToolResult(sample("proper-use"), "json", "verify_frame")) as { pass?: boolean; result?: string };
     expect(json.pass).toBe(false);
+    expect(json.result).toBe("proper_use_failed");
   });
 });
 
@@ -128,16 +129,18 @@ describe("CLI check/verify JSON and MCP verify_frame", () => {
     }
     const text = await capture(["check", "Misused"]);
     expect(text.code).toBe(7);
-    expect(text.out.startsWith("Components: PASS · Proper use: FAIL")).toBe(true);
+    expect(text.out.startsWith("FAIL: proper use")).toBe(true);
 
     for (const frame of ["Paid screen", "Misused"]) {
       const raw = callTool("verify_frame", { frame }) as { pass?: boolean; properUse?: { exitCode?: number } };
-      const json = JSON.parse(encodeToolResult(raw, "json", "verify_frame")) as { pass?: boolean };
+      const json = JSON.parse(encodeToolResult(raw, "json", "verify_frame")) as { pass?: boolean; result?: string };
       const exitCode = verifyExitCode(raw);
       expect(json.pass, frame).toBe(exitCode === 0);
       const markdown = encodeToolResult(raw, "markdown", "verify_frame");
-      if (frame === "Misused") expect(markdown.startsWith("Components: PASS · Proper use: FAIL")).toBe(true);
-      else expect(markdown.startsWith("Components: PASS · Proper use: PASS")).toBe(true);
+      if (frame === "Misused") {
+        expect(markdown.startsWith("FAIL: proper use")).toBe(true);
+        expect(json.result).toBe("proper_use_failed");
+      } else expect(markdown.startsWith("PASS")).toBe(true);
     }
   });
 

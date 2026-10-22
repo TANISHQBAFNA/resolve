@@ -98,6 +98,8 @@ export interface HandoffPart {
   name: string;
   fileKey?: string;
   figmaNodeId?: string;
+  /** Set id when figmaNodeId is a variant. Code maps key the set. */
+  componentSetId?: string;
   count: number;
   status: IngredientPart["status"];
   code: string | null;
@@ -122,6 +124,8 @@ export interface HandoffComponent {
   variant?: string;
   fileKey?: string;
   figmaNodeId?: string;
+  /** Set id when figmaNodeId is a variant. Code maps key the set. */
+  componentSetId?: string;
   count: number;
   /** Placed copies on this screen (Figma ids, first 10; `count` has them all). */
   copies: string[];
@@ -154,6 +158,8 @@ export interface HandoffIngredient {
   name: string;
   fileKey?: string;
   figmaNodeId?: string;
+  /** Set id when figmaNodeId is a variant. Code maps key the set. */
+  componentSetId?: string;
   status: "mapped" | "unmapped" | "retired" | typeof NAME_GUESS | "other-library" | "not-found";
   code: string;
   angular?: AngularTwin;
@@ -373,6 +379,7 @@ function trimParts(parts: IngredientPart[] | undefined): HandoffPart[] {
     name: clean(p.name),
     ...(p.fileKey ? { fileKey: p.fileKey } : {}),
     ...(p.figmaNodeId ? { figmaNodeId: p.figmaNodeId } : {}),
+    ...(p.componentSetId ? { componentSetId: p.componentSetId } : {}),
     count: p.count,
     status: p.status,
     code: p.code,
@@ -732,6 +739,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
       ...(props ? { variant: Object.entries(props).map(([k, v]) => `${k}=${v}`).join(", ") } : {}),
       ...(main && !remote && fid(index, main) ? { fileKey: fid(index, main) } : {}),
       ...(main?.figmaNodeId && !remote ? { figmaNodeId: main.figmaNodeId } : {}),
+      ...(set && main && set.id !== main.id && set.figmaNodeId && !remote ? { componentSetId: set.figmaNodeId } : {}),
       count: copies.length,
       copies: copies.slice(0, 10).flatMap((c) => (c.figmaNodeId ? [c.figmaNodeId] : [])),
       identity: missing ? "not-found" : guess ? NAME_GUESS : "confirmed",
@@ -762,6 +770,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
         name: p.name,
         ...(p.fileKey ? { fileKey: p.fileKey } : {}),
         ...(p.figmaNodeId ? { figmaNodeId: p.figmaNodeId } : {}),
+        ...(p.componentSetId ? { componentSetId: p.componentSetId } : {}),
         status: partStatus(p),
         code: p.code ?? (p.status === "other-library" || p.status === "not-found" ? "unknown" : "unmapped"),
         ...(p.angular ? { angular: p.angular } : {}),

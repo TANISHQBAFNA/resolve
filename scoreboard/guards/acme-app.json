@@ -1,0 +1,128 @@
+{
+  "fileKey": "ACMEAPP",
+  "fileName": "Acme App",
+  "root": {
+    "id": "0:0",
+    "name": "Acme App",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "2:1",
+        "name": "Patterns",
+        "type": "CANVAS",
+        "children": [
+          { "id": "20:90", "name": "Loading bar", "type": "COMPONENT" },
+          { "id": "20:91", "name": "Action bar", "type": "COMPONENT" },
+          {
+            "id": "20:1",
+            "name": "Bottom action bar",
+            "type": "COMPONENT",
+            "children": [
+              { "id": "20:11", "name": "Button", "type": "INSTANCE", "componentId": "10:2" }
+            ]
+          },
+          {
+            "id": "20:2",
+            "name": "Party card",
+            "type": "COMPONENT",
+            "children": [
+              { "id": "20:21", "name": "Card", "type": "INSTANCE", "componentId": "10:3" }
+            ]
+          },
+          {
+            "id": "20:3",
+            "name": "button-group",
+            "type": "COMPONENT",
+            "children": [
+              { "id": "20:31", "name": "Radio", "type": "INSTANCE", "componentId": "10:4" }
+            ]
+          },
+          {
+            "id": "20:9",
+            "name": "Sign in",
+            "type": "FRAME",
+            "children": [
+              { "id": "20:91", "name": "Button", "type": "INSTANCE", "componentId": "10:2" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "2:2",
+        "name": "Icons",
+        "type": "CANVAS",
+        "children": [
+          {
+            "id": "21:1",
+            "name": "Arrows",
+            "type": "COMPONENT_SET",
+            "children": [
+              {
+                "id": "21:2",
+                "name": "Direction=Left",
+                "type": "COMPONENT",
+                "componentSetId": "21:1",
+                "variantProperties": { "Direction": "Left" }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "components": {
+    "10:2": {
+      "id": "10:2",
+      "name": "Type=Primary, Size=Large",
+      "key": "acme-btn-primary",
+      "componentSetId": "10:1",
+      "remote": true,
+      "sourceFileKey": "ACMEDS",
+      "sourceFileName": "Acme DS",
+      "libraryId": "ds"
+    },
+    "10:3": {
+      "id": "10:3",
+      "name": "Card",
+      "key": "acme-card",
+      "remote": true,
+      "sourceFileKey": "ACMEDS",
+      "sourceFileName": "Acme DS",
+      "libraryId": "ds"
+    },
+    "10:4": {
+      "id": "10:4",
+      "name": "Radio",
+      "key": "acme-radio",
+      "remote": true,
+      "sourceFileKey": "ACMEDS",
+      "sourceFileName": "Acme DS",
+      "libraryId": "ds"
+    },
+    "20:1": { "id": "20:1", "name": "Bottom action bar", "key": "acme-bar" },
+    "20:90": { "id": "20:90", "name": "Loading bar", "key": "acme-app-loading-bar" },
+    "20:91": { "id": "20:91", "name": "Action bar", "key": "acme-app-action-bar" },
+    "20:2": { "id": "20:2", "name": "Party card", "key": "acme-party" },
+    "20:3": { "id": "20:3", "name": "button-group", "key": "acme-button-group" },
+    "21:2": { "id": "21:2", "name": "Direction=Left", "key": "acme-app-arrow", "componentSetId": "21:1" }
+  },
+  "componentSets": {
+    "21:1": { "id": "21:1", "name": "Arrows", "key": "acme-app-arrows" },
+    "10:1": {
+      "id": "10:1",
+      "name": "Button",
+      "key": "acme-btn-set",
+      "remote": true,
+      "sourceFileKey": "ACMEDS",
+      "sourceFileName": "Acme DS",
+      "libraryId": "ds"
+    }
+  },
+  "styles": {},
+  "variables": {},
+  "variableCollections": {},
+  "libraries": {
+    "ds": { "id": "ds", "name": "Acme DS", "fileKey": "ACMEDS" }
+  },
+  "source": { "kind": "mock", "ingestedAt": "2026-01-01T00:00:00.000Z" }
+}

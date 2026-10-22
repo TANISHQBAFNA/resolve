@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "note": "Written after the parse was wired. Not used to change ranking.",
+  "cases": [
+    { "library": "acme", "phrase": "give me a condensed list of payees", "expect": "Compact List" },
+    { "library": "acme", "phrase": "the comfortable list of names", "expect": "Comfortable List" },
+    { "library": "acme", "phrase": "an airy list for the phone", "expect": "Comfortable List" },
+    { "library": "acme", "phrase": "tight rows for a tablet", "expect": "Compact List" },
+    { "library": "acme", "phrase": "button that saves the draft", "expect": "Save CTA" },
+    { "library": "acme", "phrase": "a dated summary card", "expect": "Summary Card" },
+    { "library": "acme", "phrase": "navigation aimed at a handset", "expect": "Mobile Nav" },
+    { "library": "acme", "phrase": "nav for a desktop screen", "expect": "Desktop Nav" },
+    { "library": "acme", "phrase": "picker to choose a fruit", "expect": null },
+    { "library": "acme", "phrase": "a button, not a banner", "expect": "Button" },
+    { "library": "material", "phrase": "something to pick a date", "expect": "Date picker" },
+    { "library": "material", "phrase": "a card that is dated", "expect": "Card" },
+    { "library": "material", "phrase": "picker to choose a flavor", "expect": null },
+    { "library": "material", "phrase": "a sheet pinned to the side", "expect": "Side sheet" },
+    { "library": "material", "phrase": "a toast after the form saves", "expect": "Snackbar" },
+    { "library": "material", "phrase": "the switch you toggle", "expect": "Slide toggle" },
+    { "library": "material", "phrase": "tabs, not a menu", "expect": "Tabs" },
+    { "library": "material", "phrase": "mini fab for compose", "expect": "Mini FAB" },
+    { "library": "material", "phrase": "top bar of the screen", "expect": "Toolbar" },
+    { "library": "material", "phrase": "dated picked widgets", "expect": null }
+  ]
+}
