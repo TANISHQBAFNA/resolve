@@ -1,4 +1,4 @@
-# Footer Bar
-The strip at the very end of the page, with legal links.
-Thin: footer-bar missing description
+# Acme / Footer Bar
+Footer Bar
+Thin: Acme footer-bar missing description, doc
 [footer-bar](index.md)

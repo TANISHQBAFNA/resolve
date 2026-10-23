@@ -1,5 +1,5 @@
-# Button Primary
-A large primary action for checkout on mobile.
+# Acme / Button Primary
+Button Primary
 Properties: Style: Primary
-Thin: button-primary missing description
+Thin: Acme button-primary missing description, doc
 [button-primary](index.md)

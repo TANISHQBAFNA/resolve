@@ -25,14 +25,10 @@ export interface MeaningEntry {
 }
 
 export interface MeaningLanguage {
-  /** Canonical density value → words this library uses for it. */
+  /** Density value named by a component in this library. No synonym list. */
   density: Record<string, string[]>;
-  /** Devices this library treats as context, not as a component. */
+  /** Device words that appear in a component name. */
   device: string[];
-  /** Nouns a density word describes on its own, keyed by the word that was said. */
-  describes: Record<string, string[]>;
-  /** Nouns that are a material, fabric, paper, document, or clothing. Density does not apply to them. */
-  senses: Record<string, string[]>;
 }
 
 export interface MeaningDictionary {

@@ -1,4 +1,5 @@
-# Toast
-A short message after saving, or a quick note that a payment went through and fades on its own.
-Thin: toast missing description
+# Acme / Toast
+Toast
+Aliases: snackbar
+Thin: Acme toast missing description, doc
 [toast](index.md)

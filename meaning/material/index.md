@@ -1,47 +1,47 @@
 # Angular Material
 built: 2026-01-01T00:00:00.000Z
-- [autocomplete](autocomplete.md) — Type a few letters and get matching suggestions, such as a city.
-- [badge](badge.md) — A small status mark on another part.
-- [bottom-sheet](bottom-sheet.md) — A panel rising from below, such as share options.
-- [button](button.md) — The main action that sends the form.
-- [button-toggle](button-toggle.md) — A segmented control for one choice or several.
-- [card](card.md) — A surface that holds related content.
-- [checkbox](checkbox.md) — Marks each item you want, one or more, including terms you agree to. Also called a tick box.
-- [chip](chip.md) — Small selectable tokens that narrow results by category, or a removable token for a chosen keyword. A clickable label used to filter.
-- [date-picker](date-picker.md) — Chooses the first and last day of a range on a calendar.
-- [dialog](dialog.md) — A box that blocks the page until the person answers. Asks them to confirm before an account is erased. A pop-up for a yes or no. Also called a dialog.
-- [divider](divider.md) — A thin line between two groups of settings.
-- [expansion-panel](expansion-panel.md) — An area that opens to reveal more details and closes again.
-- [extended-fab](extended-fab.md) — A floating action button with a text label.
-- [fab](fab.md) — A round control pinned in the corner for composing a new message.
-- [form-field](form-field.md) — The form wrapped around an input, including an expense form.
-- [grid-list](grid-list.md) — Tiles laid out together.
-- [icon](icon.md) — A symbol glyph.
-- [icon-button](icon-button.md) — A button that shows only a symbol.
-- [legacy-button](legacy-button.md) — Retired. Replaced by Button.
-- [list](list.md) — A vertical list of rows, including a compact contacts list.
-- [list-item](list-item.md) — One row inside a list.
-- [menu](menu.md) — A short set of actions that opens from the three-dot overflow, such as rename and delete.
-- [mini-fab](mini-fab.md) — A small floating action for a phone screen.
-- [navigation-bar](navigation-bar.md) — Links between the main areas of a phone app, along the lower edge.
-- [navigation-rail](navigation-rail.md) — Side navigation for a wide desktop layout.
-- [paginator](paginator.md) — Moves to the next batch of results under a long table.
-- [progress-bar](progress-bar.md) — Shows how far along an upload is, including the percent of a file transferred.
-- [progress-spinner](progress-spinner.md) — A spinning circle while the page waits for data, or an endless loading circle while a background job is still running.
-- [radio-button](radio-button.md) — Choose one option out of a set, such as one shipping speed out of three.
-- [search-bar](search-bar.md) — A field for typing a search.
-- [select](select.md) — Pick one value from a collapsed set of options, such as a country or a currency. A form value, not a menu of actions.
-- [side-sheet](side-sheet.md) — A panel from the right edge, used on desktop to edit filters.
-- [sidenav](sidenav.md) — A panel of page links that slides in from the left edge. Also called a navigation drawer.
-- [slide-toggle](slide-toggle.md) — An on or off control. Flips a setting such as dark mode or a reminder email. Also called a switch.
-- [slider](slider.md) — Drag to set a value along a range, such as how loud music plays, or between a low and a high price.
-- [snackbar](snackbar.md) — A brief note near the bottom of the screen after a draft is kept or saved. A little message that goes away by itself, including undo.
-- [sort](sort.md) — Orders one column by price from low to high.
-- [stepper](stepper.md) — Walks someone through account setup one stage at a time.
-- [table](table.md) — Rows and columns you can scan, such as transactions or a grid of invoices.
-- [tabs](tabs.md) — A row of labels used to switch between parts of a settings page.
-- [text-field](text-field.md) — Where you type an exact value, such as an amount of money.
-- [time-picker](time-picker.md) — Sets the hour and minute, such as for an alarm.
-- [toolbar](toolbar.md) — A strip along the upper edge of the app with the page name and a back arrow.
-- [tooltip](tooltip.md) — A short hint shown when the pointer rests on a symbol.
-- [tree](tree.md) — Shows folders inside folders that open and close.
+- [autocomplete](autocomplete.md) — Text field with suggested options.
+- [badge](badge.md) — Small status mark on another part.
+- [bottom-sheet](bottom-sheet.md) — Surface that slides up from the bottom.
+- [button](button.md) — Angular Material buttons are native <button> or <a> elements enhanced with Material Design styling. A <button> element should be used whenever some action is performed.
+- [button-toggle](button-toggle.md) — Segmented button. Single or multi select.
+- [card](card.md) — Elevated, filled, and outlined cards.
+- [checkbox](checkbox.md) — <mat-checkbox> provides the same functionality as a native <input type="checkbox"> enhanced with Material Design styling and animations.
+- [chip](chip.md) — Chips allow users to view information, make selections, filter content, and enter data.
+- [date-picker](date-picker.md) — The datepicker allows users to enter a date either through text input, or by choosing a date from the calendar.
+- [dialog](dialog.md) — The MatDialog service can be used to open modal dialogs with Material Design styling and animations.
+- [divider](divider.md) — Hairline between items.
+- [expansion-panel](expansion-panel.md) — <mat-expansion-panel> provides an expandable details-summary view. The mat-expansion-panel-header shows a summary of the panel content and acts as the contro…
+- [extended-fab](extended-fab.md) — You can add the extended attribute to allow the fab to expand into a rounded rectangle shape with space for a text label in addition to the icon.
+- [fab](fab.md) — matFab: Rectangular button w/ elevation and rounded corners, meant to contain an icon.
+- [form-field](form-field.md) — Label, hint, and error around an input.
+- [grid-list](grid-list.md) — Tiles in a grid.
+- [icon](icon.md) — Icon glyph.
+- [icon-button](icon-button.md) — matIconButton: Smaller, circular button, meant to contain an icon and no text.
+- [legacy-button](legacy-button.md) — deprecated. Replaced by Button.
+- [list](list.md) — <mat-list> is a container component that wraps and formats a series of <mat-list-item>.
+- [list-item](list-item.md) — If a list item needs to show a single line of textual information, the text can be inserted directly into the <mat-list-item> element.
+- [menu](menu.md) — <mat-menu> is a floating panel containing list of options.
+- [mini-fab](mini-fab.md) — matMiniFab: Smaller variant of matFab.
+- [navigation-bar](navigation-bar.md) — Bottom navigation. Material 3. No matching Angular Material class.
+- [navigation-rail](navigation-rail.md) — Side rail for a few destinations. No matching Angular Material class.
+- [paginator](paginator.md) — <mat-paginator> provides navigation for paged information, typically used with a table.
+- [progress-bar](progress-bar.md) — Linear progress indicator.
+- [progress-spinner](progress-spinner.md) — Circular progress indicator.
+- [radio-button](radio-button.md) — <mat-radio-button> provides the same functionality as a native <input type="radio"> enhanced with Material Design styling and animations. All radio-buttons with th…
+- [search-bar](search-bar.md) — Search. Material 3 search. Angular Material has no search-bar class.
+- [select](select.md) — <mat-select> is a form control for selecting a value from a set of options, similar to the native <select> element.
+- [side-sheet](side-sheet.md) — Sheet docked to the side. Material 3 has no separate Angular class for this.
+- [sidenav](sidenav.md) — Navigation drawer.
+- [slide-toggle](slide-toggle.md) — <mat-slide-toggle> is an on/off control that can be toggled via clicking.
+- [slider](slider.md) — <mat-slider> allows for the selection of a value from a range via mouse, touch, or keyboard, similar to <input type="range">.
+- [snackbar](snackbar.md) — MatSnackBar is a service for displaying snack-bar notifications.
+- [sort](sort.md) — Sortable column header.
+- [stepper](stepper.md) — Steps in a task.
+- [table](table.md) — Data table.
+- [tabs](tabs.md) — Angular Material tabs organize content into separate views where only one view can be visible at a time.
+- [text-field](text-field.md) — Filled and outlined text fields.
+- [time-picker](time-picker.md) — Pick a time.
+- [toolbar](toolbar.md) — Top app bar.
+- [tooltip](tooltip.md) — The Angular Material tooltip provides a text label that is displayed when the user hovers over or longpresses an element.
+- [tree](tree.md) — Nested rows.

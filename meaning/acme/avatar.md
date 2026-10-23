@@ -1,4 +1,5 @@
-# Avatar
-The person's face in a small circle next to their name.
-Thin: avatar missing description
+# Acme / Avatar
+Avatar
+Aliases: headshot, image, photo, picture, profile
+Thin: Acme avatar missing description, doc
 [avatar](index.md)

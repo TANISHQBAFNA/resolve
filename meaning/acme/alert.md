@@ -1,4 +1,5 @@
-# Alert
-A red message saying a card charge failed.
-Thin: alert missing description
+# Acme / Alert
+Alert
+Aliases: notice, notification, warning
+Thin: Acme alert missing description, doc
 [alert](index.md)

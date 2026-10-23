@@ -1,4 +1,5 @@
-# Banner
-A full-width announcement.
-Thin: banner missing description
+# Acme / Banner
+Banner
+Aliases: announcement
+Thin: Acme banner missing description, doc
 [banner](index.md)

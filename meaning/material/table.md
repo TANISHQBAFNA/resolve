@@ -1,5 +1,4 @@
-# Table
-Rows and columns you can scan, such as transactions or a grid of invoices.
+# Angular Material / Table
 Data table.
-Thin: table missing description
+Thin: Angular Material table missing description, doc
 [table](index.md)

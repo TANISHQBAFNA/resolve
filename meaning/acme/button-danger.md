@@ -1,5 +1,5 @@
-# Button Danger
-A destructive action, shown as danger.
+# Acme / Button Danger
+Button Danger
 Properties: Style: Danger
-Thin: button-danger missing description
+Thin: Acme button-danger missing description, doc
 [button-danger](index.md)

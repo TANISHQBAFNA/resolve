@@ -1,4 +1,4 @@
-# Card List
-A list of cards, and the plain list when the thing listed is not a record in this library.
-Thin: card-list missing description
+# Acme UI / Card List
+Card List
+Thin: Acme UI card-list missing description, doc
 [card-list](index.md)

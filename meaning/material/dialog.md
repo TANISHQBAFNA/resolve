@@ -1,6 +1,7 @@
-# Dialog
-A box that blocks the page until the person answers. Asks them to confirm before an account is erased. A pop-up for a yes or no. Also called a dialog.
+# Angular Material / Dialog
+The MatDialog service can be used to open modal dialogs with Material Design styling and animations.
 Basic dialog and full-screen dialog.
-Aliases: dialog
+https://material.angular.dev/components/dialog/overview
+Aliases: modal, popup
 Properties: Type: Basic, Full-screen; Headline: Title
 [dialog](index.md)

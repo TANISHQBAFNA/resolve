@@ -18,6 +18,7 @@ import {
   type MeaningCandidate,
   type MeaningPack,
 } from "@/core/query/meaning/sock";
+import { MATERIAL_DOCS } from "@/core/query/meaning/materialDocs";
 import { buildGraph } from "@/core/transform/buildGraph";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
@@ -84,9 +85,9 @@ function materialIndex(): GraphIndex {
 
 function loadPacks(): Record<FrozenCase["pack"], MeaningPack> {
   return {
-    material: buildMeaningPack(materialIndex(), "Angular Material", readFileSync(join(root, "fixtures/material/guidelines.md"), "utf8"), FROZEN),
-    acme: buildMeaningPack(fixtureIndex(), "Acme", readFileSync(join(root, "scoreboard/fixture/guidelines.md"), "utf8"), FROZEN),
-    "acme-small": buildMeaningPack(acmeSmall(), "Acme UI", readFileSync(join(root, "scoreboard/meaning/acme-small-guidelines.md"), "utf8"), FROZEN),
+    material: buildMeaningPack(materialIndex(), "Angular Material", FROZEN, MATERIAL_DOCS),
+    acme: buildMeaningPack(fixtureIndex(), "Acme", FROZEN),
+    "acme-small": buildMeaningPack(acmeSmall(), "Acme UI", FROZEN),
   };
 }
 
@@ -110,7 +111,6 @@ export function scoreFrozen(cases: FrozenCase[], packs = loadPacks()): FrozenRep
   }
   let top1 = 0;
   let top3 = 0;
-  let exact = 0;
   let avoidHit = 0;
   let avoid = 0;
   let noFitHit = 0;
@@ -126,35 +126,28 @@ export function scoreFrozen(cases: FrozenCase[], packs = loadPacks()): FrozenRep
     const libraryNames = names.get(row.pack) ?? new Set<string>();
     for (const name of got) if (!libraryNames.has(name)) invented += 1;
     const isExact = row.expect.accept === "exact";
-    const isNoFit = !isExact || (row.tags ?? []).includes("no-fit");
-    if (isExact) {
-      exact += 1;
-      const hit1 = inTop(got, row, 1);
-      const hit3 = inTop(got, row, 3);
-      if (hit1) top1 += 1;
-      if (hit3) top3 += 1;
-      if ((row.tags ?? []).includes("meaning-only")) {
-        avoid += 1;
-        if (hit3) avoidHit += 1;
-      }
-      if (!hit1) misses.push(`${row.id} top1 ${got[0] ?? "∅"} want ${row.expect.lead} [${got.slice(0, 3).join(", ")}]`);
+    const fit1 = isExact ? inTop(got, row, 1) : noFitPass(candidates);
+    const fit3 = isExact ? inTop(got, row, 3) : noFitPass(candidates);
+    if (fit1) top1 += 1;
+    if (fit3) top3 += 1;
+    else misses.push(`${row.id} ${isExact ? "top" : "no-fit"} ${lead ? `${lead.name} ${lead.confidence}` : "∅"} want ${row.expect.lead ?? row.expect.accept} [${got.slice(0, 3).join(", ")}]`);
+    if ((row.tags ?? []).includes("meaning-only")) {
+      avoid += 1;
+      if (fit3) avoidHit += 1;
     }
-    if (isNoFit) {
+    if (!isExact || (row.tags ?? []).includes("no-fit")) {
       noFit += 1;
-      const pass = noFitPass(candidates);
-      if (pass) noFitHit += 1;
-      else misses.push(`${row.id} no-fit ${lead ? `${lead.name} ${lead.confidence}` : "∅"}`);
+      if (noFitPass(candidates)) noFitHit += 1;
     }
     if ((row.tags ?? []).includes("confusable") && lead?.confidence === "sure" && !accepted(row).has(lead.name)) {
       confusableWrongSure += 1;
-      misses.push(`${row.id} sure-wrong ${lead.name}`);
     }
   }
   const rate = (hit: number, of: number) => (of === 0 ? 0 : hit / of);
   return {
     cases: cases.length,
-    top1: { hit: top1, of: exact, rate: rate(top1, exact) },
-    top3: { hit: top3, of: exact, rate: rate(top3, exact) },
+    top1: { hit: top1, of: cases.length, rate: rate(top1, cases.length) },
+    top3: { hit: top3, of: cases.length, rate: rate(top3, cases.length) },
     nameAvoidingTop3: { hit: avoidHit, of: avoid, rate: rate(avoidHit, avoid) },
     noFit: { hit: noFitHit, of: noFit, rate: rate(noFitHit, noFit) },
     confusableWrongSure,

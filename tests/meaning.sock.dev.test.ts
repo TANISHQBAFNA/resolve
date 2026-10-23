@@ -13,7 +13,7 @@ function node(id: string, type: NodeType, name: string, description = ""): Graph
   return { id, type, name, description, figmaNodeId: id, isMainComponent: type === "MAIN_COMPONENT" };
 }
 
-function packFrom(names: Array<[string, string]>, guidelines: string) {
+function packFrom(names: Array<[string, string]>) {
   const graph: DesignGraph = {
     fileKey: "ACMEUI",
     fileName: "Acme UI",
@@ -23,7 +23,7 @@ function packFrom(names: Array<[string, string]>, guidelines: string) {
     nodes: [node("file:acme", "FILE", "Acme UI"), ...names.map(([id, name], index) => node(`node:${index}`, "MAIN_COMPONENT", name, id))],
     edges: [],
   };
-  return buildMeaningPack(indexGraph(graph), "Acme", guidelines, FROZEN);
+  return buildMeaningPack(indexGraph(graph), "Acme", FROZEN);
 }
 
 describe("meaning SOCK dev set", () => {
@@ -35,8 +35,7 @@ describe("meaning SOCK dev set", () => {
   });
 
   it("quotes the component and flags thin descriptions", () => {
-    const guidelines = ["# Acme", "## Switch", "Turns a setting on or off.", "## Button", "Sends a form."].join("\n");
-    const pack = packFrom([["", "Switch"], ["", "Button"]], guidelines);
+    const pack = packFrom([["Turns a setting on or off.", "Switch"], ["Sends a form.", "Button"]]);
     const hits = meaningCandidates("turn alerts on or off", pack);
     expect(hits[0]?.name).toBe("Switch");
     expect(hits[0]?.reason.toLowerCase()).toContain("on or off");

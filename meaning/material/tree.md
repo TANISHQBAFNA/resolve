@@ -1,4 +1,3 @@
-# Tree
-Shows folders inside folders that open and close.
+# Angular Material / Tree
 Nested rows.
 [tree](index.md)

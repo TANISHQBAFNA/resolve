@@ -1,4 +1,4 @@
-# Summary Card
-A card of totals.
-Thin: summary-card missing description
+# Acme UI / Summary Card
+Summary Card
+Thin: Acme UI summary-card missing description, doc
 [summary-card](index.md)

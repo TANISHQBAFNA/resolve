@@ -1,4 +1,3 @@
-# Old Price
-Retired price. Do not use.
+# Acme / Old Price
 status: deprecated
 [old-price](index.md)

@@ -1,5 +1,4 @@
-# Compact List
-The compact list of records such as payees. Also called dense or tight.
-Aliases: dense, tight
-Thin: compact-list missing description
+# Acme UI / Compact List
+Compact List
+Thin: Acme UI compact-list missing description, doc
 [compact-list](index.md)

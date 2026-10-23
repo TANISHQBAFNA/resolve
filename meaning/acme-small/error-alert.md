@@ -1,4 +1,4 @@
-# Error Alert
-A message when something failed.
-Thin: error-alert missing description
+# Acme UI / Error Alert
+Error Alert
+Thin: Acme UI error-alert missing description, doc
 [error-alert](index.md)

@@ -1,5 +1,5 @@
-# Button Secondary
-A quieter action beside the primary one.
+# Acme / Button Secondary
+Button Secondary
 Properties: Style: Secondary
-Thin: button-secondary missing description
+Thin: Acme button-secondary missing description, doc
 [button-secondary](index.md)

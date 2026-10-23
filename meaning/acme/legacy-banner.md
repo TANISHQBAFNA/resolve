@@ -1,4 +1,3 @@
-# Legacy Banner
-Retired banner. Do not use.
+# Acme / Legacy Banner
 status: deprecated
 [legacy-banner](index.md)

@@ -1,4 +1,4 @@
-# Empty Message
-Shown when nothing is here yet, with a hint to add the first item.
-Thin: empty-message missing description
+# Acme / Empty Message
+Empty Message
+Thin: Acme empty-message missing description, doc
 [empty-message](index.md)

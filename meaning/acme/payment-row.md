@@ -1,4 +1,4 @@
-# Payment Row
-One line in a list of recent payments.
-Thin: payment-row missing description
+# Acme / Payment Row
+Payment Row
+Thin: Acme payment-row missing description, doc
 [payment-row](index.md)

@@ -1,4 +1,4 @@
-# Divider
-A thin line between two groups of settings.
+# Angular Material / Divider
 Hairline between items.
+Aliases: rule, separator
 [divider](index.md)

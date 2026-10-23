@@ -1,4 +1,5 @@
-# Input
-A generic place to type.
-Thin: input missing description
+# Acme / Input
+Input
+Aliases: field, text, text box, text field, textbox, textfield
+Thin: Acme input missing description, doc
 [input](index.md)

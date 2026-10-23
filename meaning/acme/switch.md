@@ -1,4 +1,5 @@
-# Switch
-An on or off control. Turns one setting on or off with a flick, such as paperless statements or sign-in.
-Thin: switch missing description
+# Acme / Switch
+Switch
+Aliases: toggle
+Thin: Acme switch missing description, doc
 [switch](index.md)

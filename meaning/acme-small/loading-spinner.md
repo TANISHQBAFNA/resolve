@@ -1,4 +1,4 @@
-# Loading Spinner
-A spinner while loading.
-Thin: loading-spinner missing description
+# Acme UI / Loading Spinner
+Loading Spinner
+Thin: Acme UI loading-spinner missing description, doc
 [loading-spinner](index.md)

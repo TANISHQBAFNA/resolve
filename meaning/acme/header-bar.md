@@ -1,4 +1,4 @@
-# Header Bar
-The strip across the top of the page.
-Thin: header-bar missing description
+# Acme / Header Bar
+Header Bar
+Thin: Acme header-bar missing description, doc
 [header-bar](index.md)

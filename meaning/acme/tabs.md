@@ -1,4 +1,4 @@
-# Tabs
-Move between sections on an account page, such as Summary and Details.
-Thin: tabs missing description
+# Acme / Tabs
+Tabs
+Thin: Acme tabs missing description, doc
 [tabs](index.md)

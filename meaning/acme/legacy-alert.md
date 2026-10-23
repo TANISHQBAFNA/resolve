@@ -1,4 +1,3 @@
-# Legacy Alert
-Retired alert. Do not use.
+# Acme / Legacy Alert
 status: deprecated
 [legacy-alert](index.md)

@@ -1,4 +1,4 @@
-# Quantity Stepper
-How many of this item to buy, with plus and minus.
-Thin: quantity-stepper missing description
+# Acme / Quantity Stepper
+Quantity Stepper
+Thin: Acme quantity-stepper missing description, doc
 [quantity-stepper](index.md)

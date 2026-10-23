@@ -1,4 +1,4 @@
-# Summary Card
-A card giving totals at a glance, such as the month.
-Thin: summary-card missing description
+# Acme / Summary Card
+Summary Card
+Thin: Acme summary-card missing description, doc
 [summary-card](index.md)

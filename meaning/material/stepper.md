@@ -1,4 +1,3 @@
-# Stepper
-Walks someone through account setup one stage at a time.
+# Angular Material / Stepper
 Steps in a task.
 [stepper](index.md)

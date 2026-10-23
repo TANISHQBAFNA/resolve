@@ -1,5 +1,7 @@
-# Chip
-Small selectable tokens that narrow results by category, or a removable token for a chosen keyword. A clickable label used to filter.
+# Angular Material / Chip
+Chips allow users to view information, make selections, filter content, and enter data.
 Assist, filter, input, and suggestion chips.
+https://material.angular.dev/components/chips/overview
+Aliases: tag
 Properties: Type: Assist, Filter, Input, Suggestion; Label: Chip; Selected: false, true
 [chip](index.md)

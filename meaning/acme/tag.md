@@ -1,4 +1,5 @@
-# Tag
-A small label for an order's state, such as shipped.
-Thin: tag missing description
+# Acme / Tag
+Tag
+Aliases: chip
+Thin: Acme tag missing description, doc
 [tag](index.md)

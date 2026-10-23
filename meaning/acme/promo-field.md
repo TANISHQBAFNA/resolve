@@ -1,4 +1,4 @@
-# Promo Field
-Where shoppers type the code from an email offer at checkout.
-Thin: promo-field missing description
+# Acme / Promo Field
+Promo Field
+Thin: Acme promo-field missing description, doc
 [promo-field](index.md)

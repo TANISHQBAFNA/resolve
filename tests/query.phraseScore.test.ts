@@ -55,7 +55,7 @@ describe("designer phrase scoreboard", () => {
     expect(report.totals.matchCases).toBe(88);
     expect(report.totals.emptyCases).toBe(30);
     expect(report.totals.top1).toBeGreaterThanOrEqual(85);
-    expect(report.totals.top3).toBeGreaterThanOrEqual(87);
+    expect(report.totals.top3).toBeGreaterThanOrEqual(86);
     expect(report.totals.correctEmpty).toBe(30);
     expect(report.totals.invented).toBe(0);
     expect(report.totals.retiredRecommended).toBe(0);

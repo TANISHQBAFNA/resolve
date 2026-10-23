@@ -150,20 +150,15 @@ The Material phrase board is separate from the sample-library board: top-1 51/51
 
 ## What a component means
 
-Each component has one small file. The file is built only from that component's name, aliases, properties, variants, description, and `guidelines.md`. Nothing in the file is a phrase rule. Acme's files are in `meaning/acme/`. Angular Material's are in `meaning/material/`.
-
-Open the index. Each line is that component's job, in one line, and links to its file. Read the index, then the one file. That is two reads. The job sentence is the reason, copied from the component's own text.
+Each component has one small file. The text in it is that component's name, aliases, properties, and description from the learned library. Angular Material files also include one sentence copied from that component's page on [material.angular.dev](https://material.angular.dev/components/categories), with the page URL in the file. Acme files do not add text the pack does not already contain. A `Thin:` line means the description is missing. Do not guess a job for it.
 
 Acme, with no MCP:
 
 1. Open `meaning/acme/index.md`.
-2. Ask, in your own words, "somewhere to switch email alerts on and off".
-3. The Switch line says it turns a setting on or off. Open `meaning/acme/switch.md`.
-4. Place Switch. A `Thin:` line means the description is too short to trust, and the owner should fill it in.
+2. Open the file for the component you have in mind, for example `meaning/acme/switch.md`.
+3. Read only that file. If it says `Thin:`, the library never described Switch, so Resolve will not invent a reason.
 
-A component that is not in the index is not a fit. Resolve does not invent one. `submitted` and `submitting` are not Switch and not Button.
-
-`recommend` still answers from the learned library. The files above are the read path for what a component is for.
+`recommend` uses these same files. It does not keep a separate word list.
 
 ## Quick start
 

@@ -1,31 +1,45 @@
-import { prepareAsk } from "./parse";
+import { meaningCandidates, type MeaningPack } from "./sock";
 import type { MeaningDictionary, MeaningHit, MeaningRank, ParsedAsk } from "./types";
 
-/** Match an ask to dictionary entries. The parse decides the head, attributes, and empty. */
+/** Match an ask to components using only that dictionary's own text. */
 export function rankMeaning(raw: string, dictionary: MeaningDictionary): MeaningRank {
-  const decision = prepareAsk(raw, dictionary);
-  const hits: MeaningHit[] = !decision.empty && decision.leadName
-    ? [{
-        name: decision.leadName,
-        id: decision.leadName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        score: 1,
-        reasons: decision.reasons.length ? decision.reasons : [`${decision.leadName} is the head.`],
-        weak: decision.weakWords.length > 0,
-        uncovered: decision.weakWords,
-      }]
-    : [];
+  const pack: MeaningPack = {
+    library: dictionary.library,
+    vocab: "",
+    builtAt: "",
+    components: dictionary.entries.filter((entry) => !entry.retired).map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      aliases: entry.synonyms,
+      description: entry.purpose.join(". "),
+      job: "",
+      properties: entry.attributes.flatMap((row) => row.values),
+      propOptions: {},
+      retired: false,
+      thin: entry.purpose.length ? [] : ["description"],
+    })),
+  };
+  const candidates = meaningCandidates(raw, pack);
+  const hits: MeaningHit[] = candidates.map((row) => ({
+    name: row.name,
+    id: row.id,
+    score: row.score,
+    reasons: [row.reason],
+    weak: row.confidence !== "sure",
+    uncovered: [],
+  }));
   const intent: ParsedAsk = {
     raw,
-    text: decision.text,
-    head: decision.head,
-    modifiers: decision.tokens.filter((token) => token !== decision.head),
-    attributes: decision.attributes,
-    purpose: decision.purpose,
-    purposeTokens: decision.purposeTokens,
-    context: decision.context,
-    tokens: decision.tokens,
-    uncovered: decision.weakWords,
-    empty: decision.empty,
+    text: raw,
+    head: null,
+    modifiers: [],
+    attributes: [],
+    purpose: null,
+    purposeTokens: [],
+    context: {},
+    tokens: [],
+    uncovered: [],
+    empty: hits.length === 0,
   };
-  return { intent, hits, empty: decision.empty || hits.length === 0 };
+  return { intent, hits, empty: hits.length === 0 || hits.every((hit) => hit.weak) };
 }

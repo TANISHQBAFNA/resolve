@@ -1,4 +1,4 @@
-# Data Table
-Rows and columns of data.
-Thin: data-table missing description
+# Acme UI / Data Table
+Data Table
+Thin: Acme UI data-table missing description, doc
 [data-table](index.md)

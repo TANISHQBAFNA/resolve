@@ -1,4 +1,4 @@
-# Radio
-Choose exactly one option, such as one delivery slot.
-Thin: radio missing description
+# Acme / Radio
+Radio
+Thin: Acme radio missing description, doc
 [radio](index.md)

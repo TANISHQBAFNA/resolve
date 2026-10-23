@@ -1,4 +1,5 @@
-# Breadcrumb
-Shows where you are in the site: home, then accounts, then the current page.
-Thin: breadcrumb missing description
+# Acme / Breadcrumb
+Breadcrumb
+Aliases: breadcrumb nav, crumb, nav breadcrumb, trail
+Thin: Acme breadcrumb missing description, doc
 [breadcrumb](index.md)

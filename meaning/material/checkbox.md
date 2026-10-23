@@ -1,6 +1,7 @@
-# Checkbox
-Marks each item you want, one or more, including terms you agree to. Also called a tick box.
+# Angular Material / Checkbox
+<mat-checkbox> provides the same functionality as a native <input type="checkbox"> enhanced with Material Design styling and animations.
 Select one or more.
+https://material.angular.dev/components/checkbox/overview
 Aliases: tick box
 Properties: Checked: false, true
 [checkbox](index.md)

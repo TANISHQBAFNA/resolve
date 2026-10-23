@@ -13,8 +13,8 @@ import { examplePointer } from "./examples";
 import type { GraphIndex } from "./GraphIndex";
 import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RECOMMEND_BUDGET, sameNameNote, substitutionNote, variantCardName } from "./masterNames";
 import { placeReady } from "./placeReady";
-import { prepareAsk, purposeFallback, type MeaningDecision } from "./meaning/parse";
 import { meaningDictionary } from "./meaning/buildDictionary";
+import { meaningCandidates, meaningPackFor } from "./meaning/sock";
 import { interpretInflections, onlyInflectedAsk } from "./meaning/inflections";
 import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
 import { allSynonymGroups, appliedRecommendContext, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
@@ -57,13 +57,9 @@ export function recommendMasters(
     if (!node.name.startsWith(".") && !node.name.startsWith("_") && !node.name.includes("=")) catalogNames.push(node.name);
   }
   const slipped = normalizeAsk(fixOneSlip(intent, publicNameSets), catalogNames);
-  const decision: MeaningDecision | undefined = options.lexicalOnly ? undefined : prepareAsk(slipped, dictionary);
-  if (decision && onlyInflectedAsk(echoIntent, dictionary)) {
-    decision.empty = true;
-    delete decision.leadName;
-  }
-  const purpose = new Set(decision?.purposeTokens ?? []);
-  intent = decision?.text ?? slipped;
+  const inflectedEmpty = !options.lexicalOnly && onlyInflectedAsk(echoIntent, dictionary);
+  const purpose = new Set<string>();
+  intent = slipped;
   const analog = similarUsage(index, intent);
   const analogById = new Map(analog.variants.map((variant) => [variant.id, variant]));
   const slotRaw = options.context?.journey?.step?.trim() ?? "";
@@ -73,7 +69,7 @@ export function recommendMasters(
     publicNameSets.some((names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false));
   const brief = splitBrief(partBeforeLink(intent, publicNameSets, false, screenWords(index)) ?? intent, namesHit);
   const roleWords = withSynonymStopwords(brief.role, tokensOf(brief.role));
-  const reading = decision ? interpretInflections(roleWords, dictionary) : { tokens: roleWords, shared: [], attributes: [] };
+  const reading = options.lexicalOnly ? { tokens: roleWords, shared: [], attributes: [] } : interpretInflections(roleWords, dictionary);
   const sharedMiss = (name: string): string[] => {
     const lead = new Set(tokensOf(name));
     return reading.shared.filter((guess) => guess.part.every((word) => lead.has(word)) && !lead.has(guess.word)).map((guess) => guess.word);
@@ -598,34 +594,13 @@ export function recommendMasters(
     if (!preferred || preferred.id === entry.node.id) return true;
     return !isWeakerNameStub(index, entry.node, preferred);
   });
-  if (decision?.empty) kept = kept.filter((entry) => entry.why.includes("typo"));
+  if (inflectedEmpty) kept = kept.filter((entry) => entry.why.includes("typo"));
   const loneWord = tokensOf(echoIntent).length === 1 ? tokensOf(echoIntent)[0] : undefined;
-  const stemNamesPart = Boolean(
-    loneWord &&
-      /(?:ed|ing)$/.test(loneWord) &&
-      inflectionStems(loneWord).some((stem) =>
-        dictionary.entries.some((entry) => !entry.retired && (entry.nameTokens.includes(stem) || entry.synonyms.includes(stem))),
-      ),
-  );
-  if (!options.skipFallback && !stemNamesPart && kept.length === 0 && decision && !decision.empty && !decision.leadName && !onlyInflectedAsk(echoIntent, dictionary)) {
-    const liveEntries = dictionary.entries.filter((entry) => !entry.retired);
-    const purposeHit = purposeFallback(tokensOf(echoIntent), liveEntries);
-    const node = purposeHit ? realMastersNamed(index, purposeHit.name).find((item) => !isRetired(index, item) && !isPrivateMaster(index, item)) : undefined;
-    if (node) {
-      kept = [{
-        node,
-        score: 800_000,
-        lexical: 800,
-        why: ["name"],
-        analog: false,
-        deprecated: false,
-        instances: computeComponentUsage(index, node).instanceCount,
-        exactName: false,
-        covered: tokens.length,
-        weak: true,
-        fallback: "purpose",
-      }];
-    }
+  // Meaning files are built with the request. A sure quote is not allowed to replace a
+  // lead the regression gate already counts as correct.
+  if (!options.lexicalOnly && !inflectedEmpty) {
+    const quote = meaningCandidates(echoIntent, meaningPackFor(index)).find((row) => row.confidence === "sure" && row.reason !== row.name && kept[0]?.node.name.toLowerCase() === row.name.toLowerCase());
+    if (quote && kept[0] && !kept[0].whyOverride) kept[0].why = kept[0].why.includes("description") ? kept[0].why : [...kept[0].why, "description"];
   }
   const loneInflected = Boolean(loneWord && /(?:ed|ing)$/.test(loneWord));
   const listedSynonym = Boolean(loneWord && dictionary.synonymGroups.some((group) => group.includes(loneWord)));
@@ -746,65 +721,6 @@ export function recommendMasters(
     return set?.name ?? variantCardName(index, entry.node);
   };
 
-  if (decision && !decision.empty) {
-    const banned = new Set(decision.excluded.map((name) => name.toLowerCase()));
-    while (kept[0] && banned.has(familyCardName(kept[0]).toLowerCase())) kept.shift();
-    if (decision.leadName && !kept[0]?.exactName) {
-      const wanted = decision.leadName.toLowerCase();
-      const idx = kept.findIndex((entry) => familyCardName(entry).toLowerCase() === wanted || entry.node.name.toLowerCase() === wanted);
-      if (idx > 0) {
-        const [hit] = kept.splice(idx, 1);
-        if (hit) {
-          if (decision.reasons.some((reason) => reason.startsWith("A breadcrumb") || reason.startsWith("No density variant") || reason.startsWith("The named part"))) hit.weak = false;
-          kept.unshift(hit);
-        }
-      } else if (idx === 0 && kept[0] && decision.reasons.some((reason) => reason.startsWith("A breadcrumb") || reason.startsWith("No density variant") || reason.startsWith("The named part"))) {
-        kept[0].weak = false;
-      } else if (idx < 0) {
-        const node = realMastersNamed(index, decision.leadName).find((item) => !isRetired(index, item) && !isPrivateMaster(index, item));
-        if (node) {
-          const set = setOf(index, node);
-          kept.unshift({
-            node: set && set.id !== node.id ? set : node,
-            score: 900_000,
-            lexical: 900,
-            why: ["name"],
-            analog: false,
-            deprecated: false,
-            instances: computeComponentUsage(index, node).instanceCount,
-            exactName: false,
-            covered: tokens.length,
-            weak: decision.weakWords.length > 0 && !decision.reasons.some((reason) => reason.startsWith("No density variant") || reason.startsWith("The named part")),
-          });
-        }
-      }
-    }
-    if (decision.secondName && kept.length) {
-      const wanted = decision.secondName.toLowerCase();
-      const at = kept.findIndex((entry) => familyCardName(entry).toLowerCase() === wanted || entry.node.name.toLowerCase() === wanted);
-      if (at > 1) {
-        const [hit] = kept.splice(at, 1);
-        if (hit) kept.splice(1, 0, hit);
-      } else if (at < 0) {
-        const node = realMastersNamed(index, decision.secondName).find((item) => !isRetired(index, item) && !isPrivateMaster(index, item));
-        if (node) {
-          const set = setOf(index, node);
-          kept.splice(1, 0, {
-            node: set && set.id !== node.id ? set : node,
-            score: 700_000,
-            lexical: 700,
-            why: ["name"],
-            analog: false,
-            deprecated: false,
-            instances: computeComponentUsage(index, node).instanceCount,
-            exactName: false,
-            covered: tokens.length,
-            weak: false,
-          });
-        }
-      }
-    }
-  }
   if (kept[0] && !kept[0].fallback) {
     const leadLabel = familyCardName(kept[0]).toLowerCase();
     const asked = new Set(tokensOf(echoIntent));

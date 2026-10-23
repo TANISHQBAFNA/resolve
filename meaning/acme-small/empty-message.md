@@ -1,4 +1,4 @@
-# Empty Message
-Shown when nothing is here.
-Thin: empty-message missing description
+# Acme UI / Empty Message
+Empty Message
+Thin: Acme UI empty-message missing description, doc
 [empty-message](index.md)

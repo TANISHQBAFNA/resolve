@@ -1,4 +1,5 @@
-# Chip
-Small selectable labels that filter by type, and a removable label for a chosen category.
-Thin: chip missing description
+# Acme / Chip
+Chip
+Aliases: tag
+Thin: Acme chip missing description, doc
 [chip](index.md)

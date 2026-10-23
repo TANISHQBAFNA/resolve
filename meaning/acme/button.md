@@ -1,5 +1,6 @@
-# Button
-The action that sends the money or sends a form. A large primary action for checkout on mobile lives here too.
+# Acme / Button
+Button
+Aliases: action, btn, call to action, cta, submit
 Properties: Style: Danger, Primary, Secondary
-Thin: button missing description
+Thin: Acme button missing description, doc
 [button](index.md)

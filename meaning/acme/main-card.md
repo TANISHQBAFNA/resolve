@@ -1,4 +1,4 @@
-# Main Card
-A card that holds the main block of content.
-Thin: main-card missing description
+# Acme / Main Card
+Main Card
+Thin: Acme main-card missing description, doc
 [main-card](index.md)

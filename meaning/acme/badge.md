@@ -1,4 +1,5 @@
-# Badge
-A count of items in the basket, on the cart symbol.
-Thin: badge missing description
+# Acme / Badge
+Badge
+Aliases: bubble, pill
+Thin: Acme badge missing description, doc
 [badge](index.md)

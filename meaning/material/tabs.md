@@ -1,5 +1,6 @@
-# Tabs
-A row of labels used to switch between parts of a settings page.
+# Angular Material / Tabs
+Angular Material tabs organize content into separate views where only one view can be visible at a time.
 Tabs.
-Thin: tabs missing description
+https://material.angular.dev/components/tabs/overview
+Thin: Angular Material tabs missing description
 [tabs](index.md)

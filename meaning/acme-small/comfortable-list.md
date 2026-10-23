@@ -1,5 +1,4 @@
-# Comfortable List
-The comfortable list of records such as savings. Also called roomy, spacious, or airy.
-Aliases: roomy, spacious, airy
-Thin: comfortable-list missing description
+# Acme UI / Comfortable List
+Comfortable List
+Thin: Acme UI comfortable-list missing description, doc
 [comfortable-list](index.md)

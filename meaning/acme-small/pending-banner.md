@@ -1,4 +1,4 @@
-# Pending Banner
-A banner while work is pending.
-Thin: pending-banner missing description
+# Acme UI / Pending Banner
+Pending Banner
+Thin: Acme UI pending-banner missing description, doc
 [pending-banner](index.md)

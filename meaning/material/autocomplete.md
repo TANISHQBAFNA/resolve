@@ -1,4 +1,3 @@
-# Autocomplete
-Type a few letters and get matching suggestions, such as a city.
+# Angular Material / Autocomplete
 Text field with suggested options.
 [autocomplete](index.md)
