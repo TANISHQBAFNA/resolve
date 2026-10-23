@@ -21,6 +21,7 @@ import { composeFromCli } from "./composeCommand";
 import { runHandoff } from "./handoffCommand";
 import { contextFromFlags, recordFlag, runDecisions, runExport } from "./decisionCommand";
 import { dirname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
 import { publishedVerdict, verifyExitCode } from "@/core/query/properUse";
@@ -307,6 +308,12 @@ async function dispatchCli(argv: string[]): Promise<void> {
 
     case "decisions":
       return runDecisions(args);
+
+    case "pick": {
+      const { runPickCommand } = await import("./commands");
+      runPickCommand(args);
+      return;
+    }
 
     case "recommend": {
       const asked = positionals(args)[0];
@@ -886,7 +893,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
   }
 }
 
-if (!process.env["VITEST"]) {
+if (!process.env["VITEST"] && process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   runCli(process.argv.slice(2)).catch((error) => {
     const raw = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${designerFailure(raw)}\n`);

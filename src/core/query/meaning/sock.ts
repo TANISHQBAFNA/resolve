@@ -28,6 +28,7 @@ export interface SockComponent {
   propOptions: Record<string, string[]>;
   retired: boolean;
   thin: string[];
+  quoteLines?: string[];
 }
 
 export interface MeaningPack {
@@ -45,6 +46,40 @@ export interface MeaningCandidate {
   reason: string;
   score: number;
 }
+
+export type PickTier = "place" | "ask" | "no-fit";
+
+export interface PickRequest {
+  library: string;
+  ask: string;
+  shortlist: string[];
+  pick?: string;
+  props?: Record<string, string>;
+  reason?: string;
+  tier: string;
+  invalidProps?: boolean;
+}
+
+export type PickCheck = "exists" | "retired" | "props" | "quote" | "alias-quote" | "tier" | "thin-cap" | "shortlist";
+
+export interface ThinEntry {
+  id: string;
+  missing: string[];
+  nameOnly?: boolean;
+}
+
+export interface PickResult {
+  tier: PickTier;
+  id?: string;
+  name?: string;
+  reason?: string;
+  failed: PickCheck[];
+  thin: ThinEntry[];
+  stale?: string;
+  nameOnly?: boolean;
+}
+
+export { componentFromMarkdown, packFromFiles, validateAiPick } from "./sockPick";
 
 const STOP = new Set([
   "a", "an", "the", "and", "or", "of", "to", "for", "with", "in", "at", "by", "from", "into",
@@ -217,22 +252,6 @@ export function thinComponents(pack: MeaningPack): Array<{ id: string; name: str
   }));
 }
 
-export function validatePick(
-  pack: MeaningPack,
-  shortlist: readonly MeaningCandidate[],
-  pickId: string,
-  props: Record<string, string> = {},
-): { ok: true } | { ok: false; reason: string } {
-  if (!shortlist.some((candidate) => candidate.id === pickId)) return { ok: false, reason: "no fit" };
-  const component = pack.components.find((item) => item.id === pickId);
-  if (!component || component.retired) return { ok: false, reason: "no fit" };
-  for (const [key, value] of Object.entries(props)) {
-    const options = component.propOptions[key.toLowerCase()];
-    if (!options || !options.some((option) => option.toLowerCase() === value.toLowerCase())) return { ok: false, reason: "no fit" };
-  }
-  return { ok: true };
-}
-
 export function contextPack(pack: MeaningPack, candidates: readonly MeaningCandidate[], files: ReadonlyMap<string, string>): string {
   const lines = [`# ${pack.library}`, pack.vocab].filter(Boolean);
   for (const candidate of candidates) {
@@ -330,7 +349,7 @@ export function buildMeaningPack(
     const retired = isRetired(index, node);
     const thin: string[] = [];
     if (description.length < 12) thin.push("description");
-    if (!job && description.length < 12) thin.push("doc");
+    if (!job && description.length < 12) thin.push("guidelines");
     components.push({
       id,
       name: node.name.trim(),
@@ -363,16 +382,20 @@ export function renderComponent(component: SockComponent, library = ""): string 
   return `${lines.join("\n")}\n`;
 }
 
+function indexLine(component: SockComponent): string {
+  const prefix = `- [${component.id}](${component.id}.md) — `;
+  const job = component.thin.length > 0 ? "thin" : (component.description || component.job || component.name).replace(/\s+/g, " ").trim();
+  const body = component.thin.length > 0 ? job : `${job} — ${component.name}`;
+  const room = 150 - prefix.length;
+  const text = body.length <= room ? body : `${body.slice(0, Math.max(0, room - 1)).trimEnd()}…`;
+  const line = `${prefix}${text}`;
+  return line.length <= 150 ? line : line.slice(0, 150);
+}
+
 export function renderIndex(pack: MeaningPack): string {
   const lines = [`# ${pack.library}`, `built: ${pack.builtAt}`];
   if (pack.vocab) lines.push(pack.vocab);
-  for (const component of pack.components) {
-    const full = (component.job || component.description || component.name).replace(/\s+/g, " ").trim();
-    const prefix = `- [${component.id}](${component.id}.md) — `;
-    const room = Math.max(0, 200 - prefix.length);
-    const job = full.length <= room ? full : `${full.slice(0, Math.max(0, room - 1)).trimEnd()}…`;
-    lines.push(`${prefix}${job}`);
-  }
+  for (const component of pack.components) lines.push(indexLine(component));
   return `${lines.join("\n")}\n`;
 }
 

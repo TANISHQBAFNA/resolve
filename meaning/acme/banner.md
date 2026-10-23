@@ -1,5 +1,5 @@
 # Acme / Banner
 Banner
 Aliases (Resolve synonym list, not library docs): announcement
-Thin: Acme banner missing description, doc
+Thin: Acme banner missing description, guidelines
 [banner](index.md)

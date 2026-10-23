@@ -1,4 +1,4 @@
 # Acme / Search Field
 Search Field
-Thin: Acme search-field missing description, doc
+Thin: Acme search-field missing description, guidelines
 [search-field](index.md)

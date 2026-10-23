@@ -1,4 +1,4 @@
 # Acme / Header Bar
 Header Bar
-Thin: Acme header-bar missing description, doc
+Thin: Acme header-bar missing description, guidelines
 [header-bar](index.md)

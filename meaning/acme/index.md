@@ -1,42 +1,42 @@
 # Acme
 built: 2026-01-01T00:00:00.000Z
-- [alert](alert.md) — Alert
-- [avatar](avatar.md) — Avatar
-- [badge](badge.md) — Badge
-- [banner](banner.md) — Banner
-- [breadcrumb](breadcrumb.md) — Breadcrumb
-- [button](button.md) — Button
-- [button-danger](button-danger.md) — Button Danger
-- [button-primary](button-primary.md) — Button Primary
-- [button-secondary](button-secondary.md) — Button Secondary
-- [checkbox](checkbox.md) — Checkbox
-- [chip](chip.md) — Chip
-- [coupon-field](coupon-field.md) — Coupon Field
-- [divider](divider.md) — Divider
-- [empty-message](empty-message.md) — Empty Message
-- [footer-bar](footer-bar.md) — Footer Bar
-- [header-bar](header-bar.md) — Header Bar
-- [icon-close](icon-close.md) — Icon Close
-- [input](input.md) — Input
-- [legacy-alert](legacy-alert.md) — status: deprecated
-- [legacy-banner](legacy-banner.md) — status: deprecated
-- [link-button](link-button.md) — Link Button
-- [list-row](list-row.md) — List Row
-- [main-card](main-card.md) — Main Card
-- [modal](modal.md) — Modal
-- [nav-item](nav-item.md) — Nav Item
-- [old-price](old-price.md) — status: deprecated
-- [pay-cta](pay-cta.md) — Pay CTA
-- [payment-row](payment-row.md) — Payment Row
-- [price](price.md) — Price
-- [promo-field](promo-field.md) — Promo Field
-- [quantity-stepper](quantity-stepper.md) — Quantity Stepper
-- [radio](radio.md) — Radio
-- [save-cta](save-cta.md) — Save CTA
-- [search-field](search-field.md) — Search Field
-- [summary-card](summary-card.md) — Summary Card
-- [switch](switch.md) — Switch
-- [tabs](tabs.md) — Tabs
-- [tag](tag.md) — Tag
-- [text-field](text-field.md) — Text Field
-- [toast](toast.md) — Toast
+- [alert](alert.md) — thin
+- [avatar](avatar.md) — thin
+- [badge](badge.md) — thin
+- [banner](banner.md) — thin
+- [breadcrumb](breadcrumb.md) — thin
+- [button](button.md) — thin
+- [button-danger](button-danger.md) — thin
+- [button-primary](button-primary.md) — thin
+- [button-secondary](button-secondary.md) — thin
+- [checkbox](checkbox.md) — thin
+- [chip](chip.md) — thin
+- [coupon-field](coupon-field.md) — thin
+- [divider](divider.md) — thin
+- [empty-message](empty-message.md) — thin
+- [footer-bar](footer-bar.md) — thin
+- [header-bar](header-bar.md) — thin
+- [icon-close](icon-close.md) — thin
+- [input](input.md) — thin
+- [legacy-alert](legacy-alert.md) — status: deprecated — Legacy Alert
+- [legacy-banner](legacy-banner.md) — status: deprecated — Legacy Banner
+- [link-button](link-button.md) — thin
+- [list-row](list-row.md) — thin
+- [main-card](main-card.md) — thin
+- [modal](modal.md) — thin
+- [nav-item](nav-item.md) — thin
+- [old-price](old-price.md) — status: deprecated — Old Price
+- [pay-cta](pay-cta.md) — thin
+- [payment-row](payment-row.md) — thin
+- [price](price.md) — thin
+- [promo-field](promo-field.md) — thin
+- [quantity-stepper](quantity-stepper.md) — thin
+- [radio](radio.md) — thin
+- [save-cta](save-cta.md) — thin
+- [search-field](search-field.md) — thin
+- [summary-card](summary-card.md) — thin
+- [switch](switch.md) — thin
+- [tabs](tabs.md) — thin
+- [tag](tag.md) — thin
+- [text-field](text-field.md) — thin
+- [toast](toast.md) — thin

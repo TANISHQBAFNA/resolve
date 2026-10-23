@@ -140,7 +140,15 @@ Acme, when the library has Compact List:
 
 If two parts tie, the older word score breaks the tie. A one-letter typo still finds the part. A lead is weak only when part of the ask names a different part.
 
-`meaning/` is a generated copy of each component's own name, properties, and description. In every copy, `Aliases:` lines come from the repo's synonym list (`src/data/synonyms.json`), not from the library or its docs. The internal reference library's copy also includes one published sentence from each component's public docs page, with the page URL and that page's CC BY 4.0 attribution and licence link kept in the file. Acme copies add no other text the pack does not already contain. A `Thin:` line means the description is missing. Rebuild with `node scripts/build-meaning-sock.mjs meaning`. `recommend` and `brief` keep using the dictionary above.
+`meaning/` is a generated copy of each component's own name, properties, and description. In every copy, `Aliases:` lines come from the repo's synonym list (`src/data/synonyms.json`), not from the library or its docs. The internal reference library's copy also includes one published sentence from each component's public docs page, with the page URL and that page's CC BY 4.0 attribution and licence link kept in the file. Acme copies add no other text the pack does not already contain. A `Thin:` line means the description or the guidelines are missing. Rebuild with `node scripts/build-meaning-sock.mjs meaning`. `recommend` and `brief` keep using the dictionary above.
+
+AI picks stay off unless `RESOLVE_AI_PICKS=1`. With the switch off, `recommend` is unchanged. `resolve pick` needs a repo checkout for now, because the installed package does not ship the meaning files. An Acme request, when the switch is on:
+
+```json
+{"library":"acme","ask":"the main action on a form","shortlist":["button"],"pick":"button","reason":"Button Style Primary","tier":"ask"}
+```
+
+Acme's button file has no description, so the checked answer is `ask`, not `place`. The reason is the component name plus a property. The thin list names `button` and the fields it is missing.
 
 ## Quick start
 
