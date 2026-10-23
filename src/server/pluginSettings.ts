@@ -28,6 +28,10 @@ function firstSet(env: NodeJS.ProcessEnv, keys: readonly string[]): string | und
   return undefined;
 }
 
+export function aiPicksEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env["RESOLVE_AI_PICKS"] === "1";
+}
+
 export function readPluginSettings(env: NodeJS.ProcessEnv = process.env): {
   token: string | undefined;
   libraryFileKey: string | undefined;
