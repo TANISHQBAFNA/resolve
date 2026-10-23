@@ -65,12 +65,30 @@ export function loadPacks(): Record<PackName, MeaningPack> {
   };
 }
 
+const MATERIAL_SOURCE = "https://material.angular.dev/";
+const MATERIAL_LICENCE = "https://creativecommons.org/licenses/by/4.0/";
+
+function stampMaterialIndex(indexPath: string): void {
+  const text = readFileSync(indexPath, "utf8");
+  const [title, ...rest] = text.split("\n");
+  if (!title?.startsWith("# ")) throw new Error("material index has no title");
+  const header = [
+    title,
+    `Source: ${MATERIAL_SOURCE}`,
+    "© Google LLC. Licensed under CC BY 4.0.",
+    MATERIAL_LICENCE,
+    ...rest,
+  ];
+  writeFileSync(indexPath, header.join("\n"));
+}
+
 export function writePacks(dir: string): { tokens: number; stale: string | undefined } {
   mkdirSync(dir, { recursive: true });
   const packs = loadPacks();
   let sample = "";
   for (const [name, pack] of Object.entries(packs)) {
     const files = writeMeaningPack(join(dir, name), pack);
+    if (name === "material") stampMaterialIndex(join(dir, name, "index.md"));
     if (name === "acme") {
       const alert = files.get("alert") ?? "";
       const toggle = files.get("switch") ?? "";

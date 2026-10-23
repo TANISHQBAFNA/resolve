@@ -32,6 +32,8 @@ Placing into a different Figma file needs the library published and `libraries` 
 
 ## Meaning files
 
+Optional. Repo or demo only. This folder is not in the npm package.
+
 Each component's own text is a generated file. Open the library index, then that one file. Acme is `meaning/acme/index.md`, then the linked file (for example `meaning/acme/switch.md`). Stop after those two reads. A `Thin:` line means the library description is missing. `recommend` still uses the meaning dictionary.
 
 ## Design work

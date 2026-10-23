@@ -1,4 +1,7 @@
 # Angular Material
+Source: https://material.angular.dev/
+© Google LLC. Licensed under CC BY 4.0.
+https://creativecommons.org/licenses/by/4.0/
 built: 2026-01-01T00:00:00.000Z
 - [autocomplete](autocomplete.md) — Text field with suggested options.
 - [badge](badge.md) — Small status mark on another part.

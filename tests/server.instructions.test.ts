@@ -55,7 +55,17 @@ describe("MCP instructions stay a short trigger", () => {
     const rule = readFileSync(join(root, "rules/resolve.mdc"), "utf8");
     expect(rule).toContain("alwaysApply: true");
     const skill = readFileSync(join(root, "skills/resolve/SKILL.md"), "utf8");
-    expect(readFileSync(join(root, ".cursor/skills/resolve/SKILL.md"), "utf8")).toBe(skill);
+    expect(skill).not.toContain("meaning/");
+    const meaning = [
+      "## Meaning files",
+      "",
+      "Optional. Repo or demo only. This folder is not in the npm package.",
+      "",
+      "Each component's own text is a generated file. Open the library index, then that one file. Acme is `meaning/acme/index.md`, then the linked file (for example `meaning/acme/switch.md`). Stop after those two reads. A `Thin:` line means the library description is missing. `recommend` still uses the meaning dictionary.",
+      "",
+    ].join("\n");
+    const cursor = readFileSync(join(root, ".cursor/skills/resolve/SKILL.md"), "utf8");
+    expect(cursor).toBe(skill.replace("## Design work\n", `${meaning}\n## Design work\n`));
   });
 
   it("rule, skill, CLAUDE block, and MCP instructions name the same path", () => {
