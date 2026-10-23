@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -285,7 +285,7 @@ export function formatScore(report, cases, mainRates) {
     `name-only ${report.nameOnly ?? 0}`,
     `library quote ${report.libraryQuotes ?? 0}/${report.libraryShown ?? 0}`,
     "thin description",
-    report.thinDescribed?.length ? report.thinDescribed.join("\n") : "(none)",
+    report.thinDescribed?.length ? report.thinDescribed.map((id) => `${id} name-only`).join("\n") : "(none)",
   ];
   if (report.lost) {
     lines.push("main lost material");
@@ -347,8 +347,28 @@ export function promptFor(row) {
   ].join("\n");
 }
 
+// The real path: the nearest existing ancestor (or the file itself) through realpath, so a symlink cannot hide the repo.
+function realTarget(target) {
+  let path = resolve(target);
+  const rest = [];
+  while (!existsSync(path)) {
+    let link = false;
+    try {
+      link = lstatSync(path).isSymbolicLink();
+    } catch {
+      link = false;
+    }
+    if (link) return undefined;
+    rest.unshift(basename(path));
+    path = dirname(path);
+  }
+  return join(realpathSync.native(path), ...rest);
+}
+
 function insideRepo(target) {
-  const rel = relative(repo, resolve(target));
+  const real = realTarget(target);
+  if (!real) return true;
+  const rel = relative(realpathSync.native(repo), real);
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
@@ -547,12 +567,11 @@ if (invoked) {
   const command = process.argv[2];
   if (command === "prompts") {
     const out = arg("--out");
-    const dest = out ?? join(repo, "scoreboard/ai-picks/prompts");
-    if (!out && existsSync(join(dest, "material.jsonl"))) {
-      process.stderr.write("Committed prompts already exist. Pass --out to write another set.\n");
+    if (!out) {
+      process.stderr.write("Usage: node scripts/ai-picks-eval.mjs prompts --out <dir> --id-map <file outside this repo>. Prompts are not committed.\n");
       process.exit(1);
     }
-    writeBlindPrompts(arg("--cases") ?? join(repo, "scoreboard/meaning/frozen.json"), dest, arg("--id-map") ?? defaultMapPath());
+    writeBlindPrompts(arg("--cases") ?? join(repo, "scoreboard/meaning/frozen.json"), out, arg("--id-map") ?? defaultMapPath());
   } else if (command === "prepare") prepare(arg("--cases") ?? join(repo, "scoreboard/meaning/frozen.json"), arg("--out") ?? join(repo, "scoreboard/ai-picks/prepared"));
   else if (command === "validate") {
     const raw = arg("--raw");

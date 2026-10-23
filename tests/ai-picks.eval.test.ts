@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -72,11 +72,39 @@ describe("AI picks eval harness", () => {
     const inside = spawnSync(process.execPath, ["scripts/ai-picks-eval.mjs", "prompts", "--cases", cases, "--out", join(dir, "blind-2"), "--id-map", join(process.cwd(), "scoreboard/ai-picks/id-map.json")], { encoding: "utf8" });
     expect(inside.status).toBe(1);
     expect(inside.stderr).toContain("inside the repo");
-    const blocked = spawnSync(process.execPath, ["scripts/ai-picks-eval.mjs", "prompts", "--cases", cases], { encoding: "utf8" });
+    const blocked = spawnSync(process.execPath, ["scripts/ai-picks-eval.mjs", "prompts", "--cases", cases, "--id-map", join(dir, "blocked-map.json")], { encoding: "utf8" });
     expect(blocked.status).toBe(1);
-    expect(blocked.stderr).toContain("Committed prompts");
+    expect(blocked.stderr).toContain("--out");
+    expect(existsSync(join(dir, "blocked-map.json"))).toBe(false);
+    expect(existsSync("scoreboard/ai-picks/prompts")).toBe(false);
     rmSync(dir, { recursive: true, force: true });
   }, 120_000);
+
+  it("refuses an id map that reaches the repo through a symlink", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ai-picks-link-"));
+    const cases = join(dir, "cases.json");
+    writeFileSync(cases, JSON.stringify({ cases: [{ id: "a-1", pack: "acme", ask: "a flux gauge", expect: { accept: "empty" }, tags: ["no-fit"] }] }));
+    symlinkSync(join(process.cwd(), "scoreboard"), join(dir, "into-repo"));
+    symlinkSync(join(process.cwd(), "scoreboard", "nope", "id-map.json"), join(dir, "dangling.json"));
+    const prompts = (map: string) => spawnSync(process.execPath, ["scripts/ai-picks-eval.mjs", "prompts", "--cases", cases, "--out", join(dir, "blind"), "--id-map", map], { encoding: "utf8" });
+    for (const map of [join(dir, "into-repo", "id-map.json"), join(dir, "into-repo", "new", "deeper", "id-map.json"), join(dir, "dangling.json")]) {
+      const refused = prompts(map);
+      expect(refused.status, map).toBe(1);
+      expect(refused.stderr, map).toContain("inside the repo");
+    }
+    expect(existsSync(join(process.cwd(), "scoreboard", "id-map.json"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "scoreboard", "new"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "scoreboard", "nope"))).toBe(false);
+    const scored = spawnSync(process.execPath, ["scripts/ai-picks-eval.mjs", "score", "--cases", cases, "--runs", cases, "--id-map", join(dir, "into-repo", "meaning", "frozen.json")], { encoding: "utf8" });
+    expect(scored.status).toBe(1);
+    expect(scored.stderr).toContain("inside the repo");
+    mkdirSync(join(dir, "outside"));
+    symlinkSync(join(dir, "outside"), join(dir, "elsewhere"));
+    const allowed = prompts(join(dir, "elsewhere", "id-map.json"));
+    expect(allowed.status, allowed.stderr).toBe(0);
+    expect(existsSync(join(dir, "outside", "id-map.json"))).toBe(true);
+    rmSync(dir, { recursive: true, force: true });
+  });
 
   it("scores one run, rejects duplicate runs, and lists only main's losses", () => {
     const script = `
@@ -109,6 +137,8 @@ describe("AI picks eval harness", () => {
       if (noFitFlip.groups.material.tierFlips !== 0 || noFitFlip.groups.material.gate !== 1) throw new Error("no-fit flip " + JSON.stringify(noFitFlip.groups.material));
       const nameOnlyRun = scoreRecorded([cases[0]], [{ caseId: "m-1", pack: "material", run: 1, request: { tier: "ask", pick: "tooltip", shortlist: ["tooltip"] }, result: { tier: "ask", id: "tooltip", name: "Tooltip", reason: "Tooltip", nameOnly: true, failed: [], thin: [] } }], names, indexIds);
       if (nameOnlyRun.nameOnly !== 1 || nameOnlyRun.libraryShown !== 0 || nameOnlyRun.thinDescribed[0] !== "tooltip") throw new Error("name-only metric");
+      const thinList = formatScore(nameOnlyRun, [cases[0]]).split("\\nthin description\\n")[1].split("\\n")[0];
+      if (thinList !== "tooltip name-only") throw new Error("thin list mark " + thinList);
       const blank = (top1) => ({ asks: 0, top1, top3: top1, avoid: 0, avoidHit: 0, noFit: 0, noFitHit: 0, confusableWrong: 0, unstable: 0, gate: 0, tierFlips: 0, split: 0 });
       const materialCases = Array.from({ length: 60 }, (_, index) => ({ id: "m-" + index, pack: "material", expect: { accept: "exact", lead: "Tooltip" } }));
       const acmeCases = [
