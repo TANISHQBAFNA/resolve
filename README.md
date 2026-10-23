@@ -10,7 +10,7 @@
 </p>
 <p align="center">
 	<a href="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml"><img src="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-	<a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+	<a href="LICENSE"><img src="https://img.shields.io/badge/license-use%20only-lightgrey.svg" alt="License: use only"></a>
 	<a href="package.json"><img src="https://img.shields.io/badge/version-0.1.0-2dd4bf.svg" alt="Version 0.1.0"></a>
 	<a href="package.json"><img src="https://img.shields.io/badge/node-%E2%89%A522.12-339933.svg" alt="Node 22.12 or newer"></a>
 	<a href=".claude-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Claude%20Code-d97757.svg" alt="Claude Code plugin"></a>
@@ -266,6 +266,7 @@ Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.gra
 
 Newest first. The full list is in the [reference](docs/REFERENCE.md#version-history).
 
+- **Oct 23, 2026.** License changed from MIT to use only: install and use Resolve unchanged in your AI tools; no changes, copies or redistribution without written permission.
 - **Oct 20, 2026 — [PR #70](https://github.com/TANISHQBAFNA/resolve/pull/70).** Decision records: every brief, compose and handoff can say what was asked, which parts were picked and why, and what was rejected, as JSON + Markdown. `handoff --out` always writes `decision.json` + `decision.md` (`--no-record` skips); `brief` and `recipe --compose` take `--record <dir>`; MCP `record: true` (advanced). New opt-in AIDLC hook: `resolve export aidlc <handoff folder>` gives the `resolve.aidlc` schemaVersion 1 contract (requirements context in, design handoff out), with a JSON Schema and an Acme + Angular sample ([docs/AIDLC.md](docs/AIDLC.md)). Round 1 fixes: the contract uses enums (match, source, identity, status, codeStatus, matchedBy, answers) with a values table in docs/AIDLC.md; export checks decision.json (version, kind, screens) and refuses any pick that is not a part in handoff.json; decision_record reads only stored records or decision*.json and lists them with no ref; `resolve decisions` lists records; --record needs --force to replace; record names are unique. Round 2: export refuses a record whose picks differ from what handoff.json gives (ids, match, why), or that repeats or drops a pick; export --out and handoff --out errors are plain sentences, and ok:false JSON with --json. Default MCP tools still 8; advanced 20. Phrase score unchanged.
 - **Oct 20, 2026 — [PR #68](https://github.com/TANISHQBAFNA/resolve/pull/68).** Angular Material 22.2.3 is the real public example: a Material 3 fixture from the public spec, a code-map scan of the published package (precision 1, recall 32/40, 0 wrong confirmed links), and a separate phrase board (top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0). Matching is general: a describing tail ("slider for volume"), plurals, and a one-letter slip on any name word keep the match. The part named before "to", "for", or "with" wins. A fresh set scores 30/33. The sample phrase board rose to top-1 84/88, top-3 86/88.
 - **Oct 20, 2026 — [PR #59](https://github.com/TANISHQBAFNA/resolve/pull/59).** The default tap target is 24×24, which is the WCAG 2.2 AA size. 44×44 is still available with `--a11y wcag-aaa`. Commit 843ec2e changed the Acme Misused fixture: Button 80:41 went from 30×30 to 20×20, so that control still fails the 24×24 bar.
@@ -286,4 +287,4 @@ Newest first. The full list is in the [reference](docs/REFERENCE.md#version-hist
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+You may install and use Resolve, unchanged, inside your AI tools (Claude Code, Cursor and similar). You may not modify, copy, redistribute or build other products from it without written permission. Earlier MIT versions stay MIT for those copies. See [`LICENSE`](LICENSE).
