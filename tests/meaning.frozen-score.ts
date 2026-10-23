@@ -1,27 +1,14 @@
 /**
  * Score the frozen meaning set. The fixture's expectations are not edited here.
- * Usage: vite-node tests/meaning.frozen-score.ts [out-dir]
+ * Report only. No score floor. Generate files with scripts/build-meaning-sock.mjs.
  */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { adaptFigmaRestFile } from "@/core/ingestion/adapters/figmaRest";
-import { SourceDocumentSchema } from "@/core/ingestion/types";
-import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
-import { indexGraph, type GraphIndex } from "@/core/query/GraphIndex";
-import {
-  buildMeaningPack,
-  contextPack,
-  estimateTokens,
-  meaningCandidates,
-  staleWarning,
-  writeMeaningPack,
-  type MeaningCandidate,
-  type MeaningPack,
-} from "@/core/query/meaning/sock";
-import { MATERIAL_DOCS } from "@/core/query/meaning/materialDocs";
-import { buildGraph } from "@/core/transform/buildGraph";
+import { meaningCandidates, type MeaningCandidate, type MeaningPack } from "@/core/query/meaning/sock";
+import { loadPacks, writePacks } from "../scripts/meaning-sock-build";
 
-const FROZEN = "2026-01-01T00:00:00.000Z";
+export { writePacks };
+
 const root = process.cwd();
 
 interface FrozenCase {
@@ -43,52 +30,6 @@ export interface FrozenReport {
   confusableWrongSure: number;
   invented: number;
   misses: string[];
-}
-
-function node(id: string, type: NodeType, name: string): GraphNode {
-  return { id, type, name, figmaNodeId: id, isMainComponent: type === "MAIN_COMPONENT" };
-}
-
-function acmeSmall(): GraphIndex {
-  const names = [
-    "Data Table", "Card List", "Summary Card", "Stat Block", "Text Field", "Pay CTA", "Save CTA", "Search Field",
-    "Empty Message", "Error Alert", "Pending Banner", "Loading Spinner", "Compact List", "Comfortable List",
-    "Mobile Nav", "Desktop Nav", "Button",
-  ];
-  const graph: DesignGraph = {
-    fileKey: "ACMEUI",
-    fileName: "Acme UI",
-    builtAt: FROZEN,
-    source: { kind: "mock", ingestedAt: FROZEN },
-    warnings: [],
-    nodes: [node("file:acme-ui", "FILE", "Acme UI"), ...names.map((name, index) => node(`node:10:${index}`, "MAIN_COMPONENT", name))],
-    edges: [],
-  };
-  return indexGraph(graph);
-}
-
-function fixtureIndex(): GraphIndex {
-  const raw: unknown = JSON.parse(readFileSync(join(root, "scoreboard/fixture/library.json"), "utf8"));
-  return indexGraph(buildGraph(SourceDocumentSchema.parse(raw), { builtAt: FROZEN }));
-}
-
-function materialIndex(): GraphIndex {
-  const payload = JSON.parse(readFileSync(join(root, "fixtures/material/library.json"), "utf8")) as { variables: unknown };
-  const file = payload as { fileKey?: string };
-  return indexGraph(
-    buildGraph(
-      adaptFigmaRestFile({ fileKey: file.fileKey ?? "library", file: payload, variables: payload.variables, kind: "json", ingestedAt: FROZEN }),
-      { builtAt: FROZEN },
-    ),
-  );
-}
-
-function loadPacks(): Record<FrozenCase["pack"], MeaningPack> {
-  return {
-    material: buildMeaningPack(materialIndex(), "Angular Material", FROZEN, MATERIAL_DOCS),
-    acme: buildMeaningPack(fixtureIndex(), "Acme", FROZEN),
-    "acme-small": buildMeaningPack(acmeSmall(), "Acme UI", FROZEN),
-  };
 }
 
 function accepted(row: FrozenCase): Set<string> {
@@ -178,30 +119,10 @@ export function readFrozenCases(): FrozenCase[] {
   return parsed.cases;
 }
 
-export function writePacks(dir: string): { tokens: number; stale: string | undefined } {
-  const packs = loadPacks();
-  let sample = "";
-  for (const [name, pack] of Object.entries(packs)) {
-    const files = writeMeaningPack(join(dir, name), pack);
-    if (name === "acme") {
-      const ask = "somewhere to switch email alerts on and off";
-      const candidates = meaningCandidates(ask, pack);
-      sample = contextPack(pack, candidates, files);
-    }
-  }
-  writeFileSync(join(dir, "pack.txt"), sample);
-  const acme = packs.acme;
-  return { tokens: estimateTokens(sample), stale: staleWarning("2026-02-01T00:00:00.000Z", acme?.builtAt ?? "") };
-}
-
 const direct = process.argv[1]?.includes("meaning.frozen-score");
 if (direct) {
-  const out = process.argv[2] ?? join(root, "meaning");
-  mkdirSync(out, { recursive: true });
-  const written = writePacks(out);
   const report = scoreFrozen(readFrozenCases());
-  process.stdout.write(`${formatReport(report)}\npack-tokens ${written.tokens}\n`);
-  if (written.stale) process.stdout.write(`${written.stale}\n`);
+  process.stdout.write(`${formatReport(report)}\n`);
+  process.stdout.write(`frozen top-1 ${report.top1.hit}/111\n`);
   if (report.misses.length) process.stdout.write(`${report.misses.join("\n")}\n`);
-  if (!targetsMet(report) || written.tokens > 6000) process.exit(1);
 }

@@ -11,7 +11,7 @@ import { isRetired } from "@/core/rules/retired";
 import type { GraphIndex } from "../GraphIndex";
 import { VARIANT_PROP_NAME } from "../masterNames";
 import { allSynonymGroups, loadSynonymOverlay } from "../recommendContext";
-import { MATERIAL_DOCS } from "./materialDocs";
+import { DOC_ATTRIBUTION, docsForLibrary } from "./materialDocs";
 
 export type MeaningTier = "sure" | "weak";
 
@@ -305,35 +305,13 @@ function aliasesFor(name: string): string[] {
   return [...out].sort();
 }
 
-const packCache = new WeakMap<GraphIndex, MeaningPack>();
-
-/** The last word of the ask, before a trailing with/for/on phrase, is in this component. */
-export function lastWordFits(pack: MeaningPack, name: string, ask: string): boolean {
-  const component = pack.components.find((item) => item.name.toLowerCase() === name.toLowerCase());
-  if (!component) return true;
-  const cut = ask.split(/\b(?:with|for|on|in|at)\b/i)[0] ?? ask;
-  const last = stems(cut).at(-1);
-  if (!last) return true;
-  const have = new Set(stems([component.name, component.job, component.description, component.aliases.join(" "), component.properties.join(" ")].join(" ")));
-  return have.has(last);
-}
-
-/** Pack for this graph. Material files also get the official doc excerpts. Acme does not. */
-export function meaningPackFor(index: GraphIndex): MeaningPack {
-  const hit = packCache.get(index);
-  if (hit) return hit;
-  const material = /material/i.test(index.graph.fileName);
-  const pack = buildMeaningPack(index, index.graph.fileName || "library", index.graph.builtAt, material ? MATERIAL_DOCS : undefined);
-  packCache.set(index, pack);
-  return pack;
-}
-
 export function buildMeaningPack(
   index: GraphIndex,
   library: string,
   builtAt: string,
-  docs?: Record<string, { url: string; text: string }>,
+  libraryId?: string,
 ): MeaningPack {
+  const docs = docsForLibrary(libraryId);
   loadSynonymOverlay();
   const used = new Set<string>();
   const components: SockComponent[] = [];
@@ -374,7 +352,10 @@ export function renderComponent(component: SockComponent, library = ""): string 
   const job = component.job || component.description || component.name;
   const lines = [`# ${library || "library"} / ${component.name}`, job];
   if (component.description && component.description !== job) lines.push(component.description);
-  if (component.source) lines.push(component.source);
+  if (component.source) {
+    lines.push(component.source);
+    lines.push(DOC_ATTRIBUTION);
+  }
   if (component.aliases.length) lines.push(`Aliases: ${component.aliases.join(", ")}`);
   if (component.properties.length) lines.push(`Properties: ${component.properties.join("; ")}`);
   if (component.thin.length) lines.push(`Thin: ${library || "library"} ${component.id} missing ${component.thin.join(", ")}`);

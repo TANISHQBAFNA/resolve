@@ -32,7 +32,7 @@ Placing into a different Figma file needs the library published and `libraries` 
 
 ## Meaning files
 
-To see what a component is for, read the library index, then that one component file. Do not call an MCP tool for this. Acme is `meaning/acme/index.md`, then the linked file (for example `meaning/acme/switch.md`). The job sentence is the reason. Stop after those two reads. A `Thin:` line means the description is too short to match. If the index is older than the Figma library, learn the library again before you trust the file.
+Each component's own text is a generated file. Open the library index, then that one file. Acme is `meaning/acme/index.md`, then the linked file (for example `meaning/acme/switch.md`). Stop after those two reads. A `Thin:` line means the library description is missing. `recommend` still uses the meaning dictionary.
 
 ## Design work
 

@@ -8,6 +8,10 @@ import { isPrivateMaster } from "../recommendLexicon";
 import { allSynonymGroups, loadSynonymOverlay } from "../recommendContext";
 import { tokensOf } from "../queryTokens";
 import { inflectionStems } from "../screenInventory";
+import acmeDictionary from "@/data/meaning/acme.json";
+import defaultDictionary from "@/data/meaning/default.json";
+import materialDictionary from "@/data/meaning/material.json";
+import { languageOf } from "./parse";
 import type { MeaningAttribute, MeaningDictionary, MeaningEntry, MeaningLanguage } from "./types";
 
 const GENERIC = new Set(["button", "card", "list", "bar", "field", "icon", "menu", "chip", "tab", "row", "item", "input", "text"]);
@@ -186,6 +190,35 @@ export function buildMeaningDictionary(index: GraphIndex, library?: string): Mea
   };
 }
 
+const BUNDLED = [acmeDictionary, materialDictionary] as unknown as MeaningDictionary[];
+const DEFAULT_LANGUAGE = languageOf((defaultDictionary as { language?: Partial<MeaningLanguage> }).language);
+
+function addWords(into: Record<string, string[]>, extra: Record<string, string[]> | undefined): void {
+  for (const [key, words] of Object.entries(extra ?? {})) {
+    const bucket = into[key] ?? [];
+    for (const word of words) {
+      const lower = word.toLowerCase();
+      if (!bucket.includes(lower)) bucket.push(lower);
+    }
+    into[key] = bucket;
+  }
+}
+
+/** Library words are added to the shared default. They never replace it. */
+export function mergeLanguage(base: MeaningLanguage, extra: Partial<MeaningLanguage> | undefined): MeaningLanguage {
+  const density: Record<string, string[]> = {};
+  addWords(density, base.density);
+  addWords(density, extra?.density);
+  const describes: Record<string, string[]> = {};
+  addWords(describes, base.describes);
+  addWords(describes, extra?.describes);
+  const device = [...new Set([...base.device, ...(extra?.device ?? [])].map((word) => word.toLowerCase()))].sort();
+  const senses: Record<string, string[]> = {};
+  addWords(senses, base.senses);
+  addWords(senses, extra?.senses);
+  return { density, device, describes, senses };
+}
+
 function derivedLanguage(entries: readonly MeaningEntry[]): MeaningLanguage {
   const density: Record<string, string[]> = {};
   const device = new Set<string>();
@@ -199,15 +232,50 @@ function derivedLanguage(entries: readonly MeaningEntry[]): MeaningLanguage {
       if (token === "phone" || token === "mobile" || token === "desktop" || token === "tablet") device.add(token);
     }
   }
-  return { density, device: [...device].sort() };
+  return { density, device: [...device].sort(), describes: {}, senses: {} };
 }
 
-/** Dictionary for this graph, from the components that are actually in it. */
+function namedLibrary(fileName: string, library: string): boolean {
+  const file = fileName.toLowerCase();
+  const name = library.toLowerCase();
+  if (file.includes(name)) return true;
+  if (name.includes("material") && file.includes("material")) return true;
+  if (name.includes("acme") && file.includes("acme")) return true;
+  return false;
+}
+
+function matchBundled(fileName: string): MeaningDictionary | undefined {
+  return BUNDLED.find((dict) => namedLibrary(fileName, dict.library));
+}
+
+function withBundled(built: MeaningDictionary, bundled: MeaningDictionary): MeaningDictionary {
+  const saved = new Map(bundled.entries.map((entry) => [entry.name.toLowerCase(), entry]));
+  return {
+    ...built,
+    library: bundled.library,
+    entries: built.entries.map((entry) => {
+      const known = saved.get(entry.name.toLowerCase());
+      if (!known) return entry;
+      return {
+        ...entry,
+        synonyms: [...new Set([...entry.synonyms, ...known.synonyms])].sort(),
+        altNames: [...new Set([...entry.altNames, ...known.altNames])].sort(),
+        purpose: known.purpose.length ? known.purpose : entry.purpose,
+        not: known.not.length ? known.not : entry.not,
+      };
+    }),
+  };
+}
+
+/** Dictionary for this graph. A checked-in library file supplies that library's words. */
 export function meaningDictionary(index: GraphIndex): MeaningDictionary {
   const hit = cache.get(index);
   if (hit) return hit;
   loadSynonymOverlay();
-  const dictionary = buildMeaningDictionary(index);
+  const built = buildMeaningDictionary(index);
+  const bundled = matchBundled(index.graph.fileName);
+  const merged = bundled ? withBundled(built, bundled) : built;
+  const dictionary = { ...merged, language: mergeLanguage(DEFAULT_LANGUAGE, mergeLanguage(built.language, bundled?.language)) };
   cache.set(index, dictionary);
   return dictionary;
 }

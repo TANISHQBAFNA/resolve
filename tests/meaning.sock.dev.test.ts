@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
 import { indexGraph } from "@/core/query/GraphIndex";
 import { buildMeaningPack, meaningCandidates, thinComponents, validatePick } from "@/core/query/meaning/sock";
+import { readFrozenCases } from "./meaning.frozen-score";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
 
@@ -29,16 +30,21 @@ function packFrom(names: Array<[string, string]>) {
 describe("meaning SOCK dev set", () => {
   it("is labeled as a development set and is not the frozen fixture", () => {
     const dev = JSON.parse(readFileSync("scoreboard/meaning/dev-set.json", "utf8")) as { label: string; cases: unknown[] };
-    expect(dev.label).toMatch(/DEV/);
+    expect(dev.label).toMatch(/DEV ONLY/);
+    expect(dev.label).toMatch(/Not the frozen/);
     expect(dev.cases.length).toBeGreaterThan(0);
     expect(dev.cases.length).toBeLessThan(20);
+    const frozenAsks = new Set(readFrozenCases().map((row) => row.ask.toLowerCase()));
+    for (const row of dev.cases as Array<{ ask: string }>) {
+      expect(frozenAsks.has(row.ask.toLowerCase()), row.ask).toBe(false);
+    }
   });
 
   it("quotes the component and flags thin descriptions", () => {
-    const pack = packFrom([["Turns a setting on or off.", "Switch"], ["Sends a form.", "Button"]]);
-    const hits = meaningCandidates("turn alerts on or off", pack);
+    const pack = packFrom([["Library switch control.", "Switch"], ["Sends a form.", "Button"]]);
+    const hits = meaningCandidates("Switch", pack);
     expect(hits[0]?.name).toBe("Switch");
-    expect(hits[0]?.reason.toLowerCase()).toContain("on or off");
+    expect(hits[0]?.reason).toBe("Library switch control.");
     const stripped = {
       ...pack,
       components: pack.components.map((component, index) => (index < 5 ? { ...component, description: "", job: "", thin: ["description", "guideline"] } : component)),
@@ -46,7 +52,7 @@ describe("meaning SOCK dev set", () => {
     const flagged = thinComponents(stripped);
     expect(flagged).toHaveLength(pack.components.length);
     expect(flagged.every((row) => row.missing.includes("description"))).toBe(true);
-    const sure = meaningCandidates("turn alerts on or off", { ...stripped, components: stripped.components.map((component) => ({ ...component, job: "", description: "" })) });
+    const sure = meaningCandidates("xyzzy", { ...stripped, components: stripped.components.map((component) => ({ ...component, job: "", description: "" })) });
     expect(sure.filter((row) => row.confidence === "sure")).toEqual([]);
     const pick = validatePick(pack, hits, hits[0]?.id ?? "", {});
     expect(pick.ok).toBe(true);

@@ -92,7 +92,8 @@ describe("r8 regressions against main", () => {
     expect(chipForm.name).toBe("Form field");
     expect(chipForm.match).toBeUndefined();
     const paging = lead(material, "paging");
-    expect(paging.name).toBe("");
+    expect(paging.name).toBe("Paginator");
+    expect(paging.match).toBe("weak match");
   });
 
   it("leaves a single inflected word empty when it does not name a component", () => {

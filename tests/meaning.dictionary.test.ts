@@ -8,6 +8,8 @@ import { adaptFigmaRestFile } from "@/core/ingestion/adapters/figmaRest";
 import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
 import { buildMeaningDictionary, meaningDictionary, rankMeaning } from "@/core/query/meaning";
 import { recommendMasters } from "@/core/query/recommendMasters";
+import acmeFile from "../src/data/meaning/acme.json";
+import materialFile from "../src/data/meaning/material.json";
 import { loadSynonymOverlay } from "@/core/query/recommendContext";
 import { indexGraph } from "@/core/query/GraphIndex";
 import { buildGraph } from "@/core/transform/buildGraph";
@@ -76,10 +78,15 @@ describe("meaning dictionary", () => {
     const mat = buildMeaningDictionary(material(), "Angular Material");
     expect(acme.entries.length).toBeGreaterThan(20);
     expect(mat.entries.length).toBeGreaterThan(40);
+    expect(JSON.stringify(acmeFile.language.density)).not.toBe(JSON.stringify(materialFile.language.density));
+    expect(JSON.stringify(acmeFile.language.device)).not.toBe(JSON.stringify(materialFile.language.device));
     const loadedAcme = meaningDictionary(acmeSample());
     const loadedMat = meaningDictionary(material());
-    expect(loadedAcme.language.density["compact"] ?? []).not.toContain("dense");
-    expect(loadedMat.language.density["compact"] ?? []).not.toContain("condensed");
+    expect(loadedAcme.language.density["compact"]).toContain("dense");
+    expect(loadedAcme.language.device).toContain("landscape");
+    expect(loadedMat.language.device).toEqual(expect.arrayContaining(materialFile.language.device));
+    expect(loadedMat.language.density["compact"]).toContain("condensed");
+    expect(loadedMat.language.device).toContain("landscape");
     expect(loadedMat.entries.find((entry) => entry.name === "Date picker")?.synonyms).toContain("datepicker");
     expect(loadedAcme.entries.find((entry) => entry.name === "Button")?.not.length).toBeGreaterThan(0);
   });
@@ -90,15 +97,23 @@ describe("meaning dictionary", () => {
     loadSynonymOverlay();
     const acme = meaningDictionary(acmeLists());
     const dated = rankMeaning("a card that is dated", acme);
-    expect(dated.hits[0]?.name ?? "").not.toBe("Date picker");
+    expect(dated.empty).toBe(false);
+    expect(dated.hits[0]?.name).toMatch(/Card/);
+    expect(dated.intent.attributes).toContainEqual({ kind: "date", value: "date" });
+    expect(dated.hits[0]?.reasons.join(" ")).toMatch(/[Dd]ate/);
     const list = rankMeaning("list, compact for phones", acme);
     expect(list.hits[0]?.name).toBe("Compact List");
+    expect(list.intent.context.device).toBe("phone");
+    expect(list.intent.attributes).toContainEqual({ kind: "density", value: "compact" });
+    expect(list.hits[0]?.weak).toBe(false);
     withMaterialSynonyms();
     const mat = buildMeaningDictionary(material(), "Angular Material");
     const fruit = rankMeaning("picker for fruit", mat);
-    expect(fruit.hits[0]?.name ?? "").not.toMatch(/fruit/i);
+    expect(fruit.empty).toBe(true);
+    expect(fruit.hits).toEqual([]);
     const card = rankMeaning("a card that is dated", mat);
-    expect(card.hits[0]?.name ?? "").not.toBe("Date picker");
+    expect(card.hits[0]?.name).toBe("Card");
+    expect(card.intent.attributes.map((row) => row.value)).toContain("date");
   });
 
   it("a copy of the Acme library under another name keeps density and device answers", () => {
@@ -120,7 +135,7 @@ describe("meaning dictionary", () => {
       expect(copyLead, ask).toBe(acmeLead);
     }
     const language = meaningDictionary(copy).language;
-    expect(language.density["compact"] ?? []).not.toContain("dense");
-    expect(JSON.stringify(language)).not.toContain("senses");
+    expect(language.density["compact"]).toEqual(expect.arrayContaining(["tight", "condensed", "dense"]));
+    expect(language.device).toEqual(expect.arrayContaining(["phone", "landscape", "handset"]));
   });
 });

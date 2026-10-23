@@ -14,6 +14,9 @@ import { recommendMasters } from "@/core/query/recommendMasters";
 import { buildGraph } from "@/core/transform/buildGraph";
 import { clearCache } from "@/server/store";
 
+type PurposeFallback = typeof import("@/core/query/meaning/parse").purposeFallback;
+type MeaningDictionaryFn = typeof import("@/core/query/meaning/buildDictionary").meaningDictionary;
+
 interface Ask {
   id: string;
   library: "fixture" | "material" | "acme-small";
@@ -66,11 +69,32 @@ function withHome(home: string | undefined): void {
   clearCache();
 }
 
+let purposeFallback: PurposeFallback | undefined;
+let meaningDictionary: MeaningDictionaryFn | undefined;
+try {
+  const parse = await import("@/core/query/meaning/parse");
+  const dictionary = await import("@/core/query/meaning/buildDictionary");
+  purposeFallback = parse.purposeFallback;
+  meaningDictionary = dictionary.meaningDictionary;
+} catch {
+  purposeFallback = undefined;
+  meaningDictionary = undefined;
+}
+
 function score(index: GraphIndex, phrase: string): { lead: string; weak: boolean; via: string } {
   const card = recommendMasters(index, phrase, { budgetChars: 4000 }) as { match?: string; candidates: Array<{ name?: string }> };
   const lead = card.candidates[0]?.name ?? "";
   const weak = card.match === "weak match";
-  return { lead, weak, via: "" };
+  let via = "";
+  if (lead && purposeFallback && meaningDictionary) {
+    const skipped = recommendMasters(index, phrase, { budgetChars: 4000, skipFallback: true }) as { candidates: Array<{ name?: string }> };
+    if ((skipped.candidates[0]?.name ?? "") !== lead) {
+      const tokens = phrase.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+      const live = meaningDictionary(index).entries.filter((entry) => !entry.retired);
+      via = purposeFallback(tokens, live)?.name === lead ? "purpose" : "fallback";
+    }
+  }
+  return { lead, weak, via };
 }
 
 export function scoreAsks(asks: Ask[]): Array<{ id: string; lead: string; weak: boolean; via: string }> {

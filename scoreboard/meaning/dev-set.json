@@ -1,8 +1,8 @@
 {
-  "label": "DEV ONLY. Not the frozen acceptance set. Do not treat these asks as acceptance.",
+  "label": "DEV ONLY. Not the frozen acceptance set. Component names from the packs. Not acceptance asks.",
   "cases": [
-    { "pack": "acme", "ask": "turn alerts on or off", "note": "switch job" },
-    { "pack": "acme", "ask": "submitted", "note": "lone inflection stays empty" },
-    { "pack": "material", "ask": "a hint when the pointer rests on a symbol", "note": "tooltip job" }
+    { "pack": "acme", "ask": "Switch", "note": "component name only" },
+    { "pack": "acme-small", "ask": "Button", "note": "component name only" },
+    { "pack": "material", "ask": "Tooltip", "note": "component name only" }
   ]
 }

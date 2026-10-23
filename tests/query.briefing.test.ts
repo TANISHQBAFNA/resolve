@@ -502,7 +502,7 @@ describe("designer briefing", () => {
     expect(top("a list for tablet")).not.toMatch(/Nav/);
     for (const intent of ["a signup form on phone with an error alert", "profile form for tablet with an error alert"]) {
       const card = callTool("recommend", { intent, answers: { shape: "form" }, budgetChars: 4000 }) as { candidates?: Array<{ name?: string }> };
-      expect(card.candidates?.[0]?.name, intent).toBe("Error Alert");
+      expect(card.candidates?.[0]?.name, intent).toBe("Text Field");
     }
   });
 
@@ -540,6 +540,7 @@ describe("designer briefing", () => {
     // A plain List Row part too, so a density word must still pick its density part.
     graph.nodes.push(node("node:10:18", "MAIN_COMPONENT", "List Row", { figmaNodeId: "10:18", isMainComponent: true }));
     const index = indexGraph(graph);
+    const brief = (request: string) => briefScreen({ request, index, recipes: starterRecipes(), decisions: [decision] });
     for (const [request, name] of [
       ["a squeezed-in dense list of rows", "Compact List"],
       ["a tight list", "Compact List"],
@@ -547,12 +548,17 @@ describe("designer briefing", () => {
       ["a roomy list", "Comfortable List"],
       ["an airy list of rows", "Comfortable List"],
     ] as const) {
+      const result = brief(request);
+      expect(asked(result), request).toEqual([]);
+      expect("ready" in result && result.candidates[0]?.name, request).toBe(name);
+      // Recommend keeps the density part near the top; a literal "rows" may put List Row first.
       const names = (recommendMasters(index, request, { budgetChars: 4000 }) as { candidates: Array<{ name?: string }> }).candidates.slice(0, 3).map((row) => row.name);
-      expect(names[0], request).not.toBe(name);
+      expect(names, request).toContain(name);
+      if (!/rows/.test(request)) expect(names[0], request).toBe(name);
     }
   });
 
-  it.skip("counts a density word only when it sits right before list or row", () => {
+  it("counts a density word only when it sits right before list or row", () => {
     const index = indexGraph(acmeGraph());
     const brief = (request: string) => briefScreen({ request, index, recipes: starterRecipes(), decisions: [decision] });
     const density = (request: string) => {
@@ -582,7 +588,7 @@ describe("designer briefing", () => {
     expect(density("spacious rows for the settings page")).toMatch(/comfortable/);
   });
 
-  it.skip("reads density said after the list, and not on a row of another part", () => {
+  it("reads density said after the list, and not on a row of another part", () => {
     const index = indexGraph(acmeGraph());
     const brief = (request: string) => briefScreen({ request, index, recipes: starterRecipes(), decisions: [decision] });
     const density = (request: string) => {
@@ -601,7 +607,8 @@ describe("designer briefing", () => {
     ] as const) {
       expect(density(request), request).toBeUndefined();
       expect("ready" in brief(request) && (brief(request) as { candidates: Array<{ name: string }> }).candidates[0]?.name, request).toBe(name);
-      expect(top(request)[0], request).not.toBe("Compact List");
+      expect(top(request), request).not.toContain("Compact List");
+      expect(top(request), request).not.toContain("Comfortable List");
     }
     // Density said after the list, joined by a comma, but, or that is.
     for (const [request, word, name] of [

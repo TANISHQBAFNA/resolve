@@ -150,15 +150,26 @@ The Material phrase board is separate from the sample-library board: top-1 51/51
 
 ## What a component means
 
-Each component has one small file. The text in it is that component's name, aliases, properties, and description from the learned library. Angular Material files also include one sentence copied from that component's page on [material.angular.dev](https://material.angular.dev/components/categories), with the page URL in the file. Acme files do not add text the pack does not already contain. A `Thin:` line means the description is missing. Do not guess a job for it.
+`recommend` and `brief` load a dictionary for the library they are looking at. The shared words are in `src/data/meaning/default.json`. Acme adds its own in `src/data/meaning/acme.json`. Angular Material adds its own in `src/data/meaning/material.json`. A library file adds density, device, and exclusion words. It does not replace the shared ones. A library that is not Acme or Material still gets the shared words. A density word one or two words before `list` is that list's density, unless the file says the word describes the noun right after it. A joined, split, or hyphenated plural matches the same name.
 
-Acme, with no MCP:
+The parse reads your ask before anything is ranked:
 
-1. Open `meaning/acme/index.md`.
-2. Open the file for the component you have in mind, for example `meaning/acme/switch.md`.
-3. Read only that file. If it says `Thin:`, the library never described Switch, so Resolve will not invent a reason.
+- the head word ("card", "list", "tabs")
+- modifiers and variant attributes (density, size, state, style, date)
+- the purpose, the part after to / for / on / when
+- context, such as a phone or a landscape screen
+- a contrast: "button, not link" will not lead with the link
 
-`recommend` uses these same files. It does not keep a separate word list.
+Acme, when the library has Compact List:
+
+- "a dense list" and "list, compact for phones" mean Compact List. Dense is Acme's word for compact. Phones is the device.
+- "a card that is dated" means the card, and dated is a date attribute.
+- "picker for fruit" and "picker to choose a flavor" mean nothing. Resolve does not invent a part.
+- "something to pick a date" on Material means Date picker, because that is what the part is for.
+
+If two parts tie, the older word score breaks the tie. A one-letter typo still finds the part. A lead is weak only when part of the ask names a different part.
+
+`meaning/` is a generated copy of each component's own name, aliases, properties, and description. The Angular Material copy (library id `angular-material`) also includes one published sentence from that component's page on [material.angular.dev](https://material.angular.dev/components/categories), the page URL, and `© Google LLC. Licensed under CC BY 4.0.` Acme copies add nothing the pack does not already contain. A `Thin:` line means the description is missing. Rebuild with `node scripts/build-meaning-sock.mjs meaning`. `recommend` and `brief` keep using the dictionary above.
 
 ## Quick start
 

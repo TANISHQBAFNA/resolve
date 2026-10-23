@@ -1,0 +1,1538 @@
+{
+  "version": 1,
+  "library": "Angular Material",
+  "language": {
+    "density": {
+      "compact": [
+        "compact",
+        "dense"
+      ],
+      "comfortable": [
+        "comfortable",
+        "roomy"
+      ]
+    },
+    "device": [
+      "phone",
+      "tablet",
+      "desktop",
+      "mobile"
+    ],
+    "describes": {
+      "dense": [
+        "fog",
+        "traffic"
+      ],
+      "tight": [
+        "deadline"
+      ],
+      "compact": [
+        "camera"
+      ]
+    }
+  },
+  "synonymGroups": [
+    [
+      "action",
+      "btn",
+      "button",
+      "cta",
+      "submit"
+    ],
+    [
+      "avatar",
+      "headshot",
+      "image",
+      "photo",
+      "picture",
+      "profile"
+    ],
+    [
+      "header",
+      "heading",
+      "masthead",
+      "title",
+      "top"
+    ],
+    [
+      "find",
+      "query",
+      "search"
+    ],
+    [
+      "amount",
+      "cost",
+      "money",
+      "price"
+    ],
+    [
+      "cancel",
+      "close",
+      "dismiss",
+      "exit"
+    ],
+    [
+      "blank",
+      "empty",
+      "nothing"
+    ],
+    [
+      "alert",
+      "notice",
+      "notification",
+      "warning"
+    ],
+    [
+      "switch",
+      "toggle"
+    ],
+    [
+      "dialog",
+      "modal",
+      "popup"
+    ],
+    [
+      "bottom",
+      "footer"
+    ],
+    [
+      "snackbar",
+      "toast"
+    ],
+    [
+      "divider",
+      "rule",
+      "separator"
+    ],
+    [
+      "badge",
+      "bubble",
+      "pill"
+    ],
+    [
+      "coupon",
+      "discount",
+      "promo",
+      "voucher"
+    ],
+    [
+      "hyperlink",
+      "link"
+    ],
+    [
+      "nav",
+      "navigation"
+    ],
+    [
+      "help",
+      "info",
+      "information"
+    ],
+    [
+      "checkbox",
+      "tick box"
+    ],
+    [
+      "nav item",
+      "sidebar item"
+    ],
+    [
+      "list item",
+      "list row",
+      "table row"
+    ],
+    [
+      "loading",
+      "progress",
+      "spinner"
+    ],
+    [
+      "fab",
+      "floating",
+      "floating action button"
+    ],
+    [
+      "drop down",
+      "dropdown",
+      "menu",
+      "select"
+    ],
+    [
+      "chip",
+      "tag"
+    ],
+    [
+      "drawer",
+      "rail",
+      "sidebar"
+    ],
+    [
+      "field",
+      "input",
+      "text",
+      "text box",
+      "text field",
+      "textbox",
+      "textfield"
+    ],
+    [
+      "app bar",
+      "top app bar"
+    ],
+    [
+      "breadcrumb",
+      "crumb",
+      "trail"
+    ],
+    [
+      "announcement",
+      "banner"
+    ],
+    [
+      "app bar",
+      "toolbar",
+      "top app bar"
+    ],
+    [
+      "drawer",
+      "navigation drawer",
+      "sidenav"
+    ],
+    [
+      "slide toggle",
+      "switch"
+    ],
+    [
+      "button toggle",
+      "segmented button"
+    ],
+    [
+      "pagination",
+      "paginator"
+    ],
+    [
+      "snack",
+      "snackbar",
+      "toast"
+    ],
+    [
+      "panel",
+      "sheet"
+    ],
+    [
+      "accordion",
+      "expansion"
+    ],
+    [
+      "date",
+      "datepicker"
+    ],
+    [
+      "dropdown",
+      "select"
+    ]
+  ],
+  "entries": [
+    {
+      "id": "autocomplete",
+      "name": "Autocomplete",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "autocompleted",
+        "autocompletes",
+        "autocompleting"
+      ],
+      "purpose": [
+        "Text field with suggested options"
+      ],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "autocomplete"
+      ]
+    },
+    {
+      "id": "badge",
+      "name": "Badge",
+      "synonyms": [
+        "bubble",
+        "pill"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "badged",
+        "badges",
+        "badging"
+      ],
+      "purpose": [
+        "Small status mark on another part"
+      ],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "badge"
+      ]
+    },
+    {
+      "id": "bottom-sheet",
+      "name": "Bottom sheet",
+      "synonyms": [
+        "bottom",
+        "footer",
+        "panel",
+        "sheet"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "bottomed",
+        "bottoming",
+        "bottoms",
+        "sheeted",
+        "sheeting",
+        "sheets"
+      ],
+      "purpose": [
+        "Surface that slides up from the bottom"
+      ],
+      "attributes": [],
+      "not": [
+        "Side sheet",
+        "Expansion panel"
+      ],
+      "nameTokens": [
+        "bottom",
+        "sheet"
+      ]
+    },
+    {
+      "id": "button",
+      "name": "Button",
+      "synonyms": [
+        "action",
+        "btn",
+        "cta",
+        "submit"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "buttons"
+      ],
+      "purpose": [
+        "Five button types from the Material 3 spec"
+      ],
+      "attributes": [
+        {
+          "kind": "style",
+          "name": "Type",
+          "values": [
+            "elevated",
+            "filled",
+            "outlined",
+            "text",
+            "tonal"
+          ]
+        }
+      ],
+      "not": [
+        "Button toggle",
+        "Icon button",
+        "Legacy button",
+        "Radio button"
+      ],
+      "nameTokens": [
+        "button"
+      ]
+    },
+    {
+      "id": "button-toggle",
+      "name": "Button toggle",
+      "synonyms": [
+        "action",
+        "btn",
+        "button",
+        "cta",
+        "segmented button",
+        "submit",
+        "switch",
+        "toggle"
+      ],
+      "altNames": [
+        "segmented button"
+      ],
+      "wordForms": [
+        "buttons",
+        "toggled",
+        "toggles",
+        "toggling"
+      ],
+      "purpose": [
+        "Segmented button",
+        "Single or multi select"
+      ],
+      "attributes": [],
+      "not": [
+        "Button",
+        "Icon button",
+        "Legacy button",
+        "Radio button",
+        "Slide toggle"
+      ],
+      "nameTokens": [
+        "button",
+        "toggle"
+      ]
+    },
+    {
+      "id": "card",
+      "name": "Card",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "cards"
+      ],
+      "purpose": [
+        "Elevated, filled, and outlined cards"
+      ],
+      "attributes": [
+        {
+          "kind": "style",
+          "name": "Type",
+          "values": [
+            "elevated",
+            "filled",
+            "outlined"
+          ]
+        }
+      ],
+      "not": [],
+      "nameTokens": [
+        "card"
+      ]
+    },
+    {
+      "id": "checkbox",
+      "name": "Checkbox",
+      "synonyms": [
+        "tick box"
+      ],
+      "altNames": [
+        "tick box"
+      ],
+      "wordForms": [
+        "checkboxed",
+        "checkboxing",
+        "checkboxs"
+      ],
+      "purpose": [
+        "Select one or more"
+      ],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "checkbox"
+      ]
+    },
+    {
+      "id": "chip",
+      "name": "Chip",
+      "synonyms": [
+        "tag"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "chips"
+      ],
+      "purpose": [
+        "Assist, filter, input, and suggestion chips"
+      ],
+      "attributes": [
+        {
+          "kind": "style",
+          "name": "Type",
+          "values": [
+            "assist",
+            "filter",
+            "input",
+            "suggestion"
+          ]
+        }
+      ],
+      "not": [],
+      "nameTokens": [
+        "chip"
+      ]
+    },
+    {
+      "id": "date-picker",
+      "name": "Date picker",
+      "synonyms": [
+        "date",
+        "datepicker"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "dated",
+        "dates",
+        "dating",
+        "pickered",
+        "pickering",
+        "pickers"
+      ],
+      "purpose": [
+        "Pick a day, a week, a month, or a year"
+      ],
+      "attributes": [
+        {
+          "kind": "date",
+          "name": "date",
+          "values": [
+            "date"
+          ]
+        }
+      ],
+      "not": [
+        "Time picker"
+      ],
+      "nameTokens": [
+        "date",
+        "picker"
+      ]
+    },
+    {
+      "id": "dialog",
+      "name": "Dialog",
+      "synonyms": [
+        "modal",
+        "popup"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "dialoged",
+        "dialoging",
+        "dialogs"
+      ],
+      "purpose": [
+        "Basic dialog and full-screen dialog"
+      ],
+      "attributes": [
+        {
+          "kind": "style",
+          "name": "Type",
+          "values": [
+            "basic",
+            "full-screen"
+          ]
+        },
+        {
+          "kind": "style",
+          "name": "variant",
+          "values": [
+            "full"
+          ]
+        }
+      ],
+      "not": [],
+      "nameTokens": [
+        "dialog"
+      ]
+    },
+    {
+      "id": "divider",
+      "name": "Divider",
+      "synonyms": [
+        "rule",
+        "separator"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "dividered",
+        "dividering",
+        "dividers"
+      ],
+      "purpose": [
+        "Hairline between items"
+      ],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "divider"
+      ]
+    },
+    {
+      "id": "expansion-panel",
+      "name": "Expansion panel",
+      "synonyms": [
+        "accordion",
+        "expansion",
+        "panel",
+        "sheet"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "expansioned",
+        "expansioning",
+        "expansions",
+        "paneled",
+        "paneling",
+        "panels"
+      ],
+      "purpose": [
+        "Expand a row or section to show more detail"
+      ],
+      "attributes": [],
+      "not": [
+        "Bottom sheet",
+        "Side sheet"
+      ],
+      "nameTokens": [
+        "expansion",
+        "panel"
+      ]
+    },
+    {
+      "id": "extended-fab",
+      "name": "Extended FAB",
+      "synonyms": [
+        "fab",
+        "floating",
+        "floating action button"
+      ],
+      "altNames": [
+        "floating action button"
+      ],
+      "wordForms": [
+        "extendeded",
+        "extendeding",
+        "extendeds",
+        "fabed",
+        "fabing",
+        "fabs"
+      ],
+      "purpose": [
+        "Floating action button with a label"
+      ],
+      "attributes": [
+        {
+          "kind": "size",
+          "name": "Size",
+          "values": [
+            "large",
+            "medium",
+            "small"
+          ]
+        }
+      ],
+      "not": [
+        "FAB",
+        "Mini FAB"
+      ],
+      "nameTokens": [
+        "extended",
+        "fab"
+      ]
+    },
+    {
+      "id": "fab",
+      "name": "FAB",
+      "synonyms": [
+        "floating",
+        "floating action button"
+      ],
+      "altNames": [
+        "floating action button"
+      ],
+      "wordForms": [
+        "fabed",
+        "fabing",
+        "fabs"
+      ],
+      "purpose": [
+        "Floating action button",
+        "Small, regular, and large"
+      ],
+      "attributes": [
+        {
+          "kind": "size",
+          "name": "Size",
+          "values": [
+            "large",
+            "regular",
+            "small"
+          ]
+        }
+      ],
+      "not": [
+        "Extended FAB",
+        "Mini FAB"
+      ],
+      "nameTokens": [
+        "fab"
+      ]
+    },
+    {
+      "id": "form-field",
+      "name": "Form field",
+      "synonyms": [
+        "field",
+        "input",
+        "text",
+        "text box",
+        "text field",
+        "textbox",
+        "textfield"
+      ],
+      "altNames": [
+        "text box",
+        "text field"
+      ],
+      "wordForms": [
+        "fields",
+        "formed",
+        "forming",
+        "forms"
+      ],
+      "purpose": [
+        "Label, hint, and error around an input"
+      ],
+      "attributes": [],
+      "not": [
+        "Text field"
+      ],
+      "nameTokens": [
+        "form",
+        "field"
+      ]
+    },
+    {
+      "id": "grid-list",
+      "name": "Grid list",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "grided",
+        "griding",
+        "grids",
+        "lists"
+      ],
+      "purpose": [
+        "Tiles in a grid"
+      ],
+      "attributes": [],
+      "not": [
+        "List",
+        "List item"
+      ],
+      "nameTokens": [
+        "grid",
+        "list"
+      ]
+    },
+    {
+      "id": "icon",
+      "name": "Icon",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "icons"
+      ],
+      "purpose": [
+        "Icon glyph"
+      ],
+      "attributes": [],
+      "not": [
+        "Icon button"
+      ],
+      "nameTokens": [
+        "icon"
+      ]
+    },
+    {
+      "id": "icon-button",
+      "name": "Icon button",
+      "synonyms": [
+        "action",
+        "btn",
+        "button",
+        "cta",
+        "submit"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "buttons",
+        "icons"
+      ],
+      "purpose": [
+        "Icon button",
+        "Standard, filled, tonal, and outlined"
+      ],
+      "attributes": [
+        {
+          "kind": "style",
+          "name": "Type",
+          "values": [
+            "filled",
+            "outlined",
+            "standard",
+            "tonal"
+          ]
+        }
+      ],
+      "not": [
+        "Button",
+        "Button toggle",
+        "Legacy button",
+        "Radio button",
+        "Icon"
+      ],
+      "nameTokens": [
+        "icon",
+        "button"
+      ]
+    },
+    {
+      "id": "legacy-button",
+      "name": "Legacy button",
+      "synonyms": [
+        "action",
+        "btn",
+        "button",
+        "cta",
+        "submit"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "buttons",
+        "legacies",
+        "legacyed",
+        "legacying",
+        "legacys"
+      ],
+      "purpose": [
+        "Replaced by Button"
+      ],
+      "attributes": [],
+      "not": [
+        "Button",
+        "Button toggle",
+        "Icon button",
+        "Radio button"
+      ],
+      "retired": true,
+      "nameTokens": [
+        "legacy",
+        "button"
+      ]
+    },
+    {
+      "id": "list",
+      "name": "List",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "lists"
+      ],
+      "purpose": [
+        "Vertical list of rows"
+      ],
+      "attributes": [],
+      "not": [
+        "Grid list",
+        "List item"
+      ],
+      "nameTokens": [
+        "list"
+      ]
+    },
+    {
+      "id": "list-item",
+      "name": "List item",
+      "synonyms": [
+        "list row",
+        "table row"
+      ],
+      "altNames": [
+        "list row",
+        "table row"
+      ],
+      "wordForms": [
+        "items",
+        "lists"
+      ],
+      "purpose": [
+        "One, two, or three line row"
+      ],
+      "attributes": [
+        {
+          "kind": "style",
+          "name": "variant",
+          "values": [
+            "lines",
+            "one",
+            "three",
+            "two"
+          ]
+        }
+      ],
+      "not": [
+        "Grid list",
+        "List"
+      ],
+      "nameTokens": [
+        "list",
+        "item"
+      ]
+    },
+    {
+      "id": "menu",
+      "name": "Menu",
+      "synonyms": [
+        "drop down",
+        "dropdown",
+        "select"
+      ],
+      "altNames": [
+        "drop down"
+      ],
+      "wordForms": [
+        "menus"
+      ],
+      "purpose": [
+        "List of choices anchored to a control"
+      ],
+      "attributes": [],
+      "not": [
+        "Select"
+      ],
+      "nameTokens": [
+        "menu"
+      ]
+    },
+    {
+      "id": "mini-fab",
+      "name": "Mini FAB",
+      "synonyms": [
+        "fab",
+        "floating",
+        "floating action button"
+      ],
+      "altNames": [
+        "floating action button"
+      ],
+      "wordForms": [
+        "fabed",
+        "fabing",
+        "fabs",
+        "minied",
+        "miniing",
+        "minis"
+      ],
+      "purpose": [
+        "Small floating action button"
+      ],
+      "attributes": [
+        {
+          "kind": "size",
+          "name": "size",
+          "values": [
+            "mini"
+          ]
+        }
+      ],
+      "not": [
+        "Extended FAB",
+        "FAB"
+      ],
+      "nameTokens": [
+        "mini",
+        "fab"
+      ]
+    },
+    {
+      "id": "navigation-bar",
+      "name": "Navigation bar",
+      "synonyms": [
+        "nav",
+        "navigation"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "bars",
+        "navigationed",
+        "navigationing",
+        "navigations"
+      ],
+      "purpose": [
+        "Bottom navigation",
+        "Material 3",
+        "No matching Angular Material class"
+      ],
+      "attributes": [],
+      "not": [
+        "Navigation rail",
+        "Progress bar",
+        "Search bar"
+      ],
+      "nameTokens": [
+        "navigation",
+        "bar"
+      ]
+    },
+    {
+      "id": "navigation-rail",
+      "name": "Navigation rail",
+      "synonyms": [
+        "drawer",
+        "nav",
+        "navigation",
+        "rail",
+        "sidebar"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "navigationed",
+        "navigationing",
+        "navigations",
+        "railed",
+        "railing",
+        "rails"
+      ],
+      "purpose": [
+        "Side rail for a few destinations",
+        "No matching Angular Material class"
+      ],
+      "attributes": [],
+      "not": [
+        "Navigation bar",
+        "Sidenav"
+      ],
+      "nameTokens": [
+        "navigation",
+        "rail"
+      ]
+    },
+    {
+      "id": "paginator",
+      "name": "Paginator",
+      "synonyms": [
+        "pagination"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "paginatored",
+        "paginatoring",
+        "paginators"
+      ],
+      "purpose": [
+        "Paging through the pages of a long table or list"
+      ],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "paginator"
+      ]
+    },
+    {
+      "id": "progress-bar",
+      "name": "Progress bar",
+      "synonyms": [
+        "loading",
+        "progress",
+        "spinner"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "bars",
+        "progressed",
+        "progressing"
+      ],
+      "purpose": [
+        "Linear progress indicator"
+      ],
+      "attributes": [],
+      "not": [
+        "Progress spinner",
+        "Navigation bar",
+        "Search bar"
+      ],
+      "nameTokens": [
+        "progress",
+        "bar"
+      ]
+    },
+    {
+      "id": "progress-spinner",
+      "name": "Progress spinner",
+      "synonyms": [
+        "loading",
+        "progress",
+        "spinner"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "progressed",
+        "progressing",
+        "spinnered",
+        "spinnering",
+        "spinners"
+      ],
+      "purpose": [
+        "Circular progress indicator"
+      ],
+      "attributes": [],
+      "not": [
+        "Progress bar"
+      ],
+      "nameTokens": [
+        "progress",
+        "spinner"
+      ]
+    },
+    {
+      "id": "radio-button",
+      "name": "Radio button",
+      "synonyms": [
+        "action",
+        "btn",
+        "button",
+        "cta",
+        "submit"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "buttons",
+        "radioed",
+        "radioing",
+        "radios"
+      ],
+      "purpose": [
+        "Pick one of a set"
+      ],
+      "attributes": [],
+      "not": [
+        "Button",
+        "Button toggle",
+        "Icon button",
+        "Legacy button"
+      ],
+      "nameTokens": [
+        "radio",
+        "button"
+      ]
+    },
+    {
+      "id": "search-bar",
+      "name": "Search bar",
+      "synonyms": [
+        "find",
+        "query",
+        "search"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "bars",
+        "searched",
+        "searching",
+        "searchs"
+      ],
+      "purpose": [
+        "Search",
+        "Material 3 search",
+        "Angular Material has no search-bar class"
+      ],
+      "attributes": [],
+      "not": [
+        "Navigation bar",
+        "Progress bar"
+      ],
+      "nameTokens": [
+        "search",
+        "bar"
+      ]
+    },
+    {
+      "id": "select",
+      "name": "Select",
+      "synonyms": [
+        "drop down",
+        "dropdown",
+        "menu"
+      ],
+      "altNames": [
+        "drop down"
+      ],
+      "wordForms": [
+        "selected",
+        "selecting",
+        "selects"
+      ],
+      "purpose": [
+        "Closed menu of options",
+        "Angular Material select",
+        "Material 3 uses a menu for this job"
+      ],
+      "attributes": [],
+      "not": [
+        "Menu"
+      ],
+      "nameTokens": [
+        "select"
+      ]
+    },
+    {
+      "id": "side-sheet",
+      "name": "Side sheet",
+      "synonyms": [
+        "panel",
+        "sheet"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "sheeted",
+        "sheeting",
+        "sheets",
+        "sided",
+        "sides",
+        "siding"
+      ],
+      "purpose": [
+        "Sheet docked to the side",
+        "Material 3 has no separate Angular class for this"
+      ],
+      "attributes": [],
+      "not": [
+        "Bottom sheet",
+        "Expansion panel"
+      ],
+      "nameTokens": [
+        "side",
+        "sheet"
+      ]
+    },
+    {
+      "id": "sidenav",
+      "name": "Sidenav",
+      "synonyms": [
+        "drawer",
+        "navigation drawer"
+      ],
+      "altNames": [
+        "navigation drawer"
+      ],
+      "wordForms": [
+        "sidenaved",
+        "sidenaving",
+        "sidenavs"
+      ],
+      "purpose": [
+        "Navigation drawer"
+      ],
+      "attributes": [],
+      "not": [
+        "Navigation rail"
+      ],
+      "nameTokens": [
+        "sidenav"
+      ]
+    },
+    {
+      "id": "slide-toggle",
+      "name": "Slide toggle",
+      "synonyms": [
+        "switch",
+        "toggle"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "slided",
+        "slides",
+        "sliding",
+        "toggled",
+        "toggles",
+        "toggling"
+      ],
+      "purpose": [
+        "Switch",
+        "On or off"
+      ],
+      "attributes": [],
+      "not": [
+        "Button toggle"
+      ],
+      "nameTokens": [
+        "slide",
+        "toggle"
+      ]
+    },
+    {
+      "id": "slider",
+      "name": "Slider",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "slidered",
+        "slidering",
+        "sliders"
+      ],
+      "purpose": [
+        "Pick a value along a track"
+      ],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "slider"
+      ]
+    },
+    {
+      "id": "snackbar",
+      "name": "Snackbar",
+      "synonyms": [
+        "snack",
+        "toast"
+      ],
+      "altNames": [],
+      "wordForms": [
+        "snackbared",
+        "snackbaring",
+        "snackbars"
+      ],
+      "purpose": [
+        "A little message pops up after saving or finishing an action"
+      ],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "snackbar"
+      ]
+    },
+    {
+      "id": "sort",
+      "name": "Sort",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "sorted",
+        "sorting",
+        "sorts"
+      ],
+      "purpose": [
+        "Sortable column header"
+      ],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "sort"
+      ]
+    },
+    {
+      "id": "stepper",
+      "name": "Stepper",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "steppered",
+        "steppering",
+        "steppers"
+      ],
+      "purpose": [
+        "Steps in a task"
+      ],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "stepper"
+      ]
+    },
+    {
+      "id": "table",
+      "name": "Table",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "tabled",
+        "tables",
+        "tabling"
+      ],
+      "purpose": [
+        "Data table"
+      ],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "table"
+      ]
+    },
+    {
+      "id": "tabs",
+      "name": "Tabs",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "tabsed",
+        "tabsing"
+      ],
+      "purpose": [
+        "Tabs"
+      ],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "tabs"
+      ]
+    },
+    {
+      "id": "text-field",
+      "name": "Text field",
+      "synonyms": [
+        "field",
+        "input",
+        "text",
+        "text box",
+        "textbox",
+        "textfield"
+      ],
+      "altNames": [
+        "text box"
+      ],
+      "wordForms": [
+        "fields",
+        "texts"
+      ],
+      "purpose": [
+        "Filled and outlined text fields"
+      ],
+      "attributes": [
+        {
+          "kind": "style",
+          "name": "Type",
+          "values": [
+            "filled",
+            "outlined"
+          ]
+        }
+      ],
+      "not": [
+        "Form field"
+      ],
+      "nameTokens": [
+        "text",
+        "field"
+      ]
+    },
+    {
+      "id": "time-picker",
+      "name": "Time picker",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "pickered",
+        "pickering",
+        "pickers",
+        "timed",
+        "times",
+        "timing"
+      ],
+      "purpose": [
+        "Pick a minute, an hour, or a time of day"
+      ],
+      "attributes": [
+        {
+          "kind": "date",
+          "name": "date",
+          "values": [
+            "time"
+          ]
+        }
+      ],
+      "not": [
+        "Date picker"
+      ],
+      "nameTokens": [
+        "time",
+        "picker"
+      ]
+    },
+    {
+      "id": "toolbar",
+      "name": "Toolbar",
+      "synonyms": [
+        "app bar",
+        "top app bar"
+      ],
+      "altNames": [
+        "app bar",
+        "top app bar"
+      ],
+      "wordForms": [
+        "toolbared",
+        "toolbaring",
+        "toolbars"
+      ],
+      "purpose": [
+        "Top app bar"
+      ],
+      "attributes": [
+        {
+          "kind": "style",
+          "name": "Type",
+          "values": [
+            "center aligned",
+            "large",
+            "medium",
+            "small"
+          ]
+        },
+        {
+          "kind": "style",
+          "name": "variant",
+          "values": [
+            "aligned",
+            "center"
+          ]
+        }
+      ],
+      "not": [],
+      "nameTokens": [
+        "toolbar"
+      ]
+    },
+    {
+      "id": "tooltip",
+      "name": "Tooltip",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "tooltiped",
+        "tooltiping",
+        "tooltips"
+      ],
+      "purpose": [
+        "Explain a control when you hover it"
+      ],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "tooltip"
+      ]
+    },
+    {
+      "id": "tree",
+      "name": "Tree",
+      "synonyms": [],
+      "altNames": [],
+      "wordForms": [
+        "treed",
+        "trees",
+        "treing"
+      ],
+      "purpose": [
+        "Nested rows"
+      ],
+      "attributes": [],
+      "not": [],
+      "nameTokens": [
+        "tree"
+      ]
+    }
+  ]
+}
