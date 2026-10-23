@@ -65,6 +65,7 @@ export type PickCheck = "exists" | "retired" | "props" | "quote" | "alias-quote"
 export interface ThinEntry {
   id: string;
   missing: string[];
+  nameOnly?: boolean;
 }
 
 export interface PickResult {

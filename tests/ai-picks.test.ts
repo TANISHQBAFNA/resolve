@@ -285,6 +285,23 @@ describe("validateAiPick", () => {
     }
   }, 30_000);
 
+  it("marks a name-only pick name-only in its thin entry, and only that entry", () => {
+    const stripped = readFileSync("meaning/material/table.md", "utf8").replace("Data table.\n", "");
+    const pack = packFromFiles("Library", FROZEN, new Map([["table", stripped], ["icon", readFileSync("meaning/material/icon.md", "utf8")]]));
+    const table = pack.components.find((component) => component.id === "table");
+    expect(table?.description).toBe("");
+    expect(table?.propOptions).toEqual({});
+    const named = validateAiPick(pack, ask(pack, { pick: "table", shortlist: ["table"], reason: "Table", tier: "ask" }));
+    expect(named.tier).toBe("ask");
+    expect(named.failed).toEqual([]);
+    expect(named.nameOnly).toBe(true);
+    expect(named.thin.find((entry) => entry.id === "table")).toEqual({ id: "table", missing: ["description", "guidelines"], nameOnly: true });
+    expect(named.thin.find((entry) => entry.id === "icon")?.nameOnly).toBeUndefined();
+    const quoted = validateAiPick(pack, ask(pack, { pick: "icon", shortlist: ["icon"], reason: "Icon glyph.", tier: "ask" }));
+    expect(quoted.nameOnly).toBeUndefined();
+    expect(quoted.thin.every((entry) => entry.nameOnly === undefined)).toBe(true);
+  });
+
   it("stays under 300ms at p95 on a 200-component library", () => {
     const components = Array.from({ length: 200 }, (_, index) => ({
       id: `part-${index}`,

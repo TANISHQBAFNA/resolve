@@ -139,7 +139,10 @@ export function validateAiPick(pack: MeaningPack, req: PickRequest, libraryBuilt
   if (quote.fail) failed.push(quote.fail);
   if (failed.length) return pickResult("no-fit", failed, thin, stale);
   const shown = { id: component.id, name: component.name, ...(req.reason ? { reason: req.reason } : {}), ...(quote.nameOnly ? { nameOnly: true } : {}) };
-  if (quote.nameOnly) return pickResult("ask", tier === "place" ? ["thin-cap"] : [], thin, stale, shown);
+  if (quote.nameOnly) {
+    const marked = thin.map((entry) => (entry.id === component.id ? { ...entry, nameOnly: true } : entry));
+    return pickResult("ask", tier === "place" ? ["thin-cap"] : [], marked, stale, shown);
+  }
   if (component.thin.length > 0 && tier === "place") return pickResult("ask", ["thin-cap"], thin, stale, shown);
   return pickResult(tier, [], thin, stale, shown);
 }
