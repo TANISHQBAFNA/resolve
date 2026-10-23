@@ -1,0 +1,1904 @@
+{
+ "version": 1,
+ "name": "Meaning SOCK frozen evaluation set (public)",
+ "frozen": "2026-10-23",
+ "groundedOn": "46d3414",
+ "packs": {
+  "material": "fixtures/material/library.json (Angular Material 3 sample)",
+  "acme": "scoreboard/fixture/library.json (Acme DS sample; regression-gate library id \"fixture\")",
+  "acme-small": "Acme UI test graph in tests/meaning.score.ts (regression-gate library id \"acme-small\"); the only Acme pack with density list variants"
+ },
+ "scoring": {
+  "exact": "top-1 lead equals expect.lead, or is one of alternates",
+  "empty-or-weak": "no lead, or a lead marked weak match (no fit); any sure lead fails",
+  "empty": "no lead at all; a weak lead also fails",
+  "top3": "expect.lead or an alternate appears in the first 3 candidates"
+ },
+ "cases": [
+  {
+   "id": "m-p01",
+   "library": "material",
+   "pack": "material",
+   "ask": "a small hint that shows up when I rest the pointer on a symbol",
+   "expect": {
+    "lead": "Tooltip",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "tooltip",
+    "meaning-only"
+   ],
+   "reason": "Hover hint text is the tooltip's job."
+  },
+  {
+   "id": "m-p02",
+   "library": "material",
+   "pack": "material",
+   "ask": "let people turn weekly reminder emails on or off",
+   "expect": {
+    "lead": "Slide toggle",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Checkbox"
+   ],
+   "tags": [
+    "purpose",
+    "yes-no-setting",
+    "meaning-only"
+   ],
+   "reason": "An on/off preference is a toggle; a checkbox is acceptable."
+  },
+  {
+   "id": "m-p03",
+   "library": "material",
+   "pack": "material",
+   "ask": "move to the next batch of results under a long table",
+   "expect": {
+    "lead": "Paginator",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "paging",
+    "names-component"
+   ],
+   "reason": "Moving between result pages is paging."
+  },
+  {
+   "id": "m-p04",
+   "library": "material",
+   "pack": "material",
+   "ask": "choose the first and last day of a holiday on a calendar",
+   "expect": {
+    "lead": "Date picker",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "date-range",
+    "meaning-only"
+   ],
+   "reason": "A start and end date on a calendar is a date range picker."
+  },
+  {
+   "id": "m-p05",
+   "library": "material",
+   "pack": "material",
+   "ask": "a brief note near the bottom of the screen saying the draft was kept",
+   "expect": {
+    "lead": "Snackbar",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "status",
+    "names-component"
+   ],
+   "reason": "A short transient confirmation is a snackbar."
+  },
+  {
+   "id": "m-p06",
+   "library": "material",
+   "pack": "material",
+   "ask": "make the person confirm before their account is erased",
+   "expect": {
+    "lead": "Dialog",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "confirm",
+    "meaning-only"
+   ],
+   "reason": "A blocking confirmation is a dialog."
+  },
+  {
+   "id": "m-p07",
+   "library": "material",
+   "pack": "material",
+   "ask": "narrow results down by category with small selectable tokens",
+   "expect": {
+    "lead": "Chip",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "filter",
+    "meaning-only"
+   ],
+   "reason": "Selectable filter tokens are filter chips."
+  },
+  {
+   "id": "m-p08",
+   "library": "material",
+   "pack": "material",
+   "ask": "show how far along an upload is",
+   "expect": {
+    "lead": "Progress bar",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Progress spinner"
+   ],
+   "tags": [
+    "purpose",
+    "status",
+    "meaning-only"
+   ],
+   "reason": "Determinate progress is a progress bar."
+  },
+  {
+   "id": "m-p09",
+   "library": "material",
+   "pack": "material",
+   "ask": "a spinning circle while the page waits for data",
+   "expect": {
+    "lead": "Progress spinner",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Progress bar"
+   ],
+   "tags": [
+    "purpose",
+    "status",
+    "meaning-only"
+   ],
+   "reason": "An indeterminate wait is a spinner."
+  },
+  {
+   "id": "m-p10",
+   "library": "material",
+   "pack": "material",
+   "ask": "a row of labels to switch between parts of a settings page",
+   "expect": {
+    "lead": "Tabs",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "names-component"
+   ],
+   "reason": "Switching sections in place is tabs."
+  },
+  {
+   "id": "m-p11",
+   "library": "material",
+   "pack": "material",
+   "ask": "a panel of page links that slides in from the left edge",
+   "expect": {
+    "lead": "Sidenav",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Navigation rail"
+   ],
+   "tags": [
+    "purpose",
+    "names-component"
+   ],
+   "reason": "A slide-in list of destinations is the side navigation."
+  },
+  {
+   "id": "m-p12",
+   "library": "material",
+   "pack": "material",
+   "ask": "links between the four main areas of a phone app, along the lower edge",
+   "expect": {
+    "lead": "Navigation bar",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "mobile",
+    "names-component"
+   ],
+   "reason": "Primary destinations on a phone sit in the navigation bar."
+  },
+  {
+   "id": "m-p13",
+   "library": "material",
+   "pack": "material",
+   "ask": "choose one shipping speed out of three",
+   "expect": {
+    "lead": "Radio button",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "One choice out of a few visible options is a radio group."
+  },
+  {
+   "id": "m-p14",
+   "library": "material",
+   "pack": "material",
+   "ask": "agree to the terms before continuing",
+   "expect": {
+    "lead": "Checkbox",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "yes-no-setting",
+    "meaning-only"
+   ],
+   "reason": "A single consent tick is a checkbox."
+  },
+  {
+   "id": "m-p15",
+   "library": "material",
+   "pack": "material",
+   "ask": "pick one country out of a long collapsed set of options",
+   "expect": {
+    "lead": "Select",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Autocomplete"
+   ],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "A long single choice in a closed control is a select."
+  },
+  {
+   "id": "m-p16",
+   "library": "material",
+   "pack": "material",
+   "ask": "type a few letters and get matching city suggestions",
+   "expect": {
+    "lead": "Autocomplete",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "Suggestions while typing is autocomplete."
+  },
+  {
+   "id": "m-p17",
+   "library": "material",
+   "pack": "material",
+   "ask": "drag to set how loud the music plays",
+   "expect": {
+    "lead": "Slider",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "A continuous value set by dragging is a slider."
+  },
+  {
+   "id": "m-p18",
+   "library": "material",
+   "pack": "material",
+   "ask": "an area that opens to reveal more details and closes again",
+   "expect": {
+    "lead": "Expansion panel",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "names-component"
+   ],
+   "reason": "Show and hide detail in place is an expansion panel."
+  },
+  {
+   "id": "m-p19",
+   "library": "material",
+   "pack": "material",
+   "ask": "walk someone through account setup one stage at a time",
+   "expect": {
+    "lead": "Stepper",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "A staged flow is a stepper."
+  },
+  {
+   "id": "m-p20",
+   "library": "material",
+   "pack": "material",
+   "ask": "a round control pinned in the corner for composing a new message",
+   "expect": {
+    "lead": "FAB",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Extended FAB"
+   ],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "The primary screen action in a corner is a FAB."
+  },
+  {
+   "id": "m-p21",
+   "library": "material",
+   "pack": "material",
+   "ask": "show folders inside folders that open and close",
+   "expect": {
+    "lead": "Tree",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "names-component"
+   ],
+   "reason": "Nested expandable hierarchy is a tree."
+  },
+  {
+   "id": "m-p22",
+   "library": "material",
+   "pack": "material",
+   "ask": "rows and columns of transactions with headings you can scan",
+   "expect": {
+    "lead": "Table",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "names-component"
+   ],
+   "reason": "Tabular rows and columns are a table."
+  },
+  {
+   "id": "m-p23",
+   "library": "material",
+   "pack": "material",
+   "ask": "set the hour and minute for an alarm",
+   "expect": {
+    "lead": "Time picker",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "Choosing hours and minutes is a time picker."
+  },
+  {
+   "id": "m-p24",
+   "library": "material",
+   "pack": "material",
+   "ask": "a short set of actions that opens from the three-dot overflow",
+   "expect": {
+    "lead": "Menu",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "names-component"
+   ],
+   "reason": "Overflow actions open in a menu."
+  },
+  {
+   "id": "m-p25",
+   "library": "material",
+   "pack": "material",
+   "ask": "a thin line between two groups of settings",
+   "expect": {
+    "lead": "Divider",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "A separating line is a divider."
+  },
+  {
+   "id": "m-p26",
+   "library": "material",
+   "pack": "material",
+   "ask": "show whether a background job is still running",
+   "expect": {
+    "lead": "Progress spinner",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Progress bar"
+   ],
+   "tags": [
+    "purpose",
+    "status",
+    "meaning-only"
+   ],
+   "reason": "Ongoing work status is a progress indicator."
+  },
+  {
+   "id": "m-p27",
+   "library": "material",
+   "pack": "material",
+   "ask": "a strip along the upper edge of the app with the page name and a back arrow",
+   "expect": {
+    "lead": "Toolbar",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "The top app bar is the toolbar."
+  },
+  {
+   "id": "m-p28",
+   "library": "material",
+   "pack": "material",
+   "ask": "order the column by price from low to high",
+   "expect": {
+    "lead": "Sort",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Table"
+   ],
+   "tags": [
+    "purpose",
+    "names-component"
+   ],
+   "reason": "Reordering a column is sort."
+  },
+  {
+   "id": "m-q01",
+   "library": "material",
+   "pack": "material",
+   "ask": "a compact contacts list on mobile",
+   "expect": {
+    "lead": "List",
+    "accept": "exact"
+   },
+   "alternates": [
+    "List item"
+   ],
+   "tags": [
+    "quality",
+    "compact",
+    "mobile",
+    "names-component"
+   ],
+   "reason": "No density variant exists, so the plain list stays."
+  },
+  {
+   "id": "m-q02",
+   "library": "material",
+   "pack": "material",
+   "ask": "a dense grid of invoices with columns",
+   "expect": {
+    "lead": "Table",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "quality",
+    "compact",
+    "meaning-only"
+   ],
+   "reason": "Dense columns are still a table."
+  },
+  {
+   "id": "m-q03",
+   "library": "material",
+   "pack": "material",
+   "ask": "a small floating action for a phone screen",
+   "expect": {
+    "lead": "Mini FAB",
+    "accept": "exact"
+   },
+   "alternates": [
+    "FAB"
+   ],
+   "tags": [
+    "quality",
+    "mobile",
+    "names-component"
+   ],
+   "reason": "Small floating action is the mini FAB."
+  },
+  {
+   "id": "m-q04",
+   "library": "material",
+   "pack": "material",
+   "ask": "side navigation for a wide desktop layout",
+   "expect": {
+    "lead": "Navigation rail",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Sidenav"
+   ],
+   "tags": [
+    "quality",
+    "desktop",
+    "names-component"
+   ],
+   "reason": "Desktop side navigation is the rail or sidenav."
+  },
+  {
+   "id": "m-x01",
+   "library": "material",
+   "pack": "material",
+   "ask": "an on/off control, not a checkbox",
+   "expect": {
+    "lead": "Slide toggle",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "exclusion",
+    "names-component"
+   ],
+   "reason": "Excludes checkbox, leaving the toggle."
+  },
+  {
+   "id": "m-x02",
+   "library": "material",
+   "pack": "material",
+   "ask": "a pop-up for a quick yes or no, not a sheet",
+   "expect": {
+    "lead": "Dialog",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "exclusion",
+    "names-component"
+   ],
+   "reason": "Excludes sheets, leaving the dialog."
+  },
+  {
+   "id": "m-x03",
+   "library": "material",
+   "pack": "material",
+   "ask": "choose one value from options, not a menu",
+   "expect": {
+    "lead": "Select",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Autocomplete"
+   ],
+   "tags": [
+    "exclusion",
+    "names-component"
+   ],
+   "reason": "Excludes the menu, leaving select."
+  },
+  {
+   "id": "m-x04",
+   "library": "material",
+   "pack": "material",
+   "ask": "a clickable label to filter results, not a button",
+   "expect": {
+    "lead": "Chip",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "exclusion",
+    "names-component"
+   ],
+   "reason": "Excludes button, leaving the filter chip."
+  },
+  {
+   "id": "m-c01",
+   "library": "material",
+   "pack": "material",
+   "ask": "flip dark mode on instantly",
+   "expect": {
+    "lead": "Slide toggle",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "Instant on/off is a toggle, not a checkbox.",
+   "pair": "toggle-vs-checkbox-m"
+  },
+  {
+   "id": "m-c02",
+   "library": "material",
+   "pack": "material",
+   "ask": "tick each topic you want in the newsletter",
+   "expect": {
+    "lead": "Checkbox",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "Several independent ticks are checkboxes.",
+   "pair": "toggle-vs-checkbox-m"
+  },
+  {
+   "id": "m-c03",
+   "library": "material",
+   "pack": "material",
+   "ask": "a removable token showing a chosen keyword in a field",
+   "expect": {
+    "lead": "Chip",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "names-component"
+   ],
+   "reason": "Removable input tokens are chips.",
+   "pair": "chip-vs-button-m"
+  },
+  {
+   "id": "m-c04",
+   "library": "material",
+   "pack": "material",
+   "ask": "the main action that sends the form",
+   "expect": {
+    "lead": "Button",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "names-component"
+   ],
+   "reason": "The primary form action is a button.",
+   "pair": "chip-vs-button-m"
+  },
+  {
+   "id": "m-c05",
+   "library": "material",
+   "pack": "material",
+   "ask": "rename and delete options from an overflow",
+   "expect": {
+    "lead": "Menu",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "Command lists open in a menu.",
+   "pair": "menu-vs-select-m"
+  },
+  {
+   "id": "m-c06",
+   "library": "material",
+   "pack": "material",
+   "ask": "choose a currency as a form value",
+   "expect": {
+    "lead": "Select",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Autocomplete"
+   ],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "A form value choice is a select.",
+   "pair": "menu-vs-select-m"
+  },
+  {
+   "id": "m-c07",
+   "library": "material",
+   "pack": "material",
+   "ask": "an undo message that goes away by itself",
+   "expect": {
+    "lead": "Snackbar",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "Self-dismissing feedback is a snackbar.",
+   "pair": "snackbar-vs-dialog-m"
+  },
+  {
+   "id": "m-c08",
+   "library": "material",
+   "pack": "material",
+   "ask": "a box that blocks the page until the user answers",
+   "expect": {
+    "lead": "Dialog",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "Blocking until answered is a dialog.",
+   "pair": "snackbar-vs-dialog-m"
+  },
+  {
+   "id": "m-c09",
+   "library": "material",
+   "pack": "material",
+   "ask": "show 40 percent of the file transferred",
+   "expect": {
+    "lead": "Progress bar",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "A known percentage is a progress bar.",
+   "pair": "bar-vs-spinner-m"
+  },
+  {
+   "id": "m-c10",
+   "library": "material",
+   "pack": "material",
+   "ask": "an endless loading circle",
+   "expect": {
+    "lead": "Progress spinner",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "names-component"
+   ],
+   "reason": "Indefinite loading is a spinner.",
+   "pair": "bar-vs-spinner-m"
+  },
+  {
+   "id": "m-c11",
+   "library": "material",
+   "pack": "material",
+   "ask": "a panel from the right edge to edit filters on desktop",
+   "expect": {
+    "lead": "Side sheet",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "desktop",
+    "names-component"
+   ],
+   "reason": "Right-edge supplementary panel is a side sheet.",
+   "pair": "bottom-vs-side-sheet-m"
+  },
+  {
+   "id": "m-c12",
+   "library": "material",
+   "pack": "material",
+   "ask": "a panel rising from below with share options",
+   "expect": {
+    "lead": "Bottom sheet",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "mobile",
+    "names-component"
+   ],
+   "reason": "Rising panel with options is a bottom sheet.",
+   "pair": "bottom-vs-side-sheet-m"
+  },
+  {
+   "id": "m-c13",
+   "library": "material",
+   "pack": "material",
+   "ask": "type an exact amount of money",
+   "expect": {
+    "lead": "Text field",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "names-component"
+   ],
+   "reason": "Exact typed value is a text field.",
+   "pair": "slider-vs-textfield-m"
+  },
+  {
+   "id": "m-c14",
+   "library": "material",
+   "pack": "material",
+   "ask": "drag between a low and a high price",
+   "expect": {
+    "lead": "Slider",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "names-component"
+   ],
+   "reason": "A dragged range is a slider.",
+   "pair": "slider-vs-textfield-m"
+  },
+  {
+   "id": "m-n01",
+   "library": "material",
+   "pack": "material",
+   "ask": "a map showing nearby stores",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "no-fit",
+    "meaning-only"
+   ],
+   "reason": "No map component in the pack."
+  },
+  {
+   "id": "m-n02",
+   "library": "material",
+   "pack": "material",
+   "ask": "somewhere to play a clip with subtitles",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "no-fit",
+    "meaning-only"
+   ],
+   "reason": "No media player in the pack."
+  },
+  {
+   "id": "m-n03",
+   "library": "material",
+   "pack": "material",
+   "ask": "a pad where customers sign with a finger",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "no-fit",
+    "meaning-only"
+   ],
+   "reason": "No signature component in the pack."
+  },
+  {
+   "id": "m-n04",
+   "library": "material",
+   "pack": "material",
+   "ask": "a star rating out of five",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "no-fit",
+    "meaning-only"
+   ],
+   "reason": "No rating component in the pack."
+  },
+  {
+   "id": "m-n05",
+   "library": "material",
+   "pack": "material",
+   "ask": "a friendly picture when the inbox has nothing in it",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "no-fit",
+    "names-component"
+   ],
+   "reason": "Material pack has no empty-state component."
+  },
+  {
+   "id": "m-n06",
+   "library": "material",
+   "pack": "material",
+   "ask": "a bar chart of monthly spending",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "no-fit",
+    "meaning-only"
+   ],
+   "reason": "No chart component in the pack."
+  },
+  {
+   "id": "m-s01",
+   "library": "material",
+   "pack": "material",
+   "ask": "a little message that pops up after saving",
+   "expect": {
+    "lead": "Snackbar",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "smoke",
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "Oct 23 smoke: should be Snackbar, not Dialog."
+  },
+  {
+   "id": "m-l01",
+   "library": "material",
+   "pack": "material",
+   "ask": "a dense granite list",
+   "expect": {
+    "lead": "List",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "l16",
+    "compact",
+    "names-component"
+   ],
+   "reason": "Density describes the noun; the plain list stays."
+  },
+  {
+   "id": "m-l02",
+   "library": "material",
+   "pack": "material",
+   "ask": "a tight timber list",
+   "expect": {
+    "lead": "List",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "l16",
+    "names-component"
+   ],
+   "reason": "Density describes the noun; the plain list stays."
+  },
+  {
+   "id": "m-r01",
+   "library": "material",
+   "pack": "material",
+   "ask": "an expense form for a dense project with a list",
+   "expect": {
+    "lead": "Form field",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "r9-note",
+    "names-component"
+   ],
+   "reason": "Material has a form field, so the form leads."
+  },
+  {
+   "id": "a-p01",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "nothing here yet, with a hint to add the first item",
+   "expect": {
+    "lead": "Empty Message",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "empty-state",
+    "names-component"
+   ],
+   "reason": "An empty list hint is the empty message."
+  },
+  {
+   "id": "a-p02",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "the person's face in a small circle next to their name",
+   "expect": {
+    "lead": "Avatar",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "A person's round picture is the avatar."
+  },
+  {
+   "id": "a-p03",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a count of items in the basket on the cart symbol",
+   "expect": {
+    "lead": "Badge",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "status",
+    "meaning-only"
+   ],
+   "reason": "A small count marker is a badge."
+  },
+  {
+   "id": "a-p04",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "how many of this item to buy, with plus and minus",
+   "expect": {
+    "lead": "Quantity Stepper",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "Plus/minus quantity is the quantity stepper."
+  },
+  {
+   "id": "a-p05",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "where you are in the site, like Home then Accounts then Savings",
+   "expect": {
+    "lead": "Breadcrumb",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "A location path is the breadcrumb."
+  },
+  {
+   "id": "a-p06",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "look up a payee by typing part of their name",
+   "expect": {
+    "lead": "Search Field",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "Typed lookup is the search field."
+  },
+  {
+   "id": "a-p07",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "the total to pay shown with currency",
+   "expect": {
+    "lead": "Price",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "A formatted amount is the price."
+  },
+  {
+   "id": "a-p08",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a thin line between two sections",
+   "expect": {
+    "lead": "Divider",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "A separating line is the divider."
+  },
+  {
+   "id": "a-p09",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a text-only action like forgot password",
+   "expect": {
+    "lead": "Link Button",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Button"
+   ],
+   "tags": [
+    "purpose",
+    "names-component"
+   ],
+   "reason": "A text-styled action is the link button."
+  },
+  {
+   "id": "a-p10",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "the strip at the very end of the page with legal links",
+   "expect": {
+    "lead": "Footer Bar",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "names-component"
+   ],
+   "reason": "Page-end legal strip is the footer bar."
+  },
+  {
+   "id": "a-p11",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "one line in a list of recent payments",
+   "expect": {
+    "lead": "Payment Row",
+    "accept": "exact"
+   },
+   "alternates": [
+    "List Row"
+   ],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "A payment line is the payment row."
+  },
+  {
+   "id": "a-p12",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "the x in the corner to shut a panel",
+   "expect": {
+    "lead": "Icon Close",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "The corner close control is Icon Close."
+  },
+  {
+   "id": "a-p13",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "move between Summary and Details on an account page",
+   "expect": {
+    "lead": "Tabs",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "Switching sections in place is tabs."
+  },
+  {
+   "id": "a-p14",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "an entry in the side menu for the Settings page",
+   "expect": {
+    "lead": "Nav Item",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "names-component"
+   ],
+   "reason": "A side navigation entry is the nav item."
+  },
+  {
+   "id": "a-p15",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "where shoppers type the code from an email offer at checkout",
+   "expect": {
+    "lead": "Promo Field",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Coupon Field"
+   ],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "Offer codes go in the promo field."
+  },
+  {
+   "id": "a-p16",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a card giving the month's totals at a glance",
+   "expect": {
+    "lead": "Summary Card",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Main Card"
+   ],
+   "tags": [
+    "purpose",
+    "meaning-only"
+   ],
+   "reason": "At-a-glance totals is the summary card."
+  },
+  {
+   "id": "a-p17",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "show an order's state like Shipped as a small label",
+   "expect": {
+    "lead": "Tag",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Badge",
+    "Chip"
+   ],
+   "tags": [
+    "purpose",
+    "status",
+    "meaning-only"
+   ],
+   "reason": "A small state label is a tag."
+  },
+  {
+   "id": "a-p18",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "small selectable labels to filter transactions by type",
+   "expect": {
+    "lead": "Chip",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Tag"
+   ],
+   "tags": [
+    "purpose",
+    "filter",
+    "meaning-only"
+   ],
+   "reason": "Selectable filter labels are chips."
+  },
+  {
+   "id": "a-p19",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "check with the person before they delete a saved payee",
+   "expect": {
+    "lead": "Modal",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "confirm",
+    "meaning-only"
+   ],
+   "reason": "A blocking confirmation is the modal."
+  },
+  {
+   "id": "a-p20",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "let people turn paperless statements on or off",
+   "expect": {
+    "lead": "Switch",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Checkbox"
+   ],
+   "tags": [
+    "purpose",
+    "yes-no-setting",
+    "meaning-only"
+   ],
+   "reason": "An on/off preference is the switch."
+  },
+  {
+   "id": "a-p21",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a red message saying the card charge failed",
+   "expect": {
+    "lead": "Alert",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "purpose",
+    "status",
+    "meaning-only"
+   ],
+   "reason": "An error message is the alert."
+  },
+  {
+   "id": "a-q01",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a large primary action for checkout on mobile",
+   "expect": {
+    "lead": "Button",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Pay CTA",
+    "Button Primary"
+   ],
+   "tags": [
+    "quality",
+    "mobile",
+    "names-component"
+   ],
+   "reason": "The main action is a button; Pay CTA fits checkout."
+  },
+  {
+   "id": "a-q02",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a compact row for each transaction",
+   "expect": {
+    "lead": "List Row",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Payment Row"
+   ],
+   "tags": [
+    "quality",
+    "compact",
+    "meaning-only"
+   ],
+   "reason": "A compact row is still a list row."
+  },
+  {
+   "id": "a-x01",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a short message after saving, not a modal",
+   "expect": {
+    "lead": "Toast",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "exclusion",
+    "names-component"
+   ],
+   "reason": "Excludes the modal, leaving the toast."
+  },
+  {
+   "id": "a-x02",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "an on/off control, not a tick box",
+   "expect": {
+    "lead": "Switch",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "exclusion",
+    "names-component"
+   ],
+   "reason": "Excludes the checkbox, leaving the switch."
+  },
+  {
+   "id": "a-c01",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "turn on two-step sign-in with one flick",
+   "expect": {
+    "lead": "Switch",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "Instant on/off is the switch.",
+   "pair": "toggle-vs-checkbox-a"
+  },
+  {
+   "id": "a-c02",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "mark several invoices to pay together",
+   "expect": {
+    "lead": "Checkbox",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "Multi-select marks are checkboxes.",
+   "pair": "toggle-vs-checkbox-a"
+  },
+  {
+   "id": "a-c03",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a quick note that the payment went through, fading on its own",
+   "expect": {
+    "lead": "Toast",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "Self-dismissing feedback is the toast.",
+   "pair": "toast-vs-modal-a"
+  },
+  {
+   "id": "a-c04",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "stop and ask before cancelling the transfer",
+   "expect": {
+    "lead": "Modal",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "Blocking confirmation is the modal.",
+   "pair": "toast-vs-modal-a"
+  },
+  {
+   "id": "a-c05",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "choose exactly one delivery slot",
+   "expect": {
+    "lead": "Radio",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "Exactly one of several is a radio.",
+   "pair": "radio-vs-checkbox-a"
+  },
+  {
+   "id": "a-c06",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "choose any extras to add to the order",
+   "expect": {
+    "lead": "Checkbox",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "Any number of extras are checkboxes.",
+   "pair": "radio-vs-checkbox-a"
+  },
+  {
+   "id": "a-c07",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a removable label for a chosen category",
+   "expect": {
+    "lead": "Chip",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Tag"
+   ],
+   "tags": [
+    "confusable",
+    "meaning-only"
+   ],
+   "reason": "A removable selection label is a chip.",
+   "pair": "chip-vs-button-a"
+  },
+  {
+   "id": "a-c08",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "the action that sends the money",
+   "expect": {
+    "lead": "Button",
+    "accept": "exact"
+   },
+   "alternates": [
+    "Pay CTA"
+   ],
+   "tags": [
+    "confusable",
+    "names-component"
+   ],
+   "reason": "The send action is a button.",
+   "pair": "chip-vs-button-a"
+  },
+  {
+   "id": "a-n01",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a calendar to pick a delivery day",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "no-fit",
+    "meaning-only"
+   ],
+   "reason": "Acme pack has no date picker."
+  },
+  {
+   "id": "a-n02",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a hint bubble shown on hover",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "no-fit",
+    "names-component"
+   ],
+   "reason": "Acme pack has no tooltip."
+  },
+  {
+   "id": "a-n03",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "page numbers to move through results",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "no-fit",
+    "meaning-only"
+   ],
+   "reason": "Acme pack has no paginator."
+  },
+  {
+   "id": "a-n04",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "drag to choose a loan amount",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "no-fit",
+    "names-component"
+   ],
+   "reason": "Acme pack has no slider."
+  },
+  {
+   "id": "a-n05",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a dropdown of countries",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "no-fit",
+    "names-component"
+   ],
+   "reason": "Acme pack has no select or menu."
+  },
+  {
+   "id": "a-n06",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a spinning wheel while payments sync",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "no-fit",
+    "meaning-only"
+   ],
+   "reason": "The Acme sample pack has no loading indicator."
+  },
+  {
+   "id": "a-s01",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "submitted",
+   "expect": {
+    "lead": null,
+    "accept": "empty"
+   },
+   "alternates": [],
+   "tags": [
+    "smoke",
+    "no-fit",
+    "meaning-only"
+   ],
+   "reason": "Oct 23 smoke: a lone inflected word should be empty, as on main."
+  },
+  {
+   "id": "a-s02",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "submitting",
+   "expect": {
+    "lead": null,
+    "accept": "empty"
+   },
+   "alternates": [],
+   "tags": [
+    "smoke",
+    "no-fit",
+    "meaning-only"
+   ],
+   "reason": "Oct 23 smoke: a lone inflected word should be empty, as on main."
+  },
+  {
+   "id": "a-r01",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a sign-up form for a snug team roster with a list",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "r9-note",
+    "no-fit",
+    "meaning-only"
+   ],
+   "reason": "Acme has no form: no fit, not an unrelated part."
+  },
+  {
+   "id": "a-r02",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "an address form for a spacious household with a list",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "r9-note",
+    "no-fit",
+    "meaning-only"
+   ],
+   "reason": "Acme has no form: no fit, not an unrelated part."
+  },
+  {
+   "id": "a-r03",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a drawer for a snug summary card holding a list",
+   "expect": {
+    "lead": null,
+    "accept": "empty-or-weak"
+   },
+   "alternates": [],
+   "tags": [
+    "r9-note",
+    "no-fit",
+    "names-component"
+   ],
+   "reason": "Acme has no drawer or sheet container: no fit, not the list row."
+  },
+  {
+   "id": "a-r04",
+   "library": "acme",
+   "pack": "acme",
+   "ask": "a dialog for a roomy profile card holding a list",
+   "expect": {
+    "lead": "Modal",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "r9-note",
+    "names-component"
+   ],
+   "reason": "Acme's dialog is the Modal, so it leads."
+  },
+  {
+   "id": "s-l01",
+   "library": "acme",
+   "pack": "acme-small",
+   "ask": "a dense granite list",
+   "expect": {
+    "lead": "Card List",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "l16",
+    "meaning-only"
+   ],
+   "reason": "Density describes the noun; the plain list, not Compact List."
+  },
+  {
+   "id": "s-l02",
+   "library": "acme",
+   "pack": "acme-small",
+   "ask": "a tight timber list",
+   "expect": {
+    "lead": "Card List",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "l16",
+    "meaning-only"
+   ],
+   "reason": "Density describes the noun; the plain list, not Compact List."
+  },
+  {
+   "id": "s-l03",
+   "library": "acme",
+   "pack": "acme-small",
+   "ask": "a roomy pasta list",
+   "expect": {
+    "lead": "Card List",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "l16",
+    "meaning-only"
+   ],
+   "reason": "Density describes the noun; the plain list, not Comfortable List."
+  },
+  {
+   "id": "s-q01",
+   "library": "acme",
+   "pack": "acme-small",
+   "ask": "compact payee list",
+   "expect": {
+    "lead": "Compact List",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "quality",
+    "compact",
+    "meaning-only"
+   ],
+   "reason": "Density on the list selects the compact variant."
+  },
+  {
+   "id": "s-q02",
+   "library": "acme",
+   "pack": "acme-small",
+   "ask": "a roomy savings goal list",
+   "expect": {
+    "lead": "Comfortable List",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "quality",
+    "meaning-only"
+   ],
+   "reason": "Roomy list selects the comfortable variant."
+  },
+  {
+   "id": "s-q03",
+   "library": "acme",
+   "pack": "acme-small",
+   "ask": "navigation for a phone",
+   "expect": {
+    "lead": "Mobile Nav",
+    "accept": "exact"
+   },
+   "alternates": [],
+   "tags": [
+    "quality",
+    "mobile",
+    "names-component"
+   ],
+   "reason": "Phone navigation is the mobile nav."
+  }
+ ]
+}

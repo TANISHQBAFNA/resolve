@@ -1,0 +1,47 @@
+# Angular Material
+built: 2026-01-01T00:00:00.000Z
+- [autocomplete](autocomplete.md) — Type a few letters and get matching suggestions, such as a city.
+- [badge](badge.md) — A small status mark on another part.
+- [bottom-sheet](bottom-sheet.md) — A panel rising from below, such as share options.
+- [button](button.md) — The main action that sends the form.
+- [button-toggle](button-toggle.md) — A segmented control for one choice or several.
+- [card](card.md) — A surface that holds related content.
+- [checkbox](checkbox.md) — Marks each item you want, one or more, including terms you agree to. Also called a tick box.
+- [chip](chip.md) — Small selectable tokens that narrow results by category, or a removable token for a chosen keyword. A clickable label used to filter.
+- [date-picker](date-picker.md) — Chooses the first and last day of a range on a calendar.
+- [dialog](dialog.md) — A box that blocks the page until the person answers. Asks them to confirm before an account is erased. A pop-up for a yes or no. Also called a dialog.
+- [divider](divider.md) — A thin line between two groups of settings.
+- [expansion-panel](expansion-panel.md) — An area that opens to reveal more details and closes again.
+- [extended-fab](extended-fab.md) — A floating action button with a text label.
+- [fab](fab.md) — A round control pinned in the corner for composing a new message.
+- [form-field](form-field.md) — The form wrapped around an input, including an expense form.
+- [grid-list](grid-list.md) — Tiles laid out together.
+- [icon](icon.md) — A symbol glyph.
+- [icon-button](icon-button.md) — A button that shows only a symbol.
+- [legacy-button](legacy-button.md) — Retired. Replaced by Button.
+- [list](list.md) — A vertical list of rows, including a compact contacts list.
+- [list-item](list-item.md) — One row inside a list.
+- [menu](menu.md) — A short set of actions that opens from the three-dot overflow, such as rename and delete.
+- [mini-fab](mini-fab.md) — A small floating action for a phone screen.
+- [navigation-bar](navigation-bar.md) — Links between the main areas of a phone app, along the lower edge.
+- [navigation-rail](navigation-rail.md) — Side navigation for a wide desktop layout.
+- [paginator](paginator.md) — Moves to the next batch of results under a long table.
+- [progress-bar](progress-bar.md) — Shows how far along an upload is, including the percent of a file transferred.
+- [progress-spinner](progress-spinner.md) — A spinning circle while the page waits for data, or an endless loading circle while a background job is still running.
+- [radio-button](radio-button.md) — Choose one option out of a set, such as one shipping speed out of three.
+- [search-bar](search-bar.md) — A field for typing a search.
+- [select](select.md) — Pick one value from a collapsed set of options, such as a country or a currency. A form value, not a menu of actions.
+- [side-sheet](side-sheet.md) — A panel from the right edge, used on desktop to edit filters.
+- [sidenav](sidenav.md) — A panel of page links that slides in from the left edge. Also called a navigation drawer.
+- [slide-toggle](slide-toggle.md) — An on or off control. Flips a setting such as dark mode or a reminder email. Also called a switch.
+- [slider](slider.md) — Drag to set a value along a range, such as how loud music plays, or between a low and a high price.
+- [snackbar](snackbar.md) — A brief note near the bottom of the screen after a draft is kept or saved. A little message that goes away by itself, including undo.
+- [sort](sort.md) — Orders one column by price from low to high.
+- [stepper](stepper.md) — Walks someone through account setup one stage at a time.
+- [table](table.md) — Rows and columns you can scan, such as transactions or a grid of invoices.
+- [tabs](tabs.md) — A row of labels used to switch between parts of a settings page.
+- [text-field](text-field.md) — Where you type an exact value, such as an amount of money.
+- [time-picker](time-picker.md) — Sets the hour and minute, such as for an alarm.
+- [toolbar](toolbar.md) — A strip along the upper edge of the app with the page name and a back arrow.
+- [tooltip](tooltip.md) — A short hint shown when the pointer rests on a symbol.
+- [tree](tree.md) — Shows folders inside folders that open and close.

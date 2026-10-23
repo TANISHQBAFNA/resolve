@@ -1,0 +1,214 @@
+/**
+ * Score the frozen meaning set. The fixture's expectations are not edited here.
+ * Usage: vite-node tests/meaning.frozen-score.ts [out-dir]
+ */
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { adaptFigmaRestFile } from "@/core/ingestion/adapters/figmaRest";
+import { SourceDocumentSchema } from "@/core/ingestion/types";
+import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
+import { indexGraph, type GraphIndex } from "@/core/query/GraphIndex";
+import {
+  buildMeaningPack,
+  contextPack,
+  estimateTokens,
+  meaningCandidates,
+  staleWarning,
+  writeMeaningPack,
+  type MeaningCandidate,
+  type MeaningPack,
+} from "@/core/query/meaning/sock";
+import { buildGraph } from "@/core/transform/buildGraph";
+
+const FROZEN = "2026-01-01T00:00:00.000Z";
+const root = process.cwd();
+
+interface FrozenCase {
+  id: string;
+  library: string;
+  pack: "material" | "acme" | "acme-small";
+  ask: string;
+  expect: { lead?: string; accept: "exact" | "empty-or-weak" | "empty" };
+  alternates?: string[];
+  tags?: string[];
+}
+
+export interface FrozenReport {
+  cases: number;
+  top1: { hit: number; of: number; rate: number };
+  top3: { hit: number; of: number; rate: number };
+  nameAvoidingTop3: { hit: number; of: number; rate: number };
+  noFit: { hit: number; of: number; rate: number };
+  confusableWrongSure: number;
+  invented: number;
+  misses: string[];
+}
+
+function node(id: string, type: NodeType, name: string): GraphNode {
+  return { id, type, name, figmaNodeId: id, isMainComponent: type === "MAIN_COMPONENT" };
+}
+
+function acmeSmall(): GraphIndex {
+  const names = [
+    "Data Table", "Card List", "Summary Card", "Stat Block", "Text Field", "Pay CTA", "Save CTA", "Search Field",
+    "Empty Message", "Error Alert", "Pending Banner", "Loading Spinner", "Compact List", "Comfortable List",
+    "Mobile Nav", "Desktop Nav", "Button",
+  ];
+  const graph: DesignGraph = {
+    fileKey: "ACMEUI",
+    fileName: "Acme UI",
+    builtAt: FROZEN,
+    source: { kind: "mock", ingestedAt: FROZEN },
+    warnings: [],
+    nodes: [node("file:acme-ui", "FILE", "Acme UI"), ...names.map((name, index) => node(`node:10:${index}`, "MAIN_COMPONENT", name))],
+    edges: [],
+  };
+  return indexGraph(graph);
+}
+
+function fixtureIndex(): GraphIndex {
+  const raw: unknown = JSON.parse(readFileSync(join(root, "scoreboard/fixture/library.json"), "utf8"));
+  return indexGraph(buildGraph(SourceDocumentSchema.parse(raw), { builtAt: FROZEN }));
+}
+
+function materialIndex(): GraphIndex {
+  const payload = JSON.parse(readFileSync(join(root, "fixtures/material/library.json"), "utf8")) as { variables: unknown };
+  const file = payload as { fileKey?: string };
+  return indexGraph(
+    buildGraph(
+      adaptFigmaRestFile({ fileKey: file.fileKey ?? "library", file: payload, variables: payload.variables, kind: "json", ingestedAt: FROZEN }),
+      { builtAt: FROZEN },
+    ),
+  );
+}
+
+function loadPacks(): Record<FrozenCase["pack"], MeaningPack> {
+  return {
+    material: buildMeaningPack(materialIndex(), "Angular Material", readFileSync(join(root, "fixtures/material/guidelines.md"), "utf8"), FROZEN),
+    acme: buildMeaningPack(fixtureIndex(), "Acme", readFileSync(join(root, "scoreboard/fixture/guidelines.md"), "utf8"), FROZEN),
+    "acme-small": buildMeaningPack(acmeSmall(), "Acme UI", readFileSync(join(root, "scoreboard/meaning/acme-small-guidelines.md"), "utf8"), FROZEN),
+  };
+}
+
+function accepted(row: FrozenCase): Set<string> {
+  return new Set([row.expect.lead ?? "", ...(row.alternates ?? [])].filter(Boolean));
+}
+
+function inTop(names: string[], row: FrozenCase, limit: number): boolean {
+  const ok = accepted(row);
+  return names.slice(0, limit).some((name) => ok.has(name));
+}
+
+function noFitPass(candidates: MeaningCandidate[]): boolean {
+  return candidates.length === 0;
+}
+
+export function scoreFrozen(cases: FrozenCase[], packs = loadPacks()): FrozenReport {
+  const names = new Map<FrozenCase["pack"], Set<string>>();
+  for (const [pack, built] of Object.entries(packs) as Array<[FrozenCase["pack"], MeaningPack]>) {
+    names.set(pack, new Set(built.components.map((component) => component.name)));
+  }
+  let top1 = 0;
+  let top3 = 0;
+  let exact = 0;
+  let avoidHit = 0;
+  let avoid = 0;
+  let noFitHit = 0;
+  let noFit = 0;
+  let confusableWrongSure = 0;
+  let invented = 0;
+  const misses: string[] = [];
+  for (const row of cases) {
+    const pack = packs[row.pack];
+    const candidates = meaningCandidates(row.ask, pack);
+    const lead = candidates[0];
+    const got = candidates.map((candidate) => candidate.name);
+    const libraryNames = names.get(row.pack) ?? new Set<string>();
+    for (const name of got) if (!libraryNames.has(name)) invented += 1;
+    const isExact = row.expect.accept === "exact";
+    const isNoFit = !isExact || (row.tags ?? []).includes("no-fit");
+    if (isExact) {
+      exact += 1;
+      const hit1 = inTop(got, row, 1);
+      const hit3 = inTop(got, row, 3);
+      if (hit1) top1 += 1;
+      if (hit3) top3 += 1;
+      if ((row.tags ?? []).includes("meaning-only")) {
+        avoid += 1;
+        if (hit3) avoidHit += 1;
+      }
+      if (!hit1) misses.push(`${row.id} top1 ${got[0] ?? "∅"} want ${row.expect.lead} [${got.slice(0, 3).join(", ")}]`);
+    }
+    if (isNoFit) {
+      noFit += 1;
+      const pass = noFitPass(candidates);
+      if (pass) noFitHit += 1;
+      else misses.push(`${row.id} no-fit ${lead ? `${lead.name} ${lead.confidence}` : "∅"}`);
+    }
+    if ((row.tags ?? []).includes("confusable") && lead?.confidence === "sure" && !accepted(row).has(lead.name)) {
+      confusableWrongSure += 1;
+      misses.push(`${row.id} sure-wrong ${lead.name}`);
+    }
+  }
+  const rate = (hit: number, of: number) => (of === 0 ? 0 : hit / of);
+  return {
+    cases: cases.length,
+    top1: { hit: top1, of: exact, rate: rate(top1, exact) },
+    top3: { hit: top3, of: exact, rate: rate(top3, exact) },
+    nameAvoidingTop3: { hit: avoidHit, of: avoid, rate: rate(avoidHit, avoid) },
+    noFit: { hit: noFitHit, of: noFit, rate: rate(noFitHit, noFit) },
+    confusableWrongSure,
+    invented,
+    misses,
+  };
+}
+
+export function formatReport(report: FrozenReport): string {
+  const pct = (rate: number) => `${Math.round(rate * 1000) / 10}%`;
+  return [
+    `frozen ${report.cases}`,
+    `top-1 ${report.top1.hit}/${report.top1.of} ${pct(report.top1.rate)} target 80%`,
+    `top-3 ${report.top3.hit}/${report.top3.of} ${pct(report.top3.rate)} target 90%`,
+    `name-avoiding top-3 ${report.nameAvoidingTop3.hit}/${report.nameAvoidingTop3.of} ${pct(report.nameAvoidingTop3.rate)} target 85%`,
+    `no-fit ${report.noFit.hit}/${report.noFit.of} ${pct(report.noFit.rate)} target 90%`,
+    `confusable sure-wrong ${report.confusableWrongSure} target 0`,
+    `invented ${report.invented} target 0`,
+  ].join("\n");
+}
+
+export function targetsMet(report: FrozenReport): boolean {
+  return report.top1.rate >= 0.8 && report.top3.rate >= 0.9 && report.nameAvoidingTop3.rate >= 0.85 && report.noFit.rate >= 0.9 && report.confusableWrongSure === 0 && report.invented === 0;
+}
+
+export function readFrozenCases(): FrozenCase[] {
+  const parsed = JSON.parse(readFileSync(join(root, "scoreboard/meaning/frozen.json"), "utf8")) as { cases: FrozenCase[] };
+  return parsed.cases;
+}
+
+export function writePacks(dir: string): { tokens: number; stale: string | undefined } {
+  const packs = loadPacks();
+  let sample = "";
+  for (const [name, pack] of Object.entries(packs)) {
+    const files = writeMeaningPack(join(dir, name), pack);
+    if (name === "acme") {
+      const ask = "somewhere to switch email alerts on and off";
+      const candidates = meaningCandidates(ask, pack);
+      sample = contextPack(pack, candidates, files);
+    }
+  }
+  writeFileSync(join(dir, "pack.txt"), sample);
+  const acme = packs.acme;
+  return { tokens: estimateTokens(sample), stale: staleWarning("2026-02-01T00:00:00.000Z", acme?.builtAt ?? "") };
+}
+
+const direct = process.argv[1]?.includes("meaning.frozen-score");
+if (direct) {
+  const out = process.argv[2] ?? join(root, "meaning");
+  mkdirSync(out, { recursive: true });
+  const written = writePacks(out);
+  const report = scoreFrozen(readFrozenCases());
+  process.stdout.write(`${formatReport(report)}\npack-tokens ${written.tokens}\n`);
+  if (written.stale) process.stdout.write(`${written.stale}\n`);
+  if (report.misses.length) process.stdout.write(`${report.misses.join("\n")}\n`);
+  if (!targetsMet(report) || written.tokens > 6000) process.exit(1);
+}

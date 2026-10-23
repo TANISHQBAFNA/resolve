@@ -150,24 +150,20 @@ The Material phrase board is separate from the sample-library board: top-1 51/51
 
 ## What a component means
 
-`recommend` and `brief` load a dictionary for the library they are looking at. The shared words are in `src/data/meaning/default.json`. Acme adds its own in `src/data/meaning/acme.json`. Angular Material adds its own in `src/data/meaning/material.json`. A library file adds density, device, and exclusion words. It does not replace the shared ones. A library that is not Acme or Material still gets the shared words. A density word one or two words before `list` is that list's density, unless the file says the word describes the noun right after it. A joined, split, or hyphenated plural matches the same name.
+Each component has one small file. The file is built only from that component's name, aliases, properties, variants, description, and `guidelines.md`. Nothing in the file is a phrase rule. Acme's files are in `meaning/acme/`. Angular Material's are in `meaning/material/`.
 
-The parse reads your ask before anything is ranked:
+Open the index. Each line is that component's job, in one line, and links to its file. Read the index, then the one file. That is two reads. The job sentence is the reason, copied from the component's own text.
 
-- the head word ("card", "list", "tabs")
-- modifiers and variant attributes (density, size, state, style, date)
-- the purpose, the part after to / for / on / when
-- context, such as a phone or a landscape screen
-- a contrast: "button, not link" will not lead with the link
+Acme, with no MCP:
 
-Acme, when the library has Compact List:
+1. Open `meaning/acme/index.md`.
+2. Ask, in your own words, "somewhere to switch email alerts on and off".
+3. The Switch line says it turns a setting on or off. Open `meaning/acme/switch.md`.
+4. Place Switch. A `Thin:` line means the description is too short to trust, and the owner should fill it in.
 
-- "a dense list" and "list, compact for phones" mean Compact List. Dense is Acme's word for compact. Phones is the device.
-- "a card that is dated" means the card, and dated is a date attribute.
-- "picker for fruit" and "picker to choose a flavor" mean nothing. Resolve does not invent a part.
-- "something to pick a date" on Material means Date picker, because that is what the part is for.
+A component that is not in the index is not a fit. Resolve does not invent one. `submitted` and `submitting` are not Switch and not Button.
 
-If two parts tie, the older word score breaks the tie. A one-letter typo still finds the part. A lead is weak only when part of the ask names a different part.
+`recommend` still answers from the learned library. The files above are the read path for what a component is for.
 
 ## Quick start
 

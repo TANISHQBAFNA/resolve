@@ -1,0 +1,43 @@
+# Acme
+built: 2026-01-01T00:00:00.000Z
+Payments, payees, and savings.
+- [alert](alert.md) — A red message saying a card charge failed.
+- [avatar](avatar.md) — The person's face in a small circle next to their name.
+- [badge](badge.md) — A count of items in the basket, on the cart symbol.
+- [banner](banner.md) — A full-width announcement.
+- [breadcrumb](breadcrumb.md) — Shows where you are in the site: home, then accounts, then the current page.
+- [button](button.md) — The action that sends the money or sends a form. A large primary action for checkout on mobile lives here too.
+- [button-danger](button-danger.md) — A destructive action, shown as danger.
+- [button-primary](button-primary.md) — A large primary action for checkout on mobile.
+- [button-secondary](button-secondary.md) — A quieter action beside the primary one.
+- [checkbox](checkbox.md) — Mark several items, or any extras to add. Invoices to pay together use this.
+- [chip](chip.md) — Small selectable labels that filter by type, and a removable label for a chosen category.
+- [coupon-field](coupon-field.md) — Where someone types a discount code.
+- [divider](divider.md) — A thin line between two sections.
+- [empty-message](empty-message.md) — Shown when nothing is here yet, with a hint to add the first item.
+- [footer-bar](footer-bar.md) — The strip at the very end of the page, with legal links.
+- [header-bar](header-bar.md) — The strip across the top of the page.
+- [icon-close](icon-close.md) — The mark in the corner that shuts a panel.
+- [input](input.md) — A generic place to type.
+- [legacy-alert](legacy-alert.md) — Retired alert. Do not use.
+- [legacy-banner](legacy-banner.md) — Retired banner. Do not use.
+- [link-button](link-button.md) — A text-only action, such as forgot password.
+- [list-row](list-row.md) — One compact row for each transaction.
+- [main-card](main-card.md) — A card that holds the main block of content.
+- [modal](modal.md) — Stops and asks the person to check before they delete a saved payee or cancel a transfer. Also called a dialog.
+- [nav-item](nav-item.md) — An entry in the side menu for a page such as Settings.
+- [old-price](old-price.md) — Retired price. Do not use.
+- [pay-cta](pay-cta.md) — The action that pays.
+- [payment-row](payment-row.md) — One line in a list of recent payments.
+- [price](price.md) — The total to pay, shown with currency.
+- [promo-field](promo-field.md) — Where shoppers type the code from an email offer at checkout.
+- [quantity-stepper](quantity-stepper.md) — How many of this item to buy, with plus and minus.
+- [radio](radio.md) — Choose exactly one option, such as one delivery slot.
+- [save-cta](save-cta.md) — The action that saves.
+- [search-field](search-field.md) — Look up a payee by typing part of their name.
+- [summary-card](summary-card.md) — A card giving totals at a glance, such as the month.
+- [switch](switch.md) — An on or off control. Turns one setting on or off with a flick, such as paperless statements or sign-in.
+- [tabs](tabs.md) — Move between sections on an account page, such as Summary and Details.
+- [tag](tag.md) — A small label for an order's state, such as shipped.
+- [text-field](text-field.md) — A field for typed text.
+- [toast](toast.md) — A short message after saving, or a quick note that a payment went through and fades on its own.

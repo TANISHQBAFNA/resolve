@@ -51,6 +51,10 @@ jobs:
           npm run resolve -- ingest fixtures/material/library.json --role library --name "Material 3"
           npm run resolve -- score phrases --phrases scoreboard/material-phrases --json > "$RUNNER_TEMP/material-phrases.json"
           node scripts/check-material-floor.mjs scoreboard/material-baseline.json "$RUNNER_TEMP/material-phrases.json"
+      - name: Score the meaning SOCK
+        run: |
+          npx vitest run tests/meaning.frozen.test.ts --reporter=verbose
+          node scripts/check-meaning-sock.mjs meaning
 
   e2e:
     runs-on: ubuntu-latest
