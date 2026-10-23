@@ -3,5 +3,6 @@
 List of choices anchored to a control.
 https://material.angular.dev/components/menu/overview
 © Google LLC. Licensed under CC BY 4.0.
-Aliases: drop down, dropdown, select
+
+Aliases (Resolve synonym list, not library docs): drop down, dropdown, select
 [menu](index.md)

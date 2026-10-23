@@ -1,5 +1,5 @@
 # Acme / Tag
 Tag
-Aliases: chip
+Aliases (Resolve synonym list, not library docs): chip
 Thin: Acme tag missing description, doc
 [tag](index.md)

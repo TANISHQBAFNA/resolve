@@ -1,5 +1,5 @@
 # Acme / Checkbox
 Checkbox
-Aliases: tick box
+Aliases (Resolve synonym list, not library docs): tick box
 Thin: Acme checkbox missing description, doc
 [checkbox](index.md)

@@ -1,5 +1,5 @@
 # Acme / List Row
 List Row
-Aliases: list item, table row
+Aliases (Resolve synonym list, not library docs): list item, table row
 Thin: Acme list-row missing description, doc
 [list-row](index.md)

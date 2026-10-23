@@ -1,4 +1,4 @@
 # Angular Material / Divider
 Hairline between items.
-Aliases: rule, separator
+Aliases (Resolve synonym list, not library docs): rule, separator
 [divider](index.md)

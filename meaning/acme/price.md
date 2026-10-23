@@ -1,5 +1,5 @@
 # Acme / Price
 Price
-Aliases: amount, cost, money
+Aliases (Resolve synonym list, not library docs): amount, cost, money
 Thin: Acme price missing description, doc
 [price](index.md)

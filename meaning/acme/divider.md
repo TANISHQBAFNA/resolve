@@ -1,5 +1,5 @@
 # Acme / Divider
 Divider
-Aliases: rule, separator
+Aliases (Resolve synonym list, not library docs): rule, separator
 Thin: Acme divider missing description, doc
 [divider](index.md)

@@ -1,5 +1,5 @@
 # Acme / Toast
 Toast
-Aliases: snackbar
+Aliases (Resolve synonym list, not library docs): snackbar
 Thin: Acme toast missing description, doc
 [toast](index.md)

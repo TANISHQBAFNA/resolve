@@ -1,6 +1,9 @@
 /**
  * Write meaning files from pack data.
  *   node scripts/build-meaning-sock.mjs <out-dir>
+ *
+ * writePacks labels every Aliases line as the Resolve synonym list and
+ * leaves a blank line between a Material copyright line and that label.
  */
 import { createServer } from "vite";
 import { dirname, join } from "node:path";

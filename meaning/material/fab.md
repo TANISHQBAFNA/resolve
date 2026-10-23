@@ -3,6 +3,7 @@ Rectangular button w/ elevation and rounded corners, meant to contain an icon. C
 Floating action button. Small, regular, and large.
 https://material.angular.dev/components/button/overview
 © Google LLC. Licensed under CC BY 4.0.
-Aliases: floating, floating action button
+
+Aliases (Resolve synonym list, not library docs): floating, floating action button
 Properties: Size: Large, Regular, Small
 [fab](index.md)

@@ -3,6 +3,7 @@
 Select one or more.
 https://material.angular.dev/components/checkbox/overview
 © Google LLC. Licensed under CC BY 4.0.
-Aliases: tick box
+
+Aliases (Resolve synonym list, not library docs): tick box
 Properties: Checked: false, true
 [checkbox](index.md)
