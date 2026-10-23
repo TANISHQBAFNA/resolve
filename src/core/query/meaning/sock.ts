@@ -28,6 +28,7 @@ export interface SockComponent {
   propOptions: Record<string, string[]>;
   retired: boolean;
   thin: string[];
+  quoteLines?: string[];
 }
 
 export interface MeaningPack {
@@ -56,9 +57,10 @@ export interface PickRequest {
   props?: Record<string, string>;
   reason?: string;
   tier: string;
+  invalidProps?: boolean;
 }
 
-export type PickCheck = "exists" | "retired" | "props" | "quote" | "alias-quote" | "tier" | "thin-cap";
+export type PickCheck = "exists" | "retired" | "props" | "quote" | "alias-quote" | "tier" | "thin-cap" | "shortlist";
 
 export interface ThinEntry {
   id: string;
@@ -74,6 +76,8 @@ export interface PickResult {
   thin: ThinEntry[];
   stale?: string;
 }
+
+export { componentFromMarkdown, packFromFiles, validateAiPick } from "./sockPick";
 
 const STOP = new Set([
   "a", "an", "the", "and", "or", "of", "to", "for", "with", "in", "at", "by", "from", "into",
@@ -244,127 +248,6 @@ export function thinComponents(pack: MeaningPack): Array<{ id: string; name: str
     name: component.name,
     missing: component.thin,
   }));
-}
-
-const PICK_TIERS = ["place", "ask", "no-fit"] as const;
-
-function isPickTier(value: string): value is PickTier {
-  return (PICK_TIERS as readonly string[]).includes(value);
-}
-
-function normQuote(text: string): string {
-  return text.toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-function ownedFragments(component: SockComponent): string[] {
-  const fragments = [component.name, component.description, component.job, ...component.properties];
-  for (const [key, values] of Object.entries(component.propOptions)) fragments.push(key, ...values);
-  return fragments;
-}
-
-function quoteCheck(component: SockComponent, reason: string | undefined): "quote" | "alias-quote" | undefined {
-  const quote = normQuote(reason ?? "");
-  if (!quote) return "quote";
-  const owned = ownedFragments(component).map(normQuote).filter(Boolean);
-  if (owned.some((part) => part.includes(quote))) return undefined;
-  const alias = component.aliases.some((name) => {
-    const text = normQuote(name);
-    return text.length > 0 && (text === quote || text.includes(quote));
-  });
-  return alias ? "alias-quote" : "quote";
-}
-
-function propsFail(component: SockComponent, props: Record<string, string>): boolean {
-  for (const [key, value] of Object.entries(props)) {
-    const options = component.propOptions[key.toLowerCase()];
-    if (!options || !options.some((option) => option.toLowerCase() === value.toLowerCase())) return true;
-  }
-  return false;
-}
-
-function thinEntries(pack: MeaningPack): ThinEntry[] {
-  return pack.components.filter((component) => component.thin.length > 0).map((component) => ({ id: component.id, missing: component.thin }));
-}
-
-function pickResult(tier: PickTier, failed: PickCheck[], thin: ThinEntry[], stale: string | undefined, shown?: { id: string; name: string; reason?: string }): PickResult {
-  return {
-    tier,
-    failed,
-    thin,
-    ...(stale ? { stale } : {}),
-    ...(shown ? { id: shown.id, name: shown.name, ...(shown.reason ? { reason: shown.reason } : {}) } : {}),
-  };
-}
-
-export function validateAiPick(pack: MeaningPack, req: PickRequest, libraryBuiltAt?: string): PickResult {
-  const thin = thinEntries(pack);
-  const stale = libraryBuiltAt === undefined ? undefined : staleWarning(libraryBuiltAt, pack.builtAt);
-  const tier = isPickTier(req.tier) ? req.tier : undefined;
-  if (!tier) return pickResult("no-fit", ["tier"], thin, stale);
-  if (tier === "no-fit") return pickResult("no-fit", [], thin, stale);
-  const id = req.pick?.trim() ?? "";
-  const component = id ? pack.components.find((item) => item.id === id) : undefined;
-  if (!component) return pickResult("no-fit", ["exists"], thin, stale);
-  if (component.retired) return pickResult("no-fit", ["retired"], thin, stale);
-  const failed: PickCheck[] = [];
-  if (propsFail(component, req.props ?? {})) failed.push("props");
-  const quote = quoteCheck(component, req.reason);
-  if (quote) failed.push(quote);
-  if (failed.length) return pickResult("no-fit", failed, thin, stale);
-  const shown = { id: component.id, name: component.name, ...(req.reason ? { reason: req.reason } : {}) };
-  if (component.thin.length > 0 && tier === "place") return pickResult("ask", ["thin-cap"], thin, stale, shown);
-  return pickResult(tier, [], thin, stale, shown);
-}
-
-function proseLines(markdown: string): string[] {
-  return markdown.split("\n").map((line) => line.trim()).filter((line) => {
-    if (!line || line.startsWith("# ") || line.startsWith("Aliases") || line.startsWith("Properties:") || line.startsWith("Thin:")) return false;
-    if (line.startsWith("© ") || line.startsWith("Source:") || /^https?:\/\//.test(line)) return false;
-    if (line === "status: deprecated" || /^\[[^\]]+\]\(index\.md\)$/.test(line)) return false;
-    return true;
-  });
-}
-
-export function componentFromMarkdown(id: string, markdown: string): SockComponent {
-  const title = markdown.split("\n").find((line) => line.startsWith("# ")) ?? "";
-  const name = title.includes(" / ") ? title.slice(title.lastIndexOf(" / ") + 3).trim() : id;
-  const aliasLine = markdown.split("\n").find((line) => line.startsWith("Aliases")) ?? "";
-  const aliases = aliasLine.slice(aliasLine.indexOf(":") + 1).split(",").map((item) => item.trim()).filter(Boolean);
-  const propLine = markdown.split("\n").find((line) => line.startsWith("Properties:")) ?? "";
-  const propOptions: Record<string, string[]> = {};
-  const properties: string[] = [];
-  if (propLine) {
-    const body = propLine.slice("Properties:".length).trim();
-    properties.push(body);
-    for (const part of body.split(";")) {
-      const splitAt = part.indexOf(":");
-      if (splitAt < 0) continue;
-      const key = part.slice(0, splitAt).trim().toLowerCase();
-      const values = part.slice(splitAt + 1).split(",").map((item) => item.trim()).filter(Boolean);
-      if (key && values.length) propOptions[key] = values;
-    }
-  }
-  const thinLine = markdown.split("\n").find((line) => line.startsWith("Thin:")) ?? "";
-  const missing = /missing\s+(.+)$/.exec(thinLine)?.[1] ?? "";
-  const thin = missing.split(",").map((item) => item.trim()).filter(Boolean);
-  const prose = proseLines(markdown);
-  return {
-    id,
-    name,
-    aliases,
-    description: prose.join(" "),
-    job: prose[0] ?? "",
-    properties,
-    propOptions,
-    retired: markdown.split("\n").some((line) => line.trim() === "status: deprecated"),
-    thin,
-  };
-}
-
-export function packFromFiles(library: string, builtAt: string, files: ReadonlyMap<string, string>): MeaningPack {
-  const components = [...files.entries()].map(([id, markdown]) => componentFromMarkdown(id, markdown));
-  components.sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
-  return { library, vocab: "", builtAt, components };
 }
 
 export function contextPack(pack: MeaningPack, candidates: readonly MeaningCandidate[], files: ReadonlyMap<string, string>): string {

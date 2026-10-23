@@ -1,5 +1,8 @@
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -29,22 +32,32 @@ function keyOf(result) {
   return `${result?.tier ?? ""}|${shown(result) ? result.id : ""}`;
 }
 
+export function caseRuns(rows) {
+  const seen = new Set();
+  for (const row of rows) {
+    if (seen.has(row.run)) return { error: "duplicate", runs: [] };
+    seen.add(row.run);
+  }
+  const runs = [...rows].sort((a, b) => Number(a.run) - Number(b.run) || String(a.run).localeCompare(String(b.run)));
+  return { runs };
+}
+
 export function majority(rows) {
   const counts = new Map();
   for (const row of rows) {
     const key = keyOf(row.result);
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
-  let best;
-  let votes = 0;
-  for (const [key, count] of counts) {
-    if (count > votes) {
-      best = key;
-      votes = count;
-    }
-  }
-  if (!best || votes < 2) return undefined;
-  return rows.find((row) => keyOf(row.result) === best);
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const best = ranked[0];
+  if (!best || best[1] < 2) return undefined;
+  return rows.find((row) => keyOf(row.result) === best[0]);
+}
+
+function winnerOf(runs) {
+  if (runs.length === 1) return { winner: runs[0], oneRun: true };
+  if (runs.length !== 3) return { winner: undefined, oneRun: false };
+  return { winner: majority(runs), oneRun: false };
 }
 
 function namesOf(shortlist, packNames) {
@@ -55,45 +68,67 @@ function rate(hit, of) {
   return of === 0 ? 0 : hit / of;
 }
 
-export function scoreRecorded(cases, runs, namesByPack) {
+function componentKey(result) {
+  if (!result || result.tier === "no-fit" || !result.id) return "";
+  return result.id;
+}
+
+function gateHit(runs, ok) {
+  const picked = runs.map((run) => (shown(run.result) ? run.result.name ?? "" : ""));
+  if (picked.length > 0 && picked.every((name) => name && ok.has(name))) return false;
+  const ids = new Set(runs.map((run) => componentKey(run.result)));
+  if (ids.size > 1) return true;
+  const noFit = runs.some((run) => run.result?.tier === "no-fit");
+  const placed = runs.some((run) => shown(run.result));
+  return noFit && placed;
+}
+
+function tierFlip(runs) {
+  return new Set(runs.map((run) => run.result?.tier ?? "")).size > 1;
+}
+
+export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorrect = undefined) {
   const byCase = new Map();
   for (const run of runs) {
     const list = byCase.get(run.caseId) ?? [];
     list.push(run);
     byCase.set(run.caseId, list);
   }
-  const groups = {
-    material: emptyGroup(),
-    acme: emptyGroup(),
-    total: emptyGroup(),
-  };
+  const groups = { material: emptyGroup(), acme: emptyGroup(), total: emptyGroup() };
   let invented = 0;
   let unquoted = 0;
   let thinPlaced = 0;
-  const lost = [];
+  let oneRun = false;
+  let duplicates = 0;
+  const lost = { material: [], acme: [] };
   for (const row of cases) {
     const group = groupOf(row.pack);
     const bucket = [groups[group], groups.total];
     for (const item of bucket) item.asks += 1;
-    const recorded = byCase.get(row.id) ?? [];
-    const packNames = namesByPack[row.pack] ?? {};
-    const indexIds = new Set(Object.keys(packNames));
-    for (const run of recorded) {
-      const ids = [...(run.shortlist ?? []), ...(run.request?.pick ? [run.request.pick] : [])];
-      for (const id of ids) if (id && !indexIds.has(id)) invented += 1;
+    const parsed = caseRuns(byCase.get(row.id) ?? []);
+    if (parsed.error) {
+      duplicates += 1;
+      continue;
     }
-    const winner = majority(recorded);
-    const keys = new Set(recorded.map((run) => keyOf(run.result)));
-    const unstable = recorded.length < 3 || keys.size !== 1;
-    if (unstable) for (const item of bucket) item.unstable += 1;
-    if (!winner) for (const item of bucket) item.split += 1;
+    const known = indexIds[row.pack] ?? new Set();
+    for (const run of parsed.runs) {
+      const ids = [...(run.request?.shortlist ?? []), ...(typeof run.request?.pick === "string" ? [run.request.pick] : [])];
+      for (const id of ids) if (id && !known.has(id)) invented += 1;
+      if (run.request?.tier === "place" && (run.result?.thin ?? []).some((entry) => entry.id === run.request.pick)) thinPlaced += 1;
+    }
+    const picked = winnerOf(parsed.runs);
+    if (picked.oneRun) oneRun = true;
+    const winner = picked.winner;
+    if (!winner && !picked.oneRun) for (const item of bucket) item.split += 1;
+    if (parsed.runs.length > 1 && gateHit(parsed.runs, accepted(row))) for (const item of bucket) { item.gate += 1; item.unstable += 1; }
+    if (parsed.runs.length > 1 && tierFlip(parsed.runs)) for (const item of bucket) item.tierFlips += 1;
     const ok = accepted(row);
     const leadName = winner?.result?.name ?? "";
     const noFit = Boolean(winner) && winner.result.tier === "no-fit" && !winner.result.id;
     const exact = row.expect?.accept === "exact";
-    const fit1 = exact ? Boolean(winner) && ok.has(leadName) : noFit;
-    const shortlistNames = namesOf((winner?.shortlist ?? []).slice(0, 3), packNames);
-    const fit3 = exact ? shortlistNames.some((name) => ok.has(name)) : noFit;
+    const fit1 = exact ? Boolean(winner) && winner.result.tier !== "no-fit" && ok.has(leadName) : noFit;
+    const shortlistNames = namesOf((winner?.request?.shortlist ?? []).slice(0, 3), namesByPack[row.pack] ?? {});
+    const fit3 = exact ? Boolean(winner) && winner.result.tier !== "no-fit" && shortlistNames.some((name) => ok.has(name)) : noFit;
     if (fit1) for (const item of bucket) item.top1 += 1;
     if (fit3) for (const item of bucket) item.top3 += 1;
     if ((row.tags ?? []).includes("meaning-only")) {
@@ -110,25 +145,30 @@ export function scoreRecorded(cases, runs, namesByPack) {
     if (winner && shown(winner.result)) {
       const failed = winner.result.failed ?? [];
       if (!winner.result.reason || failed.includes("quote") || failed.includes("alias-quote")) unquoted += 1;
-      if (winner.result.tier === "place" && (winner.result.thin ?? []).some((entry) => entry.id === winner.result.id)) thinPlaced += 1;
     }
-    if (!fit1) lost.push(row.id);
+    if (mainCorrect?.[row.id] && !fit1) lost[group].push(row.id);
   }
-  return { groups, invented, unquoted, thinPlaced, lost };
+  return { groups, invented, unquoted, thinPlaced, lost: mainCorrect ? lost : undefined, oneRun, duplicates };
 }
 
 function emptyGroup() {
-  return { asks: 0, top1: 0, top3: 0, avoid: 0, avoidHit: 0, noFit: 0, noFitHit: 0, confusableWrong: 0, unstable: 0, split: 0 };
+  return { asks: 0, top1: 0, top3: 0, avoid: 0, avoidHit: 0, noFit: 0, noFitHit: 0, confusableWrong: 0, unstable: 0, gate: 0, tierFlips: 0, split: 0 };
 }
 
 function pct(hit, of) {
   return `${Math.round(rate(hit, of) * 1000) / 10}%`;
 }
 
-function line(label, hit, of, need) {
-  const mark = need === undefined ? "" : hit >= need ? " pass" : " fail";
-  const bar = need === undefined ? "" : ` need ${need}/${of}`;
-  return `${label} ${hit}/${of} ${pct(hit, of)}${bar}${mark}`;
+function cap(label, hit, of, target) {
+  if (!of) return `${label} ${hit}/${of}`;
+  const mark = hit / of <= target + 1e-12 ? " pass" : " fail";
+  return `${label} ${hit}/${of} ${pct(hit, of)} at most ${Math.round(target * 1000) / 10}%${mark}`;
+}
+
+function line(label, hit, of, target) {
+  if (!of || target === undefined) return `${label} ${hit}/${of} ${pct(hit, of)}`;
+  const mark = hit / of >= target ? " pass" : " fail";
+  return `${label} ${hit}/${of} ${pct(hit, of)} target ${Math.round(target * 1000) / 10}%${mark}`;
 }
 
 export function formatScore(report, cases) {
@@ -143,20 +183,22 @@ export function formatScore(report, cases) {
   const total = report.groups.total;
   const lines = [
     `Material ${materialAsks}`,
-    line("top-1", material.top1, materialAsks, materialAsks === 60 ? 48 : undefined),
-    line("top-3", material.top3, materialAsks, materialAsks === 60 ? 54 : undefined),
-    line("name-avoiding top-3", material.avoidHit, materialAvoid, materialAvoid === 32 ? 28 : undefined),
-    line("no-fit", material.noFitHit, materialNoFit, materialNoFit === 6 ? 6 : undefined),
+    line("top-1", material.top1, materialAsks, 0.8),
+    line("top-3", material.top3, materialAsks, 0.9),
+    line("name-avoiding top-3", material.avoidHit, materialAvoid, 0.85),
+    line("no-fit", material.noFitHit, materialNoFit, 0.9),
     `confusable sure-wrong ${material.confusableWrong}`,
-    `unstable ${material.unstable}/${materialAsks} ${pct(material.unstable, materialAsks)}`,
+    cap("gate", material.gate, materialAsks, 0.05),
+    cap("tier flips", material.tierFlips, materialAsks, 0.1),
     `split ${material.split}/${materialAsks}`,
     `Acme ${acmeAsks}`,
-    line("top-1", acme.top1, acmeAsks, acmeAsks === 51 ? 13 : undefined),
-    line("top-3", acme.top3, acmeAsks, acmeAsks === 51 ? 15 : undefined),
+    line("top-1", acme.top1, acmeAsks, 13 / 51),
+    line("top-3", acme.top3, acmeAsks, 15 / 51),
     line("name-avoiding top-3", acme.avoidHit, acmeAvoid, undefined),
-    line("no-fit", acme.noFitHit, acmeNoFit, acmeNoFit === 11 ? 10 : undefined),
+    line("no-fit", acme.noFitHit, acmeNoFit, 0.9),
     `confusable sure-wrong ${acme.confusableWrong}`,
-    `unstable ${acme.unstable}/${acmeAsks} ${pct(acme.unstable, acmeAsks)}`,
+    cap("gate", acme.gate, acmeAsks, 0.05),
+    cap("tier flips", acme.tierFlips, acmeAsks, 0.1),
     `split ${acme.split}/${acmeAsks}`,
     `Total ${cases.length}`,
     line("top-1", total.top1, cases.length, undefined),
@@ -167,8 +209,17 @@ export function formatScore(report, cases) {
     `invented ${report.invented}`,
     `unquoted ${report.unquoted}`,
     `thin placed ${report.thinPlaced}`,
-    `unstable ${total.unstable}/${cases.length}`,
+    cap("gate", total.gate, cases.length, 0.05),
+    cap("tier flips", total.tierFlips, cases.length, 0.1),
+    report.oneRun ? "one run" : "majority of 3",
+    report.duplicates ? `duplicate runs ${report.duplicates}` : "duplicate runs 0",
   ];
+  if (report.lost) {
+    lines.push("main lost material");
+    lines.push(report.lost.material.length ? report.lost.material.join("\n") : "(none)");
+    lines.push("main lost acme");
+    lines.push(report.lost.acme.length ? report.lost.acme.join("\n") : "(none)");
+  }
   return lines.join("\n");
 }
 
@@ -222,18 +273,67 @@ export function promptFor(row) {
   ].join("\n");
 }
 
+function opaqueId(realId) {
+  return createHash("sha256").update(`resolve-ai-picks:${realId}`).digest("hex").slice(0, 16);
+}
+
 function writeBlindPrompts(casesPath, outDir) {
   const cases = readCases(casesPath);
   mkdirSync(outDir, { recursive: true });
   const groups = { material: [], acme: [] };
+  const map = {};
   for (const row of cases) {
-    const group = groupOf(row.pack);
-    groups[group].push(JSON.stringify({ id: row.id, ask: row.ask, library: row.pack }));
+    const id = opaqueId(row.id);
+    map[id] = row.id;
+    groups[groupOf(row.pack)].push({ id, ask: row.ask, library: row.pack, sort: createHash("sha256").update(`shuffle:${row.id}`).digest("hex") });
   }
-  for (const [group, lines] of Object.entries(groups)) {
+  for (const [group, rows] of Object.entries(groups)) {
+    rows.sort((a, b) => a.sort.localeCompare(b.sort));
+    const lines = rows.map((row) => JSON.stringify({ id: row.id, ask: row.ask, library: row.library }));
     writeFileSync(join(outDir, `${group}.jsonl`), lines.length ? `${lines.join("\n")}\n` : "");
   }
+  writeFileSync(join(dirname(outDir), "id-map.json"), `${JSON.stringify(map, null, 2)}\n`);
   process.stdout.write(`wrote ${cases.length} blind prompts to ${outDir}\n`);
+}
+
+function readIndexIds(root = join(repo, "meaning")) {
+  const ids = {};
+  if (!existsSync(root)) return ids;
+  for (const pack of readdirSync(root)) {
+    const index = join(root, pack, "index.md");
+    if (!existsSync(index)) continue;
+    const found = new Set();
+    for (const match of readFileSync(index, "utf8").matchAll(/^- \[([^\]]+)\]\([^)]+\.md\)/gm)) found.add(match[1]);
+    ids[pack] = found;
+  }
+  return ids;
+}
+
+function validateRequest(request) {
+  const dir = mkdtempSync(join(tmpdir(), "ai-pick-"));
+  const file = join(dir, "request.json");
+  writeFileSync(file, JSON.stringify(request));
+  const cli = join(repo, "dist-server/cli.mjs");
+  const result = spawnSync(process.execPath, [cli, "pick", file], {
+    cwd: repo,
+    encoding: "utf8",
+    env: { ...process.env, RESOLVE_AI_PICKS: "1" },
+  });
+  rmSync(dir, { recursive: true, force: true });
+  const line = (result.stdout ?? "").trim().split("\n").filter(Boolean).at(-1) ?? "";
+  try {
+    return JSON.parse(line);
+  } catch {
+    return { tier: "no-fit", failed: ["tier"], thin: [] };
+  }
+}
+
+function revalidate(runs) {
+  return runs.map((run) => ({ ...run, result: validateRequest(run.request) }));
+}
+
+function applyMap(runs, map) {
+  return runs.map((run) => (map[run.caseId] ? { ...run, caseId: map[run.caseId] } : run));
 }
 
 function prepare(casesPath, outDir) {
@@ -243,28 +343,57 @@ function prepare(casesPath, outDir) {
   process.stdout.write(`wrote ${cases.length} prompts to ${outDir}\n`);
 }
 
-function score(casesPath, runsPath) {
+function readMain(path) {
+  if (!path) return undefined;
+  const parsed = JSON.parse(readFileSync(path, "utf8"));
+  const rows = Array.isArray(parsed) ? parsed : parsed.cases;
+  return Object.fromEntries(rows.filter((row) => row.correct).map((row) => [row.id, true]));
+}
+
+function score(casesPath, runsPath, mapPath, mainPath) {
   const cases = readCases(casesPath);
-  const runs = readRuns(runsPath);
-  const report = scoreRecorded(cases, runs, readNames());
+  const map = existsSync(mapPath) ? JSON.parse(readFileSync(mapPath, "utf8")) : {};
+  const runs = revalidate(applyMap(readRuns(runsPath), map));
+  const report = scoreRecorded(cases, runs, readNames(), readIndexIds(), readMain(mainPath));
   process.stdout.write(`${formatScore(report, cases)}\n`);
+}
+
+function validate(rawPath, outPath) {
+  const runs = revalidate(readRuns(rawPath));
+  writeFileSync(outPath, `${runs.map((run) => JSON.stringify(run)).join("\n")}\n`);
+  process.stdout.write(`wrote ${runs.length} records to ${outPath}\n`);
 }
 
 const invoked = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href || process.argv[1]?.endsWith("ai-picks-eval.mjs");
 if (invoked) {
   const command = process.argv[2];
-  if (command === "prompts") writeBlindPrompts(arg("--cases") ?? join(repo, "scoreboard/meaning/frozen.json"), arg("--out") ?? join(repo, "scoreboard/ai-picks/prompts"));
-  else if (command === "prepare") prepare(arg("--cases") ?? join(repo, "scoreboard/meaning/frozen.json"), arg("--out") ?? join(repo, "scoreboard/ai-picks/prompts"));
-  else if (command === "score") {
+  if (command === "prompts") {
+    const out = arg("--out");
+    const dest = out ?? join(repo, "scoreboard/ai-picks/prompts");
+    if (!out && existsSync(join(dest, "material.jsonl"))) {
+      process.stderr.write("Committed prompts already exist. Pass --out to write another set.\n");
+      process.exit(1);
+    }
+    writeBlindPrompts(arg("--cases") ?? join(repo, "scoreboard/meaning/frozen.json"), dest);
+  } else if (command === "prepare") prepare(arg("--cases") ?? join(repo, "scoreboard/meaning/frozen.json"), arg("--out") ?? join(repo, "scoreboard/ai-picks/prepared"));
+  else if (command === "validate") {
+    const raw = arg("--raw");
+    const out = arg("--out");
+    if (!raw || !out) {
+      process.stderr.write("Usage: node scripts/ai-picks-eval.mjs validate --raw <jsonl> --out <jsonl>\n");
+      process.exit(1);
+    }
+    validate(raw, out);
+  } else if (command === "score") {
     const cases = arg("--cases");
     const runs = arg("--runs");
     if (!cases || !runs) {
-      process.stderr.write("Usage: node scripts/ai-picks-eval.mjs score --cases <file> --runs <jsonl>\n");
+      process.stderr.write("Usage: node scripts/ai-picks-eval.mjs score --cases <file> --runs <jsonl> [--map <id-map.json>] [--main <main.json>]\n");
       process.exit(1);
     }
-    score(cases, runs);
+    score(cases, runs, arg("--map") ?? join(repo, "scoreboard/ai-picks/id-map.json"), arg("--main"));
   } else {
-    process.stderr.write("Usage: node scripts/ai-picks-eval.mjs prompts|prepare|score\n");
+    process.stderr.write("Usage: node scripts/ai-picks-eval.mjs prompts|prepare|validate|score\n");
     process.exit(1);
   }
 }

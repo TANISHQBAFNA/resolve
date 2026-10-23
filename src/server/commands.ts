@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { packFromFiles, validateAiPick, type PickRequest } from "../core/query/meaning/sock";
+import type { PickRequest } from "../core/query/meaning/sock";
+import { packFromFiles, validateAiPick } from "../core/query/meaning/sockPick";
 import { aiPicksEnabled } from "./pluginSettings";
 
 /**
@@ -47,8 +48,12 @@ function asRequest(raw: unknown): PickRequest | undefined {
   const shortlist = row["shortlist"].filter((item): item is string => typeof item === "string");
   const propsRaw = row["props"];
   const props: Record<string, string> = {};
+  let invalidProps = false;
   if (propsRaw && typeof propsRaw === "object" && !Array.isArray(propsRaw)) {
-    for (const [key, value] of Object.entries(propsRaw)) if (typeof value === "string") props[key] = value;
+    for (const [key, value] of Object.entries(propsRaw)) {
+      if (typeof value !== "string") invalidProps = true;
+      else props[key] = value;
+    }
   }
   return {
     library: row["library"],
@@ -56,6 +61,7 @@ function asRequest(raw: unknown): PickRequest | undefined {
     shortlist,
     ...(typeof row["pick"] === "string" ? { pick: row["pick"] } : {}),
     ...(Object.keys(props).length ? { props } : {}),
+    ...(invalidProps ? { invalidProps } : {}),
     ...(typeof row["reason"] === "string" ? { reason: row["reason"] } : {}),
     tier: row["tier"],
   };
@@ -110,7 +116,7 @@ export function runPickCommand(args: readonly string[], env: NodeJS.ProcessEnv =
   }
   const pack = readMeaningPack(req.library);
   if (!pack) {
-    stdout(`No meaning files for ${req.library}.\n`);
+    stdout(`resolve pick needs a repo checkout for now. Meaning files for ${req.library} are not in this install.\n`);
     exitCode(1);
     return;
   }
@@ -118,7 +124,8 @@ export function runPickCommand(args: readonly string[], env: NodeJS.ProcessEnv =
   const libraryBuiltAt = builtFlag >= 0 ? args[builtFlag + 1] : undefined;
   const result = validateAiPick(pack, req, libraryBuiltAt);
   stdout(`${JSON.stringify(result)}\n`);
-  exitCode(result.failed.length ? 1 : 0);
+  const hard = result.failed.filter((check) => check !== "thin-cap");
+  exitCode(result.tier === "no-fit" && hard.length ? 1 : 0);
 }
 
 export function loadCommands(): CommandPrompt[] {

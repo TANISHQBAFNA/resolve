@@ -1,51 +1,51 @@
-{"id":"a-p01","ask":"nothing here yet, with a hint to add the first item","library":"acme"}
-{"id":"a-p02","ask":"the person's face in a small circle next to their name","library":"acme"}
-{"id":"a-p03","ask":"a count of items in the basket on the cart symbol","library":"acme"}
-{"id":"a-p04","ask":"how many of this item to buy, with plus and minus","library":"acme"}
-{"id":"a-p05","ask":"where you are in the site, like Home then Accounts then Savings","library":"acme"}
-{"id":"a-p06","ask":"look up a payee by typing part of their name","library":"acme"}
-{"id":"a-p07","ask":"the total to pay shown with currency","library":"acme"}
-{"id":"a-p08","ask":"a thin line between two sections","library":"acme"}
-{"id":"a-p09","ask":"a text-only action like forgot password","library":"acme"}
-{"id":"a-p10","ask":"the strip at the very end of the page with legal links","library":"acme"}
-{"id":"a-p11","ask":"one line in a list of recent payments","library":"acme"}
-{"id":"a-p12","ask":"the x in the corner to shut a panel","library":"acme"}
-{"id":"a-p13","ask":"move between Summary and Details on an account page","library":"acme"}
-{"id":"a-p14","ask":"an entry in the side menu for the Settings page","library":"acme"}
-{"id":"a-p15","ask":"where shoppers type the code from an email offer at checkout","library":"acme"}
-{"id":"a-p16","ask":"a card giving the month's totals at a glance","library":"acme"}
-{"id":"a-p17","ask":"show an order's state like Shipped as a small label","library":"acme"}
-{"id":"a-p18","ask":"small selectable labels to filter transactions by type","library":"acme"}
-{"id":"a-p19","ask":"check with the person before they delete a saved payee","library":"acme"}
-{"id":"a-p20","ask":"let people turn paperless statements on or off","library":"acme"}
-{"id":"a-p21","ask":"a red message saying the card charge failed","library":"acme"}
-{"id":"a-q01","ask":"a large primary action for checkout on mobile","library":"acme"}
-{"id":"a-q02","ask":"a compact row for each transaction","library":"acme"}
-{"id":"a-x01","ask":"a short message after saving, not a modal","library":"acme"}
-{"id":"a-x02","ask":"an on/off control, not a tick box","library":"acme"}
-{"id":"a-c01","ask":"turn on two-step sign-in with one flick","library":"acme"}
-{"id":"a-c02","ask":"mark several invoices to pay together","library":"acme"}
-{"id":"a-c03","ask":"a quick note that the payment went through, fading on its own","library":"acme"}
-{"id":"a-c04","ask":"stop and ask before cancelling the transfer","library":"acme"}
-{"id":"a-c05","ask":"choose exactly one delivery slot","library":"acme"}
-{"id":"a-c06","ask":"choose any extras to add to the order","library":"acme"}
-{"id":"a-c07","ask":"a removable label for a chosen category","library":"acme"}
-{"id":"a-c08","ask":"the action that sends the money","library":"acme"}
-{"id":"a-n01","ask":"a calendar to pick a delivery day","library":"acme"}
-{"id":"a-n02","ask":"a hint bubble shown on hover","library":"acme"}
-{"id":"a-n03","ask":"page numbers to move through results","library":"acme"}
-{"id":"a-n04","ask":"drag to choose a loan amount","library":"acme"}
-{"id":"a-n05","ask":"a dropdown of countries","library":"acme"}
-{"id":"a-n06","ask":"a spinning wheel while payments sync","library":"acme"}
-{"id":"a-s01","ask":"submitted","library":"acme"}
-{"id":"a-s02","ask":"submitting","library":"acme"}
-{"id":"a-r01","ask":"a sign-up form for a snug team roster with a list","library":"acme"}
-{"id":"a-r02","ask":"an address form for a spacious household with a list","library":"acme"}
-{"id":"a-r03","ask":"a drawer for a snug summary card holding a list","library":"acme"}
-{"id":"a-r04","ask":"a dialog for a roomy profile card holding a list","library":"acme"}
-{"id":"s-l01","ask":"a dense granite list","library":"acme-small"}
-{"id":"s-l02","ask":"a tight timber list","library":"acme-small"}
-{"id":"s-l03","ask":"a roomy pasta list","library":"acme-small"}
-{"id":"s-q01","ask":"compact payee list","library":"acme-small"}
-{"id":"s-q02","ask":"a roomy savings goal list","library":"acme-small"}
-{"id":"s-q03","ask":"navigation for a phone","library":"acme-small"}
+{"id":"2593a9c8c5091c59","ask":"the x in the corner to shut a panel","library":"acme"}
+{"id":"3183d8f8220dc505","ask":"a red message saying the card charge failed","library":"acme"}
+{"id":"6c6577aa48195674","ask":"a hint bubble shown on hover","library":"acme"}
+{"id":"9e3098a17f95d341","ask":"let people turn paperless statements on or off","library":"acme"}
+{"id":"935bfe03fe401f97","ask":"the total to pay shown with currency","library":"acme"}
+{"id":"284127f958774d51","ask":"a short message after saving, not a modal","library":"acme"}
+{"id":"ebcc7bd10114b7ea","ask":"an address form for a spacious household with a list","library":"acme"}
+{"id":"94d119b70d8ea1bd","ask":"a card giving the month's totals at a glance","library":"acme"}
+{"id":"891c8819efa2e133","ask":"show an order's state like Shipped as a small label","library":"acme"}
+{"id":"5632b5b9d8704a6f","ask":"drag to choose a loan amount","library":"acme"}
+{"id":"9e658c88188d6701","ask":"a calendar to pick a delivery day","library":"acme"}
+{"id":"3c4961907aaf467b","ask":"nothing here yet, with a hint to add the first item","library":"acme"}
+{"id":"722e6aa861069696","ask":"the action that sends the money","library":"acme"}
+{"id":"5abd87f5627abef5","ask":"submitting","library":"acme"}
+{"id":"4a5c9c0ddf25c2d0","ask":"stop and ask before cancelling the transfer","library":"acme"}
+{"id":"f5a779436013fbfa","ask":"where shoppers type the code from an email offer at checkout","library":"acme"}
+{"id":"1c3ba79ce725f1cc","ask":"a removable label for a chosen category","library":"acme"}
+{"id":"54bf3fc72aedee61","ask":"a dropdown of countries","library":"acme"}
+{"id":"4c230fd65bdeec97","ask":"a compact row for each transaction","library":"acme"}
+{"id":"90b364755b72146b","ask":"a dialog for a roomy profile card holding a list","library":"acme"}
+{"id":"a906662c0dac5a0f","ask":"look up a payee by typing part of their name","library":"acme"}
+{"id":"8cc2c9ddd5041bef","ask":"a spinning wheel while payments sync","library":"acme"}
+{"id":"353eb748e81350e3","ask":"page numbers to move through results","library":"acme"}
+{"id":"3499cbd339db15d4","ask":"where you are in the site, like Home then Accounts then Savings","library":"acme"}
+{"id":"e9325f39690ff524","ask":"a roomy pasta list","library":"acme-small"}
+{"id":"177aa9207ad43869","ask":"an on/off control, not a tick box","library":"acme"}
+{"id":"75ff72260a1d8af7","ask":"a quick note that the payment went through, fading on its own","library":"acme"}
+{"id":"f661f6272d56a4f4","ask":"a dense granite list","library":"acme-small"}
+{"id":"a04b1ae7b1346ada","ask":"a thin line between two sections","library":"acme"}
+{"id":"8ca0c983c96d8f82","ask":"a tight timber list","library":"acme-small"}
+{"id":"38e61e9c96581627","ask":"an entry in the side menu for the Settings page","library":"acme"}
+{"id":"e4b4ba10eecc2aed","ask":"move between Summary and Details on an account page","library":"acme"}
+{"id":"f8f384864faa3e3f","ask":"a text-only action like forgot password","library":"acme"}
+{"id":"8a02ff5da19201dd","ask":"compact payee list","library":"acme-small"}
+{"id":"f9d508b75da2631a","ask":"small selectable labels to filter transactions by type","library":"acme"}
+{"id":"76b5a368a5938367","ask":"the strip at the very end of the page with legal links","library":"acme"}
+{"id":"b65a80cca0a3ed39","ask":"mark several invoices to pay together","library":"acme"}
+{"id":"8aa24deaaa48bc32","ask":"check with the person before they delete a saved payee","library":"acme"}
+{"id":"6c1c7bd5f0a4c759","ask":"choose any extras to add to the order","library":"acme"}
+{"id":"1c726838fe08cf7b","ask":"a drawer for a snug summary card holding a list","library":"acme"}
+{"id":"c207d50caf24479e","ask":"choose exactly one delivery slot","library":"acme"}
+{"id":"3c45968dbada5ab1","ask":"a large primary action for checkout on mobile","library":"acme"}
+{"id":"7010d7803e56cb8b","ask":"the person's face in a small circle next to their name","library":"acme"}
+{"id":"8f5568fedd063161","ask":"a count of items in the basket on the cart symbol","library":"acme"}
+{"id":"76c4d8a6e9c7f341","ask":"turn on two-step sign-in with one flick","library":"acme"}
+{"id":"55d8ccca1720f733","ask":"a sign-up form for a snug team roster with a list","library":"acme"}
+{"id":"e47affabdc5475b6","ask":"a roomy savings goal list","library":"acme-small"}
+{"id":"bb280c9ac19751d6","ask":"navigation for a phone","library":"acme-small"}
+{"id":"3e0f693f198fadf3","ask":"submitted","library":"acme"}
+{"id":"e3d906d7ea5e1ba9","ask":"one line in a list of recent payments","library":"acme"}
+{"id":"ab78b16b1b2e97db","ask":"how many of this item to buy, with plus and minus","library":"acme"}

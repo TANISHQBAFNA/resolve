@@ -1,4 +1,5 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { runCli } from "@/server/cli";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -54,6 +55,9 @@ describe("AI picks switch", () => {
     expect(aiPicksEnabled({ RESOLVE_AI_PICKS: "0" })).toBe(false);
     expect(aiPicksEnabled({ RESOLVE_AI_PICKS: "true" })).toBe(false);
     expect(aiPicksEnabled({ RESOLVE_AI_PICKS: "1" })).toBe(true);
+    expect(aiPicksEnabled({ RESOLVE_PLUGIN_SETTINGS: JSON.stringify({ RESOLVE_AI_PICKS: "1" }) })).toBe(true);
+    expect(aiPicksEnabled({ RESOLVE_AI_PICKS: "0", RESOLVE_PLUGIN_SETTINGS: JSON.stringify({ RESOLVE_AI_PICKS: "1" }) })).toBe(false);
+    expect(aiPicksEnabled({ RESOLVE_AI_PICKS: "1", RESOLVE_PLUGIN_SETTINGS: JSON.stringify({ RESOLVE_AI_PICKS: "0" }) })).toBe(true);
   });
 
   it("keeps recommend byte-identical to main when the switch is off", () => {
@@ -63,10 +67,13 @@ describe("AI picks switch", () => {
     const off = JSON.stringify(recommendMasters(index, "switch"));
     process.env["RESOLVE_AI_PICKS"] = "0";
     const zero = JSON.stringify(recommendMasters(index, "switch"));
+    process.env["RESOLVE_AI_PICKS"] = "1";
+    const on = JSON.stringify(recommendMasters(index, "switch"));
     if (previous === undefined) delete process.env["RESOLVE_AI_PICKS"];
     else process.env["RESOLVE_AI_PICKS"] = previous;
     expect(off).toBe(MAIN_RECOMMEND);
     expect(zero).toBe(MAIN_RECOMMEND);
+    expect(on).toBe(MAIN_RECOMMEND);
   });
 
   it("resolve pick says to use recommend and exits 0 when the switch is off", async () => {
@@ -130,13 +137,17 @@ describe("validateAiPick", () => {
 
   it("accepts a quote that differs only by case and whitespace", () => {
     const pack = packOf("button", material, "Angular Material");
-    const result = validateAiPick(pack, ask(pack, { pick: "button", reason: "  BUTTON  ", tier: "place" }));
+    const sentence = material.split("\n").map((line) => line.trim()).find((line) => line.startsWith("Angular Material buttons"));
+    expect(sentence && sentence.length).toBeGreaterThan(12);
+    const reason = `  ${sentence?.toUpperCase()}  `.replace(/ /g, "  ");
+    const result = validateAiPick(pack, ask(pack, { pick: "button", reason, tier: "place" }));
     expect(result.tier).toBe("place");
+    expect(result.failed).toEqual([]);
   });
 
   it("caps a thin component at ask and lists the missing fields", () => {
     const pack = packOf("button", acme, "Acme");
-    const result = validateAiPick(pack, ask(pack, { pick: "button", reason: "Button", tier: "place" }));
+    const result = validateAiPick(pack, ask(pack, { pick: "button", reason: "Button Style Primary", tier: "place" }));
     expect(result.tier).toBe("ask");
     expect(result.failed).toContain("thin-cap");
     expect(result.id).toBe("button");
@@ -154,6 +165,35 @@ describe("validateAiPick", () => {
     expect(old.tier).toBe("no-fit");
     expect(old.failed).toContain("retired");
     expect(old.id).toBeUndefined();
+  });
+
+  it("rejects a bare name, a short quote, an alias, a cross-line quote, and a pick outside the shortlist", () => {
+    const pack = packOf("button", material, "Angular Material");
+    const bare = validateAiPick(pack, ask(pack, { pick: "button", reason: "Button", tier: "place" }));
+    expect(bare.tier).toBe("no-fit");
+    expect(bare.failed).toContain("quote");
+    const punct = validateAiPick(pack, ask(pack, { pick: "button", reason: ".", tier: "place" }));
+    expect(punct.failed).toContain("quote");
+    const crossed = validateAiPick(pack, ask(pack, { pick: "button", reason: "Angular Material buttons\nare native", tier: "place" }));
+    expect(crossed.failed).toContain("quote");
+    const joined = validateAiPick(pack, ask(pack, { pick: "button", reason: "styling. Five button types", tier: "place" }));
+    expect(joined.failed).toContain("quote");
+    const outside = validateAiPick(pack, ask(pack, { pick: "button", shortlist: ["other"], reason: material.split("\n").find((line) => line.startsWith("Angular Material buttons")), tier: "place" }));
+    expect(outside.failed).toContain("shortlist");
+    const empty = validateAiPick(pack, ask(pack, { pick: "button", shortlist: [], tier: "place" }));
+    expect(empty.failed).toContain("shortlist");
+  });
+
+  it("treats a deprecated description as retired, and a status line as retired", () => {
+    const described = `# Acme / Banner\nThis part is deprecated. Replaced by Button for new screens.\n[banner](index.md)\n`;
+    const describedPack = packOf("banner", described, "Acme");
+    const fromText = validateAiPick(describedPack, ask(describedPack, { pick: "banner", shortlist: ["banner"], reason: "This part is deprecated. Replaced by Button for new screens.", tier: "place" }));
+    expect(fromText.failed).toContain("retired");
+    expect(fromText.tier).toBe("no-fit");
+    const status = `# Acme / Legacy Alert\nstatus: deprecated\n[legacy-alert](index.md)\n`;
+    const statusPack = packOf("legacy-alert", status, "Acme");
+    const fromStatus = validateAiPick(statusPack, ask(statusPack, { pick: "legacy-alert", shortlist: ["legacy-alert"], reason: "status deprecated line", tier: "place" }));
+    expect(fromStatus.failed).toContain("retired");
   });
 
   it("rejects an unknown prop and an unknown tier", () => {
@@ -197,7 +237,10 @@ describe("validateAiPick", () => {
         strip.includes(component.id) ? { ...component, description: "", job: "", thin: ["description", "guidelines"] } : component,
       ),
     };
-    const placed = validateAiPick(thinSet, { library: "material", ask: "a button", shortlist: ["button"], pick: "button", reason: "Button", tier: "place" });
+    const button = thinSet.components.find((component) => component.id === "button");
+    const propName = Object.keys(button?.propOptions ?? {})[0] ?? "";
+    const propValue = button?.propOptions[propName]?.[0] ?? "";
+    const placed = validateAiPick(thinSet, { library: "material", ask: "a button", shortlist: ["button"], pick: "button", reason: `${button?.name} ${propName} ${propValue}`, tier: "place" });
     expect(placed.tier).not.toBe("place");
     expect(placed.failed).toContain("thin-cap");
     for (const id of strip) {
@@ -261,6 +304,45 @@ describe("resolve pick command", () => {
       expect(result.tier).toBe("no-fit");
       expect(result.failed).toContain("quote");
       expect(process.exitCode).toBe(1);
+      chunks.length = 0;
+      writeFileSync(request, JSON.stringify({
+        library: "material",
+        ask: "a button",
+        shortlist: ["button"],
+        pick: "button",
+        props: { color: 1, disabled: true },
+        reason: "not a library sentence",
+        tier: "place",
+      }));
+      await runCli(["pick", request]);
+      const badProps = JSON.parse(chunks.join("")) as { tier: string; failed: string[] };
+      expect(badProps.tier).toBe("no-fit");
+      expect(badProps.failed).toContain("props");
+      chunks.length = 0;
+      writeFileSync(request, JSON.stringify({
+        library: "acme",
+        ask: "a button",
+        shortlist: ["button"],
+        pick: "button",
+        reason: "Button Style Primary",
+        tier: "place",
+      }));
+      await runCli(["pick", request]);
+      const asked = JSON.parse(chunks.join("")) as { tier: string; failed: string[] };
+      expect(asked.tier).toBe("ask");
+      expect(asked.failed).toContain("thin-cap");
+      expect(process.exitCode).toBe(0);
+      chunks.length = 0;
+      writeFileSync(request, JSON.stringify({
+        library: "missing-library",
+        ask: "a button",
+        shortlist: ["button"],
+        pick: "button",
+        reason: "Button Style Primary",
+        tier: "ask",
+      }));
+      await runCli(["pick", request]);
+      expect(chunks.join("")).toContain("needs a repo checkout for now");
     } finally {
       process.stdout.write = write;
       if (previous === undefined) delete process.env["RESOLVE_AI_PICKS"];
@@ -268,5 +350,45 @@ describe("resolve pick command", () => {
       process.exitCode = previousCode;
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("resolve pick timing", () => {
+  it("stays under 300ms at p95 end to end on a 200-component library", () => {
+    const cli = join(process.cwd(), "dist-server/cli.mjs");
+    const root = mkdtempSync(join(tmpdir(), "ai-pick-bench-"));
+    const lib = join(root, "meaning", "bench");
+    mkdirSync(lib, { recursive: true });
+    const index = ["# Bench", "built: 2026-01-01T00:00:00.000Z"];
+    for (let i = 0; i < 200; i += 1) {
+      const id = `part-${i}`;
+      index.push(`- [${id}](${id}.md) — Part ${i}`);
+      writeFileSync(join(lib, `${id}.md`), `# Bench / Part ${i}\nPart ${i} holds a library description of a control.\n[part-${i}](index.md)\n`);
+    }
+    writeFileSync(join(lib, "index.md"), `${index.join("\n")}\n`);
+    const request = join(root, "request.json");
+    writeFileSync(request, JSON.stringify({
+      library: "bench",
+      ask: "a control",
+      shortlist: ["part-10"],
+      pick: "part-10",
+      reason: "Part 10 holds a library description of a control.",
+      tier: "place",
+    }));
+    const samples: number[] = [];
+    let bad = 0;
+    for (let i = 0; i < 5; i += 1) spawnSync(process.execPath, [cli, "pick", request], { cwd: root, encoding: "utf8", env: { ...process.env, RESOLVE_AI_PICKS: "1" } });
+    for (let i = 0; i < 20; i += 1) {
+      const start = performance.now();
+      const result = spawnSync(process.execPath, [cli, "pick", request], { cwd: root, encoding: "utf8", env: { ...process.env, RESOLVE_AI_PICKS: "1" } });
+      samples.push(performance.now() - start);
+      const body = JSON.parse((result.stdout ?? "").trim() || "{\"tier\":\"\"}") as { tier: string };
+      if (result.status !== 0 || body.tier !== "place") bad += 1;
+    }
+    rmSync(root, { recursive: true, force: true });
+    samples.sort((a, b) => a - b);
+    const p95 = samples[Math.floor(samples.length * 0.95)] ?? 999;
+    expect(bad).toBe(0);
+    expect(p95).toBeLessThan(300);
   });
 });

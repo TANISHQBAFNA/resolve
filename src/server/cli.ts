@@ -1,6 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { PACK_BIND_FLAGS, usage } from "./cliUsage";
-import { runPickCommand } from "./commands";
 import {
   bindFromFlags,
   defaultGoldenDir,
@@ -22,6 +21,7 @@ import { composeFromCli } from "./composeCommand";
 import { runHandoff } from "./handoffCommand";
 import { contextFromFlags, recordFlag, runDecisions, runExport } from "./decisionCommand";
 import { dirname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
 import { publishedVerdict, verifyExitCode } from "@/core/query/properUse";
@@ -310,6 +310,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       return runDecisions(args);
 
     case "pick": {
+      const { runPickCommand } = await import("./commands");
       runPickCommand(args);
       return;
     }
@@ -892,7 +893,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
   }
 }
 
-if (!process.env["VITEST"]) {
+if (!process.env["VITEST"] && process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   runCli(process.argv.slice(2)).catch((error) => {
     const raw = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${designerFailure(raw)}\n`);

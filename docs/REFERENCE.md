@@ -591,7 +591,7 @@ The name or words in the ask come first (exact name, word match, synonym). Scree
 
 #### pick
 
-Off unless `RESOLVE_AI_PICKS=1`. The handler is `runPickCommand`. The request is JSON with `library`, `ask`, `shortlist`, `pick`, `props`, `reason`, and `tier` (`place`, `ask`, or `no-fit`). A reason has to quote the component name, its description, its guidelines, or a prop name or value. Text that appears only on an `Aliases:` line is rejected. A failed check comes back as no fit, with the check named. A thin component is capped at ask. The result lists every thin component and the field it is missing, and warns when the library is newer than the meaning files (`--library-built-at`).
+Off unless `RESOLVE_AI_PICKS=1`. A plugin setting of the same name also turns it on, and the environment wins when both are set. `resolve pick` needs a repo checkout for now, because an installed package does not include the meaning files. The request is JSON with `library`, `ask`, `shortlist`, `pick`, `props`, `reason`, and `tier` (`place`, `ask`, or `no-fit`). A reason has to be a verbatim span of at least 3 words and 12 characters from the description, the guidelines, or a property name with its value. A bare name, one word, punctuation, or an alias is rejected. A quote cannot cross a line break. The pick has to be in a shortlist of 1 to 3 index ids. A failed check comes back as no fit and exits 1. A correct `ask`, including a thin component capped from `place`, exits 0. The result lists every thin component and the field it is missing, and warns when the library is newer than the meaning files (`--library-built-at`).
 
 #### example
 

@@ -28,8 +28,20 @@ function firstSet(env: NodeJS.ProcessEnv, keys: readonly string[]): string | und
   return undefined;
 }
 
+function pluginAiPicks(env: NodeJS.ProcessEnv): string | undefined {
+  const raw = env["RESOLVE_PLUGIN_SETTINGS"];
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as { RESOLVE_AI_PICKS?: unknown };
+    return typeof parsed.RESOLVE_AI_PICKS === "string" ? parsed.RESOLVE_AI_PICKS : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function aiPicksEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  return env["RESOLVE_AI_PICKS"] === "1";
+  if (env["RESOLVE_AI_PICKS"] !== undefined) return env["RESOLVE_AI_PICKS"] === "1";
+  return pluginAiPicks(env) === "1";
 }
 
 export function readPluginSettings(env: NodeJS.ProcessEnv = process.env): {
