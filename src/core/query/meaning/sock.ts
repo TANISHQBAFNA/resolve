@@ -46,6 +46,37 @@ export interface MeaningCandidate {
   score: number;
 }
 
+/** place = sure. ask = one question or the top 3. no-fit = nothing shown. */
+export type PickTier = "place" | "ask" | "no-fit";
+
+export interface PickRequest {
+  library: string;
+  ask: string;
+  shortlist: string[];
+  pick?: string;
+  props?: Record<string, string>;
+  reason?: string;
+  /** External JSON. A value outside PickTier fails the tier check. */
+  tier: string;
+}
+
+export type PickCheck = "exists" | "retired" | "props" | "quote" | "alias-quote" | "tier" | "thin-cap";
+
+export interface ThinEntry {
+  id: string;
+  missing: string[];
+}
+
+export interface PickResult {
+  tier: PickTier;
+  id?: string;
+  name?: string;
+  reason?: string;
+  failed: PickCheck[];
+  thin: ThinEntry[];
+  stale?: string;
+}
+
 const STOP = new Set([
   "a", "an", "the", "and", "or", "of", "to", "for", "with", "in", "at", "by", "from", "into",
   "my", "your", "our", "their", "its", "his", "her", "this", "that", "these", "those", "it", "is",
@@ -231,6 +262,17 @@ export function validatePick(
     if (!options || !options.some((option) => option.toLowerCase() === value.toLowerCase())) return { ok: false, reason: "no fit" };
   }
   return { ok: true };
+}
+
+/**
+ * Pure check of one AI pick against a meaning pack.
+ * libraryBuiltAt is compared to pack.builtAt. No file or network IO.
+ */
+export function validateAiPick(pack: MeaningPack, req: PickRequest, libraryBuiltAt?: string): PickResult {
+  void pack;
+  void req;
+  void libraryBuiltAt;
+  throw new Error("not implemented");
 }
 
 export function contextPack(pack: MeaningPack, candidates: readonly MeaningCandidate[], files: ReadonlyMap<string, string>): string {

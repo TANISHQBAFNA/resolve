@@ -23,6 +23,19 @@ function commandsDir(): string | undefined {
   return undefined;
 }
 
+export interface PickCommandIo {
+  stdout: (text: string) => void;
+  exitCode: (code: number) => void;
+}
+
+/** `resolve pick`. Switch off exits and points at recommend. Does not add an MCP tool. */
+export function runPickCommand(args: readonly string[], env: NodeJS.ProcessEnv = process.env, io?: PickCommandIo): void {
+  void args;
+  void env;
+  void io;
+  throw new Error("not implemented");
+}
+
 export function loadCommands(): CommandPrompt[] {
   const dir = commandsDir();
   if (!dir) return [];
