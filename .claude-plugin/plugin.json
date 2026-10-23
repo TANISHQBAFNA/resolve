@@ -10,7 +10,7 @@
   },
   "homepage": "https://github.com/TANISHQBAFNA/resolve",
   "repository": "https://github.com/TANISHQBAFNA/resolve",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "keywords": ["figma", "design-system"],
   "userConfig": {
     "FIGMA_ACCESS_TOKEN": {
