@@ -1,4 +1,5 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { runCli } from "@/server/cli";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -6,7 +7,6 @@ import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
 import { indexGraph } from "@/core/query/GraphIndex";
 import { packFromFiles, validateAiPick, type MeaningPack, type PickRequest } from "@/core/query/meaning/sock";
 import { recommendMasters } from "@/core/query/recommendMasters";
-import { runPickCommand } from "@/server/commands";
 import { aiPicksEnabled } from "@/server/pluginSettings";
 import { loadPacks } from "../scripts/meaning-sock-build";
 
@@ -69,12 +69,26 @@ describe("AI picks switch", () => {
     expect(zero).toBe(MAIN_RECOMMEND);
   });
 
-  it("says to use recommend when the command is off", () => {
-    let text = "";
-    let code = 0;
-    runPickCommand(["{}"], {}, { stdout: (line) => { text += line; }, exitCode: (next) => { code = next; } });
-    expect(text).toBe("AI picks is off. Use recommend.\n");
-    expect(code).toBe(1);
+  it("resolve pick says to use recommend and exits 0 when the switch is off", async () => {
+    const previous = process.env["RESOLVE_AI_PICKS"];
+    const previousCode = process.exitCode;
+    delete process.env["RESOLVE_AI_PICKS"];
+    const chunks: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await runCli(["pick"]);
+      expect(chunks.join("")).toBe("AI picks is off. Use recommend.\n");
+      expect(process.exitCode ?? 0).toBe(0);
+    } finally {
+      process.stdout.write = write;
+      if (previous === undefined) delete process.env["RESOLVE_AI_PICKS"];
+      else process.env["RESOLVE_AI_PICKS"] = previous;
+      process.exitCode = previousCode;
+    }
   });
 });
 
@@ -221,7 +235,10 @@ describe("validateAiPick", () => {
 });
 
 describe("resolve pick command", () => {
-  it("checks a file when the switch is on", () => {
+  it("checks a file when the switch is on", async () => {
+    const previous = process.env["RESOLVE_AI_PICKS"];
+    const previousCode = process.exitCode;
+    process.env["RESOLVE_AI_PICKS"] = "1";
     const dir = mkdtempSync(join(tmpdir(), "ai-pick-"));
     const request = join(dir, "pick.json");
     writeFileSync(request, JSON.stringify({
@@ -232,13 +249,24 @@ describe("resolve pick command", () => {
       reason: "not a library sentence",
       tier: "place",
     }));
-    let text = "";
-    let code = 0;
-    runPickCommand([request], { RESOLVE_AI_PICKS: "1" }, { stdout: (line) => { text += line; }, exitCode: (next) => { code = next; } });
-    rmSync(dir, { recursive: true, force: true });
-    const result = JSON.parse(text) as { tier: string; failed: string[] };
-    expect(result.tier).toBe("no-fit");
-    expect(result.failed).toContain("quote");
-    expect(code).toBe(1);
+    const chunks: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await runCli(["pick", request]);
+      const result = JSON.parse(chunks.join("")) as { tier: string; failed: string[] };
+      expect(result.tier).toBe("no-fit");
+      expect(result.failed).toContain("quote");
+      expect(process.exitCode).toBe(1);
+    } finally {
+      process.stdout.write = write;
+      if (previous === undefined) delete process.env["RESOLVE_AI_PICKS"];
+      else process.env["RESOLVE_AI_PICKS"] = previous;
+      process.exitCode = previousCode;
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

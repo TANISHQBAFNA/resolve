@@ -36,6 +36,13 @@ describe("AI picks eval harness", () => {
     expect(scored.stdout).toContain("top-1");
     expect(scored.stdout).toContain("no-fit");
     expect(scored.stdout).not.toContain("http://");
+    const prompted = spawnSync(process.execPath, ["scripts/ai-picks-eval.mjs", "prompts", "--cases", cases, "--out", join(dir, "blind")], { encoding: "utf8" });
+    expect(prompted.status).toBe(0);
+    const material = readFileSync(join(dir, "blind", "material.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as Record<string, string>);
+    const acme = readFileSync(join(dir, "blind", "acme.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as Record<string, string>);
+    expect(material).toEqual([{ id: "m-1", ask: "a hint on hover", library: "material" }]);
+    expect(acme).toEqual([{ id: "a-1", ask: "a flux gauge", library: "acme" }]);
+    expect(JSON.stringify(material[0])).not.toMatch(/expect|tier|lead|alternate/);
     rmSync(dir, { recursive: true, force: true });
   });
 });

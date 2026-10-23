@@ -83,7 +83,7 @@ export function runPickCommand(args: readonly string[], env: NodeJS.ProcessEnv =
   });
   if (!aiPicksEnabled(env)) {
     stdout(PICK_OFF);
-    exitCode(1);
+    exitCode(0);
     return;
   }
   const source = args.find((arg) => !arg.startsWith("--"));

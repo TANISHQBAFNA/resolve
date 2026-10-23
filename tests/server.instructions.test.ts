@@ -63,6 +63,8 @@ describe("MCP instructions stay a short trigger", () => {
       "",
       "Each component's own text is a generated file. Open the library index, then that one file. Acme is `meaning/acme/index.md`, then the linked file (for example `meaning/acme/switch.md`). Stop after those two reads. A `Thin:` line means the library description is missing. `recommend` still uses the meaning dictionary.",
       "",
+      "When `RESOLVE_AI_PICKS=1`, read that index, open at most the shortlist files, and call `resolve pick`. Quote the reason from the component's own name, description, guidelines, or a property. With the switch off, use `recommend`.",
+      "",
     ].join("\n");
     const cursor = readFileSync(join(root, ".cursor/skills/resolve/SKILL.md"), "utf8");
     expect(cursor).toBe(skill.replace("## Design work\n", `${meaning}\n## Design work\n`));

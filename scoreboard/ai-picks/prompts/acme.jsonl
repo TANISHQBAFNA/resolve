@@ -1,0 +1,51 @@
+{"id":"a-p01","ask":"nothing here yet, with a hint to add the first item","library":"acme"}
+{"id":"a-p02","ask":"the person's face in a small circle next to their name","library":"acme"}
+{"id":"a-p03","ask":"a count of items in the basket on the cart symbol","library":"acme"}
+{"id":"a-p04","ask":"how many of this item to buy, with plus and minus","library":"acme"}
+{"id":"a-p05","ask":"where you are in the site, like Home then Accounts then Savings","library":"acme"}
+{"id":"a-p06","ask":"look up a payee by typing part of their name","library":"acme"}
+{"id":"a-p07","ask":"the total to pay shown with currency","library":"acme"}
+{"id":"a-p08","ask":"a thin line between two sections","library":"acme"}
+{"id":"a-p09","ask":"a text-only action like forgot password","library":"acme"}
+{"id":"a-p10","ask":"the strip at the very end of the page with legal links","library":"acme"}
+{"id":"a-p11","ask":"one line in a list of recent payments","library":"acme"}
+{"id":"a-p12","ask":"the x in the corner to shut a panel","library":"acme"}
+{"id":"a-p13","ask":"move between Summary and Details on an account page","library":"acme"}
+{"id":"a-p14","ask":"an entry in the side menu for the Settings page","library":"acme"}
+{"id":"a-p15","ask":"where shoppers type the code from an email offer at checkout","library":"acme"}
+{"id":"a-p16","ask":"a card giving the month's totals at a glance","library":"acme"}
+{"id":"a-p17","ask":"show an order's state like Shipped as a small label","library":"acme"}
+{"id":"a-p18","ask":"small selectable labels to filter transactions by type","library":"acme"}
+{"id":"a-p19","ask":"check with the person before they delete a saved payee","library":"acme"}
+{"id":"a-p20","ask":"let people turn paperless statements on or off","library":"acme"}
+{"id":"a-p21","ask":"a red message saying the card charge failed","library":"acme"}
+{"id":"a-q01","ask":"a large primary action for checkout on mobile","library":"acme"}
+{"id":"a-q02","ask":"a compact row for each transaction","library":"acme"}
+{"id":"a-x01","ask":"a short message after saving, not a modal","library":"acme"}
+{"id":"a-x02","ask":"an on/off control, not a tick box","library":"acme"}
+{"id":"a-c01","ask":"turn on two-step sign-in with one flick","library":"acme"}
+{"id":"a-c02","ask":"mark several invoices to pay together","library":"acme"}
+{"id":"a-c03","ask":"a quick note that the payment went through, fading on its own","library":"acme"}
+{"id":"a-c04","ask":"stop and ask before cancelling the transfer","library":"acme"}
+{"id":"a-c05","ask":"choose exactly one delivery slot","library":"acme"}
+{"id":"a-c06","ask":"choose any extras to add to the order","library":"acme"}
+{"id":"a-c07","ask":"a removable label for a chosen category","library":"acme"}
+{"id":"a-c08","ask":"the action that sends the money","library":"acme"}
+{"id":"a-n01","ask":"a calendar to pick a delivery day","library":"acme"}
+{"id":"a-n02","ask":"a hint bubble shown on hover","library":"acme"}
+{"id":"a-n03","ask":"page numbers to move through results","library":"acme"}
+{"id":"a-n04","ask":"drag to choose a loan amount","library":"acme"}
+{"id":"a-n05","ask":"a dropdown of countries","library":"acme"}
+{"id":"a-n06","ask":"a spinning wheel while payments sync","library":"acme"}
+{"id":"a-s01","ask":"submitted","library":"acme"}
+{"id":"a-s02","ask":"submitting","library":"acme"}
+{"id":"a-r01","ask":"a sign-up form for a snug team roster with a list","library":"acme"}
+{"id":"a-r02","ask":"an address form for a spacious household with a list","library":"acme"}
+{"id":"a-r03","ask":"a drawer for a snug summary card holding a list","library":"acme"}
+{"id":"a-r04","ask":"a dialog for a roomy profile card holding a list","library":"acme"}
+{"id":"s-l01","ask":"a dense granite list","library":"acme-small"}
+{"id":"s-l02","ask":"a tight timber list","library":"acme-small"}
+{"id":"s-l03","ask":"a roomy pasta list","library":"acme-small"}
+{"id":"s-q01","ask":"compact payee list","library":"acme-small"}
+{"id":"s-q02","ask":"a roomy savings goal list","library":"acme-small"}
+{"id":"s-q03","ask":"navigation for a phone","library":"acme-small"}

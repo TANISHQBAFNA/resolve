@@ -1,0 +1,60 @@
+{"id":"m-p01","ask":"a small hint that shows up when I rest the pointer on a symbol","library":"material"}
+{"id":"m-p02","ask":"let people turn weekly reminder emails on or off","library":"material"}
+{"id":"m-p03","ask":"move to the next batch of results under a long table","library":"material"}
+{"id":"m-p04","ask":"choose the first and last day of a holiday on a calendar","library":"material"}
+{"id":"m-p05","ask":"a brief note near the bottom of the screen saying the draft was kept","library":"material"}
+{"id":"m-p06","ask":"make the person confirm before their account is erased","library":"material"}
+{"id":"m-p07","ask":"narrow results down by category with small selectable tokens","library":"material"}
+{"id":"m-p08","ask":"show how far along an upload is","library":"material"}
+{"id":"m-p09","ask":"a spinning circle while the page waits for data","library":"material"}
+{"id":"m-p10","ask":"a row of labels to switch between parts of a settings page","library":"material"}
+{"id":"m-p11","ask":"a panel of page links that slides in from the left edge","library":"material"}
+{"id":"m-p12","ask":"links between the four main areas of a phone app, along the lower edge","library":"material"}
+{"id":"m-p13","ask":"choose one shipping speed out of three","library":"material"}
+{"id":"m-p14","ask":"agree to the terms before continuing","library":"material"}
+{"id":"m-p15","ask":"pick one country out of a long collapsed set of options","library":"material"}
+{"id":"m-p16","ask":"type a few letters and get matching city suggestions","library":"material"}
+{"id":"m-p17","ask":"drag to set how loud the music plays","library":"material"}
+{"id":"m-p18","ask":"an area that opens to reveal more details and closes again","library":"material"}
+{"id":"m-p19","ask":"walk someone through account setup one stage at a time","library":"material"}
+{"id":"m-p20","ask":"a round control pinned in the corner for composing a new message","library":"material"}
+{"id":"m-p21","ask":"show folders inside folders that open and close","library":"material"}
+{"id":"m-p22","ask":"rows and columns of transactions with headings you can scan","library":"material"}
+{"id":"m-p23","ask":"set the hour and minute for an alarm","library":"material"}
+{"id":"m-p24","ask":"a short set of actions that opens from the three-dot overflow","library":"material"}
+{"id":"m-p25","ask":"a thin line between two groups of settings","library":"material"}
+{"id":"m-p26","ask":"show whether a background job is still running","library":"material"}
+{"id":"m-p27","ask":"a strip along the upper edge of the app with the page name and a back arrow","library":"material"}
+{"id":"m-p28","ask":"order the column by price from low to high","library":"material"}
+{"id":"m-q01","ask":"a compact contacts list on mobile","library":"material"}
+{"id":"m-q02","ask":"a dense grid of invoices with columns","library":"material"}
+{"id":"m-q03","ask":"a small floating action for a phone screen","library":"material"}
+{"id":"m-q04","ask":"side navigation for a wide desktop layout","library":"material"}
+{"id":"m-x01","ask":"an on/off control, not a checkbox","library":"material"}
+{"id":"m-x02","ask":"a pop-up for a quick yes or no, not a sheet","library":"material"}
+{"id":"m-x03","ask":"choose one value from options, not a menu","library":"material"}
+{"id":"m-x04","ask":"a clickable label to filter results, not a button","library":"material"}
+{"id":"m-c01","ask":"flip dark mode on instantly","library":"material"}
+{"id":"m-c02","ask":"tick each topic you want in the newsletter","library":"material"}
+{"id":"m-c03","ask":"a removable token showing a chosen keyword in a field","library":"material"}
+{"id":"m-c04","ask":"the main action that sends the form","library":"material"}
+{"id":"m-c05","ask":"rename and delete options from an overflow","library":"material"}
+{"id":"m-c06","ask":"choose a currency as a form value","library":"material"}
+{"id":"m-c07","ask":"an undo message that goes away by itself","library":"material"}
+{"id":"m-c08","ask":"a box that blocks the page until the user answers","library":"material"}
+{"id":"m-c09","ask":"show 40 percent of the file transferred","library":"material"}
+{"id":"m-c10","ask":"an endless loading circle","library":"material"}
+{"id":"m-c11","ask":"a panel from the right edge to edit filters on desktop","library":"material"}
+{"id":"m-c12","ask":"a panel rising from below with share options","library":"material"}
+{"id":"m-c13","ask":"type an exact amount of money","library":"material"}
+{"id":"m-c14","ask":"drag between a low and a high price","library":"material"}
+{"id":"m-n01","ask":"a map showing nearby stores","library":"material"}
+{"id":"m-n02","ask":"somewhere to play a clip with subtitles","library":"material"}
+{"id":"m-n03","ask":"a pad where customers sign with a finger","library":"material"}
+{"id":"m-n04","ask":"a star rating out of five","library":"material"}
+{"id":"m-n05","ask":"a friendly picture when the inbox has nothing in it","library":"material"}
+{"id":"m-n06","ask":"a bar chart of monthly spending","library":"material"}
+{"id":"m-s01","ask":"a little message that pops up after saving","library":"material"}
+{"id":"m-l01","ask":"a dense granite list","library":"material"}
+{"id":"m-l02","ask":"a tight timber list","library":"material"}
+{"id":"m-r01","ask":"an expense form for a dense project with a list","library":"material"}

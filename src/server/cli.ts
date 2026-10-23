@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { PACK_BIND_FLAGS, usage } from "./cliUsage";
+import { runPickCommand } from "./commands";
 import {
   bindFromFlags,
   defaultGoldenDir,
@@ -307,6 +308,11 @@ async function dispatchCli(argv: string[]): Promise<void> {
 
     case "decisions":
       return runDecisions(args);
+
+    case "pick": {
+      runPickCommand(args);
+      return;
+    }
 
     case "recommend": {
       const asked = positionals(args)[0];

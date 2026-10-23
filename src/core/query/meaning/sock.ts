@@ -246,22 +246,6 @@ export function thinComponents(pack: MeaningPack): Array<{ id: string; name: str
   }));
 }
 
-export function validatePick(
-  pack: MeaningPack,
-  shortlist: readonly MeaningCandidate[],
-  pickId: string,
-  props: Record<string, string> = {},
-): { ok: true } | { ok: false; reason: string } {
-  if (!shortlist.some((candidate) => candidate.id === pickId)) return { ok: false, reason: "no fit" };
-  const component = pack.components.find((item) => item.id === pickId);
-  if (!component || component.retired) return { ok: false, reason: "no fit" };
-  for (const [key, value] of Object.entries(props)) {
-    const options = component.propOptions[key.toLowerCase()];
-    if (!options || !options.some((option) => option.toLowerCase() === value.toLowerCase())) return { ok: false, reason: "no fit" };
-  }
-  return { ok: true };
-}
-
 const PICK_TIERS = ["place", "ask", "no-fit"] as const;
 
 function isPickTier(value: string): value is PickTier {

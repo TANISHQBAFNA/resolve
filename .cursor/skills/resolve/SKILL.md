@@ -36,6 +36,8 @@ Optional. Repo or demo only. This folder is not in the npm package.
 
 Each component's own text is a generated file. Open the library index, then that one file. Acme is `meaning/acme/index.md`, then the linked file (for example `meaning/acme/switch.md`). Stop after those two reads. A `Thin:` line means the library description is missing. `recommend` still uses the meaning dictionary.
 
+When `RESOLVE_AI_PICKS=1`, read that index, open at most the shortlist files, and call `resolve pick`. Quote the reason from the component's own name, description, guidelines, or a property. With the switch off, use `recommend`.
+
 ## Design work
 
 Simplest thing that works. Reuse an existing component before anything new. One check: `verify_frame`.

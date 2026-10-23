@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
 import { indexGraph } from "@/core/query/GraphIndex";
-import { buildMeaningPack, meaningCandidates, thinComponents, validatePick } from "@/core/query/meaning/sock";
+import { buildMeaningPack, meaningCandidates, thinComponents, validateAiPick } from "@/core/query/meaning/sock";
 import { readFrozenCases } from "./meaning.frozen-score";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
@@ -54,8 +54,28 @@ describe("meaning SOCK dev set", () => {
     expect(flagged.every((row) => row.missing.includes("description"))).toBe(true);
     const sure = meaningCandidates("xyzzy", { ...stripped, components: stripped.components.map((component) => ({ ...component, job: "", description: "" })) });
     expect(sure.filter((row) => row.confidence === "sure")).toEqual([]);
-    const pick = validatePick(pack, hits, hits[0]?.id ?? "", {});
-    expect(pick.ok).toBe(true);
-    expect(validatePick(pack, hits, "not-a-component").ok).toBe(false);
+    const pick = validateAiPick(pack, {
+      library: pack.library,
+      ask: "Switch",
+      shortlist: hits.map((hit) => hit.id),
+      pick: hits[0]?.id ?? "",
+      reason: hits[0]?.reason,
+      tier: "place",
+    });
+    expect(pick.tier).toBe("place");
+    expect(pick.id).toBe(hits[0]?.id);
+    expect(pick.failed).toEqual([]);
+    expect(pick.reason).toBe("Library switch control.");
+    const missing = validateAiPick(pack, {
+      library: pack.library,
+      ask: "Switch",
+      shortlist: hits.map((hit) => hit.id),
+      pick: "not-a-component",
+      reason: "Library switch control.",
+      tier: "place",
+    });
+    expect(missing.tier).toBe("no-fit");
+    expect(missing.id).toBeUndefined();
+    expect(missing.failed).toContain("exists");
   });
 });

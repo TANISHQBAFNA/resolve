@@ -222,6 +222,20 @@ export function promptFor(row) {
   ].join("\n");
 }
 
+function writeBlindPrompts(casesPath, outDir) {
+  const cases = readCases(casesPath);
+  mkdirSync(outDir, { recursive: true });
+  const groups = { material: [], acme: [] };
+  for (const row of cases) {
+    const group = groupOf(row.pack);
+    groups[group].push(JSON.stringify({ id: row.id, ask: row.ask, library: row.pack }));
+  }
+  for (const [group, lines] of Object.entries(groups)) {
+    writeFileSync(join(outDir, `${group}.jsonl`), lines.length ? `${lines.join("\n")}\n` : "");
+  }
+  process.stdout.write(`wrote ${cases.length} blind prompts to ${outDir}\n`);
+}
+
 function prepare(casesPath, outDir) {
   const cases = readCases(casesPath);
   mkdirSync(outDir, { recursive: true });
@@ -239,7 +253,8 @@ function score(casesPath, runsPath) {
 const invoked = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href || process.argv[1]?.endsWith("ai-picks-eval.mjs");
 if (invoked) {
   const command = process.argv[2];
-  if (command === "prepare") prepare(arg("--cases") ?? join(repo, "scoreboard/meaning/frozen.json"), arg("--out") ?? join(repo, "scoreboard/ai-picks/prompts"));
+  if (command === "prompts") writeBlindPrompts(arg("--cases") ?? join(repo, "scoreboard/meaning/frozen.json"), arg("--out") ?? join(repo, "scoreboard/ai-picks/prompts"));
+  else if (command === "prepare") prepare(arg("--cases") ?? join(repo, "scoreboard/meaning/frozen.json"), arg("--out") ?? join(repo, "scoreboard/ai-picks/prompts"));
   else if (command === "score") {
     const cases = arg("--cases");
     const runs = arg("--runs");
@@ -249,7 +264,7 @@ if (invoked) {
     }
     score(cases, runs);
   } else {
-    process.stderr.write("Usage: node scripts/ai-picks-eval.mjs prepare|score\n");
+    process.stderr.write("Usage: node scripts/ai-picks-eval.mjs prompts|prepare|score\n");
     process.exit(1);
   }
 }
