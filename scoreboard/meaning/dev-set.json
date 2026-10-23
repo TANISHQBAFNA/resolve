@@ -1,0 +1,8 @@
+{
+  "label": "DEV ONLY. Not the frozen acceptance set. Component names from the packs. Not acceptance asks.",
+  "cases": [
+    { "pack": "acme", "ask": "Switch", "note": "component name only" },
+    { "pack": "acme-small", "ask": "Button", "note": "component name only" },
+    { "pack": "material", "ask": "Tooltip", "note": "component name only" }
+  ]
+}

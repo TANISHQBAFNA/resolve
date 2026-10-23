@@ -1,0 +1,50 @@
+# Angular Material
+Source: https://material.angular.dev/
+© Google LLC. Licensed under CC BY 4.0.
+https://creativecommons.org/licenses/by/4.0/
+built: 2026-01-01T00:00:00.000Z
+- [autocomplete](autocomplete.md) — Text field with suggested options.
+- [badge](badge.md) — Small status mark on another part.
+- [bottom-sheet](bottom-sheet.md) — Surface that slides up from the bottom.
+- [button](button.md) — Angular Material buttons are native `<button>` or `<a>` elements enhanced with Material Design styling.
+- [button-toggle](button-toggle.md) — Segmented button. Single or multi select.
+- [card](card.md) — Elevated, filled, and outlined cards.
+- [checkbox](checkbox.md) — `<mat-checkbox>` provides the same functionality as a native `<input type="checkbox">` enhanced with Material Design styling and animations.
+- [chip](chip.md) — Chips allow users to view information, make selections, filter content, and enter data.
+- [date-picker](date-picker.md) — The datepicker allows users to enter a date either through text input, or by choosing a date from the calendar.
+- [dialog](dialog.md) — The `MatDialog` service can be used to open modal dialogs with Material Design styling and animations.
+- [divider](divider.md) — Hairline between items.
+- [expansion-panel](expansion-panel.md) — `<mat-expansion-panel>` provides an expandable details-summary view.
+- [extended-fab](extended-fab.md) — However, you can add the `extended` attribute to allow the fab to expand into a rounded rectangle shape with space for a text label in addition to the icon.
+- [fab](fab.md) — Rectangular button w/ elevation and rounded corners, meant to contain an icon. Can be [extended](https://material.angular.dev/components/button/overview#extended-fab-buttons) to a r…
+- [form-field](form-field.md) — Label, hint, and error around an input.
+- [grid-list](grid-list.md) — Tiles in a grid.
+- [icon](icon.md) — Icon glyph.
+- [icon-button](icon-button.md) — Smaller, circular button, meant to contain an icon and no text
+- [legacy-button](legacy-button.md) — deprecated. Replaced by Button.
+- [list](list.md) — `<mat-list>` is a container component that wraps and formats a series of `<mat-list-item>`.
+- [list-item](list-item.md) — If a list item needs to show a single line of textual information, the text can be inserted directly into the `<mat-list-item>` element.
+- [menu](menu.md) — `<mat-menu>` is a floating panel containing list of options.
+- [mini-fab](mini-fab.md) — Smaller variant of `matFab`
+- [navigation-bar](navigation-bar.md) — Bottom navigation. Material 3. No matching Angular Material class.
+- [navigation-rail](navigation-rail.md) — Side rail for a few destinations. No matching Angular Material class.
+- [paginator](paginator.md) — `<mat-paginator>` provides navigation for paged information, typically used with a table.
+- [progress-bar](progress-bar.md) — Linear progress indicator.
+- [progress-spinner](progress-spinner.md) — Circular progress indicator.
+- [radio-button](radio-button.md) — `<mat-radio-button>` provides the same functionality as a native `<input type="radio">` enhanced with Material Design styling and animations.
+- [search-bar](search-bar.md) — Search. Material 3 search. Angular Material has no search-bar class.
+- [select](select.md) — `<mat-select>` is a form control for selecting a value from a set of options, similar to the native `<select>` element.
+- [side-sheet](side-sheet.md) — Sheet docked to the side. Material 3 has no separate Angular class for this.
+- [sidenav](sidenav.md) — Navigation drawer.
+- [slide-toggle](slide-toggle.md) — `<mat-slide-toggle>` is an on/off control that can be toggled via clicking.
+- [slider](slider.md) — `<mat-slider>` allows for the selection of a value from a range via mouse, touch, or keyboard, similar to `<input type="range">`.
+- [snackbar](snackbar.md) — `MatSnackBar` is a service for displaying snack-bar notifications.
+- [sort](sort.md) — Sortable column header.
+- [stepper](stepper.md) — Steps in a task.
+- [table](table.md) — Data table.
+- [tabs](tabs.md) — Angular Material tabs organize content into separate views where only one view can be visible at a time.
+- [text-field](text-field.md) — Filled and outlined text fields.
+- [time-picker](time-picker.md) — Pick a time.
+- [toolbar](toolbar.md) — Top app bar.
+- [tooltip](tooltip.md) — The Angular Material tooltip provides a text label that is displayed when the user hovers over or longpresses an element.
+- [tree](tree.md) — Nested rows.

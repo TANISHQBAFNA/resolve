@@ -1,0 +1,36 @@
+import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { formatReport, readFrozenCases, scoreFrozen, writePacks } from "./meaning.frozen-score";
+
+/** The frozen fixture is committed unchanged. */
+const FROZEN_SHA256 = "e9d913289548451a25196d66e463f5d29c18fc816724125a2871c50958de4263";
+
+describe("meaning SOCK frozen set", () => {
+  it("prints the frozen score and leaves the fixture unchanged", () => {
+    const raw = readFileSync("scoreboard/meaning/frozen.json");
+    expect(createHash("sha256").update(raw).digest("hex")).toBe(FROZEN_SHA256);
+    const report = scoreFrozen(readFrozenCases());
+    const text = formatReport(report);
+    process.stdout.write(`${text}\n${report.misses.join("\n")}\n`);
+    expect(report.top1.of).toBe(111);
+    expect(report.noFit.of).toBe(17);
+    process.stdout.write(`frozen top-1 ${report.top1.hit}/111\n`);
+  });
+
+  it("writes packs under the file caps, hop limit, and token budget", () => {
+    const dir = mkdtempSync(join(tmpdir(), "meaning-sock-"));
+    try {
+      const written = writePacks(dir);
+      expect(written.tokens).toBeLessThanOrEqual(6000);
+      expect(written.stale).toMatch(/older than the library/);
+      const check = spawnSync(process.execPath, ["scripts/check-meaning-sock.mjs", dir], { encoding: "utf8" });
+      expect(check.status, check.stderr).toBe(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

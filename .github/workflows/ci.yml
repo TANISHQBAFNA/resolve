@@ -26,6 +26,8 @@ jobs:
       # Tests that spawn the MCP server need dist-server, so the build comes first.
       - run: npm ci
       - run: npm run build
+      - name: Check meaning files
+        run: node scripts/check-meaning-sock.mjs meaning
       - run: npm test
       - run: npm run check:size
       - run: npm run check:dupes
