@@ -128,21 +128,13 @@ Measures, per type and overall: top-1 and top-3 (phrases that expect a part), co
 
 **Your own phrases.** Put `.json` files (same shape, `{ "version": 1, "cases": [...] }`) in `<store>/scoreboard/phrases/`. A repeated id is an error. A file in the wrong shape is reported in one line naming the first problem. Nothing in the repo changes. These runs are not saved to the history that `resolve score` writes. Phrase sets (`<store>/scoreboard/phrases/`) and the golden file from `score --init` (`<store>/scoreboard/golden/`) are team files. Setup's gitignore block leaves them committable and ignores only scoreboard run history.
 
-## Material board
+## Reference library board
 
-`scoreboard/material-phrases/` is a separate board for the public Material 3 fixture (`fixtures/material/library.json`). It is not added to the sample-library phrase score. CI ingests that fixture on its own and fails if top-1, top-3, or empty-correct falls below `scoreboard/material-baseline.json`, or if anything is invented.
+A separate board scores an internal reference library that ships with the tests. It is not added to the sample-library phrase score. CI ingests that library on its own (see `.github/workflows/ci.yml`) and fails if top-1, top-3, or empty-correct falls below the committed baseline, or if anything is invented.
 
-```bash
-RESOLVE_HOME=/tmp/material-resolve
-mkdir -p "$RESOLVE_HOME"
-cp fixtures/material/synonyms.json "$RESOLVE_HOME/synonyms.json"
-npm run resolve -- ingest fixtures/material/library.json --role library --name "Material 3"
-npm run resolve -- score phrases --phrases scoreboard/material-phrases
-```
+The current floor is top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0. Ranking weights are not tuned to that board. A separate held-out set of unseen wording (synonyms, typos, and an extra word) is not part of the floor.
 
-The current floor is top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0. Ranking weights are not tuned to that file. `scoreboard/material-heldout/` is a separate set of unseen wording (synonyms, typos, and an extra word). It is not part of the floor.
-
-`scoreboard/material-fresh/` was written for the r2 round and not tuned against: descriptive phrasings, plurals, a describing tail, new one-letter slips, and side panels. It scores top-1 32/33, empty-correct 2/2, invented 0. "a collapsible section" leads Expansion panel and "grid of photos" leads Grid list. "header with a back arrow" still needs a meaning link that a spelling rule cannot make.
+A fresh set was written for the r2 round and not tuned against: descriptive phrasings, plurals, a describing tail, new one-letter slips, and side panels. It scores top-1 32/33, empty-correct 2/2, invented 0. "a collapsible section" leads Expansion panel and "grid of photos" leads Grid list. "header with a back arrow" still needs a meaning link that a spelling rule cannot make.
 
 ## Finder gaps
 

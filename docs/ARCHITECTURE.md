@@ -14,7 +14,7 @@ One module owns each shared rule. Call it. Do not copy it.
 | Id spelling (`12:34` and `12-34`) | `src/core/rules/ids.ts` — `idVariants`. |
 | Card text for people and for slash commands | `src/server/cards.ts` — `presentToolResult`. CLI `ingredients`, `handoff` (stdout), `parts`, and `status` print that Markdown. `--json` stays compact JSON (`--pretty` indents it). |
 | Synonym words and property-hint aliases | `src/data/synonyms.json` and `BUILTIN_PROPERTY_HINTS` in `componentProperties.ts`. `synonymLayer.ts` builds one alias map from those hints (plus a context pack or `property-hints.json` on that ask). Ranking does not keep a second copy. |
-| What a component means | `src/core/query/meaning/`. Every library starts from `src/data/meaning/default.json`. Acme and Angular Material add their own words in `acme.json` and `material.json` and never replace the shared density, device, or exclusion words. The parse decides the lead, whether the answer is empty, and whether it is weak. `list` is the head: a density word one or two words before it is that list's density, unless the word describes the noun right after it. A joined, split, or hyphenated plural matches the name with the same spaces-and-hyphens-removed singular form. "rather than" and "instead of" exclude a part the same way "not" does. The lexical scorer only orders ties and typos. |
+| What a component means | `src/core/query/meaning/`. Every library starts from `src/data/meaning/default.json`. Acme and the internal reference library add their own words in their own files (Acme's is `acme.json`) and never replace the shared density, device, or exclusion words. The parse decides the lead, whether the answer is empty, and whether it is weak. `list` is the head: a density word one or two words before it is that list's density, unless the word describes the noun right after it. A joined, split, or hyphenated plural matches the name with the same spaces-and-hyphens-removed singular form. "rather than" and "instead of" exclude a part the same way "not" does. The lexical scorer only orders ties and typos. |
 | Proper use on a frame (detached, unbound values, property misuse, contrast, tap size, icon-only) | `src/core/query/properUse.ts` — `checkProperUse`. `verify_frame`, `/check`, and `resolve check` call it. No extra default MCP tool. |
 | Hidden layers and instances placed in a Figma slot | `src/core/query/placed.ts` — `hiddenUnder`, `designerPlacedInstances`. Verify, handoff, and SOCK call these. A hidden instance is left out. An instance in a slot counts as on the screen. |
 | Tier path prefixes (`base/`, `ingredients/`, `recipes/`) | `src/core/query/recommendLexicon.ts` — `stripTier`, `dropShadowedBaseTier`. The finder strips the prefix. `ingredients/` and `recipes/` beat `base/` for the same part unless the ask says `base/`. |
@@ -71,10 +71,10 @@ one is handled explicitly in code rather than being papered over.
 | # | Reality | Consequence in this codebase |
 |---|---|---|
 | 1 | **Variables need a different, Enterprise-gated endpoint.** `GET /v1/files/:key` does not return variable definitions; `/variables/local` is Enterprise-only. Nodes *do* carry `boundVariables`. | Variables are a separate optional input to the adapter. When a binding resolves to no definition we still create a placeholder `VARIABLE` node marked `unresolved` plus a warning, so "this node is token-bound" survives even without Enterprise access. |
-| 2 | **Remote (library) components are not in the file payload.** An instance of a library component has a `componentId` that resolves to nothing in the tree; the `components` map still names it. | `ensureComponentNode` materialises a remote `MAIN_COMPONENT` stub from the components map, marks it `isRemote`, and links it to a library node. Its internals are genuinely unknowable from this file — the graph says so rather than guessing. |
+| 2 | **Remote (library) components are not in the file payload.** An instance of a library component has a `componentId` that resolves to nothing in the tree; the `components` map still names it. | `ensureComponentNode` builds a remote `MAIN_COMPONENT` stub from the components map, marks it `isRemote`, and links it to a library node. Its internals are genuinely unknowable from this file — the graph says so rather than guessing. |
 | 3 | **The file endpoint never says *which* library a remote entity came from.** | All remote entities are grouped under one synthetic `EXTERNAL_LIBRARY` node ("External libraries (source unknown)"). Sources that do know (Plugin API, MCP, the library-analytics endpoints) can set `libraryId` on the source entity and get real per-library grouping with no other change. When the workspace lists an ingested library-role file, merge relinks remotes to that `FILE` (and to the real master on exact `figmaNodeId` / component key). No fuzzy merge. |
 | 4 | **REST exposes one prototype transition per node** (`transitionNodeID`), while the Plugin API exposes full `reactions` with multiple triggers and actions. | The ingestion contract models transitions as an array. The REST adapter fills it with 0–1 entries and also reads `reactions` when a richer source provides them. |
-| 5 | **Dev-mode annotations are not consistently available over REST.** | `ANNOTATION` exists in the schema and annotations are carried on node metadata when present, but no annotation nodes are materialised in Phase 1. |
+| 5 | **Dev-mode annotations are not consistently available over REST.** | `ANNOTATION` exists in the schema and annotations are carried on node metadata when present, but no annotation nodes are built in Phase 1. |
 | 6 | **Thumbnails need a second, rate-limited call** (`GET /v1/images/:key`). | `thumbnailUrl` exists on `GraphNode` and is left empty in Phase 1. Phase 3 fills it in batches. |
 | 7 | **Style ids, node ids and variable ids live in different id spaces and can collide.** | Every graph node has a namespaced internal id (`node:1:23`, `style:S:abc,1`, `var:VariableID:1:1`), with the original kept in `figmaNodeId` for deep links. |
 | 8 | **Node ids are `1:23` in the API and `1-23` in URLs.** | One place builds deep links (`core/transform/figmaUrl.ts`). |
@@ -90,7 +90,7 @@ Assumptions made without asking, all reversible:
   screen and stays `FRAME`. This is what makes "the screens on this page"
   answerable without name heuristics. It is a single option
   (`classifyAutoLayout`) on one function.
-- **`PARENT_OF` and `USED_IN` are materialised inverse edges.** Both are
+- **`PARENT_OF` and `USED_IN` are stored inverse edges.** Both are
   generated, both are tagged, and both are hidden from the canvas by default so
   no relationship is ever drawn twice. `PARENT_OF` runs child → parent
   (read it as "has parent").
@@ -117,7 +117,7 @@ Two models, deliberately separated.
 ingestion layer sees a vendor payload.
 
 **`DesignGraph`** (`core/model/graph.ts`) — flat nodes and edges, with
-namespaced ids and reverse relationships materialised.
+namespaced ids and reverse relationships stored.
 
 ```
 Figma REST ─┐
@@ -157,8 +157,8 @@ anything else                   -> LAYER
 
 | Group | Edges |
 |---|---|
-| Structural | `CONTAINS`, `PARENT_OF` (materialised inverse) |
-| Component | `INSTANCE_OF`, `USED_IN` (materialised inverse), `VARIANT_OF`, `NESTS` |
+| Structural | `CONTAINS`, `PARENT_OF` (stored inverse) |
+| Component | `INSTANCE_OF`, `USED_IN` (stored inverse), `VARIANT_OF`, `NESTS` |
 | Design system | `USES_STYLE`, `USES_VARIABLE`, `BELONGS_TO_COLLECTION`, `SOURCED_FROM_LIBRARY` |
 | Interaction | `PROTOTYPES_TO`, `LINKS_TO` |
 

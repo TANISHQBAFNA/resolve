@@ -26,7 +26,7 @@
 <p align="center">Without Resolve the AI guesses. With Resolve the check passes.</p>
 
 > [!NOTE]
-> The pictures use **Acme**, a made-up design system. They are illustrations, not screenshots. The real public example is [Angular Material](#real-example-angular-material).
+> The pictures use **Acme**, a made-up design system. They are illustrations, not screenshots. Resolve works with any design system and any code stack: see [Works with any design system](#works-with-any-design-system).
 
 ## What Resolve is
 
@@ -51,7 +51,7 @@ Resolve gives your AI two things about your design system: what your components 
 <tr>
 <td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-sparkle-dark.svg"><img src="docs/assets/icon-sparkle-light.svg" alt="Tells the AI how" width="64"></picture><br><b>Tells the AI how</b><br>An always-on rule, screen recipes and context from your requirements.</td>
 <td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-check-dark.svg"><img src="docs/assets/icon-check-light.svg" alt="Checks every screen" width="64"></picture><br><b>Checks every screen</b><br>Retired, detached and hard-coded parts, and accessibility, with the fix.</td>
-<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-code-dark.svg"><img src="docs/assets/icon-code-light.svg" alt="Code and handoff" width="64"></picture><br><b>Code and handoff</b><br>React or Angular code twins, and a build sheet for developers.</td>
+<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-code-dark.svg"><img src="docs/assets/icon-code-light.svg" alt="Code and handoff" width="64"></picture><br><b>Code and handoff</b><br>Code twins in any stack, and a build sheet for developers.</td>
 </tr>
 </table>
 
@@ -115,42 +115,13 @@ Then fill in two settings: your **Figma token** and the **library file key**. Th
 
 Codex, Claude Desktop and by-hand steps: [Install in detail](docs/REFERENCE.md#install-in-detail).
 
-## Real example: Angular Material
+## Works with any design system
 
-Acme, in the pictures above, is a story. Angular Material is a real design system with a real Angular package. This repo pins `@angular/material` and `@angular/cdk` at **22.2.3**. The library file is `fixtures/material/library.json`. It describes Material 3 components (button, icon button, FAB, card, chips, text field, form field, select, checkbox, radio, slide toggle, slider, list, menu, dialog, bottom sheet, snackbar, tabs, toolbar, sidenav, table, paginator, progress, badge, tooltip, date picker, stepper, expansion panel, and more), with variants, slots, and tokens such as `md.sys.color.primary`.
-
-The official Material 3 Figma kit was not read. The connected seat cannot open that community file. No Figma key is stored. The fixture follows the public spec at [m3.material.io](https://m3.material.io/components). Details are in `fixtures/material/README.md`.
-
-```bash
-npm run resolve -- ingest fixtures/material/library.json --role library --name "Material 3"
-npm run resolve -- recommend "primary sign in button"
-npm run resolve -- check "Sign in"
-```
-
-In chat, `/find primary sign in button` is the same ask. The check on the Sign in frame passes.
-
-Code map. Scan the published `.d.ts` files, then use the reviewed links:
-
-```bash
-npm run resolve -- code-map scan node_modules/@angular/material
-cp fixtures/material/code-map.json .resolve/code-map.json
-npm run resolve -- handoff "Sign in"
-```
-
-The scan suggests 32 links and all 32 are right (precision 1, recall 32/40). The reviewed map has 0 wrong confirmed links. The Sign in handoff for the filled button says:
-
-```text
-import { MatButtonModule } from '@angular/material/button'
-Template (suggested): <button matButton="filled"></button>
-```
-
-Tonal is `matButton="tonal"`. Outlined is `matButton="outlined"`. The sign-in label sits in the button: `<button matButton="filled">Sign in</button>`.
-
-The Material phrase board is separate from the sample-library board: top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0. The sample board stays top-1 83/88, top-3 85/88. See [Scoreboard](docs/SCOREBOARD.md#material-board) and the [guide](docs/GUIDE.md#real-example-angular-material).
+Resolve is not tied to one library or one code stack. It learns whatever Figma library you point it at, and the code map links each part to code in any stack: an import line, plus a selector, inputs and outputs when your components have them. Acme, in the pictures above, is a made-up library. Resolve is also tested on an internal reference library with its own phrase board (top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0), kept separate from the sample-library board (top-1 83/88, top-3 85/88). See [Scoreboard](docs/SCOREBOARD.md#reference-library-board).
 
 ## What a component means
 
-`recommend` and `brief` load a dictionary for the library they are looking at. The shared words are in `src/data/meaning/default.json`. Acme adds its own in `src/data/meaning/acme.json`. Angular Material adds its own in `src/data/meaning/material.json`. A library file adds density, device, and exclusion words. It does not replace the shared ones. A library that is not Acme or Material still gets the shared words. A density word one or two words before `list` is that list's density, unless the file says the word describes the noun right after it. A joined, split, or hyphenated plural matches the same name.
+`recommend` and `brief` load a dictionary for the library they are looking at. The shared words are in `src/data/meaning/default.json`. Acme adds its own in `src/data/meaning/acme.json`. The internal reference library adds its own file too. A library file adds density, device, and exclusion words. It does not replace the shared ones. Any other library still gets the shared words. A density word one or two words before `list` is that list's density, unless the file says the word describes the noun right after it. A joined, split, or hyphenated plural matches the same name.
 
 The parse reads your ask before anything is ranked:
 
@@ -165,11 +136,11 @@ Acme, when the library has Compact List:
 - "a dense list" and "list, compact for phones" mean Compact List. Dense is Acme's word for compact. Phones is the device.
 - "a card that is dated" means the card, and dated is a date attribute.
 - "picker for fruit" and "picker to choose a flavor" mean nothing. Resolve does not invent a part.
-- "something to pick a date" on Material means Date picker, because that is what the part is for.
+- "something to pick a date" means Date picker when the library has one, because that is what the part is for.
 
 If two parts tie, the older word score breaks the tie. A one-letter typo still finds the part. A lead is weak only when part of the ask names a different part.
 
-`meaning/` is a generated copy of each component's own name, properties, and description. In every copy, `Aliases:` lines come from the repo's synonym list (`src/data/synonyms.json`), not from the library or its docs. The Angular Material copy (library id `angular-material`) also includes one published sentence from that component's page on [material.angular.dev](https://material.angular.dev/), the page URL, `© Google LLC. Licensed under CC BY 4.0.`, and the licence at <https://creativecommons.org/licenses/by/4.0/>. Acme copies add no other text the pack does not already contain. A `Thin:` line means the description is missing. Rebuild with `node scripts/build-meaning-sock.mjs meaning`. `recommend` and `brief` keep using the dictionary above.
+`meaning/` is a generated copy of each component's own name, properties, and description. In every copy, `Aliases:` lines come from the repo's synonym list (`src/data/synonyms.json`), not from the library or its docs. The internal reference library's copy also includes one published sentence from each component's public docs page, with the page URL and that page's CC BY 4.0 attribution and licence link kept in the file. Acme copies add no other text the pack does not already contain. A `Thin:` line means the description is missing. Rebuild with `node scripts/build-meaning-sock.mjs meaning`. `recommend` and `brief` keep using the dictionary above.
 
 ## Quick start
 
@@ -220,12 +191,12 @@ The output lines are shortened from real runs on the Acme example library.
 | `/check <link>` | Pass, or the retired, wrong and unknown parts plus proper-use problems. |
 | `/parts <link>` | Each component on the screen and its mapped code twin. Unmapped means stop and ask. |
 | `/handoff <link>` | A developer build sheet for the screen. Mapped code twins only. |
-| `/code-map scan\|suggest\|review` | Read an Angular package, propose code pairs, then confirm them. |
+| `/code-map scan\|suggest\|review` | Read a component package, propose code pairs, then confirm them. |
 | `/resolve-status` | What is learned, whether the token and rule are set, and what to do next. |
 
 ## Code map
 
-The code map is the list of which Figma part is which code part. Resolve can read an Acme Angular package and suggest pairs from the names and from Figma properties to inputs. A suggestion is not the truth. Someone confirms it. Only a confirmed pair shows on `/parts` and `/handoff`. If a part has no confirmed pair, stop and ask.
+The code map is the list of which Figma part is which code part. Resolve can read a component package, such as the made-up Acme one, and suggest pairs from the names and from Figma properties to inputs. A suggestion is not the truth. Someone confirms it. Only a confirmed pair shows on `/parts` and `/handoff`. If a part has no confirmed pair, stop and ask.
 
 | Figma | Code | What you do |
 | --- | --- | --- |
@@ -266,16 +237,17 @@ Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.gra
 
 Newest first. The full list is in the [reference](docs/REFERENCE.md#version-history).
 
+- **Oct 23, 2026.** Docs: universal wording. Resolve works with any design system and any code stack. Public docs use the made-up Acme library or generic names; testing docs say "an internal reference library". No code, ranking or test change.
 - **Oct 23, 2026.** License changed from MIT to use only: install and use Resolve unchanged in your AI tools; no changes, copies or redistribution without written permission.
-- **Oct 20, 2026 — [PR #70](https://github.com/TANISHQBAFNA/resolve/pull/70).** Decision records: every brief, compose and handoff can say what was asked, which parts were picked and why, and what was rejected, as JSON + Markdown. `handoff --out` always writes `decision.json` + `decision.md` (`--no-record` skips); `brief` and `recipe --compose` take `--record <dir>`; MCP `record: true` (advanced). New opt-in AIDLC hook: `resolve export aidlc <handoff folder>` gives the `resolve.aidlc` schemaVersion 1 contract (requirements context in, design handoff out), with a JSON Schema and an Acme + Angular sample ([docs/AIDLC.md](docs/AIDLC.md)). Round 1 fixes: the contract uses enums (match, source, identity, status, codeStatus, matchedBy, answers) with a values table in docs/AIDLC.md; export checks decision.json (version, kind, screens) and refuses any pick that is not a part in handoff.json; decision_record reads only stored records or decision*.json and lists them with no ref; `resolve decisions` lists records; --record needs --force to replace; record names are unique. Round 2: export refuses a record whose picks differ from what handoff.json gives (ids, match, why), or that repeats or drops a pick; export --out and handoff --out errors are plain sentences, and ok:false JSON with --json. Default MCP tools still 8; advanced 20. Phrase score unchanged.
-- **Oct 20, 2026 — [PR #68](https://github.com/TANISHQBAFNA/resolve/pull/68).** Angular Material 22.2.3 is the real public example: a Material 3 fixture from the public spec, a code-map scan of the published package (precision 1, recall 32/40, 0 wrong confirmed links), and a separate phrase board (top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0). Matching is general: a describing tail ("slider for volume"), plurals, and a one-letter slip on any name word keep the match. The part named before "to", "for", or "with" wins. A fresh set scores 30/33. The sample phrase board rose to top-1 84/88, top-3 86/88.
+- **Oct 20, 2026 — [PR #70](https://github.com/TANISHQBAFNA/resolve/pull/70).** Decision records: every brief, compose and handoff can say what was asked, which parts were picked and why, and what was rejected, as JSON + Markdown. `handoff --out` always writes `decision.json` + `decision.md` (`--no-record` skips); `brief` and `recipe --compose` take `--record <dir>`; MCP `record: true` (advanced). New opt-in AIDLC hook: `resolve export aidlc <handoff folder>` gives the `resolve.aidlc` schemaVersion 1 contract (requirements context in, design handoff out), with a JSON Schema and an Acme sample ([docs/AIDLC.md](docs/AIDLC.md)). Round 1 fixes: the contract uses enums (match, source, identity, status, codeStatus, matchedBy, answers) with a values table in docs/AIDLC.md; export checks decision.json (version, kind, screens) and refuses any pick that is not a part in handoff.json; decision_record reads only stored records or decision*.json and lists them with no ref; `resolve decisions` lists records; --record needs --force to replace; record names are unique. Round 2: export refuses a record whose picks differ from what handoff.json gives (ids, match, why), or that repeats or drops a pick; export --out and handoff --out errors are plain sentences, and ok:false JSON with --json. Default MCP tools still 8; advanced 20. Phrase score unchanged.
+- **Oct 20, 2026 — [PR #68](https://github.com/TANISHQBAFNA/resolve/pull/68).** An internal reference library joins the tests: a library built from a public spec, a code-map scan of its published package (precision 1, recall 32/40, 0 wrong confirmed links), and a separate phrase board (top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0). Matching is general: a describing tail ("slider for volume"), plurals, and a one-letter slip on any name word keep the match. The part named before "to", "for", or "with" wins. A fresh set scores 30/33. The sample phrase board rose to top-1 84/88, top-3 86/88.
 - **Oct 20, 2026 — [PR #59](https://github.com/TANISHQBAFNA/resolve/pull/59).** The default tap target is 24×24, which is the WCAG 2.2 AA size. 44×44 is still available with `--a11y wcag-aaa`. Commit 843ec2e changed the Acme Misused fixture: Button 80:41 went from 30×30 to 20×20, so that control still fails the 24×24 bar.
 - **Oct 20, 2026 — [PR #59](https://github.com/TANISHQBAFNA/resolve/pull/59).** Icon search still finds the icon. A plain name such as "button" beats a bar that only contains buttons, even when several libraries are learned. "primary button", "main action button", and "primary CTA" pick Acme DS Button, and the sign-in button slot fills with it. "info icon" picks the info icon. "Navigation bar" no longer picks an action or progress bar, and a one-letter typo works on any part name. On a pass the check line is `PASS · Components: PASS · Proper use: PASS`. A proper-use failure starts `FAIL: proper use … · components pass`. Phrase score rose from 83 of 88 first picks to 85, and from 85 of 88 in the top 3 to 87. Empty answers stay 30 of 30. Nothing is invented. The golden set stays 75.
 - **Oct 20, 2026 — [PR #69](https://github.com/TANISHQBAFNA/resolve/pull/69).** When no saved recipe fits, `recipe --compose` (MCP `compose: true`, advanced only) builds one from the parts you name, each filled by `recommend`. It never invents a part; a part with no fit says No match. Fewer than 2 fitting parts is not a recipe. Nothing is saved until a person approves the `--propose` proposal. Fresh set: held-out slot precision 28/31, recall 28/32, invented 0. Round 1: a part whose last word does not match is marked weak, not a fit; parts after place words are kept and every no-fit part is listed; a saved recipe with the same title or parts is named as a warning and not proposed; the proposal id includes the parts and a decided proposal is refused; approve refuses private parts, variants, non-components, empty or duplicate recipes; empty input is an error. Held-out unchanged: precision 28/31, recall 28/32. Round 2: `brief` offers to compose when no saved recipe fits and two or more parts are named (offer only); briefing answers fill composed slots with their real parts; container words (list, group, set) are not the part word, so a radio list fits Radio. Round 3: a part fits only when every main word is in its name, a variant name or a synonym, otherwise weak, check; approve needs 2 or more parts; on/in phrases are context, not parts; a set of X takes X; brief says savedRecipe when compose would warn. Held-out 27/30 precision, 27/32 recall, invented 0. Round 4: words after on/in/inside are a part when they fit a library part (a row inside a modal), else context; device, theme and density words stay context; all-weak results say weak, not No match. Round 5: on/in words are a part only when they hold a full part name or one word names exactly one part, else context; density words (compact, dense) before a part do not make it weak. Round 6: a single on/in word is a part only when it is the whole name of one part (Modal, Tabs); a word that is only part of a longer name stays context. Default MCP tools unchanged. Phrase score unchanged.
 - **Oct 20, 2026 — [PR #67](https://github.com/TANISHQBAFNA/resolve/pull/67).** Before picking parts for a screen, Resolve asks at most 3 multiple-choice questions, and only when the request fits and the answer would change the component. No screen-type question. States can take more than one answer. No match asks nothing and invents nothing. Answers change the handoff parts. Round 2: the fit check uses recommend's own ranking, so plurals and close phrasing fit. A nav with no platform asks desktop or mobile. States are asked for any real part, except a nav, when the request names none. A fresh 41-request held-out set: question recall 10/12, question precision 10/15, 0.41 questions per request (max 2), part recall 28/30, part precision 1. Round 3: a request that names a part plus a context ("summary cards for the order") is not asked states. A state option is offered only when it adds a part the request does not already have. A list ask with no shape named asks one question: list or table. Held-out set now 49 requests: question recall 7/9, precision 7/8, 0.16 questions per request (max 1), part recall 36/38. Round 4: the list-or-table question is asked only when recommend finds a part from the request's other words; "all", "every" or "list of" with an off-topic or misspelt noun says No match and asks nothing. Held-out (54): question recall 4/6, precision 4/5, 0.09 questions per request. Phrase score unchanged.
 - **Oct 20, 2026 — [PR #65](https://github.com/TANISHQBAFNA/resolve/pull/65).** New README pictures: real screens instead of boxes, two short animations that play once, a full code map and new icons. Text in the pictures shows at 22px or more on GitHub. A "From design to code" section comes before Install.
 - **Oct 20, 2026 — [PR #64](https://github.com/TANISHQBAFNA/resolve/pull/64).** The README pictures, logo and badge use a brighter teal. In light mode, words are near-black and the teal is in fills, chips and underlines. PASS stays green.
-- **Oct 20, 2026 — [PR #63](https://github.com/TANISHQBAFNA/resolve/pull/63).** `resolve code-map scan` reads a made-up Acme Angular package. `suggest` proposes Figma-to-code pairs and never treats them as truth. `review` confirms them through the CSV. Only a mapped pair shows on `/parts` and `/handoff`. An unmapped part means stop and ask. On the Acme edge fixture, suggested pairs score precision 1 and recall 43/49, and partial pairs score precision 5/6 and recall 5/49. Accepting every suggestion makes 0 wrong mapped links. Phrase score unchanged: top-1 83/88, top-3 85/88. 928 tests.
+- **Oct 20, 2026 — [PR #63](https://github.com/TANISHQBAFNA/resolve/pull/63).** `resolve code-map scan` reads a made-up Acme component package. `suggest` proposes Figma-to-code pairs and never treats them as truth. `review` confirms them through the CSV. Only a mapped pair shows on `/parts` and `/handoff`. An unmapped part means stop and ask. On the Acme edge fixture, suggested pairs score precision 1 and recall 43/49, and partial pairs score precision 5/6 and recall 5/49. Accepting every suggestion makes 0 wrong mapped links. Phrase score unchanged: top-1 83/88, top-3 85/88. 928 tests.
 - **Oct 20, 2026 — [PR #61](https://github.com/TANISHQBAFNA/resolve/pull/61).** A failed check now says `pass: false` in JSON, including when proper use fails. Status still prints local time with a zone name, and the tests accept that. Tests stop with one clear message on Node older than 22.12. CI fails if the phrase score drops below 83 of 88 first picks or 85 of 88 in the top 3. CI runs on Node 22 and 24, in UTC and India time, and the browser checks include Firefox.
 - **Oct 20, 2026 — [PR #62](https://github.com/TANISHQBAFNA/resolve/pull/62).** The README pictures, logo and badge changed from purple to teal. PASS stays green.
 - **Oct 19, 2026 — [PR #60](https://github.com/TANISHQBAFNA/resolve/pull/60).** This visual README. The full manual moved to `docs/REFERENCE.md`.

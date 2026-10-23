@@ -80,7 +80,7 @@ What the screen was asked for, as given. Nothing is filled in by guess.
 
 ## Sample
 
-[`fixtures/aidlc/acme-sample.json`](../fixtures/aidlc/acme-sample.json): the Acme `Confirm payment` screen with the Acme Angular code map. A test rebuilds it and checks it is the same and passes the schema.
+[`fixtures/aidlc/acme-sample.json`](../fixtures/aidlc/acme-sample.json): the Acme `Confirm payment` screen with the Acme example code map. A test rebuilds it and checks it is the same and passes the schema.
 
 ## Not in version 1
 
