@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { packFromFiles, validateAiPick, type PickRequest } from "../core/query/meaning/sock";
+import { aiPicksEnabled } from "./pluginSettings";
 
 /**
  * The slash commands (commands/*.md in the package) as MCP prompts. Same text the setup command installs for
@@ -28,12 +30,96 @@ export interface PickCommandIo {
   exitCode: (code: number) => void;
 }
 
+const PICK_OFF = "AI picks is off. Use recommend.\n";
+
+function folderFor(library: string): string {
+  const key = library.trim().toLowerCase();
+  if (key === "angular material" || key === "material") return "material";
+  if (key === "acme ui" || key === "acme-small") return "acme-small";
+  if (key === "acme") return "acme";
+  return key.replace(/\s+/g, "-");
+}
+
+function asRequest(raw: unknown): PickRequest | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const row = raw as Record<string, unknown>;
+  if (typeof row["library"] !== "string" || typeof row["ask"] !== "string" || !Array.isArray(row["shortlist"]) || typeof row["tier"] !== "string") return undefined;
+  const shortlist = row["shortlist"].filter((item): item is string => typeof item === "string");
+  const propsRaw = row["props"];
+  const props: Record<string, string> = {};
+  if (propsRaw && typeof propsRaw === "object" && !Array.isArray(propsRaw)) {
+    for (const [key, value] of Object.entries(propsRaw)) if (typeof value === "string") props[key] = value;
+  }
+  return {
+    library: row["library"],
+    ask: row["ask"],
+    shortlist,
+    ...(typeof row["pick"] === "string" ? { pick: row["pick"] } : {}),
+    ...(Object.keys(props).length ? { props } : {}),
+    ...(typeof row["reason"] === "string" ? { reason: row["reason"] } : {}),
+    tier: row["tier"],
+  };
+}
+
+function readMeaningPack(library: string) {
+  const dir = join(process.cwd(), "meaning", folderFor(library));
+  const indexPath = join(dir, "index.md");
+  if (!existsSync(indexPath)) return undefined;
+  const index = readFileSync(indexPath, "utf8");
+  const builtAt = /^built:\s*(.+)$/m.exec(index)?.[1]?.trim() ?? "";
+  const title = /^#\s+(.+)$/m.exec(index)?.[1]?.trim() ?? library;
+  const files = new Map<string, string>();
+  for (const name of readdirSync(dir)) {
+    if (!name.endsWith(".md") || name === "index.md") continue;
+    files.set(name.slice(0, -3), readFileSync(join(dir, name), "utf8"));
+  }
+  return packFromFiles(title, builtAt, files);
+}
+
 /** `resolve pick`. Switch off exits and points at recommend. Does not add an MCP tool. */
 export function runPickCommand(args: readonly string[], env: NodeJS.ProcessEnv = process.env, io?: PickCommandIo): void {
-  void args;
-  void env;
-  void io;
-  throw new Error("not implemented");
+  const stdout = io?.stdout ?? ((text: string) => process.stdout.write(text));
+  const exitCode = io?.exitCode ?? ((code: number) => {
+    process.exitCode = code;
+  });
+  if (!aiPicksEnabled(env)) {
+    stdout(PICK_OFF);
+    exitCode(1);
+    return;
+  }
+  const source = args.find((arg) => !arg.startsWith("--"));
+  if (!source) {
+    stdout("Usage: resolve pick <request.json>\n");
+    exitCode(1);
+    return;
+  }
+  let text = source;
+  if (existsSync(source)) text = readFileSync(source, "utf8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text) as unknown;
+  } catch {
+    stdout("The pick request is not valid JSON.\n");
+    exitCode(1);
+    return;
+  }
+  const req = asRequest(parsed);
+  if (!req) {
+    stdout("The pick request needs library, ask, shortlist, and tier.\n");
+    exitCode(1);
+    return;
+  }
+  const pack = readMeaningPack(req.library);
+  if (!pack) {
+    stdout(`No meaning files for ${req.library}.\n`);
+    exitCode(1);
+    return;
+  }
+  const builtFlag = args.findIndex((arg) => arg === "--library-built-at");
+  const libraryBuiltAt = builtFlag >= 0 ? args[builtFlag + 1] : undefined;
+  const result = validateAiPick(pack, req, libraryBuiltAt);
+  stdout(`${JSON.stringify(result)}\n`);
+  exitCode(result.failed.length ? 1 : 0);
 }
 
 export function loadCommands(): CommandPrompt[] {

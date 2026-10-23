@@ -4,7 +4,7 @@
  *
  * Fails on empty files, garbage files, missing index lines, orphaned files,
  * files out of sync with scripts/build-meaning-sock.mjs, a component file over
- * 4 KB, an index line over 200 characters, a link that does not resolve, a link
+ * 4 KB, an index line over 150 characters, a link that does not resolve, a link
  * chain deeper than 2 hops from the index, a context pack over 6k tokens, or
  * the same 4-line block copied into two files.
  */
@@ -98,7 +98,7 @@ export function checkCommitted(root) {
       const linked = lines.filter((line) => /^- \[[^\]]+\]\([^)]+\.md\)/.test(line));
       if (!linked.length) fail(`missing index lines in ${base}`);
       for (const line of lines) {
-        if (line.length > 200) fail(`index line is ${line.length} characters in ${base}`);
+        if (line.length > 150) fail(`index line is ${line.length} characters in ${base}`);
       }
       checkHops(file, fail);
       continue;
@@ -149,6 +149,15 @@ export function checkCommitted(root) {
     const tokens = Math.ceil(readFileSync(packPath, "utf8").length / 4);
     if (tokens > 6000) fail(`context pack is ${tokens} tokens`);
   }
+
+  let largest = 0;
+  for (const entries of byDir.values()) {
+    if (!entries.some((file) => basename(file) === "index.md")) continue;
+    let chars = 0;
+    for (const file of entries) if (file.endsWith(".md")) chars += readFileSync(file, "utf8").length;
+    largest = Math.max(largest, Math.ceil(chars / 4));
+  }
+  if (largest > 6000) fail(`largest library is ${largest} tokens`);
   return errors;
 }
 

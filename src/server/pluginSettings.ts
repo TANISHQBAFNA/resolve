@@ -30,8 +30,7 @@ function firstSet(env: NodeJS.ProcessEnv, keys: readonly string[]): string | und
 
 /** On only when the plugin env is exactly RESOLVE_AI_PICKS=1. Off by default. */
 export function aiPicksEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  void env;
-  throw new Error("not implemented");
+  return env["RESOLVE_AI_PICKS"] === "1";
 }
 
 export function readPluginSettings(env: NodeJS.ProcessEnv = process.env): {

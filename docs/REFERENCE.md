@@ -504,6 +504,7 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `recipe [list \| "<name>"]` | Screen packs: the list of components a screen of that kind usually needs. |
 | `brief "<screen request>"` | Asks at most 3 multiple-choice questions before a screen is picked, and only when the request fits and the answer would change the component. States can take more than one answer. Nothing that fits says "No match." `--answer shape=table` (topics: shape, states, platform). |
 | `recommend "<intent>"` | Ranked library components for a plain-words ask. `--answer <topic>=<option>` uses a briefing answer. |
+| `pick <request.json>` | Checks one AI pick. Off unless `RESOLVE_AI_PICKS=1`. When off, it says to use `recommend`. |
 | `example "<name>"` | The real, filled-in instance behind a pick, to copy. |
 | `resolve "<name>"` | "I know the name, give me the id." |
 | `verify "<frame>"` | Pass/fail check of a drawn frame or a list of components. |
@@ -587,6 +588,10 @@ npm run resolve -- recommend "payee picker"
 ```
 
 The name or words in the ask come first (exact name, word match, synonym). Screen and usage only break ties. The structured card is at most 600 characters (`cost.chars` is that card without the `cost` field itself; the CLI still prints `cost`). The MCP tool sends Markdown instead, which is shorter and leaves out `cost`, the rank `score`, a duplicate `node:` id, and the "Do not Read graph.json" sentence. Pass `format` `json` for the same card as one compact JSON line. See [What the AI receives](#what-the-ai-receives). The `code` line appears only when your team filed a code map, the top pick is mapped, it is a good match and not retired, and the line fits in 600 characters without dropping a candidate; otherwise it is left out without a message. Nothing matches? You get an empty list and "No master matched. Do not invent." (When a code map exists and the only match is retired, the hint says `Only match is retired: <Name>. Use <replacement or none>.` instead.) A loose match carries "Weak match." and up to three parts instead of one confident guess. Options: `--budget <chars>`, `--pack`, `--product`, `--journey`, `--domain`, `--audience`, `--a11y`, `--screen-type`. `--a11y AA` is stored as `wcag-aa`. `--pack` is optional. A pack is used only when its product matches exactly, and its journey matches when you also pass one. An unknown pack name, or a pack for a different product than `--product`, is a plain warning and the document fields are what the card shows. Audience, a11y, and density are shown and do not change the pick.
+
+#### pick
+
+Off unless `RESOLVE_AI_PICKS=1`. The handler is `runPickCommand`. The request is JSON with `library`, `ask`, `shortlist`, `pick`, `props`, `reason`, and `tier` (`place`, `ask`, or `no-fit`). A reason has to quote the component name, its description, its guidelines, or a prop name or value. Text that appears only on an `Aliases:` line is rejected. A failed check comes back as no fit, with the check named. A thin component is capped at ask. The result lists every thin component and the field it is missing, and warns when the library is newer than the meaning files (`--library-built-at`).
 
 #### example
 

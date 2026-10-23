@@ -1,4 +1,4 @@
 # Acme / Radio
 Radio
-Thin: Acme radio missing description, doc
+Thin: Acme radio missing description, guidelines
 [radio](index.md)
