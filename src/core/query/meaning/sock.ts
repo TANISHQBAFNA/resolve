@@ -46,7 +46,6 @@ export interface MeaningCandidate {
   score: number;
 }
 
-/** place = sure. ask = one question or the top 3. no-fit = nothing shown. */
 export type PickTier = "place" | "ask" | "no-fit";
 
 export interface PickRequest {
@@ -56,7 +55,6 @@ export interface PickRequest {
   pick?: string;
   props?: Record<string, string>;
   reason?: string;
-  /** External JSON. A value outside PickTier fails the tier check. */
   tier: string;
 }
 
@@ -314,10 +312,6 @@ function pickResult(tier: PickTier, failed: PickCheck[], thin: ThinEntry[], stal
   };
 }
 
-/**
- * Pure check of one AI pick against a meaning pack.
- * libraryBuiltAt is compared to pack.builtAt. No file or network IO.
- */
 export function validateAiPick(pack: MeaningPack, req: PickRequest, libraryBuiltAt?: string): PickResult {
   const thin = thinEntries(pack);
   const stale = libraryBuiltAt === undefined ? undefined : staleWarning(libraryBuiltAt, pack.builtAt);
@@ -347,7 +341,6 @@ function proseLines(markdown: string): string[] {
   });
 }
 
-/** Build one pack entry from a generated component file. Aliases stay on the entry and out of the quote corpus. */
 export function componentFromMarkdown(id: string, markdown: string): SockComponent {
   const title = markdown.split("\n").find((line) => line.startsWith("# ")) ?? "";
   const name = title.includes(" / ") ? title.slice(title.lastIndexOf(" / ") + 3).trim() : id;

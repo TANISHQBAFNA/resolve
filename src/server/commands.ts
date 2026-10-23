@@ -76,7 +76,6 @@ function readMeaningPack(library: string) {
   return packFromFiles(title, builtAt, files);
 }
 
-/** `resolve pick`. Switch off exits and points at recommend. Does not add an MCP tool. */
 export function runPickCommand(args: readonly string[], env: NodeJS.ProcessEnv = process.env, io?: PickCommandIo): void {
   const stdout = io?.stdout ?? ((text: string) => process.stdout.write(text));
   const exitCode = io?.exitCode ?? ((code: number) => {

@@ -1,13 +1,3 @@
-/**
- * Meaning SOCK file checks. Runs on the committed tree, then diffs a fresh generate.
- *   node scripts/check-meaning-sock.mjs <dir>
- *
- * Fails on empty files, garbage files, missing index lines, orphaned files,
- * files out of sync with scripts/build-meaning-sock.mjs, a component file over
- * 4 KB, an index line over 150 characters, a link that does not resolve, a link
- * chain deeper than 2 hops from the index, a context pack over 6k tokens, or
- * the same 4-line block copied into two files.
- */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";

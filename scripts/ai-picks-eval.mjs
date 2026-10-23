@@ -1,11 +1,3 @@
-/**
- * Offline AI-picks eval. Not part of the unit job.
- *   node scripts/ai-picks-eval.mjs prepare --cases <file> --out <dir>
- *   node scripts/ai-picks-eval.mjs score --cases <file> --runs <jsonl>
- *
- * The cases file may be the public frozen set or a private holdout. This script
- * does not call a model and does not take an API key.
- */
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
