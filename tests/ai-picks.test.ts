@@ -55,9 +55,6 @@ describe("AI picks switch", () => {
     expect(aiPicksEnabled({ RESOLVE_AI_PICKS: "0" })).toBe(false);
     expect(aiPicksEnabled({ RESOLVE_AI_PICKS: "true" })).toBe(false);
     expect(aiPicksEnabled({ RESOLVE_AI_PICKS: "1" })).toBe(true);
-    expect(aiPicksEnabled({ RESOLVE_PLUGIN_SETTINGS: JSON.stringify({ RESOLVE_AI_PICKS: "1" }) })).toBe(true);
-    expect(aiPicksEnabled({ RESOLVE_AI_PICKS: "0", RESOLVE_PLUGIN_SETTINGS: JSON.stringify({ RESOLVE_AI_PICKS: "1" }) })).toBe(false);
-    expect(aiPicksEnabled({ RESOLVE_AI_PICKS: "1", RESOLVE_PLUGIN_SETTINGS: JSON.stringify({ RESOLVE_AI_PICKS: "0" }) })).toBe(true);
   });
 
   it("keeps recommend byte-identical to main when the switch is off", () => {
@@ -182,6 +179,45 @@ describe("validateAiPick", () => {
     expect(outside.failed).toContain("shortlist");
     const empty = validateAiPick(pack, ask(pack, { pick: "button", shortlist: [], tier: "place" }));
     expect(empty.failed).toContain("shortlist");
+    const duplicated = validateAiPick(pack, ask(pack, { pick: "button", shortlist: ["button", "button", "button"], reason: material.split("\n").find((line) => line.startsWith("Angular Material buttons")), tier: "place" }));
+    expect(duplicated.failed).toContain("shortlist");
+  });
+
+  it("accepts a whole short line, a name with no description, and an exact property, and rejects the rest", () => {
+    const sidenav = packOf("sidenav", readFileSync("meaning/material/sidenav.md", "utf8"), "Library");
+    const drawer = validateAiPick(sidenav, ask(sidenav, { pick: "sidenav", shortlist: ["sidenav"], reason: "Navigation drawer.", tier: "place" }));
+    expect(drawer.tier).toBe("place");
+    expect(drawer.failed).toEqual([]);
+    expect(drawer.nameOnly).toBeUndefined();
+    const table = packOf("table", readFileSync("meaning/material/table.md", "utf8"), "Library");
+    const data = validateAiPick(table, ask(table, { pick: "table", shortlist: ["table"], reason: "Data table.", tier: "place" }));
+    expect(data.tier).toBe("ask");
+    expect(data.failed).toContain("thin-cap");
+    const tabs = packOf("tabs", readFileSync("meaning/material/tabs.md", "utf8"), "Library");
+    const named = validateAiPick(tabs, ask(tabs, { pick: "tabs", shortlist: ["tabs"], reason: "Tabs.", tier: "place" }));
+    expect(named.failed).toContain("quote");
+    const sw = packOf("switch", readFileSync("meaning/acme/switch.md", "utf8"), "Acme");
+    const only = validateAiPick(sw, ask(sw, { pick: "switch", shortlist: ["switch"], reason: "Switch", tier: "place" }));
+    expect(only.tier).toBe("ask");
+    expect(only.nameOnly).toBe(true);
+    expect(only.failed).toContain("thin-cap");
+    const alias = validateAiPick(sw, ask(sw, { pick: "switch", shortlist: ["switch"], reason: "toggle", tier: "ask" }));
+    expect(alias.failed).toContain("alias-quote");
+    const acmeButton = packOf("button", readFileSync("meaning/acme/button.md", "utf8"), "Acme");
+    for (const reason of ["buttonstyledanger", "primary styled buttons everywhere", "Button Style Purple", "Button Size Large"]) {
+      const result = validateAiPick(acmeButton, ask(acmeButton, { pick: "button", reason, tier: "ask" }));
+      expect(result.failed, reason).toContain("quote");
+    }
+    const crossed = `# Acme / Note\nA button. Single or grouped controls.\n`;
+    const crossPack = packOf("note", crossed, "Acme");
+    expect(validateAiPick(crossPack, ask(crossPack, { pick: "note", shortlist: ["note"], reason: "button. Single or", tier: "place" })).failed).toContain("quote");
+    expect(validateAiPick(crossPack, ask(crossPack, { pick: "note", shortlist: ["note"], reason: "Single or grouped controls.", tier: "place" })).tier).toBe("place");
+    const generic = `# Acme / Note\nThe control is displayed when the form is open.\nSee https://example.com/controls for placement.\n`;
+    const genericPack = packOf("note", generic, "Acme");
+    expect(validateAiPick(genericPack, ask(genericPack, { pick: "note", shortlist: ["note"], reason: "is displayed when", tier: "place" })).failed).toContain("quote");
+    expect(validateAiPick(genericPack, ask(genericPack, { pick: "note", shortlist: ["note"], reason: "https://example.com/controls", tier: "place" })).failed).toContain("quote");
+    expect(validateAiPick(genericPack, ask(genericPack, { pick: "note", shortlist: ["note"], reason: "example.com/controls", tier: "place" })).failed).toContain("quote");
+    expect(validateAiPick(genericPack, ask(genericPack, { pick: "note", shortlist: ["note"], reason: "when the form is open", tier: "place" })).tier).toBe("place");
   });
 
   it("treats a deprecated description as retired, and a status line as retired", () => {
@@ -343,6 +379,23 @@ describe("resolve pick command", () => {
       }));
       await runCli(["pick", request]);
       expect(chunks.join("")).toContain("needs a repo checkout for now");
+      chunks.length = 0;
+      writeFileSync(request, JSON.stringify({
+        library: "acme",
+        ask: "a button",
+        shortlist: ["button"],
+        pick: "button",
+        reason: "Button Style Primary",
+        tier: "place",
+      }));
+      await runCli(["pick", "--library-built-at", "2026-02-01T00:00:00.000Z", request]);
+      const datedFirst = JSON.parse(chunks.join("")) as { stale?: string; tier: string };
+      expect(datedFirst.tier).toBe("ask");
+      expect(datedFirst.stale).toMatch(/older than the library/);
+      chunks.length = 0;
+      await runCli(["pick", request, "--library-built-at", "2026-02-01T00:00:00.000Z"]);
+      const fileFirst = JSON.parse(chunks.join("")) as { stale?: string };
+      expect(fileFirst.stale).toMatch(/older than the library/);
     } finally {
       process.stdout.write = write;
       if (previous === undefined) delete process.env["RESOLVE_AI_PICKS"];
@@ -350,6 +403,23 @@ describe("resolve pick command", () => {
       process.exitCode = previousCode;
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("resolve CLI errors", () => {
+  it("hides the store path when check runs on an empty home", () => {
+    const cli = join(process.cwd(), "dist-server/cli.mjs");
+    const home = mkdtempSync(join(tmpdir(), "resolve-empty-"));
+    const result = spawnSync(process.execPath, [cli, "check", "missing-frame"], {
+      encoding: "utf8",
+      env: { ...process.env, RESOLVE_HOME: home },
+    });
+    const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+    expect(result.status).not.toBe(0);
+    expect(output).toContain("Resolve has not learned a design system yet");
+    expect(output).not.toContain("RESOLVE_HOME");
+    expect(output).not.toContain("graph.json");
+    rmSync(home, { recursive: true, force: true });
   });
 });
 

@@ -92,7 +92,11 @@ export function runPickCommand(args: readonly string[], env: NodeJS.ProcessEnv =
     exitCode(0);
     return;
   }
-  const source = args.find((arg) => !arg.startsWith("--"));
+  const skip = new Set<number>();
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] === "--library-built-at") skip.add(index + 1);
+  }
+  const source = args.find((arg, index) => !skip.has(index) && !arg.startsWith("--"));
   if (!source) {
     stdout("Usage: resolve pick <request.json>\n");
     exitCode(1);

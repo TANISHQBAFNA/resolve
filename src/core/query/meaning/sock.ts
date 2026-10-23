@@ -75,6 +75,7 @@ export interface PickResult {
   failed: PickCheck[];
   thin: ThinEntry[];
   stale?: string;
+  nameOnly?: boolean;
 }
 
 export { componentFromMarkdown, packFromFiles, validateAiPick } from "./sockPick";

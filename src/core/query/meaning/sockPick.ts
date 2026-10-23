@@ -26,40 +26,69 @@ function textRetired(component: SockComponent): boolean {
   return RETIRED_TEXT.test(`${component.description}\n${component.job}`);
 }
 
-function noDescription(component: SockComponent): boolean {
-  return component.thin.includes("description") || component.description.trim().length < 12;
+const STOP = new Set(["a", "an", "the", "and", "or", "of", "to", "for", "with", "in", "on", "by", "from", "is", "are", "was", "be", "as", "at", "it", "its", "this", "that", "when", "used", "displayed", "into", "over", "than", "then", "not"]);
+
+function bare(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function namePlusProp(component: SockComponent, quote: string): boolean {
-  const name = normQuote(component.name);
-  if (!name || !quote.includes(name)) return false;
-  for (const [key, values] of Object.entries(component.propOptions)) {
-    const prop = normQuote(key);
-    if (!prop || !quote.includes(prop)) continue;
-    if (values.some((value) => quote.includes(normQuote(value)))) return true;
-  }
-  return false;
+function contentWord(quote: string): boolean {
+  return quote.split(" ").some((word) => {
+    const token = word.replace(/[^a-z0-9]/g, "");
+    return token.length > 0 && !STOP.has(token);
+  });
 }
 
-function sourceLines(component: SockComponent): string[] {
-  const lines = component.quoteLines?.length ? [...component.quoteLines] : [component.description, component.job];
-  for (const [key, values] of Object.entries(component.propOptions)) {
-    for (const value of values) lines.push(`${key} ${value}`);
-  }
-  return lines.filter(Boolean);
+function textLines(component: SockComponent): string[] {
+  const lines = component.quoteLines?.length ? component.quoteLines : [component.description, component.job].filter(Boolean);
+  return lines.flatMap((line) => line.split(/\r?\n/)).map((line) => line.trim()).filter(Boolean);
 }
 
-function quoteCheck(component: SockComponent, reason: string | undefined): "quote" | "alias-quote" | undefined {
-  if (!reason || /[\r\n]/.test(reason)) return "quote";
+function hasRealDescription(component: SockComponent): boolean {
+  const name = bare(component.name);
+  return textLines(component).some((line) => bare(line) !== name);
+}
+
+function hasProperties(component: SockComponent): boolean {
+  return Object.keys(component.propOptions).length > 0;
+}
+
+function aliasHit(component: SockComponent, quote: string): boolean {
+  const key = bare(quote);
+  return component.aliases.some((name) => bare(name) === key);
+}
+
+function hasLink(text: string): boolean {
+  return /https?:|www\.|\]\(/.test(text);
+}
+
+function visible(text: string): string {
+  return text.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/https?:\/\/\S+/gi, " ").replace(/\bwww\.\S+/gi, " ");
+}
+
+function quoteCheck(component: SockComponent, reason: string | undefined): { fail?: "quote" | "alias-quote"; nameOnly?: boolean } {
+  if (!reason || /[\r\n]/.test(reason) || hasLink(reason)) return { fail: "quote" };
   const quote = normQuote(reason);
-  if (!quote) return "quote";
-  if (component.aliases.some((name) => normQuote(name) === quote)) return "alias-quote";
-  if (noDescription(component) && namePlusProp(component, quote)) return undefined;
-  if (wordCount(quote) < 3 || quote.length < 12) return "quote";
-  const owned = sourceLines(component).map((line) => normQuote(line.split(/[\r\n]/)[0] ?? ""));
-  if (owned.some((line) => line.includes(quote))) return undefined;
-  if (component.aliases.some((name) => normQuote(name).includes(quote))) return "alias-quote";
-  return "quote";
+  if (!quote) return { fail: "quote" };
+  const name = normQuote(component.name);
+  if (quote === name && !hasRealDescription(component) && !hasProperties(component)) return { nameOnly: true };
+  if (aliasHit(component, quote)) return { fail: "alias-quote" };
+  const nameTokens = component.name.trim().split(/\s+/);
+  const tokens = reason.trim().split(/\s+/);
+  if (tokens.length === nameTokens.length + 2 && normQuote(tokens.slice(0, nameTokens.length).join(" ")) === name) {
+    const prop = tokens[nameTokens.length] ?? "";
+    const value = tokens[nameTokens.length + 1] ?? "";
+    const values = component.propOptions[prop.toLowerCase()];
+    if (values?.some((item) => item.toLowerCase() === value.toLowerCase())) return {};
+  }
+  for (const line of textLines(component)) {
+    if (!hasLink(line) && normQuote(line) === quote && bare(line) !== bare(component.name) && !aliasHit(component, line) && contentWord(quote)) return {};
+    if (wordCount(quote) < 3 || quote.length < 12 || !contentWord(quote)) continue;
+    for (const sentence of visible(line).split(/(?<=[.!?])\s+/)) {
+      if (normQuote(sentence).includes(quote)) return {};
+    }
+  }
+  return { fail: "quote" };
 }
 
 function propsFail(component: SockComponent, props: Record<string, string>): boolean {
@@ -72,7 +101,7 @@ function propsFail(component: SockComponent, props: Record<string, string>): boo
 
 function shortlistFail(pack: MeaningPack, req: PickRequest, id: string): boolean {
   const list = req.shortlist;
-  if (!list || list.length === 0 || list.length > 3) return true;
+  if (!list || list.length === 0 || list.length > 3 || new Set(list).size !== list.length) return true;
   const ids = new Set(pack.components.map((component) => component.id));
   if (!list.every((item) => ids.has(item))) return true;
   return !list.includes(id);
@@ -82,12 +111,13 @@ function thinEntries(pack: MeaningPack): ThinEntry[] {
   return pack.components.filter((component) => component.thin.length > 0).map((component) => ({ id: component.id, missing: component.thin }));
 }
 
-function pickResult(tier: PickTier, failed: PickCheck[], thin: ThinEntry[], stale: string | undefined, shown?: { id: string; name: string; reason?: string }): PickResult {
+function pickResult(tier: PickTier, failed: PickCheck[], thin: ThinEntry[], stale: string | undefined, shown?: { id: string; name: string; reason?: string; nameOnly?: boolean }): PickResult {
   return {
     tier,
     failed,
     thin,
     ...(stale ? { stale } : {}),
+    ...(shown?.nameOnly ? { nameOnly: true } : {}),
     ...(shown ? { id: shown.id, name: shown.name, ...(shown.reason ? { reason: shown.reason } : {}) } : {}),
   };
 }
@@ -106,10 +136,11 @@ export function validateAiPick(pack: MeaningPack, req: PickRequest, libraryBuilt
   const failed: PickCheck[] = [];
   if (req.invalidProps || propsFail(component, req.props ?? {})) failed.push("props");
   const quote = quoteCheck(component, req.reason);
-  if (quote) failed.push(quote);
+  if (quote.fail) failed.push(quote.fail);
   if (failed.length) return pickResult("no-fit", failed, thin, stale);
-  const shown = { id: component.id, name: component.name, ...(req.reason ? { reason: req.reason } : {}) };
-  if ((component.thin.length > 0 || noDescription(component)) && tier === "place") return pickResult("ask", ["thin-cap"], thin, stale, shown);
+  const shown = { id: component.id, name: component.name, ...(req.reason ? { reason: req.reason } : {}), ...(quote.nameOnly ? { nameOnly: true } : {}) };
+  if (quote.nameOnly) return pickResult("ask", tier === "place" ? ["thin-cap"] : [], thin, stale, shown);
+  if (component.thin.length > 0 && tier === "place") return pickResult("ask", ["thin-cap"], thin, stale, shown);
   return pickResult(tier, [], thin, stale, shown);
 }
 
@@ -141,7 +172,6 @@ export function componentFromMarkdown(id: string, markdown: string): SockCompone
       const key = part.slice(0, splitAt).trim().toLowerCase();
       const values = part.slice(splitAt + 1).split(",").map((item) => item.trim()).filter(Boolean);
       if (key && values.length) propOptions[key] = values;
-      for (const value of values) quoteLines.push(`${part.slice(0, splitAt).trim()} ${value}`);
     }
   }
   const thinLine = lines.find((line) => line.startsWith("Thin:")) ?? "";

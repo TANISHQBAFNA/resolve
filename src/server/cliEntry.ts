@@ -1,4 +1,5 @@
 import { pathToFileURL } from "node:url";
+import { designerFailure } from "./designerMessages";
 
 const isEntry = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
 
@@ -17,7 +18,7 @@ async function main(): Promise<void> {
 if (isEntry) {
   main().catch((error: unknown) => {
     const raw = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`${raw}\n`);
+    process.stderr.write(`${designerFailure(raw)}\n`);
     process.exit(1);
   });
 }

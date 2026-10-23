@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -32,13 +32,18 @@ function keyOf(result) {
   return `${result?.tier ?? ""}|${shown(result) ? result.id : ""}`;
 }
 
+function runNumber(value) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 3;
+}
+
 export function caseRuns(rows) {
   const seen = new Set();
   for (const row of rows) {
+    if (!runNumber(row.run)) return { error: "run", runs: [] };
     if (seen.has(row.run)) return { error: "duplicate", runs: [] };
     seen.add(row.run);
   }
-  const runs = [...rows].sort((a, b) => Number(a.run) - Number(b.run) || String(a.run).localeCompare(String(b.run)));
+  const runs = [...rows].sort((a, b) => a.run - b.run);
   return { runs };
 }
 
@@ -84,7 +89,18 @@ function gateHit(runs, ok) {
 }
 
 function tierFlip(runs) {
-  return new Set(runs.map((run) => run.result?.tier ?? "")).size > 1;
+  const placed = runs.filter((run) => shown(run.result));
+  const ids = new Set(placed.map((run) => run.result.id));
+  if (ids.size !== 1) return false;
+  return new Set(placed.map((run) => run.result.tier)).size > 1;
+}
+
+export function eitherCorrect(exact, acceptedNames, frozenNames, lead, weak) {
+  const names = frozenNames ?? [];
+  const frozenTop1 = exact ? acceptedNames.includes(names[0] ?? "") : names.length === 0;
+  const frozenTop3 = exact ? names.slice(0, 3).some((name) => acceptedNames.includes(name)) : names.length === 0;
+  const recommend = exact ? Boolean(lead) && !weak && acceptedNames.includes(lead) : lead === "";
+  return { top1: frozenTop1 || recommend, top3: frozenTop3 || recommend, noFit: names.length === 0 || lead === "" };
 }
 
 export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorrect = undefined) {
@@ -98,18 +114,31 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
   let invented = 0;
   let unquoted = 0;
   let thinPlaced = 0;
-  let oneRun = false;
+  let nameOnly = 0;
+  let libraryQuotes = 0;
+  let libraryShown = 0;
   let duplicates = 0;
+  let badRuns = 0;
+  let sawOne = false;
+  let sawThree = false;
+  const thinDescribed = [];
   const lost = { material: [], acme: [] };
   for (const row of cases) {
     const group = groupOf(row.pack);
     const bucket = [groups[group], groups.total];
     for (const item of bucket) item.asks += 1;
     const parsed = caseRuns(byCase.get(row.id) ?? []);
-    if (parsed.error) {
+    if (parsed.error === "duplicate") {
       duplicates += 1;
       continue;
     }
+    if (parsed.error) {
+      badRuns += 1;
+      continue;
+    }
+    if (parsed.runs.length === 1) sawOne = true;
+    else if (parsed.runs.length === 3) sawThree = true;
+    else if (parsed.runs.length !== 0) badRuns += 1;
     const known = indexIds[row.pack] ?? new Set();
     for (const run of parsed.runs) {
       const ids = [...(run.request?.shortlist ?? []), ...(typeof run.request?.pick === "string" ? [run.request.pick] : [])];
@@ -117,7 +146,6 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
       if (run.request?.tier === "place" && (run.result?.thin ?? []).some((entry) => entry.id === run.request.pick)) thinPlaced += 1;
     }
     const picked = winnerOf(parsed.runs);
-    if (picked.oneRun) oneRun = true;
     const winner = picked.winner;
     if (!winner && !picked.oneRun) for (const item of bucket) item.split += 1;
     if (parsed.runs.length > 1 && gateHit(parsed.runs, accepted(row))) for (const item of bucket) { item.gate += 1; item.unstable += 1; }
@@ -143,12 +171,34 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
       for (const item of bucket) item.confusableWrong += 1;
     }
     if (winner && shown(winner.result)) {
-      const failed = winner.result.failed ?? [];
-      if (!winner.result.reason || failed.includes("quote") || failed.includes("alias-quote")) unquoted += 1;
+      if (winner.result.nameOnly) {
+        nameOnly += 1;
+        if (winner.result.id) thinDescribed.push(winner.result.id);
+      } else {
+        libraryShown += 1;
+        const failed = winner.result.failed ?? [];
+        if (winner.result.reason && !failed.includes("quote") && !failed.includes("alias-quote")) libraryQuotes += 1;
+        else unquoted += 1;
+      }
     }
     if (mainCorrect?.[row.id] && !fit1) lost[group].push(row.id);
   }
-  return { groups, invented, unquoted, thinPlaced, lost: mainCorrect ? lost : undefined, oneRun, duplicates };
+  const mixed = sawOne && sawThree;
+  return {
+    groups,
+    invented,
+    unquoted,
+    thinPlaced,
+    nameOnly,
+    libraryQuotes,
+    libraryShown,
+    thinDescribed,
+    lost: mainCorrect ? lost : undefined,
+    oneRun: sawOne && !sawThree,
+    mixed,
+    duplicates,
+    badRuns,
+  };
 }
 
 function emptyGroup() {
@@ -159,6 +209,11 @@ function pct(hit, of) {
   return `${Math.round(rate(hit, of) * 1000) / 10}%`;
 }
 
+function reportCap(label, hit, of, target) {
+  if (!of) return `${label} ${hit}/${of}`;
+  return `${label} ${hit}/${of} ${pct(hit, of)} at most ${Math.round(target * 1000) / 10}%`;
+}
+
 function cap(label, hit, of, target) {
   if (!of) return `${label} ${hit}/${of}`;
   const mark = hit / of <= target + 1e-12 ? " pass" : " fail";
@@ -167,11 +222,21 @@ function cap(label, hit, of, target) {
 
 function line(label, hit, of, target) {
   if (!of || target === undefined) return `${label} ${hit}/${of} ${pct(hit, of)}`;
-  const mark = hit / of >= target ? " pass" : " fail";
+  const mark = hit / of >= target - 1e-9 ? " pass" : " fail";
   return `${label} ${hit}/${of} ${pct(hit, of)} target ${Math.round(target * 1000) / 10}%${mark}`;
 }
 
-export function formatScore(report, cases) {
+function hold(label, hit, of, target) {
+  if (!of) return `${label} ${hit}/${of}`;
+  if (target === undefined) return `${label} ${hit}/${of} ${pct(hit, of)} fail`;
+  return line(label, hit, of, target);
+}
+
+function rateOf(hit, of) {
+  return of ? hit / of : undefined;
+}
+
+export function formatScore(report, cases, mainRates) {
   const materialAsks = cases.filter((row) => groupOf(row.pack) === "material").length;
   const acmeAsks = cases.length - materialAsks;
   const materialAvoid = cases.filter((row) => groupOf(row.pack) === "material" && (row.tags ?? []).includes("meaning-only")).length;
@@ -181,23 +246,26 @@ export function formatScore(report, cases) {
   const material = report.groups.material;
   const acme = report.groups.acme;
   const total = report.groups.total;
+  const materialMain = mainRates?.material;
+  const acmeMain = mainRates?.acme;
+  const materialTop1 = materialMain ? rateOf(materialMain.top1, materialMain.asks) : undefined;
   const lines = [
     `Material ${materialAsks}`,
-    line("top-1", material.top1, materialAsks, 0.8),
-    line("top-3", material.top3, materialAsks, 0.9),
-    line("name-avoiding top-3", material.avoidHit, materialAvoid, 0.85),
-    line("no-fit", material.noFitHit, materialNoFit, 0.9),
+    hold("top-1", material.top1, materialAsks, materialTop1 === undefined ? undefined : materialTop1 + 0.05),
+    hold("top-3", material.top3, materialAsks, rateOf(materialMain?.top3, materialMain?.asks)),
+    line("name-avoiding top-3", material.avoidHit, materialAvoid, undefined),
+    hold("no-fit", material.noFitHit, materialNoFit, rateOf(materialMain?.noFitHit, materialMain?.noFit)),
     `confusable sure-wrong ${material.confusableWrong}`,
     cap("gate", material.gate, materialAsks, 0.05),
     cap("tier flips", material.tierFlips, materialAsks, 0.1),
     `split ${material.split}/${materialAsks}`,
     `Acme ${acmeAsks}`,
-    line("top-1", acme.top1, acmeAsks, 13 / 51),
-    line("top-3", acme.top3, acmeAsks, 15 / 51),
+    hold("top-1", acme.top1, acmeAsks, rateOf(acmeMain?.top1, acmeMain?.asks)),
+    hold("top-3", acme.top3, acmeAsks, rateOf(acmeMain?.top3, acmeMain?.asks)),
     line("name-avoiding top-3", acme.avoidHit, acmeAvoid, undefined),
-    line("no-fit", acme.noFitHit, acmeNoFit, 0.9),
+    hold("no-fit", acme.noFitHit, acmeNoFit, rateOf(acmeMain?.noFitHit, acmeMain?.noFit)),
     `confusable sure-wrong ${acme.confusableWrong}`,
-    cap("gate", acme.gate, acmeAsks, 0.05),
+    reportCap("gate", acme.gate, acmeAsks, 0.05),
     cap("tier flips", acme.tierFlips, acmeAsks, 0.1),
     `split ${acme.split}/${acmeAsks}`,
     `Total ${cases.length}`,
@@ -211,8 +279,13 @@ export function formatScore(report, cases) {
     `thin placed ${report.thinPlaced}`,
     cap("gate", total.gate, cases.length, 0.05),
     cap("tier flips", total.tierFlips, cases.length, 0.1),
-    report.oneRun ? "one run" : "majority of 3",
+    report.mixed ? "mixed runs" : report.oneRun ? "one run" : "majority of 3",
     report.duplicates ? `duplicate runs ${report.duplicates}` : "duplicate runs 0",
+    report.badRuns ? `bad runs ${report.badRuns}` : "bad runs 0",
+    `name-only ${report.nameOnly ?? 0}`,
+    `library quote ${report.libraryQuotes ?? 0}/${report.libraryShown ?? 0}`,
+    "thin description",
+    report.thinDescribed?.length ? report.thinDescribed.join("\n") : "(none)",
   ];
   if (report.lost) {
     lines.push("main lost material");
@@ -267,32 +340,54 @@ export function promptFor(row) {
     "Reply with one JSON object and no other text.",
     'Fields: library, ask, shortlist, pick, props, reason, tier.',
     "tier is place, ask, or no-fit.",
-    "reason is a verbatim quote from the component's name, description, guidelines, or a prop name or value.",
+    "reason is a span of at least 3 words from one sentence, an exact whole line that is not the name, or the name plus one property and one listed value.",
+    "Property values are strings, written exactly as listed. A bare name is valid only when the file has no description and no properties.",
     "Do not quote an Aliases line. If the file has a Thin line, do not use tier place.",
     "If nothing in the library fits, tier is no-fit and omit pick.",
   ].join("\n");
 }
 
-function opaqueId(realId) {
-  return createHash("sha256").update(`resolve-ai-picks:${realId}`).digest("hex").slice(0, 16);
+function insideRepo(target) {
+  const rel = relative(repo, resolve(target));
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
-function writeBlindPrompts(casesPath, outDir) {
+function defaultMapPath() {
+  const root = process.env["RESOLVE_PRIVATE"] || join(homedir(), ".resolve-private");
+  return join(root, "ai-picks-id-map.json");
+}
+
+function randomId(used) {
+  let id = "";
+  do {
+    id = randomBytes(8).toString("hex");
+  } while (used.has(id));
+  used.add(id);
+  return id;
+}
+
+function writeBlindPrompts(casesPath, outDir, mapPath) {
+  if (insideRepo(mapPath)) {
+    process.stderr.write("Refusing to write the id map inside the repo.\n");
+    process.exit(1);
+  }
   const cases = readCases(casesPath);
   mkdirSync(outDir, { recursive: true });
+  mkdirSync(dirname(mapPath), { recursive: true });
   const groups = { material: [], acme: [] };
   const map = {};
+  const used = new Set();
   for (const row of cases) {
-    const id = opaqueId(row.id);
+    const id = randomId(used);
     map[id] = row.id;
-    groups[groupOf(row.pack)].push({ id, ask: row.ask, library: row.pack, sort: createHash("sha256").update(`shuffle:${row.id}`).digest("hex") });
+    groups[groupOf(row.pack)].push({ id, ask: row.ask, library: row.pack, sort: randomBytes(8).toString("hex") });
   }
   for (const [group, rows] of Object.entries(groups)) {
     rows.sort((a, b) => a.sort.localeCompare(b.sort));
     const lines = rows.map((row) => JSON.stringify({ id: row.id, ask: row.ask, library: row.library }));
     writeFileSync(join(outDir, `${group}.jsonl`), lines.length ? `${lines.join("\n")}\n` : "");
   }
-  writeFileSync(join(dirname(outDir), "id-map.json"), `${JSON.stringify(map, null, 2)}\n`);
+  writeFileSync(mapPath, `${JSON.stringify(map, null, 2)}\n`);
   process.stdout.write(`wrote ${cases.length} blind prompts to ${outDir}\n`);
 }
 
@@ -343,25 +438,108 @@ function prepare(casesPath, outDir) {
   process.stdout.write(`wrote ${cases.length} prompts to ${outDir}\n`);
 }
 
-function readMain(path) {
-  if (!path) return undefined;
-  const parsed = JSON.parse(readFileSync(path, "utf8"));
-  const rows = Array.isArray(parsed) ? parsed : parsed.cases;
-  return Object.fromEntries(rows.filter((row) => row.correct).map((row) => [row.id, true]));
+function runShape(cases, runs) {
+  const byCase = new Map();
+  for (const run of runs) {
+    const list = byCase.get(run.caseId) ?? [];
+    list.push(run);
+    byCase.set(run.caseId, list);
+  }
+  let sawOne = false;
+  let sawThree = false;
+  for (const row of cases) {
+    const parsed = caseRuns(byCase.get(row.id) ?? []);
+    if (parsed.error) return parsed.error;
+    if (parsed.runs.length === 1) sawOne = true;
+    else if (parsed.runs.length === 3) sawThree = true;
+    else if (parsed.runs.length !== 0) return "run";
+  }
+  if (sawOne && sawThree) return "mixed";
+  return "ok";
 }
 
-function score(casesPath, runsPath, mapPath, mainPath) {
+async function loadMain(cases) {
+  const { createServer } = await import("vite");
+  const server = await createServer({
+    configFile: join(repo, "vite.config.ts"),
+    root: repo,
+    server: { middlewareMode: true, hmr: false },
+    appType: "custom",
+    logLevel: "error",
+  });
+  try {
+    const mod = await server.ssrLoadModule("/scripts/ai-picks-main.ts");
+    return mod.mainEvidence(cases);
+  } finally {
+    await server.close();
+  }
+}
+
+function ratesFrom(cases, evidence) {
+  const byId = new Map(evidence.map((row) => [row.id, row]));
+  const rates = {
+    material: { asks: 0, top1: 0, top3: 0, noFit: 0, noFitHit: 0 },
+    acme: { asks: 0, top1: 0, top3: 0, noFit: 0, noFitHit: 0 },
+  };
+  const correct = {};
+  for (const row of cases) {
+    const group = groupOf(row.pack);
+    const bucket = rates[group];
+    bucket.asks += 1;
+    const found = byId.get(row.id) ?? { frozenNames: [], lead: "", weak: false };
+    const ok = [...accepted(row)];
+    const got = eitherCorrect(row.expect?.accept === "exact", ok, found.frozenNames, found.lead, found.weak);
+    if (got.top1) bucket.top1 += 1;
+    if (got.top3) bucket.top3 += 1;
+    correct[row.id] = got.top1;
+    if (isNoFit(row)) {
+      bucket.noFit += 1;
+      if (got.noFit) bucket.noFitHit += 1;
+    }
+  }
+  return { correct, rates };
+}
+
+async function score(casesPath, runsPath, mapPath) {
   const cases = readCases(casesPath);
-  const map = existsSync(mapPath) ? JSON.parse(readFileSync(mapPath, "utf8")) : {};
-  const runs = revalidate(applyMap(readRuns(runsPath), map));
-  const report = scoreRecorded(cases, runs, readNames(), readIndexIds(), readMain(mainPath));
-  process.stdout.write(`${formatScore(report, cases)}\n`);
+  const mapped = applyMap(readRuns(runsPath), JSON.parse(readFileSync(mapPath, "utf8")));
+  const shape = runShape(cases, mapped);
+  if (shape === "mixed") {
+    process.stderr.write("Mixed 1-run and 3-run data is an error.\n");
+    process.exit(1);
+  }
+  if (shape === "duplicate") {
+    process.stderr.write("Duplicate run numbers are an error.\n");
+    process.exit(1);
+  }
+  if (shape !== "ok") {
+    process.stderr.write("Run numbers have to be integers 1, 2, and 3.\n");
+    process.exit(1);
+  }
+  const runs = revalidate(mapped);
+  const main = ratesFrom(cases, await loadMain(cases));
+  const report = scoreRecorded(cases, runs, readNames(), readIndexIds(), main.correct);
+  process.stdout.write(`${formatScore(report, cases, main.rates)}\n`);
+  if (report.mixed || report.badRuns) process.exit(1);
 }
 
 function validate(rawPath, outPath) {
   const runs = revalidate(readRuns(rawPath));
   writeFileSync(outPath, `${runs.map((run) => JSON.stringify(run)).join("\n")}\n`);
   process.stdout.write(`wrote ${runs.length} records to ${outPath}\n`);
+}
+
+function requireMapPath() {
+  const path = arg("--id-map");
+  if (!path) {
+    process.stderr.write("Pass --id-map with a file outside this repo.\n");
+    process.exit(1);
+  }
+  if (insideRepo(path)) {
+    process.stderr.write("Refusing to write the id map inside the repo.\n");
+    process.exit(1);
+  }
+  return path;
 }
 
 const invoked = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href || process.argv[1]?.endsWith("ai-picks-eval.mjs");
@@ -374,7 +552,7 @@ if (invoked) {
       process.stderr.write("Committed prompts already exist. Pass --out to write another set.\n");
       process.exit(1);
     }
-    writeBlindPrompts(arg("--cases") ?? join(repo, "scoreboard/meaning/frozen.json"), dest);
+    writeBlindPrompts(arg("--cases") ?? join(repo, "scoreboard/meaning/frozen.json"), dest, arg("--id-map") ?? defaultMapPath());
   } else if (command === "prepare") prepare(arg("--cases") ?? join(repo, "scoreboard/meaning/frozen.json"), arg("--out") ?? join(repo, "scoreboard/ai-picks/prepared"));
   else if (command === "validate") {
     const raw = arg("--raw");
@@ -387,11 +565,16 @@ if (invoked) {
   } else if (command === "score") {
     const cases = arg("--cases");
     const runs = arg("--runs");
+    const mapPath = requireMapPath();
     if (!cases || !runs) {
-      process.stderr.write("Usage: node scripts/ai-picks-eval.mjs score --cases <file> --runs <jsonl> [--map <id-map.json>] [--main <main.json>]\n");
+      process.stderr.write("Usage: node scripts/ai-picks-eval.mjs score --cases <file> --runs <jsonl> --id-map <file>\n");
       process.exit(1);
     }
-    score(cases, runs, arg("--map") ?? join(repo, "scoreboard/ai-picks/id-map.json"), arg("--main"));
+    if (!existsSync(mapPath)) {
+      process.stderr.write("No id map at that path.\n");
+      process.exit(1);
+    }
+    await score(cases, runs, mapPath);
   } else {
     process.stderr.write("Usage: node scripts/ai-picks-eval.mjs prompts|prepare|validate|score\n");
     process.exit(1);

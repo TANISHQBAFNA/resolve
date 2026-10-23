@@ -63,7 +63,7 @@ describe("MCP instructions stay a short trigger", () => {
       "",
       "Each component's own text is a generated file. Open the library index, then that one file. Acme is `meaning/acme/index.md`, then the linked file (for example `meaning/acme/switch.md`). Stop after those two reads. A `Thin:` line means the library description is missing. `recommend` still uses the meaning dictionary.",
       "",
-      "When a shell is available and `RESOLVE_AI_PICKS=1`, read that index, open at most the shortlist files, and call `resolve pick`. Quote the reason from the component's own description, guidelines, or a property name with its value. A bare name or an alias is not a reason. When no shell is available, follow those quoting rules and do not call the CLI. With the switch off, use `recommend`.",
+      "When a shell is available and `RESOLVE_AI_PICKS=1`, read that index, open at most the shortlist files, and call `resolve pick`. A reason is a span of at least 3 words and 12 characters from one sentence of the description or the guidelines, or one exact whole line that is not the component name and not an alias, or the exact sequence of the name, one property, and a value written as listed. Property values are strings. A bare name is a reason only when that file has no description and no properties; the pick is then ask and name-only. A bare name or an alias is not a reason otherwise. When no shell is available, follow those quoting rules and do not call the CLI. With the switch off, use `recommend`.",
       "",
     ].join("\n");
     const cursor = readFileSync(join(root, ".cursor/skills/resolve/SKILL.md"), "utf8");
