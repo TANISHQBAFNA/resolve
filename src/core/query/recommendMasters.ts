@@ -888,7 +888,7 @@ export function recommendMasters(
   let shedPlaceNoise = false;
   let shedLeadDetail = false;
   let omitExNote = false;
-  /** `all` keeps the catalog. `matched` keeps rows the request named. `none` is the last resort. */
+  /** `all` keeps the catalog. `matched` keeps rows the request named, before hits 2–3 go. `none` goes before the lead's why. */
   let propertyKeep: "all" | "matched" | "none" = "all";
   const exQuery = exampleQuery(index, options);
 
@@ -940,15 +940,16 @@ export function recommendMasters(
       if (typeof next.why === "string" && next.why.length > 48) next.why = `${next.why.slice(0, 47)}…`;
     }
     if (lowConfidence && !shedLeadDetail) next.confidence = "low";
+    // The why line stays: find.md and --help promise it on the top hit.
     if (top && shedLeadDetail) {
       const loose = next as unknown as Record<string, unknown>;
       delete loose["confidence"];
-      delete loose["why"];
       delete loose["componentKey"];
       delete loose["published"];
       delete loose["publishState"];
       delete loose["instances"];
       delete loose["hint"];
+      if (loose["deprecated"] === false) delete loose["deprecated"];
     }
     delete next.slots;
     if (dropExtras) {
@@ -1078,6 +1079,10 @@ export function recommendMasters(
       payload = payloadOf();
     }
   }
+  if (overBudget() && candidates[0] && "properties" in candidates[0]) {
+    propertyKeep = "matched";
+    shrink();
+  }
   if (overBudget()) {
     const ceiling = Math.min(kept.length, target);
     const counts = [...new Set([ceiling, Math.min(2, ceiling), 1])].filter((count) => count >= 1);
@@ -1143,10 +1148,6 @@ export function recommendMasters(
   }
   if (overBudget() && candidates[0] && "properties" in candidates[0]) {
     shedLeadDetail = true;
-    shrink();
-  }
-  if (overBudget() && candidates[0] && "properties" in candidates[0]) {
-    propertyKeep = "matched";
     shrink();
   }
   if (overBudget() && candidates[0] && "properties" in candidates[0]) {

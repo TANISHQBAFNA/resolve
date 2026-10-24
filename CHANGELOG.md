@@ -6,6 +6,16 @@ Oct 24, 2026. The `resolve` and `resolve-figma` commands run again when started 
 
 Oct 24, 2026. `/resolve-status`, `/parts`, `/handoff` and `/code-map` work on a fresh project install. They run `npx -y -p github:TANISHQBAFNA/resolve resolve-figma …`, the same package as the MCP entry, instead of a local binary that setup never installed. `scripts/fresh-install-kit.mjs` runs all 8 commands through `claude -p` in a scratch project and records pass, needs-Figma or fail.
 
+
+
+Oct 24, 2026. The `/check` FAIL card lists a part under `resolved:` only when it matched a real component; an invented part shows under `invents:` alone. A long hint is shortened to whole sentences, or whole words with "…", never cut mid-word.
+
+Oct 24, 2026. A confident `/find` card keeps the top pick's one-line reason and lists the next hits. When the card is too long, property rows the ask did not name go first, and the reason line is never cut.
+
+## Unreleased — universal docs
+
+Oct 23, 2026. Public docs and setup text are universal: Resolve works with any design system and any code stack. Examples use the made-up Acme library (the Acme Payments app) or generic names. Testing docs say "an internal reference library". The code-map examples moved to `docs/examples/acme-code-map-selectors.json` and `.csv`. CLI help and MCP tool descriptions say "component package" and "selector". No code logic, ranking, checker or test assertion changed.
+
 ## Unreleased — meaning dictionary
 
 Oct 22, 2026. On a library with no density list, `<density> list of <part>` leads with that part. A form named in the ask wins over a density word that is not on the list. A single inflected word that does not name a component stays empty.

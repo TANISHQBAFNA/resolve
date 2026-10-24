@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import acmeFile from "../docs/examples/acme-ui.json";
-import angularMap from "../docs/examples/acme-code-map-angular.json";
+import angularMap from "../docs/examples/acme-code-map-selectors.json";
 import { adaptFigmaRestFile } from "@/core/ingestion";
 import { buildGraph } from "@/core/transform";
 import {

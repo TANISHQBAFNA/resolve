@@ -1,5 +1,5 @@
 ---
-description: Scan an Angular package, suggest Figma to code pairs, or review them
+description: Scan a component package, suggest Figma to code pairs, or review them
 argument-hint: scan|suggest|review <package or path>
 ---
 The designer typed: $ARGUMENTS
@@ -8,7 +8,7 @@ This command keeps the code map. A suggestion is not the truth. Only a mapped pa
 
 1. The input starts with `scan`, `suggest`, or `review`. If it is empty, ask which one and stop.
 2. Run in the project folder. In the lines below, `resolve-figma` means `npx -y -p github:TANISHQBAFNA/resolve resolve-figma`, the same package spec as Resolve's MCP server entry. Use exactly this spec. Never run `npx resolve-figma` on its own: that looks the name up on the npm registry, not in Resolve's GitHub repo. The first run downloads the package and can take a minute. If `npx` is not found, say: Resolve is not installed in this project. In the chat, paste: Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md. Do not create the files yourself. If the download fails, say Resolve could not be downloaded and to check the network, then stop.
-   - `scan <package or path>` runs `resolve-figma code-map scan "<package or path>"`. It reads the Angular package. It does not write the map.
+   - `scan <package or path>` runs `resolve-figma code-map scan "<package or path>"`. It reads the component package. It does not write the map.
    - `suggest <package or path>` runs `resolve-figma code-map suggest "<package or path>"`. It proposes pairs. Every pair is suggested. Add `--write` only when the designer asks to save them. A suggestion is not mapped.
    - `review` runs `resolve-figma code-map review`. It writes a CSV. The designer sets `status` to `mapped` on the rows they confirm. Then `resolve-figma code-map review --import "<file.csv>"`. A blank status stays suggested. Entries the CSV leaves out are kept.
 3. A client that only has the MCP server needs `RESOLVE_MCP_ADVANCED=1`, then `code_map_scan`, `code_map_suggest`, or `code_map_review`. Those tools call the same functions. They are not on the default tool list.
