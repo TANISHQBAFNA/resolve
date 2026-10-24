@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -120,6 +120,36 @@ describe("resolve-setup", () => {
     const bad = setup(["--nope"], cwd);
     expect(bad.status).toBe(1);
     expect(bad.stderr).toContain("Unknown argument --nope");
+  });
+
+  it("F4-R9: a dry run says would create and Rule installed? no, then yes only once the rule is in place", () => {
+    const cwd = tempDir("dry-words");
+    const home = tempDir("dry-words-home");
+    mkdirSync(cwd, { recursive: true });
+    mkdirSync(home, { recursive: true });
+    const dry = setup(["--dry-run"], cwd, home);
+    expect(dry.status).toBe(0);
+    expect(dry.stdout).toContain(`Dry run: nothing is written. Would install into ${cwd}`);
+    expect(dry.stdout).toContain(`would create ${join(cwd, ".cursor/rules/resolve.mdc")}`);
+    expect(dry.stdout).toContain(`would create ${join(cwd, ".mcp.json")}`);
+    expect(dry.stdout).toContain(`would create ${join(cwd, "CLAUDE.md")}`);
+    expect(dry.stdout).not.toMatch(/^(create|update) /m);
+    expect(dry.stdout).toContain("Rule installed? no");
+    expect(dry.stdout).not.toContain("Rule installed? yes");
+    expect(dry.stdout).toContain("Next: Run resolve-setup without --dry-run to install the rule.");
+    expect(readdirSync(cwd)).toEqual([]);
+    expect(readdirSync(home)).toEqual([]);
+
+    expect(setup([], cwd, home).stdout).toContain("Rule installed? yes");
+    const again = setup(["--dry-run"], cwd, home);
+    expect(again.stdout).toContain(`unchanged ${join(cwd, "CLAUDE.md")}`);
+    expect(again.stdout).toContain("Rule installed? yes");
+    const before = readFileSync(join(cwd, "CLAUDE.md"), "utf8");
+    const removal = setup(["--uninstall", "--dry-run"], cwd, home);
+    expect(removal.stdout).toContain(`Dry run: nothing is removed. Would remove Resolve from ${cwd}`);
+    expect(removal.stdout).toContain(`would remove ${join(cwd, "CLAUDE.md")}`);
+    expect(removal.stdout).not.toMatch(/^(remove|update) /m);
+    expect(readFileSync(join(cwd, "CLAUDE.md"), "utf8")).toBe(before);
   });
 
   it("--global writes Claude files in the home folder and no Cursor rule", () => {
