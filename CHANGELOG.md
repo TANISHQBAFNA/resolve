@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — fresh install
+
+Oct 24, 2026. The `resolve` and `resolve-figma` commands run again when started from the installed package. Since #73 they printed nothing and exited 0. Running `node dist-server/cli.mjs` in a checkout was not affected.
+
 ## Unreleased — meaning dictionary
 
 Oct 22, 2026. On a library with no density list, `<density> list of <part>` leads with that part. A form named in the ask wins over a density word that is not on the list. A single inflected word that does not name a component stays empty.
