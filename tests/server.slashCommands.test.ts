@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { PassThrough } from "node:stream";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -288,6 +288,37 @@ describe("slash commands: uninstall", () => {
     }
     // A second uninstall finds nothing of Resolve's to remove.
     expect(setup(["--uninstall"], cwd, home).stdout).not.toMatch(/^(remove|update) /m);
+  });
+
+  it("F4-R11: keeps the .gitignore block while .resolve/ still holds the learned cache, and says why", () => {
+    const cwd = temp("uninstall-cache");
+    const home = temp("uninstall-cache-home");
+    const gitignore = join(cwd, ".gitignore");
+    writeFileSync(gitignore, "node_modules/\n");
+    expect(setup([], cwd, home).status).toBe(0);
+    mkdirSync(join(cwd, ".resolve/files"), { recursive: true });
+    writeFileSync(join(cwd, ".resolve/graph.json"), "{}\n");
+    writeFileSync(join(cwd, ".resolve/files/LIB.json"), "{}\n");
+    const installed = read(gitignore);
+    const kept = `skip ${gitignore} (kept the Resolve block: .resolve/ is still here, and the block keeps its learned cache out of git.`;
+
+    expect(setup(["--uninstall", "--dry-run"], cwd, home).stdout).toContain(kept);
+    const result = setup(["--uninstall"], cwd, home);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(kept);
+    expect(read(gitignore)).toBe(installed);
+    expect(existsSync(join(cwd, "CLAUDE.md"))).toBe(false);
+    expect(existsSync(join(cwd, ".resolve/setup-record.json"))).toBe(false);
+    expect(spawnSync("git", ["init"], { cwd, encoding: "utf8" }).status).toBe(0);
+    const ignored = (rel: string) => spawnSync("git", ["check-ignore", "-q", "--", rel], { cwd, encoding: "utf8" }).status === 0;
+    expect(ignored(".resolve/graph.json")).toBe(true);
+    expect(ignored(".resolve/files/LIB.json")).toBe(true);
+
+    rmSync(join(cwd, ".resolve"), { recursive: true });
+    const again = setup(["--uninstall"], cwd, home);
+    expect(again.stdout).toContain(`update ${gitignore}`);
+    expect(read(gitignore)).toContain("node_modules/");
+    expect(read(gitignore)).not.toContain("resolve-setup:begin");
   });
 
   it("removes a CLAUDE.md that only held Resolve's block, and --dry-run writes nothing", () => {

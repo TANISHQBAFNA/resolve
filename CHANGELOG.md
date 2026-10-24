@@ -12,6 +12,9 @@ Oct 24, 2026. `resolve-setup --dry-run` says "would create" (and `--uninstall --
 
 Oct 24, 2026. The `resolve ingest` summary ends with a newline, so the shell prompt no longer starts on its last line.
 
+Oct 24, 2026. `resolve-setup --uninstall` keeps the `.gitignore` block while `.resolve/` is still there, and says so, so a learned cache left behind is not committed. Everything else it wrote is removed as before.
+
+
 
 
 
