@@ -1,0 +1,27 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`find card on a confident pick (F4-R3) > keeps the why line and lists the next hits for "confirm dialog" 1`] = `
+"intent: confirm dialog
+candidates:
+  - name: Dialog | type: COMPONENT_SET | figmaNodeId: 1:44 | fileKey: M3SPEC | componentKey: m3spec-dialog | published: true | instances: 0 | why: not verified on a screen yet | hint: Place fileKey + nodeId. | confidence: low
+hint: Place fileKey+nodeId. If stale, learn_library."
+`;
+
+exports[`find card on a confident pick (F4-R3) > keeps the why line and lists the next hits for "list row" 1`] = `
+"intent: list row
+candidates:
+  - name: List item | type: COMPONENT_SET | figmaNodeId: 1:51 | fileKey: M3SPEC | componentKey: m3spec-list-item | published: true | instances: 0 | why: not verified on a screen yet | hint: Place fileKey + nodeId.
+  - name: List | why: not verified on a screen yet | fileKey: M3SPEC | figmaNodeId: 1:50
+  - name: Grid list | why: not verified on a screen yet | fileKey: M3SPEC | figmaNodeId: 1:117
+hint: Place fileKey+nodeId."
+`;
+
+exports[`find card on a confident pick (F4-R3) > keeps the why line and lists the next hits for "sign-in button" 1`] = `
+"intent: sign-in button
+candidates:
+  - name: Button | type: VARIANT | figmaNodeId: 1:2 | fileKey: M3SPEC | componentKey: m3spec-button-type-filled | published: true | variantProperties: (Type: Filled) | instances: 1 | why: used 1× in file | hint: Place fileKey + nodeId. | confidence: low
+  - name: Button toggle | why: not verified on a screen yet | fileKey: M3SPEC | figmaNodeId: 1:25
+truncated: true
+note: Same name as 3 other masters.
+hint: Place fileKey+nodeId."
+`;

@@ -8,7 +8,7 @@ import { isRetired } from "@/core/rules/retired";
 import { type BindRulesFile, verifyBindRules } from "./bindRules";
 import { attachProperUse, checkProperUse } from "./properUse";
 import { briefNode, EXACT_COMPONENT_HINT, LAYER_NAME_GUESS } from "./cardCopy";
-import { fitCardAfterCost, NAME_FLOOR, shrinkNameFields, WARNING_OVERFLOW } from "./cardFit";
+import { clipHint, fitCardAfterCost, NAME_FLOOR, shrinkNameFields, WARNING_OVERFLOW } from "./cardFit";
 import { useText } from "./codeMap";
 import { framePropertyFindings } from "./componentProperties";
 import { type AgentCost, withCost } from "./cost";
@@ -508,6 +508,9 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
               `Fail — invents/deprecated/unresolved listed. Replace invents with recommend() figmaNodeIds. ${REFRESH_HINT}`;
   const pendingHint = pending ? `pending improvements: ${pending}.` : undefined;
   const fullHint = pendingHint ? `${hint} ${pendingHint}` : hint;
+  // An invented part is listed under invents only, never as resolved. A near miss keeps its given name beside its did-you-mean.
+  const invented = new Set(invents.map((hit) => hit.id ?? `given:${hit.given ?? hit.name}`));
+  const resolvedParts = resolved.filter((row) => !invented.has(row.id ?? `given:${row.given}`));
   const base = {
     pass: verified,
     ...(nameOnlyPass
@@ -520,7 +523,7 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
     ...(nameOnly ? { nameOnly: true as const, guess: LAYER_NAME_GUESS } : {}),
     ...(renamed.length ? { labelDiffers: true as const } : {}),
     approved: approvedIds.size,
-    resolved,
+    resolved: resolvedParts,
     invents,
     deprecated: deprecatedHits,
     unresolved,
@@ -681,7 +684,7 @@ function stampTextCheck<T extends { hint: string }>(
     const cut = Math.max(8, overflow + 1);
     const nextLen = Math.max(hintFloor, hint.length - cut);
     if (nextLen >= hint.length) break;
-    hint = `${hint.slice(0, nextLen - 1)}…`;
+    hint = clipHint(hint, nextLen);
     card = build();
   }
   if (fits(card)) return card;
