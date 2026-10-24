@@ -142,3 +142,9 @@ The code map says which Figma part is which code part. Resolve can read your com
 ## License
 
 You may install and use Resolve, unchanged, inside your AI tools (Claude Code, Cursor and similar). You may not modify, copy, redistribute or build other products from it without written permission. Earlier MIT versions stay MIT for those copies. See [`LICENSE`](LICENSE).
+
+## Upgrading from the old names
+
+Used Resolve when it had its old name? Your old settings still work.
+
+Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.graphify/`. Both still work: if the new `RESOLVE_HOME` / `.resolve/` exist they win, otherwise the old ones are read. Nothing is moved or deleted for you. To switch, rename the whole old folder to `.resolve/` (for example `mv .graphify .resolve`) and set `RESOLVE_HOME` if you used the old setting. Do not keep both folders. Resolve reads each file from the new folder first. For some files it falls back to the old folder when the new one does not have them: `code-map.json`, `synonyms.json`, `icon-libraries.json`, and the learned library itself. A stale old file of those kinds could keep applying. The other team files (`recipes.json`, `bind-rules.json`, `context-packs.json`, `library-rules.json`) are read only from the folder that holds the learned library, so once `.resolve` has one, the old copies are ignored.
