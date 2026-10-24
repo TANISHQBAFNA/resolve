@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — fresh install
+
+Oct 24, 2026. A confident `/find` card keeps the top pick's one-line reason and lists the next hits. When the card is too long, property rows the ask did not name go first, and the reason line is never cut.
+
 ## Unreleased — universal docs
 
 Oct 23, 2026. Public docs and setup text are universal: Resolve works with any design system and any code stack. Examples use the made-up Acme library (the Acme Payments app) or generic names. Testing docs say "an internal reference library". The code-map examples moved to `docs/examples/acme-code-map-selectors.json` and `.csv`. CLI help and MCP tool descriptions say "component package" and "selector". No code logic, ranking, checker or test assertion changed.
