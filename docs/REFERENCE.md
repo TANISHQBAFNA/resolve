@@ -986,9 +986,10 @@ An entry can describe a component that templates use through a selector. Add `fr
 {
   "fileKey": "ACMEUI",
   "id": "30:10",
+  "name": "Button",
   "code": {
     "framework": "angular",
-    "import": "import { AcmeButtonComponent } from '@acme/ui'",
+    "import": "import { AcmeButtonComponent } from '@acme/ui-angular'",
     "component": "AcmeButtonComponent",
     "selector": "acme-button",
     "module": "AcmeButtonModule",
@@ -1001,7 +1002,7 @@ An entry can describe a component that templates use through a selector. Add `fr
 - **`selector`** is required for a selector-based entry. Real selector forms work: an element name with a dash (`acme-button`), an attribute (`[acmeTooltip]`), an attribute with a value (`[type="submit"]`), a class (`.acme-card`), combinations (`button[acme-button]`, `input[acmeField]:not([readonly])`) and comma lists (`button[acme-button], a[acme-button]`). An element name alone needs a dash. A selector alone marks the entry as a selector entry; the `framework` value says it outright.
 - **`module`** is the NgModule to import (`AcmeButtonModule`). For a standalone component, use `"standalone": true` instead. Giving both is refused.
 - **`inputs`** and **`outputs`** are optional lists of names (`["variant", "size"]`). The alias form `"label: ariaLabel"` is accepted; the alias is what a template binds to. A name listed twice is kept once.
-- **The import path** comes from the `import` line (`@acme/ui`), as before.
+- **The import path** comes from the `import` line (`@acme/ui-angular`), as before.
 - A bad selector value drops only the selector fields of that entry, never its code line. The reason is listed under `Angular fields ignored (code line still used)` in `code-map` (`angularIgnored` in JSON), for example `selector must look like acme-button, [acmeTooltip] or button[mat-button], a[mat-button]`, `use module or standalone: true, not both`, `'module' needs an Angular selector`, or `'selector' is an Angular field; set framework to angular` (on a `"framework": "react"` entry). Nothing is quietly changed. The CSV import is stricter: a bad selector value there is a row error, so it gets fixed before the map is written.
 - One component, one entry: a React and a selector-based entry for the same component are a `conflict` ("a React and a selector entry disagree; keep one entry per component"). The exception is the usual retired rule: if one of the two is retired and the other current, the current one is used.
 
@@ -1091,7 +1092,7 @@ intent: payee picker
 candidates:
   - name: Payee picker | type: MAIN_COMPONENT | figmaNodeId: 30:30 | fileKey: ACMEUI | componentKey: payee-picker-key | published: true | publishState: published | instances: 4 | why: used 4× in file | hint: Place fileKey + nodeId. | ex: 20:31
 hint: Place fileKey+nodeId. If stale, learn_library.
-code: AcmePayeePickerComponent from '@acme/payments'
+code: AcmePayeePickerComponent from '@acme/payments-angular'
 angular: <acme-payee-picker>, standalone
 ```
 
