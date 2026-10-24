@@ -12,6 +12,8 @@ Oct 24, 2026. `resolve-setup --dry-run` says "would create" (and `--uninstall --
 
 Oct 24, 2026. The `resolve ingest` summary ends with a newline, so the shell prompt no longer starts on its last line.
 
+Oct 24, 2026. `resolve-setup --uninstall` keeps the `.gitignore` block while `.resolve/` is still there, and says so, so a learned cache left behind is not committed. Everything else it wrote is removed as before.
+
 ## Unreleased — meaning dictionary
 
 Oct 22, 2026. On a library with no density list, `<density> list of <part>` leads with that part. A form named in the ask wins over a density word that is not on the list. A single inflected word that does not name a component stays empty.

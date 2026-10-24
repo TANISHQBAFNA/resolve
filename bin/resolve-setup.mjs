@@ -559,9 +559,22 @@ function assertCanWrite(target) {
 
 const onlyFrontmatter = (text) => splitFrontmatter(text).body === "" && (text.trim() === "" || text.startsWith("---"));
 
+/** True when .resolve/ holds more than the setup record, which uninstall removes. */
+function storeKept(cwd) {
+  try {
+    return readdirSync(join(cwd, ".resolve")).some((name) => name !== RECORD_NAME);
+  } catch {
+    return false;
+  }
+}
+
+const KEEP_IGNORE =
+  " (kept the Resolve block: .resolve/ is still here, and the block keeps its learned cache out of git. Remove the block by hand after you delete .resolve/)";
+
 /**
  * Remove what setup wrote: marked blocks (and the file when nothing else is left in it), and the resolve entry of the
- * project MCP files when it is exactly ours. Files without Resolve markers are never touched.
+ * project MCP files when it is exactly ours. Files without Resolve markers are never touched. The .gitignore block stays
+ * while .resolve/ is still there, so a learned cache left behind is not committed.
  * @returns {Array<{ action: "remove" | "update" | "skip", path: string, text?: string, note?: string }>}
  */
 export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot }) {
@@ -578,6 +591,7 @@ export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot 
     ...(isGlobal ? [] : [join(cwd, ".gitignore")]),
   ];
   const plan = [];
+  const keepIgnore = !isGlobal && storeKept(cwd);
   for (const path of owned) {
     const current = readOrNull(path);
     if (current == null) continue;
@@ -589,6 +603,8 @@ export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot 
     const original = record.originals[path];
     if (rest == null) {
       plan.push({ action: "skip", path, note: " (not written by Resolve, kept)" });
+    } else if (git && keepIgnore) {
+      plan.push({ action: "skip", path, note: KEEP_IGNORE });
     } else if (typeof original === "string" && onlyBlockAdded(current, original, begin, end)) {
       plan.push({ action: "update", path, text: original });
     } else if ((rest.trim() === "" || onlyFrontmatter(rest)) && created) {
