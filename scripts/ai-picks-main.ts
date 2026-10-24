@@ -1,7 +1,8 @@
 /**
  * Main's per-case evidence for the AI-picks scorer.
  * Frozen path: meaning candidates and whether the lead is weak. Recommend path: scoreAsks (lead, weak match).
- * The scorer applies one weak-lead rule to both paths (mainPath in ai-picks-eval.mjs).
+ * The scorer scores both paths under the old rule (a weak lead still counts) and the new rule
+ * (a weak lead fails). Tier ask is a weak lead on every path (mainPath in ai-picks-eval.mjs).
  */
 import { meaningCandidates } from "../src/core/query/meaning/sock";
 import { scoreAsks } from "../tests/meaning.score";

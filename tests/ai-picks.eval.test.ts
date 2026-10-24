@@ -160,8 +160,10 @@ describe("AI picks eval harness", () => {
       if (!acmeGate || /pass|fail/.test(acmeGate)) throw new Error("acme gate mark " + acmeGate);
       const materialBelow = below.split("Material ")[1].split("Acme ")[0];
       if (!materialBelow.includes("top-1 22/60") || !materialBelow.includes("fail")) throw new Error(materialBelow);
-      const materialGate = materialBelow.split("\\n").find((line) => line.startsWith("gate "));
+      const materialGate = materialBelow.split("\\n").find((line) => line.startsWith("new gate "));
       if (!materialGate || !materialGate.includes("pass")) throw new Error("material gate " + materialGate);
+      const oldGate = materialBelow.split("\\n").find((line) => line.startsWith("old gate "));
+      if (!oldGate || !oldGate.includes("pass")) throw new Error("old gate " + oldGate);
       const met = formatScore(reportOf(23, 2), [...materialCases, ...acmeCases], main);
       if (!met.split("Acme ")[0].includes("top-1 23/60") || !met.split("Material ")[1].split("Acme ")[0].includes("pass")) throw new Error(met);
       const missing = formatScore(reportOf(60, 2), [...materialCases, ...acmeCases]);

@@ -51,9 +51,13 @@ interface Scorer {
   scoreRecorded(cases: Case[], runs: Run[], names: Record<string, Record<string, string>>, indexIds?: Record<string, Set<string>>, mainCorrect?: Record<string, boolean>): Report;
   formatScore(report: Report, cases: Case[], mainRates?: MainRates): string;
   scoreJson(report: Report, cases: Case[], mainRates?: MainRates): Report & { main: MainRates | null; marks: Record<string, Record<string, Mark>> };
-  ratesFrom(cases: Case[], evidence: Evidence[]): { correct: Record<string, boolean>; rates: Record<string, MainRates[string] & { paths: Record<string, Group> }> };
-  mainPath(exact: boolean, accepted: string[], names: string[], weak: boolean): { top1: boolean; top3: boolean; noFit: boolean };
-  eitherCorrect(exact: boolean, accepted: string[], frozenNames: string[], lead: string, weak: boolean, frozenWeak?: boolean): { top1: boolean; top3: boolean; noFit: boolean };
+  ratesFrom(cases: Case[], evidence: Evidence[]): {
+    correct: Record<string, boolean>;
+    correctByRule: Record<string, Record<string, boolean>>;
+    rates: Record<string, MainRates[string] & { path?: string; paths: Record<string, Group>; rules?: Record<string, { top1: number; top3: number; path: string }> }>;
+  };
+  mainPath(exact: boolean, accepted: string[], names: string[], weak: boolean, rule?: string): { top1: boolean; top3: boolean; noFit: boolean };
+  eitherCorrect(exact: boolean, accepted: string[], frozenNames: string[], lead: string, weak: boolean, frozenWeak?: boolean, rule?: string): { top1: boolean; top3: boolean; noFit: boolean };
 }
 
 const scorerUrl: string = new URL("../scripts/ai-picks-eval.mjs", import.meta.url).href;
@@ -126,30 +130,39 @@ describe("F1b-R7 synthetic scores", () => {
   it("fails Material top-1 28/60 even when it beats main", () => {
     const cases = materialSet();
     const got = score(cases, threeRuns(cases, (_row, index) => (index >= 54 ? "no-fit" : index < 22 ? "right" : "wrong")));
-    expect(lineOf(got.material, "top-1")).toBe("top-1 28/60 46.7% target 80% (48/60) fail");
-    expect(lineOf(got.material, "top-1 vs main")).toMatch(/^top-1 vs main 28\/60 .* \(23\/60\) pass$/);
-    expect(got.json.marks["material"]!["top-1"]).toEqual({ n: 28, N: 60, rate: 28 / 60, pass: false });
-    expect(lineOf(got.material, "verdict")).toBe("verdict fail (top-1, top-3, name-avoiding top-3)");
+    expect(lineOf(got.material, "old top-1")).toBe("old top-1 28/60 46.7% target 80% (48/60) fail");
+    expect(lineOf(got.material, "new top-1")).toBe("new top-1 28/60 46.7% target 80% (48/60) fail");
+    expect(lineOf(got.material, "old top-1 vs main")).toBe("old top-1 vs main 28/60 46.7% target 35% (21/60) pass");
+    expect(lineOf(got.material, "new top-1 vs main")).toBe("new top-1 vs main 28/60 46.7% target 35% (21/60) pass");
+    expect(got.json.marks["material"]!["old top-1"]).toEqual({ n: 28, N: 60, rate: 28 / 60, pass: false });
+    expect(got.json.marks["material"]!["new top-1"]).toEqual({ n: 28, N: 60, rate: 28 / 60, pass: false });
+    expect(lineOf(got.material, "verdict")).toBe("verdict fail (old top-1, new top-1, old top-3, new top-3, old name-avoiding top-3, new name-avoiding top-3)");
   });
 
   it("fails no-fit 4/6 and passes 6/6", () => {
     const cases = materialSet();
     const four = score(cases, threeRuns(cases, (_row, index) => (index >= 58 ? "wrong" : index >= 54 ? "no-fit" : "right")));
-    expect(lineOf(four.material, "no-fit")).toBe("no-fit 4/6 66.7% target 90% (6/6) fail");
-    expect(lineOf(four.material, "verdict")).toBe("verdict fail (no-fit)");
+    expect(lineOf(four.material, "old no-fit")).toBe("old no-fit 4/6 66.7% target 90% (6/6) fail");
+    expect(lineOf(four.material, "new no-fit")).toBe("new no-fit 4/6 66.7% target 90% (6/6) fail");
+    expect(lineOf(four.material, "verdict")).toBe("verdict fail (old no-fit, new no-fit)");
     const six = score(cases, threeRuns(cases, (_row, index) => (index >= 54 ? "no-fit" : "right")));
-    expect(lineOf(six.material, "no-fit")).toBe("no-fit 6/6 100% target 90% (6/6) pass");
+    expect(lineOf(six.material, "old no-fit")).toBe("old no-fit 6/6 100% target 90% (6/6) pass");
+    expect(lineOf(six.material, "new no-fit")).toBe("new no-fit 6/6 100% target 90% (6/6) pass");
     expect(lineOf(six.material, "verdict")).toBe("verdict pass");
   });
 
   it("fails an all-no-fit run", () => {
     const cases = materialSet();
     const got = score(cases, threeRuns(cases, () => "no-fit"));
-    expect(lineOf(got.material, "top-1")).toBe("top-1 6/60 10% target 80% (48/60) fail");
-    expect(lineOf(got.material, "top-3")).toMatch(/ fail$/);
-    expect(lineOf(got.material, "name-avoiding top-3")).toBe("name-avoiding top-3 0/32 0% target 85% (28/32) fail");
-    expect(lineOf(got.material, "no-fit")).toMatch(/ pass$/);
-    expect(lineOf(got.material, "verdict")).toMatch(/^verdict fail \(top-1, top-1 vs main, top-3, top-3 vs main, name-avoiding top-3/);
+    expect(lineOf(got.material, "old top-1")).toBe("old top-1 6/60 10% target 80% (48/60) fail");
+    expect(lineOf(got.material, "new top-1")).toBe("new top-1 6/60 10% target 80% (48/60) fail");
+    expect(lineOf(got.material, "old top-3")).toMatch(/ fail$/);
+    expect(lineOf(got.material, "new top-3")).toMatch(/ fail$/);
+    expect(lineOf(got.material, "old name-avoiding top-3")).toBe("old name-avoiding top-3 0/32 0% target 85% (28/32) fail");
+    expect(lineOf(got.material, "new name-avoiding top-3")).toBe("new name-avoiding top-3 0/32 0% target 85% (28/32) fail");
+    expect(lineOf(got.material, "old no-fit")).toMatch(/ pass$/);
+    expect(lineOf(got.material, "new no-fit")).toMatch(/ pass$/);
+    expect(lineOf(got.material, "verdict")).toMatch(/^verdict fail \(old top-1, new top-1, old top-1 vs main, new top-1 vs main, old top-3, new top-3, old top-3 vs main, new top-3 vs main, old name-avoiding top-3/);
   });
 });
 
@@ -160,6 +173,7 @@ describe("F1b-R5 m-q04: majority on the accepted-answer set", () => {
     const report = scorer.scoreRecorded([row], [shownRun("q-1", 1, "tooltip", "place"), shownRun("q-1", 2, "tooltip", "ask"), shownRun("q-1", 3, "badge", "place")], names, indexIds);
     const material = report.groups.material;
     expect([material["top1"], material["top3"], material["gate"], material["split"], material["tierFlips"]]).toEqual([1, 1, 0, 0, 0]);
+    expect([material["top1New"], material["top3New"]]).toEqual([0, 0]);
   });
 
   it("lets two accepted runs win over a no-fit, and still reports the gate hit", () => {
@@ -240,36 +254,48 @@ describe("F1b-R1 and F1b-R8 marks", () => {
 
   it("scales every bar with n >= ceil(rate × N) for a holdout of any size", () => {
     const cases = holdout(45, 7, 20);
-    expect(markOf(cases, { top1: 36 }, "top-1")!.pass).toBe(true);
-    expect(markOf(cases, { top1: 35 }, "top-1")!.pass).toBe(false);
-    expect(markOf(cases, { top3: 41 }, "top-3")!.pass).toBe(true);
-    expect(markOf(cases, { top3: 40 }, "top-3")!.pass).toBe(false);
-    expect(markOf(cases, { avoidHit: 17 }, "name-avoiding top-3")!.pass).toBe(true);
-    expect(markOf(cases, { avoidHit: 16 }, "name-avoiding top-3")!.pass).toBe(false);
-    expect(markOf(cases, { noFitHit: 7 }, "no-fit")!.pass).toBe(true);
-    expect(markOf(cases, { noFitHit: 6 }, "no-fit")!.pass).toBe(false);
-    expect(markOf(cases, { gate: 2 }, "gate")!.pass).toBe(true);
-    expect(markOf(cases, { gate: 3 }, "gate")!.pass).toBe(false);
-    expect(markOf(cases, { invented: 1, named: 90 }, "invented")).toEqual({ n: 1, N: 90, rate: 1 / 90, pass: false });
+    for (const prefix of ["old", "new"]) {
+      expect(markOf(cases, { top1: 36 }, `${prefix} top-1`)!.pass).toBe(true);
+      expect(markOf(cases, { top1: 35 }, `${prefix} top-1`)!.pass).toBe(false);
+      expect(markOf(cases, { top3: 41 }, `${prefix} top-3`)!.pass).toBe(true);
+      expect(markOf(cases, { top3: 40 }, `${prefix} top-3`)!.pass).toBe(false);
+      expect(markOf(cases, { avoidHit: 17 }, `${prefix} name-avoiding top-3`)!.pass).toBe(true);
+      expect(markOf(cases, { avoidHit: 16 }, `${prefix} name-avoiding top-3`)!.pass).toBe(false);
+      expect(markOf(cases, { noFitHit: 7 }, `${prefix} no-fit`)!.pass).toBe(true);
+      expect(markOf(cases, { noFitHit: 6 }, `${prefix} no-fit`)!.pass).toBe(false);
+      expect(markOf(cases, { gate: 2 }, `${prefix} gate`)!.pass).toBe(true);
+      expect(markOf(cases, { gate: 3 }, `${prefix} gate`)!.pass).toBe(false);
+      expect(markOf(cases, { invented: 1, named: 90 }, `${prefix} invented`)).toEqual({ n: 1, N: 90, rate: 1 / 90, pass: false });
+      expect(markOf(cases, { top1: 16 }, `${prefix} top-1 vs main`)!.pass).toBe(true);
+      expect(markOf(cases, { top1: 15 }, `${prefix} top-1 vs main`)!.pass).toBe(false);
+    }
   });
 
   it("uses the ticket numbers on the frozen 60 and 32", () => {
     const cases = holdout(60, 6, 32);
-    expect([markOf(cases, { top1: 48 }, "top-1")!.pass, markOf(cases, { top1: 47 }, "top-1")!.pass]).toEqual([true, false]);
-    expect([markOf(cases, { top3: 54 }, "top-3")!.pass, markOf(cases, { top3: 53 }, "top-3")!.pass]).toEqual([true, false]);
-    expect([markOf(cases, { avoidHit: 28 }, "name-avoiding top-3")!.pass, markOf(cases, { avoidHit: 27 }, "name-avoiding top-3")!.pass]).toEqual([true, false]);
-    const beat = (top1: number) => scorer.scoreJson(report({ top1 }), cases, main).marks["material"]!["top-1 vs main"]!.pass;
-    expect([beat(23), beat(22)]).toEqual([true, false]);
+    for (const prefix of ["old", "new"]) {
+      expect([markOf(cases, { top1: 48 }, `${prefix} top-1`)!.pass, markOf(cases, { top1: 47 }, `${prefix} top-1`)!.pass]).toEqual([true, false]);
+      expect([markOf(cases, { top3: 54 }, `${prefix} top-3`)!.pass, markOf(cases, { top3: 53 }, `${prefix} top-3`)!.pass]).toEqual([true, false]);
+      expect([markOf(cases, { avoidHit: 28 }, `${prefix} name-avoiding top-3`)!.pass, markOf(cases, { avoidHit: 27 }, `${prefix} name-avoiding top-3`)!.pass]).toEqual([true, false]);
+      const beat = (top1: number) => scorer.scoreJson(report({ top1 }), cases, main).marks["material"]![`${prefix} top-1 vs main`]!.pass;
+      expect([beat(21), beat(20)]).toEqual([true, false]);
+    }
+    const beat3 = (field: string, top3: number) => scorer.scoreJson(report({ top3 }), cases, main).marks["material"]![field]!.pass;
+    expect([beat3("old top-3 vs main", 26), beat3("old top-3 vs main", 25)]).toEqual([true, false]);
+    expect([beat3("new top-3 vs main", 20), beat3("new top-3 vs main", 19)]).toEqual([true, false]);
   });
 
   it("prints n/a for N = 0 and never counts it as a pass", () => {
     const cases = holdout(10, 0, 0);
     const text = scorer.formatScore(report({ top1: 10, top3: 10 }), cases, { material: { asks: 10, top1: 0, top3: 0, noFit: 0, noFitHit: 0 } });
     const material = section(text, "Material 10", "Acme ");
-    expect(lineOf(material, "no-fit")).toBe("no-fit 0/0 n/a");
-    expect(lineOf(material, "name-avoiding top-3")).toBe("name-avoiding top-3 0/0 n/a");
-    expect(lineOf(material, "verdict")).toBe("verdict incomplete (n/a: name-avoiding top-3, no-fit, invented, confusable sure-wrong, library quote)");
-    expect(markOf(cases, {}, "no-fit")).toEqual({ n: 0, N: 0, rate: null, pass: null });
+    expect(lineOf(material, "old no-fit")).toBe("old no-fit 0/0 n/a");
+    expect(lineOf(material, "new no-fit")).toBe("new no-fit 0/0 n/a");
+    expect(lineOf(material, "old name-avoiding top-3")).toBe("old name-avoiding top-3 0/0 n/a");
+    expect(lineOf(material, "new name-avoiding top-3")).toBe("new name-avoiding top-3 0/0 n/a");
+    expect(lineOf(material, "verdict")).toBe("verdict incomplete (n/a: old name-avoiding top-3, new name-avoiding top-3, old no-fit, new no-fit, old invented, new invented, old confusable sure-wrong, new confusable sure-wrong, old library quote, new library quote)");
+    expect(markOf(cases, {}, "old no-fit")).toEqual({ n: 0, N: 0, rate: null, pass: null });
+    expect(markOf(cases, {}, "new no-fit")).toEqual({ n: 0, N: 0, rate: null, pass: null });
   });
 
   it("prints every acceptance metric per library group as n/N and %", () => {
@@ -277,7 +303,9 @@ describe("F1b-R1 and F1b-R8 marks", () => {
     const text = scorer.formatScore(report({ top1: 50, top3: 55, avoidHit: 30, noFitHit: 6, named: 180, libraryQuotes: 40, libraryShown: 40 }), cases, main);
     const material = section(text, "Material 60", "Acme ");
     const labels = ["top-1", "top-1 vs main", "top-3", "top-3 vs main", "name-avoiding top-3", "no-fit", "invented", "gate", "tier flips", "confusable sure-wrong", "main lost", "library quote"];
-    for (const label of labels) expect(lineOf(material, label), label).toMatch(/ \d+\/\d+ (\d+(\.\d)?% .* (pass|fail)( \(soft\))?|n\/a)$/);
+    for (const prefix of ["old", "new"]) {
+      for (const label of labels) expect(lineOf(material, `${prefix} ${label}`), `${prefix} ${label}`).toMatch(/ \d+\/\d+ (\d+(\.\d)?% .* (pass|fail)( \(soft\))?|n\/a)$/);
+    }
     expect(lineOf(material, "rejected")).toBe("rejected 0/60 0%");
     expect(lineOf(material, "nothing-fits asks")).toBe("nothing-fits asks 6/60 10% target TBD (fresh set at least 8)");
     const acme = section(text, "Acme 1", "Total ");
@@ -290,29 +318,72 @@ describe("F1b-R1 and F1b-R8 marks", () => {
     const json = scorer.scoreJson(report({ top1: 50 }, { rejections: [{ caseId: "h-1", run: 2, failed: ["quote"] }] }), holdout(60, 6, 32), main);
     for (const field of ["groups", "rejections", "incomplete", "thinDescribed", "lost", "marks", "main"]) expect(json, field).toHaveProperty(field);
     expect(json.rejections).toEqual([{ caseId: "h-1", run: 2, failed: ["quote"] }]);
-    expect(json.marks["material"]!["top-1"]).toEqual({ n: 50, N: 60, rate: 50 / 60, pass: true });
+    expect(json.marks["material"]!["old top-1"]).toEqual({ n: 50, N: 60, rate: 50 / 60, pass: true });
+    expect(json.marks["material"]!["new top-1"]).toEqual({ n: 50, N: 60, rate: 50 / 60, pass: true });
   });
 });
 
 describe("F1b-R2 main's weak-lead rule", () => {
-  it("fails a weak lead on both paths", () => {
+  it("fails a weak lead on both paths under the new rule and still counts it under the old rule", () => {
     expect(scorer.mainPath(true, ["Tooltip"], ["Tooltip"], true)).toEqual({ top1: false, top3: false, noFit: false });
+    expect(scorer.mainPath(true, ["Tooltip"], ["Tooltip"], true, "old")).toEqual({ top1: true, top3: true, noFit: false });
     expect(scorer.mainPath(false, [], ["Tooltip"], true)).toEqual({ top1: false, top3: false, noFit: false });
+    expect(scorer.mainPath(false, [], ["Tooltip"], true, "old")).toEqual({ top1: false, top3: false, noFit: false });
     expect(scorer.mainPath(true, ["Tooltip"], ["Badge", "Tooltip"], false)).toEqual({ top1: false, top3: true, noFit: false });
     expect(scorer.eitherCorrect(true, ["Tooltip"], ["Tooltip"], "", false, true).top1).toBe(false);
+    expect(scorer.eitherCorrect(true, ["Tooltip"], [], "Tooltip", true, false, "old").top1).toBe(true);
+    expect(scorer.eitherCorrect(true, ["Tooltip"], ["Tooltip"], "", true, true, "old").top1).toBe(true);
   });
 
-  it("takes main's bar from the better path per metric and lost cases from either path", () => {
+  it("counts tier ask as a weak lead on the AI path", () => {
+    const row: Case = { id: "q-ask", pack: "material", ask: "synthetic", expect: { lead: "Tooltip", accept: "exact" }, alternates: ["Badge"], tags: ["meaning-only"] };
+    const runs = [1, 2, 3].map((run) => shownRun("q-ask", run, "tooltip", "ask"));
+    const report = scorer.scoreRecorded([row], runs, names, indexIds);
+    expect([report.groups.material["top1"], report.groups.material["top3"], report.groups.material["avoidHit"]]).toEqual([1, 1, 1]);
+    expect([report.groups.material["top1New"], report.groups.material["top3New"], report.groups.material["avoidHitNew"]]).toEqual([0, 0, 0]);
+    const listed = shownRun("q-ask", 1, "slider", "ask");
+    listed.request.shortlist = ["slider", "tooltip", "badge"];
+    const top3 = scorer.scoreRecorded([row], [listed], names, indexIds).groups.material;
+    expect([top3["top1"], top3["top3"], top3["top1New"], top3["top3New"]]).toEqual([0, 1, 0, 0]);
+  });
+
+  it("fails the run unless every bar passes under both rules", () => {
+    const cases = materialSet();
+    const runs = cases.flatMap((row, index) => [1, 2, 3].map((run) => (index >= 54 ? noFitRun(row.id, run) : shownRun(row.id, run, "tooltip", "ask"))));
+    const got = score(cases, runs);
+    expect(lineOf(got.material, "old top-1")).toMatch(/ 60\/60 .* pass$/);
+    expect(lineOf(got.material, "new top-1")).toMatch(/ fail$/);
+    expect(got.report.groups.material["top1"]).toBe(60);
+    expect(got.report.groups.material["top1New"]).toBe(6);
+    expect(lineOf(got.material, "verdict")).toBe("verdict fail (new top-1, new top-1 vs main, new top-3, new top-3 vs main, new name-avoiding top-3)");
+  });
+
+  it("takes the baseline from main's better single path, and lost cases from either path", () => {
     const cases: Case[] = ["w-1", "w-2", "w-3"].map((id) => ({ id, pack: "material", ask: "synthetic", expect: { lead: "Tooltip", accept: "exact" }, tags: [] }));
     const evidence: Evidence[] = [
       { id: "w-1", frozenNames: ["Tooltip"], frozenWeak: false, lead: "Badge", weak: false },
       { id: "w-2", frozenNames: ["Badge"], frozenWeak: false, lead: "Tooltip", weak: false },
       { id: "w-3", frozenNames: ["Tooltip"], frozenWeak: true, lead: "Tooltip", weak: true },
     ];
-    const { correct, rates } = scorer.ratesFrom(cases, evidence);
+    const { correct, correctByRule, rates } = scorer.ratesFrom(cases, evidence);
     const material = rates["material"]!;
     expect([material.top1, material.paths["frozen"]!["top1"], material.paths["recommend"]!["top1"]]).toEqual([1, 1, 1]);
+    expect(material.path).toBe("frozen");
+    expect(material.rules!["new"]!.top1).toBe(1);
+    expect(material.rules!["old"]!.top1).toBe(2);
     expect(correct).toEqual({ "w-1": true, "w-2": true, "w-3": false });
+    expect(correctByRule["old"]).toEqual({ "w-1": true, "w-2": true, "w-3": true });
+    const split: Case[] = ["s-1", "s-2", "s-3", "s-4"].map((id) => ({ id, pack: "material", ask: "synthetic", expect: { lead: "Tooltip", accept: "exact" }, tags: [] }));
+    const splitEvidence: Evidence[] = [
+      { id: "s-1", frozenNames: ["Tooltip"], frozenWeak: false, lead: "Badge", weak: false },
+      { id: "s-2", frozenNames: ["Badge", "Tooltip"], frozenWeak: false, lead: "Tooltip", weak: false },
+      { id: "s-3", frozenNames: ["Chip", "Tooltip"], frozenWeak: false, lead: "Tooltip", weak: false },
+      { id: "s-4", frozenNames: ["Badge"], frozenWeak: false, lead: "Badge", weak: false },
+    ];
+    const picked = scorer.ratesFrom(split, splitEvidence).rates["material"]!;
+    expect([picked.paths["frozen"]!["top1"], picked.paths["frozen"]!["top3"]]).toEqual([1, 3]);
+    expect([picked.paths["recommend"]!["top1"], picked.paths["recommend"]!["top3"]]).toEqual([2, 2]);
+    expect([picked.top1, picked.top3, picked.path]).toEqual([2, 2, "recommend"]);
   });
 });
 

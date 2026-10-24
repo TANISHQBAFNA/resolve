@@ -120,21 +120,32 @@ function tierFlip(choices) {
   return tiers.has("place") && tiers.has("ask");
 }
 
-// F1b-R2: main's one weak-lead rule, used the same way on the frozen path and the recommend path.
-// The rule is decision D2, the ticket's strict text: "a weak lead fails".
-// A weak lead is never a top-1 or top-3 hit, and it is not a no-fit.
-export function mainPath(exact, acceptedNames, names, weak) {
-  if (weak && names.length > 0) return { top1: false, top3: false, noFit: false };
+// F1b-R2: the same weak-lead rule on the frozen path, the recommend path, and the AI path.
+// Old rule: a weak lead still counts. New rule (decision D2): a weak lead fails.
+// Under the new rule a weak lead is never a top-1 or top-3 hit, and it is not a no-fit.
+// Tier `ask` is a weak lead on every path. Main's paths pass that in as `weak`.
+export function mainPath(exact, acceptedNames, names, weak, rule = "new") {
+  if (rule !== "old" && weak && names.length > 0) return { top1: false, top3: false, noFit: false };
   const empty = names.length === 0;
   if (!exact) return { top1: empty, top3: empty, noFit: empty };
   return { top1: acceptedNames.includes(names[0] ?? ""), top3: names.slice(0, 3).some((name) => acceptedNames.includes(name)), noFit: empty };
 }
 
-// "Main gets right" for lost cases: correct on either path, under the same weak-lead rule.
-export function eitherCorrect(exact, acceptedNames, frozenNames, lead, weak, frozenWeak = false) {
-  const frozen = mainPath(exact, acceptedNames, frozenNames ?? [], frozenWeak);
-  const recommend = mainPath(exact, acceptedNames, lead ? [lead] : [], weak);
+// "Main gets right" for lost cases: correct on either path. Default is the new rule.
+export function eitherCorrect(exact, acceptedNames, frozenNames, lead, weak, frozenWeak = false, rule = "new") {
+  const frozen = mainPath(exact, acceptedNames, frozenNames ?? [], frozenWeak, rule);
+  const recommend = mainPath(exact, acceptedNames, lead ? [lead] : [], weak, rule);
   return { top1: frozen.top1 || recommend.top1, top3: frozen.top3 || recommend.top3, noFit: frozen.noFit || recommend.noFit };
+}
+
+// A flat id→boolean map applies to both rules. { old, new } keeps each rule's main-correct set.
+function correctMaps(mainCorrect) {
+  if (!mainCorrect) return undefined;
+  const values = Object.values(mainCorrect);
+  if (values.length > 0 && values.every((value) => value && typeof value === "object")) {
+    return { old: mainCorrect.old ?? {}, new: mainCorrect.new ?? {} };
+  }
+  return { old: mainCorrect, new: mainCorrect };
 }
 
 export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorrect = undefined) {
@@ -153,6 +164,8 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
   const rejections = [];
   const incomplete = [];
   const lost = { material: [], acme: [] };
+  const lostNew = { material: [], acme: [] };
+  const maps = correctMaps(mainCorrect);
   for (const row of cases) {
     const group = groupOf(row.pack);
     const bucket = [groups[group], groups.total];
@@ -200,18 +213,26 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
     const leadName = winner?.result?.name ?? "";
     const noFit = Boolean(winner) && winner.result.tier === "no-fit" && !winner.result.id;
     const exact = row.expect?.accept === "exact";
-    const fit1 = exact ? Boolean(winner) && winner.result.tier !== "no-fit" && ok.has(leadName) : noFit;
+    const weakAnswer = Boolean(winner) && winner.result.tier === "ask";
     const shortlistNames = namesOf((winner?.request?.shortlist ?? []).slice(0, 3), packNames);
-    const fit3 = exact ? Boolean(winner) && winner.result.tier !== "no-fit" && shortlistNames.some((name) => ok.has(name)) : noFit;
-    if (fit1) add("top1");
-    if (fit3) add("top3");
+    const nameHit = Boolean(winner) && winner.result.tier !== "no-fit" && ok.has(leadName);
+    const top3Hit = Boolean(winner) && winner.result.tier !== "no-fit" && shortlistNames.some((name) => ok.has(name));
+    // Old rule: tier ask still counts. New rule: tier ask is a weak lead and fails.
+    const oldHits = { top1: exact ? nameHit : noFit, top3: exact ? top3Hit : noFit, noFit };
+    const newHits = weakAnswer && shown(winner?.result) ? { top1: false, top3: false, noFit: false } : oldHits;
+    if (oldHits.top1) add("top1");
+    if (newHits.top1) add("top1New");
+    if (oldHits.top3) add("top3");
+    if (newHits.top3) add("top3New");
     if ((row.tags ?? []).includes("meaning-only")) {
       add("avoid");
-      if (fit3) add("avoidHit");
+      if (oldHits.top3) add("avoidHit");
+      if (newHits.top3) add("avoidHitNew");
     }
     if (isNoFit(row)) {
       add("noFit");
-      if (noFit) add("noFitHit");
+      if (oldHits.noFit) add("noFitHit");
+      if (newHits.noFit) add("noFitHitNew");
     }
     if ((row.tags ?? []).includes("confusable") && winner?.result?.tier === "place" && !ok.has(leadName)) add("confusableWrong");
     if (winner && shown(winner.result)) {
@@ -226,7 +247,8 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
         else add("unquoted");
       }
     }
-    if (mainCorrect?.[row.id] && !fit1) lost[group].push(row.id);
+    if (maps?.old[row.id] && !oldHits.top1) lost[group].push(row.id);
+    if (maps?.new[row.id] && !newHits.top1) lostNew[group].push(row.id);
   }
   const mixed = sawOne && sawThree;
   const total = groups.total;
@@ -242,6 +264,7 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
     rejections,
     incomplete,
     lost: mainCorrect ? lost : undefined,
+    lostNew: mainCorrect ? lostNew : undefined,
     oneRun: sawOne && !sawThree,
     mixed,
     duplicates,
@@ -251,7 +274,7 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
 
 function emptyGroup() {
   return {
-    asks: 0, top1: 0, top3: 0, avoid: 0, avoidHit: 0, noFit: 0, noFitHit: 0, confusableWrong: 0, unstable: 0, gate: 0, tierFlips: 0, split: 0,
+    asks: 0, top1: 0, top3: 0, top1New: 0, top3New: 0, avoid: 0, avoidHit: 0, avoidHitNew: 0, noFit: 0, noFitHit: 0, noFitHitNew: 0, confusableWrong: 0, unstable: 0, gate: 0, tierFlips: 0, split: 0,
     rejected: 0, invented: 0, named: 0, thinPlaced: 0, nameOnly: 0, libraryQuotes: 0, libraryShown: 0, unquoted: 0,
   };
 }
@@ -277,9 +300,15 @@ function rateOf(hit, of) {
   return of ? hit / of : undefined;
 }
 
-// F1b-R1: the ticket bars (the F1c acceptance table) as rates, so any case count gets marks, the holdout too.
-// On the frozen 60: top-1 48/60, top-3 54/60, name-avoiding top-3 28/32, no-fit 6/6, main-correct cases lost 3.
-export const TICKET_BARS = { top1: 0.8, top3: 0.9, avoid: 0.85, noFit: 0.9, gate: 0.05, tierFlips: 0.1, lost: 3 / 60, quote: 1, overMainTop1: 0.05 };
+// F1b-R1: the ticket bars as rates, so any case count gets marks, the holdout too.
+// Absolute bars on the frozen 60: top-1 48/60, top-3 54/60, name-avoiding top-3 28/32, no-fit 6/6, main-correct cases lost 3.
+// Vs-main bars are fixed. They are not computed from a fresh main score.
+// Baseline is main's better single path: top-1 18/60 new and 20/60 old, so the bars are
+// top-1 21/60 under both rules, top-3 20/60 new and 26/60 old.
+export const TICKET_BARS = {
+  top1: 0.8, top3: 0.9, avoid: 0.85, noFit: 0.9, gate: 0.05, tierFlips: 0.1, lost: 3 / 60, quote: 1,
+  top1Old: 21 / 60, top1New: 21 / 60, top3Old: 26 / 60, top3New: 20 / 60,
+};
 
 // A bar with no cases (N = 0) is n/a, never a pass.
 function mark(label, n, N, pass, bar) {
@@ -314,11 +343,30 @@ function countsOf(cases, group) {
   return { asks: rows.length, avoid: tagged("meaning-only"), confusable: tagged("confusable"), noFit: rows.filter(isNoFit).length };
 }
 
+function pathReport(rates) {
+  const which = rates.path ? ` ${rates.path}` : "";
+  const detail = rates.paths
+    ? `; frozen top-1 ${rates.paths.frozen.top1}, top-3 ${rates.paths.frozen.top3}, no-fit ${rates.paths.frozen.noFitHit}; recommend top-1 ${rates.paths.recommend.top1}, top-3 ${rates.paths.recommend.top3}, no-fit ${rates.paths.recommend.noFitHit}`
+    : "";
+  return `${line("top-1", rates.top1, rates.asks)}, ${line("top-3", rates.top3, rates.asks)}, ${line("no-fit", rates.noFitHit, rates.noFit)} (better single path${which}${detail})`;
+}
+
 function mainLine(main) {
   if (!main) return "main (none)";
-  const path = (name, rates) => `${name} top-1 ${rates.top1}, top-3 ${rates.top3}, no-fit ${rates.noFitHit}`;
-  const paths = main.paths ? `; ${path("frozen", main.paths.frozen)}; ${path("recommend", main.paths.recommend)}` : "";
-  return `main ${line("top-1", main.top1, main.asks)}, ${line("top-3", main.top3, main.asks)}, ${line("no-fit", main.noFitHit, main.noFit)} (better path per metric${paths})`;
+  if (main.rules) return `main old ${pathReport(main.rules.old)}; new ${pathReport(main.rules.new)}`;
+  return `main ${pathReport(main)}`;
+}
+
+function counted(group, rule) {
+  if (rule === "new") {
+    return {
+      top1: group.top1New ?? group.top1,
+      top3: group.top3New ?? group.top3,
+      avoidHit: group.avoidHitNew ?? group.avoidHit,
+      noFitHit: group.noFitHitNew ?? group.noFitHit,
+    };
+  }
+  return { top1: group.top1, top3: group.top3, avoidHit: group.avoidHit, noFitHit: group.noFitHit };
 }
 
 function verdict(marks) {
@@ -355,27 +403,36 @@ function groupScore(name, group, counts, main, lost) {
       reportCap("gate", group.gate, counts.asks, TICKET_BARS.gate),
       flips.text,
       line("confusable sure-wrong", group.confusableWrong, counts.confusable),
-      ...(lost ? [line("main lost", lost.length, counts.asks)] : []),
+      ...(lostList(lost) ? [line("main lost", lostList(lost).length, counts.asks)] : []),
       line("library quote", ...quotes),
       ...reported,
     ];
     return { marks: [top1, top3, noFit, flips], lines };
   }
-  const mainTop1 = rateOf(main?.top1, main?.asks);
-  const marks = [
-    atLeast("top-1", group.top1, counts.asks, TICKET_BARS.top1),
-    atLeast("top-1 vs main", group.top1, counts.asks, mainTop1 === undefined ? undefined : mainTop1 + TICKET_BARS.overMainTop1),
-    atLeast("top-3", group.top3, counts.asks, TICKET_BARS.top3),
-    atLeast("top-3 vs main", group.top3, counts.asks, rateOf(main?.top3, main?.asks)),
-    atLeast("name-avoiding top-3", group.avoidHit, counts.avoid, TICKET_BARS.avoid),
-    atLeast("no-fit", group.noFitHit, counts.noFit, TICKET_BARS.noFit),
-    none("invented", group.invented ?? 0, group.named ?? 0),
-    atMost("gate", group.gate, counts.asks, TICKET_BARS.gate),
-    soft(atMost("tier flips", group.tierFlips, counts.asks, TICKET_BARS.tierFlips)),
-    none("confusable sure-wrong", group.confusableWrong, counts.confusable),
-    lost ? atMost("main lost", lost.length, counts.asks, TICKET_BARS.lost) : mark("main lost", 0, counts.asks, false, "no main"),
-    atLeast("library quote", ...quotes, TICKET_BARS.quote),
-  ];
+  const quotesHit = [group.libraryQuotes ?? 0, group.libraryShown ?? 0];
+  const ruleMarks = (rule, prefix) => {
+    const hits = counted(group, rule);
+    const lostN = !lost ? undefined : (rule === "new" ? lost.new.length : lost.old.length);
+    const top1Bar = rule === "new" ? TICKET_BARS.top1New : TICKET_BARS.top1Old;
+    const top3Bar = rule === "new" ? TICKET_BARS.top3New : TICKET_BARS.top3Old;
+    return [
+      atLeast(`${prefix} top-1`, hits.top1, counts.asks, TICKET_BARS.top1),
+      atLeast(`${prefix} top-1 vs main`, hits.top1, counts.asks, top1Bar),
+      atLeast(`${prefix} top-3`, hits.top3, counts.asks, TICKET_BARS.top3),
+      atLeast(`${prefix} top-3 vs main`, hits.top3, counts.asks, top3Bar),
+      atLeast(`${prefix} name-avoiding top-3`, hits.avoidHit, counts.avoid, TICKET_BARS.avoid),
+      atLeast(`${prefix} no-fit`, hits.noFitHit, counts.noFit, TICKET_BARS.noFit),
+      none(`${prefix} invented`, group.invented ?? 0, group.named ?? 0),
+      atMost(`${prefix} gate`, group.gate, counts.asks, TICKET_BARS.gate),
+      soft(atMost(`${prefix} tier flips`, group.tierFlips, counts.asks, TICKET_BARS.tierFlips)),
+      none(`${prefix} confusable sure-wrong`, group.confusableWrong, counts.confusable),
+      lostN === undefined ? mark(`${prefix} main lost`, 0, counts.asks, false, "no main") : atMost(`${prefix} main lost`, lostN, counts.asks, TICKET_BARS.lost),
+      atLeast(`${prefix} library quote`, quotesHit[0], quotesHit[1], TICKET_BARS.quote),
+    ];
+  };
+  const oldMarks = ruleMarks("old", "old");
+  const newMarks = ruleMarks("new", "new");
+  const marks = oldMarks.flatMap((item, index) => [item, newMarks[index]]);
   return { marks, lines: [...marks.map((item) => item.text), ...reported, verdict(marks)] };
 }
 
@@ -384,10 +441,23 @@ function scoredCases(report, cases) {
   return cases.filter((row) => !incomplete.has(row.id));
 }
 
+function lostList(lost) {
+  if (!lost) return undefined;
+  return Array.isArray(lost) ? lost : lost.old;
+}
+
+function lostByRule(report, name) {
+  if (!report.lost && !report.lostNew) return undefined;
+  return {
+    old: report.lost?.[name] ?? [],
+    new: report.lostNew?.[name] ?? report.lost?.[name] ?? [],
+  };
+}
+
 function groupScores(report, cases, mainRates) {
   return Object.fromEntries(["material", "acme"].map((name) => [
     name,
-    groupScore(name, report.groups[name], countsOf(cases, name), mainRates?.[name], report.lost?.[name]),
+    groupScore(name, report.groups[name], countsOf(cases, name), mainRates?.[name], lostByRule(report, name)),
   ]));
 }
 
@@ -416,9 +486,13 @@ export function formatScore(report, cases, mainRates) {
     ...scores.acme.lines,
     `Total ${asks}`,
     line("top-1", total.top1, asks),
+    line("top-1 new", total.top1New ?? total.top1, asks),
     line("top-3", total.top3, asks),
+    line("top-3 new", total.top3New ?? total.top3, asks),
     line("name-avoiding top-3", total.avoidHit, total.avoid),
+    line("name-avoiding top-3 new", total.avoidHitNew ?? total.avoidHit, total.avoid),
     line("no-fit", total.noFitHit, total.noFit),
+    line("no-fit new", total.noFitHitNew ?? total.noFitHit, total.noFit),
     `confusable sure-wrong ${total.confusableWrong}`,
     `invented ${report.invented}`,
     `unquoted ${report.unquoted}`,
@@ -438,10 +512,15 @@ export function formatScore(report, cases, mainRates) {
     rejections.length ? rejections.map((item) => `${item.caseId} run ${item.run} ${item.failed.join(",")}`).join("\n") : "(none)",
   ];
   if (report.lost) {
+    const fresh = report.lostNew ?? report.lost;
     lines.push("main lost material");
     lines.push(report.lost.material.length ? report.lost.material.join("\n") : "(none)");
+    lines.push("main lost material new");
+    lines.push(fresh.material.length ? fresh.material.join("\n") : "(none)");
     lines.push("main lost acme");
     lines.push(report.lost.acme.length ? report.lost.acme.join("\n") : "(none)");
+    lines.push("main lost acme new");
+    lines.push(fresh.acme.length ? fresh.acme.join("\n") : "(none)");
   }
   return lines.join("\n");
 }
@@ -651,41 +730,49 @@ async function loadMain(cases) {
   }
 }
 
-// Main's rates per group. For the bars, main is the better path per metric (F1b-R2); a lost case is one main gets
-// right on either path. Both use the one weak-lead rule in mainPath.
+// Main's rates per group, under both weak-lead rules. The reported baseline is the better single
+// path (higher top-1, then top-3, then no-fit; frozen on a tie), not the better number from each path.
+// A lost case is one main gets right on either path under that rule. `correct` is the new rule.
 export function ratesFrom(cases, evidence) {
   const byId = new Map(evidence.map((row) => [row.id, row]));
   const blank = () => ({ asks: 0, top1: 0, top3: 0, noFit: 0, noFitHit: 0 });
-  const paths = { material: { frozen: blank(), recommend: blank() }, acme: { frozen: blank(), recommend: blank() } };
-  const correct = {};
+  const paths = {
+    old: { material: { frozen: blank(), recommend: blank() }, acme: { frozen: blank(), recommend: blank() } },
+    new: { material: { frozen: blank(), recommend: blank() }, acme: { frozen: blank(), recommend: blank() } },
+  };
+  const correctByRule = { old: {}, new: {} };
   for (const row of cases) {
     const found = byId.get(row.id) ?? { frozenNames: [], frozenWeak: false, lead: "", weak: false };
     const ok = [...accepted(row)];
     const exact = row.expect?.accept === "exact";
-    const got = {
-      frozen: mainPath(exact, ok, found.frozenNames ?? [], Boolean(found.frozenWeak)),
-      recommend: mainPath(exact, ok, found.lead ? [found.lead] : [], Boolean(found.weak)),
-    };
-    correct[row.id] = got.frozen.top1 || got.recommend.top1;
-    for (const [path, bucket] of Object.entries(paths[groupOf(row.pack)])) {
-      bucket.asks += 1;
-      if (got[path].top1) bucket.top1 += 1;
-      if (got[path].top3) bucket.top3 += 1;
-      if (isNoFit(row)) {
-        bucket.noFit += 1;
-        if (got[path].noFit) bucket.noFitHit += 1;
+    for (const rule of ["old", "new"]) {
+      const got = {
+        frozen: mainPath(exact, ok, found.frozenNames ?? [], Boolean(found.frozenWeak), rule),
+        recommend: mainPath(exact, ok, found.lead ? [found.lead] : [], Boolean(found.weak), rule),
+      };
+      correctByRule[rule][row.id] = got.frozen.top1 || got.recommend.top1;
+      for (const [path, bucket] of Object.entries(paths[rule][groupOf(row.pack)])) {
+        bucket.asks += 1;
+        if (got[path].top1) bucket.top1 += 1;
+        if (got[path].top3) bucket.top3 += 1;
+        if (isNoFit(row)) {
+          bucket.noFit += 1;
+          if (got[path].noFit) bucket.noFitHit += 1;
+        }
       }
     }
   }
-  const better = ({ frozen, recommend }) => ({
-    asks: frozen.asks,
-    top1: Math.max(frozen.top1, recommend.top1),
-    top3: Math.max(frozen.top3, recommend.top3),
-    noFit: frozen.noFit,
-    noFitHit: Math.max(frozen.noFitHit, recommend.noFitHit),
-    paths: { frozen, recommend },
-  });
-  return { correct, rates: { material: better(paths.material), acme: better(paths.acme) } };
+  const better = (pair) => {
+    const rank = (path) => path.top1 * 1000000 + path.top3 * 1000 + path.noFitHit;
+    const name = rank(pair.recommend) > rank(pair.frozen) ? "recommend" : "frozen";
+    const chosen = pair[name];
+    return { asks: chosen.asks, top1: chosen.top1, top3: chosen.top3, noFit: chosen.noFit, noFitHit: chosen.noFitHit, path: name, paths: pair };
+  };
+  const packRates = (pack) => {
+    const next = better(paths.new[pack]);
+    return { ...next, rules: { old: better(paths.old[pack]), new: next } };
+  };
+  return { correct: correctByRule.new, correctByRule, rates: { material: packRates("material"), acme: packRates("acme") } };
 }
 
 async function score(casesPath, runsPath, mapPath, json) {
@@ -713,7 +800,7 @@ async function score(casesPath, runsPath, mapPath, json) {
   const incomplete = new Set(shape.incomplete);
   const scored = cases.filter((row) => !incomplete.has(row.id));
   const main = ratesFrom(scored, await loadMain(scored));
-  const report = scoreRecorded(cases, runs, readNames(), readIndexIds(), main.correct);
+  const report = scoreRecorded(cases, runs, readNames(), readIndexIds(), main.correctByRule);
   if (json) process.stdout.write(`${JSON.stringify(scoreJson(report, cases, main.rates), null, 2)}\n`);
   else process.stdout.write(`${formatScore(report, cases, main.rates)}\n`);
   if (report.mixed || report.badRuns) process.exit(1);
