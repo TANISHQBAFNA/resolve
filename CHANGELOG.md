@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — fresh install
+
+Oct 24, 2026. A confident `/find` card keeps the top pick's one-line reason and lists the next hits. When the card is too long, property rows the ask did not name go first, and the reason line is never cut.
+
 ## Unreleased — meaning dictionary
 
 Oct 22, 2026. On a library with no density list, `<density> list of <part>` leads with that part. A form named in the ask wins over a density word that is not on the list. A single inflected word that does not name a component stays empty.
