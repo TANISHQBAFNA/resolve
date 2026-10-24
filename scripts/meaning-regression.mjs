@@ -100,10 +100,10 @@ function runScorer(cwd, asks, out) {
   const script = join(root, "tests/meaning.score.ts");
   const input = join(tmpdir(), "meaning-regression-asks.json");
   writeFileSync(input, JSON.stringify(asks));
-  execFileSync("npx", ["vite-node", "--config", join(cwd, "vite.config.ts"), script, input, out], {
+  execFileSync("npx", ["--no-install", "vite-node", "--config", join(cwd, "vite.config.ts"), script, input, out], {
     cwd,
     stdio: "inherit",
-    env: { ...process.env, RESOLVE_HOME: "" },
+    env: { ...process.env, RESOLVE_HOME: "", RESOLVE_MEANING_SCORE: "1" },
   });
 }
 

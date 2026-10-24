@@ -114,7 +114,8 @@ export function scoreAsks(asks: Ask[]): Array<{ id: string; lead: string; weak: 
   });
 }
 
-const direct = process.argv[1]?.includes("meaning.score");
+/** scripts/meaning-regression.mjs sets this; the runner decides what process.argv[1] is. */
+const direct = process.env["RESOLVE_MEANING_SCORE"] === "1";
 if (direct && process.argv[2] && process.argv[3]) {
   const asks = JSON.parse(readFileSync(process.argv[2], "utf8")) as Ask[];
   writeFileSync(process.argv[3], `${JSON.stringify(scoreAsks(asks))}\n`);
