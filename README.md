@@ -1,13 +1,9 @@
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/resolve-logo-dark.svg"><img src="docs/assets/resolve-logo.svg" alt="Resolve" width="360"></picture></p>
-<h3 align="center">The right component, every time your AI designs a screen</h3>
-<p align="center">Resolve tells Claude Code and Cursor which of your real Figma components to use, then checks the screen they built.</p>
-<p align="center">
-	<a href="#install">Install</a> ·
-	<a href="#quick-start">Quick start</a> ·
-	<a href="INSTALL-FOR-AI.md">Install for AI</a> ·
-	<a href="docs/REFERENCE.md">Full reference</a> ·
-	<a href="#version-history">Version history</a>
-</p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/resolve-logo-dark.svg"><img src="docs/assets/resolve-logo.svg" alt="Resolve" width="240"></picture></p>
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/hero-dark.svg"><img src="docs/assets/v4/hero-light.svg" alt="Resolve, for Claude Code and Cursor. The right part. Every screen. Your AI asks Resolve which of your Figma components to use, builds with them, then checks the screen. Any design system, any code stack, read-only. Beside it, an Acme Send money phone screen built from library parts, each with a tick." width="100%"></picture>
+
+<p align="center"><a href="#quick-start"><b>Quick start</b></a> · <a href="#install">Install</a> · <a href="INSTALL-FOR-AI.md">Install for AI</a> · <a href="docs/REFERENCE.md">Full reference</a></p>
+
 <p align="center">
 	<a href="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml"><img src="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 	<a href="LICENSE"><img src="https://img.shields.io/badge/license-use%20only-lightgrey.svg" alt="License: use only"></a>
@@ -17,169 +13,18 @@
 	<a href=".cursor-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Cursor-555555.svg" alt="Cursor plugin"></a>
 </p>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg"><img src="docs/assets/hero-light.svg" alt="Animation that plays once: a chat message says Design the Acme Send money screen. Below it, an Acme phone screen builds itself as real library parts snap in: Payee picker, Text field and a Send button, each with a library tick." width="560"></picture>
+## What it does
 
-<p align="center">You ask in plain words. Your AI builds with your real parts.</p>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/what-dark.svg"><img src="docs/assets/v4/what-light.svg" alt="01 Learn: it reads every component, variant and property, with /design-system. 02 Match: it picks the right part from its name or your words, with /find. 03 Check: it flags retired, detached and hard-coded parts, with fixes, with /check." width="100%"></picture>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/before-after-dark.svg"><img src="docs/assets/before-after-light.svg" alt="Illustration: two Acme Send money screens. Without Resolve, numbered callouts mark an invented dropdown, a raw #1A73E8 fill and a detached button, and the check fails. With Resolve, the same screen uses the library Payee picker, Text field and Button, and the check passes." width="560"></picture>
-
-<p align="center">Without Resolve the AI guesses. With Resolve the check passes.</p>
+Resolve gives your AI two things about your design system: **what your components are** (variants, properties, real examples and code) and **how to use them** (a short always-on rule and screen recipes). Your AI asks Resolve before it draws. Resolve only reads. It never draws and never changes your Figma file.
 
 > [!NOTE]
-> The pictures use **Acme**, a made-up design system. They are illustrations, not screenshots. The real public example is [Angular Material](#real-example-angular-material).
-
-## What Resolve is
-
-Resolve gives your AI two things about your design system: what your components are, and how to use them. We call this an **MSOCK**: **SOCK** = what your components are (variants, properties, recipes and code), **SOCI** = how to use them (the always-on rule, recipes and context). Your AI asks Resolve before it draws. Resolve only reads. It never draws and never changes your Figma file.
-
-## How it works
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/walkthrough-dark.svg"><img src="docs/assets/walkthrough-light.svg" alt="Animation that plays once: a scan line sweeps down an Acme Send money screen on a design canvas. Parts light up with numbered pins, 1 Payee picker, 2 Text field, 3 Button, and a list below fills in with what Resolve learned." width="560"></picture>
-
-1. **Learn.** `/design-system` reads every component, variant and property.
-2. **Match.** `/find` uses known names first, then your own words.
-3. **Check.** `/check` flags retired, detached and hard-coded parts.
-
-## Features
-
-<table>
-<tr>
-<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-component-dark.svg"><img src="docs/assets/icon-component-light.svg" alt="Knows your library" width="64"></picture><br><b>Knows your library</b><br>Every component, variant and property, learned from your Figma file.</td>
-<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-resolve-dark.svg"><img src="docs/assets/icon-resolve-light.svg" alt="Known name first" width="64"></picture><br><b>Known name first</b><br>A named part, like <code>Popover</code>, goes straight to that component.</td>
-<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-chat-dark.svg"><img src="docs/assets/icon-chat-light.svg" alt="Speaks designer" width="64"></picture><br><b>Speaks designer</b><br>&ldquo;payee picker&rdquo; finds Payee picker. No match means no answer.</td>
-</tr>
-<tr>
-<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-sparkle-dark.svg"><img src="docs/assets/icon-sparkle-light.svg" alt="Tells the AI how" width="64"></picture><br><b>Tells the AI how</b><br>An always-on rule, screen recipes and context from your requirements.</td>
-<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-check-dark.svg"><img src="docs/assets/icon-check-light.svg" alt="Checks every screen" width="64"></picture><br><b>Checks every screen</b><br>Retired, detached and hard-coded parts, and accessibility, with the fix.</td>
-<td width="33%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-code-dark.svg"><img src="docs/assets/icon-code-light.svg" alt="Code and handoff" width="64"></picture><br><b>Code and handoff</b><br>React or Angular code twins, and a build sheet for developers.</td>
-</tr>
-</table>
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/cross-screen-dark.svg"><img src="docs/assets/cross-screen-light.svg" alt="Illustration: three Acme screens stacked, Send money, Confirm payment and Receipt. A thread on the left joins the Payee picker on each, and one on the right joins the Button on each. Labels give the counts from a real Resolve run on the Acme example file: Payee picker used 4 times in file, Button used 11 times in file." width="560"></picture>
-
-<p align="center">Resolve knows where each part is really used.</p>
-
-## A short briefing
-
-Before it picks parts for a screen, Resolve can ask up to 3 questions. It asks only when the request fits the library and the answer would change which component it picks. It does not ask what kind of screen it is. States (empty, loading, error, pending) can take more than one answer. A request that fits nothing, including a mistyped one, gets "No match." and no questions.
-
-If you say "just build", "go ahead and build", or "build without asking", it asks nothing. With no match, it does not invent a part.
-
-Type `/brief show recent payments`, or let the AI call the `brief` tool. The answers change `recommend` and the parts on the handoff sheet.
-
-## What the AI gets
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/component-card-dark.svg"><img src="docs/assets/component-card-light.svg" alt="Illustration of a Resolve card for the Acme Button, with five numbered labels: 1 the name, Button; 2 its properties, Variant (Primary, Secondary or Danger) and Size (Medium or Large), 4 variants in all; 3 the token it uses, color/primary/600; 4 its code twin, acme-button with AcmeButtonModule; 5 a real example, a thumbnail of the Send money screen. The preview shows Primary, Secondary and Danger side by side." width="560"></picture>
-
-<p align="center">One short card per part, with a real example to copy.</p>
-
-## Check a screen
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/check-result-dark.svg"><img src="docs/assets/check-result-light.svg" alt="Illustration of a real check on the Acme Send money screen: the result is FAIL with exit code 1. 2 parts are approved, Payee picker and Button. 1 is deprecated: Old Button, node 30:50, which should be swapped for Button." width="560"></picture>
-
-<p align="center">Every problem comes with its fix.</p>
-
-## From design to code
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/code-map-dark.svg"><img src="docs/assets/code-map-light.svg" alt="Illustration of the full Acme code map, 6 parts: 3 mapped, 1 retired and 2 unmapped. Button links to acme-button and AcmeButtonModule, Text field to acme-text-field, Payee picker to acme-payee-picker. Old Button is retired: it still links to acme-old-button, use Button instead. Avatar and Payment method row have no code twin." width="560"></picture>
-
-<p align="center">Each Figma part links to its code twin.</p>
-
-`/parts` shows which parts have code and which do not. `/handoff` turns a screen into a build sheet for developers.
-
-## Install
-
-You need Node 22.12 or newer, Claude Code or Cursor, and a Figma Dev or Full seat.
-
-**Claude Code.** Type these two lines in the chat:
-
-```
-/plugin marketplace add TANISHQBAFNA/resolve
-```
-
-```
-/plugin install resolve@resolve
-```
-
-**Cursor.** Type this in the chat, then install **resolve**:
-
-```
-/add-plugin https://github.com/TANISHQBAFNA/resolve
-```
-
-Then fill in two settings: your **Figma token** and the **library file key**. The key is the id in the file link: in `figma.com/design/ACMEUI/Acme` it is `ACMEUI`. Never put the token in a file.
-
-**Or let your AI install it in one project.** Paste this into the chat:
-
-> Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md
-
-Codex, Claude Desktop and by-hand steps: [Install in detail](docs/REFERENCE.md#install-in-detail).
-
-## Real example: Angular Material
-
-Acme, in the pictures above, is a story. Angular Material is a real design system with a real Angular package. This repo pins `@angular/material` and `@angular/cdk` at **22.2.3**. The library file is `fixtures/material/library.json`. It describes Material 3 components (button, icon button, FAB, card, chips, text field, form field, select, checkbox, radio, slide toggle, slider, list, menu, dialog, bottom sheet, snackbar, tabs, toolbar, sidenav, table, paginator, progress, badge, tooltip, date picker, stepper, expansion panel, and more), with variants, slots, and tokens such as `md.sys.color.primary`.
-
-The official Material 3 Figma kit was not read. The connected seat cannot open that community file. No Figma key is stored. The fixture follows the public spec at [m3.material.io](https://m3.material.io/components). Details are in `fixtures/material/README.md`.
-
-```bash
-npm run resolve -- ingest fixtures/material/library.json --role library --name "Material 3"
-npm run resolve -- recommend "primary sign in button"
-npm run resolve -- check "Sign in"
-```
-
-In chat, `/find primary sign in button` is the same ask. The check on the Sign in frame passes.
-
-Code map. Scan the published `.d.ts` files, then use the reviewed links:
-
-```bash
-npm run resolve -- code-map scan node_modules/@angular/material
-cp fixtures/material/code-map.json .resolve/code-map.json
-npm run resolve -- handoff "Sign in"
-```
-
-The scan suggests 32 links and all 32 are right (precision 1, recall 32/40). The reviewed map has 0 wrong confirmed links. The Sign in handoff for the filled button says:
-
-```text
-import { MatButtonModule } from '@angular/material/button'
-Template (suggested): <button matButton="filled"></button>
-```
-
-Tonal is `matButton="tonal"`. Outlined is `matButton="outlined"`. The sign-in label sits in the button: `<button matButton="filled">Sign in</button>`.
-
-The Material phrase board is separate from the sample-library board: top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0. The sample board stays top-1 83/88, top-3 85/88. See [Scoreboard](docs/SCOREBOARD.md#material-board) and the [guide](docs/GUIDE.md#real-example-angular-material).
-
-## What a component means
-
-`recommend` and `brief` load a dictionary for the library they are looking at. The shared words are in `src/data/meaning/default.json`. Acme adds its own in `src/data/meaning/acme.json`. Angular Material adds its own in `src/data/meaning/material.json`. A library file adds density, device, and exclusion words. It does not replace the shared ones. A library that is not Acme or Material still gets the shared words. A density word one or two words before `list` is that list's density, unless the file says the word describes the noun right after it. A joined, split, or hyphenated plural matches the same name.
-
-The parse reads your ask before anything is ranked:
-
-- the head word ("card", "list", "tabs")
-- modifiers and variant attributes (density, size, state, style, date)
-- the purpose, the part after to / for / on / when
-- context, such as a phone or a landscape screen
-- a contrast: "button, not link" will not lead with the link
-
-Acme, when the library has Compact List:
-
-- "a dense list" and "list, compact for phones" mean Compact List. Dense is Acme's word for compact. Phones is the device.
-- "a card that is dated" means the card, and dated is a date attribute.
-- "picker for fruit" and "picker to choose a flavor" mean nothing. Resolve does not invent a part.
-- "something to pick a date" on Material means Date picker, because that is what the part is for.
-
-If two parts tie, the older word score breaks the tie. A one-letter typo still finds the part. A lead is weak only when part of the ask names a different part.
-
-`meaning/` is a generated copy of each component's own name, properties, and description. In every copy, `Aliases:` lines come from the repo's synonym list (`src/data/synonyms.json`), not from the library or its docs. The Angular Material copy (library id `angular-material`) also includes one published sentence from that component's page on [material.angular.dev](https://material.angular.dev/), the page URL, `© Google LLC. Licensed under CC BY 4.0.`, and the licence at <https://creativecommons.org/licenses/by/4.0/>. Acme copies add no other text the pack does not already contain. A `Thin:` line means the description or the guidelines are missing. Rebuild with `node scripts/build-meaning-sock.mjs meaning`. `recommend` and `brief` keep using the dictionary above.
-
-AI picks stay off unless `RESOLVE_AI_PICKS=1`. With the switch off, `recommend` is unchanged. `resolve pick` needs a repo checkout for now, because the installed package does not ship the meaning files. An Acme request, when the switch is on:
-
-```json
-{"library":"acme","ask":"the main action on a form","shortlist":["button"],"pick":"button","reason":"Button Style Primary","tier":"ask"}
-```
-
-Acme's button file has no description, so the checked answer is `ask`, not `place`. The reason is the component name plus a property. The thin list names `button` and the fields it is missing.
+> The pictures use **Acme**, a made-up design system. They are illustrations, not screenshots.
 
 ## Quick start
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/quick-dark.svg"><img src="docs/assets/v4/quick-light.svg" alt="Quick start in four steps: 1 Learn your library with /design-system, 2 Find a part with /find, 3 Ask your AI to design the screen, 4 Check it with /check." width="100%"></picture>
 
 1. **Learn your library.** Paste the link to your design system file.
 
@@ -219,7 +64,51 @@ Acme's button file has no description, so the checked answer is `ask`, not `plac
 
 The output lines are shortened from real runs on the Acme example library.
 
-## Slash commands
+## Install
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/install-dark.svg"><img src="docs/assets/v4/install-light.svg" alt="Claude Code and Cursor each install the Resolve plugin. Resolve connects to your Figma library with a token and a file key, such as ACMEUI. Needs Node 22.12 or newer and a Figma Dev or Full seat." width="100%"></picture>
+
+You need Node 22.12 or newer, Claude Code or Cursor, and a Figma Dev or Full seat.
+
+**Claude Code.** Type these two lines in the chat:
+
+```
+/plugin marketplace add TANISHQBAFNA/resolve
+```
+
+```
+/plugin install resolve@resolve
+```
+
+**Cursor.** Type this in the chat, then install **resolve**:
+
+```
+/add-plugin https://github.com/TANISHQBAFNA/resolve
+```
+
+Then fill in two settings: your **Figma token** and the **library file key**. The key is the id in the file link: in `figma.com/design/ACMEUI/Acme` it is `ACMEUI`. Never put the token in a file.
+
+**Or let your AI install it in one project.** Paste this into the chat:
+
+> Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md
+
+Codex, Claude Desktop and by-hand steps: [Install in detail](docs/REFERENCE.md#install-in-detail).
+
+## Check a screen
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/check-dark.svg"><img src="docs/assets/v4/check-light.svg" alt="A check on the Acme Send money screen fails with two problems: 1, the button is detached, so use the library Button; 2, the colour #1A73E8 is hard-coded, so use the token color/primary. The Payee picker comes from your library. Beside it, the phone screen with both problems pinned on the Pay now button." width="100%"></picture>
+
+Every problem comes with its fix. Retired parts, detached parts, hard-coded values, wrong property values and accessibility are all checked.
+
+## From design to code
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/code-dark.svg"><img src="docs/assets/v4/code-light.svg" alt="The Acme code map. Button links to acme-button, Text field to acme-text-field and Payee picker to acme-payee-picker. Old Button is retired: use Button. Avatar has no code twin yet, so stop and ask." width="100%"></picture>
+
+The code map says which Figma part is which code part. Resolve can read your component package and suggest pairs. A suggestion is not the truth: someone confirms it. Only a confirmed pair shows on `/parts` and `/handoff`. If a part has no confirmed pair, stop and ask. Details: [Code map in the reference](docs/REFERENCE.md#scan-suggest-review).
+
+## Commands
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/commands-dark.svg"><img src="docs/assets/v4/commands-light.svg" alt="A command palette listing /design-system, /find, /check, /parts, /handoff and /brief, each with what it does." width="100%"></picture>
 
 | Type | You get |
 | --- | --- |
@@ -228,22 +117,9 @@ The output lines are shortened from real runs on the Acme example library.
 | `/check <link>` | Pass, or the retired, wrong and unknown parts plus proper-use problems. |
 | `/parts <link>` | Each component on the screen and its mapped code twin. Unmapped means stop and ask. |
 | `/handoff <link>` | A developer build sheet for the screen. Mapped code twins only. |
-| `/code-map scan\|suggest\|review` | Read an Angular package, propose code pairs, then confirm them. |
+| `/brief` | Asks up to 3 quick questions before Resolve picks parts. |
+| `/code-map scan\|suggest\|review` | Read your component package, propose code pairs, then confirm them. |
 | `/resolve-status` | What is learned, whether the token and rule are set, and what to do next. |
-
-## Code map
-
-The code map is the list of which Figma part is which code part. Resolve can read an Acme Angular package and suggest pairs from the names and from Figma properties to inputs. A suggestion is not the truth. Someone confirms it. Only a confirmed pair shows on `/parts` and `/handoff`. If a part has no confirmed pair, stop and ask.
-
-| Figma | Code | What you do |
-| --- | --- | --- |
-| Button | `AcmeButtonComponent` | Mapped. Use it. |
-| Text field | a suggestion | Not used until you confirm it. |
-| Avatar | — | Unmapped. Stop and ask. |
-
-A part can map to more than one code component, and one code component can map to more than one part. "Composed of" is a link too: Payee picker is the picker, and it contains the text field. When the Figma library version or the package version changes, those rows are flagged for another look. The detail, and the measured suggestion score on the made-up Acme package (precision 1, recall 1, 9 of 9, no wrong mapped link), is in [the code map reference](docs/REFERENCE.md#scan-suggest-review).
-
-More detail: [Slash commands in detail](docs/REFERENCE.md#slash-commands-in-detail).
 
 ## Learn more
 
@@ -257,42 +133,18 @@ More detail: [Slash commands in detail](docs/REFERENCE.md#slash-commands-in-deta
 | What is not tested yet | [Limits](docs/REFERENCE.md#limits-what-is-not-tested-yet) |
 | Questions and words | [Questions designers ask](docs/REFERENCE.md#questions-designers-ask) · [Words used here](docs/REFERENCE.md#words-used-here) · [FAQ](docs/REFERENCE.md#faq) |
 | Build Resolve yourself | [For developers](docs/REFERENCE.md#for-developers) |
-| Other guides | [Designer guide](docs/GUIDE.md) · [Recipes](docs/RECIPES.md) · [SOCI](docs/SOCI.md) · [Scoreboard](docs/SCOREBOARD.md) · [Architecture](docs/ARCHITECTURE.md) |
+| Other guides | [Designer guide](docs/GUIDE.md) · [Recipes](docs/RECIPES.md) · [How to use the parts](docs/SOCI.md) · [Scoreboard](docs/SCOREBOARD.md) · [Architecture](docs/ARCHITECTURE.md) |
+| Upgrading from an older version | [Upgrading from the old names](#upgrading-from-the-old-names) |
+| What a component means to Resolve | [What a component means](docs/REFERENCE.md#what-a-component-means) |
 
-### Upgrading from the old names
-
-Used Resolve when it had its old name? Your old settings still work.
-
-<details>
-<summary>Read the upgrade note</summary>
-
-Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.graphify/`. Both still work: if the new `RESOLVE_HOME` / `.resolve/` exist they win, otherwise the old ones are read. Nothing is moved or deleted for you. To switch, rename the whole old folder to `.resolve/` (for example `mv .graphify .resolve`) and set `RESOLVE_HOME` if you used the old setting. Do not keep both folders. Resolve reads each file from the new folder first. For some files it falls back to the old folder when the new one does not have them: `code-map.json`, `synonyms.json`, `icon-libraries.json`, and the learned library itself. A stale old file of those kinds could keep applying. The other team files (`recipes.json`, `bind-rules.json`, `context-packs.json`, `library-rules.json`) are read only from the folder that holds the learned library, so once `.resolve` has one, the old copies are ignored.
-
-</details>
-
-## Version history
-
-Newest first. The full list is in the [reference](docs/REFERENCE.md#version-history).
-
-- **Oct 23, 2026.** License changed from MIT to use only: install and use Resolve unchanged in your AI tools; no changes, copies or redistribution without written permission.
-- **Oct 20, 2026 — [PR #70](https://github.com/TANISHQBAFNA/resolve/pull/70).** Decision records: every brief, compose and handoff can say what was asked, which parts were picked and why, and what was rejected, as JSON + Markdown. `handoff --out` always writes `decision.json` + `decision.md` (`--no-record` skips); `brief` and `recipe --compose` take `--record <dir>`; MCP `record: true` (advanced). New opt-in AIDLC hook: `resolve export aidlc <handoff folder>` gives the `resolve.aidlc` schemaVersion 1 contract (requirements context in, design handoff out), with a JSON Schema and an Acme + Angular sample ([docs/AIDLC.md](docs/AIDLC.md)). Round 1 fixes: the contract uses enums (match, source, identity, status, codeStatus, matchedBy, answers) with a values table in docs/AIDLC.md; export checks decision.json (version, kind, screens) and refuses any pick that is not a part in handoff.json; decision_record reads only stored records or decision*.json and lists them with no ref; `resolve decisions` lists records; --record needs --force to replace; record names are unique. Round 2: export refuses a record whose picks differ from what handoff.json gives (ids, match, why), or that repeats or drops a pick; export --out and handoff --out errors are plain sentences, and ok:false JSON with --json. Default MCP tools still 8; advanced 20. Phrase score unchanged.
-- **Oct 20, 2026 — [PR #68](https://github.com/TANISHQBAFNA/resolve/pull/68).** Angular Material 22.2.3 is the real public example: a Material 3 fixture from the public spec, a code-map scan of the published package (precision 1, recall 32/40, 0 wrong confirmed links), and a separate phrase board (top-1 51/51, top-3 51/51, empty-correct 8/8, invented 0). Matching is general: a describing tail ("slider for volume"), plurals, and a one-letter slip on any name word keep the match. The part named before "to", "for", or "with" wins. A fresh set scores 30/33. The sample phrase board rose to top-1 84/88, top-3 86/88.
-- **Oct 20, 2026 — [PR #59](https://github.com/TANISHQBAFNA/resolve/pull/59).** The default tap target is 24×24, which is the WCAG 2.2 AA size. 44×44 is still available with `--a11y wcag-aaa`. Commit 843ec2e changed the Acme Misused fixture: Button 80:41 went from 30×30 to 20×20, so that control still fails the 24×24 bar.
-- **Oct 20, 2026 — [PR #59](https://github.com/TANISHQBAFNA/resolve/pull/59).** Icon search still finds the icon. A plain name such as "button" beats a bar that only contains buttons, even when several libraries are learned. "primary button", "main action button", and "primary CTA" pick Acme DS Button, and the sign-in button slot fills with it. "info icon" picks the info icon. "Navigation bar" no longer picks an action or progress bar, and a one-letter typo works on any part name. On a pass the check line is `PASS · Components: PASS · Proper use: PASS`. A proper-use failure starts `FAIL: proper use … · components pass`. Phrase score rose from 83 of 88 first picks to 85, and from 85 of 88 in the top 3 to 87. Empty answers stay 30 of 30. Nothing is invented. The golden set stays 75.
-- **Oct 20, 2026 — [PR #69](https://github.com/TANISHQBAFNA/resolve/pull/69).** When no saved recipe fits, `recipe --compose` (MCP `compose: true`, advanced only) builds one from the parts you name, each filled by `recommend`. It never invents a part; a part with no fit says No match. Fewer than 2 fitting parts is not a recipe. Nothing is saved until a person approves the `--propose` proposal. Fresh set: held-out slot precision 28/31, recall 28/32, invented 0. Round 1: a part whose last word does not match is marked weak, not a fit; parts after place words are kept and every no-fit part is listed; a saved recipe with the same title or parts is named as a warning and not proposed; the proposal id includes the parts and a decided proposal is refused; approve refuses private parts, variants, non-components, empty or duplicate recipes; empty input is an error. Held-out unchanged: precision 28/31, recall 28/32. Round 2: `brief` offers to compose when no saved recipe fits and two or more parts are named (offer only); briefing answers fill composed slots with their real parts; container words (list, group, set) are not the part word, so a radio list fits Radio. Round 3: a part fits only when every main word is in its name, a variant name or a synonym, otherwise weak, check; approve needs 2 or more parts; on/in phrases are context, not parts; a set of X takes X; brief says savedRecipe when compose would warn. Held-out 27/30 precision, 27/32 recall, invented 0. Round 4: words after on/in/inside are a part when they fit a library part (a row inside a modal), else context; device, theme and density words stay context; all-weak results say weak, not No match. Round 5: on/in words are a part only when they hold a full part name or one word names exactly one part, else context; density words (compact, dense) before a part do not make it weak. Round 6: a single on/in word is a part only when it is the whole name of one part (Modal, Tabs); a word that is only part of a longer name stays context. Default MCP tools unchanged. Phrase score unchanged.
-- **Oct 20, 2026 — [PR #67](https://github.com/TANISHQBAFNA/resolve/pull/67).** Before picking parts for a screen, Resolve asks at most 3 multiple-choice questions, and only when the request fits and the answer would change the component. No screen-type question. States can take more than one answer. No match asks nothing and invents nothing. Answers change the handoff parts. Round 2: the fit check uses recommend's own ranking, so plurals and close phrasing fit. A nav with no platform asks desktop or mobile. States are asked for any real part, except a nav, when the request names none. A fresh 41-request held-out set: question recall 10/12, question precision 10/15, 0.41 questions per request (max 2), part recall 28/30, part precision 1. Round 3: a request that names a part plus a context ("summary cards for the order") is not asked states. A state option is offered only when it adds a part the request does not already have. A list ask with no shape named asks one question: list or table. Held-out set now 49 requests: question recall 7/9, precision 7/8, 0.16 questions per request (max 1), part recall 36/38. Round 4: the list-or-table question is asked only when recommend finds a part from the request's other words; "all", "every" or "list of" with an off-topic or misspelt noun says No match and asks nothing. Held-out (54): question recall 4/6, precision 4/5, 0.09 questions per request. Phrase score unchanged.
-- **Oct 20, 2026 — [PR #65](https://github.com/TANISHQBAFNA/resolve/pull/65).** New README pictures: real screens instead of boxes, two short animations that play once, a full code map and new icons. Text in the pictures shows at 22px or more on GitHub. A "From design to code" section comes before Install.
-- **Oct 20, 2026 — [PR #64](https://github.com/TANISHQBAFNA/resolve/pull/64).** The README pictures, logo and badge use a brighter teal. In light mode, words are near-black and the teal is in fills, chips and underlines. PASS stays green.
-- **Oct 20, 2026 — [PR #63](https://github.com/TANISHQBAFNA/resolve/pull/63).** `resolve code-map scan` reads a made-up Acme Angular package. `suggest` proposes Figma-to-code pairs and never treats them as truth. `review` confirms them through the CSV. Only a mapped pair shows on `/parts` and `/handoff`. An unmapped part means stop and ask. On the Acme edge fixture, suggested pairs score precision 1 and recall 43/49, and partial pairs score precision 5/6 and recall 5/49. Accepting every suggestion makes 0 wrong mapped links. Phrase score unchanged: top-1 83/88, top-3 85/88. 928 tests.
-- **Oct 20, 2026 — [PR #61](https://github.com/TANISHQBAFNA/resolve/pull/61).** A failed check now says `pass: false` in JSON, including when proper use fails. Status still prints local time with a zone name, and the tests accept that. Tests stop with one clear message on Node older than 22.12. CI fails if the phrase score drops below 83 of 88 first picks or 85 of 88 in the top 3. CI runs on Node 22 and 24, in UTC and India time, and the browser checks include Firefox.
-- **Oct 20, 2026 — [PR #62](https://github.com/TANISHQBAFNA/resolve/pull/62).** The README pictures, logo and badge changed from purple to teal. PASS stays green.
-- **Oct 19, 2026 — [PR #60](https://github.com/TANISHQBAFNA/resolve/pull/60).** This visual README. The full manual moved to `docs/REFERENCE.md`.
-- **Oct 13, 2026 — [PR #58](https://github.com/TANISHQBAFNA/resolve/pull/58).** `resolve learn` reads JSON files. A preferred library wins between parts with the same name. Slot properties are kept.
-- **Oct 13, 2026 — [PR #48](https://github.com/TANISHQBAFNA/resolve/pull/48).** Re-learning a page replaces it. Slots and hidden layers are handled.
-- **Oct 13, 2026 — [PR #57](https://github.com/TANISHQBAFNA/resolve/pull/57).** `/check` also checks proper use: detached parts, hard-coded values, wrong property values and accessibility.
-- **Oct 12, 2026 — [PR #56](https://github.com/TANISHQBAFNA/resolve/pull/56).** The phrase finder's top-3 rose from 68/88 to 85/88.
-- **Oct 11, 2026 — [PR #50](https://github.com/TANISHQBAFNA/resolve/pull/50).** Resolve installs once as a Claude Code and Cursor plugin.
+**Version history → [wiki](https://github.com/TANISHQBAFNA/resolve/wiki/Version-history)** · [docs/HISTORY.md](docs/HISTORY.md)
 
 ## License
 
 You may install and use Resolve, unchanged, inside your AI tools (Claude Code, Cursor and similar). You may not modify, copy, redistribute or build other products from it without written permission. Earlier MIT versions stay MIT for those copies. See [`LICENSE`](LICENSE).
+
+## Upgrading from the old names
+
+Used Resolve when it had its old name? Your old settings still work.
+
+Older versions used the setting `GRAPHIFY_HOME` and a project folder named `.graphify/`. Both still work: if the new `RESOLVE_HOME` / `.resolve/` exist they win, otherwise the old ones are read. Nothing is moved or deleted for you. To switch, rename the whole old folder to `.resolve/` (for example `mv .graphify .resolve`) and set `RESOLVE_HOME` if you used the old setting. Do not keep both folders. Resolve reads each file from the new folder first. For some files it falls back to the old folder when the new one does not have them: `code-map.json`, `synonyms.json`, `icon-libraries.json`, and the learned library itself. A stale old file of those kinds could keep applying. The other team files (`recipes.json`, `bind-rules.json`, `context-packs.json`, `library-rules.json`) are read only from the folder that holds the learned library, so once `.resolve` has one, the old copies are ignored.
