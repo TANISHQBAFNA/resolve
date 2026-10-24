@@ -50,7 +50,7 @@ function positional(args: string[]): string | undefined {
 
 function packageArg(args: string[]): string {
   const given = flag(args, "package") ?? positional(args);
-  if (!given || given.startsWith("--")) throw new Error("Pass a package path or name. Example: resolve code-map scan ./packages/acme-ui-angular");
+  if (!given || given.startsWith("--")) throw new Error("Pass a package path or name. Example: resolve code-map scan ./packages/acme-ui");
   return given;
 }
 
