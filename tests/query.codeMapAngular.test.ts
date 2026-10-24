@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import acmeFile from "../docs/examples/acme-ui.json";
-import angularMap from "../docs/examples/acme-code-map-angular.json";
+import angularMap from "../docs/examples/acme-code-map-selectors.json";
 import { adaptFigmaRestFile } from "@/core/ingestion";
 import { adaptFigmaMcpMetadata } from "@/core/ingestion/adapters/figmaMcp";
 import { buildGraph } from "@/core/transform";
@@ -29,7 +29,7 @@ import { clearCache, saveGraph } from "@/server/store";
 const FROZEN = "2026-01-01T00:00:00.000Z";
 const acmeGraph = () => buildGraph(adaptFigmaRestFile({ fileKey: "ACMEUI", file: acmeFile, kind: "mock", ingestedAt: FROZEN }), { builtAt: FROZEN });
 const acme = () => indexGraph(acmeGraph());
-const CSV = join(__dirname, "..", "docs", "examples", "acme-code-map-angular.csv");
+const CSV = join(__dirname, "..", "docs", "examples", "acme-code-map-selectors.csv");
 
 /** The reference's React map, read from docs/REFERENCE.md so the docs and the test cannot drift. */
 function readmeReactMap(): string {

@@ -203,7 +203,7 @@ describe("code-map name check without a learned graph", () => {
   });
 
   it("refuses the retired Acme part by its design name with the shipped example code map", () => {
-    const example = JSON.parse(readFileSync(join(process.cwd(), "docs/examples/acme-code-map-angular.json"), "utf8")) as unknown;
+    const example = JSON.parse(readFileSync(join(process.cwd(), "docs/examples/acme-code-map-selectors.json"), "utf8")) as unknown;
     for (const query of ["Old Button", "OldButton"]) {
       const card = checkComponentName(query, example, handoff);
       expect(card.status, query).toBe("retired");

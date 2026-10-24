@@ -123,7 +123,7 @@ export function writeStored(graph: DesignGraph, args: string[], target?: string)
     label: flag(args, "label") ?? flag(args, "name"),
   });
   process.stdout.write(
-    [
+    `${[
       `Stored ${summary.graphId}`,
       `  file      ${summary.fileName} (${summary.fileKey})`,
       summary.role ? `  role      ${summary.role} — ${describeRole(summary.role)}` : "",
@@ -134,10 +134,9 @@ export function writeStored(graph: DesignGraph, args: string[], target?: string)
       `  entry     ${summary.entryPoints.map((entry) => entry.name).join(", ") || "(none)"}`,
       `  workspace ${workspacePath()}`,
       `  graph     ${graphPath()}`,
-      "",
     ]
       .filter(Boolean)
-      .join("\n"),
+      .join("\n")}\n`,
   );
 }
 

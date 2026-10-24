@@ -15,10 +15,13 @@ async function main(): Promise<void> {
   await runCli(argv);
 }
 
-if (isEntry) {
+/** bin/resolve-cli.mjs calls this after importing the bundle; a direct `node dist-server/cli.mjs` run calls it below. */
+export function runEntry(): void {
   main().catch((error: unknown) => {
     const raw = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${designerFailure(raw)}\n`);
     process.exit(1);
   });
 }
+
+if (isEntry) runEntry();

@@ -559,9 +559,22 @@ function assertCanWrite(target) {
 
 const onlyFrontmatter = (text) => splitFrontmatter(text).body === "" && (text.trim() === "" || text.startsWith("---"));
 
+/** True when .resolve/ holds more than the setup record, which uninstall removes. */
+function storeKept(cwd) {
+  try {
+    return readdirSync(join(cwd, ".resolve")).some((name) => name !== RECORD_NAME);
+  } catch {
+    return false;
+  }
+}
+
+const KEEP_IGNORE =
+  " (kept the Resolve block: .resolve/ is still here, and the block keeps its learned cache out of git. Remove the block by hand after you delete .resolve/)";
+
 /**
  * Remove what setup wrote: marked blocks (and the file when nothing else is left in it), and the resolve entry of the
- * project MCP files when it is exactly ours. Files without Resolve markers are never touched.
+ * project MCP files when it is exactly ours. Files without Resolve markers are never touched. The .gitignore block stays
+ * while .resolve/ is still there, so a learned cache left behind is not committed.
  * @returns {Array<{ action: "remove" | "update" | "skip", path: string, text?: string, note?: string }>}
  */
 export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot }) {
@@ -578,6 +591,7 @@ export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot 
     ...(isGlobal ? [] : [join(cwd, ".gitignore")]),
   ];
   const plan = [];
+  const keepIgnore = !isGlobal && storeKept(cwd);
   for (const path of owned) {
     const current = readOrNull(path);
     if (current == null) continue;
@@ -589,6 +603,8 @@ export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot 
     const original = record.originals[path];
     if (rest == null) {
       plan.push({ action: "skip", path, note: " (not written by Resolve, kept)" });
+    } else if (git && keepIgnore) {
+      plan.push({ action: "skip", path, note: KEEP_IGNORE });
     } else if (typeof original === "string" && onlyBlockAdded(current, original, begin, end)) {
       plan.push({ action: "update", path, text: original });
     } else if ((rest.trim() === "" || onlyFrontmatter(rest)) && created) {
@@ -812,14 +828,20 @@ function libraryLearned(cwd, home) {
   return existsSync(join(home, ".resolve", "default", "graph.json"));
 }
 
+/** A dry run writes nothing, so each change it plans says "would". */
+function planVerb(action, dryRun) {
+  return dryRun && action !== "skip" && action !== "unchanged" ? `would ${action}` : action;
+}
+
 /** Plain status after install. Not an MCP tool. */
-export function doctorLines({ cwd, home, ruleInstalled, blocked }) {
+export function doctorLines({ cwd, home, ruleInstalled, blocked, dryRun = false }) {
   const nodeOk = !nodeVersionTooOld(process.version);
   const figma = figmaConnected(cwd, home);
   const library = libraryLearned(cwd, home);
   let next;
   if (!nodeOk) next = "Install Node 22.12 or newer, then run resolve-setup again.";
   else if (!ruleInstalled && blocked === "claude") next = "Fix the Resolve markers in CLAUDE.md, then run resolve-setup again.";
+  else if (!ruleInstalled && dryRun && !blocked) next = "Run resolve-setup without --dry-run to install the rule.";
   else if (!ruleInstalled) next = "Re-run with --force to install the rule.";
   else if (!figma) next = "Connect Figma in the design app.";
   else if (!library) next = "Map the library: Figma get_metadata, then learn_library.";
@@ -866,7 +888,7 @@ function main() {
       for (const item of runUninstall({ cwd, home, global: true, dryRun: true })) process.stdout.write(`  ${item.action} ${item.path}\n`);
       process.exit(1);
     }
-    process.stdout.write(`Removing Resolve from ${target}\n`);
+    process.stdout.write(dryRun ? `Dry run: nothing is removed. Would remove Resolve from ${target}\n` : `Removing Resolve from ${target}\n`);
     let plan;
     try {
       plan = runUninstall({ cwd, home, global: isGlobal, dryRun });
@@ -874,7 +896,7 @@ function main() {
       process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
       process.exit(1);
     }
-    for (const item of plan) process.stdout.write(`${item.action} ${item.path}${item.note ?? ""}\n`);
+    for (const item of plan) process.stdout.write(`${planVerb(item.action, dryRun)} ${item.path}${item.note ?? ""}\n`);
     if (!plan.length) process.stdout.write("Nothing from Resolve was found.\n");
     return;
   }
@@ -896,7 +918,7 @@ function main() {
     process.stdout.write("Re-run with --global --yes to confirm.\n");
     process.exit(1);
   }
-  process.stdout.write(`Installing into ${target}\n`);
+  process.stdout.write(dryRun ? `Dry run: nothing is written. Would install into ${target}\n` : `Installing into ${target}\n`);
   let planned;
   try {
     planned = runSetup({ cwd, home, global: isGlobal, dryRun, force });
@@ -914,7 +936,7 @@ function main() {
   const mcpSkipped = [];
   for (const item of planned) {
     const note = item.note ?? (item.action === "skip" ? (item.command ? " (kept your own file; Resolve did not write this command. --force replaces it)" : " (left existing file; no Resolve markers)") : "");
-    process.stdout.write(`${item.action} ${item.path}${note}\n`);
+    process.stdout.write(`${planVerb(item.action, dryRun)} ${item.path}${note}\n`);
     if (item.action === "skip" && item.path.endsWith(`${join(".cursor", "rules", "resolve.mdc")}`)) ruleSkipped = true;
     if (item.action === "skip" && item.path.endsWith(`${join("CLAUDE.md")}`)) claudeSkipped = true;
     if (item.action === "skip" && item.path.endsWith("mcp.json")) mcpSkipped.push(item.path);
@@ -922,9 +944,14 @@ function main() {
   const skillInstalled = planned.some(
     (item) => item.path.endsWith(`${join("skills", "resolve", "SKILL.md")}`) && item.action !== "skip",
   );
-  const ruleInstalled = (isGlobal ? skillInstalled : !ruleSkipped) && !claudeSkipped;
-  const blocked = claudeSkipped ? "claude" : undefined;
-  process.stdout.write(`${doctorLines({ cwd, home, ruleInstalled, blocked })}\n`);
+  // A dry run writes nothing: the rule is installed only when its files are already in place.
+  const ruleFiles = planned.filter((item) =>
+    [join(".cursor", "rules", "resolve.mdc"), join("skills", "resolve", "SKILL.md"), "CLAUDE.md"].some((end) => item.path.endsWith(end)),
+  );
+  const inPlace = !dryRun || ruleFiles.every((item) => item.action === "unchanged");
+  const ruleInstalled = (isGlobal ? skillInstalled : !ruleSkipped) && !claudeSkipped && inPlace;
+  const blocked = claudeSkipped ? "claude" : ruleSkipped ? "rule" : undefined;
+  process.stdout.write(`${doctorLines({ cwd, home, ruleInstalled, blocked, dryRun })}\n`);
   if (claudeSkipped) {
     process.stdout.write(
       "The Resolve block is NOT installed. CLAUDE.md has only one Resolve marker, so nothing was changed.\n",
