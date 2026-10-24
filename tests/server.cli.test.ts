@@ -85,6 +85,27 @@ describe("resolve ingest --role", () => {
     expect(loaded?.graph.nodes.some((node) => node.name === "Main Card")).toBe(true);
   });
 
+  it("F4-R10: the ingest summary ends with exactly one newline", async () => {
+    const xmlPath = join(process.env["RESOLVE_HOME"]!, "summary.xml");
+    writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
+    const chunks: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await runCli(["ingest", xmlPath, "--file-key", "LIB", "--role", "library"]);
+    } finally {
+      process.stdout.write = write;
+    }
+    const out = chunks.join("");
+    expect(out.startsWith("Stored ")).toBe(true);
+    expect(out).toContain(`  graph     ${join(process.env["RESOLVE_HOME"]!, "graph.json")}`);
+    expect(out.endsWith(`graph.json\n`)).toBe(true);
+    expect(out.endsWith("\n\n")).toBe(false);
+  });
+
   it("rejects a missing design-context file and bad --texts JSON", async () => {
     await expect(runCli(["verify", "Screen", "--design-context", "/tmp/resolve-missing-design-context.txt"])).rejects.toThrow(
       /Design context file not found: \/tmp\/resolve-missing-design-context\.txt/,
