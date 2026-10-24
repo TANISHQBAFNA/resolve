@@ -14,11 +14,11 @@ export const CODE_MAP_TOOLS = [
   {
     name: "code_map_scan",
     description:
-      "Read an Angular package and return its component inventory (selector, inputs including signal inputs, outputs, module or standalone). Ivy .d.ts first, then the @Component decorator. Advanced surface. Needs RESOLVE_MCP_ADVANCED=1. Does not write the code map.",
+      "Read a component package and return its component inventory (selector, inputs including signal inputs, outputs, module or standalone). Compiled .d.ts first, then the component decorator in source. Advanced surface. Needs RESOLVE_MCP_ADVANCED=1. Does not write the code map.",
     inputSchema: {
       type: "object",
       properties: {
-        package: { type: "string", description: "Package path or name, for example a path to @acme/ui-angular." },
+        package: { type: "string", description: "Package path or name, for example a path to @acme/ui." },
       },
       required: ["package"],
     },
