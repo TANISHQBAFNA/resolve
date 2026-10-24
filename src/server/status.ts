@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { figmaAccessToken } from "@/core/ingestion/adapters/figmaRestSource";
 import { codeMapCard } from "@/core/query";
 import { formatLearnedAt } from "./localTime";
+import { installKind, type SetupContext } from "./pluginSettings";
 import { listGraphs, loadFileGraph, loadGraph, readWorkspace, resolveGraph, storeRoot } from "./store";
 
 const RULE_BEGIN = "<!-- resolve-setup:begin -->";
@@ -56,6 +57,11 @@ export function propertiesMissing(nodes: ReadonlyArray<{ type: string; name: str
   if (!nodes.some((node) => node.type === "COMPONENT_SET")) return false;
   if (nodes.some((node) => (node.propertyDefinitions?.length ?? 0) > 0)) return false;
   return nodes.some((node) => node.type === "VARIANT" && node.name.includes("="));
+}
+
+/** For the first MCP reply: is a library learned in the store this server reads, and how Resolve was installed. */
+export function setupContext(): SetupContext {
+  return { learned: existsSync(join(storeRoot(), "graph.json")), install: installKind() };
 }
 
 /** Which files are learned, when, and how much of the library links to code. Read-only. */
