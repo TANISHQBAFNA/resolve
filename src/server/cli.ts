@@ -454,7 +454,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
         writeFileSync(out, codeMapTemplate(rows));
         const filled = rows.filter((r) => r.twin).length;
         process.stdout.write(
-          `Wrote ${out}: ${rows.length} components, ${filled} already mapped. Fill in component and importPath (and for Angular: framework angular, selector, module or standalone, inputs, outputs), then run: resolve code-map --import ${out}\n`,
+          `Wrote ${out}: ${rows.length} components, ${filled} already mapped. Fill in component and importPath (and for a selector component: selector, module or standalone, inputs, outputs), then run: resolve code-map --import ${out}\n`,
         );
         return;
       }
