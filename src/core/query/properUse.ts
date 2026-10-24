@@ -5,7 +5,7 @@ import { hexFromColor, payloadHasBindings, paintsByNodeId } from "@/core/ingesti
 import { setOf } from "@/core/rules/family";
 import { foldLibName, isNameInferredMaster, isPrivateMasterName } from "@/core/rules/names";
 import { isRetired } from "@/core/rules/retired";
-import { NAME_FLOOR } from "./cardFit";
+import { clipHint, NAME_FLOOR } from "./cardFit";
 import { type AgentCost, withCost } from "./cost";
 import { instancePropertyFindings } from "./componentProperties";
 import type { GraphIndex } from "./GraphIndex";
@@ -987,7 +987,7 @@ export function attachProperUse<T extends object>(
     }
     const hint = host["hint"];
     if (!host["frame"] && JSON.stringify(priced).length > budget && typeof hint === "string" && hint.length > 48) {
-      host["hint"] = `${hint.slice(0, 47)}…`;
+      host["hint"] = clipHint(hint, 48);
       priced = build();
     }
     if (JSON.stringify(priced).length > budget) {

@@ -2,6 +2,8 @@
 
 ## Unreleased — fresh install
 
+Oct 24, 2026. The `/check` FAIL card lists a part under `resolved:` only when it matched a real component; an invented part shows under `invents:` alone. A long hint is shortened to whole sentences, or whole words with "…", never cut mid-word.
+
 Oct 24, 2026. A confident `/find` card keeps the top pick's one-line reason and lists the next hits. When the card is too long, property rows the ask did not name go first, and the reason line is never cut.
 
 ## Unreleased — universal docs
