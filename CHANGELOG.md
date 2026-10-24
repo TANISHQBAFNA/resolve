@@ -4,6 +4,9 @@
 
 Oct 24, 2026. The `resolve` and `resolve-figma` commands run again when started from the installed package. Since #73 they printed nothing and exited 0. Running `node dist-server/cli.mjs` in a checkout was not affected.
 
+Oct 24, 2026. `/resolve-status`, `/parts`, `/handoff` and `/code-map` work on a fresh project install. They run `npx -y -p github:TANISHQBAFNA/resolve resolve-figma …`, the same package as the MCP entry, instead of a local binary that setup never installed. `scripts/fresh-install-kit.mjs` runs all 8 commands through `claude -p` in a scratch project and records pass, needs-Figma or fail.
+
+
 
 Oct 24, 2026. The `/check` FAIL card lists a part under `resolved:` only when it matched a real component; an invented part shows under `invents:` alone. A long hint is shortened to whole sentences, or whole words with "…", never cut mid-word.
 
