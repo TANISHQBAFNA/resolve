@@ -1,6 +1,8 @@
 /**
  * Main's per-case evidence for the AI-picks scorer.
- * Frozen path: meaning candidates. Recommend path: scoreAsks (weak lead fails, empty lead is no fit).
+ * Frozen path: meaning candidates and whether the lead is weak. Recommend path: scoreAsks (lead, weak match).
+ * The scorer scores both paths under the old rule (a weak lead still counts) and the new rule
+ * (a weak lead fails). Tier ask is a weak lead on every path (mainPath in ai-picks-eval.mjs).
  */
 import { meaningCandidates } from "../src/core/query/meaning/sock";
 import { scoreAsks } from "../tests/meaning.score";
@@ -24,7 +26,7 @@ function meaningPack(name: string) {
   return undefined;
 }
 
-export function mainEvidence(cases: CaseRow[]): Array<{ id: string; frozenNames: string[]; lead: string; weak: boolean }> {
+export function mainEvidence(cases: CaseRow[]): Array<{ id: string; frozenNames: string[]; frozenWeak: boolean; lead: string; weak: boolean }> {
   const packs = loadPacks();
   const asks = cases.flatMap((row) => {
     const library = recommendLibrary(row.pack);
@@ -34,8 +36,14 @@ export function mainEvidence(cases: CaseRow[]): Array<{ id: string; frozenNames:
   return cases.map((row) => {
     const packName = meaningPack(row.pack);
     const pack = packName ? packs[packName as PackName] : undefined;
-    const frozenNames = pack ? meaningCandidates(row.ask, pack).map((candidate) => candidate.name) : [];
+    const candidates = pack ? meaningCandidates(row.ask, pack) : [];
     const found = scored.get(row.id);
-    return { id: row.id, frozenNames, lead: found?.lead ?? "", weak: Boolean(found?.weak) };
+    return {
+      id: row.id,
+      frozenNames: candidates.map((candidate) => candidate.name),
+      frozenWeak: candidates[0]?.confidence === "weak",
+      lead: found?.lead ?? "",
+      weak: Boolean(found?.weak),
+    };
   });
 }
