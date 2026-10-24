@@ -10,6 +10,8 @@ Oct 24, 2026. The first MCP reply no longer asks for a Figma token or a library 
 
 Oct 24, 2026. `resolve-setup --dry-run` says "would create" (and `--uninstall --dry-run` says "would remove"), and `Rule installed?` stays `no` until the rule is really in place. A dry run never wrote anything; it only said it had.
 
+Oct 24, 2026. The `resolve ingest` summary ends with a newline, so the shell prompt no longer starts on its last line.
+
 ## Unreleased — meaning dictionary
 
 Oct 22, 2026. On a library with no density list, `<density> list of <part>` leads with that part. A form named in the ask wins over a density word that is not on the list. A single inflected word that does not name a component stays empty.
