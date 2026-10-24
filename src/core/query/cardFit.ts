@@ -118,6 +118,20 @@ function clipLabel(text: string, target: number): string {
   const keep = Math.max(1, target - 1);
   return `${text.slice(0, keep)}…`;
 }
+/** Shorten a hint to at most `max` characters: whole sentences when one fits, else whole words and "…". Never mid-word. */
+export function clipHint(text: string, max: number): string {
+  if (text.length <= max) return text;
+  let kept = "";
+  for (const sentence of text.split(/(?<=\.) /)) {
+    const next = kept ? `${kept} ${sentence}` : sentence;
+    if (next.length > max) break;
+    kept = next;
+  }
+  if (kept) return kept;
+  const room = text.slice(0, Math.max(1, max - 1));
+  const end = text[room.length] === " " ? room.length : room.lastIndexOf(" ");
+  return `${end > 0 ? room.slice(0, end).trimEnd() : room}…`;
+}
 /** Shorten the longest `name` / `given` fields until `size(payload)` fits. Ids stay intact. */
 export function shrinkNameFields(
   payload: object,
@@ -173,7 +187,7 @@ export function shrinkNameFields(
         ? EXACT_COMPONENT_HINT.length
         : 48;
       if (hinted.hint.length > floor) {
-        hinted.hint = `${hinted.hint.slice(0, floor - 1)}…`;
+        hinted.hint = clipHint(hinted.hint, floor);
         continue;
       }
     }

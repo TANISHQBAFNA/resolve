@@ -3,7 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Resolve — Figma rules. Agents resolve. One-node Figma component usage map for Cursor agents.",
+  "description": "Resolve tells Claude Code and Cursor which real Figma components to use, then checks the screen. Works with any design system and any code stack.",
+  "keywords": [
+    "figma",
+    "design-system",
+    "components",
+    "claude-code",
+    "cursor",
+    "mcp"
+  ],
   "bin": {
     "resolve": "./bin/resolve-cli.mjs",
     "resolve-mcp": "./bin/resolve-mcp.mjs",

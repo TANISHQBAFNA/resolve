@@ -687,7 +687,7 @@ npm run resolve -- code-map --import code-map.csv        # writes code-map.json
 npm run resolve -- code-map --import code-map.csv --force   # updates an existing code-map.json
 ```
 
-`--init` writes one row per library component (`fileKey`, `id`, `name`, then the columns to fill: `component`, `importPath`, `framework`, `selector`, `module`, `standalone`, `inputs`, `outputs`, `status`, `replacedBy`). Rows the map already knows come filled in. `--import` skips rows with no `component` and no `importPath`, checks every other row with the same rules as the map itself, and writes nothing if any row is wrong. It lists them by spreadsheet row, counting blank rows, for example `row 5: importPath must be a package path like @acme/ui`. The `name` column is kept with the id, so `code-map --check` knows the design name. Columns Resolve does not use (`notes`, `owner`, ...) are ignored, and the output names them. List several `inputs` or `outputs` with spaces or commas; The alias form `label: ariaLabel` is kept as one input. A filled-in example is [`docs/examples/acme-code-map-angular.csv`](examples/acme-code-map-angular.csv). `--init` does not replace an existing CSV unless you add `--force`.
+`--init` writes one row per library component (`fileKey`, `id`, `name`, then the columns to fill: `component`, `importPath`, `framework`, `selector`, `module`, `standalone`, `inputs`, `outputs`, `status`, `replacedBy`). Rows the map already knows come filled in. `--import` skips rows with no `component` and no `importPath`, checks every other row with the same rules as the map itself, and writes nothing if any row is wrong. It lists them by spreadsheet row, counting blank rows, for example `row 5: importPath must be a package path like @acme/ui`. The `name` column is kept with the id, so `code-map --check` knows the design name. Columns Resolve does not use (`notes`, `owner`, ...) are ignored, and the output names them. List several `inputs` or `outputs` with spaces or commas; the alias form `label: ariaLabel` is kept as one input. A filled-in example is [`docs/examples/acme-code-map-selectors.csv`](examples/acme-code-map-selectors.csv). `--init` does not replace an existing CSV unless you add `--force`.
 
 **Updating an existing map.** `--import` does not touch an existing `code-map.json` unless you say how:
 
@@ -703,9 +703,9 @@ npm run resolve -- code-map --import code-map.csv --force   # updates an existin
 These three commands extend the map. They do not replace `--init` or `--import`.
 
 ```bash
-npm run resolve -- code-map scan ./fixtures/acme-ui-angular
-npm run resolve -- code-map suggest ./fixtures/acme-ui-angular
-npm run resolve -- code-map suggest ./fixtures/acme-ui-angular --write
+npm run resolve -- code-map scan ./packages/acme-ui
+npm run resolve -- code-map suggest ./packages/acme-ui
+npm run resolve -- code-map suggest ./packages/acme-ui --write
 npm run resolve -- code-map review
 npm run resolve -- code-map review --import code-map-review.csv
 ```
@@ -720,9 +720,9 @@ npm run resolve -- code-map review --import code-map-review.csv
 
 **Versions.** Each entry can store `figmaVersion` (the learned library's Figma version) and `packageVersion` (the component package version). The map file can store the same two at the top. When the learned library version changes, or the package version on the file changes, `code-map` lists those entries under `Needs re-review`. They stay mapped until someone reviews them.
 
-**Fixture.** `fixtures/acme-ui-angular` is a small made-up package (precision 1, recall 1, 9/9). `fixtures/pr63-edge` is the larger one: 49 hand-labelled pairs, a second package, and noise classes. On that key, `suggested` pairs score precision 1 and recall 43/49. `partial` pairs score precision 5/6 and recall 5/49. Pagination is not matched to Paginator. Avatar is `partial` for both the Acme class and the unprefixed class, and neither is `suggested`. Accepting every `suggested` row makes 0 wrong mapped links. A retired part is not suggested and never shows its old code. The suite checks that bar.
+**Fixture.** A small made-up Acme package in `fixtures/` is the first key (precision 1, recall 1, 9/9). `fixtures/pr63-edge` is the larger one: 49 hand-labelled pairs, a second package, and noise classes. On that key, `suggested` pairs score precision 1 and recall 43/49. `partial` pairs score precision 5/6 and recall 5/49. Pagination is not matched to Paginator. Avatar is `partial` for both the Acme class and the unprefixed class, and neither is `suggested`. Accepting every `suggested` row makes 0 wrong mapped links. A retired part is not suggested and never shows its old code. The suite checks that bar.
 
-`--retired` prints every retired part and its replacement, one per line (`Retired: 1`, then `Old Button [ACMEUI 30:50] -> use Button`). The retired part's own code is not shown. `--json` prints the same data with the same keys whether or not there is a map (`configured` is `true` or `false`; the lists are `unmapped`, `ambiguous`, `conflicts`, `retired`, `stale`, `replacements`, `ignored`). Two keys appear only when the map has selector entries: `angular` (the selector counts) and `angularIgnored` (entries whose selector fields were dropped). A part with a bad `replacedBy` is listed under `Bad replacedBy` / `replacements`. Details are in [`code-map.json`](#resolvecode-mapjson--figma-to-code-twins) below. With no map, it prints `No code map. Add .resolve/code-map.json next to synonyms.json.`
+`--retired` prints every retired part and its replacement, one per line (`Retired: 1`, then `Old Button [ACMEUI 30:50] -> use Button`). The retired part's own code is not shown. `--json` prints the same data with the same keys whether or not there is a map (`configured` is `true` or `false`; the lists are `unmapped`, `ambiguous`, `conflicts`, `retired`, `stale`, `replacements`, `ignored`). Two more keys appear only when the map has selector entries: the selector counts, and the entries whose selector fields were dropped. A part with a bad `replacedBy` is listed under `Bad replacedBy` / `replacements`. Details are in [`code-map.json`](#resolvecode-mapjson--figma-to-code-twins) below. With no map, it prints `No code map. Add .resolve/code-map.json next to synonyms.json.`
 
 **Check one name without the learned library.** `code-map --check` reads two committed team files only: the handoff sheet (`resolve handoff --out`) and `code-map.json`. It does not read `graph.json` or any other cache, and it never guesses a code twin. It matches the handoff part's file key and node id to the code-map entry with that same key. A shared package path is not a match. An import line matches only when the name in the braces is that entry's component or module. A display name on the sheet (letter case ignored) uses that part's file key and node id. A display name in the code map (`name`, for example `Old Button`) matches too, so a retired part is refused by the name designers use. Pass a display name, a component selector, a class name, a module name, or an import line. An HTML tag such as `<button acme-raised-button>` matches a selector only, never a display name, so it is `not-found` unless a code-map selector is that tag. A recipe slot counts as on the screen only when its part is placed. A part with no code twin is `unmapped` when it is from the same library and `other-library` only when it is from another one.
 
@@ -744,7 +744,7 @@ npm run resolve -- code-map --check "AcmeOldButtonComponent" --handoff artifacts
 
 `--check` treats a part as retired only when the code-map entry says `status: "retired"`, or the handoff sheet itself marks that part retired. It does not use the learned library's retired flag. `code-map --retired` does. Leave `status` off and the check treats the part as current, unless the sheet says retired.
 
-On the shipped map [`docs/examples/acme-code-map-angular.json`](examples/acme-code-map-angular.json) (file key and id only, no display names): `AcmeOldButtonComponent`, the selector `acme-old-button`, and that component's import line are retired, and the sentence is `Don't use. Use Button.` `OtherButton` is not on that map, so the check answers not-found. A part on the handoff whose `code` is `"unknown"` or missing is `other-library`.
+On the shipped map [`docs/examples/acme-code-map-selectors.json`](examples/acme-code-map-selectors.json) (file key and id only, no display names): `AcmeOldButtonComponent`, the selector `acme-old-button`, and that component's import line are retired, and the sentence is `Don't use. Use Button.` `OtherButton` is not on that map, so the check answers not-found. A part on the handoff whose `code` is `"unknown"` or missing is `other-library`.
 
 `--json` prints one object. The fields are always `ok`, `status`, `query`, `message`, `exitCode`, `codeMapPath`, and `handoffPath`. When a code-map entry matched, it also has `component`, `import`, `matchedBy` (`name`, `selector`, `class`, or `import`), and `selector` and `module` when the entry has them (`standalone: true` instead of `module` when the component is standalone). `use` is present only for `retired`, and it is the replacement name (`Button`). `unmapped`, `other-library`, and `not-found` do not include `selector`, `module`, or `import`. With `--json`, an empty name or a missing `--handoff` value is still JSON. A missing or broken file is `status: "error"` with a plain `message`, never a stack trace. A skipped code-map row names the entry and why it was skipped.
 
@@ -784,7 +784,7 @@ It lists the library parts placed directly inside a component (a part inside a p
 - **Honest labels.** A retired part does not show its old code. It names what to use instead, with that part's code when the map has it (`retired; use Button (code: Button from '@acme/ui')`). A part known only from its layer name is marked `guess from layer name, not confirmed`. A part from a library file you have not learned says so; if you have learned that library, Resolve finds the real part by its published component key. A copy whose component is missing is `component not found`.
 - **Names.** Exact name (letter case ignored) or id only. Anything else says "Nothing named ..." and exits with an error; use `recommend` to find the name first. A name or a bare node id found in two learned files is listed, not picked; ask again with `fileKey:nodeId`.
 
-`--json` prints the card as data (`parts`, each with `status`: `current`, `retired`, `unconfirmed`, `other-library` or `not-found`, `code` or `null`, and `use` / `useCode` for a retired part; `angular` for a selector entry; `insideFrom` marks insides read from the main component). `--all` counts the whole library: how many components are built from other parts, and how many of those parts link to code. The MCP version is `get_ingredients`. It is off by default, so the agent tool list stays at seven; set `RESOLVE_MCP_ADVANCED=1` to turn it on. Over MCP a card larger than 12,000 characters is cut so it does not flood the agent: it is shown one level less deep at a time, then with fewer parts per level, and `cut.reason` says what was left out (ask a part by name for its own card). The command line always prints the whole card.
+`--json` prints the card as data (`parts`, each with `status`: `current`, `retired`, `unconfirmed`, `other-library` or `not-found`, `code` or `null`, and `use` / `useCode` for a retired part; the selector fields for a selector entry; `insideFrom` marks insides read from the main component). `--all` counts the whole library: how many components are built from other parts, and how many of those parts link to code. The MCP version is `get_ingredients`. It is off by default, so the agent tool list stays at seven; set `RESOLVE_MCP_ADVANCED=1` to turn it on. Over MCP a card larger than 12,000 characters is cut so it does not flood the agent: it is shown one level less deep at a time, then with fewer parts per level, and `cut.reason` says what was left out (ask a part by name for its own card). The command line always prints the whole card.
 
 #### handoff
 
@@ -980,7 +980,7 @@ The rules, in plain words:
 
 ##### Selector entries
 
-An entry can describe a component that templates use through a selector. Add `framework`, `selector` and, if you know them, `module` or `standalone`, `inputs` and `outputs` inside `code`. Entries without these fields (like the ones above) work exactly as before, and one file can mix both kinds. A made-up Acme entry, [`docs/examples/acme-code-map-angular.json`](examples/acme-code-map-angular.json):
+An entry can describe a component that templates use through a selector. Add `selector` and, if you know them, `module` or `standalone`, `inputs` and `outputs` inside `code`. Entries without these fields (like the ones above) work exactly as before, and one file can mix both kinds. A made-up Acme entry (the full example map is [`docs/examples/acme-code-map-selectors.json`](examples/acme-code-map-selectors.json)):
 
 ```json
 {
@@ -988,8 +988,7 @@ An entry can describe a component that templates use through a selector. Add `fr
   "id": "30:10",
   "name": "Button",
   "code": {
-    "framework": "angular",
-    "import": "import { AcmeButtonComponent } from '@acme/ui-angular'",
+    "import": "import { AcmeButtonComponent } from '@acme/ui'",
     "component": "AcmeButtonComponent",
     "selector": "acme-button",
     "module": "AcmeButtonModule",
@@ -1002,11 +1001,11 @@ An entry can describe a component that templates use through a selector. Add `fr
 - **`selector`** is required for a selector-based entry. Real selector forms work: an element name with a dash (`acme-button`), an attribute (`[acmeTooltip]`), an attribute with a value (`[type="submit"]`), a class (`.acme-card`), combinations (`button[acme-button]`, `input[acmeField]:not([readonly])`) and comma lists (`button[acme-button], a[acme-button]`). An element name alone needs a dash. A selector alone marks the entry as a selector entry; the `framework` value says it outright.
 - **`module`** is the NgModule to import (`AcmeButtonModule`). For a standalone component, use `"standalone": true` instead. Giving both is refused.
 - **`inputs`** and **`outputs`** are optional lists of names (`["variant", "size"]`). The alias form `"label: ariaLabel"` is accepted; the alias is what a template binds to. A name listed twice is kept once.
-- **The import path** comes from the `import` line (`@acme/ui-angular`), as before.
-- A bad selector value drops only the selector fields of that entry, never its code line. The reason is listed under `Angular fields ignored (code line still used)` in `code-map` (`angularIgnored` in JSON), for example `selector must look like acme-button, [acmeTooltip] or button[mat-button], a[mat-button]`, `use module or standalone: true, not both`, `'module' needs an Angular selector`, or `'selector' is an Angular field; set framework to angular` (on a `"framework": "react"` entry). Nothing is quietly changed. The CSV import is stricter: a bad selector value there is a row error, so it gets fixed before the map is written.
-- One component, one entry: a React and a selector-based entry for the same component are a `conflict` (`a React and an Angular entry disagree; keep one entry per component`). The exception is the usual retired rule: if one of the two is retired and the other current, the current one is used.
+- **The import path** comes from the `import` line (`@acme/ui`), as before.
+- A bad selector value drops only the selector fields of that entry, never its code line. `code-map` lists the reason in its ignored-fields section, for example `use module or standalone: true, not both`, a selector that is not a real selector form, a `module` with no selector, or a `selector` on a `"framework": "react"` entry. Nothing is quietly changed. The CSV import is stricter: a bad selector value there is a row error, so it gets fixed before the map is written.
+- One component, one entry: an import-only entry and a selector entry for the same component are a `conflict` (keep one entry per component). The exception is the usual retired rule: if one of the two is retired and the other current, the current one is used.
 
-Where the selector fields show: the ingredient card (text and `angular` in JSON, also `useAngular` for a retired part's replacement), the `resolve` card (`angular`, next to `code`), the `recommend` card (a short `angular` line such as `<acme-button>, AcmeButtonModule`, only when it fits in 600 characters), the `verify` retired lines, `code-map` (an `Angular:` count line such as `Angular: 4 components have a selector (incl. 1 retired): ...`, and the selector on retired lines), and the [handoff sheet](#handoff). A retired part's own code is left off the card. The replacement's code is the only code line. With no selector entries, the cards and reports read as they did before PR #36, except that a retired part no longer prints its old code.
+Where the selector fields show: the ingredient card (text and JSON, also for a retired part's replacement), the `resolve` card (next to `code`), the `recommend` card (a short line such as `<acme-button>, AcmeButtonModule`, only when it fits in 600 characters), the `verify` retired lines, `code-map` (a count line such as `4 components have a selector (incl. 1 retired)`, and the selector on retired lines), and the [handoff sheet](#handoff). A retired part's own code is left off the card. The replacement's code is the only code line. With no selector entries, the cards and reports read as they did before PR #36, except that a retired part no longer prints its old code.
 
 `resolve code-map` reports `mapped`, `retired`, `unmapped`, `ambiguous`, `conflict`, `stale` (an entry whose component is not in the library, with its file key), `ignored`, plus lists of retired parts (with code and replacement) and bad `replacedBy`. Only real components and component sets are counted: variants, remote stubs and `_`/`base` parts are not.
 
@@ -1092,9 +1091,9 @@ intent: payee picker
 candidates:
   - name: Payee picker | type: MAIN_COMPONENT | figmaNodeId: 30:30 | fileKey: ACMEUI | componentKey: payee-picker-key | published: true | publishState: published | instances: 4 | why: used 4× in file | hint: Place fileKey + nodeId. | ex: 20:31
 hint: Place fileKey+nodeId. If stale, learn_library.
-code: AcmePayeePickerComponent from '@acme/payments-angular'
-angular: <acme-payee-picker>, standalone
 ```
+
+With a code map, the card also gets a `code:` line (`AcmePayeePickerComponent` and its import path) and, for a selector entry, a short selector line (`<acme-payee-picker>, standalone`).
 
 The same 14 Acme cards (three recommends, three resolves, one example, two verifies, one recipe, the recipe list, cousins, one ingredient card, and the Send money handoff) are 4,547 tokens as today's JSON and 3,350 as Markdown. Tokens are `ceil(characters / 4)`, summed per card. Removing the filler accounts for about half of that drop (the stripped JSON is 3,995). The count is locked in `tests/server.cards.test.ts`.
 

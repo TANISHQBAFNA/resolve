@@ -50,7 +50,7 @@ const HTML_TAGS = new Set(["a", "button", "div", "h1", "h2", "h3", "img", "input
 export function scanAngularPackage(packageOrPath: string, fromDir = process.cwd()): AngularInventory {
   const root = resolvePackage(packageOrPath, fromDir);
   const pkgPath = join(root, "package.json");
-  if (!existsSync(pkgPath)) throw new Error(`No package.json at ${root}. Pass the Angular package directory.`);
+  if (!existsSync(pkgPath)) throw new Error(`No package.json at ${root}. Pass the component package directory.`);
   let pkg: unknown;
   try {
     pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
@@ -90,7 +90,7 @@ function resolvePackage(spec: string, fromDir: string): string {
   try {
     return dirname(req.resolve(join(spec, "package.json")));
   } catch {
-    throw new Error(`No Angular package at ${spec}. Pass a path to the package, or a name Node can resolve.`);
+    throw new Error(`No component package at ${spec}. Pass a path to the package, or a name Node can resolve.`);
   }
 }
 
