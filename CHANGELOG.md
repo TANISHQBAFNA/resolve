@@ -4,6 +4,8 @@
 
 Oct 24, 2026. The `resolve` and `resolve-figma` commands run again when started from the installed package. Since #73 they printed nothing and exited 0. Running `node dist-server/cli.mjs` in a checkout was not affected.
 
+Oct 24, 2026. `/resolve-status`, `/parts`, `/handoff` and `/code-map` work on a fresh project install. They run `npx -y -p github:TANISHQBAFNA/resolve resolve-figma …`, the same package as the MCP entry, instead of a local binary that setup never installed. `scripts/fresh-install-kit.mjs` runs all 8 commands through `claude -p` in a scratch project and records pass, needs-Figma or fail.
+
 ## Unreleased — meaning dictionary
 
 Oct 22, 2026. On a library with no density list, `<density> list of <part>` leads with that part. A form named in the ask wins over a density word that is not on the list. A single inflected word that does not name a component stays empty.
