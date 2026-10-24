@@ -226,6 +226,29 @@ describe("slash commands: install", () => {
     }
   });
 
+  it("F4-R1: the shell commands run the package from the project's MCP entry, never a bare local binary", () => {
+    const cwd = temp("npx-spec");
+    expect(setup([], cwd).status).toBe(0);
+    const entry = (JSON.parse(read(join(cwd, ".mcp.json"))) as { mcpServers: { resolve: { command: string; args: string[] } } }).mcpServers.resolve;
+    const spec = [entry.command, ...entry.args.slice(0, -1)].join(" ");
+    expect(spec).toBe("npx -y -p github:TANISHQBAFNA/resolve");
+    const runs: Record<string, string[]> = {
+      "resolve-status": [`${spec} resolve-figma status`, `${spec} resolve-setup`],
+      parts: [`${spec} resolve-figma parts`],
+      handoff: [`${spec} resolve-figma handoff`, `${spec} resolve-figma export aidlc`],
+      "code-map": [`\`resolve-figma\` means \`${spec} resolve-figma\``],
+    };
+    for (const name of NAMES) {
+      for (const dir of [".claude/commands", ".cursor/commands"]) {
+        const text = read(join(cwd, dir, `${name}.md`));
+        for (const run of runs[name] ?? []) expect(text, `${dir}/${name}`).toContain(run);
+        expect(text, `${dir}/${name}`).not.toContain("the local command from the same install");
+        expect(text, `${dir}/${name}`).not.toContain("If the shell says the command is not found");
+        if (name !== "code-map") expect(text, `${dir}/${name}`).not.toMatch(/`resolve-(figma|setup)\b/);
+      }
+    }
+  });
+
   it("--global puts the Claude commands in ~/.claude/commands and writes no Cursor files", () => {
     const cwd = temp("global");
     const home = temp("global-home");
