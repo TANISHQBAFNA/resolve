@@ -1,0 +1,3467 @@
+{
+  "count": 60,
+  "results": [
+    {
+      "id": "5062a1a6ceef4ec9",
+      "ask": "a short set of actions that opens from the three-dot overflow",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Menu",
+        "Icon button",
+        "Button"
+      ],
+      "pickIds": [
+        "menu",
+        "icon-button",
+        "button"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a short set of actions that opens from the three-dot overflow",
+        "shortlist": [
+          "menu",
+          "icon-button",
+          "button"
+        ],
+        "tier": "place",
+        "pick": "menu",
+        "reason": "List of choices anchored to a control."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "menu",
+        "name": "Menu",
+        "reason": "List of choices anchored to a control."
+      }
+    },
+    {
+      "id": "5af482ae2b5b1ff5",
+      "ask": "type a few letters and get matching city suggestions",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Autocomplete",
+        "Text field",
+        "Search bar"
+      ],
+      "pickIds": [
+        "autocomplete",
+        "text-field",
+        "search-bar"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "type a few letters and get matching city suggestions",
+        "shortlist": [
+          "autocomplete",
+          "text-field",
+          "search-bar"
+        ],
+        "tier": "place",
+        "pick": "autocomplete",
+        "reason": "Text field with suggested options."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "autocomplete",
+        "name": "Autocomplete",
+        "reason": "Text field with suggested options."
+      }
+    },
+    {
+      "id": "7f1e8bec78b68615",
+      "ask": "make the person confirm before their account is erased",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Dialog",
+        "Bottom sheet",
+        "Snackbar"
+      ],
+      "pickIds": [
+        "dialog",
+        "bottom-sheet",
+        "snackbar"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "make the person confirm before their account is erased",
+        "shortlist": [
+          "dialog",
+          "bottom-sheet",
+          "snackbar"
+        ],
+        "tier": "place",
+        "pick": "dialog",
+        "reason": "Basic dialog and full-screen dialog."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "dialog",
+        "name": "Dialog",
+        "reason": "Basic dialog and full-screen dialog."
+      }
+    },
+    {
+      "id": "df75cb328e34c971",
+      "ask": "a small hint that shows up when I rest the pointer on a symbol",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Tooltip",
+        "Badge",
+        "Icon"
+      ],
+      "pickIds": [
+        "tooltip",
+        "badge",
+        "icon"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a small hint that shows up when I rest the pointer on a symbol",
+        "shortlist": [
+          "tooltip",
+          "badge",
+          "icon"
+        ],
+        "tier": "place",
+        "pick": "tooltip",
+        "reason": "text label that is displayed when the user hovers"
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "tooltip",
+        "name": "Tooltip",
+        "reason": "text label that is displayed when the user hovers"
+      }
+    },
+    {
+      "id": "95bcea792a7ba802",
+      "ask": "tick each topic you want in the newsletter",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Checkbox",
+        "Chip",
+        "List"
+      ],
+      "pickIds": [
+        "checkbox",
+        "chip",
+        "list"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "tick each topic you want in the newsletter",
+        "shortlist": [
+          "checkbox",
+          "chip",
+          "list"
+        ],
+        "tier": "place",
+        "pick": "checkbox",
+        "reason": "Select one or more."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "checkbox",
+        "name": "Checkbox",
+        "reason": "Select one or more."
+      }
+    },
+    {
+      "id": "c3e41bb33a9b2267",
+      "ask": "a strip along the upper edge of the app with the page name and a back arrow",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Toolbar",
+        "Navigation bar",
+        "Icon button"
+      ],
+      "pickIds": [
+        "toolbar",
+        "navigation-bar",
+        "icon-button"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a strip along the upper edge of the app with the page name and a back arrow",
+        "shortlist": [
+          "toolbar",
+          "navigation-bar",
+          "icon-button"
+        ],
+        "tier": "place",
+        "pick": "toolbar",
+        "reason": "Top app bar."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "toolbar",
+        "name": "Toolbar",
+        "reason": "Top app bar."
+      }
+    },
+    {
+      "id": "22107e1708992833",
+      "ask": "a thin line between two groups of settings",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Divider",
+        "List",
+        "Card"
+      ],
+      "pickIds": [
+        "divider",
+        "list",
+        "card"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a thin line between two groups of settings",
+        "shortlist": [
+          "divider",
+          "list",
+          "card"
+        ],
+        "tier": "place",
+        "pick": "divider",
+        "reason": "Hairline between items."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "divider",
+        "name": "Divider",
+        "reason": "Hairline between items."
+      }
+    },
+    {
+      "id": "bf7acb37af554e30",
+      "ask": "show 40 percent of the file transferred",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Progress bar",
+        "Progress spinner",
+        "Slider"
+      ],
+      "pickIds": [
+        "progress-bar",
+        "progress-spinner",
+        "slider"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "show 40 percent of the file transferred",
+        "shortlist": [
+          "progress-bar",
+          "progress-spinner",
+          "slider"
+        ],
+        "tier": "place",
+        "pick": "progress-bar",
+        "props": {
+          "Indeterminate": "false"
+        },
+        "reason": "Linear progress indicator."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "progress-bar",
+        "name": "Progress bar",
+        "reason": "Linear progress indicator."
+      }
+    },
+    {
+      "id": "d659cdb84982f203",
+      "ask": "a brief note near the bottom of the screen saying the draft was kept",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Snackbar",
+        "Bottom sheet",
+        "Tooltip"
+      ],
+      "pickIds": [
+        "snackbar",
+        "bottom-sheet",
+        "tooltip"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a brief note near the bottom of the screen saying the draft was kept",
+        "shortlist": [
+          "snackbar",
+          "bottom-sheet",
+          "tooltip"
+        ],
+        "tier": "place",
+        "pick": "snackbar",
+        "reason": "Brief message at the bottom of the screen."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "snackbar",
+        "name": "Snackbar",
+        "reason": "Brief message at the bottom of the screen."
+      }
+    },
+    {
+      "id": "92eecc2b65395988",
+      "ask": "links between the four main areas of a phone app, along the lower edge",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Navigation bar",
+        "Tabs",
+        "Sidenav"
+      ],
+      "pickIds": [
+        "navigation-bar",
+        "tabs",
+        "sidenav"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "links between the four main areas of a phone app, along the lower edge",
+        "shortlist": [
+          "navigation-bar",
+          "tabs",
+          "sidenav"
+        ],
+        "tier": "place",
+        "pick": "navigation-bar",
+        "reason": "No matching Angular Material class"
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "navigation-bar",
+        "name": "Navigation bar",
+        "reason": "No matching Angular Material class"
+      }
+    },
+    {
+      "id": "b55a4bd14ff1ca94",
+      "ask": "an on/off control, not a checkbox",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Slide toggle",
+        "Radio button",
+        "Button toggle"
+      ],
+      "pickIds": [
+        "slide-toggle",
+        "radio-button",
+        "button-toggle"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "an on/off control, not a checkbox",
+        "shortlist": [
+          "slide-toggle",
+          "radio-button",
+          "button-toggle"
+        ],
+        "tier": "place",
+        "pick": "slide-toggle",
+        "reason": "on/off control that can be toggled via clicking"
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "slide-toggle",
+        "name": "Slide toggle",
+        "reason": "on/off control that can be toggled via clicking"
+      }
+    },
+    {
+      "id": "5c39f8e1fbca9c09",
+      "ask": "a tight timber list",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "List",
+        "List item",
+        "Grid list"
+      ],
+      "pickIds": [
+        "list",
+        "list-item",
+        "grid-list"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a tight timber list",
+        "shortlist": [
+          "list",
+          "list-item",
+          "grid-list"
+        ],
+        "tier": "place",
+        "pick": "list",
+        "reason": "Vertical list of rows."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "list",
+        "name": "List",
+        "reason": "Vertical list of rows."
+      }
+    },
+    {
+      "id": "219eee5bc50e4cda",
+      "ask": "a bar chart of monthly spending",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [],
+      "pickIds": [],
+      "tier": "no-fit",
+      "request": {
+        "library": "material",
+        "ask": "a bar chart of monthly spending",
+        "shortlist": [],
+        "tier": "no-fit"
+      },
+      "cli": {
+        "tier": "no-fit",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "a6d99bd7e29a0dad",
+      "ask": "a pad where customers sign with a finger",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [],
+      "pickIds": [],
+      "tier": "no-fit",
+      "request": {
+        "library": "material",
+        "ask": "a pad where customers sign with a finger",
+        "shortlist": [],
+        "tier": "no-fit"
+      },
+      "cli": {
+        "tier": "no-fit",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "44cc335cc5ef9249",
+      "ask": "narrow results down by category with small selectable tokens",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Chip",
+        "Checkbox",
+        "Button toggle"
+      ],
+      "pickIds": [
+        "chip",
+        "checkbox",
+        "button-toggle"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "narrow results down by category with small selectable tokens",
+        "shortlist": [
+          "chip",
+          "checkbox",
+          "button-toggle"
+        ],
+        "tier": "place",
+        "pick": "chip",
+        "props": {
+          "Type": "Filter"
+        },
+        "reason": "make selections, filter content, and enter data"
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "chip",
+        "name": "Chip",
+        "reason": "make selections, filter content, and enter data"
+      }
+    },
+    {
+      "id": "8c5bf524680c59b2",
+      "ask": "show folders inside folders that open and close",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Tree",
+        "Expansion panel",
+        "List"
+      ],
+      "pickIds": [
+        "tree",
+        "expansion-panel",
+        "list"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "show folders inside folders that open and close",
+        "shortlist": [
+          "tree",
+          "expansion-panel",
+          "list"
+        ],
+        "tier": "place",
+        "pick": "tree",
+        "reason": "Nested rows."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "tree",
+        "name": "Tree",
+        "reason": "Nested rows."
+      }
+    },
+    {
+      "id": "bf2b861c708696c3",
+      "ask": "choose a currency as a form value",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Select",
+        "Autocomplete",
+        "Menu"
+      ],
+      "pickIds": [
+        "select",
+        "autocomplete",
+        "menu"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "choose a currency as a form value",
+        "shortlist": [
+          "select",
+          "autocomplete",
+          "menu"
+        ],
+        "tier": "place",
+        "pick": "select",
+        "reason": "form control for selecting a value from a set of options"
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "select",
+        "name": "Select",
+        "reason": "form control for selecting a value from a set of options"
+      }
+    },
+    {
+      "id": "6497a587e4e4922f",
+      "ask": "a removable token showing a chosen keyword in a field",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Chip",
+        "Autocomplete",
+        "Text field"
+      ],
+      "pickIds": [
+        "chip",
+        "autocomplete",
+        "text-field"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a removable token showing a chosen keyword in a field",
+        "shortlist": [
+          "chip",
+          "autocomplete",
+          "text-field"
+        ],
+        "tier": "place",
+        "pick": "chip",
+        "props": {
+          "Type": "Input"
+        },
+        "reason": "make selections, filter content, and enter data"
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "chip",
+        "name": "Chip",
+        "reason": "make selections, filter content, and enter data"
+      }
+    },
+    {
+      "id": "e6f89b475b17c0d4",
+      "ask": "a panel from the right edge to edit filters on desktop",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Side sheet",
+        "Sidenav",
+        "Dialog"
+      ],
+      "pickIds": [
+        "side-sheet",
+        "sidenav",
+        "dialog"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a panel from the right edge to edit filters on desktop",
+        "shortlist": [
+          "side-sheet",
+          "sidenav",
+          "dialog"
+        ],
+        "tier": "place",
+        "pick": "side-sheet",
+        "reason": "Sheet docked to the side."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "side-sheet",
+        "name": "Side sheet",
+        "reason": "Sheet docked to the side."
+      }
+    },
+    {
+      "id": "6023649b6616c1d0",
+      "ask": "pick one country out of a long collapsed set of options",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Select",
+        "Autocomplete",
+        "Menu"
+      ],
+      "pickIds": [
+        "select",
+        "autocomplete",
+        "menu"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "pick one country out of a long collapsed set of options",
+        "shortlist": [
+          "select",
+          "autocomplete",
+          "menu"
+        ],
+        "tier": "place",
+        "pick": "select",
+        "reason": "Closed menu of options."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "select",
+        "name": "Select",
+        "reason": "Closed menu of options."
+      }
+    },
+    {
+      "id": "f9bad3267c71a403",
+      "ask": "side navigation for a wide desktop layout",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Navigation rail",
+        "Sidenav",
+        "Navigation bar"
+      ],
+      "pickIds": [
+        "navigation-rail",
+        "sidenav",
+        "navigation-bar"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "side navigation for a wide desktop layout",
+        "shortlist": [
+          "navigation-rail",
+          "sidenav",
+          "navigation-bar"
+        ],
+        "tier": "place",
+        "pick": "navigation-rail",
+        "reason": "Side rail for a few destinations."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "navigation-rail",
+        "name": "Navigation rail",
+        "reason": "Side rail for a few destinations."
+      }
+    },
+    {
+      "id": "e413b337cfa0c014",
+      "ask": "a spinning circle while the page waits for data",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Progress spinner",
+        "Progress bar",
+        "Icon"
+      ],
+      "pickIds": [
+        "progress-spinner",
+        "progress-bar",
+        "icon"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a spinning circle while the page waits for data",
+        "shortlist": [
+          "progress-spinner",
+          "progress-bar",
+          "icon"
+        ],
+        "tier": "place",
+        "pick": "progress-spinner",
+        "props": {
+          "Indeterminate": "true"
+        },
+        "reason": "Circular progress indicator."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "progress-spinner",
+        "name": "Progress spinner",
+        "reason": "Circular progress indicator."
+      }
+    },
+    {
+      "id": "3f403cfcdda965e8",
+      "ask": "walk someone through account setup one stage at a time",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Stepper",
+        "Tabs",
+        "Expansion panel"
+      ],
+      "pickIds": [
+        "stepper",
+        "tabs",
+        "expansion-panel"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "walk someone through account setup one stage at a time",
+        "shortlist": [
+          "stepper",
+          "tabs",
+          "expansion-panel"
+        ],
+        "tier": "place",
+        "pick": "stepper",
+        "reason": "Steps in a task."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "stepper",
+        "name": "Stepper",
+        "reason": "Steps in a task."
+      }
+    },
+    {
+      "id": "98b291050542913b",
+      "ask": "a star rating out of five",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [],
+      "pickIds": [],
+      "tier": "no-fit",
+      "request": {
+        "library": "material",
+        "ask": "a star rating out of five",
+        "shortlist": [],
+        "tier": "no-fit"
+      },
+      "cli": {
+        "tier": "no-fit",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "da78122700998042",
+      "ask": "order the column by price from low to high",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Sort",
+        "Table",
+        "Menu"
+      ],
+      "pickIds": [
+        "sort",
+        "table",
+        "menu"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "order the column by price from low to high",
+        "shortlist": [
+          "sort",
+          "table",
+          "menu"
+        ],
+        "tier": "place",
+        "pick": "sort",
+        "reason": "Sortable column header."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "sort",
+        "name": "Sort",
+        "reason": "Sortable column header."
+      }
+    },
+    {
+      "id": "ab50c11fc2d2e9f6",
+      "ask": "an undo message that goes away by itself",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Snackbar",
+        "Dialog",
+        "Tooltip"
+      ],
+      "pickIds": [
+        "snackbar",
+        "dialog",
+        "tooltip"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "an undo message that goes away by itself",
+        "shortlist": [
+          "snackbar",
+          "dialog",
+          "tooltip"
+        ],
+        "tier": "place",
+        "pick": "snackbar",
+        "reason": "Brief message at the bottom of the screen."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "snackbar",
+        "name": "Snackbar",
+        "reason": "Brief message at the bottom of the screen."
+      }
+    },
+    {
+      "id": "bab73e38fc3f1bfb",
+      "ask": "rows and columns of transactions with headings you can scan",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Table",
+        "Grid list",
+        "List"
+      ],
+      "pickIds": [
+        "table",
+        "grid-list",
+        "list"
+      ],
+      "tier": "ask",
+      "request": {
+        "library": "material",
+        "ask": "rows and columns of transactions with headings you can scan",
+        "shortlist": [
+          "table",
+          "grid-list",
+          "list"
+        ],
+        "tier": "ask",
+        "pick": "table",
+        "reason": "Data table."
+      },
+      "cli": {
+        "tier": "ask",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "table",
+        "name": "Table",
+        "reason": "Data table."
+      }
+    },
+    {
+      "id": "6c84aee9d4c75b8b",
+      "ask": "show how far along an upload is",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Progress bar",
+        "Progress spinner",
+        "Slider"
+      ],
+      "pickIds": [
+        "progress-bar",
+        "progress-spinner",
+        "slider"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "show how far along an upload is",
+        "shortlist": [
+          "progress-bar",
+          "progress-spinner",
+          "slider"
+        ],
+        "tier": "place",
+        "pick": "progress-bar",
+        "props": {
+          "Indeterminate": "false"
+        },
+        "reason": "Linear progress indicator."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "progress-bar",
+        "name": "Progress bar",
+        "reason": "Linear progress indicator."
+      }
+    },
+    {
+      "id": "ff692b2c5853a8b4",
+      "ask": "the main action that sends the form",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Button",
+        "Extended FAB",
+        "FAB"
+      ],
+      "pickIds": [
+        "button",
+        "extended-fab",
+        "fab"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "the main action that sends the form",
+        "shortlist": [
+          "button",
+          "extended-fab",
+          "fab"
+        ],
+        "tier": "place",
+        "pick": "button",
+        "reason": "Five button types from the Material 3 spec."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "button",
+        "name": "Button",
+        "reason": "Five button types from the Material 3 spec."
+      }
+    },
+    {
+      "id": "d2fef4e9f73fa4c2",
+      "ask": "a small floating action for a phone screen",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Mini FAB",
+        "FAB",
+        "Extended FAB"
+      ],
+      "pickIds": [
+        "mini-fab",
+        "fab",
+        "extended-fab"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a small floating action for a phone screen",
+        "shortlist": [
+          "mini-fab",
+          "fab",
+          "extended-fab"
+        ],
+        "tier": "place",
+        "pick": "mini-fab",
+        "reason": "Small floating action button."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "mini-fab",
+        "name": "Mini FAB",
+        "reason": "Small floating action button."
+      }
+    },
+    {
+      "id": "2b178811584983f9",
+      "ask": "an area that opens to reveal more details and closes again",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Expansion panel",
+        "Bottom sheet",
+        "Dialog"
+      ],
+      "pickIds": [
+        "expansion-panel",
+        "bottom-sheet",
+        "dialog"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "an area that opens to reveal more details and closes again",
+        "shortlist": [
+          "expansion-panel",
+          "bottom-sheet",
+          "dialog"
+        ],
+        "tier": "place",
+        "pick": "expansion-panel",
+        "reason": "A row that opens to show more."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "expansion-panel",
+        "name": "Expansion panel",
+        "reason": "A row that opens to show more."
+      }
+    },
+    {
+      "id": "87938db203553944",
+      "ask": "drag to set how loud the music plays",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Slider",
+        "Slide toggle",
+        "Progress bar"
+      ],
+      "pickIds": [
+        "slider",
+        "slide-toggle",
+        "progress-bar"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "drag to set how loud the music plays",
+        "shortlist": [
+          "slider",
+          "slide-toggle",
+          "progress-bar"
+        ],
+        "tier": "place",
+        "pick": "slider",
+        "reason": "Pick a value along a track."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "slider",
+        "name": "Slider",
+        "reason": "Pick a value along a track."
+      }
+    },
+    {
+      "id": "dd31a81c50c47ed1",
+      "ask": "a map showing nearby stores",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [],
+      "pickIds": [],
+      "tier": "no-fit",
+      "request": {
+        "library": "material",
+        "ask": "a map showing nearby stores",
+        "shortlist": [],
+        "tier": "no-fit"
+      },
+      "cli": {
+        "tier": "no-fit",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "28c12f4b597a476d",
+      "ask": "drag between a low and a high price",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Slider",
+        "Select",
+        "Text field"
+      ],
+      "pickIds": [
+        "slider",
+        "select",
+        "text-field"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "drag between a low and a high price",
+        "shortlist": [
+          "slider",
+          "select",
+          "text-field"
+        ],
+        "tier": "place",
+        "pick": "slider",
+        "reason": "selection of a value from a range"
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "slider",
+        "name": "Slider",
+        "reason": "selection of a value from a range"
+      }
+    },
+    {
+      "id": "156fe614258f6742",
+      "ask": "a dense grid of invoices with columns",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Table",
+        "Grid list",
+        "List"
+      ],
+      "pickIds": [
+        "table",
+        "grid-list",
+        "list"
+      ],
+      "tier": "ask",
+      "request": {
+        "library": "material",
+        "ask": "a dense grid of invoices with columns",
+        "shortlist": [
+          "table",
+          "grid-list",
+          "list"
+        ],
+        "tier": "ask",
+        "pick": "table",
+        "reason": "Data table."
+      },
+      "cli": {
+        "tier": "ask",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "table",
+        "name": "Table",
+        "reason": "Data table."
+      }
+    },
+    {
+      "id": "f112088aa381c271",
+      "ask": "a pop-up for a quick yes or no, not a sheet",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Dialog",
+        "Menu",
+        "Snackbar"
+      ],
+      "pickIds": [
+        "dialog",
+        "menu",
+        "snackbar"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a pop-up for a quick yes or no, not a sheet",
+        "shortlist": [
+          "dialog",
+          "menu",
+          "snackbar"
+        ],
+        "tier": "place",
+        "pick": "dialog",
+        "reason": "Basic dialog and full-screen dialog."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "dialog",
+        "name": "Dialog",
+        "reason": "Basic dialog and full-screen dialog."
+      }
+    },
+    {
+      "id": "d8d46d017d55d4fa",
+      "ask": "show whether a background job is still running",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Progress spinner",
+        "Progress bar",
+        "Badge"
+      ],
+      "pickIds": [
+        "progress-spinner",
+        "progress-bar",
+        "badge"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "show whether a background job is still running",
+        "shortlist": [
+          "progress-spinner",
+          "progress-bar",
+          "badge"
+        ],
+        "tier": "place",
+        "pick": "progress-spinner",
+        "props": {
+          "Indeterminate": "true"
+        },
+        "reason": "Circular progress indicator."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "progress-spinner",
+        "name": "Progress spinner",
+        "reason": "Circular progress indicator."
+      }
+    },
+    {
+      "id": "b073cf9929f334b6",
+      "ask": "a compact contacts list on mobile",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "List",
+        "List item",
+        "Grid list"
+      ],
+      "pickIds": [
+        "list",
+        "list-item",
+        "grid-list"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a compact contacts list on mobile",
+        "shortlist": [
+          "list",
+          "list-item",
+          "grid-list"
+        ],
+        "tier": "place",
+        "pick": "list",
+        "reason": "Vertical list of rows."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "list",
+        "name": "List",
+        "reason": "Vertical list of rows."
+      }
+    },
+    {
+      "id": "2f1943fbe0fe6541",
+      "ask": "choose one value from options, not a menu",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Radio button",
+        "Button toggle",
+        "Select"
+      ],
+      "pickIds": [
+        "radio-button",
+        "button-toggle",
+        "select"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "choose one value from options, not a menu",
+        "shortlist": [
+          "radio-button",
+          "button-toggle",
+          "select"
+        ],
+        "tier": "place",
+        "pick": "radio-button",
+        "reason": "Pick one of a set."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "radio-button",
+        "name": "Radio button",
+        "reason": "Pick one of a set."
+      }
+    },
+    {
+      "id": "b0b2fcf8b13b2f4d",
+      "ask": "a little message that pops up after saving",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Snackbar",
+        "Dialog",
+        "Tooltip"
+      ],
+      "pickIds": [
+        "snackbar",
+        "dialog",
+        "tooltip"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a little message that pops up after saving",
+        "shortlist": [
+          "snackbar",
+          "dialog",
+          "tooltip"
+        ],
+        "tier": "place",
+        "pick": "snackbar",
+        "reason": "Brief message at the bottom of the screen."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "snackbar",
+        "name": "Snackbar",
+        "reason": "Brief message at the bottom of the screen."
+      }
+    },
+    {
+      "id": "c5bd8804be8b252f",
+      "ask": "a panel rising from below with share options",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Bottom sheet",
+        "Menu",
+        "Side sheet"
+      ],
+      "pickIds": [
+        "bottom-sheet",
+        "menu",
+        "side-sheet"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a panel rising from below with share options",
+        "shortlist": [
+          "bottom-sheet",
+          "menu",
+          "side-sheet"
+        ],
+        "tier": "place",
+        "pick": "bottom-sheet",
+        "reason": "Surface that slides up from the bottom."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "bottom-sheet",
+        "name": "Bottom sheet",
+        "reason": "Surface that slides up from the bottom."
+      }
+    },
+    {
+      "id": "9f3cab2afe655336",
+      "ask": "a panel of page links that slides in from the left edge",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Sidenav",
+        "Side sheet",
+        "Navigation rail"
+      ],
+      "pickIds": [
+        "sidenav",
+        "side-sheet",
+        "navigation-rail"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a panel of page links that slides in from the left edge",
+        "shortlist": [
+          "sidenav",
+          "side-sheet",
+          "navigation-rail"
+        ],
+        "tier": "place",
+        "pick": "sidenav",
+        "reason": "Navigation drawer."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "sidenav",
+        "name": "Sidenav",
+        "reason": "Navigation drawer."
+      }
+    },
+    {
+      "id": "2168c90d206fbb60",
+      "ask": "an expense form for a dense project with a list",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "List",
+        "Form field",
+        "Text field"
+      ],
+      "pickIds": [
+        "list",
+        "form-field",
+        "text-field"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "an expense form for a dense project with a list",
+        "shortlist": [
+          "list",
+          "form-field",
+          "text-field"
+        ],
+        "tier": "place",
+        "pick": "list",
+        "reason": "Vertical list of rows."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "list",
+        "name": "List",
+        "reason": "Vertical list of rows."
+      }
+    },
+    {
+      "id": "54880cdb77054d0f",
+      "ask": "let people turn weekly reminder emails on or off",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Slide toggle",
+        "Checkbox",
+        "Button toggle"
+      ],
+      "pickIds": [
+        "slide-toggle",
+        "checkbox",
+        "button-toggle"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "let people turn weekly reminder emails on or off",
+        "shortlist": [
+          "slide-toggle",
+          "checkbox",
+          "button-toggle"
+        ],
+        "tier": "place",
+        "pick": "slide-toggle",
+        "reason": "on/off control that can be toggled via clicking"
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "slide-toggle",
+        "name": "Slide toggle",
+        "reason": "on/off control that can be toggled via clicking"
+      }
+    },
+    {
+      "id": "6734442473db44d5",
+      "ask": "type an exact amount of money",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Text field",
+        "Form field",
+        "Slider"
+      ],
+      "pickIds": [
+        "text-field",
+        "form-field",
+        "slider"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "type an exact amount of money",
+        "shortlist": [
+          "text-field",
+          "form-field",
+          "slider"
+        ],
+        "tier": "place",
+        "pick": "text-field",
+        "reason": "Filled and outlined text fields."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "text-field",
+        "name": "Text field",
+        "reason": "Filled and outlined text fields."
+      }
+    },
+    {
+      "id": "2c19af333d85d0ce",
+      "ask": "flip dark mode on instantly",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Slide toggle",
+        "Checkbox",
+        "Button"
+      ],
+      "pickIds": [
+        "slide-toggle",
+        "checkbox",
+        "button"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "flip dark mode on instantly",
+        "shortlist": [
+          "slide-toggle",
+          "checkbox",
+          "button"
+        ],
+        "tier": "place",
+        "pick": "slide-toggle",
+        "reason": "on/off control that can be toggled via clicking"
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "slide-toggle",
+        "name": "Slide toggle",
+        "reason": "on/off control that can be toggled via clicking"
+      }
+    },
+    {
+      "id": "c6e4b6705d224b40",
+      "ask": "a box that blocks the page until the user answers",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Dialog",
+        "Bottom sheet",
+        "Snackbar"
+      ],
+      "pickIds": [
+        "dialog",
+        "bottom-sheet",
+        "snackbar"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a box that blocks the page until the user answers",
+        "shortlist": [
+          "dialog",
+          "bottom-sheet",
+          "snackbar"
+        ],
+        "tier": "place",
+        "pick": "dialog",
+        "reason": "open modal dialogs with Material Design styling"
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "dialog",
+        "name": "Dialog",
+        "reason": "open modal dialogs with Material Design styling"
+      }
+    },
+    {
+      "id": "b7ea2aff74336e9f",
+      "ask": "a row of labels to switch between parts of a settings page",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Tabs",
+        "Button toggle",
+        "Navigation bar"
+      ],
+      "pickIds": [
+        "tabs",
+        "button-toggle",
+        "navigation-bar"
+      ],
+      "tier": "ask",
+      "request": {
+        "library": "material",
+        "ask": "a row of labels to switch between parts of a settings page",
+        "shortlist": [
+          "tabs",
+          "button-toggle",
+          "navigation-bar"
+        ],
+        "tier": "ask",
+        "pick": "tabs",
+        "reason": "Angular Material tabs organize content into separate views where only one view can be visible at a time."
+      },
+      "cli": {
+        "tier": "ask",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "tabs",
+        "name": "Tabs",
+        "reason": "Angular Material tabs organize content into separate views where only one view can be visible at a time."
+      }
+    },
+    {
+      "id": "e874bcf3778f3645",
+      "ask": "a clickable label to filter results, not a button",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Chip",
+        "Checkbox",
+        "Button toggle"
+      ],
+      "pickIds": [
+        "chip",
+        "checkbox",
+        "button-toggle"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a clickable label to filter results, not a button",
+        "shortlist": [
+          "chip",
+          "checkbox",
+          "button-toggle"
+        ],
+        "tier": "place",
+        "pick": "chip",
+        "props": {
+          "Type": "Filter"
+        },
+        "reason": "make selections, filter content, and enter data"
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "chip",
+        "name": "Chip",
+        "reason": "make selections, filter content, and enter data"
+      }
+    },
+    {
+      "id": "e191afbd8f3167a1",
+      "ask": "a friendly picture when the inbox has nothing in it",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [],
+      "pickIds": [],
+      "tier": "no-fit",
+      "request": {
+        "library": "material",
+        "ask": "a friendly picture when the inbox has nothing in it",
+        "shortlist": [],
+        "tier": "no-fit"
+      },
+      "cli": {
+        "tier": "no-fit",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "2729d64b82bcaa39",
+      "ask": "somewhere to play a clip with subtitles",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [],
+      "pickIds": [],
+      "tier": "no-fit",
+      "request": {
+        "library": "material",
+        "ask": "somewhere to play a clip with subtitles",
+        "shortlist": [],
+        "tier": "no-fit"
+      },
+      "cli": {
+        "tier": "no-fit",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "7defc89ffc67db0b",
+      "ask": "an endless loading circle",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Progress spinner",
+        "Progress bar",
+        "Icon"
+      ],
+      "pickIds": [
+        "progress-spinner",
+        "progress-bar",
+        "icon"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "an endless loading circle",
+        "shortlist": [
+          "progress-spinner",
+          "progress-bar",
+          "icon"
+        ],
+        "tier": "place",
+        "pick": "progress-spinner",
+        "props": {
+          "Indeterminate": "true"
+        },
+        "reason": "Circular progress indicator."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "progress-spinner",
+        "name": "Progress spinner",
+        "reason": "Circular progress indicator."
+      }
+    },
+    {
+      "id": "8b5242b2be1e9f28",
+      "ask": "set the hour and minute for an alarm",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Time picker",
+        "Date picker",
+        "Text field"
+      ],
+      "pickIds": [
+        "time-picker",
+        "date-picker",
+        "text-field"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "set the hour and minute for an alarm",
+        "shortlist": [
+          "time-picker",
+          "date-picker",
+          "text-field"
+        ],
+        "tier": "place",
+        "pick": "time-picker",
+        "reason": "Pick a time."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "time-picker",
+        "name": "Time picker",
+        "reason": "Pick a time."
+      }
+    },
+    {
+      "id": "603cc401ab323548",
+      "ask": "move to the next batch of results under a long table",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Paginator",
+        "Table",
+        "Stepper"
+      ],
+      "pickIds": [
+        "paginator",
+        "table",
+        "stepper"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "move to the next batch of results under a long table",
+        "shortlist": [
+          "paginator",
+          "table",
+          "stepper"
+        ],
+        "tier": "place",
+        "pick": "paginator",
+        "reason": "Pages of a table."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "paginator",
+        "name": "Paginator",
+        "reason": "Pages of a table."
+      }
+    },
+    {
+      "id": "861e42cbb4d15c54",
+      "ask": "choose the first and last day of a holiday on a calendar",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Date picker",
+        "Time picker",
+        "Text field"
+      ],
+      "pickIds": [
+        "date-picker",
+        "time-picker",
+        "text-field"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "choose the first and last day of a holiday on a calendar",
+        "shortlist": [
+          "date-picker",
+          "time-picker",
+          "text-field"
+        ],
+        "tier": "place",
+        "pick": "date-picker",
+        "reason": "choosing a date from the calendar"
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "date-picker",
+        "name": "Date picker",
+        "reason": "choosing a date from the calendar"
+      }
+    },
+    {
+      "id": "663385a0fab05614",
+      "ask": "rename and delete options from an overflow",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Menu",
+        "Icon button",
+        "Dialog"
+      ],
+      "pickIds": [
+        "menu",
+        "icon-button",
+        "dialog"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "rename and delete options from an overflow",
+        "shortlist": [
+          "menu",
+          "icon-button",
+          "dialog"
+        ],
+        "tier": "place",
+        "pick": "menu",
+        "reason": "List of choices anchored to a control."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "menu",
+        "name": "Menu",
+        "reason": "List of choices anchored to a control."
+      }
+    },
+    {
+      "id": "221447839feba691",
+      "ask": "a dense granite list",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "List",
+        "List item",
+        "Grid list"
+      ],
+      "pickIds": [
+        "list",
+        "list-item",
+        "grid-list"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a dense granite list",
+        "shortlist": [
+          "list",
+          "list-item",
+          "grid-list"
+        ],
+        "tier": "place",
+        "pick": "list",
+        "reason": "Vertical list of rows."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "list",
+        "name": "List",
+        "reason": "Vertical list of rows."
+      }
+    },
+    {
+      "id": "a7c049b8767dfadf",
+      "ask": "a round control pinned in the corner for composing a new message",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "FAB",
+        "Mini FAB",
+        "Extended FAB"
+      ],
+      "pickIds": [
+        "fab",
+        "mini-fab",
+        "extended-fab"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "a round control pinned in the corner for composing a new message",
+        "shortlist": [
+          "fab",
+          "mini-fab",
+          "extended-fab"
+        ],
+        "tier": "place",
+        "pick": "fab",
+        "reason": "Floating action button. Small, regular, and large."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "fab",
+        "name": "FAB",
+        "reason": "Floating action button. Small, regular, and large."
+      }
+    },
+    {
+      "id": "31d0481f2cfa22df",
+      "ask": "choose one shipping speed out of three",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Radio button",
+        "Button toggle",
+        "Select"
+      ],
+      "pickIds": [
+        "radio-button",
+        "button-toggle",
+        "select"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "choose one shipping speed out of three",
+        "shortlist": [
+          "radio-button",
+          "button-toggle",
+          "select"
+        ],
+        "tier": "place",
+        "pick": "radio-button",
+        "reason": "Pick one of a set."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "radio-button",
+        "name": "Radio button",
+        "reason": "Pick one of a set."
+      }
+    },
+    {
+      "id": "7abc3c83a2946570",
+      "ask": "agree to the terms before continuing",
+      "library": "material",
+      "status": "ok",
+      "error": null,
+      "picks": [
+        "Checkbox",
+        "Button",
+        "Dialog"
+      ],
+      "pickIds": [
+        "checkbox",
+        "button",
+        "dialog"
+      ],
+      "tier": "place",
+      "request": {
+        "library": "material",
+        "ask": "agree to the terms before continuing",
+        "shortlist": [
+          "checkbox",
+          "button",
+          "dialog"
+        ],
+        "tier": "place",
+        "pick": "checkbox",
+        "reason": "Select one or more."
+      },
+      "cli": {
+        "tier": "place",
+        "failed": [],
+        "thin": [
+          {
+            "id": "icon",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "table",
+            "missing": [
+              "description",
+              "guidelines"
+            ]
+          },
+          {
+            "id": "tabs",
+            "missing": [
+              "description"
+            ]
+          }
+        ],
+        "id": "checkbox",
+        "name": "Checkbox",
+        "reason": "Select one or more."
+      }
+    }
+  ]
+}

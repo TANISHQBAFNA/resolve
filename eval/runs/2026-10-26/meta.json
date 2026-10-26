@@ -1,0 +1,10 @@
+{
+  "gitSha": "fd3cc82c03a1a97a3e0a6dc4f3cf12d51a642284",
+  "model": "Grok 4.7",
+  "modelRun2": "Grok 4.7, fresh context, same pick procedure",
+  "RESOLVE_AI_PICKS": "1",
+  "startedAt": "2026-10-26T05:11:12Z",
+  "picksSavedAt": "2026-10-26T05:12:28Z",
+  "run2SavedAt": "2026-10-26T05:26:16Z",
+  "scoredAt": "2026-10-26T05:27:46Z"
+}
