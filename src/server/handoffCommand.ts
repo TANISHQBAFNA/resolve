@@ -35,6 +35,9 @@ export function runHandoff(args: string[]): void {
 }
 
 function handoff(args: string[]): void {
+  if (args.includes("--help") || args.includes("-h")) {
+    throw new Error('Usage: resolve handoff "<frame>" ["<frame>" ...] [--draft] [--json] [--out <dir>] [--recipe <id>] [--depth 1-3]');
+  }
   const VALUE_FLAGS = ["--out", "--recipe", "--depth", "--rules", "--pack", "--product", "--journey", "--domain", "--audience", "--a11y", "--packs", "--id", "--answer"];
   const frames: string[] = [];
   for (let i = 0; i < args.length; i += 1) {

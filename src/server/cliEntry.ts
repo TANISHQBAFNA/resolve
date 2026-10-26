@@ -1,7 +1,18 @@
-import { pathToFileURL } from "node:url";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { designerFailure } from "./designerMessages";
 
-const isEntry = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+/** Same file even when one path goes through a symlinked folder. */
+function samePath(left: string, right: string): boolean {
+  const file = (value: string) => (value.startsWith("file:") ? fileURLToPath(value) : value);
+  try {
+    return realpathSync(file(left)) === realpathSync(file(right));
+  } catch {
+    return file(left) === file(right);
+  }
+}
+
+const isEntry = process.argv[1] !== undefined && samePath(import.meta.url, process.argv[1]);
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);

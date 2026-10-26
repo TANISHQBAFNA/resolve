@@ -103,7 +103,7 @@ import { learnLibrary } from "./learn";
 import { DESIGNER, designerFailure } from "./designerMessages";
 import { presentToolResult } from "./cards";
 import { statusReport } from "./status";
-import { DEPRECATED_INSTEAD, warnDeprecated } from "./deprecations";
+import { DEPRECATED_INSTEAD } from "./deprecations";
 import {
   previousScore,
   scoreboardHistoryDir,
@@ -155,7 +155,6 @@ export async function runCli(argv: string[]): Promise<void> {
 }
 
 async function dispatchCli(argv: string[]): Promise<void> {
-  if (process.env["npm_lifecycle_event"] === "keyline") warnDeprecated("npm run keyline");
   const [command, ...args] = argv;
 
   switch (command) {
@@ -400,6 +399,9 @@ async function dispatchCli(argv: string[]): Promise<void> {
     }
 
     case "code-map": {
+      if (args.includes("--help") || args.includes("-h")) {
+        throw new Error('Usage: resolve code-map [--json | --retired | --check "<name>" | --init | --import <file.csv> | scan <package> | suggest <package> | review]');
+      }
       if (runCodeMapExtra(args)) return;
       const mapPath = overlayFile("code-map.json") ?? join(storeRoot(), "code-map.json");
       const force = args.includes("--force");

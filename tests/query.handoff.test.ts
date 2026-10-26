@@ -369,6 +369,14 @@ describe("resolve handoff (CLI) and get_handoff (MCP)", () => {
     expect(out.paths.decisionMd).toBe(join(dir, "decision.md"));
   });
 
+  it("code-map and handoff --help print usage the way parts does", async () => {
+    await expect(cli(["parts", "--help"])).rejects.toThrow('Usage: resolve parts "<screen link or frame name>"');
+    await expect(cli(["handoff", "--help"])).rejects.toThrow('Usage: resolve handoff "<frame>"');
+    await expect(cli(["handoff", "-h"])).rejects.toThrow('Usage: resolve handoff "<frame>"');
+    await expect(cli(["code-map", "--help"])).rejects.toThrow("Usage: resolve code-map");
+    await expect(cli(["code-map", "scan", "--help"])).rejects.toThrow("Usage: resolve code-map");
+  });
+
   it("option and frame errors are one plain line", async () => {
     saveGraph(fixedGraph());
     await expect(cli(["handoff"])).rejects.toThrow('Usage: resolve handoff "<frame>"');

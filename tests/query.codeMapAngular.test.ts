@@ -195,6 +195,32 @@ describe("Angular fields in the code map", () => {
     expect(text).not.toContain("AcmeOldButtonComponent");
   });
 
+  it("shows (cut) when a reviewed map drops the code or selector line", () => {
+    const reviewed = {
+      ...angularMap,
+      entries: angularMap.entries.map((entry) => ({ ...entry, status: entry.status ?? "mapped" })),
+    };
+    put(reviewed);
+    const index = acme();
+    const full = recommendMasters(index, "primary button");
+    expect(full.code).toContain("AcmeButtonComponent");
+    expect(String(full.angular)).toContain("acme-button");
+    let seen = false;
+    for (let budget = full.cost.chars - 1; budget >= full.cost.chars - 120 && budget > 0; budget -= 1) {
+      const card = recommendMasters(index, "primary button", { budgetChars: budget });
+      if (card.code === full.code && card.angular === full.angular) continue;
+      expect(JSON.stringify(card)).toContain("(cut)");
+      seen = true;
+      break;
+    }
+    expect(seen).toBe(true);
+    const resolved = componentUsageCard(index, "Button") as { code?: string; angular?: { selector?: string }; cost: { chars: number } };
+    expect(resolved.code).toContain("@acme/ui-angular");
+    expect(resolved.angular?.selector).toBe("acme-button");
+    const usage = componentUsageCard(index, "Button", { budgetChars: resolved.cost.chars - 1 });
+    expect(JSON.stringify(usage)).toContain("(cut)");
+  });
+
   it("resolve, recommend and verify carry the Angular fields next to the code line", () => {
     put(angularMap);
     const resolved = componentUsageCard(acme(), "Button") as { code?: string; angular?: object };
