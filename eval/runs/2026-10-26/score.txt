@@ -1,0 +1,80 @@
+Material 60
+old top-1 58/60 96.7% target 80% (48/60) pass
+new top-1 55/60 91.7% target 80% (48/60) pass
+old top-1 vs main 58/60 96.7% target 35% (21/60) pass
+new top-1 vs main 55/60 91.7% target 35% (21/60) pass
+old top-3 60/60 100% target 90% (54/60) pass
+new top-3 57/60 95% target 90% (54/60) pass
+old top-3 vs main 60/60 100% target 43.3% (26/60) pass
+new top-3 vs main 57/60 95% target 33.3% (20/60) pass
+old name-avoiding top-3 32/32 100% target 85% (28/32) pass
+new name-avoiding top-3 31/32 96.9% target 85% (28/32) pass
+old no-fit 6/6 100% target 90% (6/6) pass
+new no-fit 6/6 100% target 90% (6/6) pass
+old invented 0/216 0% target 0 pass
+new invented 0/216 0% target 0 pass
+old gate 0/60 0% at most 5% (3/60) pass
+new gate 0/60 0% at most 5% (3/60) pass
+old tier flips 0/60 0% at most 10% (6/60) pass (soft)
+new tier flips 0/60 0% at most 10% (6/60) pass (soft)
+old confusable sure-wrong 0/14 0% target 0 pass
+new confusable sure-wrong 0/14 0% target 0 pass
+old main lost 2/60 3.3% at most 5% (3/60) pass
+new main lost 1/60 1.7% at most 5% (3/60) pass
+old library quote 54/54 100% target 100% (54/54) pass
+new library quote 54/54 100% target 100% (54/54) pass
+rejected 0/60 0%
+split 0/60
+nothing-fits asks 6/60 10% target TBD (fresh set at least 8)
+main old top-1 20/60 33.3%, top-3 26/60 43.3%, no-fit 3/6 50% (better single path frozen; frozen top-1 20, top-3 26, no-fit 3; recommend top-1 17, top-3 17, no-fit 3); new top-1 18/60 30%, top-3 20/60 33.3%, no-fit 3/6 50% (better single path frozen; frozen top-1 18, top-3 20, no-fit 3; recommend top-1 12, top-3 12, no-fit 3)
+verdict pass
+Acme 0
+top-1 0/0 n/a
+top-3 0/0 n/a
+name-avoiding top-3 0/0 n/a
+no-fit 0/0 n/a
+invented 0/0 n/a
+gate 0/0
+tier flips 0/0 n/a
+confusable sure-wrong 0/0 n/a
+main lost 0/0 n/a
+library quote 0/0 n/a
+rejected 0/0 n/a
+split 0/0
+nothing-fits asks 0/0 n/a
+main old top-1 0/0 n/a, top-3 0/0 n/a, no-fit 0/0 n/a (better single path frozen; frozen top-1 0, top-3 0, no-fit 0; recommend top-1 0, top-3 0, no-fit 0); new top-1 0/0 n/a, top-3 0/0 n/a, no-fit 0/0 n/a (better single path frozen; frozen top-1 0, top-3 0, no-fit 0; recommend top-1 0, top-3 0, no-fit 0)
+Total 60
+top-1 58/60 96.7%
+top-1 new 55/60 91.7%
+top-3 60/60 100%
+top-3 new 57/60 95%
+name-avoiding top-3 32/32 100%
+name-avoiding top-3 new 31/32 96.9%
+no-fit 6/6 100%
+no-fit new 6/6 100%
+confusable sure-wrong 0
+invented 0
+unquoted 0
+thin placed 0
+rejected 0/60 0%
+gate 0/60 0% at most 5% (3/60) pass
+tier flips 0/60 0% at most 10% (6/60) pass
+one run
+duplicate runs 0
+bad runs 0
+incomplete 0
+name-only 0
+library quote 54/54
+thin description
+(none)
+checker rejections
+(none)
+main lost material
+m-x03
+m-r01
+main lost material new
+m-r01
+main lost acme
+(none)
+main lost acme new
+(none)

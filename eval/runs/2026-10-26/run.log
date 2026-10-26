@@ -1,0 +1,120 @@
+----- 5062a1a6ceef4ec9 exit 0 2026-10-26T05:12:25.846Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"menu","name":"Menu","reason":"List of choices anchored to a control."}
+----- 5af482ae2b5b1ff5 exit 0 2026-10-26T05:12:25.891Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"autocomplete","name":"Autocomplete","reason":"Text field with suggested options."}
+----- 7f1e8bec78b68615 exit 0 2026-10-26T05:12:25.931Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"dialog","name":"Dialog","reason":"Basic dialog and full-screen dialog."}
+----- df75cb328e34c971 exit 0 2026-10-26T05:12:25.969Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"tooltip","name":"Tooltip","reason":"text label that is displayed when the user hovers"}
+----- 95bcea792a7ba802 exit 0 2026-10-26T05:12:26.005Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"checkbox","name":"Checkbox","reason":"Select one or more."}
+----- c3e41bb33a9b2267 exit 0 2026-10-26T05:12:26.043Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"toolbar","name":"Toolbar","reason":"Top app bar."}
+----- 22107e1708992833 exit 0 2026-10-26T05:12:26.078Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"divider","name":"Divider","reason":"Hairline between items."}
+----- bf7acb37af554e30 exit 0 2026-10-26T05:12:26.117Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"progress-bar","name":"Progress bar","reason":"Linear progress indicator."}
+----- d659cdb84982f203 exit 0 2026-10-26T05:12:26.153Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"snackbar","name":"Snackbar","reason":"Brief message at the bottom of the screen."}
+----- 92eecc2b65395988 exit 0 2026-10-26T05:12:26.192Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"navigation-bar","name":"Navigation bar","reason":"No matching Angular Material class"}
+----- b55a4bd14ff1ca94 exit 0 2026-10-26T05:12:26.235Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"slide-toggle","name":"Slide toggle","reason":"on/off control that can be toggled via clicking"}
+----- 5c39f8e1fbca9c09 exit 0 2026-10-26T05:12:26.269Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"list","name":"List","reason":"Vertical list of rows."}
+----- 219eee5bc50e4cda exit 0 2026-10-26T05:12:26.303Z
+{"tier":"no-fit","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}]}
+----- a6d99bd7e29a0dad exit 0 2026-10-26T05:12:26.338Z
+{"tier":"no-fit","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}]}
+----- 44cc335cc5ef9249 exit 0 2026-10-26T05:12:26.374Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"chip","name":"Chip","reason":"make selections, filter content, and enter data"}
+----- 8c5bf524680c59b2 exit 0 2026-10-26T05:12:26.415Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"tree","name":"Tree","reason":"Nested rows."}
+----- bf2b861c708696c3 exit 0 2026-10-26T05:12:26.453Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"select","name":"Select","reason":"form control for selecting a value from a set of options"}
+----- 6497a587e4e4922f exit 0 2026-10-26T05:12:26.489Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"chip","name":"Chip","reason":"make selections, filter content, and enter data"}
+----- e6f89b475b17c0d4 exit 0 2026-10-26T05:12:26.523Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"side-sheet","name":"Side sheet","reason":"Sheet docked to the side."}
+----- 6023649b6616c1d0 exit 0 2026-10-26T05:12:26.566Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"select","name":"Select","reason":"Closed menu of options."}
+----- f9bad3267c71a403 exit 0 2026-10-26T05:12:26.606Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"navigation-rail","name":"Navigation rail","reason":"Side rail for a few destinations."}
+----- e413b337cfa0c014 exit 0 2026-10-26T05:12:26.649Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"progress-spinner","name":"Progress spinner","reason":"Circular progress indicator."}
+----- 3f403cfcdda965e8 exit 0 2026-10-26T05:12:26.688Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"stepper","name":"Stepper","reason":"Steps in a task."}
+----- 98b291050542913b exit 0 2026-10-26T05:12:26.724Z
+{"tier":"no-fit","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}]}
+----- da78122700998042 exit 0 2026-10-26T05:12:26.764Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"sort","name":"Sort","reason":"Sortable column header."}
+----- ab50c11fc2d2e9f6 exit 0 2026-10-26T05:12:26.801Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"snackbar","name":"Snackbar","reason":"Brief message at the bottom of the screen."}
+----- bab73e38fc3f1bfb exit 0 2026-10-26T05:12:26.839Z
+{"tier":"ask","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"table","name":"Table","reason":"Data table."}
+----- 6c84aee9d4c75b8b exit 0 2026-10-26T05:12:26.872Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"progress-bar","name":"Progress bar","reason":"Linear progress indicator."}
+----- ff692b2c5853a8b4 exit 0 2026-10-26T05:12:26.912Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"button","name":"Button","reason":"Five button types from the Material 3 spec."}
+----- d2fef4e9f73fa4c2 exit 0 2026-10-26T05:12:26.948Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"mini-fab","name":"Mini FAB","reason":"Small floating action button."}
+----- 2b178811584983f9 exit 0 2026-10-26T05:12:26.982Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"expansion-panel","name":"Expansion panel","reason":"A row that opens to show more."}
+----- 87938db203553944 exit 0 2026-10-26T05:12:27.021Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"slider","name":"Slider","reason":"Pick a value along a track."}
+----- dd31a81c50c47ed1 exit 0 2026-10-26T05:12:27.056Z
+{"tier":"no-fit","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}]}
+----- 28c12f4b597a476d exit 0 2026-10-26T05:12:27.091Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"slider","name":"Slider","reason":"selection of a value from a range"}
+----- 156fe614258f6742 exit 0 2026-10-26T05:12:27.127Z
+{"tier":"ask","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"table","name":"Table","reason":"Data table."}
+----- f112088aa381c271 exit 0 2026-10-26T05:12:27.160Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"dialog","name":"Dialog","reason":"Basic dialog and full-screen dialog."}
+----- d8d46d017d55d4fa exit 0 2026-10-26T05:12:27.196Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"progress-spinner","name":"Progress spinner","reason":"Circular progress indicator."}
+----- b073cf9929f334b6 exit 0 2026-10-26T05:12:27.230Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"list","name":"List","reason":"Vertical list of rows."}
+----- 2f1943fbe0fe6541 exit 0 2026-10-26T05:12:27.266Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"radio-button","name":"Radio button","reason":"Pick one of a set."}
+----- b0b2fcf8b13b2f4d exit 0 2026-10-26T05:12:27.302Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"snackbar","name":"Snackbar","reason":"Brief message at the bottom of the screen."}
+----- c5bd8804be8b252f exit 0 2026-10-26T05:12:27.336Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"bottom-sheet","name":"Bottom sheet","reason":"Surface that slides up from the bottom."}
+----- 9f3cab2afe655336 exit 0 2026-10-26T05:12:27.373Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"sidenav","name":"Sidenav","reason":"Navigation drawer."}
+----- 2168c90d206fbb60 exit 0 2026-10-26T05:12:27.407Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"list","name":"List","reason":"Vertical list of rows."}
+----- 54880cdb77054d0f exit 0 2026-10-26T05:12:27.441Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"slide-toggle","name":"Slide toggle","reason":"on/off control that can be toggled via clicking"}
+----- 6734442473db44d5 exit 0 2026-10-26T05:12:27.483Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"text-field","name":"Text field","reason":"Filled and outlined text fields."}
+----- 2c19af333d85d0ce exit 0 2026-10-26T05:12:27.522Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"slide-toggle","name":"Slide toggle","reason":"on/off control that can be toggled via clicking"}
+----- c6e4b6705d224b40 exit 0 2026-10-26T05:12:27.557Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"dialog","name":"Dialog","reason":"open modal dialogs with Material Design styling"}
+----- b7ea2aff74336e9f exit 0 2026-10-26T05:12:27.595Z
+{"tier":"ask","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"tabs","name":"Tabs","reason":"Angular Material tabs organize content into separate views where only one view can be visible at a time."}
+----- e874bcf3778f3645 exit 0 2026-10-26T05:12:27.627Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"chip","name":"Chip","reason":"make selections, filter content, and enter data"}
+----- e191afbd8f3167a1 exit 0 2026-10-26T05:12:27.668Z
+{"tier":"no-fit","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}]}
+----- 2729d64b82bcaa39 exit 0 2026-10-26T05:12:27.705Z
+{"tier":"no-fit","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}]}
+----- 7defc89ffc67db0b exit 0 2026-10-26T05:12:27.743Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"progress-spinner","name":"Progress spinner","reason":"Circular progress indicator."}
+----- 8b5242b2be1e9f28 exit 0 2026-10-26T05:12:27.778Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"time-picker","name":"Time picker","reason":"Pick a time."}
+----- 603cc401ab323548 exit 0 2026-10-26T05:12:27.816Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"paginator","name":"Paginator","reason":"Pages of a table."}
+----- 861e42cbb4d15c54 exit 0 2026-10-26T05:12:27.853Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"date-picker","name":"Date picker","reason":"choosing a date from the calendar"}
+----- 663385a0fab05614 exit 0 2026-10-26T05:12:27.892Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"menu","name":"Menu","reason":"List of choices anchored to a control."}
+----- 221447839feba691 exit 0 2026-10-26T05:12:27.930Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"list","name":"List","reason":"Vertical list of rows."}
+----- a7c049b8767dfadf exit 0 2026-10-26T05:12:27.964Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"fab","name":"FAB","reason":"Floating action button. Small, regular, and large."}
+----- 31d0481f2cfa22df exit 0 2026-10-26T05:12:27.999Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"radio-button","name":"Radio button","reason":"Pick one of a set."}
+----- 7abc3c83a2946570 exit 0 2026-10-26T05:12:28.036Z
+{"tier":"place","failed":[],"thin":[{"id":"icon","missing":["description","guidelines"]},{"id":"table","missing":["description","guidelines"]},{"id":"tabs","missing":["description"]}],"id":"checkbox","name":"Checkbox","reason":"Select one or more."}

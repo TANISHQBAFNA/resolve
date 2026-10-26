@@ -1,0 +1,16 @@
+git fetch origin main
+git checkout -b eval/ai-picks-blind-2026-10-26
+npm install
+npm run build
+node scripts/ai-picks-eval.mjs prompts --out /tmp/ai-picks-blind --id-map /tmp/resolve-private/ai-picks-id-map.json
+RESOLVE_AI_PICKS=1 node /tmp/ai-picks-work/run-picks.mjs
+
+# That runner issued this once per ask (60 times), cwd /workspace.
+# Request JSON was a temp file. RESOLVE_AI_PICKS=1.
+RESOLVE_AI_PICKS=1 node dist-server/cli.mjs pick <temp>/request.json
+
+# Scorer input was built from picks.json. Cases filter stayed outside the repo.
+node scripts/ai-picks-eval.mjs score --cases /tmp/ai-picks-work/material-cases.json --runs eval/runs/2026-10-26/runs.jsonl --id-map /tmp/resolve-private/ai-picks-id-map.json
+
+# Second pass was a fresh model context with the same procedure, not a replay of the first request file.
+# Its per-ask command was the same pick invocation. Output: picks-run2.json.
