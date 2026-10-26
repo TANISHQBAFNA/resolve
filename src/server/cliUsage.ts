@@ -149,7 +149,6 @@ export function usage(): void {
       "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
       "",
       "  npm run resolve -- <command>     primary",
-      "  npm run keyline -- <command>     Deprecated alias. Use npm run resolve. Removed after a quarter.",
       "",
     ].join("\n"),
   );

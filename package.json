@@ -53,8 +53,7 @@
     "test:watch": "vitest",
     "prepare": "node scripts/prepare-server.mjs",
     "resolve": "node dist-server/cli.mjs",
-    "mcp": "node dist-server/mcp.mjs",
-    "keyline": "node dist-server/cli.mjs"
+    "mcp": "node dist-server/mcp.mjs"
   },
   "engines": {
     "node": "^22.12.0 || >=24.0.0"

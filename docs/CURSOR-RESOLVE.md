@@ -26,8 +26,6 @@ Ensure `package.json` includes a resolve script:
 "resolve": "node dist-server/cli.mjs"
 ```
 
-`keyline` remains a deprecated alias for one release.
-
 Then:
 
 ```bash
@@ -72,7 +70,7 @@ npm run resolve -- resolve "Main Card"
 npm run resolve -- resolve "Input Field"
 ```
 
-Exact name always returns `id` + `fileKey` + `figmaNodeId`, even with zero usage. A miss says so and points at `recommend`. Prefer **resolve** over the deprecated keyline alias.
+Exact name always returns `id` + `fileKey` + `figmaNodeId`, even with zero usage. A miss says so and points at `recommend`. Prefer **resolve**.
 
 Resolve is case-sensitive for deprecated and private masters. `Legacy Banner` and `_Private Note` return that master. `legacy banner` returns the live replacement. Any other casing of a private name returns an empty card.
 

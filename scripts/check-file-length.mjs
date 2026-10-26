@@ -8,8 +8,6 @@ const ALLOW = [
   /\.generated\.ts$/,
   /\.gen\.ts$/,
   /\.d\.ts$/,
-  /src\/core\/query\/recommendLexicon\.ts$/,
-  /src\/core\/query\/recommendMasters\.ts$/,
 ];
 
 function walk(dir, out) {

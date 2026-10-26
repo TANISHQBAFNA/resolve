@@ -214,10 +214,19 @@ export function componentUsageCard(
       : { ...withReplacement, byScreen: [] as typeof body.byScreen };
   // The code line is for a live part only; a retired part's mapping is read through verify.
   const coded = twin && !retired ? { ...fitted, code: twin.line } : undefined;
-  // Angular fields ride with the code line when they fit; else the code line alone; else neither.
+  // Selector fields ride with the code line when they fit. A line that does not fit shows (cut) when that marker fits.
   const angular = coded && twin?.angular ? { ...coded, angular: twin.angular } : undefined;
   const fits = (card: object | undefined) => Boolean(card) && JSON.stringify(withCost(card!)).length <= budget;
-  return withCost(fits(angular) ? angular! : fits(coded) ? coded! : fitted);
+  if (fits(angular)) return withCost(angular!);
+  if (fits(coded)) {
+    const marked = twin?.angular ? { ...coded!, angular: "(cut)" } : coded;
+    return withCost(fits(marked) ? marked! : coded!);
+  }
+  if (twin && !retired) {
+    const marked = { ...fitted, code: "(cut)" };
+    if (fits(marked)) return withCost(marked);
+  }
+  return withCost(fitted);
 }
 /** Full config for the real instance behind a pick's `ex` pointer. */
 export function exampleCard(

@@ -33,6 +33,10 @@ if (wantsMcp) {
     process.stderr.write("Resolve CLI is not built. In this repo: npm run build:server\n");
     process.exit(1);
   }
-  const { runEntry } = await import(pathToFileURL(cli).href);
-  runEntry();
+  const loaded = await import(pathToFileURL(cli).href);
+  if (typeof loaded.runEntry !== "function") {
+    process.stderr.write("Resolve CLI build is stale (rebuild needed). In this repo: npm run build:server\n");
+    process.exit(1);
+  }
+  loaded.runEntry();
 }

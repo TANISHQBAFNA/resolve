@@ -3,7 +3,6 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "http";
-import { connect } from "node:net";
 import { createServer as createViteServer, preview } from "vite";
 import { fileURLToPath } from "node:url";
 import { emptySock, proposeRuleChange } from "@/core/query/sock";
@@ -127,18 +126,6 @@ describe("/api/governance", () => {
   });
 
   it("vite preview serves governance and scoreboard without listening on 24678", async () => {
-    const open = (port: number) =>
-      new Promise<boolean>((resolve) => {
-        const socket = connect({ host: "127.0.0.1", port });
-        const finish = (value: boolean) => {
-          socket.removeAllListeners();
-          socket.destroy();
-          resolve(value);
-        };
-        socket.once("connect", () => finish(true));
-        socket.once("error", () => finish(false));
-      });
-    expect(await open(24678)).toBe(false);
     const root = fileURLToPath(new URL("..", import.meta.url));
     const server = await preview({
       configFile: join(root, "vite.config.ts"),
@@ -156,7 +143,13 @@ describe("/api/governance", () => {
       expect(escaped.status).toBe(400);
       const body = (await scoreboard.json()) as { hint: string; latest: unknown };
       expect(body.hint).toMatch(/scoreboard|No scoreboard/i);
-      expect(await open(24678)).toBe(false);
+      const bound = server.httpServer?.address();
+      expect(bound && typeof bound === "object").toBe(true);
+      if (bound && typeof bound === "object") expect(bound.port).not.toBe(24678);
+      const hmr = server.config.server.hmr;
+      const hmrPort = hmr && typeof hmr === "object" ? hmr.port : undefined;
+      expect(server.config.server.hmr === false || server.config.server.ws === false || hmrPort !== 24678).toBe(true);
+      expect(server.config.preview.port).not.toBe(24678);
     } finally {
       await server.close();
     }

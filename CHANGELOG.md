@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — v1.0 cleanup
+
+Oct 26, 2026. Past version-history entries are the original wording again, and the two links in that file resolve. The reference names `fixtures/acme-ui-angular` and puts the real selector-map keys back in code formatting. A card that cannot hold a `code:` or selector line shows `(cut)` when the marker fits. `dist-server/cli.mjs` runs through a symlinked folder, and a stale build says rebuild needed. Slash-command installs pin `github:TANISHQBAFNA/resolve#v0.1.0`. The preview test reads the preview server's own settings. `code-map` and `handoff` accept `--help`. `recommendLexicon.ts` and `recommendMasters.ts` are split under the 1000-line cap, with the same ranking. The `keyline` npm script is gone.
+
 ## Unreleased — fresh install
 
 Oct 24, 2026. The `resolve` and `resolve-figma` commands run again when started from the installed package. Since #73 they printed nothing and exited 0. Running `node dist-server/cli.mjs` in a checkout was not affected.

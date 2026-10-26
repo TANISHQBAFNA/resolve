@@ -295,7 +295,7 @@ describe("resolve-setup", () => {
   });
 
   describe("project MCP files", () => {
-    const entry = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"] };
+    const entry = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.0", "resolve-mcp"] };
     const project = (name: string) => {
       const cwd = tempDir(name);
       mkdirSync(cwd, { recursive: true });

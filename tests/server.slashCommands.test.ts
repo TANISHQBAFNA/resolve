@@ -231,7 +231,7 @@ describe("slash commands: install", () => {
     expect(setup([], cwd).status).toBe(0);
     const entry = (JSON.parse(read(join(cwd, ".mcp.json"))) as { mcpServers: { resolve: { command: string; args: string[] } } }).mcpServers.resolve;
     const spec = [entry.command, ...entry.args.slice(0, -1)].join(" ");
-    expect(spec).toBe("npx -y -p github:TANISHQBAFNA/resolve");
+    expect(spec).toBe("npx -y -p github:TANISHQBAFNA/resolve#v0.1.0");
     const runs: Record<string, string[]> = {
       "resolve-status": [`${spec} resolve-figma status`, `${spec} resolve-setup`],
       parts: [`${spec} resolve-figma parts`],
