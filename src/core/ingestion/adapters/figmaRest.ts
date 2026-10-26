@@ -33,9 +33,9 @@ const RawFileSchema = z
     /** Not a Figma field: a fixture marks itself as a made-up example file. */
     example: z.boolean().optional(),
     document: z.object({ id: z.string(), type: z.string() }).passthrough(),
-    components: z.record(z.unknown()).optional(),
-    componentSets: z.record(z.unknown()).optional(),
-    styles: z.record(z.unknown()).optional(),
+    components: z.record(z.string(), z.unknown()).optional(),
+    componentSets: z.record(z.string(), z.unknown()).optional(),
+    styles: z.record(z.string(), z.unknown()).optional(),
   })
   .passthrough();
 
@@ -44,8 +44,8 @@ const RawVariablesSchema = z
   .object({
     meta: z
       .object({
-        variables: z.record(z.unknown()).optional(),
-        variableCollections: z.record(z.unknown()).optional(),
+        variables: z.record(z.string(), z.unknown()).optional(),
+        variableCollections: z.record(z.string(), z.unknown()).optional(),
       })
       .optional(),
   })

@@ -36,7 +36,7 @@ export const GraphNodeSchema = z.object({
   /** Set on instances. Points at a MAIN_COMPONENT/VARIANT node id when resolved. */
   mainComponentId: z.string().optional(),
   componentSetId: z.string().optional(),
-  variantProperties: z.record(z.string()).optional(),
+  variantProperties: z.record(z.string(), z.string()).optional(),
   /** Cleaned `componentPropertyDefinitions` for a set or a standalone component. */
   propertyDefinitions: z.array(ComponentPropertySchema).optional(),
 
@@ -53,7 +53,7 @@ export const GraphNodeSchema = z.object({
   owner: z.string().optional(),
   platforms: z.array(z.string()).optional(),
 
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 export type GraphNode = z.infer<typeof GraphNodeSchema>;
 
@@ -65,7 +65,7 @@ export const GraphEdgeSchema = z.object({
   label: z.string().optional(),
   /** Omit = EXTRACTED. INFERRED only when the transform could not read the link from the source. */
   confidence: z.enum(["EXTRACTED", "INFERRED", "AMBIGUOUS"]).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 export type GraphEdge = z.infer<typeof GraphEdgeSchema>;
 
@@ -82,7 +82,7 @@ export const GraphWarningSchema = z.object({
   ]),
   message: z.string(),
   nodeId: z.string().optional(),
-  detail: z.record(z.unknown()).optional(),
+  detail: z.record(z.string(), z.unknown()).optional(),
 });
 export type GraphWarning = z.infer<typeof GraphWarningSchema>;
 

@@ -40,7 +40,7 @@ export type SourceLink = z.infer<typeof SourceLinkSchema>;
 export const SourceAnnotationSchema = z.object({
   id: z.string().optional(),
   label: z.string(),
-  properties: z.record(z.string()).optional(),
+  properties: z.record(z.string(), z.string()).optional(),
 });
 export type SourceAnnotation = z.infer<typeof SourceAnnotationSchema>;
 
@@ -86,8 +86,8 @@ export const SourceNodeSchema: z.ZodType<SourceNode> = z.lazy(() =>
     componentId: z.string().optional(),
     /** COMPONENT -> owning COMPONENT_SET node id. */
     componentSetId: z.string().optional(),
-    variantProperties: z.record(z.string()).optional(),
-    componentProperties: z.record(z.unknown()).optional(),
+    variantProperties: z.record(z.string(), z.string()).optional(),
+    componentProperties: z.record(z.string(), z.unknown()).optional(),
     propertyDefinitions: z.array(ComponentPropertySchema).optional(),
     overrides: z
       .array(
@@ -112,9 +112,9 @@ export const SourceNodeSchema: z.ZodType<SourceNode> = z.lazy(() =>
     hasImageFill: z.boolean().optional(),
 
     /** style slot ("fill" | "text" | "effect" | "grid" | "stroke") -> style id */
-    styleIds: z.record(z.string()).optional(),
+    styleIds: z.record(z.string(), z.string()).optional(),
     /** property name -> variable id */
-    variableIds: z.record(z.string()).optional(),
+    variableIds: z.record(z.string(), z.string()).optional(),
 
     transitions: z.array(SourceTransitionSchema).optional(),
     links: z.array(SourceLinkSchema).optional(),
@@ -122,7 +122,7 @@ export const SourceNodeSchema: z.ZodType<SourceNode> = z.lazy(() =>
     paint: SourcePaintSchema.optional(),
 
     /** Anything a source wants to keep without inventing a first-class field. */
-    raw: z.record(z.unknown()).optional(),
+    raw: z.record(z.string(), z.unknown()).optional(),
   }),
 );
 
@@ -214,7 +214,7 @@ export const SourceVariableSchema = z.object({
   libraryId: z.string().optional(),
   /** Variable ids this variable aliases (semantic -> primitive). */
   aliasOf: z.array(z.string()).optional(),
-  valuesByMode: z.record(z.unknown()).optional(),
+  valuesByMode: z.record(z.string(), z.unknown()).optional(),
 });
 export type SourceVariable = z.infer<typeof SourceVariableSchema>;
 
@@ -239,12 +239,12 @@ export const SourceDocumentSchema = z.object({
   fileName: z.string(),
   /** DOCUMENT-level root. Its children are pages. */
   root: SourceNodeSchema,
-  components: z.record(SourceComponentMetaSchema).default({}),
-  componentSets: z.record(SourceComponentMetaSchema).default({}),
-  styles: z.record(SourceStyleSchema).default({}),
-  variables: z.record(SourceVariableSchema).default({}),
-  variableCollections: z.record(SourceVariableCollectionSchema).default({}),
-  libraries: z.record(SourceLibrarySchema).default({}),
+  components: z.record(z.string(), SourceComponentMetaSchema).default({}),
+  componentSets: z.record(z.string(), SourceComponentMetaSchema).default({}),
+  styles: z.record(z.string(), SourceStyleSchema).default({}),
+  variables: z.record(z.string(), SourceVariableSchema).default({}),
+  variableCollections: z.record(z.string(), SourceVariableCollectionSchema).default({}),
+  libraries: z.record(z.string(), SourceLibrarySchema).default({}),
   source: z.object({
     kind: SourceKindSchema,
     ingestedAt: z.string(),
