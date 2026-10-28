@@ -73,6 +73,7 @@ export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
   if (sections.unmatched) {
     out(`Figma with no coded match: ${report.unmatchedFigma.join(", ") || "none"}`);
     out(`Coded with no Figma match: ${report.unmatchedCode.join(", ") || "none"}`);
+    for (const row of report.unpairedParts ?? []) out(`  ${row.code}: ${row.parts.join(", ")}`);
   }
   if (sections.suggest && report.suggestions) {
     out(report.suggestions.length ? "Suggested (not joined; confirm with code-map --write):" : "No suggestions.");
@@ -137,7 +138,7 @@ export function runCodeCommand(argv: string[], graph?: () => FigmaMaster[]): voi
       out(JSON.stringify(result));
       return;
     }
-    out(`${result.components} components (${result.blocks} blocks, ${result.recipes} recipes) from ${result.cssFiles} CSS files in ${result.repoPath}`);
+    out(`${result.components} components (${result.blocks} blocks, ${result.recipes} recipes) from ${result.cssFiles} CSS files and ${result.htmlFiles} HTML files in ${result.repoPath}`);
     out(`${result.componentClasses} component classes, ${result.globalClasses} global classes, ${result.tokens} tokens (${result.colorTokens} colour)`);
     out(`deprecated: ${result.deprecated.length ? result.deprecated.join(" ") : "none"}`);
     if (result.withFigma) out(`linked to Figma: ${result.withFigma}${result.matchedBy ? ` (${Object.entries(result.matchedBy).map(([k, n]) => `${n} ${k}`).join(", ")})` : ""}`);

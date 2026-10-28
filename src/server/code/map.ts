@@ -4,17 +4,12 @@ import { dirname, join } from "node:path";
 import { figmaFolderKind, figmaIdentity, namespaceSet } from "@/core/rules/figmaNamespaces";
 import { codeMapCard } from "@/core/query/replacements";
 import type { ResolveConfig } from "../mode.ts";
+import { GENERIC_PAIR_WORDS, partOwner, secondSignal } from "../mapPair.ts";
 import { resolveGraph } from "../store";
 import type { CatalogEntry, CodeCatalog, FigmaMaster, MatchBy } from "./scan.ts";
 import { nameWords, namespaceStems, RELATED, tokens } from "./words.ts";
 
-/**
- * How Figma components and coded components join. Strongest first:
- *   mapped    a line in .resolve/mapping.json names the pair (one-to-many and many-to-one allowed)
- *   exact     same name after case, spaces, hyphens, underscores and plurals are ignored
- *   alias     a name or alias on one side equals a name or alias on the other (only when one coded component fits)
- *   suggested related words, variants and modifiers look alike. Shown by `code-map --suggest`, never joined on its own.
- */
+/** Joins, strongest first: mapped (mapping.json; a deny line blocks), exact (same name, and a second signal when both sides have one), alias (one shared alias), suggested (never joined). */
 const byCode = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const plural = (w: string) => (w.length > 3 && w.endsWith("ies") ? `${w.slice(0, -3)}y` : w.length > 3 && w.endsWith("s") && !/(ss|us|is)$/.test(w) ? w.slice(0, -1) : w);
 export const norm = (name: string, namespaces: ReadonlySet<string> = namespaceSet()): string =>
@@ -22,7 +17,7 @@ export const norm = (name: string, namespaces: ReadonlySet<string> = namespaceSe
 const uniq = (items: string[]) => [...new Set(items)].sort(byCode);
 
 /** One line of the mapping file. `figma` and `code` together make a pair; either alone gives that component aliases. */
-export interface MapRule { figma?: string; code: string[]; aliases: string[] }
+export interface MapRule { figma?: string; code: string[]; aliases: string[]; deny?: boolean }
 
 export const mappingPath = (cfg: ResolveConfig) => join(cfg.storeDir, "mapping.json");
 
@@ -46,11 +41,12 @@ export function readMapping(cfg: ResolveConfig): { rules: MapRule[]; problems: s
       const figma = strings(row["figma"])[0];
       const code = strings(row["code"]);
       const aliases = strings(row["aliases"]);
+      const deny = row["deny"] === true;
       if (!figma && !code.length) {
         problems.push(`mappings[${i}] has neither "figma" nor "code".`);
         return [];
       }
-      return [{ ...(figma ? { figma } : {}), code, aliases }];
+      return [{ ...(figma ? { figma } : {}), code, aliases, ...(deny ? { deny } : {}) }];
     });
     return { rules, problems, text };
   } catch {
@@ -76,6 +72,11 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
   const codeAliases = new Map<CatalogEntry, string[]>();
   const figmaAliases = new Map<string, string[]>();
   const pairRules: MapRule[] = [];
+  const denied = new Set<string>();
+  const blocked = (figma: string, code: string) => {
+    const key = figmaIdentity(figma);
+    return denied.has(`${key}\0*`) || denied.has(`${key}\0${same(code)}`);
+  };
   const targets = (rule: MapRule) =>
     rule.code.flatMap((name) => {
       const hits = catalog.components.filter((e) => same(e.name) === same(name));
@@ -86,6 +87,11 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
       return entry ? [entry] : [];
     });
   for (const rule of rules) {
+    if (rule.deny) {
+      if (rule.figma && !rule.code.length) denied.add(`${figmaIdentity(rule.figma)}\0*`);
+      if (rule.figma) for (const name of rule.code) denied.add(`${figmaIdentity(rule.figma)}\0${same(name)}`);
+      continue;
+    }
     const found = targets(rule);
     for (const entry of found) codeAliases.set(entry, [...(codeAliases.get(entry) ?? []), ...rule.aliases]);
     if (rule.figma) {
@@ -101,8 +107,10 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
     return folder !== "part" && (!folder || folder === kind);
   };
   const choose = (master: FigmaMaster, hits: CatalogEntry[]) => {
-    const allowed = hits.filter((e) => folderOk(master.name, e.kind));
-    if (allowed.length === 1) return allowed[0];
+    const kinded = hits.filter((e) => folderOk(master.name, e.kind));
+    const crossed = kinded.length ? [] : hits.filter((e) => same(e.name) === same(master.name) && secondSignal(master, e).agree);
+    const allowed = kinded.length ? kinded : crossed;
+    if (allowed.length === 1) return crossed.length || !secondSignal(master, allowed[0]!).disagree ? allowed[0] : undefined;
     if (allowed.length < 2) return undefined;
     const mv = new Set(tokens((master.variants ?? []).join(" ").replace(/[-_]+/g, " ")));
     const overlapped = allowed.filter((e) => [...mv].some((w) => variantWords(e).has(w)));
@@ -120,7 +128,7 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
     const named = catalog.components.filter((e) => same(e.name) === same(master.name));
     if (named.length) {
       const exact = choose(master, named);
-      if (exact) links.push({ master, entry: exact, by: "exact" });
+      if (exact && !blocked(master.name, exact.name)) links.push({ master, entry: exact, by: "exact" });
       else if (named.filter((e) => folderOk(master.name, e.kind)).length > 1) ambiguous.set(master.name, named.filter((e) => folderOk(master.name, e.kind)));
       continue;
     }
@@ -134,16 +142,17 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
       }
     }
     const list = [...hits.keys()];
-    if (list.length === 1) links.push({ master, entry: list[0] as CatalogEntry, by: "alias", alias: hits.get(list[0] as CatalogEntry) as string });
+    const alias = list[0] as CatalogEntry | undefined;
+    if (list.length === 1 && alias && !blocked(master.name, alias.name)) links.push({ master, entry: alias, by: "alias", alias: hits.get(alias) as string });
     else if (list.length > 1) ambiguous.set(master.name, list);
   }
   const partMap = new Map<CatalogEntry, string[]>();
+  const blocks = catalog.components.filter((e) => e.kind === "block");
   for (const part of parts) {
-    const slug = nameWords(part.name, ns).trim().toLowerCase().replace(/\s+/g, "-");
-    const parent = catalog.components.filter((e) => e.kind === "block" && (slug === e.name || slug.startsWith(`${e.name}-`))).sort((a, b) => b.name.length - a.name.length || byCode(a.name, b.name))[0];
+    const parent = partOwner(part.name, blocks, ns, plural, byCode);
     if (parent) partMap.set(parent, uniq([...(partMap.get(parent) ?? []), part.name]));
   }
-  return { rules, problems: uniq(problems), masters, parts, partMap, ns, links, ambiguous, codeAliases, figmaAliases, masterNames, entryNames };
+  return { rules, problems: uniq(problems), masters, parts, partMap, ns, links, ambiguous, codeAliases, figmaAliases, masterNames, entryNames, blocked };
 }
 
 const uniqueEntries = (list: CatalogEntry[]) => [...new Set(list)];
@@ -203,10 +212,14 @@ function suggestions(master: FigmaMaster, catalog: CodeCatalog, r: ReturnType<ty
   const mv = tokens((master.variants ?? []).join(" ").replace(/[-_]+/g, " ")).filter((word) => !skip.has(word));
   const folder = figmaFolderKind(master.name, r.ns);
   const out = catalog.components.flatMap((entry): Suggestion[] => {
-    if (folder === "part" || (folder && folder !== entry.kind)) return [];
+    if (folder === "part" || (folder && folder !== entry.kind) || r.blocked(master.name, entry.name)) return [];
     let best = { score: 0, reasons: [] as string[] };
     for (const m of r.masterNames(master)) for (const e of r.entryNames(entry)) {
-      const s = nameLike(words(m), words(e));
+      const leftWords = words(m);
+      const rightWords = words(e);
+      const sharedWords = [...new Set(leftWords)].filter((word) => rightWords.includes(word));
+      const genericOnly = sharedWords.length > 0 && sharedWords.every((word) => GENERIC_PAIR_WORDS.has(word)) && norm(m, r.ns) !== norm(e, r.ns);
+      const s = nameLike(genericOnly ? leftWords.filter((word) => !GENERIC_PAIR_WORDS.has(word)) : leftWords, genericOnly ? rightWords.filter((word) => !GENERIC_PAIR_WORDS.has(word)) : rightWords);
       if (s.score > best.score) best = s;
     }
     const ev = variantWords(entry);
@@ -229,6 +242,10 @@ export function mapReport(catalog: CodeCatalog, cfg: ResolveConfig, opts: { sugg
   const unmatchedFigma = r.masters.filter((m) => !linkedMasters.has(m.name));
   const orphans = r.parts.filter((part) => !attached.has(part.name));
   const known = r.masters.length + r.parts.length;
+  const unpairedParts = catalog.components.flatMap((entry) => {
+    const names = r.partMap.get(entry);
+    return names?.length && !linkedCode.has(entry.name) ? [{ code: entry.name, parts: names }] : [];
+  }).sort((a, b) => byCode(a.code, b.code));
   return {
     mappingFile: mappingPath(cfg),
     mappingExists: existsSync(mappingPath(cfg)),
@@ -238,6 +255,7 @@ export function mapReport(catalog: CodeCatalog, cfg: ResolveConfig, opts: { sugg
     pairs: r.links.map((l) => ({ figma: l.master.name, code: l.entry.name, confidence: l.by, ...(l.alias ? { alias: l.alias } : {}), ...(r.partMap.get(l.entry)?.length ? { parts: r.partMap.get(l.entry) } : {}) })).sort((a, b) => byCode(a.figma, b.figma) || byCode(a.code, b.code)),
     unmatchedFigma: [...unmatchedFigma, ...orphans].map((m) => m.name),
     unmatchedCode: known ? catalog.components.filter((e) => !linkedCode.has(e.name)).map((e) => e.name) : [],
+    ...(unpairedParts.length ? { unpairedParts } : {}),
     ...(opts.suggest ? { suggestions: unmatchedFigma.flatMap((m) => suggestions(m, catalog, r, Math.max(1, opts.limit ?? 3))) } : {}),
     note: known
       ? "A suggestion is not a link. Confirm pairs in the mapping file (or `resolve code-map --write \"Figma=code\"`); nothing is joined without that."

@@ -432,7 +432,8 @@ describe("F1b score errors and partial agreement", () => {
       twoOfThree: ["i-2"],
     };
     const heldText = scorer.formatScore(held, cases);
-    expect(heldText).toContain("\nincomplete 1 (2 of 3 runs, left out of every count): z-9\n");
+    expect(heldText).not.toContain("left out of every count");
+    expect(heldText).not.toContain("\nincomplete 1\n");
     expect(heldText).toContain("\nincomplete or 2-of-3 2: z-9, i-2\n");
   });
 
