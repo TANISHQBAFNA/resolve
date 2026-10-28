@@ -87,7 +87,7 @@ describe("documented MCP install command", () => {
     const setup = readFileSync(join(root, "docs", "SETUP-MCP.md"), "utf8");
     expect(setup).toContain('"args": ["-y", "-p", "github:TANISHQBAFNA/resolve", "resolve-mcp"]');
     expect(setup).not.toContain('"args": ["-y", "github:TANISHQBAFNA/resolve", "resolve-mcp"]');
-    expect(setup).not.toContain('"args": ["-y", "github:TANISHQBAFNA/resolve#v0.1.1", "resolve-mcp"]');
+    expect(setup).not.toContain('"args": ["-y", "github:TANISHQBAFNA/resolve#v0.1.2", "resolve-mcp"]');
   });
 
   it("spawns the MCP server and lists default tools", async () => {
