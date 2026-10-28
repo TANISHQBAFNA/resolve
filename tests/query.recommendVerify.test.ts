@@ -227,6 +227,19 @@ describe("verify_frame (invent detection)", () => {
     expect(result.approved).toBeGreaterThan(0);
   });
 
+  it("adds one status per checked component only when all is true", () => {
+    const plain = verifyFrame(demo, { frame: "Create account" });
+    expect(plain).not.toHaveProperty("layers");
+    const full = verifyFrame(demo, { frame: "Create account", all: true });
+    expect(full.layers?.length).toBeGreaterThan(0);
+    expect(full.layers?.every((row) => row.name.length > 0 && (row.status === "pass" || row.status === "name-only"))).toBe(true);
+    const invented = verifyFrame(demo, { components: ["Button", "MadeUpWidget"], all: true });
+    expect(invented.layers?.some((row) => row.status === "invented" && row.name === "MadeUpWidget")).toBe(true);
+    expect(invented.layers?.some((row) => row.status === "pass")).toBe(true);
+    const retired = verifyFrame(demo, { components: [ids.banner], all: true });
+    expect(retired.layers).toEqual(expect.arrayContaining([expect.objectContaining({ status: "retired", id: ids.banner })]));
+  });
+
   it("flags deprecated masters and unresolved instances", () => {
     const deprecated = verifyFrame(demo, { components: [ids.banner] });
     expect(deprecated.pass).toBe(false);

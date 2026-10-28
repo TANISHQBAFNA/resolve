@@ -9,7 +9,7 @@ import { PHRASES, classify, commandPlan } from "../scripts/fresh-install-kit.mjs
 const call = (id: string, name: string, input: Record<string, unknown>) => ({ type: "assistant", message: { content: [{ type: "tool_use", id, name, input }] } });
 const reply = (id: string, content: unknown, isError = false) => ({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: id, content, is_error: isError }] } });
 const done = (result: string) => ({ type: "result", result });
-const status = "npx -y -p github:TANISHQBAFNA/resolve#v0.1.0 resolve-figma status";
+const status = "npx -y -p github:TANISHQBAFNA/resolve#v0.1.1 resolve-figma status";
 
 describe("F4-R1 fresh-install kit", () => {
   it("looks for the designer messages Resolve really prints", () => {
@@ -19,9 +19,12 @@ describe("F4-R1 fresh-install kit", () => {
     expect(DESIGNER.viewSeat.startsWith(PHRASES.viewSeat)).toBe(true);
   });
 
-  it("runs the 8 shipped commands", () => {
+  it("runs every shipped command, and the code commands only when a repo is passed", () => {
     const shipped = readdirSync(join(__dirname, "..", "commands")).map((file) => file.replace(/\.md$/, "")).sort();
-    expect(commandPlan().map(([name]) => name).sort()).toEqual(shipped);
+    const code = ["check-html", "learn-code", "pick-code"];
+    expect(commandPlan(undefined, "/repo").map(([name]) => name).sort()).toEqual(shipped);
+    expect(commandPlan().map(([name]) => name).sort()).toEqual(shipped.filter((name) => !code.includes(name)));
+    expect(commandPlan().map(([name]) => name)).toContain("spec");
     const link = "https://www.figma.com/design/KEY/File?node-id=1-2";
     expect(Object.fromEntries(commandPlan(link))).toMatchObject({ parts: link, handoff: link, check: link, "design-system": "https://www.figma.com/design/KEY/File" });
   });
@@ -48,17 +51,17 @@ describe("F4-R1 fresh-install kit", () => {
     expect(classify("check", [done(DESIGNER.token)]).verdict).toBe("needs-Figma");
   });
 
-  it("--dry-run prints the setup and 8 isolated claude runs, and writes nothing", () => {
+  it("--dry-run prints the setup and one isolated claude run per Figma command, and writes nothing", () => {
     const out = mkdtempSync(join(realpathSync(tmpdir()), "resolve-kit-dry-"));
     const run = spawnSync(process.execPath, [join(__dirname, "..", "scripts", "fresh-install-kit.mjs"), "--dry-run", "--out", out], { encoding: "utf8" });
     expect(run.status).toBe(0);
     const lines = run.stdout.trim().split("\n");
-    expect(lines[0]).toBe("npx -y -p github:TANISHQBAFNA/resolve#v0.1.0 resolve-setup");
+    expect(lines[0]).toBe("npx -y -p github:TANISHQBAFNA/resolve#v0.1.1 resolve-setup");
     const claude = lines.filter((line) => line.startsWith("claude "));
-    expect(claude).toHaveLength(8);
+    expect(claude).toHaveLength(commandPlan().length);
     for (const line of claude) {
       expect(line).toContain(`--mcp-config ${join(out, "project", ".mcp.json")} --strict-mcp-config --setting-sources project`);
-      expect(line).toContain('"Bash(npx -y -p github:TANISHQBAFNA/resolve#v0.1.0 resolve-figma:*)"');
+      expect(line).toContain('"Bash(npx -y -p github:TANISHQBAFNA/resolve#v0.1.1 resolve-figma:*)"');
     }
     expect(existsSync(join(out, "home"))).toBe(false);
     expect(existsSync(join(out, "project"))).toBe(false);

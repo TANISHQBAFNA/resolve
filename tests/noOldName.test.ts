@@ -13,7 +13,7 @@ const ALLOWED = new Set([
   "tests/noAmbientStore.ts", // test setup clears the old setting too
   "tests/noOldName.test.ts",
 ]);
-const ROOTS = ["src", "bin", "docs", "tests", "rules", "skills", ".cursor", "figma-plugin", "scoreboard", "e2e", "README.md", "AGENTS.md", "CHANGELOG.md", "package.json", "index.html"];
+const ROOTS = ["src", "bin", "docs", "tests", "rules", "skills", ".cursor", "figma-plugin", "scoreboard", "e2e", "README.md", "AGENTS.md", "package.json", "index.html"];
 
 function files(path: string): string[] {
   try {

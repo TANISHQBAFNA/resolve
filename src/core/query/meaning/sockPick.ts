@@ -99,6 +99,65 @@ function propsFail(component: SockComponent, props: Record<string, string>): boo
   return false;
 }
 
+/** Pick first, other ids A–Z. Does not add an id that was not offered. */
+export function stableShortlist(pick: string | undefined, list: readonly string[] | undefined): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const id of list ?? []) {
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  if (ids.length > 3) ids.length = 3;
+  const lead = pick?.trim() ?? "";
+  if (!lead || !ids.includes(lead)) return [...ids].sort((a, b) => a.localeCompare(b));
+  return [lead, ...ids.filter((id) => id !== lead).sort((a, b) => a.localeCompare(b))];
+}
+
+function stem(word: string): string {
+  return word.length > 3 && word.endsWith("s") ? word.slice(0, -1) : word;
+}
+
+function contentTokens(text: string): Set<string> {
+  return new Set(bare(text).split(" ").map(stem).filter((word) => word.length > 1 && !STOP.has(word)));
+}
+
+function componentTokens(component: SockComponent): Set<string> {
+  return contentTokens([component.name, ...component.aliases, ...textLines(component)].join(" "));
+}
+
+/**
+ * Extra score for an id the model also offered. Calibration knob, measured on the Oct 26 stored runs (50 asks with the same lead):
+ * 0 gives identical lists in 49/50 but keeps 15/67 of the alternates both model runs offered; 1 gives 39/50 and 26/67; 3 gives 26/50 and 40/67.
+ * Re-tune after a fresh blind run.
+ */
+const OFFERED_BONUS = 1;
+
+/**
+ * Slots 2 and 3 come from the pack, not from the model, so the same ask and lead always give the same list.
+ * Score = 2 x words shared with the ask + words shared with the lead's own text + OFFERED_BONUS if the model offered it; ties by name, then id.
+ * Fewer than two scored neighbours: fill from the ids the model offered, A–Z.
+ * ponytail: word overlap only, long descriptions score high; swap in a real similarity if a blind run says top-3 fell.
+ */
+export function engineShortlist(pack: MeaningPack, lead: SockComponent, ask: string, offered: readonly string[]): string[] {
+  const askWords = contentTokens(ask);
+  const leadWords = componentTokens(lead);
+  const shared = (words: Set<string>, other: Set<string>) => [...words].filter((word) => other.has(word)).length;
+  const offeredSet = new Set(offered);
+  const live = pack.components.filter((component) => component.id !== lead.id && !textRetired(component));
+  const scored = live
+    .map((component) => {
+      const words = componentTokens(component);
+      return { component, score: 2 * shared(askWords, words) + shared(leadWords, words) + (offeredSet.has(component.id) ? OFFERED_BONUS : 0) };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score || a.component.name.localeCompare(b.component.name) || a.component.id.localeCompare(b.component.id))
+    .map((entry) => entry.component.id);
+  const liveIds = new Set(live.map((component) => component.id));
+  const fill = [...new Set(offered)].filter((id) => liveIds.has(id) && !scored.includes(id)).sort((a, b) => a.localeCompare(b));
+  return [lead.id, ...scored, ...fill].slice(0, 3);
+}
+
 function shortlistFail(pack: MeaningPack, req: PickRequest, id: string): boolean {
   const list = req.shortlist;
   if (!list || list.length === 0 || list.length > 3 || new Set(list).size !== list.length) return true;
@@ -111,7 +170,7 @@ function thinEntries(pack: MeaningPack): ThinEntry[] {
   return pack.components.filter((component) => component.thin.length > 0).map((component) => ({ id: component.id, missing: component.thin }));
 }
 
-function pickResult(tier: PickTier, failed: PickCheck[], thin: ThinEntry[], stale: string | undefined, shown?: { id: string; name: string; reason?: string; nameOnly?: boolean }): PickResult {
+function pickResult(tier: PickTier, failed: PickCheck[], thin: ThinEntry[], stale: string | undefined, shown?: { id: string; name: string; reason?: string; nameOnly?: boolean; shortlist?: string[] }): PickResult {
   return {
     tier,
     failed,
@@ -119,6 +178,7 @@ function pickResult(tier: PickTier, failed: PickCheck[], thin: ThinEntry[], stal
     ...(stale ? { stale } : {}),
     ...(shown?.nameOnly ? { nameOnly: true } : {}),
     ...(shown ? { id: shown.id, name: shown.name, ...(shown.reason ? { reason: shown.reason } : {}) } : {}),
+    ...(shown?.shortlist ? { shortlist: shown.shortlist } : {}),
   };
 }
 
@@ -138,7 +198,13 @@ export function validateAiPick(pack: MeaningPack, req: PickRequest, libraryBuilt
   const quote = quoteCheck(component, req.reason);
   if (quote.fail) failed.push(quote.fail);
   if (failed.length) return pickResult("no-fit", failed, thin, stale);
-  const shown = { id: component.id, name: component.name, ...(req.reason ? { reason: req.reason } : {}), ...(quote.nameOnly ? { nameOnly: true } : {}) };
+  const shown = {
+    id: component.id,
+    name: component.name,
+    shortlist: engineShortlist(pack, component, req.ask, req.shortlist),
+    ...(req.reason ? { reason: req.reason } : {}),
+    ...(quote.nameOnly ? { nameOnly: true } : {}),
+  };
   if (quote.nameOnly) {
     const marked = thin.map((entry) => (entry.id === component.id ? { ...entry, nameOnly: true } : entry));
     return pickResult("ask", tier === "place" ? ["thin-cap"] : [], marked, stale, shown);

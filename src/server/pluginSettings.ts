@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 const TOKEN_KEYS = ["FIGMA_ACCESS_TOKEN", "FIGMA_TOKEN"] as const;
 const FILE_KEY_KEYS = ["RESOLVE_LIBRARY_FILE_KEY", "FIGMA_LIBRARY_FILE_KEY"] as const;
 /** The server args resolve-setup writes into a project MCP file (MCP_ENTRY in bin/resolve-setup.mjs). */
-const SETUP_ARGS = JSON.stringify(["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.0", "resolve-mcp"]);
+const SETUP_ARGS = JSON.stringify(["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.1", "resolve-mcp"]);
 
 const HOW_TO_SET =
   "Set the missing one in the plugin settings. Do not paste it into a project file. " +
@@ -32,6 +32,8 @@ export interface SetupContext {
   /** The store this server reads already has a learned library or screens. */
   learned?: boolean;
   install?: InstallKind;
+  /** Code-only installs have no use for a Figma token. */
+  mode?: "figma" | "code" | "both";
 }
 
 function usable(value: string | undefined): string | undefined {
@@ -92,7 +94,7 @@ export function installKind(cwd: string = process.cwd()): InstallKind {
 /** Empty when a library is learned or the settings are present. Otherwise a plain note for the first MCP reply, fit to the install. */
 export function pluginSetupSuffix(env: NodeJS.ProcessEnv = process.env, context: SetupContext = {}): string {
   const { token, libraryFileKey } = readPluginSettings(env);
-  if (context.learned) return "";
+  if (context.learned || context.mode === "code") return "";
   if (context.install === "project") return token ? "" : `\n\n${PROJECT_HINT}`;
   if (token && libraryFileKey) return "";
   const missing =

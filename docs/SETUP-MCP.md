@@ -2,13 +2,13 @@
 
 **Figma rules. Agents resolve.**
 
-Resolve is for AI tools (Cursor, Claude). Turn on Figma’s connector and Resolve’s connector in the same tool.
+Resolve is for AI tools (Cursor, Claude). Turn on Figma’s connector and Resolve’s connector in the same tool. For HTML/CSS/JS prototypes built from a coded design system, Resolve needs no Figma connector; see [Modes](#modes).
 
 Resolve works best when the Figma connection is active and there is a design system, library, or existing screens for it to learn from. If either is missing, the agent should tell you in plain words what is missing and how to add it. It should not invent a component.
 
 On a screen, the agent reads the requirements or FSD and may pass `product`, `journey`, `domain`, `audience`, and `a11y`. A context pack is optional and matches only an exact product, and an exact journey when the document gives one. Audience, a11y, and density are shown on the card and do not change the pick.
 
-Claude Code cuts each MCP server’s instructions at 2,048 characters. Resolve keeps that text under 1,500 so the “call Resolve first” trigger survives. The longer workflow is an MCP resource, `resolve://workflow`.
+Claude Code cuts each MCP server’s instructions at 2,048 characters. Resolve keeps that text under 1,500 so the “call Resolve first” trigger survives. The longer workflow is an MCP resource: `resolve://figma` or `resolve://code`, depending on the mode (`resolve://workflow` is an alias for the active one).
 
 Learning a library needs **one** of:
 
@@ -29,9 +29,30 @@ Learning a library needs **one** of:
 npx -y -p github:TANISHQBAFNA/resolve resolve-setup
 ```
 
-That writes `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, a marked block in `CLAUDE.md`, a `.gitignore` block for the learned cache (`.resolve/graph.json`, `.resolve/files/`, `.resolve/learn/`, `.resolve/ingest/`, `.resolve/GRAPH_REPORT.md`, `.resolve/index.json`, `.resolve/setup-record.json`) and scoreboard run history (`.resolve/scoreboard/*`; phrase sets in `scoreboard/phrases/` and golden files in `scoreboard/golden/` stay committable, with recipes, context packs, the code map, decisions, bind rules and synonyms), and the slash commands (`.claude/commands/` and `.cursor/commands/`: `/design-system`, `/find`, `/check`, `/parts`, `/handoff`, `/code-map`, `/resolve-status`) in this project. `/parts` is what's on this screen and its mapped code twin (or unmapped; stop and ask). `/code-map` scans a component package, suggests pairs, and reviews them. `/handoff` is the developer build sheet. A command file you wrote yourself (no Resolve markers) is kept. `resolve-setup --uninstall` removes only what Resolve wrote. It also adds the `resolve` server to the project's `.cursor/mcp.json` and `.mcp.json` (Claude Code), keeping any other servers and leaving a file that is not valid JSON alone. It never writes `~/.claude.json`, `~/.cursor` or `~/.codex`; the home-folder steps below are yours to run. Cursor needs that project rule. It does not load a rule from your home folder. A second run only edits inside a complete pair of markers. `--global` is for Claude only (`~/.claude/skills/resolve/SKILL.md` and `~/.claude/CLAUDE.md`). It prints those home-folder paths and exits unless you pass `--yes`. Claude Desktop does not read rule files, skills, or `CLAUDE.md`. It only gets the MCP instructions.
+That writes the core rule `.cursor/rules/resolve.mdc` (always on), the pack rules `resolve-figma.mdc` and `resolve-code.mdc` (loaded on demand), the core skill `.claude/skills/resolve/SKILL.md`, the pack skills `resolve-figma` and `resolve-code`, a marked block in `CLAUDE.md`, a `.gitignore` block for the learned cache (`.resolve/code-catalog.json`, `.resolve/graph.json`, `.resolve/files/`, `.resolve/learn/`, `.resolve/ingest/`, `.resolve/GRAPH_REPORT.md`, `.resolve/index.json`, `.resolve/setup-record.json`) and scoreboard run history (`.resolve/scoreboard/*`; phrase sets in `scoreboard/phrases/` and golden files in `scoreboard/golden/` stay committable, with recipes, context packs, the code map, decisions, bind rules and synonyms), and the slash commands (`.claude/commands/` and `.cursor/commands/`: `/design-system`, `/find`, `/check`, `/parts`, `/handoff`, `/code-map`, `/resolve-status`, and for the code workflow `/learn-code`, `/pick-code`, `/check-html`) in this project. `/parts` is what's on this screen and its mapped code twin (or unmapped; stop and ask). `/code-map` scans a component package, suggests pairs, and reviews them. `/handoff` is the developer build sheet. A command file you wrote yourself (no Resolve markers) is kept. `resolve-setup --uninstall` removes only what Resolve wrote. It also adds the `resolve` server to the project's `.cursor/mcp.json` and `.mcp.json` (Claude Code), keeping any other servers and leaving a file that is not valid JSON alone. It never writes `~/.claude.json`, `~/.cursor` or `~/.codex`; the home-folder steps below are yours to run. Cursor needs that project rule. It does not load a rule from your home folder. A second run only edits inside a complete pair of markers. `--global` is for Claude only (`~/.claude/skills/resolve/SKILL.md` and `~/.claude/CLAUDE.md`). It prints those home-folder paths and exits unless you pass `--yes`. Claude Desktop does not read rule files, skills, or `CLAUDE.md`. It only gets the MCP instructions.
 
 5. If Claude Desktop cannot start Resolve, use the full path from `which npx` as the `command` (keep the same `args`).
+
+## Modes
+
+One engine, two workflows. Only the active mode's rules and tools are loaded.
+
+- **`figma`:** 8 default tools (21 with `RESOLVE_MCP_ADVANCED=1`), resource `resolve://figma`.
+- **`code`:** `code_scan`, `code_pick`, `code_check`, `code_map`, resource `resolve://code`.
+- **`both`:** all 12 default tools and both resources.
+
+The user's words choose first (Figma design, or HTML/CSS prototype). Then `RESOLVE_MODE`, then `mode` in `.resolve/config.json`. With neither set, the mode is `both` when a repo path is set, otherwise `figma`. `resolve mode` shows the result.
+
+Settings (environment variable, or the same-named key in `.resolve/config.json`):
+
+| Env | Config key | Meaning |
+|---|---|---|
+| `RESOLVE_MODE` | `mode` | `figma`, `code` or `both` |
+| `RESOLVE_REPO_PATH` | `repoPath` | The folder that holds the coded design system and screens |
+| `RESOLVE_CSS_ENTRY` | `cssEntry` | The CSS file that imports the design system, relative to the repo (optional) |
+| `RESOLVE_THEME` | `theme` | The token file or theme name (optional) |
+
+For example, a code-only project: add `"env": { "RESOLVE_MODE": "code", "RESOLVE_REPO_PATH": "/path/to/repo", "RESOLVE_CSS_ENTRY": "css/main.css" }` to the `resolve` server entry. The code workflow is `code_scan` (once, and again when the design system changes) → `code_pick` for each screen need → build with the returned classes and tokens only → `code_check` on the HTML file. `code_map` shows how Figma and coded components join (both mode). From a shell: `resolve code scan|pick|check|map`. Resolve only reads the repo.
 
 ## One config line
 
@@ -99,7 +120,7 @@ claude mcp add --transport http figma https://mcp.figma.com/mcp -s user
 
 Then in Claude Code run `/mcp` and log in to Figma.
 
-A Claude Code plugin install reads the server from `.mcp.json`. A Cursor plugin install reads it from `mcp.json`. Both start `resolve-mcp` with the same npx command as project setup. The Figma token and library file key come from the plugin settings (`FIGMA_ACCESS_TOKEN`, `RESOLVE_LIBRARY_FILE_KEY`), not from a file in the repo. If you write a Claude Code project config that lists Figma, set `"type": "http"`:
+A Claude Code plugin install reads the server from `.mcp.json`. A Cursor plugin install reads it from `mcp.json`. Both start `resolve-mcp` with the same npx command as project setup. The Figma token and library file key come from the plugin settings (`FIGMA_ACCESS_TOKEN`, `RESOLVE_LIBRARY_FILE_KEY`), not from a file in the repo. The same settings hold the workflow choice: `RESOLVE_MODE`, `RESOLVE_REPO_PATH`, `RESOLVE_CSS_ENTRY` and `RESOLVE_THEME`. If you write a Claude Code project config that lists Figma, set `"type": "http"`:
 
 ```json
 {
@@ -140,4 +161,4 @@ Then: `recipe` (`query` or `intent`) / `recommend` → `get_example` (`ex` is on
 - Promote a deprecated or private (`.` / `_`) master
 - Change your rules without a SOCI proposal — you approve (`resolve approve --who`). SOCI never auto-applies.
 
-Default tools: `learn_library`, `recipe`, `recommend`, `resolve`, `get_example`, `verify_frame`, `check_cousins`. Set `RESOLVE_MCP_ADVANCED=1` for the rest.
+Default Figma tools: `learn_library`, `recipe`, `brief`, `recommend`, `resolve`, `get_example`, `verify_frame`, `check_cousins`. Set `RESOLVE_MCP_ADVANCED=1` for the rest. Code tools (code and both modes): `code_scan`, `code_pick`, `code_check`, `code_map`.

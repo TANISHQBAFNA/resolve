@@ -22,6 +22,12 @@ async function main(): Promise<void> {
     runPickCommand(argv.filter((arg) => arg !== "--pretty" && arg !== "pick"));
     return;
   }
+  if (command === "code" || command === "mode") {
+    const { runCodeCommand, runModeCommand } = await import("./code/command.ts");
+    if (command === "mode") runModeCommand();
+    else runCodeCommand(argv.filter((arg) => arg !== "--pretty" && arg !== "code"), (await import("./graphMasters.ts")).graphMasters);
+    return;
+  }
   const { runCli } = await import("./cli");
   await runCli(argv);
 }

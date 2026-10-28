@@ -13,7 +13,13 @@ import { listToolDefinitions } from "@/server/tools";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const bin = join(root, "bin", "resolve-setup.mjs");
 const BEGIN = "<!-- resolve-setup:begin -->";
-const NAMES = ["brief", "check", "code-map", "design-system", "find", "handoff", "parts", "resolve-status"];
+const CODE_COMMANDS = ["check-html", "learn-code", "pick-code"];
+const SHIPPED = readdirSync(join(root, "commands"))
+  .filter((file) => file.endsWith(".md"))
+  .map((file) => file.replace(/\.md$/, ""))
+  .sort();
+/** Figma-mode prompts. Code commands load only in code or both mode. */
+const NAMES = SHIPPED.filter((name) => !CODE_COMMANDS.includes(name));
 /** What each command must tell the agent to call. */
 const CALLS: Record<string, string[]> = {
   brief: ["brief", "questions", "just build", "answers"],
@@ -86,7 +92,7 @@ describe("slash commands: install", () => {
     expect(second.status).toBe(0);
     expect(second.stdout).not.toMatch(/^(create|update) /m);
     expect(snapshot(cwd)).toEqual(before);
-    expect(Object.keys(before).filter((f) => f.includes("commands"))).toHaveLength(NAMES.length * 2);
+    expect(Object.keys(before).filter((f) => f.includes("commands"))).toHaveLength(SHIPPED.length * 2);
   });
 
   it("update rewrites only the Resolve block of a command file and keeps your own lines", () => {
@@ -151,6 +157,7 @@ describe("slash commands: install", () => {
       ".resolve/files/",
       ".resolve/GRAPH_REPORT.md",
       ".resolve/index.json",
+      ".resolve/code-catalog.json",
       ".resolve/scoreboard/*",
       "!.resolve/scoreboard/phrases/",
       "!.resolve/scoreboard/phrases/**",
@@ -231,7 +238,7 @@ describe("slash commands: install", () => {
     expect(setup([], cwd).status).toBe(0);
     const entry = (JSON.parse(read(join(cwd, ".mcp.json"))) as { mcpServers: { resolve: { command: string; args: string[] } } }).mcpServers.resolve;
     const spec = [entry.command, ...entry.args.slice(0, -1)].join(" ");
-    expect(spec).toBe("npx -y -p github:TANISHQBAFNA/resolve#v0.1.0");
+    expect(spec).toBe("npx -y -p github:TANISHQBAFNA/resolve#v0.1.1");
     const runs: Record<string, string[]> = {
       "resolve-status": [`${spec} resolve-figma status`, `${spec} resolve-setup`],
       parts: [`${spec} resolve-figma parts`],
@@ -253,7 +260,7 @@ describe("slash commands: install", () => {
     const cwd = temp("global");
     const home = temp("global-home");
     expect(setup(["--global", "--yes"], cwd, home).status).toBe(0);
-    for (const name of NAMES) expect(existsSync(join(home, ".claude/commands", `${name}.md`))).toBe(true);
+    for (const name of SHIPPED) expect(existsSync(join(home, ".claude/commands", `${name}.md`))).toBe(true);
     expect(existsSync(join(home, ".cursor"))).toBe(false);
     expect(existsSync(join(cwd, ".claude"))).toBe(false);
   });
@@ -282,7 +289,7 @@ describe("slash commands: uninstall", () => {
     expect(JSON.parse(read(join(cwd, ".cursor/mcp.json")))).toEqual({ mcpServers: { other: { command: "x" } } });
     expect(existsSync(join(cwd, ".mcp.json"))).toBe(false);
     expect(existsSync(join(cwd, ".claude/skills/resolve/SKILL.md"))).toBe(false);
-    for (const name of NAMES.filter((n) => n !== "find")) {
+    for (const name of SHIPPED.filter((n) => n !== "find")) {
       expect(existsSync(join(cwd, ".claude/commands", `${name}.md`))).toBe(false);
       expect(existsSync(join(cwd, ".cursor/commands", `${name}.md`))).toBe(false);
     }

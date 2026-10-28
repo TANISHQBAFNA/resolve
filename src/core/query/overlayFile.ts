@@ -10,6 +10,14 @@ export function pinnedHome(env: { RESOLVE_HOME?: string; GRAPHIFY_HOME?: string 
   return env.RESOLVE_HOME?.trim() || env.GRAPHIFY_HOME?.trim() || undefined;
 }
 
+/** Same fallback as `pinnedHome`, after `accept` drops blanks and unexpanded placeholders. New setting wins. */
+export function acceptedPinnedHome(
+  env: { RESOLVE_HOME?: string; GRAPHIFY_HOME?: string },
+  accept: (value: unknown) => string | undefined,
+): string | undefined {
+  return accept(env.RESOLVE_HOME) ?? accept(env.GRAPHIFY_HOME);
+}
+
 /**
  * Team overlay next to synonyms.json. RESOLVE_HOME, else nearest `.resolve/`,
  * else ~/.resolve/default.

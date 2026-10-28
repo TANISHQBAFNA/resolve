@@ -1,4 +1,5 @@
 /** Synonym overlay and icon-library warnings for recommend. */
+import { mappingAliasGroups } from "./mappingAliases";
 import { existsSync, readFileSync } from "node:fs";
 import type { GraphNode } from "@/core/model";
 import { foldLibName } from "@/core/rules/names";
@@ -145,25 +146,26 @@ export function loadSynonymOverlay(): void {
   phraseVocab = null;
   synonymEpoch += 1;
   const path = synonymOverlayFile();
-  if (!path) return;
+  const add = (terms: unknown) => {
+    if (!Array.isArray(terms)) return;
+    const cleaned = terms.map((term) => String(term).trim().toLowerCase()).filter(Boolean);
+    if (cleaned.length < 2) return;
+    extraGroups.push({ terms: cleaned });
+    const singles = cleaned.filter((term) => !term.includes(" "));
+    for (const term of singles) extraSynonym.set(term, singles);
+  };
   try {
-    const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
-    const record = raw && typeof raw === "object" ? (raw as { groups?: unknown }) : undefined;
-    const groups = Array.isArray(record?.groups) ? record.groups : Array.isArray(raw) ? raw : [];
-    for (const group of groups) {
-      if (!group || typeof group !== "object") continue;
-      const terms = (group as { terms?: unknown }).terms;
-      if (!Array.isArray(terms)) continue;
-      const cleaned = terms.map((term) => String(term).trim().toLowerCase()).filter(Boolean);
-      if (cleaned.length < 2) continue;
-      extraGroups.push({ terms: cleaned });
-      const singles = cleaned.filter((term) => !term.includes(" "));
-      for (const term of singles) extraSynonym.set(term, singles);
+    if (path) {
+      const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
+      const record = raw && typeof raw === "object" ? (raw as { groups?: unknown }) : undefined;
+      const groups = Array.isArray(record?.groups) ? record.groups : Array.isArray(raw) ? raw : [];
+      for (const group of groups) if (group && typeof group === "object") add((group as { terms?: unknown }).terms);
     }
   } catch {
     extraGroups = [];
     extraSynonym.clear();
   }
+  for (const terms of mappingAliasGroups()) add(terms);
 }
 interface IconLibraryEntry {
   raw: string;

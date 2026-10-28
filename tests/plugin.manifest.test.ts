@@ -113,7 +113,7 @@ describe("plugin manifests", () => {
     expect(existsSync(join(root, "skills/resolve/SKILL.md"))).toBe(true);
     expect(readFileSync(join(root, "rules/resolve.mdc"), "utf8")).toContain("alwaysApply: true");
     const commands = readdirSync(join(root, "commands")).filter((file) => file.endsWith(".md")).sort();
-    expect(commands).toEqual(["brief.md", "check.md", "code-map.md", "design-system.md", "find.md", "handoff.md", "parts.md", "resolve-status.md"]);
+    expect(commands).toEqual(["brief.md", "check-html.md", "check.md", "code-map.md", "design-system.md", "find.md", "handoff.md", "learn-code.md", "parts.md", "pick-code.md", "resolve-status.md", "spec.md"]);
     expect(statSync(join(root, cursorPlugin.rules)).isDirectory()).toBe(true);
     expect(statSync(join(root, cursorPlugin.skills)).isDirectory()).toBe(true);
     expect(statSync(join(root, cursorPlugin.commands)).isDirectory()).toBe(true);
@@ -122,9 +122,9 @@ describe("plugin manifests", () => {
 
   it("starts the published server and takes the token and file key from plugin settings", () => {
     const setup = readFileSync(join(root, "bin/resolve-setup.mjs"), "utf8");
-    const args = ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.0", "resolve-mcp"];
+    const args = ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.1", "resolve-mcp"];
     expect(setup).toContain(
-      'export const MCP_ENTRY = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.0", "resolve-mcp"] }',
+      'export const MCP_ENTRY = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.1", "resolve-mcp"] }',
     );
     for (const file of [".mcp.json", "mcp.json"]) {
       const doc = loadJson(join(root, file)) as {
@@ -137,7 +137,14 @@ describe("plugin manifests", () => {
     const claudeEnv = (loadJson(join(root, ".mcp.json")) as { mcpServers: { resolve: { env: Record<string, string> } } }).mcpServers.resolve.env;
     expect(claudeEnv["FIGMA_ACCESS_TOKEN"]).toBe("${user_config.FIGMA_ACCESS_TOKEN}");
     expect(claudeEnv["RESOLVE_LIBRARY_FILE_KEY"]).toBe("${user_config.RESOLVE_LIBRARY_FILE_KEY}");
-    expect(Object.keys(claudePlugin.userConfig).sort()).toEqual(["FIGMA_ACCESS_TOKEN", "RESOLVE_LIBRARY_FILE_KEY"]);
+    expect(Object.keys(claudePlugin.userConfig).sort()).toEqual([
+      "FIGMA_ACCESS_TOKEN",
+      "RESOLVE_CSS_ENTRY",
+      "RESOLVE_LIBRARY_FILE_KEY",
+      "RESOLVE_MODE",
+      "RESOLVE_REPO_PATH",
+      "RESOLVE_THEME",
+    ]);
     expect(claudePlugin.userConfig["FIGMA_ACCESS_TOKEN"]?.sensitive).toBe(true);
     const cursorEnv = (loadJson(join(root, "mcp.json")) as { mcpServers: { resolve: { env: Record<string, string> } } }).mcpServers.resolve.env;
     expect(Object.keys(cursorEnv).sort()).toEqual(Object.keys(cursorPlugin.variables.properties).sort());
@@ -147,12 +154,14 @@ describe("plugin manifests", () => {
     }
   });
 
-  it("SessionStart reads the skill description and does not copy it", () => {
-    const skill = readFileSync(join(root, "skills/resolve/SKILL.md"), "utf8");
-    const description = /^description:\s*(.+)\s*$/m.exec(skill)?.[1];
-    expect(description).toContain("call Resolve before drawing");
+  it("SessionStart reads the core skill and the active pack, and does not copy them", () => {
+    const descriptionOf = (path: string) => /^description:\s*(.+)\s*$/m.exec(readFileSync(join(root, path), "utf8"))?.[1];
+    const core = descriptionOf("skills/resolve/SKILL.md");
+    const figma = descriptionOf("skills/resolve-figma/SKILL.md");
+    expect(core).toContain("Load only that pack");
+    expect(figma).toContain("call Resolve before drawing");
     const script = readFileSync(join(root, "scripts/resolve-session-start.mjs"), "utf8");
-    expect(script).toContain("skills/resolve/SKILL.md");
+    expect(script).toContain('join(root, "skills", name, "SKILL.md")');
     expect(script).not.toContain("call Resolve before drawing");
     const hooks = loadJson(join(root, "hooks/hooks.json")) as {
       hooks: { SessionStart: Array<{ hooks: Array<{ type: string; command: string }> }> };
@@ -162,10 +171,14 @@ describe("plugin manifests", () => {
       type: "command",
       command: "node \"${CLAUDE_PLUGIN_ROOT}/scripts/resolve-session-start.mjs\"",
     });
-    const run = spawnSync(process.execPath, [join(root, "scripts/resolve-session-start.mjs")], { encoding: "utf8" });
+    const run = spawnSync(process.execPath, [join(root, "scripts/resolve-session-start.mjs")], {
+      encoding: "utf8",
+      cwd: root,
+      env: { ...process.env, RESOLVE_MODE: "figma", RESOLVE_REPO_PATH: "" },
+    });
     expect(run.status).toBe(0);
     const parsed = JSON.parse(run.stdout) as { hookSpecificOutput: { hookEventName: string; additionalContext: string } };
-    expect(parsed.hookSpecificOutput).toEqual({ hookEventName: "SessionStart", additionalContext: description });
+    expect(parsed.hookSpecificOutput).toEqual({ hookEventName: "SessionStart", additionalContext: `${core}\n${figma}` });
   });
 });
 

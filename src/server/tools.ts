@@ -1,4 +1,9 @@
 import { TextInputError } from "@/core/ingestion/textStamps";
+import { CODE_TOOL_NAMES, CODE_TOOLS, runCodeTool } from "./code/mcp.ts";
+import { graphMasters } from "./graphMasters.ts";
+import { asStringList, parseLearnOutline } from "./toolArgs.ts";
+import type { Mode } from "./mode.ts";
+import { activeMode, includesPack } from "./mode.ts";
 import {
   applyFreshness,
   BindRuleError,
@@ -32,7 +37,6 @@ import {
   briefScreen,
   BriefAnswerError,
 } from "@/core/query";
-import { trimmedStrings } from "@/core/query/recommendSupport";
 import { presentToolResult, type ToolCardFormat } from "./cards";
 import { learnLibrary } from "./learn";
 import { DEPRECATED_INSTEAD, REMOVED_MCP_TOOLS, withDeprecation } from "./deprecations";
@@ -55,6 +59,7 @@ import {
 } from "./store";
 import { recordGap } from "./gaps";
 import { CODE_MAP_TOOLS, runCodeMapTool } from "./codeMapMcp";
+import { SPEC_TOOLS, runSpecTool } from "./specMcp";
 import { DECISION_TOOLS, RECORD_PROPERTY, recordProblem, runDecisionTool, withDecisionRecord } from "./decisionMcp";
 import { composeProblem, runCompose } from "./composeCommand";
 import { recordVerifyUsage } from "./verifyRecord";
@@ -112,9 +117,11 @@ const formatProperty = {
   },
 };
 
-export function listToolDefinitions(advanced = process.env["RESOLVE_MCP_ADVANCED"] === "1"): ToolDefinition[] {
+/** Figma pack tools only in figma/both, code pack tools only in code/both. */
+export function listToolDefinitions(advanced = process.env["RESOLVE_MCP_ADVANCED"] === "1", mode: Mode = activeMode()): ToolDefinition[] {
   const allowed = new Set<string>(DEFAULT_TOOL_NAMES);
-  const tools = advanced ? TOOLS : TOOLS.filter((tool) => allowed.has(tool.name));
+  const figma = includesPack(mode, "figma") ? (advanced ? TOOLS : TOOLS.filter((tool) => allowed.has(tool.name))) : [];
+  const tools = [...figma, ...(includesPack(mode, "code") ? CODE_TOOLS : [])];
   return tools.map((tool) => {
     const schema = tool.inputSchema;
     const properties = schema["properties"];
@@ -130,6 +137,8 @@ export function listToolDefinitions(advanced = process.env["RESOLVE_MCP_ADVANCED
     };
   });
 }
+
+const CODE_TOOL_SET = new Set<string>(CODE_TOOL_NAMES);
 
 const freshnessProperties = {
   fileKey: { type: "string", description: "Figma file key for the freshness check." },
@@ -464,6 +473,7 @@ export const TOOLS: ToolDefinition[] = [
     },
   },
   ...CODE_MAP_TOOLS,
+  ...SPEC_TOOLS,
   ...DECISION_TOOLS,
   {
     name: "list_graphs",
@@ -495,33 +505,6 @@ export class ToolError extends Error {}
 const asString = (value: unknown, name: string): string => {
   if (typeof value !== "string" || !value) throw new ToolError(`\`${name}\` is required.`);
   return value;
-};
-
-function parseLearnOutline(value: unknown): Array<{ id: string; name: string; kind: "page" | "frame" }> | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const units: Array<{ id: string; name: string; kind: "page" | "frame" }> = [];
-  for (const item of value) {
-    if (!item || typeof item !== "object") continue;
-    const rec = item as Record<string, unknown>;
-    const id = typeof rec["id"] === "string" ? rec["id"].trim() : "";
-    const name = typeof rec["name"] === "string" ? rec["name"].trim() : id;
-    const kind = rec["kind"] === "page" ? "page" : "frame";
-    if (!id) continue;
-    units.push({ id, name: name || id, kind });
-  }
-  return units.length ? units : undefined;
-}
-
-
-const asStringList = (value: unknown): string[] | undefined => {
-  if (typeof value === "string") {
-    const items = value
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-    return items.length ? items : undefined;
-  }
-  return trimmedStrings(value);
 };
 
 function recommendContextFromArgs(args: Record<string, unknown>) {
@@ -583,6 +566,11 @@ function contextBindFromArgs(args: Record<string, unknown>) {
     a11y: typeof args["a11y"] === "string" ? args["a11y"] : undefined,
     packsFile: typeof args["packsFile"] === "string" ? args["packsFile"] : undefined,
   });
+}
+
+function specRanking(args: Record<string, unknown>) {
+  const { bind, pack, context: resolved } = recommendContextFromArgs(args);
+  return { ...(resolved ? { context: resolved } : {}), workspace: bind.workspace, sock: readSock(), bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules), placeholders: readPlaceholders() };
 }
 
 function context(args: Record<string, unknown>) {
@@ -647,11 +635,22 @@ export function callTool(name: string, rawArgs: unknown): unknown {
   const advanced = process.env["RESOLVE_MCP_ADVANCED"] === "1";
   const allowed = new Set(listToolDefinitions(advanced).map((tool) => tool.name));
   if (!allowed.has(name)) {
+    const mode = activeMode();
+    const figmaTool = TOOLS.some((tool) => tool.name === name);
+    if (figmaTool && !includesPack(mode, "figma")) throw new ToolError(`Tool "${name}" is in the Figma workflow, which is off (mode: ${mode}). Set mode to figma or both in .resolve/config.json, or RESOLVE_MODE.`);
+    if (CODE_TOOL_SET.has(name) && !includesPack(mode, "code")) throw new ToolError(`Tool "${name}" is in the code workflow, which is off (mode: ${mode}). Set mode to code or both in .resolve/config.json, or RESOLVE_MODE.`);
     throw new ToolError(
       `Tool "${name}" is not on the default MCP surface. Set RESOLVE_MCP_ADVANCED=1 to enable it. Agents cannot call advanced tools.`,
     );
   }
   const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
+  if (CODE_TOOL_SET.has(name)) {
+    try {
+      return runCodeTool(name, args, graphMasters);
+    } catch (error) {
+      throw new ToolError(error instanceof Error ? error.message : String(error));
+    }
+  }
   const recordIssue = recordProblem(name, args);
   if (recordIssue) throw new ToolError(recordIssue);
   const result = attachCardMeta(withDeprecation(name, withDecisionRecord(name, args, dispatchTool(name, args), advanced)), args);
@@ -982,6 +981,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
     default: {
       if (name === "code_map_scan") return runCodeMapTool(name, args);
       if (name === "code_map_suggest" || name === "code_map_review") return runCodeMapTool(name, args, context(args).index);
+      if (name === "spec_map") return runSpecTool(args, context(args).index, specRanking(args));
       if (name === "decision_record" || name === "export_aidlc") return runDecisionTool(name, args);
       throw new ToolError(`Unknown tool \`${name}\`.`);
     }

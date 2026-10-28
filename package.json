@@ -1,15 +1,16 @@
 {
   "name": "resolve-figma",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
-  "description": "Resolve tells Claude Code and Cursor which real Figma components to use, then checks the screen. Works with any design system and any code stack.",
+  "description": "Resolve tells Claude Code and Cursor which real components to use, Figma masters or coded HTML/CSS classes, then checks the result. Works with any design system and any code stack.",
   "keywords": [
     "figma",
     "design-system",
     "components",
     "claude-code",
     "cursor",
+    "html",
     "mcp"
   ],
   "bin": {
@@ -25,7 +26,7 @@
     "docs",
     "schemas",
     "rules",
-    "skills/resolve",
+    "skills",
     "hooks",
     "scripts",
     ".claude-plugin",
@@ -44,7 +45,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check:size": "node scripts/check-file-length.mjs",
+    "check:size": "node scripts/size-budget.mjs",
+    "size": "node scripts/size-budget.mjs",
     "check:meaning": "node scripts/meaning-regression.mjs check",
     "check:dupes": "jscpd src --pattern \"**/*.ts\" --min-lines 5 --min-tokens 40 --threshold 0.75 --reporters console",
     "bench": "vitest run --config vitest.bench.config.ts --reporter=verbose",
@@ -55,8 +57,13 @@
     "resolve": "node dist-server/cli.mjs",
     "mcp": "node dist-server/mcp.mjs"
   },
+  "resolveSizeBudget": {
+    "code": 1700,
+    "server": 7100,
+    "core": 35100
+  },
   "engines": {
-    "node": "^22.12.0 || >=24.0.0"
+    "node": ">=22.12.0"
   },
   "dependencies": {
     "react": "^19.3.0",

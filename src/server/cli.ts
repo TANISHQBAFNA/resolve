@@ -98,6 +98,7 @@ import {
 import { stripFiller } from "./cards";
 import { formatGaps, readGaps, recordGap } from "./gaps";
 import { refuseBadRows, runCodeMapExtra } from "./codeMapCommand";
+import { formatSpecMap, mapSpec, readSpec } from "@/core/query/specMap";
 import { recordVerifyUsage } from "./tools";
 import { learnLibrary } from "./learn";
 import { DESIGNER, designerFailure } from "./designerMessages";
@@ -333,6 +334,16 @@ async function dispatchCli(argv: string[]): Promise<void> {
       });
       recordGap(intent, card);
       printJson(card);
+      return;
+    }
+
+    case "spec": {
+      const file = positionals(args)[0];
+      if (!file) throw new Error("Usage: resolve spec <spec.md | -> [--all] [--json]");
+      if (file !== "-" && !existsSync(file)) throw new Error(`No spec file at ${file}.`);
+      const map = mapSpec(requireGraph(args).index, readSpec(readFileSync(file === "-" ? 0 : file, "utf8")), recommendContextFromFlags(args).ranking);
+      if (args.includes("--json")) printJson(map);
+      else process.stdout.write(formatSpecMap(map, args.includes("--all")));
       return;
     }
 

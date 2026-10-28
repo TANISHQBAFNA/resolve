@@ -77,9 +77,11 @@ export interface PickResult {
   thin: ThinEntry[];
   stale?: string;
   nameOnly?: boolean;
+  /** Lead first, then up to two neighbours chosen by the engine, not the model. */
+  shortlist?: string[];
 }
 
-export { componentFromMarkdown, packFromFiles, validateAiPick } from "./sockPick";
+export { componentFromMarkdown, engineShortlist, packFromFiles, stableShortlist, validateAiPick } from "./sockPick";
 
 const STOP = new Set([
   "a", "an", "the", "and", "or", "of", "to", "for", "with", "in", "at", "by", "from", "into",
