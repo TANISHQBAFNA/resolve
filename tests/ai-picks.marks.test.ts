@@ -19,7 +19,7 @@ interface Run {
   caseId: string;
   run: number;
   request: { tier: string; pick?: string; shortlist: string[] };
-  result: { tier: string; id?: string; name?: string; reason?: string; nameOnly?: boolean; failed: string[]; thin: Array<{ id: string; missing: string[]; nameOnly?: boolean }> };
+  result: { tier: string; id?: string; name?: string; reason?: string; nameOnly?: boolean; shortlist?: string[]; failed: string[]; thin: Array<{ id: string; missing: string[]; nameOnly?: boolean }> };
 }
 
 type Group = Record<string, number>;
@@ -27,6 +27,7 @@ interface Report {
   groups: Record<"material" | "acme" | "total", Group>;
   rejections: Array<{ caseId: string; run: number; failed: string[] }>;
   incomplete: string[];
+  modelShortlist?: Array<{ caseId: string; run: number; shortlist: string[] }>;
   thinDescribed: string[];
   lost?: Record<string, string[]>;
   [field: string]: unknown;
@@ -281,8 +282,18 @@ describe("F1b-R1 and F1b-R8 marks", () => {
       expect([beat(21), beat(20)]).toEqual([true, false]);
     }
     const beat3 = (field: string, top3: number) => scorer.scoreJson(report({ top3 }), cases, main).marks["material"]![field]!.pass;
-    expect([beat3("old top-3 vs main", 26), beat3("old top-3 vs main", 25)]).toEqual([true, false]);
-    expect([beat3("new top-3 vs main", 20), beat3("new top-3 vs main", 19)]).toEqual([true, false]);
+    expect([beat3("old top-3 vs main", 27), beat3("old top-3 vs main", 26)]).toEqual([true, false]);
+    expect([beat3("new top-3 vs main", 21), beat3("new top-3 vs main", 20)]).toEqual([true, false]);
+  });
+
+  it("prints floors of top-1 21 and top-3 27 old / 21 new", () => {
+    const cases = holdout(60, 6, 32);
+    const text = scorer.formatScore(report({ top1: 30, top3: 30 }), cases, main);
+    const material = section(text, "Material 60", "Acme ");
+    expect(lineOf(material, "old top-1 vs main")).toContain("(21/60)");
+    expect(lineOf(material, "new top-1 vs main")).toContain("(21/60)");
+    expect(lineOf(material, "old top-3 vs main")).toContain("(27/60)");
+    expect(lineOf(material, "new top-3 vs main")).toContain("(21/60)");
   });
 
   it("prints n/a for N = 0 and never counts it as a pass", () => {
@@ -341,7 +352,7 @@ describe("F1b-R2 main's weak-lead rule", () => {
     const report = scorer.scoreRecorded([row], runs, names, indexIds);
     expect([report.groups.material["top1"], report.groups.material["top3"], report.groups.material["avoidHit"]]).toEqual([1, 1, 1]);
     expect([report.groups.material["top1New"], report.groups.material["top3New"], report.groups.material["avoidHitNew"]]).toEqual([0, 0, 0]);
-    const listed = shownRun("q-ask", 1, "slider", "ask");
+    const listed = shownRun("q-ask", 1, "slider", "ask", { shortlist: ["slider", "tooltip", "badge"] });
     listed.request.shortlist = ["slider", "tooltip", "badge"];
     const top3 = scorer.scoreRecorded([row], [listed], names, indexIds).groups.material;
     expect([top3["top1"], top3["top3"], top3["top1New"], top3["top3New"]]).toEqual([0, 1, 0, 0]);
@@ -387,15 +398,42 @@ describe("F1b-R2 main's weak-lead rule", () => {
   });
 });
 
-describe("F1b score errors and incomplete cases", () => {
-  it("leaves a case with 2 of 3 runs out of every count and lists it", () => {
+describe("F1b score errors and partial agreement", () => {
+  it("counts a 2-of-3 case instead of leaving it out", () => {
     const cases: Case[] = ["i-1", "i-2"].map((id) => ({ id, pack: "material", ask: "synthetic", expect: { lead: "Chip", accept: "exact" }, tags: [] }));
     const runs = [1, 2, 3].map((run) => shownRun("i-1", run, "chip")).concat([1, 2].map((run) => shownRun("i-2", run, "chip")));
     const report = scorer.scoreRecorded(cases, runs, names, indexIds);
-    expect([report.incomplete, report.groups.material["asks"], report.groups.material["top1"], report["badRuns"]]).toEqual([["i-2"], 1, 1, 0]);
+    expect([report.incomplete, report.groups.material["asks"], report.groups.material["top1"], report["badRuns"]]).toEqual([[], 2, 2, 0]);
     const text = scorer.formatScore(report, cases);
-    expect(text.split("\n")[0]).toBe("Material 1");
-    expect(text).toContain("\nincomplete 1 (2 of 3 runs, left out of every count): i-2\n");
+    expect(text.split("\n")[0]).toBe("Material 2");
+    expect(text).toContain("\nincomplete 0\n");
+    expect(text).not.toContain("left out of every count");
+  });
+
+  it("scores two agreeing runs and keeps a disagreement in the count", () => {
+    const row: Case = { id: "p-1", pack: "material", ask: "synthetic", expect: { lead: "Chip", accept: "exact" }, tags: [] };
+    const agree = scorer.scoreRecorded([row], [shownRun("p-1", 1, "chip"), shownRun("p-1", 2, "chip")], names, indexIds);
+    expect([agree.incomplete, agree.groups.material["asks"], agree.groups.material["top1"], agree.groups.material["split"]]).toEqual([[], 1, 1, 0]);
+    expect(scorer.formatScore(agree, [row])).toContain("partial agreement (2 of 3)");
+    const split = scorer.scoreRecorded([row], [shownRun("p-1", 1, "chip"), shownRun("p-1", 2, "slider")], names, indexIds);
+    expect([split.incomplete, split.groups.material["asks"], split.groups.material["top1"], split.groups.material["split"]]).toEqual([[], 1, 0, 1]);
+  });
+
+  it("scores the engine shortlist and reports the model shortlist only", () => {
+    const row: Case = { id: "q-ask", pack: "material", ask: "synthetic", expect: { lead: "Tooltip", accept: "exact" }, alternates: ["Badge"], tags: [] };
+    const missed = shownRun("q-ask", 1, "slider", "place", { shortlist: ["slider"] });
+    missed.request.shortlist = ["tooltip", "badge", "chip"];
+    const report = scorer.scoreRecorded([row], [missed], names, indexIds);
+    expect([report.groups.material["top1"], report.groups.material["top3"]]).toEqual([0, 0]);
+    expect(report.modelShortlist).toEqual([{ caseId: "q-ask", run: 1, shortlist: ["tooltip", "badge", "chip"] }]);
+    const text = scorer.formatScore(report, [row]);
+    expect(text).toContain("model shortlist (not scored)");
+    expect(text).toContain("q-ask run 1 tooltip, badge, chip");
+    const seen = shownRun("q-ask", 1, "slider", "place", { shortlist: ["slider", "tooltip"] });
+    seen.request.shortlist = ["chip"];
+    const hit = scorer.scoreRecorded([row], [seen], names, indexIds);
+    expect([hit.groups.material["top1"], hit.groups.material["top3"]]).toEqual([0, 1]);
+    expect(hit.modelShortlist).toEqual([{ caseId: "q-ask", run: 1, shortlist: ["chip"] }]);
   });
 
   it("exits 2 on a missing run file and 3 when runs and cases do not match", () => {

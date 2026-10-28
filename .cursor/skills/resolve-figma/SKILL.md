@@ -29,17 +29,3 @@ If either is missing, stop. Tell the user in plain words what is missing and how
 7. **`check_cousins`** when a library file and a product or client file are both linked. Pass the same context. Unsure means stop.
 
 Placing into a different Figma file needs the library published and `libraries` from `search_design_system`. Otherwise build inside the library file.
-
-## Meaning files
-
-Optional. Repo or demo only. This folder is not in the npm package.
-
-Each component's own text is a generated file. Open the library index, then that one file. Acme is `meaning/acme/index.md`, then the linked file (for example `meaning/acme/switch.md`). Stop after those two reads. A `Thin:` line means the library description is missing. `recommend` still uses the meaning dictionary.
-
-When a shell is available and `RESOLVE_AI_PICKS=1`, read that index, open at most the shortlist files, and call `resolve pick`. A reason is a span of at least 3 words and 12 characters from one sentence of the description or the guidelines, or one exact whole line that is not the component name and not an alias, or the exact sequence of the name, one property, and a value written as listed. Property values are strings. A bare name is a reason only when that file has no description and no properties; the pick is then ask and name-only. A bare name or an alias is not a reason otherwise. When no shell is available, follow those quoting rules and do not call the CLI. With the switch off, use `recommend`.
-
-## Design work
-
-Simplest thing that works. Reuse an existing component before anything new. One check: `verify_frame`.
-
-Full write-up, when this client can read MCP resources: `resolve://workflow`.

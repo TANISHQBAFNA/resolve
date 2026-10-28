@@ -77,12 +77,26 @@ export function majority(rows, ok = new Set()) {
 
 function winnerOf(runs, ok) {
   if (runs.length === 1) return { winner: runs[0], oneRun: true };
-  if (runs.length !== 3) return { winner: undefined, oneRun: false };
-  return { winner: majority(runs, ok), oneRun: false };
+  // 2 of 3 is partial agreement: the two runs vote, same as a full set of 3. Do not drop the case.
+  if (runs.length === 2 || runs.length === 3) return { winner: majority(runs, ok), oneRun: false };
+  return { winner: undefined, oneRun: false };
 }
 
 function namesOf(shortlist, packNames) {
   return shortlist.map((id) => packNames[id] ?? id);
+}
+
+function idList(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((id) => typeof id === "string" && id.trim()).map((id) => id.trim());
+}
+
+// Top-3 scores the shortlist users see: result.shortlist from the engine.
+// A record saved before that field existed still counts the shown pick, and nothing the model listed beside it.
+function scoredShortlist(result) {
+  if (!result) return [];
+  if (Array.isArray(result.shortlist)) return idList(result.shortlist).slice(0, 3);
+  return typeof result.id === "string" && result.id ? [result.id] : [];
 }
 
 function rate(hit, of) {
@@ -163,9 +177,11 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
   const thinDescribed = [];
   const rejections = [];
   const incomplete = [];
+  const modelShortlist = [];
   const lost = { material: [], acme: [] };
   const lostNew = { material: [], acme: [] };
   const maps = correctMaps(mainCorrect);
+  let sawTwo = false;
   for (const row of cases) {
     const group = groupOf(row.pack);
     const bucket = [groups[group], groups.total];
@@ -173,10 +189,7 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
       for (const item of bucket) item[field] += by;
     };
     const parsed = caseRuns(byCase.get(row.id) ?? []);
-    if (!parsed.error && parsed.runs.length === 2) {
-      incomplete.push(row.id);
-      continue;
-    }
+    if (!parsed.error && parsed.runs.length === 2) sawTwo = true;
     add("asks");
     if (parsed.error === "duplicate") {
       duplicates += 1;
@@ -191,7 +204,9 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
     const known = indexIds[row.pack] ?? new Set();
     const packNames = namesByPack[row.pack] ?? {};
     for (const run of parsed.runs) {
-      const ids = [...(run.request?.shortlist ?? []), ...(typeof run.request?.pick === "string" ? [run.request.pick] : [])];
+      const offered = idList(run.request?.shortlist).slice(0, 3);
+      if (offered.length) modelShortlist.push({ caseId: row.id, run: run.run, shortlist: offered });
+      const ids = [...offered, ...(typeof run.request?.pick === "string" ? [run.request.pick] : [])];
       for (const id of ids.filter(Boolean)) {
         add("named");
         if (!known.has(id)) add("invented");
@@ -214,7 +229,7 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
     const noFit = Boolean(winner) && winner.result.tier === "no-fit" && !winner.result.id;
     const exact = row.expect?.accept === "exact";
     const weakAnswer = Boolean(winner) && winner.result.tier === "ask";
-    const shortlistNames = namesOf((winner?.request?.shortlist ?? []).slice(0, 3), packNames);
+    const shortlistNames = namesOf(scoredShortlist(winner?.result), packNames);
     const nameHit = Boolean(winner) && winner.result.tier !== "no-fit" && ok.has(leadName);
     const top3Hit = Boolean(winner) && winner.result.tier !== "no-fit" && shortlistNames.some((name) => ok.has(name));
     // Old rule: tier ask still counts. New rule: tier ask is a weak lead and fails.
@@ -263,6 +278,9 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
     thinDescribed,
     rejections,
     incomplete,
+    modelShortlist,
+    partial: sawTwo,
+    threeRun: sawThree,
     lost: mainCorrect ? lost : undefined,
     lostNew: mainCorrect ? lostNew : undefined,
     oneRun: sawOne && !sawThree,
@@ -303,11 +321,11 @@ function rateOf(hit, of) {
 // F1b-R1: the ticket bars as rates, so any case count gets marks, the holdout too.
 // Absolute bars on the frozen 60: top-1 48/60, top-3 54/60, name-avoiding top-3 28/32, no-fit 6/6, main-correct cases lost 3.
 // Vs-main bars are fixed. They are not computed from a fresh main score.
-// Baseline is main's better single path: top-1 18/60 new and 20/60 old, so the bars are
-// top-1 21/60 under both rules, top-3 20/60 new and 26/60 old.
+// Floors against main's better single path. top-1 floor is 21/60 under both rules.
+// top-3 floor is 27/60 under the old rule and 21/60 under the new rule.
 export const TICKET_BARS = {
   top1: 0.8, top3: 0.9, avoid: 0.85, noFit: 0.9, gate: 0.05, tierFlips: 0.1, lost: 3 / 60, quote: 1,
-  top1Old: 21 / 60, top1New: 21 / 60, top3Old: 26 / 60, top3New: 20 / 60,
+  top1Old: 21 / 60, top1New: 21 / 60, top3Old: 27 / 60, top3New: 21 / 60,
 };
 
 // A bar with no cases (N = 0) is n/a, never a pass.
@@ -500,7 +518,7 @@ export function formatScore(report, cases, mainRates) {
     line("rejected", total.rejected ?? 0, asks),
     atMost("gate", total.gate, asks, TICKET_BARS.gate).text,
     atMost("tier flips", total.tierFlips, asks, TICKET_BARS.tierFlips).text,
-    report.mixed ? "mixed runs" : report.oneRun ? "one run" : "majority of 3",
+    report.mixed ? "mixed runs" : report.partial && !report.threeRun ? "partial agreement (2 of 3)" : report.oneRun ? "one run" : "majority of 3",
     report.duplicates ? `duplicate runs ${report.duplicates}` : "duplicate runs 0",
     report.badRuns ? `bad runs ${report.badRuns}` : "bad runs 0",
     incomplete.length ? `incomplete ${incomplete.length} (2 of 3 runs, left out of every count): ${incomplete.join(", ")}` : "incomplete 0",
@@ -510,6 +528,8 @@ export function formatScore(report, cases, mainRates) {
     report.thinDescribed?.length ? report.thinDescribed.map((id) => `${id} name-only`).join("\n") : "(none)",
     "checker rejections",
     rejections.length ? rejections.map((item) => `${item.caseId} run ${item.run} ${item.failed.join(",")}`).join("\n") : "(none)",
+    "model shortlist (not scored)",
+    report.modelShortlist?.length ? report.modelShortlist.map((item) => `${item.caseId} run ${item.run} ${item.shortlist.join(", ")}`).join("\n") : "(none)",
   ];
   if (report.lost) {
     const fresh = report.lostNew ?? report.lost;
@@ -687,7 +707,7 @@ function prepare(casesPath, outDir) {
   process.stdout.write(`wrote ${cases.length} prompts to ${outDir}\n`);
 }
 
-// A case with 2 of 3 runs is incomplete: scoring leaves it out and lists it. Runs and cases that do not match are listed.
+// A case with 2 of 3 runs is scored (partial agreement). Runs and cases that do not match are listed.
 function runShape(cases, runs) {
   const byCase = new Map();
   for (const run of runs) {
@@ -703,7 +723,6 @@ function runShape(cases, runs) {
     if (parsed.error) return { shape: parsed.error };
     if (parsed.runs.length === 1) sawOne = true;
     else if (parsed.runs.length === 3) sawThree = true;
-    else if (parsed.runs.length === 2) incomplete.push(row.id);
   }
   if (sawOne && sawThree) return { shape: "mixed" };
   const caseIds = new Set(cases.map((row) => row.id));
