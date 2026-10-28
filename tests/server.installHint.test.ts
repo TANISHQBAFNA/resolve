@@ -149,7 +149,7 @@ describe("F4-R2: install hint on the first MCP reply", () => {
   });
 
   it("only resolve-setup's own entry, without the plugin settings, counts as a project install", () => {
-    const entry = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.2", "resolve-mcp"] };
+    const entry = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.3", "resolve-mcp"] };
     const cases: Array<[unknown, string]> = [
       [{ mcpServers: { resolve: { command: "npm", args: ["run", "mcp"] } } }, "plugin"],
       [{ mcpServers: { resolve: { ...entry, env: { FIGMA_ACCESS_TOKEN: "${user_config.FIGMA_ACCESS_TOKEN}" } } } }, "plugin"],

@@ -27,6 +27,7 @@ interface Report {
   groups: Record<"material" | "acme" | "total", Group>;
   rejections: Array<{ caseId: string; run: number; failed: string[] }>;
   incomplete: string[];
+  twoOfThree?: string[];
   modelShortlist?: Array<{ caseId: string; run: number; shortlist: string[] }>;
   thinDescribed: string[];
   lost?: Record<string, string[]>;
@@ -408,6 +409,30 @@ describe("F1b score errors and partial agreement", () => {
     expect(text.split("\n")[0]).toBe("Material 2");
     expect(text).toContain("\nincomplete 0\n");
     expect(text).not.toContain("left out of every count");
+  });
+
+  it("lists every incomplete or 2-of-3 case by id with the count", () => {
+    const cases: Case[] = ["i-1", "i-2", "i-3"].map((id) => ({ id, pack: "material", ask: "synthetic", expect: { lead: "Chip", accept: "exact" }, tags: [] }));
+    const runs = [1, 2, 3].map((run) => shownRun("i-1", run, "chip"))
+      .concat([1, 2].map((run) => shownRun("i-2", run, "chip")))
+      .concat([2, 3].map((run) => shownRun("i-3", run, "slider")));
+    const report = scorer.scoreRecorded(cases, runs, names, indexIds);
+    expect(report.incomplete).toEqual([]);
+    expect(report.twoOfThree).toEqual(["i-2", "i-3"]);
+    expect(report.groups.material["asks"]).toBe(3);
+    expect(report.groups.material["top1"]).toBe(2);
+    const text = scorer.formatScore(report, cases);
+    expect(text).toContain("\nincomplete 0\n");
+    expect(text).toContain("\nincomplete or 2-of-3 2: i-2, i-3\n");
+    expect(text).not.toContain("left out of every count");
+    const held: Report = {
+      ...report,
+      incomplete: ["z-9"],
+      twoOfThree: ["i-2"],
+    };
+    const heldText = scorer.formatScore(held, cases);
+    expect(heldText).toContain("\nincomplete 1 (2 of 3 runs, left out of every count): z-9\n");
+    expect(heldText).toContain("\nincomplete or 2-of-3 2: z-9, i-2\n");
   });
 
   it("scores two agreeing runs and keeps a disagreement in the count", () => {

@@ -1,4 +1,4 @@
-INVALID — do not cite this run. Top-3 was taken from the model's shortlist, not the engine shortlist (result.shortlist) that users see. The files stay as the record of that run.
+INVALID — do not cite this run. The picks in this run were hard-coded by hand, not produced by the tool, so this run is not a real measurement. The files stay as the record of that run. Do not cite its numbers.
 Material 60
 old top-1 58/60 96.7% target 80% (48/60) pass
 new top-1 55/60 91.7% target 80% (48/60) pass

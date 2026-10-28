@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 const TOKEN_KEYS = ["FIGMA_ACCESS_TOKEN", "FIGMA_TOKEN"] as const;
 const FILE_KEY_KEYS = ["RESOLVE_LIBRARY_FILE_KEY", "FIGMA_LIBRARY_FILE_KEY"] as const;
 /** The server args resolve-setup writes into a project MCP file (MCP_ENTRY in bin/resolve-setup.mjs). */
-const SETUP_ARGS = JSON.stringify(["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.2", "resolve-mcp"]);
+const SETUP_ARGS = JSON.stringify(["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.3", "resolve-mcp"]);
 
 const HOW_TO_SET =
   "Set the missing one in the plugin settings. Do not paste it into a project file. " +
