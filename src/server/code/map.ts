@@ -9,7 +9,7 @@ import { resolveGraph } from "../store";
 import type { CatalogEntry, CodeCatalog, FigmaMaster, MatchBy } from "./scan.ts";
 import { nameWords, namespaceStems, RELATED, tokens } from "./words.ts";
 
-/** Joins, strongest first: mapped (mapping.json; a deny line blocks), exact (same name, and a second signal when both sides have one), alias (one shared alias), suggested (never joined). */
+/** Joins, strongest first: mapped (a mapping.json confirm; a deny line wins), exact (same name plus one specific shared variant, modifier, or description phrase). Generic states do not count. Anything else is suggested, never joined. */
 const byCode = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const plural = (w: string) => (w.length > 3 && w.endsWith("ies") ? `${w.slice(0, -3)}y` : w.length > 3 && w.endsWith("s") && !/(ss|us|is)$/.test(w) ? w.slice(0, -1) : w);
 export const norm = (name: string, namespaces: ReadonlySet<string> = namespaceSet()): string =>
@@ -108,13 +108,9 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
   };
   const choose = (master: FigmaMaster, hits: CatalogEntry[]) => {
     const kinded = hits.filter((e) => folderOk(master.name, e.kind));
-    const crossed = kinded.length ? [] : hits.filter((e) => same(e.name) === same(master.name) && secondSignal(master, e).agree);
-    const allowed = kinded.length ? kinded : crossed;
-    if (allowed.length === 1) return crossed.length || !secondSignal(master, allowed[0]!).disagree ? allowed[0] : undefined;
-    if (allowed.length < 2) return undefined;
-    const mv = new Set(tokens((master.variants ?? []).join(" ").replace(/[-_]+/g, " ")));
-    const overlapped = allowed.filter((e) => [...mv].some((w) => variantWords(e).has(w)));
-    return overlapped.length === 1 ? overlapped[0] : undefined;
+    const pool = kinded.length ? kinded : hits;
+    const agreed = pool.filter((entry) => secondSignal(master, entry).agree);
+    return agreed.length === 1 ? agreed[0] : undefined;
   };
 
   const links: Link[] = [];
@@ -122,7 +118,7 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
   for (const master of masters) {
     const mine = pairRules.filter((r) => figmaIdentity(r.figma ?? "") === figmaIdentity(master.name));
     if (mine.length) {
-      for (const entry of uniqueEntries(mine.flatMap((r) => targets(r)))) links.push({ master, entry, by: "mapped" });
+      for (const entry of uniqueEntries(mine.flatMap((r) => targets(r)))) if (!blocked(master.name, entry.name)) links.push({ master, entry, by: "mapped" });
       continue;
     }
     const named = catalog.components.filter((e) => same(e.name) === same(master.name));
@@ -142,9 +138,7 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
       }
     }
     const list = [...hits.keys()];
-    const alias = list[0] as CatalogEntry | undefined;
-    if (list.length === 1 && alias && !blocked(master.name, alias.name)) links.push({ master, entry: alias, by: "alias", alias: hits.get(alias) as string });
-    else if (list.length > 1) ambiguous.set(master.name, list);
+    if (list.length > 1) ambiguous.set(master.name, list);
   }
   const partMap = new Map<CatalogEntry, string[]>();
   const blocks = catalog.components.filter((e) => e.kind === "block");
@@ -213,6 +207,9 @@ function suggestions(master: FigmaMaster, catalog: CodeCatalog, r: ReturnType<ty
   const folder = figmaFolderKind(master.name, r.ns);
   const out = catalog.components.flatMap((entry): Suggestion[] => {
     if (folder === "part" || (folder && folder !== entry.kind) || r.blocked(master.name, entry.name)) return [];
+    if (norm(entry.name, r.ns) === norm(master.name, r.ns) && !secondSignal(master, entry).agree) {
+      return [{ figma: master.name, code: entry.name, confidence: "suggested", score: 1, reasons: ["same name, no evidence"] }];
+    }
     let best = { score: 0, reasons: [] as string[] };
     for (const m of r.masterNames(master)) for (const e of r.entryNames(entry)) {
       const leftWords = words(m);

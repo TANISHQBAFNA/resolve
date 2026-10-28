@@ -54,7 +54,7 @@ export const CODE_TOOLS: ToolDefinition[] = [
   {
     name: "code_map",
     description:
-      'One map tool. Default (action links): how Figma components and coded components join, plus the import map when a library is learned. Pairs carry a confidence: mapped (named in .resolve/mapping.json), exact (same name), alias (a name or alias on either side). Also lists Figma and coded components with no match. suggest:true adds likely pairs ("suggested"). A suggested pair is not a link. action scan, suggest, or review reads a component package and confirms import pairs (the same work as the older code_map_scan, code_map_suggest, and code_map_review names, which still run and say to use code_map).',
+      'One map tool. Default (action links): how Figma components and coded components join, plus the import map when a library is learned. Pairs carry a confidence: mapped (named in .resolve/mapping.json), exact (same name plus a specific shared variant, modifier, or description; a generic state does not count). Also lists Figma and coded components with no match. suggest:true adds likely pairs ("suggested"), including a same name with no evidence. A suggested pair is not a link. action scan, suggest, or review reads a component package and confirms import pairs (the same work as the older code_map_scan, code_map_suggest, and code_map_review names, which still run and say to use code_map).',
     inputSchema: {
       type: "object",
       properties: {

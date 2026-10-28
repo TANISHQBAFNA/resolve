@@ -264,14 +264,15 @@ export function buildCatalog(cfg: ResolveConfig, order: <T>(items: T[]) => T[] =
   for (const file of htmlPaths) {
     if (statSync(file).size > 500_000) continue;
     const rel = posix(relative(repo, file));
-    if (/^index\.html?$/i.test(rel.split("/").pop() ?? "")) continue;
     const comp = componentOf(rel);
     if (!comp || accs.has(`${comp.kind}:${comp.name}`)) continue;
     const doc = parseHtml(readFileSync(file, "utf8"));
     const classes = doc.tags.flatMap((tag) => [...tag.classes, ...tag.dynamicClasses]);
-    const links = doc.tags.some((tag) => tag.tag === "a" && tag.attrs["href"]);
-    const owns = classes.some((cls) => cls === comp.name || cls.startsWith(`${comp.name}--`) || cls.startsWith(`${comp.name}__`) || cls.startsWith(`${comp.name}-`));
-    if (links && !owns) continue;
+    const base = rel.split("/").pop() ?? "";
+    const named = (cls: string) => cls === comp.name || cls.startsWith(`${comp.name}--`) || cls.startsWith(`${comp.name}__`) || cls.startsWith(`${comp.name}-`);
+    const body = doc.tags.some((tag) => tag.tag !== "a" && tag.tag !== "link" && (tag.classes.length > 0 || tag.dynamicClasses.length > 0));
+    const owns = classes.some(named) || doc.styles.length > 0 || doc.links.length > 0 || readdirSync(dirname(file)).some((name) => name.toLowerCase().endsWith(".css")) || (base.replace(/\.html?$/i, "").toLowerCase() === comp.name.toLowerCase() && body);
+    if ((/^index\.html?$/i.test(base) || doc.tags.some((tag) => tag.tag === "a" && tag.attrs["href"])) && !owns) continue;
     const acc: Acc = { name: comp.name, kind: comp.kind, files: [rel], counts: new Map(), tokens: new Set(), comments: [] };
     accs.set(`${comp.kind}:${comp.name}`, acc);
     for (const cls of classes) acc.counts.set(cls, (acc.counts.get(cls) ?? 0) + 1);
