@@ -80,7 +80,7 @@ export function classify(name, events) {
 }
 
 function parseArgs(argv) {
-  const opt = { package: "github:TANISHQBAFNA/resolve#v0.1.1", dryRun: false };
+  const opt = { package: "github:TANISHQBAFNA/resolve#v0.1.2", dryRun: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--dry-run") opt.dryRun = true;
@@ -111,7 +111,7 @@ function main(argv) {
   }
   const mcpConfig = join(project, ".mcp.json");
   const entry = existsSync(mcpConfig) ? JSON.parse(readFileSync(mcpConfig, "utf8")).mcpServers?.resolve : undefined;
-  const spec = entry ? [entry.command, ...entry.args.slice(0, -1)].join(" ") : "npx -y -p github:TANISHQBAFNA/resolve#v0.1.1";
+  const spec = entry ? [entry.command, ...entry.args.slice(0, -1)].join(" ") : "npx -y -p github:TANISHQBAFNA/resolve#v0.1.2";
   const allowed = [`Bash(${spec} resolve-figma:*)`, `Bash(${spec} resolve-setup:*)`, "mcp__resolve"];
   const results = [];
   if (!opt.dryRun) mkdirSync(join(out, "transcripts"), { recursive: true });

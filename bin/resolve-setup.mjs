@@ -256,7 +256,7 @@ export function ignoresWholeResolveStore(text) {
 }
 
 /** The one server entry Resolve adds. Same command everywhere (Cursor, Claude Code, Codex). */
-export const MCP_ENTRY = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.1", "resolve-mcp"] };
+export const MCP_ENTRY = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.2", "resolve-mcp"] };
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
