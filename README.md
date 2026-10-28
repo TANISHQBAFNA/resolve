@@ -132,7 +132,7 @@ The code workflow reads a repo of HTML/CSS and builds a catalog of its real comp
 | `/parts <link>` | Each component on the screen and its mapped code twin. Unmapped means stop and ask. |
 | `/handoff <link>` | A developer build sheet for the screen. Mapped code twins only. |
 | `/brief` | Asks up to 3 quick questions before Resolve picks parts. |
-| `/code-map scan\|suggest\|review` | Read your component package, propose code pairs, then confirm them. |
+| `/code-map` | One command: the import map, package scan/suggest/review, and coded joins (`--pairs`, `--unmatched`, `--suggest`). |
 | `/spec <link>` | Reads a Figma spec and maps each screen requirement to a real component, or says no match. |
 | `/learn-code [folder]` | Code workflow. Reads the repo and learns its real classes, variants and tokens. |
 | `/pick-code <need>` | Code workflow. The right coded component, with its classes and markup. |

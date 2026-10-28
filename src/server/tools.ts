@@ -58,7 +58,7 @@ import {
   runProposalDecision,
 } from "./store";
 import { recordGap } from "./gaps";
-import { CODE_MAP_TOOLS, runCodeMapTool } from "./codeMapMcp";
+import { callCodeMapAlias } from "./codeMapMcp";
 import { SPEC_TOOLS, runSpecTool } from "./specMcp";
 import { DECISION_TOOLS, RECORD_PROPERTY, recordProblem, runDecisionTool, withDecisionRecord } from "./decisionMcp";
 import { composeProblem, runCompose } from "./composeCommand";
@@ -472,7 +472,6 @@ export const TOOLS: ToolDefinition[] = [
       },
     },
   },
-  ...CODE_MAP_TOOLS,
   ...SPEC_TOOLS,
   ...DECISION_TOOLS,
   {
@@ -631,6 +630,13 @@ export function callTool(name: string, rawArgs: unknown): unknown {
   if (REMOVED_MCP_TOOLS.has(name)) {
     const instead = DEPRECATED_INSTEAD[name] ?? "the current tools";
     throw new ToolError(`Tool "${name}" was removed. Use ${instead}.`);
+  }
+  try {
+    const aliased = callCodeMapAlias(name, rawArgs, (args) => context(args).index);
+    if (aliased !== undefined) return aliased && typeof aliased === "object" && !Array.isArray(aliased) ? withCost(aliased) : aliased;
+  } catch (error) {
+    if (error instanceof ToolError) throw error;
+    throw new ToolError(error instanceof Error ? error.message : String(error));
   }
   const advanced = process.env["RESOLVE_MCP_ADVANCED"] === "1";
   const allowed = new Set(listToolDefinitions(advanced).map((tool) => tool.name));
@@ -979,8 +985,6 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
     }
 
     default: {
-      if (name === "code_map_scan") return runCodeMapTool(name, args);
-      if (name === "code_map_suggest" || name === "code_map_review") return runCodeMapTool(name, args, context(args).index);
       if (name === "spec_map") return runSpecTool(args, context(args).index, specRanking(args));
       if (name === "decision_record" || name === "export_aidlc") return runDecisionTool(name, args);
       throw new ToolError(`Unknown tool \`${name}\`.`);

@@ -37,7 +37,7 @@ That writes the core rule `.cursor/rules/resolve.mdc` (always on), the pack rule
 
 One engine, two workflows. Only the active mode's rules and tools are loaded.
 
-- **`figma`:** 8 default tools (21 with `RESOLVE_MCP_ADVANCED=1`), resource `resolve://figma`.
+- **`figma`:** 8 default tools (18 with `RESOLVE_MCP_ADVANCED=1`), resource `resolve://figma`.
 - **`code`:** `code_scan`, `code_pick`, `code_check`, `code_map`, resource `resolve://code`.
 - **`both`:** all 12 default tools and both resources.
 
@@ -52,7 +52,7 @@ Settings (environment variable, or the same-named key in `.resolve/config.json`)
 | `RESOLVE_CSS_ENTRY` | `cssEntry` | The CSS file that imports the design system, relative to the repo (optional) |
 | `RESOLVE_THEME` | `theme` | The token file or theme name (optional) |
 
-For example, a code-only project: add `"env": { "RESOLVE_MODE": "code", "RESOLVE_REPO_PATH": "/path/to/repo", "RESOLVE_CSS_ENTRY": "css/main.css" }` to the `resolve` server entry. The code workflow is `code_scan` (once, and again when the design system changes) → `code_pick` for each screen need → build with the returned classes and tokens only → `code_check` on the HTML file. `code_map` shows how Figma and coded components join (both mode). From a shell: `resolve code scan|pick|check|map`. Resolve only reads the repo.
+For example, a code-only project: add `"env": { "RESOLVE_MODE": "code", "RESOLVE_REPO_PATH": "/path/to/repo", "RESOLVE_CSS_ENTRY": "css/main.css" }` to the `resolve` server entry. The code workflow is `code_scan` (once, and again when the design system changes) → `code_pick` for each screen need → build with the returned classes and tokens only → `code_check` on the HTML file. `code_map` shows how Figma and coded components join (both mode). From a shell: `resolve code scan|pick|check`. Joins are `resolve code-map --pairs`. Resolve only reads the repo.
 
 ## One config line
 

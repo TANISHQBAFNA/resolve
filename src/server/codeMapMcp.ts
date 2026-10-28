@@ -3,53 +3,27 @@ import { dirname, resolve } from "node:path";
 import { scanAngularPackage } from "@/adapters/angular";
 import type { GraphIndex } from "@/core/query/GraphIndex";
 import { codeMapJson, entriesToCsv, readCodeMapDocument } from "@/core/query/codeMapCsv";
+import { deprecationNotice } from "./deprecations";
 import { importReview, mapFile, preparedSuggestions, writeSuggestions } from "./codeMapCommand";
 
-/**
- * Advanced MCP tools. They call the same scan, suggest, and review functions as the CLI.
- * They are not on the default tool list.
- */
+/** Older names for `code_map`. They stay callable and say to use `code_map`. */
+export const CODE_MAP_ALIASES: Record<string, "scan" | "suggest" | "review"> = {
+  code_map_scan: "scan",
+  code_map_suggest: "suggest",
+  code_map_review: "review",
+};
 
-export const CODE_MAP_TOOLS = [
-  {
-    name: "code_map_scan",
-    description:
-      "Read a component package and return its component inventory (selector, inputs including signal inputs, outputs, module or standalone). Compiled .d.ts first, then the component decorator in source. Advanced surface. Needs RESOLVE_MCP_ADVANCED=1. Does not write the code map.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        package: { type: "string", description: "Package path or name, for example a path to @acme/ui." },
-      },
-      required: ["package"],
-    },
-  },
-  {
-    name: "code_map_suggest",
-    description:
-      "Propose Figma ↔ code pairs from names and from Figma properties ↔ inputs. Every pair is suggested or partial, never mapped. write:true saves them and keeps confirmed entries. Advanced surface. Needs RESOLVE_MCP_ADVANCED=1.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        package: { type: "string", description: "Package path or name to scan." },
-        write: { type: "boolean", description: "Save suggestions into code-map.json. Confirmed rows stay. Nothing is marked mapped." },
-        graphId: { type: "string", description: "Graph to read. Optional when one graph is stored." },
-      },
-      required: ["package"],
-    },
-  },
-  {
-    name: "code_map_review",
-    description:
-      "Accept or fix code-map suggestions through the CSV import. Only a row whose status is mapped becomes mapped. Entries the CSV leaves out are kept. Omit csv to get the review sheet. Advanced surface. Needs RESOLVE_MCP_ADVANCED=1.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        csv: { type: "string", description: "CSV text, or a path to a .csv file. Omit to return the review CSV." },
-        replace: { type: "boolean", description: "Drop entries the CSV has no row for. Default keeps them." },
-      },
-    },
-  },
-];
+/** Undefined when `name` is not an alias. Throws the advanced-surface error when the switch is off. */
+export function callCodeMapAlias(name: string, rawArgs: unknown, indexFor: (args: Record<string, unknown>) => GraphIndex): unknown | undefined {
+  if (!(name in CODE_MAP_ALIASES)) return undefined;
+  if (process.env["RESOLVE_MCP_ADVANCED"] !== "1") {
+    throw new Error(`Tool "${name}" is not on the default MCP surface. Set RESOLVE_MCP_ADVANCED=1 to enable it. Agents cannot call advanced tools.`);
+  }
+  const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
+  const raw = runCodeMapTool(name, args, CODE_MAP_ALIASES[name] === "scan" ? undefined : indexFor(args));
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  return { deprecation: deprecationNotice(name, "code_map"), ...raw };
+}
 
 export function runCodeMapTool(name: string, args: Record<string, unknown>, index?: GraphIndex): unknown {
   if (name === "code_map_scan") return scanAngularPackage(resolve(asText(args["package"], "package")));
