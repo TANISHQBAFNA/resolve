@@ -7,7 +7,7 @@
 <p align="center">
 	<a href="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml"><img src="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 	<a href="LICENSE"><img src="https://img.shields.io/badge/license-use%20only-lightgrey.svg" alt="License: use only"></a>
-	<a href="package.json"><img src="https://img.shields.io/badge/version-0.1.1-2dd4bf.svg" alt="Version 0.1.1"></a>
+	<a href="package.json"><img src="https://img.shields.io/badge/version-0.1.3-2dd4bf.svg" alt="Version 0.1.3"></a>
 	<a href="package.json"><img src="https://img.shields.io/badge/node-%E2%89%A522.12-339933.svg" alt="Node 22.12 or newer"></a>
 	<a href=".claude-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Claude%20Code-d97757.svg" alt="Claude Code plugin"></a>
 	<a href=".cursor-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Cursor-555555.svg" alt="Cursor plugin"></a>

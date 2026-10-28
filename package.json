@@ -1,7 +1,7 @@
 {
   "name": "resolve-figma",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.3",
   "type": "module",
   "description": "Resolve tells Claude Code and Cursor which real components to use, Figma masters or coded HTML/CSS classes, then checks the result. Works with any design system and any code stack.",
   "keywords": [

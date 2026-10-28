@@ -177,6 +177,7 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
   const thinDescribed = [];
   const rejections = [];
   const incomplete = [];
+  const twoOfThree = [];
   const modelShortlist = [];
   const lost = { material: [], acme: [] };
   const lostNew = { material: [], acme: [] };
@@ -189,7 +190,10 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
       for (const item of bucket) item[field] += by;
     };
     const parsed = caseRuns(byCase.get(row.id) ?? []);
-    if (!parsed.error && parsed.runs.length === 2) sawTwo = true;
+    if (!parsed.error && parsed.runs.length === 2) {
+      sawTwo = true;
+      twoOfThree.push(row.id);
+    }
     add("asks");
     if (parsed.error === "duplicate") {
       duplicates += 1;
@@ -278,6 +282,7 @@ export function scoreRecorded(cases, runs, namesByPack, indexIds = {}, mainCorre
     thinDescribed,
     rejections,
     incomplete,
+    twoOfThree,
     modelShortlist,
     partial: sawTwo,
     threeRun: sawThree,
@@ -490,6 +495,21 @@ export function scoreJson(report, cases, mainRates) {
   return { ...report, main: mainRates ?? null, marks };
 }
 
+function listedIds(incomplete, twoOfThree) {
+  const seen = new Set();
+  const ids = [];
+  for (const id of [...incomplete, ...twoOfThree]) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+function listedLine(label, ids) {
+  return ids.length ? `${label} ${ids.length}: ${ids.join(", ")}` : `${label} 0`;
+}
+
 export function formatScore(report, cases, mainRates) {
   const scored = scoredCases(report, cases);
   const scores = groupScores(report, scored, mainRates);
@@ -522,6 +542,7 @@ export function formatScore(report, cases, mainRates) {
     report.duplicates ? `duplicate runs ${report.duplicates}` : "duplicate runs 0",
     report.badRuns ? `bad runs ${report.badRuns}` : "bad runs 0",
     incomplete.length ? `incomplete ${incomplete.length} (2 of 3 runs, left out of every count): ${incomplete.join(", ")}` : "incomplete 0",
+    listedLine("incomplete or 2-of-3", listedIds(incomplete, report.twoOfThree ?? [])),
     `name-only ${report.nameOnly ?? 0}`,
     `library quote ${report.libraryQuotes ?? 0}/${report.libraryShown ?? 0}`,
     "thin description",

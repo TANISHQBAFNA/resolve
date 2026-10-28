@@ -9,7 +9,7 @@ import { PHRASES, classify, commandPlan } from "../scripts/fresh-install-kit.mjs
 const call = (id: string, name: string, input: Record<string, unknown>) => ({ type: "assistant", message: { content: [{ type: "tool_use", id, name, input }] } });
 const reply = (id: string, content: unknown, isError = false) => ({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: id, content, is_error: isError }] } });
 const done = (result: string) => ({ type: "result", result });
-const status = "npx -y -p github:TANISHQBAFNA/resolve#v0.1.2 resolve-figma status";
+const status = "npx -y -p github:TANISHQBAFNA/resolve#v0.1.3 resolve-figma status";
 
 describe("F4-R1 fresh-install kit", () => {
   it("looks for the designer messages Resolve really prints", () => {
@@ -56,12 +56,12 @@ describe("F4-R1 fresh-install kit", () => {
     const run = spawnSync(process.execPath, [join(__dirname, "..", "scripts", "fresh-install-kit.mjs"), "--dry-run", "--out", out], { encoding: "utf8" });
     expect(run.status).toBe(0);
     const lines = run.stdout.trim().split("\n");
-    expect(lines[0]).toBe("npx -y -p github:TANISHQBAFNA/resolve#v0.1.2 resolve-setup");
+    expect(lines[0]).toBe("npx -y -p github:TANISHQBAFNA/resolve#v0.1.3 resolve-setup");
     const claude = lines.filter((line) => line.startsWith("claude "));
     expect(claude).toHaveLength(commandPlan().length);
     for (const line of claude) {
       expect(line).toContain(`--mcp-config ${join(out, "project", ".mcp.json")} --strict-mcp-config --setting-sources project`);
-      expect(line).toContain('"Bash(npx -y -p github:TANISHQBAFNA/resolve#v0.1.2 resolve-figma:*)"');
+      expect(line).toContain('"Bash(npx -y -p github:TANISHQBAFNA/resolve#v0.1.3 resolve-figma:*)"');
     }
     expect(existsSync(join(out, "home"))).toBe(false);
     expect(existsSync(join(out, "project"))).toBe(false);

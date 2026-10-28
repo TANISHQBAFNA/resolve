@@ -8,5 +8,5 @@
   "run2SavedAt": "2026-10-26T05:26:16Z",
   "scoredAt": "2026-10-26T05:27:46Z",
   "invalid": true,
-  "invalidReason": "Invalid run. Top-3 was taken from the model's shortlist, not the engine shortlist (result.shortlist) that users see. Kept for the record. Do not cite these numbers."
+  "invalidReason": "Invalid run. The picks in this run were hard-coded by hand, not produced by the tool, so this run is not a real measurement. Kept for the record. Do not cite these numbers."
 }
