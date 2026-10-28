@@ -4,20 +4,35 @@ import { nameWords, RELATED, stem, tokens } from "./code/words.ts";
 /** One shared word from this set must not clear the suggestion floor by itself. */
 export const GENERIC_PAIR_WORDS = new Set("group card input item list row icon text label box field view container wrapper content element block section panel tile set".split(" "));
 
-const variantWords = (entry: CatalogEntry) =>
-  new Set(tokens([...entry.variants, ...Object.values(entry.code?.modifiers ?? {}).flat().map((cls) => cls.split("--").pop() ?? cls)].join(" ").replace(/[-_]+/g, " ")));
+/** States and sizes. A shared one is not evidence. Compared after stemming, same as `tokens`. */
+const GENERIC_STATES = new Set(
+  "disabled hover hovered focus focused focus-visible active default selected error size pressed checked enabled loading open closed expanded collapsed invalid success warning visited readonly visible small medium large xs sm md lg xl style state variant type mode appearance".split(" ").map((word) => stem(word)),
+);
 
-/** Variant, class, or description overlap. Disagree only when both sides have that signal and share nothing. */
+const specific = (words: string[]) => words.filter((word) => !GENERIC_STATES.has(word) && !GENERIC_PAIR_WORDS.has(word));
+
+/** Positive overlap only: a specific variant value, class modifier, or description phrase. A missing signal is not agreement, and a generic state never counts. */
 export function secondSignal(master: FigmaMaster, entry: CatalogEntry): { agree: boolean; disagree: boolean } {
-  const mv = tokens((master.variants ?? []).join(" "));
-  const extra = entry.code ? [...entry.code.elements, ...entry.code.states, ...Object.values(entry.code.modifiers).flat()] : [];
-  const ev = [...new Set([...variantWords(entry), ...tokens(extra.join(" "))])];
-  const md = tokens(master.description ?? "").filter((word) => !GENERIC_PAIR_WORDS.has(word));
-  const ed = tokens(`${entry.description} ${entry.doc ?? ""}`).filter((word) => !GENERIC_PAIR_WORDS.has(word));
+  const mv = specific(tokens((master.variants ?? []).join(" ").replace(/[-_]+/g, " ")));
+  const modifiers = Object.values(entry.code?.modifiers ?? {}).flat().map((cls) => cls.split("--").pop() ?? cls);
+  const ev = specific(tokens([...entry.variants, ...modifiers].join(" ").replace(/[-_]+/g, " ")));
+  const own = new Set(tokens(`${nameWords(master.name)} ${nameWords(entry.name)}`));
+  const phrase = (text: string) => specific(tokens(text)).filter((word) => !own.has(word));
+  const md = phrase(master.description ?? "");
+  const ed = phrase(`${entry.description} ${entry.doc ?? ""}`);
   const hit = (left: string[], right: readonly string[]) => left.some((word) => right.includes(word));
   const agree = hit(mv, ev) || hit(md, ed);
   const disagree = !agree && ((mv.length > 0 && ev.length > 0 && !hit(mv, ev)) || (md.length > 0 && ed.length > 0 && !hit(md, ed)));
   return { agree, disagree };
+}
+
+/** `paired + parts + unmatched` against the Figma total. Parts on a pair and parts on an unpaired block both count once. */
+export function figmaTotalCheck(report: { figmaComponents: number; pairs: Array<{ figma: string; parts?: string[] }>; unpairedParts?: Array<{ parts: string[] }>; unmatchedFigma: string[] }): string {
+  const paired = new Set(report.pairs.map((pair) => pair.figma)).size;
+  const parts = new Set([...report.pairs.flatMap((pair) => pair.parts ?? []), ...(report.unpairedParts ?? []).flatMap((row) => row.parts)]).size;
+  const open = report.unmatchedFigma.length;
+  const sum = paired + parts + open;
+  return `${paired} paired + ${parts} parts + ${open} unmatched = ${sum}${sum === report.figmaComponents ? "" : `, not ${report.figmaComponents}`}`;
 }
 
 /** Block a part belongs on: plural (tab/tabs), compound (field-label), or a prefix family (steps/stepper). */

@@ -20,9 +20,10 @@ const graph: DesignGraph = {
   source: { kind: "mock", ingestedAt: "2026-01-01T00:00:00.000Z" },
   nodes: [
     { id: "node:1:1", figmaNodeId: "1:1", fileKey: "ACMEUI", type: "COMPONENT_SET", name: "Button" },
+    { id: "node:1:3", figmaNodeId: "1:3", fileKey: "ACMEUI", type: "VARIANT", name: "Style=Primary", componentSetId: "node:1:1", variantProperties: { Style: "Primary" } },
     { id: "node:1:2", figmaNodeId: "1:2", fileKey: "ACMEUI", type: "COMPONENT_SET", name: "Payee picker" },
   ],
-  edges: [],
+  edges: [{ id: "edge:button-primary", source: "node:1:3", target: "node:1:1", type: "VARIANT_OF" }],
   warnings: [],
 };
 
@@ -61,7 +62,7 @@ describe("one code-map command", () => {
     clearCache();
     mkdirSync(join(root, "components", "button"), { recursive: true });
     mkdirSync(join(root, "components", "badge"), { recursive: true });
-    writeFileSync(join(root, "components", "button", "button.css"), ".btn { color: var(--ink); }\n");
+    writeFileSync(join(root, "components", "button", "button.css"), ".btn { color: var(--ink); }\n.btn--primary { color: var(--ink); }\n");
     writeFileSync(join(root, "components", "badge", "badge.css"), ".badge { color: var(--ink); }\n");
     writeFileSync(
       join(home, "code-map.json"),

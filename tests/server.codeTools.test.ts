@@ -54,7 +54,7 @@ describe("code tools", () => {
     const scan = runCodeTool("code_scan", {
       repoPath: root,
       list: true,
-      figma: [{ name: "Button", nodeId: "30:10", fileKey: "ACME" }],
+      figma: [{ name: "Button", nodeId: "30:10", fileKey: "ACME", variants: ["primary"] }],
     }) as { components: number; list: Array<{ name: string }> };
     expect(scan.components).toBe(2);
     expect(scan.list.map((row) => row.name).sort()).toEqual(["badge", "button"]);

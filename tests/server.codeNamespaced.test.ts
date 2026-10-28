@@ -45,17 +45,17 @@ describe("namespaced Figma names join the coded component", () => {
     const store = join(root, "store");
     const { cfg, catalog: built } = catalog(root, store, {
       "building-blocks/button/button.css": ".button { color: var(--ink); }\n.button--primary { color: var(--ink); }\n",
-      "building-blocks/text-field/text-field.css": ".text-field { color: var(--ink); }\n",
+      "building-blocks/text-field/text-field.css": ".text-field { color: var(--ink); }\n.text-field--outline { color: var(--ink); }\n",
       "building-blocks/header/header.css": ".header { color: var(--ink); }\n.header--wide { color: var(--ink); }\n",
       "building-blocks/card-recipes/card-recipes.css": ".card-recipes { color: var(--ink); }\n",
       "building-blocks/banner/banner.html": '<section class="banner banner--wide">Sale</section>\n',
-      "recipes/header/header.css": ".header { color: var(--ink); }\n",
+      "recipes/header/header.css": ".header { color: var(--ink); }\n.header--wide { color: var(--ink); }\n",
       "building-blocks/status/status.css": ".status { color: var(--ink); }\n.status--pill { color: var(--ink); }\n",
       "recipes/status/status.css": ".status { color: var(--ink); }\n",
     });
     const masters = [
-      { name: "ingredients/button", nodeId: "1:1" },
-      { name: "ingredients/text-field", nodeId: "1:2" },
+      { name: "ingredients/button", nodeId: "1:1", variants: ["primary"] },
+      { name: "ingredients/text-field", nodeId: "1:2", variants: ["outline"] },
       { name: "recipes/button", nodeId: "1:3" },
       { name: "recipes/header", nodeId: "1:4", variants: ["wide"] },
       { name: "recipes/footer", nodeId: "1:5" },
@@ -124,14 +124,14 @@ describe("namespaced Figma names join the coded component", () => {
   it("uses a configured namespace and ignores one that is not configured", () => {
     const root = mkdtempSync(join(tmpdir(), "resolve-ns-cfg-"));
     const store = join(root, "store");
-    const files = { "building-blocks/toggle/toggle.css": ".toggle { color: var(--ink); }\n" };
+    const files = { "building-blocks/toggle/toggle.css": ".toggle { color: var(--ink); }\n.toggle--compact { color: var(--ink); }\n" };
     const plain = catalog(root, store, files);
-    expect(mapReport(plain.catalog, plain.cfg, { masters: [{ name: "widgets/toggle", nodeId: "8:1" }] }).pairs).toEqual([]);
-    expect(mapReport(plain.catalog, plain.cfg, { masters: [{ name: "Toggle/Primary", nodeId: "8:2" }] }).pairs).toEqual([
+    expect(mapReport(plain.catalog, plain.cfg, { masters: [{ name: "widgets/toggle", nodeId: "8:1", variants: ["compact"] }] }).pairs).toEqual([]);
+    expect(mapReport(plain.catalog, plain.cfg, { masters: [{ name: "Toggle/Primary", nodeId: "8:2", variants: ["compact"] }] }).pairs).toEqual([
       { figma: "Toggle/Primary", code: "toggle", confidence: "exact" },
     ]);
     const custom = catalog(join(root, "b"), join(root, "store-b"), files, ["widgets"]);
-    expect(mapReport(custom.catalog, custom.cfg, { masters: [{ name: "widgets/toggle", nodeId: "8:1" }] }).pairs).toEqual([
+    expect(mapReport(custom.catalog, custom.cfg, { masters: [{ name: "widgets/toggle", nodeId: "8:1", variants: ["compact"] }] }).pairs).toEqual([
       { figma: "widgets/toggle", code: "toggle", confidence: "exact" },
     ]);
   });
@@ -140,12 +140,12 @@ describe("namespaced Figma names join the coded component", () => {
     const root = mkdtempSync(join(tmpdir(), "resolve-pub-"));
     const store = join(root, "store");
     const { cfg, catalog: built } = catalog(root, store, {
-      "building-blocks/button/button.css": ".button { color: var(--ink); }\n",
+      "building-blocks/button/button.css": ".button { color: var(--ink); }\n.button--primary { color: var(--ink); }\n",
       "building-blocks/draft-knob/draft-knob.css": ".draft-knob { color: var(--ink); }\n",
     });
     const report = mapReport(built, cfg, {
       masters: [
-        { name: "ingredients/button", nodeId: "3:1", published: true },
+        { name: "ingredients/button", nodeId: "3:1", published: true, variants: ["primary"] },
         { name: "ingredients/draft-knob", nodeId: "3:2", published: false },
       ],
     });

@@ -2,10 +2,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { formatCodeMapReport } from "@/core/query/codeMap";
 import { printJson } from "../cliArgs";
 import { deprecationNotice } from "../deprecations";
+import { figmaTotalCheck } from "../mapPair.ts";
 import { includesPack, readConfig } from "../mode.ts";
 import type { CheckResult } from "./check.ts";
-import { checkTool, codeConfig, mapTool, pickTool, scanTool } from "./mcp.ts";
 import { attachImportReport, writeMappings } from "./map.ts";
+import { checkTool, codeConfig, mapTool, pickTool, scanTool } from "./mcp.ts";
 import { loadCatalog } from "./scan.ts";
 import type { FigmaMaster } from "./scan.ts";
 import { readRequests, repeatCheck } from "./repeat.ts";
@@ -67,9 +68,9 @@ export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
     out("Import map:");
     out(formatCodeMapReport(imports));
   } else out("Import map: no learned library.");
-  out(`${report.figmaComponents} Figma components, ${report.codeComponents} coded components. Mapping file: ${report.mappingExists ? report.mappingFile : "none yet (" + report.mappingFile + ")"}`);
+  out(`${report.figmaComponents} Figma components (${figmaTotalCheck(report)}), ${report.codeComponents} coded components. Mapping file: ${report.mappingExists ? report.mappingFile : "none yet (" + report.mappingFile + ")"}`);
   for (const problem of report.problems ?? []) out(`  PROBLEM ${problem}`);
-  if (sections.pairs) for (const pair of report.pairs) out(`  ${pair.confidence.padEnd(9)} ${pair.figma} -> ${pair.code}${pair.alias ? ` (alias "${pair.alias}")` : ""}`);
+  if (sections.pairs) for (const pair of report.pairs) out(`  ${pair.confidence.padEnd(9)} ${pair.figma} -> ${pair.code}${pair.alias ? ` (alias "${pair.alias}")` : ""}${pair.parts?.length ? `  parts: ${pair.parts.join(", ")}` : ""}`);
   if (sections.unmatched) {
     out(`Figma with no coded match: ${report.unmatchedFigma.join(", ") || "none"}`);
     out(`Coded with no Figma match: ${report.unmatchedCode.join(", ") || "none"}`);

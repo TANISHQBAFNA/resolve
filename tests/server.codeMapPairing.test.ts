@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { learnLibrary } from "@/server/learn";
-import { runCodeCommand } from "@/server/code/command";
+import { runCodeCommand, runLinkMap } from "@/server/code/command";
 import { mapReport } from "@/server/code/map";
 import { buildCatalog, type CodeCatalog } from "@/server/code/scan";
 import { graphMasters } from "@/server/graphMasters";
@@ -37,6 +37,7 @@ describe("code-map pairing quality", () => {
     const { cfg, catalog: built } = catalog(root, store, {
       "building-blocks/acme-clock/acme-clock.css": css("/* Picks one calendar day for a reminder. */\n.acme-clock { color: var(--ink); }\n.acme-clock--single { color: var(--ink); }\n"),
       "building-blocks/acme-badge/acme-badge.css": css(".acme-badge { color: var(--ink); }\n"),
+      "building-blocks/acme-switch/acme-switch.css": css(".acme-switch { color: var(--ink); }\n.acme-switch--disabled { color: var(--ink); }\n"),
       "building-blocks/date-time-picker/date-time-picker.css": css(".date-time-picker { color: var(--ink); }\n.date-time-picker--compact { color: var(--ink); }\n"),
       "building-blocks/acme-footer/acme-footer.css": css("/* Site links along the page bottom. */\n.acme-footer { color: var(--ink); }\n"),
       "building-blocks/time-picker/time-picker.css": css(".time-picker { color: var(--ink); }\n.time-picker--compact { color: var(--ink); }\n"),
@@ -47,6 +48,7 @@ describe("code-map pairing quality", () => {
     const masters = [
       { name: "ingredients/acme-clock", nodeId: "1:1", variants: ["range"], description: "Shows a time range for a shift." },
       { name: "ingredients/acme-badge", nodeId: "1:2" },
+      { name: "ingredients/acme-switch", nodeId: "1:8", variants: ["disabled"] },
       { name: "recipes/date-time-picker", nodeId: "1:3", variants: ["compact"] },
       { name: "recipes/acme-footer", nodeId: "1:4", description: "Site links along the page bottom." },
       { name: "recipes/picker", nodeId: "1:5", variants: ["compact"] },
@@ -56,7 +58,10 @@ describe("code-map pairing quality", () => {
     const report = mapReport(built, cfg, { suggest: true, masters });
     expect(report.pairs.map((pair) => pair.figma)).not.toContain("ingredients/acme-clock");
     expect(report.suggestions?.some((row) => row.figma === "ingredients/acme-clock" && row.code === "acme-clock")).toBe(true);
-    expect(report.pairs).toContainEqual({ figma: "ingredients/acme-badge", code: "acme-badge", confidence: "exact" });
+    expect(report.pairs.map((pair) => pair.figma)).not.toContain("ingredients/acme-badge");
+    expect(report.suggestions?.some((row) => row.figma === "ingredients/acme-badge" && row.code === "acme-badge" && row.reasons.includes("same name, no evidence"))).toBe(true);
+    expect(report.pairs.map((pair) => pair.figma)).not.toContain("ingredients/acme-switch");
+    expect(report.suggestions?.some((row) => row.figma === "ingredients/acme-switch" && row.code === "acme-switch" && row.reasons.includes("same name, no evidence"))).toBe(true);
     expect(report.pairs).toContainEqual({ figma: "recipes/date-time-picker", code: "date-time-picker", confidence: "exact" });
     expect(report.pairs).toContainEqual({ figma: "recipes/acme-footer", code: "acme-footer", confidence: "exact" });
     expect(report.pairs.map((pair) => pair.figma)).not.toContain("recipes/picker");
@@ -80,11 +85,11 @@ describe("code-map pairing quality", () => {
     const { cfg, catalog: built } = catalog(root, store, {
       "building-blocks/tab/tab.css": css(".tab { color: var(--ink); }\n"),
       "building-blocks/stepper/stepper.css": css(".stepper { color: var(--ink); }\n"),
-      "building-blocks/field/field.css": css(".field { color: var(--ink); }\n"),
+      "building-blocks/field/field.css": css(".field { color: var(--ink); }\n.field--stacked { color: var(--ink); }\n"),
       "building-blocks/dropdown/dropdown.css": css(".dropdown { color: var(--ink); }\n"),
     });
     const masters = [
-      { name: "ingredients/field", nodeId: "2:1" },
+      { name: "ingredients/field", nodeId: "2:1", variants: ["stacked"] },
       { name: "base/tabs", nodeId: "2:2" },
       { name: "base/steps-icon", nodeId: "2:3" },
       { name: "base/steps-label", nodeId: "2:4" },
@@ -110,14 +115,18 @@ describe("code-map pairing quality", () => {
     tree(repo, {
       "building-blocks/button/button.css": css(".button { color: var(--ink); }\n"),
       "building-blocks/tabs/tabs.css": css(".tabs { color: var(--ink); }\n"),
-      "building-blocks/banner/banner.html": '<section class="banner">Sale</section>\n',
+      "building-blocks/banner/banner.html": '<a href="../button/button.html">Button</a>\n<section class="banner">Sale</section>\n',
+      "building-blocks/quote/quote.html": '<a href="../button/button.html">Button</a>\n<link rel="stylesheet" href="quote.css">\n<blockquote class="pull-quote">Words</blockquote>\n',
+      "building-blocks/marker/index.html": '<a href="../button/button.html">Button</a>\n<section class="marker">Mark</section>\n',
       "building-blocks/index.html": '<a href="button/button.html">Button</a><a href="tabs/tabs.html">Tabs</a>\n',
       "building-blocks/widgets/widgets.html": '<a href="../button/button.html">Button</a><a href="../tabs/tabs.html">Tabs</a>\n',
     });
     const built = buildCatalog(config(repo, store));
-    expect(built.components.map((entry) => entry.name).sort()).toEqual(["banner", "button", "tabs"]);
+    expect(built.components.map((entry) => entry.name).sort()).toEqual(["banner", "button", "marker", "quote", "tabs"]);
+    expect(built.components.map((entry) => entry.name)).not.toContain("index");
+    expect(built.components.map((entry) => entry.name)).not.toContain("widgets");
     expect(built.cssFiles.filter((file) => file.endsWith(".css"))).toHaveLength(2);
-    expect(built.cssFiles.filter((file) => /\.html?$/i.test(file))).toHaveLength(3);
+    expect(built.cssFiles.filter((file) => /\.html?$/i.test(file))).toHaveLength(5);
 
     const previous = { home: process.env["RESOLVE_HOME"], mode: process.env["RESOLVE_MODE"] };
     process.env["RESOLVE_HOME"] = store;
@@ -134,7 +143,55 @@ describe("code-map pairing quality", () => {
       if (previous.mode === undefined) delete process.env["RESOLVE_MODE"];
       else process.env["RESOLVE_MODE"] = previous.mode;
     }
-    expect(lines.join("")).toContain("from 2 CSS files and 3 HTML files");
+    expect(lines.join("")).toContain("from 2 CSS files and 5 HTML files");
+  });
+
+  it("prints base parts on each pair and block, and the Figma total adds up", () => {
+    const root = mkdtempSync(join(tmpdir(), "resolve-total-"));
+    const repo = join(root, "repo");
+    const store = join(root, "store");
+    tree(repo, {
+      "building-blocks/field/field.css": css(".field { color: var(--ink); }\n.field--stacked { color: var(--ink); }\n"),
+      "building-blocks/tab/tab.css": css(".tab { color: var(--ink); }\n"),
+      "building-blocks/note/note.css": css(".note { color: var(--ink); }\n"),
+    });
+    const masters = [
+      { name: "ingredients/field", nodeId: "4:1", variants: ["stacked"] },
+      { name: "base/field-label", nodeId: "4:2" },
+      { name: "base/tabs", nodeId: "4:3" },
+      { name: "ingredients/ghost", nodeId: "4:4" },
+    ];
+    const previous = { home: process.env["RESOLVE_HOME"], mode: process.env["RESOLVE_MODE"] };
+    process.env["RESOLVE_HOME"] = store;
+    process.env["RESOLVE_MODE"] = "code";
+    const lines: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => (lines.push(String(chunk)), true)) as typeof process.stdout.write;
+    try {
+      runLinkMap(["--repo", repo, "--pairs", "--unmatched"], () => masters);
+    } finally {
+      process.stdout.write = write;
+      if (previous.home === undefined) delete process.env["RESOLVE_HOME"];
+      else process.env["RESOLVE_HOME"] = previous.home;
+      if (previous.mode === undefined) delete process.env["RESOLVE_MODE"];
+      else process.env["RESOLVE_MODE"] = previous.mode;
+    }
+    const text = lines.join("");
+    expect(text).toContain("parts: base/field-label");
+    expect(text).toContain("tab: base/tabs");
+    const match = text.match(/(\d+) Figma components \((\d+) paired \+ (\d+) parts \+ (\d+) unmatched = (\d+)\)/);
+    expect(match).not.toBeNull();
+    const total = Number(match?.[1]);
+    const paired = Number(match?.[2]);
+    const parts = Number(match?.[3]);
+    const unmatched = Number(match?.[4]);
+    const sum = Number(match?.[5]);
+    expect(sum).toBe(total);
+    expect(paired + parts + unmatched).toBe(total);
+    expect(total).toBe(4);
+    expect(paired).toBe(1);
+    expect(parts).toBe(2);
+    expect(unmatched).toBe(1);
   });
 });
 
