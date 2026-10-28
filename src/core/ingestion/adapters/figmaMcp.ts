@@ -1,3 +1,4 @@
+import { namespaceHead } from "@/core/rules/figmaNamespaces";
 import type {
   SourceComponentMeta,
   SourceDocument,
@@ -197,12 +198,13 @@ export interface MetadataElement {
  * Official Figma MCP `get_metadata` writes sets as `<component-set>`,
  * `<component_set>`, or a `<frame>` whose direct children are all
  * variant-named `<symbol>` / `<component>` nodes.
+ * A page listing often omits those children. A namespaced frame is still the set.
  */
 export function isMetadataComponentSet(element: MetadataElement): boolean {
   const tag = element.tag.toLowerCase();
   if (tag === "component-set" || tag === "component_set" || tag === "componentset") return true;
   if (tag !== "frame") return false;
-  if (!element.children.length) return false;
+  if (!element.children.length) return namespaceHead(element.attrs["name"] ?? "") !== undefined;
   return element.children.every((child) => {
     const childTag = child.tag.toLowerCase();
     if (childTag !== "symbol" && childTag !== "component") return false;

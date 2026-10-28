@@ -8,7 +8,7 @@ import { parseHtml } from "./html.ts";
 import { linkFigma, mappingDigest } from "./map.ts";
 
 /** A Figma component as the catalog keeps it. */
-export interface FigmaRef { name: string; fileKey?: string; nodeId?: string; variants?: string[]; aliases?: string[] }
+export interface FigmaRef { name: string; fileKey?: string; nodeId?: string; variants?: string[]; aliases?: string[]; published?: boolean }
 export type MatchBy = "exact" | "alias" | "mapped";
 
 /** One entry per component. `figma` and `code` are both optional; they join by name, alias or the mapping file (see map.ts). */
@@ -29,6 +29,8 @@ export interface CatalogEntry {
   matched?: { figma: string; code: string; alias?: string };
   /** Alias names from the mapping file. */
   aliases?: string[];
+  /** Figma `base/*` sub-parts of this block. Not separate pairs. */
+  parts?: string[];
   code?: {
     roots: string[];
     primary: string;
@@ -134,7 +136,7 @@ function componentOf(rel: string): { name: string; kind: "block" | "recipe" } | 
     const kind = BLOCK_DIRS.has(dir) ? "block" : RECIPE_DIRS.has(dir) ? "recipe" : undefined;
     if (!kind) continue;
     const next = parts[i + 1] as string;
-    return { name: i + 2 < parts.length ? next : next.replace(/\.css$/i, ""), kind };
+    return { name: i + 2 < parts.length ? next : next.replace(/\.(css|html?)$/i, ""), kind };
   }
   return undefined;
 }
@@ -258,6 +260,17 @@ export function buildCatalog(cfg: ResolveConfig, order: <T>(items: T[]) => T[] =
   for (const item of pending.sort((a, b) => byCode(a.cls, b.cls))) if (known.has(item.cls) || plain(item.cls)) deprecated[`.${item.cls}`] = { in: item.in, note: item.note };
   const isDep = (cls: string) => Boolean(deprecated[`.${cls}`]);
 
+  for (const file of order(walkFiles(repo, ".html", 300)).sort(byCode)) {
+    if (statSync(file).size > 500_000) continue;
+    const rel = posix(relative(repo, file));
+    const comp = componentOf(rel);
+    if (!comp || accs.has(`${comp.kind}:${comp.name}`)) continue;
+    const acc: Acc = { name: comp.name, kind: comp.kind, files: [rel], counts: new Map(), tokens: new Set(), comments: [] };
+    accs.set(`${comp.kind}:${comp.name}`, acc);
+    for (const tag of parseHtml(readFileSync(file, "utf8")).tags)
+      for (const cls of [...tag.classes, ...tag.dynamicClasses]) acc.counts.set(cls, (acc.counts.get(cls) ?? 0) + 1);
+  }
+
   const entries: CatalogEntry[] = [];
   const owner = new Map<string, string>();
   const ordered = [...accs.values()].sort((a, b) => (a.kind === b.kind ? byCode(a.name, b.name) : a.kind === "block" ? -1 : 1));
@@ -344,7 +357,7 @@ export function buildCatalog(cfg: ResolveConfig, order: <T>(items: T[]) => T[] =
     repoPath: repo,
     ...(cfg.cssEntry ? { cssEntry: cfg.cssEntry } : {}),
     ...(cfg.theme ? { theme: themeFile ? { file: posix(relative(repo, themeFile)) } : { name: cfg.theme } } : {}),
-    cssFiles: files.map((f) => posix(relative(repo, f))),
+    cssFiles: [...files.map((f) => posix(relative(repo, f))), ...entries.flatMap((e) => (e.code?.cssFiles ?? []).filter((f) => /\.html?$/i.test(f)))],
     components: entries,
     globalClasses: [...globals].filter((c) => !owner.has(c) && !isDep(c)).sort(),
     deprecated,
