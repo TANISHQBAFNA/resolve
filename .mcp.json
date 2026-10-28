@@ -3,10 +3,14 @@
     "resolve": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.0", "resolve-mcp"],
+      "args": ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.1", "resolve-mcp"],
       "env": {
         "FIGMA_ACCESS_TOKEN": "${user_config.FIGMA_ACCESS_TOKEN}",
-        "RESOLVE_LIBRARY_FILE_KEY": "${user_config.RESOLVE_LIBRARY_FILE_KEY}"
+        "RESOLVE_LIBRARY_FILE_KEY": "${user_config.RESOLVE_LIBRARY_FILE_KEY}",
+        "RESOLVE_MODE": "${user_config.RESOLVE_MODE}",
+        "RESOLVE_REPO_PATH": "${user_config.RESOLVE_REPO_PATH}",
+        "RESOLVE_CSS_ENTRY": "${user_config.RESOLVE_CSS_ENTRY}",
+        "RESOLVE_THEME": "${user_config.RESOLVE_THEME}"
       }
     }
   }

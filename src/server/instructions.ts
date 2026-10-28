@@ -4,10 +4,16 @@
  * Longer detail lives on the `resolve://workflow` resource and in tool descriptions.
  */
 
+import type { Mode } from "./mode.ts";
+import { activeMode, includesPack } from "./mode.ts";
+
 export const INSTRUCTION_LIMIT = 1500;
 
 export const WORKFLOW_URI = "resolve://workflow";
+export const FIGMA_URI = "resolve://figma";
+export const CODE_URI = "resolve://code";
 
+/** Figma pack: the original instructions, unchanged. */
 export const MCP_INSTRUCTIONS = [
   "For ANY Figma design, screen, or component task, call Resolve first. Do not draw until this path runs.",
   "",
@@ -18,6 +24,7 @@ export const MCP_INSTRUCTIONS = [
   "Resolve is read-only. Never invent a component, name, or node id. Place only returned figmaNodeIds. Longer workflow: read resource resolve://workflow.",
 ].join("\n");
 
+/** Figma pack workflow, unchanged. */
 export const WORKFLOW_MARKDOWN = `# Resolve workflow
 
 Resolve is read-only. For any Figma design, screen, or component task, call it before drawing.
@@ -52,19 +59,76 @@ Simplest thing that works. Reuse an existing component before anything new. One 
 Default tools: learn_library, recipe, brief, recommend, resolve, get_example, verify_frame, check_cousins. Set RESOLVE_MCP_ADVANCED=1 for the rest. Do not Read or dump graph.json.
 `;
 
-export function listResources(): Array<{ uri: string; name: string; description: string; mimeType: string }> {
-  return [
+/** Code pack: coded components in a repo instead of Figma masters. */
+export const CODE_INSTRUCTIONS = [
+  "For ANY HTML/CSS/JS screen or component built on the repo's design system, call Resolve first. Do not write markup until this path runs.",
+  "",
+  "Resolve is read-only. Use only real components from the repo. Never invent a class, variant, token, or markup. If nothing fits, say so.",
+  "",
+  "1. code_scan once (and after the design system changes). It reads the repo from config repoPath or RESOLVE_REPO_PATH. No repoPath: tell the user to set it.",
+  '2. code_pick "<what the screen needs>" for each part of the screen. Build with the returned classes, variants, and markup. Avoid the deprecated classes it lists. Style with tokens, never literal colours.',
+  "3. code_check on the finished HTML file before you finish. Fix every error and each warning you can. Report what is left.",
+  "",
+  "Longer workflow: read resource resolve://code.",
+].join("\n");
+
+/** Both packs: a short core. The pack text loads only for the part of the task that needs it. */
+export const BOTH_INSTRUCTIONS = [
+  "Resolve gives real components, never invented ones, and checks the result before you finish. Two workflows: Figma designs and coded HTML prototypes.",
+  "",
+  "Pick one: what the user says wins (Figma file, frame, or design = Figma; HTML, CSS, prototype, repo, or code = code). Otherwise follow config mode. If still unclear, ask one short question. Load both only when the task needs both.",
+  "",
+  "Figma workflow: read resource resolve://figma, then learn_library, recipe, brief, recommend, get_example, verify_frame, check_cousins.",
+  "Code workflow: read resource resolve://code, then code_scan, code_pick, code_check, code_map.",
+  "",
+  "Resolve is read-only. Never invent a component, class, name, or node id.",
+].join("\n");
+
+export const CODE_WORKFLOW_MARKDOWN = `# Resolve code workflow
+
+Resolve is read-only. For any HTML, CSS, or JS screen built on the repo's design system, call it before writing markup. Use only what it returns.
+
+Needs: \`repoPath\` (folder with the design system CSS) in .resolve/config.json or RESOLVE_REPO_PATH. Optional: \`cssEntry\` (entry stylesheet) and \`theme\` (token file). Without a repoPath, stop and ask the user for it.
+
+1. code_scan reads the CSS and HTML under repoPath. It builds one catalog entry per component: name, variants, rules, real markup, CSS file, deprecated classes, and tokens. It saves .resolve/code-catalog.json and is reused until a CSS file changes. Re-run it after the design system changes.
+2. code_pick with what the screen needs, one call per part (a transaction table, a confirm dialog, a status badge). It returns classes, modifiers, markup, rules, and deprecated classes to avoid. Build with exactly those. A modifier needs its base class. Use tokens for colour, space, and type. Include the design-system and theme stylesheets the picked components come from.
+3. code_check on the finished file. Errors: deprecated or unknown classes, unknown tokens. Warnings: modifier without base, literal colours. Fix them, run it again, and report what is left. Page-local classes with a local prefix (config localPrefixes) are reported as info.
+
+If nothing fits, say so. Do not invent a class. With both packs on, code_scan joins a Figma component to its coded one by exact name, alias, or .resolve/mapping.json; code_map shows the pairs, the unmatched, and (suggest:true) likely pairs. A suggested pair is not a link: ask the user to confirm it in the mapping file.
+
+Default tools: code_scan, code_pick, code_check, code_map.
+`;
+
+const CORE_MARKDOWN = `# Resolve
+
+One engine, two workflows. Resolve is read-only. Use real components only, never invent a name, class, or id, and run the check before you finish.
+
+Workflow: the user's words decide (Figma file, frame, or design = Figma; HTML, CSS, prototype, repo, or code = code). Otherwise the config mode (figma, code, both). If still unclear, ask one short question. Load a pack only when the task needs it.
+`;
+
+export function mcpInstructions(mode: Mode = activeMode()): string {
+  return mode === "code" ? CODE_INSTRUCTIONS : mode === "both" ? BOTH_INSTRUCTIONS : MCP_INSTRUCTIONS;
+}
+
+export function listResources(mode: Mode = activeMode()): Array<{ uri: string; name: string; description: string; mimeType: string }> {
+  const rows = [
     {
       uri: WORKFLOW_URI,
       name: "Resolve workflow",
-      description:
-        "Full Resolve path for a Figma screen. Read this after the short server instructions. Resolve is read-only.",
+      description: mode === "both" ? "Which workflow to use and which resource to read next. Resolve is read-only." : "Full Resolve path. Read this after the short server instructions. Resolve is read-only.",
       mimeType: "text/markdown",
     },
   ];
+  if (mode === "both" || mode === "figma") rows.push({ uri: FIGMA_URI, name: "Resolve Figma workflow", description: "Full path for a Figma screen. Read when the task is a Figma design.", mimeType: "text/markdown" });
+  if (includesPack(mode, "code")) rows.push({ uri: CODE_URI, name: "Resolve code workflow", description: "Full path for an HTML screen built on the repo's design system. Read when the task is code.", mimeType: "text/markdown" });
+  return rows;
 }
 
-export function readResource(uri: string): { contents: Array<{ uri: string; mimeType: string; text: string }> } | undefined {
-  if (uri !== WORKFLOW_URI) return undefined;
-  return { contents: [{ uri, mimeType: "text/markdown", text: WORKFLOW_MARKDOWN }] };
+export function readResource(uri: string, mode: Mode = activeMode()): { contents: Array<{ uri: string; mimeType: string; text: string }> } | undefined {
+  const text =
+    uri === WORKFLOW_URI ? (mode === "figma" ? WORKFLOW_MARKDOWN : mode === "code" ? CODE_WORKFLOW_MARKDOWN : `${CORE_MARKDOWN}\nRead resolve://figma or resolve://code for the workflow you need.\n`)
+    : uri === FIGMA_URI && includesPack(mode, "figma") ? WORKFLOW_MARKDOWN
+    : uri === CODE_URI && includesPack(mode, "code") ? CODE_WORKFLOW_MARKDOWN
+    : undefined;
+  return text === undefined ? undefined : { contents: [{ uri, mimeType: "text/markdown", text }] };
 }

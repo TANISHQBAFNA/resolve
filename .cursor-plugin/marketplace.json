@@ -4,13 +4,13 @@
     "name": "Tanishk"
   },
   "metadata": {
-    "description": "Resolve, the Figma component checker for Cursor."
+    "description": "Resolve, the real-component checker for Figma and coded prototypes, for Cursor."
   },
   "plugins": [
     {
       "name": "resolve",
       "source": ".",
-      "description": "Asks Resolve before any Figma screen is drawn, and places only real library components."
+      "description": "Asks Resolve before any Figma screen or coded HTML prototype is built, and uses only real components. One engine, two workflows: Figma and code."
     }
   ]
 }

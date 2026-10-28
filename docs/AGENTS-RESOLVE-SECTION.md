@@ -2,6 +2,12 @@
 
 Building Resolve? See this file. Using Resolve as a designer? Start at [GUIDE.md](GUIDE.md).
 
+Resolve gives your AI real components, never invented ones: Figma masters or coded classes. Run its check before you finish.
+
+**Pick the workflow.** The user's words decide: a Figma design or screen means the Figma workflow; an HTML/CSS/JS prototype on the repo's design system means the code workflow. If the words do not say, use `mode` from `.resolve/config.json` (`figma`, `code` or `both`; `RESOLVE_MODE` overrides it). Still unclear: ask one short question. Read only the workflow you need. Resolve's tools follow the mode too.
+
+### Figma workflow
+
 For ANY Figma design, screen, or component task, call Resolve before drawing. **Never Read `graph.json`.** Never invent components.
 
 **Check first.** Resolve works best when the Figma MCP connection is active and a design system, library, or existing screens are learned. If either is missing, tell the user in plain words what is missing and how to add it. Do not guess.
@@ -20,6 +26,16 @@ Resolve is read-only. Never invent a component, name, or node id.
 
 **Design work.** Simplest thing that works. Reuse an existing component before anything new. One check: `verify_frame`.
 
-Full workflow, when this client can read MCP resources: `resolve://workflow`.
+Full workflow, when this client can read MCP resources: `resolve://figma`.
+
+### Code workflow
+
+For ANY HTML, CSS, or JS screen or component built on the repo's design system, call Resolve before writing markup. Needs `repoPath` in `.resolve/config.json` (or `RESOLVE_REPO_PATH`); `cssEntry` and `theme` are optional. No `repoPath`: ask the user for it and stop.
+
+1. `code_scan` once, and again when the design system changes. It builds the catalog: components, variants, rules, real markup, deprecated classes, tokens. Never Read `.resolve/code-catalog.json`.
+2. `code_pick` with what the screen needs, for each part. Build with the returned classes, variants and markup only. A modifier needs its base class. Never use a class listed under `avoid`. Use tokens, not literal colours or sizes.
+3. `code_check` on the HTML file before you finish. Fix every error, check again, report what is left. Nothing fits: say so. Never invent a class.
+
+Full workflow, when this client can read MCP resources: `resolve://code`. In a shell: `resolve code scan|pick|check`.
 
 Designers add recipes in JSON (`src/data/recipes.json` or `.resolve/recipes.json`), product+journey+domain packs in `.resolve/context-packs.json`, and linked files in `.resolve/workspace.json`. See [GUIDE.md](GUIDE.md).

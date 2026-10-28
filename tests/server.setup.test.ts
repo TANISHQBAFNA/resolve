@@ -75,7 +75,8 @@ describe("resolve-setup", () => {
     const claudeAgain = readFileSync(claudePath, "utf8");
     expect(ruleAgain).not.toContain("HACKED");
     expect(ruleAgain).toContain("USER RULE NOTE");
-    expect(ruleAgain).toContain("call Resolve before");
+    expect(ruleAgain).toContain("resolve-figma");
+    expect(readFileSync(join(cwd, ".cursor/rules/resolve-figma.mdc"), "utf8")).toContain("call Resolve before");
     expect(claudeAgain).toContain("Keep this line.");
     expect(claudeAgain).toContain("USER CLAUDE NOTE");
     expect(claudeAgain.split(BEGIN)).toHaveLength(2);
@@ -283,8 +284,10 @@ describe("resolve-setup", () => {
       files: string[];
       bin: Record<string, string>;
     };
-    expect(pkg.files).toEqual(expect.arrayContaining(["rules", "skills/resolve"]));
-    expect(pkg.files).not.toContain("skills");
+    expect(pkg.files).toEqual(expect.arrayContaining(["rules", "skills"]));
+    expect(pkg.files).not.toContain("skills/resolve");
+    expect(existsSync(join(root, "skills/resolve-figma/SKILL.md"))).toBe(true);
+    expect(existsSync(join(root, "skills/resolve-code/SKILL.md"))).toBe(true);
     expect(pkg.bin["resolve-setup"]).toBe("./bin/resolve-setup.mjs");
     expect(existsSync(join(root, "rules/resolve.mdc"))).toBe(true);
     expect(existsSync(join(root, "skills/resolve/SKILL.md"))).toBe(true);
@@ -295,7 +298,7 @@ describe("resolve-setup", () => {
   });
 
   describe("project MCP files", () => {
-    const entry = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.0", "resolve-mcp"] };
+    const entry = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.1.1", "resolve-mcp"] };
     const project = (name: string) => {
       const cwd = tempDir(name);
       mkdirSync(cwd, { recursive: true });

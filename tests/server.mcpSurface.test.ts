@@ -53,9 +53,9 @@ describe("MCP default surface + SOCK loop", () => {
       "get_health",
     ];
     for (const name of removed) expect(TOOLS.map((tool) => tool.name)).not.toContain(name);
-    expect(TOOLS).toHaveLength(20);
-    expect(listToolDefinitions(true).map((tool) => tool.name)).toEqual(
-      expect.arrayContaining(["approve_proposal", "reject_proposal", "list_soci"]),
+    expect(TOOLS).toHaveLength(21);
+    expect(listToolDefinitions(true, "figma").map((tool) => tool.name)).toEqual(
+      expect.arrayContaining(["approve_proposal", "reject_proposal", "list_soci", "spec_map"]),
     );
     expect(listToolDefinitions(true).length).toBe(TOOLS.length);
     expect(() => callTool("get_recipe", { query: "sign-in" })).toThrow(/was removed[\s\S]*recipe/);

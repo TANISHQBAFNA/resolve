@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { INSTRUCTION_LIMIT, MCP_INSTRUCTIONS, WORKFLOW_MARKDOWN, WORKFLOW_URI, readResource } from "@/server/instructions";
+import { CODE_URI, FIGMA_URI, INSTRUCTION_LIMIT, MCP_INSTRUCTIONS, WORKFLOW_MARKDOWN, WORKFLOW_URI, mcpInstructions, readResource } from "@/server/instructions";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -29,18 +29,35 @@ describe("MCP instructions stay a short trigger", () => {
     expect(WORKFLOW_MARKDOWN).toContain("search_design_system");
     expect(WORKFLOW_MARKDOWN).toContain("RESOLVE_MCP_ADVANCED");
     expect(WORKFLOW_MARKDOWN).toContain("Do not start from the default variant");
-    const read = readResource(WORKFLOW_URI);
+    const read = readResource(WORKFLOW_URI, "figma");
     expect(read?.contents[0]?.text).toBe(WORKFLOW_MARKDOWN);
-    expect(readResource("resolve://nope")).toBeUndefined();
+    expect(readResource(FIGMA_URI, "figma")?.contents[0]?.text).toBe(WORKFLOW_MARKDOWN);
+    expect(readResource(CODE_URI, "code")?.contents[0]?.text).toContain("code_scan");
+    expect(readResource("resolve://nope", "figma")).toBeUndefined();
+    expect(mcpInstructions("figma")).toBe(MCP_INSTRUCTIONS);
+    expect(mcpInstructions("code")).toContain("code_pick");
+    expect(mcpInstructions("both")).toContain("resolve://figma");
 
     const server = readFileSync(join(root, "src/server/mcpSession.ts"), "utf8");
-    expect(server).toContain("instructions: MCP_INSTRUCTIONS");
+    expect(server).toContain("instructions: mcpInstructions()");
     expect(server).toContain("resources/read");
     expect(server).not.toContain("Forced path: learn_library");
   });
 
-  it("rule and skill name MCP tools, not a CLI the designer does not have", () => {
+  it("the always-on rule picks a pack, and the Figma pack still names the MCP tools", () => {
     for (const path of ["rules/resolve.mdc", "skills/resolve/SKILL.md", ".cursor/skills/resolve/SKILL.md"]) {
+      const text = readFileSync(join(root, path), "utf8");
+      expect(text, path).toContain("resolve-figma");
+      expect(text, path).toContain("resolve-code");
+      expect(text, path).not.toContain("npm run resolve");
+      expect(text, path).not.toContain("meaning/");
+    }
+    const rule = readFileSync(join(root, "rules/resolve.mdc"), "utf8");
+    expect(rule).toContain("alwaysApply: true");
+    expect(readFileSync(join(root, "skills/resolve/SKILL.md"), "utf8")).toBe(readFileSync(join(root, ".cursor/skills/resolve/SKILL.md"), "utf8"));
+    const figmaRule = readFileSync(join(root, "rules/resolve-figma.mdc"), "utf8");
+    expect(figmaRule).toContain("alwaysApply: false");
+    for (const path of ["rules/resolve-figma.mdc", "skills/resolve-figma/SKILL.md", ".cursor/skills/resolve-figma/SKILL.md"]) {
       const text = readFileSync(join(root, path), "utf8");
       expect(text, path).toContain("For ANY Figma design, screen, or component task, call Resolve");
       expect(text, path).toContain("learn_library");
@@ -49,33 +66,22 @@ describe("MCP instructions stay a short trigger", () => {
       expect(text, path).toContain("verify_frame");
       expect(text, path).toContain("check_cousins");
       expect(text, path).toContain("plain words");
-      expect(text, path).toContain("Simplest thing that works");
       expect(text, path).not.toContain("npm run resolve");
     }
-    const rule = readFileSync(join(root, "rules/resolve.mdc"), "utf8");
-    expect(rule).toContain("alwaysApply: true");
-    const skill = readFileSync(join(root, "skills/resolve/SKILL.md"), "utf8");
-    expect(skill).not.toContain("meaning/");
-    const meaning = [
-      "## Meaning files",
-      "",
-      "Optional. Repo or demo only. This folder is not in the npm package.",
-      "",
-      "Each component's own text is a generated file. Open the library index, then that one file. Acme is `meaning/acme/index.md`, then the linked file (for example `meaning/acme/switch.md`). Stop after those two reads. A `Thin:` line means the library description is missing. `recommend` still uses the meaning dictionary.",
-      "",
-      "When a shell is available and `RESOLVE_AI_PICKS=1`, read that index, open at most the shortlist files, and call `resolve pick`. A reason is a span of at least 3 words and 12 characters from one sentence of the description or the guidelines, or one exact whole line that is not the component name and not an alias, or the exact sequence of the name, one property, and a value written as listed. Property values are strings. A bare name is a reason only when that file has no description and no properties; the pick is then ask and name-only. A bare name or an alias is not a reason otherwise. When no shell is available, follow those quoting rules and do not call the CLI. With the switch off, use `recommend`.",
-      "",
-    ].join("\n");
-    const cursor = readFileSync(join(root, ".cursor/skills/resolve/SKILL.md"), "utf8");
-    expect(cursor).toBe(skill.replace("## Design work\n", `${meaning}\n## Design work\n`));
+    const published = readFileSync(join(root, "skills/resolve-figma/SKILL.md"), "utf8").trimEnd();
+    const cursor = readFileSync(join(root, ".cursor/skills/resolve-figma/SKILL.md"), "utf8");
+    expect(published).not.toContain("meaning/");
+    expect(cursor.startsWith(published)).toBe(true);
+    expect(cursor).toContain("meaning/acme/index.md");
+    expect(cursor).toContain("Simplest thing that works");
   });
 
-  it("rule, skill, CLAUDE block, and MCP instructions name the same path", () => {
+  it("Figma pack, CLAUDE block, and MCP instructions name the same path", () => {
     const setup = readFileSync(join(root, "bin/resolve-setup.mjs"), "utf8");
     const block = setup.slice(setup.indexOf("export const CLAUDE_BLOCK"), setup.indexOf("].join"));
     const texts = [
-      readFileSync(join(root, "rules/resolve.mdc"), "utf8"),
-      readFileSync(join(root, "skills/resolve/SKILL.md"), "utf8"),
+      readFileSync(join(root, "rules/resolve-figma.mdc"), "utf8"),
+      readFileSync(join(root, "skills/resolve-figma/SKILL.md"), "utf8"),
       readFileSync(join(root, "AGENTS.md"), "utf8"),
       readFileSync(join(root, "docs/AGENTS-RESOLVE-SECTION.md"), "utf8"),
       block,

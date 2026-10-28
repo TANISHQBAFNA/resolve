@@ -2,7 +2,7 @@
 
 Building Resolve? See this file. Using Resolve as a designer? Start at [GUIDE.md](GUIDE.md).
 
-Everyday flow for using Resolve inside Cursor when building Figma screens from a brief.
+Everyday flow for using Resolve inside Cursor when building Figma screens from a brief, or HTML/CSS screens from a coded design system (see [Code workflow](#code-workflow)).
 
 Tagline: **Figma rules. Agents resolve.**
 
@@ -94,9 +94,25 @@ Designers add screen packs in JSON — see [`docs/RECIPES.md`](RECIPES.md). Over
 
 **Do not** `Read` `.resolve/graph.json`. Resolve cards are the cheap path.
 
+## Code workflow
+
+For an HTML/CSS/JS prototype built from the repo's coded components. Needs `repoPath` in `.resolve/config.json` (or `RESOLVE_REPO_PATH`); `cssEntry` and `theme` are optional (`RESOLVE_CSS_ENTRY`, `RESOLVE_THEME`). Set `mode` (or `RESOLVE_MODE`) to `figma`, `code` or `both`; with a `repoPath` and no mode, it is `both`.
+
+```bash
+npm run resolve -- mode
+npm run resolve -- code scan --repo ../my-app --css css/main.css
+npm run resolve -- code pick "transaction table with pagination"
+npm run resolve -- code check screens/payments.html
+```
+
+Scan once, pick for each part, build with the returned classes and tokens only, then check the file. `code scan` saves `code-catalog.json` in the same store as the Figma data; do not `Read` it. The MCP tools are `code_scan`, `code_pick` and `code_check`; the commands are `/learn-code`, `/pick-code` and `/check-html`. The code commands refuse to run in `figma` mode.
+
 ## Cursor wiring
 
-- Skill: `skills/resolve/SKILL.md`
-- Always-on rule: `rules/resolve.mdc`
+Resolve loads only what the task needs: a short core, then the Figma pack or the code pack (both only when a task needs both).
+
+- Core skill: `skills/resolve/SKILL.md`. Core rule, always on: `rules/resolve.mdc`
+- Figma pack: `rules/resolve-figma.mdc`, `skills/resolve-figma/SKILL.md`. Code pack: `rules/resolve-code.mdc`, `skills/resolve-code/SKILL.md`. Both load on demand
+- MCP resources: `resolve://figma`, `resolve://code`, `resolve://workflow` (alias for the active mode)
 - Slash commands: `commands/*.md` (installed to `.cursor/commands/` and `.claude/commands/` by `resolve-setup`)
 - Drop into `AGENTS.md`: copy from `AGENTS-RESOLVE-SECTION.md`

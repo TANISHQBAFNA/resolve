@@ -87,7 +87,7 @@ The tool reads [`INSTALL-FOR-AI.md`](../INSTALL-FOR-AI.md), a checklist written 
 3. Check that it worked, and tell you what it changed.
 4. Ask you before it changes anything in settings that live in your home folder, and never show you or copy any password or token.
 
-**What you should see:** a short report listing the files it created (for example `.cursor/mcp.json`, `.mcp.json`, a Cursor rule and a Claude skill), the commands it ran, and two things only you can do: sign in to Figma, and paste a Figma link (Step 2). For Claude Code, you also say yes the first time it asks about the project's `resolve` server.
+**What you should see:** a short report listing the files it created (for example `.cursor/mcp.json`, `.mcp.json`, the Cursor rules and the Claude skills), the commands it ran, and two things only you can do: sign in to Figma, and paste a Figma link (Step 2). For Claude Code, you also say yes the first time it asks about the project's `resolve` server.
 
 Checked on a test machine: every command in `INSTALL-FOR-AI.md` was run exactly as written, for Claude Code and for Cursor, in a scratch project with a scratch home folder (details in the engineer section below). **Not verified:** a real AI tool following the file in a live chat, Codex (not installed here), the Figma sign-in, and the Cursor app screens.
 
@@ -106,14 +106,14 @@ These are the same steps, typed by you. Use them if you would rather not let you
 
 #### Step A. Set up your project (once per project)
 
-An AI tool forgets things between chats, so it needs a short written instruction that it reads every time: "for any Figma task, ask Resolve first." Different tools call this file different names. In Cursor it is a **Cursor rule**. In Claude it is a **Claude skill**, plus a small note in a file called `CLAUDE.md`. The same command also adds the **project connection**: a small settings file that tells Cursor (`.cursor/mcp.json`) and Claude Code (`.mcp.json`) how to start Resolve. You do not have to create that file yourself. Open a terminal in your project folder and run:
+An AI tool forgets things between chats, so it needs a short written instruction that it reads every time: "for any Figma task, ask Resolve first." Different tools call this file different names. In Cursor it is a **Cursor rule** (one always-on core rule, plus a rule for each workflow that loads only when needed). In Claude it is a **Claude skill** (the same split), plus a small note in a file called `CLAUDE.md`. The same command also adds the **project connection**: a small settings file that tells Cursor (`.cursor/mcp.json`) and Claude Code (`.mcp.json`) how to start Resolve. You do not have to create that file yourself. Open a terminal in your project folder and run:
 
 ```bash
 npx -y -p github:TANISHQBAFNA/resolve resolve-setup
 ```
 
 1. Paste the command and press Enter.
-2. **What you should see:** five lines starting with `create` (the Cursor rule, `.cursor/mcp.json`, `.mcp.json`, the Claude skill and `CLAUDE.md`), then a short checklist: `Node ok?`, `Figma connected?`, `Library learned?`, `Rule installed?`, and a last line starting `Next:` that tells you what to do next. At this point `Library learned?` says `no`, and that is fine. `Figma connected?` says `no` until Figma is connected (Step B).
+2. **What you should see:** lines starting with `create` (the Cursor rules, `.cursor/mcp.json`, `.mcp.json`, the Claude skills, the slash commands and `CLAUDE.md`), then a short checklist: `Node ok?`, `Figma connected?`, `Library learned?`, `Rule installed?`, and a last line starting `Next:` that tells you what to do next. At this point `Library learned?` says `no`, and that is fine. `Figma connected?` says `no` until Figma is connected (Step B).
 3. It is safe to run again; it only touches its own lines. If you already have a `.cursor/mcp.json` or `.mcp.json`, Resolve adds itself and keeps everything else in it. If such a file is not valid JSON, Resolve leaves it alone and tells you which file to fix. To look first without changing anything, add `--dry-run` at the end.
 4. If you only use one of the two tools, the other settings file is harmless; delete it if you like. Resolve never changes settings that live in your home folder (`~/.claude.json`, `~/.cursor`, `~/.codex`); the steps below that touch those are yours to run.
 
@@ -141,7 +141,7 @@ Checked on a test machine with Claude Code 2.1: the `claude mcp add` line and `c
 2. In Cursor, open **Settings → MCP**, add Figma there, and sign in to Figma.
 3. Reload the Cursor window. **What you should see:** `resolve` in the MCP list with a green dot, and the `resolve` rule from Step A under **Settings → Rules**.
 
-Checked on a test machine: Step A writes the Cursor rule (`.cursor/rules/resolve.mdc`, set to always apply) and `.cursor/mcp.json`, and the command in that file starts Resolve. **Not verified here:** the Cursor app itself (the screens in steps 2 and 3). More steps: [`docs/CURSOR-RESOLVE.md`](CURSOR-RESOLVE.md).
+Checked on a test machine: Step A writes the Cursor rules (`.cursor/rules/resolve.mdc`, set to always apply, plus `resolve-figma.mdc` and `resolve-code.mdc`, which load on demand) and `.cursor/mcp.json`, and the command in that file starts Resolve. **Not verified here:** the Cursor app itself (the screens in steps 2 and 3). More steps: [`docs/CURSOR-RESOLVE.md`](CURSOR-RESOLVE.md).
 
 **Codex**
 
@@ -215,6 +215,10 @@ Once Resolve is installed, type these in the chat of Claude Code or Cursor. Each
 | `/parts <link>` | What's on this screen and its code twin (or unmapped). For example a link to the Acme "Send money" screen. | Each component on the screen, its Figma id, and its code twin, or the word unmapped. |
 | `/handoff <link>` | The developer build sheet for that screen. | Every component with its Figma id and code, the parts inside, which recipe slots are filled, the check result and open questions. Or the reason it refused. |
 | `/resolve-status` | One short answer about this project. | Which libraries are loaded, when each was learned, its version if known, whether the Figma token is set, whether the always-on rule is installed, and what to do next. |
+| `/spec <link>` | Which real component each requirement in a Figma spec maps to. | Mapped parts with their Figma id and file key, weak matches marked weak, no-match lines, and the product, journey, audience and accessibility level the spec states. Never an invented part. See [Figma specs](#figma-specs). |
+| `/learn-code <repo>` | Resolve scans the coded design system in the repo. | Component, class and token counts, and the deprecated classes. |
+| `/pick-code <need>` | Resolve picks coded components for a screen need, for example `/pick-code transaction table with pagination`. | The components with their classes, modifiers, markup and `avoid` list. Or "no match"; it never invents a class. |
+| `/check-html <file>` | Resolve checks an HTML screen against the coded design system. | Errors and warnings with line numbers, and the components used. |
 
 Resolve's ticket add-on for AIDLC, if your team uses it, uses `design-handoff`. It calls `/handoff` for the build sheet. It does not replace that command.
 
@@ -253,7 +257,7 @@ Resolve is a design-system **MSOCK**: **SOCK** knowledge plus **SOCI** instructi
 | Part | What it holds | Where it lives | Example (Acme) |
 | --- | --- | --- | --- |
 | **SOCK** (System of Connected Knowledge) | The facts about your library: every component, its variants and properties with allowed values and defaults, real examples of it on screens, which parts are retired, which screens used it and passed the check, and (when the team maps it) its React or other code twin. | The learned graph and SOCK facts in your store (`.resolve/`), plus your team files (code map, synonyms). | Payee picker = Avatar + Button. Code: `AcmePayeePickerComponent`, `<acme-payee-picker>`. |
-| **SOCI** (System of Connected Intelligence) and instructions | How the AI must use that knowledge: the always-on "ask Resolve first" rule, screen recipes, context from the requirements, human bind rules, and SOCI's suggested rules and recipes (a person approves each one). | `rules/resolve.mdc`, `skills/resolve/SKILL.md`, the slash commands, `.resolve/recipes.json`, `.resolve/bind-rules.json`, `.resolve/context-packs.json`, approved SOCI decisions. | "On the pay step, use Button." "A Send money screen needs a payee picker, an amount field and a primary button." |
+| **SOCI** (System of Connected Intelligence) and instructions | How the AI must use that knowledge: the always-on "ask Resolve first" rule, screen recipes, context from the requirements, human bind rules, and SOCI's suggested rules and recipes (a person approves each one). | `rules/resolve.mdc`, `rules/resolve-figma.mdc`, `skills/resolve/SKILL.md`, `skills/resolve-figma/SKILL.md`, the slash commands, `.resolve/recipes.json`, `.resolve/bind-rules.json`, `.resolve/context-packs.json`, approved SOCI decisions. | "On the pay step, use Button." "A Send money screen needs a payee picker, an amount field and a primary button." |
 
 The AI tool asks; Resolve answers from the MSOCK; the AI tool draws. Resolve never draws and never changes your Figma file.
 
@@ -452,15 +456,60 @@ Context packs stay. `.resolve/context-packs.json` is where a team adds its own w
 
 Where each shared rule lives: [docs/ARCHITECTURE.md](ARCHITECTURE.md#where-a-rule-lives).
 
+### Modes: Figma, code, or both
+
+Resolve has one engine with two workflows. Only the rules for the active workflow are loaded.
+
+| Mode | For | MCP tools | Resource |
+|---|---|---|---|
+| `figma` | Designing in Figma with real library components. | 8 by default, 21 with `RESOLVE_MCP_ADVANCED=1` | `resolve://figma` |
+| `code` | HTML, CSS and JS screens built from the repo's coded components. | `code_scan`, `code_pick`, `code_check`, `code_map` | `resolve://code` |
+| `both` | A task that needs both (the `figma` and `code` tools together, 12 by default). | 12 by default | both resources |
+
+`resolve://workflow` is kept as an alias: in `figma` and `code` mode it is that mode's workflow, and in `both` mode it is the core text that points to the two resources.
+
+**How the mode is chosen.** The user's words come first (a Figma file or frame means Figma; HTML, CSS or a prototype means code). Then `RESOLVE_MODE`, then `mode` in `.resolve/config.json`. With neither set, the mode is `both` when `repoPath` is set, otherwise `figma`. If it is still unclear, the AI asks one short question. `resolve mode` prints the mode, where it came from, and the config in use.
+
+**What loads.** A short core is always on: the principles and the workflow choice. The Figma pack and the code pack each have a rule (`rules/resolve-figma.mdc`, `rules/resolve-code.mdc`) and a skill (`skills/resolve-figma`, `skills/resolve-code`) that load on demand. In Cursor the core rule is `alwaysApply: true` and the pack rules are `alwaysApply: false`; Claude Code picks skills by description. The session-start hook adds only the active pack's description.
+
+**Config.** `.resolve/config.json` (all keys optional), with environment overrides:
+
+| Key | Env | Meaning |
+|---|---|---|
+| `mode` | `RESOLVE_MODE` | `figma`, `code` or `both` |
+| `repoPath` | `RESOLVE_REPO_PATH` | The repo (or folder) that holds the coded design system and screens |
+| `cssEntry` | `RESOLVE_CSS_ENTRY` | The CSS file that imports the design system, relative to `repoPath`. Without it every `.css` file under `repoPath` is read |
+| `theme` | `RESOLVE_THEME` | The token file (or name), relative to `repoPath` |
+| `libraryFileKey` | `RESOLVE_LIBRARY_FILE_KEY` | The Figma library file key (Figma workflow) |
+
+**Code workflow.** Resolve reads the repo's CSS and builds a catalog: each component (a `building-blocks` or `recipes` folder, or one per CSS file in a flat repo), its variants, real markup, tokens, and the classes marked deprecated (a `deprecated` comment). It is saved to `code-catalog.json` in the store, reused until `repoPath` or `cssEntry` changes or a CSS file is newer, and `scan` keeps any Figma links. `code_pick` returns the classes, modifiers and markup for a need (words are matched by stem, so "deleting" meets "delete"; a small table of related words and intents, such as confirm or delete reaching a dialog or modal, widens the match; a name match counts more than a comment match; ties break by score, then block before recipe, then name); `code_check` reads an HTML file and reports unknown classes, deprecated classes, a modifier without its base class, literal colours and fonts that should be tokens, unknown tokens, and a stylesheet or theme the page does not load. It reads the stylesheets the page links or imports from disk (relative to the HTML file, then the repo) and counts the classes they define separately as project-local, not unknown; a file it cannot find is an info finding. Only `class="..."`, static strings and object keys in `:class`, and CSS selectors count as classes; Alpine expressions, scripts, decimals and file names do not. Resolve only reads; it never edits the repo or the screen.
+
+**Joining Figma and code (both mode).** Names can differ, so a Figma component and a coded component are joined in this order, and the entry records `matchedBy`: (1) `mapped`: the pair is in `.resolve/mapping.json`; (2) `exact`: the names are equal after ignoring case, spaces, hyphens, underscores and plurals ("Status Pill" = `status-pills`); (3) `alias`: a name or alias on either side equals a name or alias on the other, and only one coded component fits. An alias that fits several coded components is ambiguous and is not joined. Related words (modal, dialog, popup; badge, pill, chip; alert, toast, banner) and shared variant or modifier names only produce *suggested* pairs: `resolve code map --suggest` or `code_map` with `suggest: true` lists them with a score, and nothing is joined until you confirm it. `code_pick` and `pick` match the names and aliases on both sides, so "status pill" finds the coded `badge`. Rescan keeps the joins and never rewrites the mapping file; editing it takes effect on the next call.
+
+`.resolve/mapping.json` (hand-written, or appended by `code map --write`):
+
+```json
+{ "mappings": [
+  { "figma": "Status Pill", "code": "badge", "aliases": ["pill", "status chip"] },
+  { "figma": "Dropdown", "code": ["input-field", "popover"] },
+  { "figma": "Primary Button", "code": "button" },
+  { "figma": "Secondary Button", "code": "button" }
+] }
+```
+
+`figma` is the Figma component name; `code` is one coded component name or a list (one Figma component to several coded ones); `aliases` are extra names for either side. Several Figma components may point at one coded component. An entry with only `code` and `aliases` adds aliases to that coded component. A name that matches nothing is reported as a problem, and an invalid file is reported and left untouched.
+
+**Aliases in Figma-side picking (off by default).** Set `RESOLVE_MAPPING_ALIASES=1` and `recommend` reads the `aliases` of each line that has a `figma` name, as a synonym group (`Status Pill`, `pill`, `status chip`), so "status chip" finds Status Pill. Aliases on a line with only `code` are not used. With the switch off, `recommend` is unchanged. This changes ranking, so it needs a fresh blind run before anyone turns it on.
+
 ### Setup in detail
 
 The plain steps for Claude Code, Cursor and Codex are under [Install in detail](#install-in-detail). This section adds the options.
 
 **AI install guide.** [`INSTALL-FOR-AI.md`](../INSTALL-FOR-AI.md) is the ordered checklist an AI agent follows (Claude Code, Cursor, Codex). It says: run `resolve-setup`, add the Resolve and Figma servers at project scope, verify with `claude mcp get <name>` or `resolve-setup`, ask before touching home-folder settings, never print tokens, report what changed. Its Codex part is not verified.
 
-**Project files (`resolve-setup`).** It writes `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, a marked block in `CLAUDE.md`, the slash commands (`.claude/commands/<name>.md` and `.cursor/commands/<name>.md`, including `/code-map`), and adds the `resolve` server (`npx -y -p github:TANISHQBAFNA/resolve resolve-mcp`) to `.cursor/mcp.json` and `.mcp.json`. Run it again any time; it only changes its own block and its own server entry. In the two JSON files it keeps every other key and server, keeps your indentation, and leaves the file alone (with a message) if it is not valid JSON or does not have the usual `mcpServers` object. A different existing `resolve` entry (for example one that points at a local build) is also left alone. `--dry-run` shows what it would do. `--global` writes to `~/.claude` instead (Claude only), writes no MCP file, and does nothing until you add `--yes`. `--force` replaces a file that has no Resolve markers, and replaces only the `resolve` entry in an MCP file. It never writes `~/.claude.json`, `~/.cursor` or `~/.codex`.
+**Project files (`resolve-setup`).** It writes the core rule `.cursor/rules/resolve.mdc` and the pack rules `resolve-figma.mdc` and `resolve-code.mdc` (the packs load on demand, so installing both costs nothing until a task needs one), the core skill `.claude/skills/resolve/SKILL.md` and the pack skills `resolve-figma` and `resolve-code`, a marked block in `CLAUDE.md`, the slash commands (`.claude/commands/<name>.md` and `.cursor/commands/<name>.md`, including `/code-map`, `/learn-code`, `/pick-code` and `/check-html`), and adds the `resolve` server (`npx -y -p github:TANISHQBAFNA/resolve resolve-mcp`) to `.cursor/mcp.json` and `.mcp.json`. Run it again any time; it only changes its own block and its own server entry. In the two JSON files it keeps every other key and server, keeps your indentation, and leaves the file alone (with a message) if it is not valid JSON or does not have the usual `mcpServers` object. A different existing `resolve` entry (for example one that points at a local build) is also left alone. `--dry-run` shows what it would do. `--global` writes to `~/.claude` instead (Claude only), writes no MCP file, and does nothing until you add `--yes`. `--force` replaces a file that has no Resolve markers, and replaces only the `resolve` entry in an MCP file. It never writes `~/.claude.json`, `~/.cursor` or `~/.codex`.
 
-**Slash commands, update and uninstall.** Every file Resolve writes (the rule, the skill, each command) carries `<!-- resolve-setup:begin -->` and `<!-- resolve-setup:end -->` around Resolve's text. That marker is how Resolve knows a file is its own. Running setup again rewrites only the text between the markers (anything you add outside them stays), and leaves a file byte-identical when nothing changed. A command file that has no markers, for example your own `.claude/commands/find.md`, is kept as it is: setup prints `skip ... (kept your own file ...)` and carries on; `--force` replaces it. `CLAUDE.md` is handled the same way, using the same markers around one short block. `--uninstall` removes only Resolve's marked blocks, then a file that has nothing else in it, and the `resolve` entry of `.mcp.json` / `.cursor/mcp.json` when it is exactly the one setup wrote (other servers stay). Files without markers are never touched. `--uninstall --dry-run` lists what it would do; with `--global` it needs `--yes`. Claude Code commands go in the project (`.claude/commands`), next to the project's `.mcp.json` and skill, so they are shared with the team and removed with the project; `--global` puts them in `~/.claude/commands` instead. A command is not a skill: a command runs only when you type it, a skill can be picked by the AI tool on its own. Over MCP the same six commands are prompts (`prompts/list`, `prompts/get`, argument `input`); prompts are not tools, so the tool count does not change. A command that runs the command line (`/parts`, `/handoff`, `/resolve-status`) calls `npx -y -p github:TANISHQBAFNA/resolve resolve-figma ...` in your project folder, so it reads the same store as Resolve's MCP server. It reads `~/.claude.json` read-only, only to see whether a Figma server is listed (for `Figma connected?`); it never prints that file.
+**Slash commands, update and uninstall.** Every file Resolve writes (the rule, the skill, each command) carries `<!-- resolve-setup:begin -->` and `<!-- resolve-setup:end -->` around Resolve's text. That marker is how Resolve knows a file is its own. Running setup again rewrites only the text between the markers (anything you add outside them stays), and leaves a file byte-identical when nothing changed. A command file that has no markers, for example your own `.claude/commands/find.md`, is kept as it is: setup prints `skip ... (kept your own file ...)` and carries on; `--force` replaces it. `CLAUDE.md` is handled the same way, using the same markers around one short block. `--uninstall` removes only Resolve's marked blocks, then a file that has nothing else in it, and the `resolve` entry of `.mcp.json` / `.cursor/mcp.json` when it is exactly the one setup wrote (other servers stay). Files without markers are never touched. `--uninstall --dry-run` lists what it would do; with `--global` it needs `--yes`. Claude Code commands go in the project (`.claude/commands`), next to the project's `.mcp.json` and skill, so they are shared with the team and removed with the project; `--global` puts them in `~/.claude/commands` instead. A command is not a skill: a command runs only when you type it, a skill can be picked by the AI tool on its own. Over MCP the same commands are prompts (`prompts/list`, `prompts/get`, argument `input`); prompts are not tools, so the tool count does not change. A command that runs the Figma command line (`/parts`, `/handoff`, `/resolve-status`) calls `npx -y -p github:TANISHQBAFNA/resolve resolve-figma ...` in your project folder, so it reads the same store as Resolve's MCP server. It reads `~/.claude.json` read-only, only to see whether a Figma server is listed (for `Figma connected?`); it never prints that file.
 
 **Claude Desktop.** Add Figma under **Settings → Connectors**. Then open **Settings → Developer → Edit Config** and add Resolve:
 
@@ -486,7 +535,7 @@ npm run resolve -- ingest 'https://www.figma.com/design/ACMEUI/Acme-UI' --role l
 
 The first file you ingest is the library by default. Later files default to `product`. Full details: [`docs/SETUP-MCP.md`](SETUP-MCP.md).
 
-**Where the data lives.** In a store folder: `RESOLVE_HOME` if you set it, otherwise the nearest `.resolve/` folder going up from where you run that holds `graph.json`, `workspace.json`, `code-map.json`, or `context-packs.json`. A folder with only the code map or only the context packs is still the store. (For older setups see [Upgrading from the old names](../README.md#upgrading-from-the-old-names).) The AI tool's MCP server and your command line must use the same folder. `resolve where` prints it.
+**Where the data lives.** In a store folder: `RESOLVE_HOME` if you set it, otherwise the nearest `.resolve/` folder going up from where you run that holds `graph.json`, `workspace.json`, `code-map.json`, `context-packs.json`, or `code-catalog.json`. A folder with only the code map or only the context packs is still the store. (For older setups see [Upgrading from the old names](../README.md#upgrading-from-the-old-names).) The AI tool's MCP server and your command line must use the same folder. `resolve where` prints it.
 
 ### Every command
 
@@ -506,6 +555,7 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `recipe [list \| "<name>"]` | Screen packs: the list of components a screen of that kind usually needs. |
 | `brief "<screen request>"` | Asks at most 3 multiple-choice questions before a screen is picked, and only when the request fits and the answer would change the component. States can take more than one answer. Nothing that fits says "No match." `--answer shape=table` (topics: shape, states, platform). |
 | `recommend "<intent>"` | Ranked library components for a plain-words ask. `--answer <topic>=<option>` uses a briefing answer. |
+| `spec <spec.md \| ->` | Maps a Figma spec to library components. See [Figma specs](#figma-specs). |
 | `pick <request.json>` | Checks one AI pick. Off unless `RESOLVE_AI_PICKS=1`. When off, it says to use `recommend`. |
 | `example "<name>"` | The real, filled-in instance behind a pick, to copy. |
 | `resolve "<name>"` | "I know the name, give me the id." |
@@ -519,6 +569,13 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `approve <id> --who <name>` / `reject <id> --who <name>` | A person says yes or no to a proposal. |
 | `cousins "<frame>"` | Finds look-alike copies of library parts in product files. Needs a frame name, or `--components a,b`. |
 | `workspace` | Linked files and store location. |
+| `mode` | The active mode (`figma`, `code`, `both`), where it came from, and which packs are on. See [Modes](#modes-figma-code-or-both). |
+| `code scan [--repo <folder>] [--css <entry.css>] [--theme <file\|name>] [--figma <masters.json>] [--list] [--json]` | Reads the repo's CSS and saves the code catalog. Code and both modes only. |
+| `code pick "<need>" [--limit <n>] [--json]` | The coded components, classes, modifiers and markup for a screen need. |
+| `code check <file.html> [--json]` | Checks an HTML file against the catalog. Exit code is 1 when there are errors. |
+| `code map [--suggest] [--limit <n>] [--json]` | How Figma and coded components join: pairs (mapped, exact, alias), what is unmatched on each side, and with `--suggest` likely pairs. Not the same as `code-map`, which maps Figma to code imports. |
+| `code map --write "Figma name=code[,code]" ...` | Appends the pairs you name to `.resolve/mapping.json`. Writes nothing else. |
+| `npm run size` | Line count per area (code engine, rest of server, Figma core) with each share; fails over the limits in `resolveSizeBudget` in `package.json`. |
 | `orient`, `query`, `path`, `explain`, `check` | Optional exploration of the stored graph. |
 | `list`, `reindex`, `rm --yes`, `where` | Look after the store. |
 | `score` | Accuracy check against a golden set. |
@@ -593,9 +650,26 @@ The name or words in the ask come first (exact name, word match, synonym). Scree
 
 #### pick
 
-Off unless `RESOLVE_AI_PICKS=1`. That environment variable is the only switch. `resolve pick` needs a repo checkout for now, because an installed package does not include the meaning files. The request is JSON with `library`, `ask`, `shortlist`, `pick`, `props`, `reason`, and `tier` (`place`, `ask`, or `no-fit`). Property values are strings, written as listed. A reason passes when it is a span of at least 3 words and 12 characters from one sentence of the description or the guidelines, or an exact whole line that is not the component name and not an alias, or the exact sequence of the name, one property, and one listed value. A span has to contain a word that is not a stopword, and it cannot cross a sentence, a line break, or include a link. A bare name is a reason only when the file has no description and no properties; that pick is `ask`, flagged name-only, and left out of the library-quote count. An alias is rejected. The pick has to be in a shortlist of 1 to 3 distinct index ids. A failed check comes back as no fit and exits 1. A correct `ask`, including a thin component capped from `place`, exits 0. The result lists every thin component and the field it is missing, and warns when the library is newer than the meaning files (`--library-built-at`). A name-only pick's own thin entry carries `nameOnly: true`, and the eval score's thin description list marks it `name-only`.
+Off unless `RESOLVE_AI_PICKS=1`. That environment variable is the only switch. `resolve pick` needs a repo checkout for now, because an installed package does not include the meaning files. The request is JSON with `library`, `ask`, `shortlist`, `pick`, `props`, `reason`, and `tier` (`place`, `ask`, or `no-fit`). Property values are strings, written as listed. A reason passes when it is a span of at least 3 words and 12 characters from one sentence of the description or the guidelines, or an exact whole line that is not the component name and not an alias, or the exact sequence of the name, one property, and one listed value. A span has to contain a word that is not a stopword, and it cannot cross a sentence, a line break, or include a link. A bare name is a reason only when the file has no description and no properties; that pick is `ask`, flagged name-only, and left out of the library-quote count. An alias is rejected. The pick has to be in a shortlist of 1 to 3 distinct index ids. A failed check comes back as no fit and exits 1. A correct `ask`, including a thin component capped from `place`, exits 0. The result lists every thin component and the field it is missing, and warns when the library is newer than the meaning files (`--library-built-at`). A name-only pick's own thin entry carries `nameOnly: true`, and the eval score's thin description list marks it `name-only`. The mark lives in the pick result and the score only. It is not in briefing cards or decision records.
+
+A shown pick also carries `shortlist` in the result: the pick first, then up to two neighbours chosen by Resolve from the meaning files, not by the model. The same ask and pick always give the same list. Resolve scores each other part by the words it shares with the ask and with the pick, adds a small bonus for a part the model also offered, and breaks ties by name. The request still needs its own `shortlist` that includes the pick; it is checked, and it feeds that bonus. This changes which parts count toward top-3, so it needs a fresh blind run before AI picks are switched on.
 
 Blind prompts for the eval are not committed. Generate them with `node scripts/ai-picks-eval.mjs prompts --out <dir> --id-map <file outside the repo>`. The id map is refused when its real path (symlinks followed) is inside the repo.
+
+#### Figma specs
+
+A Figma spec is a document of Markdown in a Figma file. Resolve does not call Figma, so the agent reads the spec and hands Resolve the text: with the Figma plugin API, `figma.spec.getContent({ specNodeId })` returns `markdown`, and that goes to `resolve spec <file>` (or `-` for stdin). The agent checks first, as Figma requires, that the file's plan has Specs turned on.
+
+`resolve spec` reads each list item, table row (the longest cell) and sentence, skipping code blocks, comment markers and header rows. It echoes the context the spec states and nothing else: `Product`, `Journey`, `Audience` and `Accessibility` lines, with a WCAG level written as `wcag-a`, `wcag-aa` or `wcag-aaa`. A field the text does not state stays off, so the agent passes on only what the document says.
+
+Each line then goes through the same ranking as `recommend`. A long sentence that finds nothing is retried on the phrase before its first clause word ("A dialog that asks the user to confirm" is ranked as "A dialog"), and the row says which phrase was ranked. Every row has one status:
+
+- **mapped**: a real component with its `figmaNodeId` and `fileKey`, plus up to two alternatives.
+- **weak**: a low-confidence match. Check it before placing.
+- **no match**: nothing in the library fits, or the line is not a screen part. Check it; never invent a component.
+- **not on screen**: lines about dates, speed, audit or people (a short cue list). Listed with `--all`.
+
+`--json` prints every row with its status. The same text and library always give the same rows. The MCP version is `spec_map` (advanced set): pass `markdown`, and `all: true` for the not-on-screen lines. The slash command is `/spec <Figma link to the spec>`; it checks `whoami` for `specs_enabled`, reads the spec, and runs this command.
 
 #### example
 
@@ -784,7 +858,7 @@ It lists the library parts placed directly inside a component (a part inside a p
 - **Honest labels.** A retired part does not show its old code. It names what to use instead, with that part's code when the map has it (`retired; use Button (code: Button from '@acme/ui')`). A part known only from its layer name is marked `guess from layer name, not confirmed`. A part from a library file you have not learned says so; if you have learned that library, Resolve finds the real part by its published component key. A copy whose component is missing is `component not found`.
 - **Names.** Exact name (letter case ignored) or id only. Anything else says "Nothing named ..." and exits with an error; use `recommend` to find the name first. A name or a bare node id found in two learned files is listed, not picked; ask again with `fileKey:nodeId`.
 
-`--json` prints the card as data (`parts`, each with `status`: `current`, `retired`, `unconfirmed`, `other-library` or `not-found`, `code` or `null`, and `use` / `useCode` for a retired part; `angular` for a selector entry; `useAngular` for a retired part's replacement; `insideFrom` marks insides read from the main component). `--all` counts the whole library: how many components are built from other parts, and how many of those parts link to code. The MCP version is `get_ingredients`. It is off by default, so the agent tool list stays at seven; set `RESOLVE_MCP_ADVANCED=1` to turn it on. Over MCP a card larger than 12,000 characters is cut so it does not flood the agent: it is shown one level less deep at a time, then with fewer parts per level, and `cut.reason` says what was left out (ask a part by name for its own card). The command line always prints the whole card.
+`--json` prints the card as data (`parts`, each with `status`: `current`, `retired`, `unconfirmed`, `other-library` or `not-found`, `code` or `null`, and `use` / `useCode` for a retired part; `angular` for a selector entry; `useAngular` for a retired part's replacement; `insideFrom` marks insides read from the main component). `--all` counts the whole library: how many components are built from other parts, and how many of those parts link to code. The MCP version is `get_ingredients`. It is off by default, so the default agent tool list stays at eight; set `RESOLVE_MCP_ADVANCED=1` to turn it on. Over MCP a card larger than 12,000 characters is cut so it does not flood the agent: it is shown one level less deep at a time, then with fewer parts per level, and `cut.reason` says what was left out (ask a part by name for its own card). The command line always prints the whole card.
 
 #### handoff
 
@@ -898,9 +972,11 @@ The headline number is `npm run resolve -- score phrases` (designer phrases). Th
 
 `npm run resolve -- gaps [--json]` lists what designers asked `recommend` for (MCP tool or CLI) that came back empty or as a weak match, and screen asks with no mapped screen of that job, from `<store>/scoreboard/gaps.jsonl`. The same ask, ignoring letter case and spacing, is one row with a count and the last date, most asked first. `score phrases`, `recipe` and `resolve` do not add to it. Writing the file never fails a `recommend`. The file is under `scoreboard/`, which the `resolve-setup` ignore block already keeps out of git. Delete it to start over.
 
-#### The seven MCP tools
+#### The MCP tools: 8 by default, 21 with the advanced set
 
-The same abilities are offered to AI tools as seven MCP tools: `learn_library`, `recommend`, `check_cousins`, `resolve`, `get_example`, `verify_frame` and `recipe`. They return the same cards as the command line. Two more tools, `get_ingredients` (see [ingredients](#ingredients)) and `get_handoff` (see [handoff](#handoff)), are off by default. The [slash commands](#slash-commands-in-detail), including `/code-map`, are also offered as MCP prompts (`prompts/list`, `prompts/get`); prompts are not tools and do not change the count.
+This is the Figma mode. Only the active mode's tools are offered: `code` mode offers `code_scan`, `code_pick`, `code_check` and `code_map` instead, and `both` offers all 12 default tools. See [Modes](#modes-figma-code-or-both).
+
+The same abilities are offered to AI tools as 8 MCP tools by default: `learn_library`, `recipe`, `brief`, `recommend`, `resolve`, `get_example`, `verify_frame` and `check_cousins`. Set `RESOLVE_MCP_ADVANCED=1` for 13 more (21 in all): `list_soci`, `approve_proposal`, `reject_proposal`, `list_recipes`, `get_ingredients`, `get_handoff`, `list_graphs`, `spec_map`, `decision_record`, `export_aidlc`, `code_map_scan`, `code_map_suggest` and `code_map_review`. They return the same cards as the command line. `get_ingredients` (see [ingredients](#ingredients)) and `get_handoff` (see [handoff](#handoff)) are in the advanced set. The [slash commands](#slash-commands-in-detail), including `/code-map`, are also offered as MCP prompts (`prompts/list`, `prompts/get`); prompts are not tools and do not change the count.
 
 ### Team config files
 
@@ -1154,7 +1230,7 @@ See [Upgrading from the old names](../README.md#upgrading-from-the-old-names) in
 
 ## Version history
 
-The version history lives on the wiki: [Version history](https://github.com/TANISHQBAFNA/resolve/wiki/Version-history), and in full in [HISTORY.md](HISTORY.md).
+The version history lives on the wiki: [Version history](https://github.com/TANISHQBAFNA/resolve/wiki/Version-history).
 
 ## FAQ
 
@@ -1197,4 +1273,3 @@ npm run build     # typecheck + browser build + server build
 - Cursor steps: [`docs/CURSOR-RESOLVE.md`](CURSOR-RESOLVE.md)
 - Building Resolve: [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)
 - How tools plug in: [`docs/INTEGRATIONS.md`](INTEGRATIONS.md)
-- Toolchain versions: [`CHANGELOG.md`](../CHANGELOG.md)

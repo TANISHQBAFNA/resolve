@@ -1,6 +1,6 @@
 # Install Resolve (instructions for an AI agent)
 
-You are an AI agent (Claude Code, Cursor or Codex). A user asked you to install Resolve from https://github.com/TANISHQBAFNA/resolve. Follow the steps below in order. Resolve helps AI tools use the real components of a Figma design system. See [README.md](README.md) for what it does. Do not start from the README; this file is the install path.
+You are an AI agent (Claude Code, Cursor or Codex). A user asked you to install Resolve from https://github.com/TANISHQBAFNA/resolve. Follow the steps below in order. Resolve helps AI tools use the real components of a Figma design system, or of a coded HTML/CSS design system. See [README.md](README.md) for what it does. Do not start from the README; this file is the install path.
 
 ## Rules (read first)
 
@@ -24,10 +24,10 @@ npx -y -p github:TANISHQBAFNA/resolve resolve-setup
 
 You can add `--dry-run` first to see what it would do. It is safe to run again.
 
-Expected output: lines starting with `create` (or `unchanged` on a repeat run) for `.cursor/rules/resolve.mdc`, `.cursor/mcp.json`, `.mcp.json`, `.claude/skills/resolve/SKILL.md`, `CLAUDE.md`, `.gitignore` and the slash commands (`.claude/commands/` and `.cursor/commands/`, one file each for `design-system`, `find`, `check`, `parts`, `handoff` and `resolve-status`), then a checklist (`Node ok?`, `Figma connected?`, `Library learned?`, `Rule installed?`) and a `Next:` line.
+Expected output: lines starting with `create` (or `unchanged` on a repeat run) for `.cursor/rules/resolve.mdc` (plus `resolve-figma.mdc` and `resolve-code.mdc`), `.cursor/mcp.json`, `.mcp.json`, `.claude/skills/resolve/SKILL.md` (plus `resolve-figma` and `resolve-code`), `CLAUDE.md`, `.gitignore` and the slash commands (`.claude/commands/` and `.cursor/commands/`, one file each for `brief`, `check`, `check-html`, `code-map`, `design-system`, `find`, `handoff`, `learn-code`, `parts`, `pick-code`, `resolve-status` and `spec`), then a checklist (`Node ok?`, `Figma connected?`, `Library learned?`, `Rule installed?`) and a `Next:` line.
 
-- The slash commands let the designer type `/design-system <Figma link>`, `/find <phrase>`, `/check <link>`, `/parts <screen link>` (what's on this screen and its code twin, or unmapped), `/handoff <link>` (the developer build sheet) and `/resolve-status`. Setup writes them; do not create or edit them by hand. A command file the user wrote (no Resolve markers) is kept, and setup says `skip ... kept your own file`; that is fine, report it, and do not use `--force`. Running setup again updates the Resolve ones. To remove everything Resolve added (only after the user asks): `npx -y -p github:TANISHQBAFNA/resolve resolve-setup --uninstall`.
-- Setup adds a marked block to `.gitignore` that ignores the learned cache (`.resolve/graph.json`, `.resolve/files/`, `.resolve/learn/`, `.resolve/ingest/`, `.resolve/GRAPH_REPORT.md`, `.resolve/index.json`, `.resolve/setup-record.json`) and scoreboard run history (`.resolve/scoreboard/*`). Phrase sets (`<store>/scoreboard/phrases/`) and golden files (`<store>/scoreboard/golden/`) are team files and stay committable, with recipes, context packs, the code map, decisions, bind rules and synonyms. If the project already ignores the whole `.resolve` folder (`.resolve`, `.resolve/`, `.resolve/*`, or the same idea with `**`), say so: that line also hides the team files. Resolve's ticket add-on for AIDLC, if your team uses it, uses `design-handoff`. It calls `/handoff`. It does not replace that command.
+- The slash commands let the designer type `/design-system <Figma link>`, `/find <phrase>`, `/check <link>`, `/parts <screen link>` (what's on this screen and its code twin, or unmapped), `/handoff <link>` (the developer build sheet), `/brief` (up to 3 quick questions before parts are picked), `/code-map scan|suggest|review` (pair Figma components with code components), `/spec <link>` (read a Figma spec and map each screen requirement to a component) and `/resolve-status`. For a coded prototype there are also `/learn-code [folder]`, `/pick-code <need>` and `/check-html <file>`. Setup writes them; do not create or edit them by hand. A command file the user wrote (no Resolve markers) is kept, and setup says `skip ... kept your own file`; that is fine, report it, and do not use `--force`. Running setup again updates the Resolve ones. To remove everything Resolve added (only after the user asks): `npx -y -p github:TANISHQBAFNA/resolve resolve-setup --uninstall`.
+- Setup adds a marked block to `.gitignore` that ignores the learned cache (`.resolve/graph.json`, `.resolve/files/`, `.resolve/learn/`, `.resolve/ingest/`, `.resolve/GRAPH_REPORT.md`, `.resolve/index.json`, `.resolve/code-catalog.json`, `.resolve/setup-record.json`) and scoreboard run history (`.resolve/scoreboard/*`). Phrase sets (`<store>/scoreboard/phrases/`) and golden files (`<store>/scoreboard/golden/`) are team files and stay committable, with recipes, context packs, the code map, decisions, bind rules and synonyms. If the project already ignores the whole `.resolve` folder (`.resolve`, `.resolve/`, `.resolve/*`, or the same idea with `**`), say so: that line also hides the team files. Resolve's ticket add-on for AIDLC, if your team uses it, uses `design-handoff`. It calls `/handoff`. It does not replace that command.
 - This adds the `resolve` server to the project's `.cursor/mcp.json` (Cursor) and `.mcp.json` (Claude Code). It keeps any other servers in those files.
 - If it prints `The Resolve connection was NOT added to <file>`, that file is not valid JSON or has an unusual shape, or it already has a different `resolve` entry. Do not overwrite it. Tell the user which file, and in step 2 add the entry by hand only if the file is valid JSON.
 - If the command prints nothing and exits with code 127, npm is too old. Go back to step 0.
@@ -79,6 +79,26 @@ Everything in this part follows OpenAI's Codex documentation and has not been ru
 3. Figma: run `codex mcp get figma` to see if it is set up. (`codex mcp get` exists in Codex's source code; it has not been run here. If `codex mcp --help` does not show `get`, do not list servers: just say so to the user.) If it is missing, ask the user, then run `codex mcp add figma --url https://mcp.figma.com/mcp` (this writes the user file).
 4. Run `codex mcp get resolve` to confirm the Resolve entry.
 
+### Grok Bot (not verified)
+
+This part has not been run. Resolve is a standard stdio MCP server, so any agent that can add one can use it.
+
+1. Add a stdio MCP server named `resolve` with command `npx` and arguments `-y -p github:TANISHQBAFNA/resolve resolve-mcp` (Grok Bot: use its connector tool for adding an MCP server).
+2. Set the environment values `FIGMA_ACCESS_TOKEN` and `RESOLVE_LIBRARY_FILE_KEY` through the agent's secret prompt. Never paste the token into chat or a file.
+3. Figma: add the remote server `https://mcp.figma.com/mcp` the same way, and let the user sign in.
+4. Read [docs/AGENTS-RESOLVE-SECTION.md](docs/AGENTS-RESOLVE-SECTION.md) and keep its rules in the agent's instructions, so it asks Resolve before it draws.
+5. Check that the `resolve` tools are listed.
+
+## Step 2b. Code workflow (only if the user builds HTML/CSS prototypes)
+
+Skip this for a Figma-only user. Ask for the folder that holds the design system CSS (the repo path). Write `.resolve/config.json` in the project, merging into any existing file:
+
+```json
+{ "mode": "code", "repoPath": "<folder>" }
+```
+
+Use `"mode": "both"` if they also design in Figma. `cssEntry` (entry stylesheet) and `theme` (token file) are optional; Resolve finds them when they are not set. `RESOLVE_MODE` and `RESOLVE_REPO_PATH` set the same thing as environment values. Resolve only reads the repo. Then run `npx -y -p github:TANISHQBAFNA/resolve resolve code scan` and report the component count. Code mode needs no Figma token and no Figma sign-in.
+
 ## Step 3. Verify
 
 Run `npx -y -p github:TANISHQBAFNA/resolve resolve-setup` again. Expect `unchanged` lines and a checklist where `Node ok?` and `Rule installed?` say `yes`. `Figma connected?` should say `yes` once Figma is added. (For Claude Code and Cursor it looks at the project files and at the Figma list in `~/.claude.json`, read-only. For Codex it cannot see the Figma entry, so it may say `no`; trust `codex mcp get figma`.) `Library learned?` says `no` until step 5 is done.
@@ -107,7 +127,7 @@ Finish with a short list:
 - Files created or changed (for example `.cursor/mcp.json`, `.mcp.json`, `.cursor/rules/resolve.mdc`, `.claude/skills/resolve/SKILL.md`, `CLAUDE.md`, the slash commands in `.claude/commands/` and `.cursor/commands/`).
 - Commands you ran, and whether each succeeded.
 - Anything you skipped or left alone, and why.
-- The two manual steps from step 5, and that the designer can now type `/design-system <Figma link>` to learn the library, then `/find`, `/check`, `/parts`, `/handoff` and `/resolve-status`.
+- The two manual steps from step 5, and that the designer can now type `/design-system <Figma link>` to learn the library, then `/find`, `/check`, `/parts`, `/handoff`, `/brief`, `/code-map`, `/spec` and `/resolve-status`.
 
 ## If you must edit a JSON file by hand
 

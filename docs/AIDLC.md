@@ -45,7 +45,7 @@ What the screen was asked for, as given. Nothing is filled in by guess.
 | `draft` | `true` means not for build |
 | `codeMap` | Whether a code map was loaded |
 | `screens[]` | `name`, `fileKey`, `figmaNodeId`, `recipe` (`id`, `title`, `matchedBy`), `parts`, `verify`, `openItems` |
-| `parts[]` | `name`, `variant`, `fileKey`, `figmaNodeId`, `count`, `identity`, `status`, `slot`, `codeStatus`, `code`, `angular` (`selector`, `importPath`, `module` or `standalone`), `states` (other values to build) |
+| `parts[]` | `name`, `variant`, `fileKey`, `figmaNodeId`, `count`, `identity`, `status`, `slot`, `codeStatus`, `code`, `angular` (the code selector entry: `selector`, `importPath`, `module` or `standalone`), `states` (other values to build) |
 | `verify` | `pass`, `retired`, `unresolved` |
 | `decisions` | `recorded` (was a decision.json there), `picks`, `rejected`, the same lists as the decision record |
 

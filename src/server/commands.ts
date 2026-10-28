@@ -2,7 +2,9 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { PickRequest } from "../core/query/meaning/sock";
-import { packFromFiles, validateAiPick } from "../core/query/meaning/sockPick";
+import { packFromFiles, stableShortlist, validateAiPick } from "../core/query/meaning/sockPick";
+import type { Mode } from "./mode.ts";
+import { activeMode, includesPack } from "./mode.ts";
 import { aiPicksEnabled } from "./pluginSettings";
 
 /**
@@ -126,17 +128,22 @@ export function runPickCommand(args: readonly string[], env: NodeJS.ProcessEnv =
   }
   const builtFlag = args.findIndex((arg) => arg === "--library-built-at");
   const libraryBuiltAt = builtFlag >= 0 ? args[builtFlag + 1] : undefined;
-  const result = validateAiPick(pack, req, libraryBuiltAt);
+  const result = validateAiPick(pack, { ...req, shortlist: stableShortlist(req.pick, req.shortlist) }, libraryBuiltAt);
   stdout(`${JSON.stringify(result)}\n`);
   const hard = result.failed.filter((check) => check !== "thin-cap");
   exitCode(result.tier === "no-fit" && hard.length ? 1 : 0);
 }
 
-export function loadCommands(): CommandPrompt[] {
+/** Code pack commands. Every other command belongs to the Figma pack. */
+export const CODE_COMMANDS = ["learn-code", "pick-code", "check-html"];
+
+/** Only the active pack's commands. */
+export function loadCommands(mode: Mode = activeMode()): CommandPrompt[] {
   const dir = commandsDir();
   if (!dir) return [];
   return readdirSync(dir)
     .filter((file) => file.endsWith(".md"))
+    .filter((file) => includesPack(mode, CODE_COMMANDS.includes(file.replace(/\.md$/, "")) ? "code" : "figma"))
     .sort()
     .map((file) => {
       const text = readFileSync(join(dir, file), "utf8");

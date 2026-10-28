@@ -1,19 +1,24 @@
 import { createInterface } from "node:readline";
 import type { Readable } from "node:stream";
-import { MCP_INSTRUCTIONS, listResources, readResource } from "./instructions";
+import { listResources, mcpInstructions, readResource } from "./instructions";
 import { pluginSetupSuffix } from "./pluginSettings";
 import { setupContext } from "./status";
 import { getPrompt, listPrompts } from "./commands";
+import { activeMode } from "./mode.ts";
 import { listToolDefinitions, ToolError, callTool, encodeToolResult, toolCardFormat } from "./tools";
 import { designerFailure } from "./designerMessages";
+import pkg from "../../package.json";
 
 /**
  * MCP JSON-RPC for one stdio session. Importing this file does not read stdin.
  * dist-server/mcp.mjs calls startMcpStdio() so a chat client can connect.
  */
 
-const SERVER_INFO = { name: "resolve-figma", version: "0.1.0" };
+/** The version comes from package.json at build time, so a bump cannot leave the server behind. */
+const SERVER_INFO = { name: "resolve-figma", version: pkg.version };
 const PROTOCOL_VERSION = "2025-06-18";
+/** Newest first. The client's version is echoed when it is on this list, else the newest. */
+const SUPPORTED_PROTOCOLS = [PROTOCOL_VERSION, "2025-03-26", "2024-11-05"];
 
 interface Request {
   jsonrpc: "2.0";
@@ -46,10 +51,10 @@ export function attachMcpStdio(streams: McpStreams): void {
     switch (method) {
       case "initialize":
         reply(id, {
-          protocolVersion: PROTOCOL_VERSION,
+          protocolVersion: SUPPORTED_PROTOCOLS.find((version) => version === (params as { protocolVersion?: unknown } | undefined)?.protocolVersion) ?? PROTOCOL_VERSION,
           capabilities: { tools: { listChanged: false }, resources: { listChanged: false }, prompts: { listChanged: false } },
           serverInfo: SERVER_INFO,
-          instructions: MCP_INSTRUCTIONS + pluginSetupSuffix(process.env, setupContext()),
+          instructions: mcpInstructions() + pluginSetupSuffix(process.env, { ...setupContext(), mode: activeMode() }),
         });
         return;
 
@@ -84,7 +89,7 @@ export function attachMcpStdio(streams: McpStreams): void {
         const uri = params && typeof params === "object" && "uri" in params ? String((params as { uri?: unknown }).uri ?? "") : "";
         const resource = readResource(uri);
         if (!resource) {
-          fail(id, -32002, `Unknown resource \`${uri}\`. Known: resolve://workflow.`);
+          fail(id, -32002, `Unknown resource \`${uri}\`. Known: ${listResources().map((r) => r.uri).join(", ")}.`);
           return;
         }
         reply(id, resource);

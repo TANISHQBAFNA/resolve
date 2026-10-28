@@ -7,7 +7,7 @@
 <p align="center">
 	<a href="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml"><img src="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 	<a href="LICENSE"><img src="https://img.shields.io/badge/license-use%20only-lightgrey.svg" alt="License: use only"></a>
-	<a href="package.json"><img src="https://img.shields.io/badge/version-0.1.0-2dd4bf.svg" alt="Version 0.1.0"></a>
+	<a href="package.json"><img src="https://img.shields.io/badge/version-0.1.1-2dd4bf.svg" alt="Version 0.1.1"></a>
 	<a href="package.json"><img src="https://img.shields.io/badge/node-%E2%89%A522.12-339933.svg" alt="Node 22.12 or newer"></a>
 	<a href=".claude-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Claude%20Code-d97757.svg" alt="Claude Code plugin"></a>
 	<a href=".cursor-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Cursor-555555.svg" alt="Cursor plugin"></a>
@@ -86,13 +86,15 @@ You need Node 22.12 or newer, Claude Code or Cursor, and a Figma Dev or Full sea
 /add-plugin https://github.com/TANISHQBAFNA/resolve
 ```
 
-Then fill in two settings: your **Figma token** and the **library file key**. The key is the id in the file link: in `figma.com/design/ACMEUI/Acme` it is `ACMEUI`. Never put the token in a file.
+Then fill in your **Figma token** and the **library file key**. For the code workflow, set **Workflow mode** and **Code repo folder** instead (or as well). The key is the id in the file link: in `figma.com/design/ACMEUI/Acme` it is `ACMEUI`. Never put the token in a file.
 
 **Or let your AI install it in one project.** Paste this into the chat:
 
 > Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md
 
-Codex, Claude Desktop and by-hand steps: [Install in detail](docs/REFERENCE.md#install-in-detail).
+**Grok Bot, Codex and other MCP agents.** Resolve is a standard MCP server, so any agent that can add one can use it. Steps for Grok Bot and Codex are in [INSTALL-FOR-AI.md](INSTALL-FOR-AI.md).
+
+Claude Desktop and by-hand steps: [Install in detail](docs/REFERENCE.md#install-in-detail).
 
 ## Check a screen
 
@@ -106,9 +108,21 @@ Every problem comes with its fix. Retired parts, detached parts, hard-coded valu
 
 The code map says which Figma part is which code part. Resolve can read your component package and suggest pairs. A suggestion is not the truth: someone confirms it. Only a confirmed pair shows on `/parts` and `/handoff`. If a part has no confirmed pair, stop and ask. Details: [Code map in the reference](docs/REFERENCE.md#scan-suggest-review).
 
+## Figma or code
+
+One engine, two workflows. Your words pick the workflow: "design this in Figma" uses the Figma part, "build an HTML prototype" uses the code part. Only that part's rules and tools load. If your words do not say, Resolve uses `mode` in `.resolve/config.json`, and if that is not set it asks one short question.
+
+```json
+{ "mode": "code", "repoPath": "../design-system", "cssEntry": "css/ds.css", "theme": "theme/tokens.css" }
+```
+
+`mode` is `figma`, `code` or `both` (override with `RESOLVE_MODE`; `RESOLVE_REPO_PATH`, `RESOLVE_CSS_ENTRY` and `RESOLVE_THEME` override the rest). With no `mode`, a set `repoPath` means `both`, otherwise `figma`, so existing installs behave as before.
+
+The code workflow reads a repo of HTML/CSS and builds a catalog of its real components (classes, variants, markup, deprecated classes, tokens). `/learn-code` builds it, `/pick-code` picks parts, `/check-html` checks a screen. The same steps run in a shell: `resolve code scan`, `resolve code pick "<need>"`, `resolve code check <file.html>`. `resolve mode` shows what is active. Resolve only reads the repo.
+
 ## Commands
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/commands-dark.svg"><img src="docs/assets/v4/commands-light.svg" alt="A command palette listing /design-system, /find, /check, /parts, /handoff and /brief, each with what it does." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/commands-dark.svg"><img src="docs/assets/v4/commands-light.svg" alt="A command palette listing /design-system, /find, /check, /parts, /handoff, /brief and /spec, each with what it does." width="100%"></picture>
 
 | Type | You get |
 | --- | --- |
@@ -119,6 +133,10 @@ The code map says which Figma part is which code part. Resolve can read your com
 | `/handoff <link>` | A developer build sheet for the screen. Mapped code twins only. |
 | `/brief` | Asks up to 3 quick questions before Resolve picks parts. |
 | `/code-map scan\|suggest\|review` | Read your component package, propose code pairs, then confirm them. |
+| `/spec <link>` | Reads a Figma spec and maps each screen requirement to a real component, or says no match. |
+| `/learn-code [folder]` | Code workflow. Reads the repo and learns its real classes, variants and tokens. |
+| `/pick-code <need>` | Code workflow. The right coded component, with its classes and markup. |
+| `/check-html <file>` | Code workflow. Unknown or deprecated classes, missing base classes, hard-coded values. |
 | `/resolve-status` | What is learned, whether the token and rule are set, and what to do next. |
 
 ## Learn more
@@ -137,7 +155,7 @@ The code map says which Figma part is which code part. Resolve can read your com
 | Upgrading from an older version | [Upgrading from the old names](#upgrading-from-the-old-names) |
 | What a component means to Resolve | [What a component means](docs/REFERENCE.md#what-a-component-means) |
 
-**Version history → [wiki](https://github.com/TANISHQBAFNA/resolve/wiki/Version-history)** · [docs/HISTORY.md](docs/HISTORY.md)
+**Version history → [wiki](https://github.com/TANISHQBAFNA/resolve/wiki/Version-history)**
 
 ## License
 

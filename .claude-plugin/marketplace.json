@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "resolve",
-  "description": "Resolve, the Figma component checker for Claude Code.",
+  "description": "Resolve, the real-component checker for Figma and coded prototypes, for Claude Code.",
   "owner": {
     "name": "Tanishk",
     "url": "https://github.com/TANISHQBAFNA"
@@ -10,7 +10,7 @@
     {
       "name": "resolve",
       "source": "./",
-      "description": "Asks Resolve before any Figma screen is drawn, and places only real library components."
+      "description": "Asks Resolve before any Figma screen or coded HTML prototype is built, and uses only real components. One engine, two workflows: Figma and code."
     }
   ]
 }

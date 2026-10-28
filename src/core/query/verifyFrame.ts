@@ -178,6 +178,7 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
   const unresolved: VerifyHit[] = [];
   const resolved: VerifyResolved[] = [];
   const approvedIds = new Set<string>();
+  const nameOnlyIds = new Set<string>();
   const seenInvent = new Set<string>();
   const seenDeprecated = new Set<string>();
   const seenUnresolved = new Set<string>();
@@ -421,9 +422,12 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
     const identityNode = preferred ?? master ?? node;
     const byIdentity = suppliedIdentity(index, given, identityNode);
     if (!preferred && master && isNameInferredMaster(master)) {
-      const before = approvedIds.size;
+      const before = new Set(approvedIds);
       considerMaster(master, given);
-      if (approvedIds.size > before) nameOnly = true;
+      if (approvedIds.size > before.size) {
+        nameOnly = true;
+        for (const id of approvedIds) if (!before.has(id)) nameOnlyIds.add(id);
+      }
       else if (byIdentity) idChecked += 1;
       continue;
     }
@@ -454,6 +458,14 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
     ...placed,
     ...deprecatedHits.flatMap((hit) => (hit.id ? [index.getNode(hit.id)] : [])).filter((node): node is GraphNode => Boolean(node)),
   );
+  // With all: true only, so the default card keeps its locked size. Problem layers are already listed under invents, deprecated and unresolved.
+  // One row per checked component, one status each. Wrong cousin and missing state come from check_cousins and recipe, not here.
+  const layerRows = [
+    ...placed.map((node) => ({ name: variantCardName(index, node), id: node.id, status: nameOnlyIds.has(node.id) ? "name-only" : "pass" })),
+    ...deprecatedHits.map((hit) => ({ name: hit.name, ...(hit.id ? { id: hit.id } : {}), status: "retired" })),
+    ...invents.map((hit) => ({ name: hit.name, ...(hit.id ? { id: hit.id } : {}), status: "invented" })),
+    ...unresolved.map((hit) => ({ name: hit.given ?? hit.name, status: "unresolved" })),
+  ];
   const ruleFailure = input.bindRules?.rules.length
     ? verifyBindRules(index, input.bindRules, placed, {
         domain: input.context?.domain,
@@ -523,6 +535,7 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
     ...(nameOnly ? { nameOnly: true as const, guess: LAYER_NAME_GUESS } : {}),
     ...(renamed.length ? { labelDiffers: true as const } : {}),
     approved: approvedIds.size,
+    ...(input.all === true && layerRows.length ? { layers: layerRows } : {}),
     resolved: resolvedParts,
     invents,
     deprecated: deprecatedHits,

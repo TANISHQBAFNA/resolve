@@ -1,3 +1,4 @@
+import { CODE_USAGE } from "./code/command.ts";
 /** Same flags `bindFromFlags` reads — keep help + usage errors in lockstep. */
 export const PACK_BIND_FLAGS =
   "[--pack <id>] [--product <name>] [--journey <step>] [--domain <domain>] [--audience <who>] [--a11y <bar>]";
@@ -80,6 +81,12 @@ export function usage(): void {
       "      Same pack flags as recommend. Wrong-cousin drift: resolve cousins.",
       "      A passing check of a real frame is saved to SOCK, the same as MCP verify_frame (--slot <role> tags its top-level parts).",
       "      Its screen job comes from --journey, else --domain, else the frame name, so \"payment screen\" can answer from it.",
+      "  resolve parts \"<screen link or frame name>\" [--json]",
+      "      What is on this screen: each real component with its mapped code twin, or unmapped. Not the build sheet; that is handoff.",
+      "  resolve spec <spec.md | -> [--all] [--json]",
+      "      Map a Figma spec to library components. Pass the spec's Markdown (the agent reads it with figma.spec.getContent); - reads stdin.",
+      "      Each list item, table row and sentence that asks for something on screen goes through the same ranking as recommend.",
+      "      Rows: mapped, weak (check first), no match (stop, never invented), not on screen (listed with --all). Context the spec states is echoed, never guessed.",
       "  resolve code-map [--json | --retired]   Report on .resolve/code-map.json: Figma component -> code component",
       "  resolve code-map --check \"<name>\" [--handoff <handoff.json>] [--json]",
       "      One answer from the committed handoff and code map only. No learned cache, and nothing is guessed.",
@@ -147,6 +154,9 @@ export function usage(): void {
       "      Read from <store>/scoreboard/gaps.jsonl (local, git-ignored). Each row needs a team word, a recipe, or a new part.",
       "  resolve status [--json]      One short answer: learned files, when, version, Figma token, always-on rule, code map, and what to do next",
       "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
+      "",
+      "Code workflow (mode code or both):",
+      CODE_USAGE,
       "",
       "  npm run resolve -- <command>     primary",
       "",

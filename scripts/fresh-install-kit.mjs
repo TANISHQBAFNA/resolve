@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
  * Fresh-install kit (F4-R1). Makes a scratch project with its own HOME, installs Resolve there with
- * resolve-setup (so the project .mcp.json is the only MCP config), then runs each of the 8 slash
- * commands through `claude -p` and records pass, needs-Figma or fail. It calls Claude, so it is not
+ * resolve-setup (so the project .mcp.json is the only MCP config), then runs each slash
+ * command through `claude -p` and records pass, needs-Figma or fail. It calls Claude, so it is not
  * part of `npm test`. It never reads or writes the real ~/.claude*, ~/.cursor or MCP settings.
  *
  *   node scripts/fresh-install-kit.mjs [--package <npx spec>] [--library <file.json> [--file-key <key>]]
- *                                      [--screen <figma screen link>] [--out <dir>] [--dry-run]
+ *                                      [--screen <figma screen link>] [--repo <design system folder>] [--out <dir>] [--dry-run]
  *
  * Claude Code needs a sign-in that works under the scratch HOME, for example CLAUDE_CODE_OAUTH_TOKEN
  * from `claude setup-token`. The kit passes the environment through and never prints it.
@@ -29,8 +29,8 @@ export const PHRASES = {
 const STACK = /^\s*at .+:\d+:\d+\)?$/m;
 const BROKEN = /command not found|is not built|Cannot find module/i;
 
-/** The 8 commands and their input. Screen commands get --screen; /design-system gets that file's link. */
-export function commandPlan(screen) {
+/** Every shipped command and its input. Screen commands get --screen; /design-system gets that file's link. With a repo, the code commands run too. */
+export function commandPlan(screen, repo) {
   const file = screen ? screen.replace(/[?#].*$/, "") : "";
   return [
     ["resolve-status", ""],
@@ -41,6 +41,8 @@ export function commandPlan(screen) {
     ["parts", screen ?? ""],
     ["handoff", screen ?? ""],
     ["code-map", "review"],
+    ["spec", screen ?? ""],
+    ...(repo ? [["learn-code", repo], ["pick-code", "primary button"], ["check-html", ""]] : []),
   ];
 }
 
@@ -78,11 +80,11 @@ export function classify(name, events) {
 }
 
 function parseArgs(argv) {
-  const opt = { package: "github:TANISHQBAFNA/resolve#v0.1.0", dryRun: false };
+  const opt = { package: "github:TANISHQBAFNA/resolve#v0.1.1", dryRun: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--dry-run") opt.dryRun = true;
-    else if (["--package", "--library", "--file-key", "--screen", "--out"].includes(arg) && argv[i + 1]) opt[arg.slice(2).replace("-k", "K")] = argv[(i += 1)];
+    else if (["--package", "--library", "--file-key", "--screen", "--repo", "--out"].includes(arg) && argv[i + 1]) opt[arg.slice(2).replace("-k", "K")] = argv[(i += 1)];
     else throw new Error(`Unknown or incomplete argument ${arg}. See the usage at the top of scripts/fresh-install-kit.mjs.`);
   }
   return opt;
@@ -93,7 +95,7 @@ function main(argv) {
   const out = resolve(opt.out ?? mkdtempSync(join(tmpdir(), "resolve-kit-")));
   const home = join(out, "home");
   const project = join(out, "project");
-  const env = { ...process.env, HOME: home, USERPROFILE: home, FIGMA_ACCESS_TOKEN: "", RESOLVE_LIBRARY_FILE_KEY: "" };
+  const env = { ...process.env, HOME: home, USERPROFILE: home, FIGMA_ACCESS_TOKEN: "", RESOLVE_LIBRARY_FILE_KEY: "", ...(opt.repo ? { RESOLVE_MODE: "both", RESOLVE_REPO_PATH: resolve(opt.repo) } : {}) };
   const npx = ["npx", "-y", "-p", opt.package];
   const setup = [[...npx, "resolve-setup"]];
   if (opt.library) setup.push([...npx, "resolve-figma", "ingest", resolve(opt.library), "--role", "library", ...(opt.fileKey ? ["--file-key", opt.fileKey] : [])]);
@@ -109,11 +111,11 @@ function main(argv) {
   }
   const mcpConfig = join(project, ".mcp.json");
   const entry = existsSync(mcpConfig) ? JSON.parse(readFileSync(mcpConfig, "utf8")).mcpServers?.resolve : undefined;
-  const spec = entry ? [entry.command, ...entry.args.slice(0, -1)].join(" ") : "npx -y -p github:TANISHQBAFNA/resolve#v0.1.0";
+  const spec = entry ? [entry.command, ...entry.args.slice(0, -1)].join(" ") : "npx -y -p github:TANISHQBAFNA/resolve#v0.1.1";
   const allowed = [`Bash(${spec} resolve-figma:*)`, `Bash(${spec} resolve-setup:*)`, "mcp__resolve"];
   const results = [];
   if (!opt.dryRun) mkdirSync(join(out, "transcripts"), { recursive: true });
-  for (const [name, input] of commandPlan(opt.screen)) {
+  for (const [name, input] of commandPlan(opt.screen, opt.repo)) {
     const args = ["-p", `/${name}${input ? ` ${input}` : ""}`, "--output-format", "stream-json", "--verbose", "--mcp-config", mcpConfig, "--strict-mcp-config",
       "--setting-sources", "project", "--no-session-persistence", "--allowedTools", ...allowed];
     if (opt.dryRun) {
