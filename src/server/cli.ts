@@ -97,6 +97,8 @@ import {
 } from "./store";
 import { stripFiller } from "./cards";
 import { formatGaps, readGaps, recordGap } from "./gaps";
+import { isLinkMapRequest, runLinkMap } from "./code/command";
+import { graphMasters } from "./graphMasters";
 import { refuseBadRows, runCodeMapExtra } from "./codeMapCommand";
 import { formatSpecMap, mapSpec, readSpec } from "@/core/query/specMap";
 import { recordVerifyUsage } from "./tools";
@@ -411,7 +413,13 @@ async function dispatchCli(argv: string[]): Promise<void> {
 
     case "code-map": {
       if (args.includes("--help") || args.includes("-h")) {
-        throw new Error('Usage: resolve code-map [--json | --retired | --check "<name>" | --init | --import <file.csv> | scan <package> | suggest <package> | review]');
+        throw new Error('Usage: resolve code-map [--json | --retired | --pairs | --unmatched | --suggest | --write "<Figma=code>" | --check "<name>" | --init | --import <file.csv> | scan <package> | suggest <package> | review]');
+      }
+      if (isLinkMapRequest(args)) {
+        const blocked = ["--init", "--import", "--check", "--retired", "--dry-run", "--force", "--replace"].filter((name) => args.includes(name));
+        if (blocked.length) throw new Error(`Use ${blocked[0]} on its own. --pairs, --unmatched, --suggest, and --write do not combine with it.`);
+        runLinkMap(args, graphMasters);
+        return;
       }
       if (runCodeMapExtra(args)) return;
       const mapPath = overlayFile("code-map.json") ?? join(storeRoot(), "code-map.json");

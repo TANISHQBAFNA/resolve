@@ -462,7 +462,7 @@ Resolve has one engine with two workflows. Only the rules for the active workflo
 
 | Mode | For | MCP tools | Resource |
 |---|---|---|---|
-| `figma` | Designing in Figma with real library components. | 8 by default, 21 with `RESOLVE_MCP_ADVANCED=1` | `resolve://figma` |
+| `figma` | Designing in Figma with real library components. | 8 by default, 18 with `RESOLVE_MCP_ADVANCED=1` | `resolve://figma` |
 | `code` | HTML, CSS and JS screens built from the repo's coded components. | `code_scan`, `code_pick`, `code_check`, `code_map` | `resolve://code` |
 | `both` | A task that needs both (the `figma` and `code` tools together, 12 by default). | 12 by default | both resources |
 
@@ -484,9 +484,9 @@ Resolve has one engine with two workflows. Only the rules for the active workflo
 
 **Code workflow.** Resolve reads the repo's CSS and builds a catalog: each component (a `building-blocks` or `recipes` folder, or one per CSS file in a flat repo), its variants, real markup, tokens, and the classes marked deprecated (a `deprecated` comment). It is saved to `code-catalog.json` in the store, reused until `repoPath` or `cssEntry` changes or a CSS file is newer, and `scan` keeps any Figma links. `code_pick` returns the classes, modifiers and markup for a need (words are matched by stem, so "deleting" meets "delete"; a small table of related words and intents, such as confirm or delete reaching a dialog or modal, widens the match; a name match counts more than a comment match; ties break by score, then block before recipe, then name); `code_check` reads an HTML file and reports unknown classes, deprecated classes, a modifier without its base class, literal colours and fonts that should be tokens, unknown tokens, and a stylesheet or theme the page does not load. It reads the stylesheets the page links or imports from disk (relative to the HTML file, then the repo) and counts the classes they define separately as project-local, not unknown; a file it cannot find is an info finding. Only `class="..."`, static strings and object keys in `:class`, and CSS selectors count as classes; Alpine expressions, scripts, decimals and file names do not. Resolve only reads; it never edits the repo or the screen.
 
-**Joining Figma and code (both mode).** Names can differ, so a Figma component and a coded component are joined in this order, and the entry records `matchedBy`: (1) `mapped`: the pair is in `.resolve/mapping.json`; (2) `exact`: the names are equal after ignoring case, spaces, hyphens, underscores and plurals ("Status Pill" = `status-pills`); (3) `alias`: a name or alias on either side equals a name or alias on the other, and only one coded component fits. An alias that fits several coded components is ambiguous and is not joined. Related words (modal, dialog, popup; badge, pill, chip; alert, toast, banner) and shared variant or modifier names only produce *suggested* pairs: `resolve code map --suggest` or `code_map` with `suggest: true` lists them with a score, and nothing is joined until you confirm it. `code_pick` and `pick` match the names and aliases on both sides, so "status pill" finds the coded `badge`. Rescan keeps the joins and never rewrites the mapping file; editing it takes effect on the next call.
+**Joining Figma and code (both mode).** Names can differ, so a Figma component and a coded component are joined in this order, and the entry records `matchedBy`: (1) `mapped`: the pair is in `.resolve/mapping.json`; (2) `exact`: the names are equal after ignoring case, spaces, hyphens, underscores and plurals ("Status Pill" = `status-pills`); (3) `alias`: a name or alias on either side equals a name or alias on the other, and only one coded component fits. An alias that fits several coded components is ambiguous and is not joined. Related words (modal, dialog, popup; badge, pill, chip; alert, toast, banner) and shared variant or modifier names only produce *suggested* pairs: `code-map --suggest` or `code_map` with `suggest: true` lists them with a score, and nothing is joined until you confirm it. `code_pick` and `pick` match the names and aliases on both sides, so "status pill" finds the coded `badge`. Rescan keeps the joins and never rewrites the mapping file; editing it takes effect on the next call.
 
-`.resolve/mapping.json` (hand-written, or appended by `code map --write`):
+`.resolve/mapping.json` (hand-written, or appended by `code-map --write`):
 
 ```json
 { "mappings": [
@@ -562,7 +562,7 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `verify "<frame>"` | Pass/fail check of a drawn frame or a list of components. |
 | `ingredients "<name>"` | What is inside a component: its parts, each with its code component or "no code link yet". |
 | `handoff "<frame>"` | One sheet a developer can build a screen from: recipe slots, every placed component with its Figma id and code, the parts inside, verify, decisions and open questions. Refuses a screen with a retired component, or with layer-name guesses or missing components unless `--draft`. |
-| `code-map [--json \| --retired]` | Report on your Figma-to-code map; `--retired` lists retired parts with their code and replacement. `--init` writes a spreadsheet (CSV) to fill in; `--import <file.csv>` turns it into the map (`--force` keeps entries the CSV has no row for, `--replace` drops them). A broken `code-map.json` is not overwritten. `--check "<name>" [--handoff <handoff.json>]` answers from the committed handoff and code map only (no learned cache). `--handoff` defaults to `./handoff.json`. `scan`, `suggest`, and `review` read a component package, propose pairs, and confirm them. |
+| `code-map [--json \| --retired \| --pairs \| --unmatched \| --suggest]` | One command for the Figma-to-code map. The report lists imports and selectors. `--retired` lists retired parts with their code and replacement. `--pairs` and `--unmatched` show how Figma components and coded components join (mapped, exact, alias) and what is unmatched on each side. `--suggest` adds likely pairs; a likely pair is not a link. `--write "Figma name=code[,code]"` appends confirmed pairs to `.resolve/mapping.json`. `--init` writes a spreadsheet (CSV) to fill in; `--import <file.csv>` turns it into the map (`--force` keeps entries the CSV has no row for, `--replace` drops them). A broken `code-map.json` is not overwritten. `--check "<name>" [--handoff <handoff.json>]` answers from the committed handoff and code map only (no learned cache). `--handoff` defaults to `./handoff.json`. `scan`, `suggest`, and `review` read a component package, propose pairs, and confirm them. |
 | `pack validate [path]` | Checks a context pack: slug id, known accessibility level, recipe ids that exist, and no Figma file key or node id. |
 | `rules` | Lists the bind rules people wrote. |
 | `soci` | Lists pending SOCI proposals (suggested rules and recipes). |
@@ -573,8 +573,6 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `code scan [--repo <folder>] [--css <entry.css>] [--theme <file\|name>] [--figma <masters.json>] [--list] [--json]` | Reads the repo's CSS and saves the code catalog. Code and both modes only. |
 | `code pick "<need>" [--limit <n>] [--json]` | The coded components, classes, modifiers and markup for a screen need. |
 | `code check <file.html> [--json]` | Checks an HTML file against the catalog. Exit code is 1 when there are errors. |
-| `code map [--suggest] [--limit <n>] [--json]` | How Figma and coded components join: pairs (mapped, exact, alias), what is unmatched on each side, and with `--suggest` likely pairs. Not the same as `code-map`, which maps Figma to code imports. |
-| `code map --write "Figma name=code[,code]" ...` | Appends the pairs you name to `.resolve/mapping.json`. Writes nothing else. |
 | `npm run size` | Line count per area (code engine, rest of server, Figma core) with each share; fails over the limits in `resolveSizeBudget` in `package.json`. |
 | `orient`, `query`, `path`, `explain`, `check` | Optional exploration of the stored graph. |
 | `list`, `reindex`, `rm --yes`, `where` | Look after the store. |
@@ -771,6 +769,12 @@ npm run resolve -- code-map --import code-map.csv --force   # updates an existin
 - A row and an old entry are the same component when they have the same file key and id. An old entry with no id matches a row of the same name in the same file; an entry with no file key and no id (name only) matches a row of that name in any file. An entry for another file, or with a different id, is never matched by name alone, even when the names agree.
 - A header that names a column twice (`component` twice), or an unnamed column that holds values, is refused. Unknown `code-map` options are refused too.
 - `--import` refuses a `code-map.json` that is not valid JSON, or that has no `entries` list. Nothing is written, so a broken file is not replaced by the CSV.
+
+#### Pairs and unmatched
+
+`code-map --pairs` prints the import map, then each join between a Figma component and a coded component (`mapped`, `exact`, or `alias`). `--unmatched` lists Figma components with no coded match and coded components with no Figma match. `--suggest` adds likely pairs and prints all three sections. A likely pair is not a link. Confirm one with `code-map --write "Figma name=code"`, which appends only that pair to `.resolve/mapping.json`. `--json` is one object with `imports`, `pairs`, `unmatchedFigma`, `unmatchedCode`, and `suggestions` when you asked for them.
+
+The shell spelling `code map` still runs. It prints one notice (`Deprecated: code map. This will be removed after a quarter. Use code-map.`) and then the same report as `code-map` with the same flags. `code map` alone matches `code-map --pairs --unmatched`.
 
 #### Scan, suggest, review
 
@@ -972,11 +976,11 @@ The headline number is `npm run resolve -- score phrases` (designer phrases). Th
 
 `npm run resolve -- gaps [--json]` lists what designers asked `recommend` for (MCP tool or CLI) that came back empty or as a weak match, and screen asks with no mapped screen of that job, from `<store>/scoreboard/gaps.jsonl`. The same ask, ignoring letter case and spacing, is one row with a count and the last date, most asked first. `score phrases`, `recipe` and `resolve` do not add to it. Writing the file never fails a `recommend`. The file is under `scoreboard/`, which the `resolve-setup` ignore block already keeps out of git. Delete it to start over.
 
-#### The MCP tools: 8 by default, 21 with the advanced set
+#### The MCP tools: 8 by default, 18 with the advanced set
 
 This is the Figma mode. Only the active mode's tools are offered: `code` mode offers `code_scan`, `code_pick`, `code_check` and `code_map` instead, and `both` offers all 12 default tools. See [Modes](#modes-figma-code-or-both).
 
-The same abilities are offered to AI tools as 8 MCP tools by default: `learn_library`, `recipe`, `brief`, `recommend`, `resolve`, `get_example`, `verify_frame` and `check_cousins`. Set `RESOLVE_MCP_ADVANCED=1` for 13 more (21 in all): `list_soci`, `approve_proposal`, `reject_proposal`, `list_recipes`, `get_ingredients`, `get_handoff`, `list_graphs`, `spec_map`, `decision_record`, `export_aidlc`, `code_map_scan`, `code_map_suggest` and `code_map_review`. They return the same cards as the command line. `get_ingredients` (see [ingredients](#ingredients)) and `get_handoff` (see [handoff](#handoff)) are in the advanced set. The [slash commands](#slash-commands-in-detail), including `/code-map`, are also offered as MCP prompts (`prompts/list`, `prompts/get`); prompts are not tools and do not change the count.
+The same abilities are offered to AI tools as 8 MCP tools by default: `learn_library`, `recipe`, `brief`, `recommend`, `resolve`, `get_example`, `verify_frame` and `check_cousins`. Set `RESOLVE_MCP_ADVANCED=1` for 10 more (18 in all): `list_soci`, `approve_proposal`, `reject_proposal`, `list_recipes`, `get_ingredients`, `get_handoff`, `list_graphs`, `spec_map`, `decision_record` and `export_aidlc`. They return the same cards as the command line. `get_ingredients` (see [ingredients](#ingredients)) and `get_handoff` (see [handoff](#handoff)) are in the advanced set. `code_map` is the one map tool, on the code workflow: pairs, unmatched, `suggest`, and `action` `scan`, `suggest`, or `review`. `code_map_scan`, `code_map_suggest`, and `code_map_review` still run when the advanced switch is on and say to use `code_map`. The [slash commands](#slash-commands-in-detail), including `/code-map`, are also offered as MCP prompts (`prompts/list`, `prompts/get`); prompts are not tools and do not change the count.
 
 ### Team config files
 

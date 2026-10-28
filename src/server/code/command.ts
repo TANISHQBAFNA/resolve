@@ -1,8 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
+import { formatCodeMapReport } from "@/core/query/codeMap";
+import { printJson } from "../cliArgs";
+import { deprecationNotice } from "../deprecations";
 import { includesPack, readConfig } from "../mode.ts";
 import type { CheckResult } from "./check.ts";
 import { checkTool, codeConfig, mapTool, pickTool, scanTool } from "./mcp.ts";
-import { writeMappings } from "./map.ts";
+import { attachImportReport, writeMappings } from "./map.ts";
 import { loadCatalog } from "./scan.ts";
 import type { FigmaMaster } from "./scan.ts";
 import { readRequests, repeatCheck } from "./repeat.ts";
@@ -17,15 +20,66 @@ export const CODE_USAGE = [
   "      and report whether top-1 and the ordered top-3 are identical. With expectations in the file it also reports accuracy.",
   "  resolve code check <file.html> [--json]",
   "      Unknown/deprecated classes, literal colours, unknown tokens, missing stylesheets. Exit 1 on errors.",
-  "  resolve code map [--suggest] [--limit <n>] [--json]",
-  "      How Figma and coded components join: pairs (mapped, exact, alias), unmatched on each side, and with --suggest likely pairs.",
-  '  resolve code map --write "Figma name=code-name[,code-name]" ...',
-  "      Append confirmed pairs to .resolve/mapping.json. Writes only what you name.",
+  "  resolve code map   Deprecated spelling of resolve code-map. Alone, same report as code-map --pairs --unmatched. Prints one notice.",
   "  resolve mode",
   "      Which workflow is active (figma, code, both) and why.",
 ].join("\n");
 
 const out = (line = "") => process.stdout.write(`${line}\n`);
+
+const LINK_FLAGS = ["--pairs", "--unmatched", "--suggest", "--limit", "--write"];
+
+/** Join view (`--pairs`, `--unmatched`, `--suggest`). A `scan` / `suggest` / `review` subcommand is not this view. */
+export function isLinkMapRequest(args: string[]): boolean {
+  if (args.some((arg) => arg === "scan" || arg === "suggest" || arg === "review")) return false;
+  return LINK_FLAGS.some((name) => args.includes(name));
+}
+
+function linkSections(args: string[]) {
+  const suggest = args.includes("--suggest");
+  const pairs = args.includes("--pairs");
+  const unmatched = args.includes("--unmatched");
+  const asked = pairs || unmatched;
+  return { suggest, pairs: suggest || pairs || !asked, unmatched: suggest || unmatched || !asked };
+}
+
+/** Import map plus Figma-to-coded joins. No section flag prints pairs and unmatched. */
+export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
+  const json = args.includes("--json");
+  const base = readConfig();
+  const cfg = codeConfig({ repoPath: flag(args, "--repo"), cssEntry: flag(args, "--css"), theme: flag(args, "--theme") }, base);
+  const pairs = words(args, ["--repo", "--css", "--theme", "--limit"]).filter((word) => word.includes("="));
+  if (args.includes("--write")) {
+    if (!pairs.length) throw new Error('Name the pairs to save, e.g. resolve code-map --write "Status Pill=badge". Run resolve code-map --suggest to see likely pairs.');
+    const done = writeMappings(cfg, loadCatalog(cfg), pairs);
+    if (json) printJson(done);
+    else out(`${done.added.length} pair(s) added to ${done.file}${done.skipped ? `, ${done.skipped} already there` : ""}.`);
+    return;
+  }
+  const sections = linkSections(args);
+  const report = attachImportReport(mapTool(cfg, { suggest: sections.suggest, limit: Number(flag(args, "--limit")) || 3 }, graph));
+  if (json) {
+    printJson(report);
+    return;
+  }
+  const imports = report.imports;
+  if (imports) {
+    out("Import map:");
+    out(formatCodeMapReport(imports));
+  } else out("Import map: no learned library.");
+  out(`${report.figmaComponents} Figma components, ${report.codeComponents} coded components. Mapping file: ${report.mappingExists ? report.mappingFile : "none yet (" + report.mappingFile + ")"}`);
+  for (const problem of report.problems ?? []) out(`  PROBLEM ${problem}`);
+  if (sections.pairs) for (const pair of report.pairs) out(`  ${pair.confidence.padEnd(9)} ${pair.figma} -> ${pair.code}${pair.alias ? ` (alias "${pair.alias}")` : ""}`);
+  if (sections.unmatched) {
+    out(`Figma with no coded match: ${report.unmatchedFigma.join(", ") || "none"}`);
+    out(`Coded with no Figma match: ${report.unmatchedCode.join(", ") || "none"}`);
+  }
+  if (sections.suggest && report.suggestions) {
+    out(report.suggestions.length ? "Suggested (not joined; confirm with code-map --write):" : "No suggestions.");
+    for (const suggestion of report.suggestions) out(`  suggested ${suggestion.figma} -> ${suggestion.code}  ${suggestion.score}  ${suggestion.reasons.join("; ")}`);
+  }
+  out(report.note);
+}
 
 function flag(args: string[], name: string): string | undefined {
   const at = args.indexOf(name);
@@ -92,25 +146,8 @@ export function runCodeCommand(argv: string[], graph?: () => FigmaMaster[]): voi
     return;
   }
   if (sub === "map") {
-    const pairs = words(rest, ["--repo", "--css", "--theme", "--limit"]).filter((w) => w.includes("="));
-    if (rest.includes("--write")) {
-      if (!pairs.length) throw new Error('Name the pairs to save, e.g. resolve code map --write "Status Pill=badge". Run resolve code map --suggest to see likely pairs.');
-      const done = writeMappings(cfg, loadCatalog(cfg), pairs);
-      out(json ? JSON.stringify(done) : `${done.added.length} pair(s) added to ${done.file}${done.skipped ? `, ${done.skipped} already there` : ""}.`);
-      return;
-    }
-    const report = mapTool(cfg, { suggest: rest.includes("--suggest"), limit: Number(flag(rest, "--limit")) || 3 }, graph);
-    if (json) return void out(JSON.stringify(report));
-    out(`${report.figmaComponents} Figma components, ${report.codeComponents} coded components. Mapping file: ${report.mappingExists ? report.mappingFile : "none yet (" + report.mappingFile + ")"}`);
-    for (const p of report.problems ?? []) out(`  PROBLEM ${p}`);
-    for (const p of report.pairs) out(`  ${p.confidence.padEnd(9)} ${p.figma} -> ${p.code}${p.alias ? ` (alias "${p.alias}")` : ""}`);
-    out(`Figma with no coded match: ${report.unmatchedFigma.join(", ") || "none"}`);
-    out(`Coded with no Figma match: ${report.unmatchedCode.join(", ") || "none"}`);
-    if (report.suggestions) {
-      out(report.suggestions.length ? "Suggested (not joined; confirm with --write):" : "No suggestions.");
-      for (const s of report.suggestions) out(`  suggested ${s.figma} -> ${s.code}  ${s.score}  ${s.reasons.join("; ")}`);
-    }
-    out(report.note);
+    process.stderr.write(`${deprecationNotice("code map", "code-map")}\n`);
+    runLinkMap(rest, graph);
     return;
   }
   if (sub === "pick") {

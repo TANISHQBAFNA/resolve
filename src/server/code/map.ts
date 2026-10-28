@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { codeMapCard } from "@/core/query/replacements";
 import type { ResolveConfig } from "../mode.ts";
+import { resolveGraph } from "../store";
 import type { CatalogEntry, CodeCatalog, FigmaMaster, MatchBy } from "./scan.ts";
 import { nameWords, RELATED, tokens } from "./words.ts";
 
@@ -10,7 +12,7 @@ import { nameWords, RELATED, tokens } from "./words.ts";
  *   mapped    a line in .resolve/mapping.json names the pair (one-to-many and many-to-one allowed)
  *   exact     same name after case, spaces, hyphens, underscores and plurals are ignored
  *   alias     a name or alias on one side equals a name or alias on the other (only when one coded component fits)
- *   suggested related words, variants and modifiers look alike. Shown by `code map --suggest`, never joined on its own.
+ *   suggested related words, variants and modifiers look alike. Shown by `code-map --suggest`, never joined on its own.
  */
 const byCode = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const plural = (w: string) => (w.length > 3 && w.endsWith("ies") ? `${w.slice(0, -3)}y` : w.length > 3 && w.endsWith("s") && !/(ss|us|is)$/.test(w) ? w.slice(0, -1) : w);
@@ -197,7 +199,7 @@ export function mapReport(catalog: CodeCatalog, cfg: ResolveConfig, opts: { sugg
     unmatchedCode: r.masters.length ? catalog.components.filter((e) => !linkedCode.has(e.name)).map((e) => e.name) : [],
     ...(opts.suggest ? { suggestions: unmatchedFigma.flatMap((m) => suggestions(m, catalog, r, Math.max(1, opts.limit ?? 3))) } : {}),
     note: r.masters.length
-      ? "A suggestion is not a link. Confirm pairs in the mapping file (or `resolve code map --write \"Figma=code\"`); nothing is joined without that."
+      ? "A suggestion is not a link. Confirm pairs in the mapping file (or `resolve code-map --write \"Figma=code\"`); nothing is joined without that."
       : "No Figma components known yet. Run code_scan with figma components (or learn the Figma library in both mode), then ask again.",
   };
 }
@@ -242,4 +244,15 @@ export function writeMappings(cfg: ResolveConfig, catalog: CodeCatalog, pairs: s
     writeFileSync(path, `${JSON.stringify(doc, null, 2)}\n`);
   }
   return { file: path, added, skipped: pairs.length - added.length };
+}
+
+/** The import map (`.resolve/code-map.json`) beside a coded-component join report. Null when no library is learned. */
+export function attachImportReport<T extends object>(report: T): T & { imports: ReturnType<typeof codeMapCard> | null } {
+  try {
+    const resolved = resolveGraph();
+    if (!resolved) return { ...report, imports: null };
+    return { ...report, imports: codeMapCard(() => resolved.index) };
+  } catch {
+    return { ...report, imports: null };
+  }
 }

@@ -11,7 +11,8 @@ This command keeps the code map. A suggestion is not the truth. Only a mapped pa
    - `scan <package or path>` runs `resolve-figma code-map scan "<package or path>"`. It reads the component package. It does not write the map.
    - `suggest <package or path>` runs `resolve-figma code-map suggest "<package or path>"`. It proposes pairs. Every pair is suggested. Add `--write` only when the designer asks to save them. A suggestion is not mapped.
    - `review` runs `resolve-figma code-map review`. It writes a CSV. The designer sets `status` to `mapped` on the rows they confirm. Then `resolve-figma code-map review --import "<file.csv>"`. A blank status stays suggested. Entries the CSV leaves out are kept.
-3. A client that only has the MCP server needs `RESOLVE_MCP_ADVANCED=1`, then `code_map_scan`, `code_map_suggest`, or `code_map_review`. Those tools call the same functions. They are not on the default tool list.
+   - `--pairs`, `--unmatched`, and `--suggest` are the same command. `resolve-figma code-map --pairs --unmatched` shows how Figma components and coded components join, and what is unmatched. Add `--suggest` for likely pairs. A likely pair is not mapped. `--write "Figma name=code"` saves a confirmed pair. The shell spelling `code map` still runs, prints one notice, and does this.
+3. A client that only has the MCP server calls `code_map`. `suggest: true` adds likely pairs. `action` `scan`, `suggest`, or `review` reads a component package. `code_map_scan`, `code_map_suggest`, and `code_map_review` still run when `RESOLVE_MCP_ADVANCED=1` and say to use `code_map`. They are not on the default tool list.
 4. Show the result in plain words. Do not treat a suggested or partial pair as the code to use. If a part is unmapped, stop and ask.
 
 Never guess a code component. Never invent a component, name or node id.

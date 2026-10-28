@@ -1,9 +1,11 @@
 import { isAbsolute, resolve } from "node:path";
 import type { ResolveConfig } from "../mode.ts";
 import { readConfig } from "../mode.ts";
+import { resolveGraph } from "../store";
 import type { ToolDefinition } from "../tools";
+import { runCodeMapTool } from "../codeMapMcp";
 import { checkHtml } from "./check.ts";
-import { linkFigma, mapReport } from "./map.ts";
+import { attachImportReport, linkFigma, mapReport } from "./map.ts";
 import { pickComponents } from "./pick.ts";
 import type { FigmaMaster } from "./scan.ts";
 import { catalogPath, loadCatalog, rescan, saveCatalog, summarize } from "./scan.ts";
@@ -52,12 +54,17 @@ export const CODE_TOOLS: ToolDefinition[] = [
   {
     name: "code_map",
     description:
-      'Show how Figma components and coded components join. Pairs carry a confidence: mapped (named in .resolve/mapping.json), exact (same name), alias (a name or alias on either side). Also lists Figma and coded components with no match. suggest:true adds likely pairs ("suggested", from names, aliases, related words, variants). Read-only: never joins or writes anything. A suggested pair is not a link; the user confirms it in the mapping file.',
+      'One map tool. Default (action links): how Figma components and coded components join, plus the import map when a library is learned. Pairs carry a confidence: mapped (named in .resolve/mapping.json), exact (same name), alias (a name or alias on either side). Also lists Figma and coded components with no match. suggest:true adds likely pairs ("suggested"). A suggested pair is not a link. action scan, suggest, or review reads a component package and confirms import pairs (the same work as the older code_map_scan, code_map_suggest, and code_map_review names, which still run and say to use code_map).',
     inputSchema: {
       type: "object",
       properties: {
         suggest: { type: "boolean", description: "Also propose likely pairs for the Figma components with no match." },
         limit: { type: "number", description: "Suggestions per Figma component, 1-5. Default 3." },
+        action: { type: "string", enum: ["links", "scan", "suggest", "review"], description: "links (default) is the join report. scan, suggest, and review read a component package." },
+        package: { type: "string", description: "Package path or name for action scan or suggest." },
+        write: { type: "boolean", description: "With action suggest, save suggestions into code-map.json. Confirmed rows stay. Nothing is marked mapped." },
+        csv: { type: "string", description: "With action review, CSV text or a path to a .csv file. Omit to return the review sheet." },
+        replace: { type: "boolean", description: "With action review, drop entries the CSV has no row for. Default keeps them." },
       },
     },
   },
@@ -137,7 +144,18 @@ export function runCodeTool(name: string, args: Record<string, unknown>, graphMa
   const cfg = codeConfig(args);
   if (name === "code_scan") return scanTool(cfg, args, graphMasters);
   if (name === "code_pick") return pickTool(cfg, text(args["query"]) ?? "", typeof args["limit"] === "number" ? args["limit"] : 5);
-  if (name === "code_map") return mapTool(cfg, { suggest: args["suggest"] === true, limit: Math.min(5, Math.max(1, Number(args["limit"]) || 3)) }, graphMasters);
+  if (name === "code_map") {
+    const action = typeof args["action"] === "string" ? args["action"] : "links";
+    if (action === "scan") return runCodeMapTool("code_map_scan", args);
+    if (action === "suggest") {
+      const index = resolveGraph()?.index;
+      if (!index) throw new Error("code_map suggest needs a learned library.");
+      return runCodeMapTool("code_map_suggest", args, index);
+    }
+    if (action === "review") return runCodeMapTool("code_map_review", args, resolveGraph()?.index);
+    if (action !== "links") throw new Error("action must be links, scan, suggest, or review.");
+    return attachImportReport(mapTool(cfg, { suggest: args["suggest"] === true, limit: Math.min(5, Math.max(1, Number(args["limit"]) || 3)) }, graphMasters));
+  }
   if (name === "code_check") return checkTool(cfg, text(args["file"]) ?? "");
   throw new Error(`Unknown code tool \`${name}\`.`);
 }
