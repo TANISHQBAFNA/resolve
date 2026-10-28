@@ -8,7 +8,7 @@ import { parseHtml } from "./html.ts";
 import { linkFigma, mappingDigest } from "./map.ts";
 
 /** A Figma component as the catalog keeps it. */
-export interface FigmaRef { name: string; fileKey?: string; nodeId?: string; variants?: string[]; aliases?: string[]; published?: boolean }
+export interface FigmaRef { name: string; fileKey?: string; nodeId?: string; variants?: string[]; aliases?: string[]; published?: boolean; description?: string }
 export type MatchBy = "exact" | "alias" | "mapped";
 
 /** One entry per component. `figma` and `code` are both optional; they join by name, alias or the mapping file (see map.ts). */
@@ -260,15 +260,21 @@ export function buildCatalog(cfg: ResolveConfig, order: <T>(items: T[]) => T[] =
   for (const item of pending.sort((a, b) => byCode(a.cls, b.cls))) if (known.has(item.cls) || plain(item.cls)) deprecated[`.${item.cls}`] = { in: item.in, note: item.note };
   const isDep = (cls: string) => Boolean(deprecated[`.${cls}`]);
 
-  for (const file of order(walkFiles(repo, ".html", 300)).sort(byCode)) {
+  const htmlPaths = order(walkFiles(repo, ".html", 300)).sort(byCode);
+  for (const file of htmlPaths) {
     if (statSync(file).size > 500_000) continue;
     const rel = posix(relative(repo, file));
+    if (/^index\.html?$/i.test(rel.split("/").pop() ?? "")) continue;
     const comp = componentOf(rel);
     if (!comp || accs.has(`${comp.kind}:${comp.name}`)) continue;
+    const doc = parseHtml(readFileSync(file, "utf8"));
+    const classes = doc.tags.flatMap((tag) => [...tag.classes, ...tag.dynamicClasses]);
+    const links = doc.tags.some((tag) => tag.tag === "a" && tag.attrs["href"]);
+    const owns = classes.some((cls) => cls === comp.name || cls.startsWith(`${comp.name}--`) || cls.startsWith(`${comp.name}__`) || cls.startsWith(`${comp.name}-`));
+    if (links && !owns) continue;
     const acc: Acc = { name: comp.name, kind: comp.kind, files: [rel], counts: new Map(), tokens: new Set(), comments: [] };
     accs.set(`${comp.kind}:${comp.name}`, acc);
-    for (const tag of parseHtml(readFileSync(file, "utf8")).tags)
-      for (const cls of [...tag.classes, ...tag.dynamicClasses]) acc.counts.set(cls, (acc.counts.get(cls) ?? 0) + 1);
+    for (const cls of classes) acc.counts.set(cls, (acc.counts.get(cls) ?? 0) + 1);
   }
 
   const entries: CatalogEntry[] = [];
@@ -324,7 +330,7 @@ export function buildCatalog(cfg: ResolveConfig, order: <T>(items: T[]) => T[] =
   // Real markup from the repo's own HTML beats a guessed tag.
   const usage = new Map<string, { tags: Map<string, number>; combos: Map<string, number>; files: Set<string> }>();
   const entryOf = new Map(entries.map((e) => [e.name, e]));
-  for (const file of order(walkFiles(repo, ".html", 300)).sort(byCode)) {
+  for (const file of htmlPaths) {
     if (statSync(file).size > 500_000) continue;
     for (const tag of parseHtml(readFileSync(file, "utf8")).tags) {
       for (const cls of tag.classes) {
@@ -357,7 +363,7 @@ export function buildCatalog(cfg: ResolveConfig, order: <T>(items: T[]) => T[] =
     repoPath: repo,
     ...(cfg.cssEntry ? { cssEntry: cfg.cssEntry } : {}),
     ...(cfg.theme ? { theme: themeFile ? { file: posix(relative(repo, themeFile)) } : { name: cfg.theme } } : {}),
-    cssFiles: [...files.map((f) => posix(relative(repo, f))), ...entries.flatMap((e) => (e.code?.cssFiles ?? []).filter((f) => /\.html?$/i.test(f)))],
+    cssFiles: [...files.map((f) => posix(relative(repo, f))), ...htmlPaths.map((file) => posix(relative(repo, file)))],
     components: entries,
     globalClasses: [...globals].filter((c) => !owner.has(c) && !isDep(c)).sort(),
     deprecated,
@@ -424,7 +430,8 @@ export function summarize(catalog: CodeCatalog) {
     repoPath: catalog.repoPath,
     cssEntry: catalog.cssEntry,
     theme: catalog.theme,
-    cssFiles: catalog.cssFiles.length,
+    cssFiles: catalog.cssFiles.filter((file) => !/\.html?$/i.test(file)).length,
+    htmlFiles: catalog.cssFiles.filter((file) => /\.html?$/i.test(file)).length,
     components: catalog.components.length,
     blocks: blocks.length,
     recipes: recipes.length,

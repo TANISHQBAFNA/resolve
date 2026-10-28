@@ -19,6 +19,7 @@ export interface LearnCatalogItem {
   figmaNodeId?: string;
   fileKey?: string;
   description?: string;
+  published?: boolean;
 }
 
 export interface LearnUnit {
@@ -109,10 +110,12 @@ export function flattenCatalog(raw: unknown): LearnCatalogItem[] {
     }
     if (typeof value !== "object") return;
     const record = value as Record<string, unknown>;
-    if (typeof record["key"] === "string" || typeof record["name"] === "string") {
+    const key = ["key", "componentKey", "component_key"].map((name) => record[name]).find((value) => typeof value === "string" && value.trim()) as string | undefined;
+    const published = typeof record["published"] === "boolean" ? record["published"] : record["publishState"] === "local-only" ? false : record["publishState"] === "published" ? true : undefined;
+    if (key || typeof record["name"] === "string" || published !== undefined) {
       out.push({
         name: typeof record["name"] === "string" ? record["name"] : undefined,
-        key: typeof record["key"] === "string" ? record["key"] : undefined,
+        key,
         nodeId:
           typeof record["nodeId"] === "string"
             ? record["nodeId"]
@@ -122,6 +125,7 @@ export function flattenCatalog(raw: unknown): LearnCatalogItem[] {
         figmaNodeId: typeof record["figmaNodeId"] === "string" ? record["figmaNodeId"] : undefined,
         fileKey: typeof record["fileKey"] === "string" ? record["fileKey"] : undefined,
         description: typeof record["description"] === "string" ? record["description"] : undefined,
+        ...(published !== undefined ? { published } : {}),
       });
     }
     for (const nested of [
@@ -152,35 +156,47 @@ function catalogNodeId(item: LearnCatalogItem): string | undefined {
   return id?.trim() || undefined;
 }
 
-/** Stamp published keys. Exact fileKey + nodeId + master type only. Name fallback if exactly one master in that file has that name. */
+function findCatalogMaster(graph: DesignGraph, item: LearnCatalogItem): GraphNode | undefined {
+  const wantFile = (item.fileKey ?? graph.fileKey).trim();
+  const wantId = catalogNodeId(item);
+  if (wantFile && wantId) {
+    const node = graph.nodes.find(
+      (candidate) => isCatalogMaster(candidate) && fileOfNode(candidate, graph) === wantFile && candidate.figmaNodeId === wantId,
+    );
+    if (node) return node;
+  }
+  if (!item.name || !wantFile) return undefined;
+  const matches = graph.nodes.filter(
+    (candidate) => isCatalogMaster(candidate) && fileOfNode(candidate, graph) === wantFile && candidate.name === item.name,
+  );
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+/** Stamp publish status from library data. A key still needs fileKey + nodeId, or one master of that name. */
 export function applyPublishedCatalog(graph: DesignGraph, raw: unknown): { applied: number } {
-  const catalog = flattenCatalog(raw);
+  const catalog = flattenCatalog(raw).filter((item) => item.key || typeof item.published === "boolean");
   let applied = 0;
+  const stamped = new Set<GraphNode>();
   for (const item of catalog) {
-    if (!item.key) continue;
-    const wantFile = (item.fileKey ?? graph.fileKey).trim();
-    const wantId = catalogNodeId(item);
-    let node: GraphNode | undefined;
-    if (wantFile && wantId) {
-      node = graph.nodes.find(
-        (candidate) =>
-          isCatalogMaster(candidate) &&
-          fileOfNode(candidate, graph) === wantFile &&
-          candidate.figmaNodeId === wantId,
-      );
-    }
-    if (!node && item.name && wantFile) {
-      const matches = graph.nodes.filter(
-        (candidate) =>
-          isCatalogMaster(candidate) &&
-          fileOfNode(candidate, graph) === wantFile &&
-          candidate.name === item.name,
-      );
-      if (matches.length === 1) node = matches[0];
-    }
+    const node = findCatalogMaster(graph, item);
     if (!node) continue;
-    node.metadata = { ...node.metadata, key: item.key };
+    const isPublished = item.published !== false;
+    node.metadata = {
+      ...node.metadata,
+      ...(item.key && isPublished ? { key: item.key } : {}),
+      published: isPublished,
+      publishState: isPublished ? "published" : "local-only",
+    };
+    stamped.add(node);
     applied += 1;
+  }
+  const sawPublished = catalog.some((item) => item.published === true || (item.published !== false && Boolean(item.key)));
+  if (sawPublished) {
+    for (const node of graph.nodes) {
+      if (!isCatalogMaster(node) || stamped.has(node)) continue;
+      if (typeof node.metadata?.["key"] === "string" && node.metadata["key"].trim() && node.metadata["published"] !== false) continue;
+      node.metadata = { ...node.metadata, published: false, publishState: "local-only" };
+    }
   }
   return { applied };
 }
