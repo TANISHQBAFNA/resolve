@@ -119,7 +119,7 @@ export function runCodeCommand(argv: string[], graph?: () => FigmaMaster[]): voi
   const base = readConfig();
   const repo = flag(rest, "--repo");
   const cfg = codeConfig({ repoPath: repo, cssEntry: flag(rest, "--css"), theme: flag(rest, "--theme") }, base);
-  if (base.mode === "figma" && base.modeSource !== "default") throw new Error("Code workflow is off (mode: figma). Set mode to code or both in .resolve/config.json, or RESOLVE_MODE.");
+  if (base.mode === "figma" && (base.modeSource !== "default" || sub === "scan" || sub === "pick" || sub === "check")) throw new Error(`Tool "${sub === "scan" ? "code_scan" : sub === "pick" ? "code_pick" : sub === "check" ? "code_check" : sub === "map" ? "code_map" : "code"}" is in the code workflow, which is off (mode: ${base.mode}). Set mode to code or both in .resolve/config.json, or RESOLVE_MODE.`);
   if (!sub || !["scan", "pick", "check", "map"].includes(sub)) {
     out(CODE_USAGE);
     if (sub) process.exitCode = 1;

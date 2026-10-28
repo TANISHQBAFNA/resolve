@@ -68,12 +68,11 @@ describe("MCP instructions stay a short trigger", () => {
       expect(text, path).toContain("plain words");
       expect(text, path).not.toContain("npm run resolve");
     }
-    const published = readFileSync(join(root, "skills/resolve-figma/SKILL.md"), "utf8").trimEnd();
+    const published = readFileSync(join(root, "skills/resolve-figma/SKILL.md"), "utf8");
     const cursor = readFileSync(join(root, ".cursor/skills/resolve-figma/SKILL.md"), "utf8");
+    expect(cursor).toBe(published);
     expect(published).not.toContain("meaning/");
-    expect(cursor.startsWith(published)).toBe(true);
-    expect(cursor).toContain("meaning/acme/index.md");
-    expect(cursor).toContain("Simplest thing that works");
+    expect(cursor).not.toContain("meaning/acme/index.md");
   });
 
   it("Figma pack, CLAUDE block, and MCP instructions name the same path", () => {
