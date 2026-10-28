@@ -541,7 +541,7 @@ export function formatScore(report, cases, mainRates) {
     report.mixed ? "mixed runs" : report.partial && !report.threeRun ? "partial agreement (2 of 3)" : report.oneRun ? "one run" : "majority of 3",
     report.duplicates ? `duplicate runs ${report.duplicates}` : "duplicate runs 0",
     report.badRuns ? `bad runs ${report.badRuns}` : "bad runs 0",
-    incomplete.length ? `incomplete ${incomplete.length} (2 of 3 runs, left out of every count): ${incomplete.join(", ")}` : "incomplete 0",
+    ...(incomplete.length ? [`incomplete ${incomplete.length} (2 of 3 runs, left out of every count): ${incomplete.join(", ")}`] : []),
     listedLine("incomplete or 2-of-3", listedIds(incomplete, report.twoOfThree ?? [])),
     `name-only ${report.nameOnly ?? 0}`,
     `library quote ${report.libraryQuotes ?? 0}/${report.libraryShown ?? 0}`,

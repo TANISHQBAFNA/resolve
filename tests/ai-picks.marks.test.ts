@@ -407,7 +407,8 @@ describe("F1b score errors and partial agreement", () => {
     expect([report.incomplete, report.groups.material["asks"], report.groups.material["top1"], report["badRuns"]]).toEqual([[], 2, 2, 0]);
     const text = scorer.formatScore(report, cases);
     expect(text.split("\n")[0]).toBe("Material 2");
-    expect(text).toContain("\nincomplete 0\n");
+    expect(text).not.toContain("\nincomplete 0\n");
+    expect(text).toContain("\nincomplete or 2-of-3 1: i-2\n");
     expect(text).not.toContain("left out of every count");
   });
 
@@ -422,7 +423,7 @@ describe("F1b score errors and partial agreement", () => {
     expect(report.groups.material["asks"]).toBe(3);
     expect(report.groups.material["top1"]).toBe(2);
     const text = scorer.formatScore(report, cases);
-    expect(text).toContain("\nincomplete 0\n");
+    expect(text).not.toContain("\nincomplete 0\n");
     expect(text).toContain("\nincomplete or 2-of-3 2: i-2, i-3\n");
     expect(text).not.toContain("left out of every count");
     const held: Report = {

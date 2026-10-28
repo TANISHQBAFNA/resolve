@@ -14,6 +14,10 @@ export interface ResolveConfig {
   theme?: string;
   cssEntry?: string;
   localPrefixes: string[];
+  /** Figma path prefixes to strip before a coded name is compared. Defaults live in the matcher. */
+  figmaNamespaces?: string[];
+  /** Keep Figma components that have no published key. Default skips them once any sibling is published. */
+  includeUnpublished?: boolean;
   configPath?: string;
   /** Folder that holds config.json and code-catalog.json. */
   storeDir: string;
@@ -83,7 +87,8 @@ function list(value: unknown): string[] {
 /**
  * One tool-neutral config: `.resolve/config.json` (or RESOLVE_HOME/config.json).
  * Env wins: RESOLVE_MODE, RESOLVE_LIBRARY_FILE_KEY, RESOLVE_REPO_PATH,
- * RESOLVE_THEME, RESOLVE_CSS_ENTRY, RESOLVE_LOCAL_PREFIXES.
+ * RESOLVE_THEME, RESOLVE_CSS_ENTRY, RESOLVE_LOCAL_PREFIXES, RESOLVE_FIGMA_NAMESPACES,
+ * RESOLVE_INCLUDE_UNPUBLISHED.
  */
 export function readConfig(cwd: string = process.cwd(), env: Env = process.env): ResolveConfig {
   let file: Record<string, unknown> = {};
@@ -118,6 +123,10 @@ export function readConfig(cwd: string = process.cwd(), env: Env = process.env):
   else [mode, modeSource] = ["figma", "default"];
 
   const prefixes = usable(env["RESOLVE_LOCAL_PREFIXES"]) ? list(env["RESOLVE_LOCAL_PREFIXES"]) : list(file["localPrefixes"]);
+  const envNamespaces = usable(env["RESOLVE_FIGMA_NAMESPACES"]);
+  const fileNamespaces = list(file["figmaNamespaces"]);
+  const figmaNamespaces = envNamespaces ? list(envNamespaces) : fileNamespaces.length ? fileNamespaces : undefined;
+  const includeUnpublished = env["RESOLVE_INCLUDE_UNPUBLISHED"] === "1" || file["includeUnpublished"] === true;
   const libraryFileKey = usable(env["RESOLVE_LIBRARY_FILE_KEY"]) ?? usable(file["libraryFileKey"]) ?? usable(file["figmaFileKey"]);
   const theme = usable(env["RESOLVE_THEME"]) ?? usable(file["theme"]);
   const cssEntry = usable(env["RESOLVE_CSS_ENTRY"]) ?? usable(file["cssEntry"]);
@@ -129,6 +138,8 @@ export function readConfig(cwd: string = process.cwd(), env: Env = process.env):
     ...(theme ? { theme } : {}),
     ...(cssEntry ? { cssEntry } : {}),
     localPrefixes: prefixes,
+    ...(figmaNamespaces ? { figmaNamespaces } : {}),
+    ...(includeUnpublished ? { includeUnpublished } : {}),
     ...(configPath ? { configPath } : {}),
     storeDir: configPath ? dirname(configPath) : nearestStore(cwd, env),
     ...(problem ? { problem } : {}),

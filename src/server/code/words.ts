@@ -1,3 +1,5 @@
+import { figmaMatchLabel, namespaceSet } from "@/core/rules/figmaNamespaces";
+
 /** Shared word handling for pick and the Figma-to-code mapping: stems, related words, tokens. */
 const STOP = new Set([
   "a", "an", "the", "of", "for", "to", "in", "on", "with", "and", "or", "my", "our", "some", "that", "this", "show", "need", "want", "add", "use", "make", "screen", "page", "component",
@@ -55,5 +57,11 @@ const relate = (word: string, other: string, weight: number) => {
 for (const group of GROUPS) for (const a of group.split(" ")) for (const b of group.split(" ")) relate(a, b, 0.7);
 for (const [word, needs] of Object.entries(INTENTS)) for (const need of needs.split(" ")) relate(word, need, 0.6);
 
-/** A component name as plain words: first path segment ("Button/Primary" is Button), camelCase split. */
-export const nameWords = (name: string): string => (name.split("/")[0] ?? "").replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[-_]+/g, " ");
+/** Plain words for a component name. A known prefix is dropped; `Button/Primary` stays Button. */
+export const nameWords = (name: string, namespaces: ReadonlySet<string> = namespaceSet()): string =>
+  figmaMatchLabel(name, namespaces).replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[-_]+/g, " ");
+
+/** Stems of namespace words. A shared word that is only one of these does not count. */
+export function namespaceStems(namespaces: ReadonlySet<string>): Set<string> {
+  return new Set([...namespaces].flatMap((word) => [stem(word), stem(word.replace(/s$/, ""))]));
+}
