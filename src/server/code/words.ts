@@ -1,7 +1,7 @@
 import { figmaMatchLabel, namespaceSet } from "@/core/rules/figmaNamespaces";
 
 /** Shared word handling for pick and the Figma-to-code mapping: stems, related words, tokens. */
-const STOP = new Set([
+export const STOP = new Set([
   "a", "an", "the", "of", "for", "to", "in", "on", "with", "and", "or", "my", "our", "some", "that", "this", "show", "need", "want", "add", "use", "make", "screen", "page", "component",
   "before", "after", "when", "then", "from", "by", "at", "is", "are", "be", "can", "will", "should", "user", "please", "new", "all", "each", "into", "it", "we", "i",
 ]);

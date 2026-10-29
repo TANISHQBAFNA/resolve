@@ -8,7 +8,7 @@ import { deprecationNotice } from "../deprecations";
 import { figmaTotalCheck } from "../mapPair.ts";
 import { includesPack, readConfig, type ResolveConfig } from "../mode.ts";
 import type { CheckResult } from "./check.ts";
-import { attachImportReport, mapReport, norm, writeMappings } from "./map.ts";
+import { attachImportReport, confirmBulk, mapReport, norm, writeMappings } from "./map.ts";
 import { checkTool, codeConfig, mapTool, pickTool, scanTool } from "./mcp.ts";
 import { loadCatalog } from "./scan.ts";
 import type { FigmaMaster } from "./scan.ts";
@@ -105,7 +105,8 @@ export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
       else out(`Confirmed ${done.updated.length} pair(s) in ${done.file}${done.skipped ? `, ${done.skipped} unchanged` : ""}.`);
       return;
     }
-    const done = writeMappings(cfg, loadCatalog(cfg), named);
+    const catalog = loadCatalog(cfg);
+    const done = named.length === 1 ? writeMappings(cfg, catalog, named) : confirmBulk(cfg, catalog, named);
     if (json) printJson(done);
     else out(`${done.added.length} pair(s) added to ${done.file}${done.skipped ? `, ${done.skipped} already there` : ""}.`);
     return;
@@ -139,7 +140,7 @@ export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
   }
   if (sections.suggest && report.suggestions) {
     out(report.suggestions.length ? "Suggested (not joined; confirm with code-map --write):" : "No suggestions.");
-    for (const suggestion of report.suggestions) out(`  suggested ${suggestion.figma} -> ${suggestion.code}  ${suggestion.score}  ${suggestion.reasons.join("; ")}`);
+    for (const suggestion of report.suggestions) out(`  ${suggestion.confidence === "risky: same name only" ? suggestion.confidence : "suggested"} ${suggestion.figma} -> ${suggestion.code}  ${suggestion.score}  ${suggestion.reasons.join("; ")}`);
   }
   out(report.note);
   if (report.draftHint) out(report.draftHint);

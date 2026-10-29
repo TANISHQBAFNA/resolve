@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join, relative } from "node:path";
 import { z } from "zod";
 import { figmaIdentity } from "@/core/rules/figmaNamespaces";
+import { forBulkConfirm } from "./mapPair.ts";
 import type { ResolveConfig } from "./mode.ts";
 
 /**
@@ -293,10 +294,10 @@ const EVIDENCE: Record<"mapped" | "exact" | "alias", string> = {
   alias: "shared alias",
 };
 
-/** The current matcher, written as proposals. Never confirmed. */
+/** The current matcher, written as proposals. Never confirmed. Risky rows are the ones a batch confirm skips. */
 export function proposalsFromReport(report: {
   pairs: Array<{ figma: string; code: string; confidence: "mapped" | "exact" | "alias" }>;
-  suggestions?: Array<{ figma: string; code: string; reasons: string[] }>;
+  suggestions?: Array<{ figma: string; code: string; confidence?: string; reasons: string[] }>;
 }): ProposedEntry[] {
   const out = new Map<string, ProposedEntry>();
   const key = (figma: string, code: string) => `${figmaIdentity(figma)}\0${code.trim().toLowerCase()}`;
@@ -311,7 +312,7 @@ export function proposalsFromReport(report: {
     put({ figma: pair.figma, code: pair.code, status: "proposed", tier: "evidence", reason });
   }
   for (const row of report.suggestions ?? []) {
-    const risky = row.reasons.some((reason) => reason === "same name, no evidence" || reason.includes("several"));
+    const risky = forBulkConfirm([row]).length === 0;
     put({ figma: row.figma, code: row.code, status: "proposed", tier: risky ? "risky" : "suggested", reason: row.reasons.join("; ") || "similar names" });
   }
   return [...out.values()].sort((a, b) => rank[a.tier] - rank[b.tier] || byCode(a.figma, b.figma) || byCode(a.code, b.code));
@@ -403,17 +404,22 @@ export function confirmComponentPairs(input: {
   return { file: current.path, updated, skipped };
 }
 
-/** Confirms proposed rows in the evidence tier only. Suggested and risky rows stay proposed. */
+/** Confirms proposed rows a batch confirm would keep. `risky: same name only` and `same name, no evidence` stay proposed. */
 export function confirmEvidenceTier(cfg: ResolveConfig, who: string, at: string): { file: string; confirmed: number; left: number } {
   const current = readComponentMap(cfg);
   if (!current.exists) throw new Error(`No component map at ${current.path}. Run code-map --draft first.`);
   if (current.problems.length) throw new Error(current.problems.join("\n"));
+  const rows = current.entries.flatMap((entry) => entry.status === "proposed" ? [{
+    entry,
+    confidence: entry.tier === "risky" ? "risky: same name only" : entry.tier === "evidence" ? "exact" : "suggested",
+    reasons: entry.reason.split("; ").map((part) => part.trim()),
+  }] : []);
+  const allowed = new Set<ComponentMapEntry>(forBulkConfirm(rows).map((row) => row.entry));
   let confirmed = 0;
   const entries = current.entries.map((entry) => {
-    if (entry.status !== "proposed" || entry.tier !== "evidence") return entry;
+    if (!allowed.has(entry) || entry.status !== "proposed") return entry;
     confirmed += 1;
-    const next: ComponentMapEntry = { figma: entry.figma, code: entry.code, status: "confirmed", by: who, at, tier: entry.tier, reason: entry.reason };
-    return next;
+    return reviewedRow(entry, "confirmed", who, at, entry.tier, entry.reason);
   });
   writeEntries(current.path, entries);
   return { file: current.path, confirmed, left: entries.filter((entry) => entry.status === "proposed").length };
