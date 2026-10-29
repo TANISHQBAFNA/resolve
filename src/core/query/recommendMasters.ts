@@ -8,6 +8,7 @@ import { type BindRulesFile, filterAndScoreByBindRules, preferDelta } from "./bi
 import { useText } from "./codeMap";
 import { BUILTIN_PROPERTY_HINTS, hintsFromFile } from "./componentProperties";
 import type { GraphIndex } from "./GraphIndex";
+import { dropLabelText } from "./labelText";
 import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RECOMMEND_BUDGET, variantCardName } from "./masterNames";
 import { prepareAsk, purposeFallback, type MeaningDecision } from "./meaning/parse";
 import { meaningDictionary } from "./meaning/buildDictionary";
@@ -52,7 +53,7 @@ export function recommendMasters(
   for (const node of index.getNodesByType(...MASTER_TYPES)) {
     if (!node.name.startsWith(".") && !node.name.startsWith("_") && !node.name.includes("=")) catalogNames.push(node.name);
   }
-  const slipped = normalizeAsk(fixOneSlip(intent, publicNameSets), catalogNames);
+  const slipped = normalizeAsk(fixOneSlip(dropLabelText(intent), publicNameSets), catalogNames);
   const decision: MeaningDecision | undefined = options.lexicalOnly ? undefined : prepareAsk(slipped, dictionary);
   if (decision && onlyInflectedAsk(echoIntent, dictionary)) {
     decision.empty = true;
