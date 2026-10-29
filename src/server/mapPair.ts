@@ -67,12 +67,29 @@ function specificPart(name: string): boolean {
   return partSlug(name).split("-").map((word) => stem(word)).some((word) => word && !GENERIC_STATES.has(word) && !GENERIC_PAIR_WORDS.has(word));
 }
 
-/** Attached base parts match code elements (`tabs__tab` lines up with `base/tab`). A generic state alone does not. */
+const genericWord = (word: string) => GENERIC_PAIR_WORDS.has(word) || GENERIC_PAIR_WORDS.has(stem(word)) || GENERIC_STATES.has(stem(word));
+
+function stripBlockName(slug: string, block: string): string {
+  const partWords = slug.split("-").filter(Boolean);
+  const blockWords = block.toLowerCase().split("-").filter(Boolean);
+  if (!partWords.length || !blockWords.length || partWords.length <= blockWords.length) return slug;
+  if (!blockWords.every((word, index) => stem(partWords[index] ?? "") === stem(word))) return slug;
+  return partWords.slice(blockWords.length).join("-");
+}
+
+/** `base/tab` lines up with `.tabs__tab`. `base/tab-item` lines up with `.tabs__item` after the block name is removed. One non-generic part must match. A missing specific role contradicts; a missing generic role does not. */
 export function partsLineUp(entry: CatalogEntry, partNames: readonly string[]): boolean {
   const tails = new Set((entry.code?.elements ?? []).map((cls) => (cls.split("__").pop() ?? cls).toLowerCase()));
   const specific = partNames.filter(specificPart);
   if (!specific.length || tails.size === 0) return false;
-  return specific.every((name) => tails.has(partSlug(name)));
+  const blocks = new Set([entry.name.toLowerCase(), ...(entry.code?.elements ?? []).flatMap((cls) => { const head = cls.split("__")[0]?.toLowerCase(); return head ? [head] : []; })]);
+  const roles = specific.map((name) => {
+    const slug = partSlug(name);
+    const role = [...blocks].reduce((best, block) => { const next = stripBlockName(slug, block); return next.length < best.length ? next : best; }, slug);
+    const words = role.split("-").filter(Boolean);
+    return { matched: tails.has(slug) || tails.has(role), generic: words.length > 0 && words.every(genericWord) };
+  });
+  return roles.some((row) => row.matched) && roles.every((row) => row.matched || row.generic);
 }
 
 /** One shared word from this set must not clear the suggestion floor by itself. */
@@ -107,9 +124,35 @@ export function secondSignal(master: FigmaMaster, entry: CatalogEntry, partNames
   const negConflict = hit(negL, posR) || hit(negR, posL);
   const variantConflict = mv.length > 0 && ev.length > 0 && !variantHit;
   const structural = partsLineUp(entry, partNames) && !negConflict && !textConflict && !variantConflict;
-  const agree = variantHit || (textAgree && !negConflict) || structural;
+  const agree = !textConflict && !negConflict && (variantHit || textAgree || structural);
   const disagree = !agree && (variantConflict || textConflict || negConflict);
   return { agree, disagree };
+}
+
+/** Same name after namespace prefixes and plurals. Related words, one shared token, and a `-container` name with a different code name are not evidence. */
+export function evidencePair(figma: string, code: string): boolean {
+  return pairKey(figma) === pairKey(code);
+}
+
+export function suggestionTier(row: { confidence?: string; reasons?: readonly string[] }): "suggested" | "risky" {
+  if (row.confidence === RISKY_TIER || (row.reasons ?? []).some((reason) => reason === RISKY_TIER || reason === "same name, no evidence")) return "risky";
+  return "suggested";
+}
+
+/** Evidence rows that share a Figma side or a code side drop to suggested. */
+export function demoteSharedLinks<T extends { figma: string; code: string; tier: "evidence" | "suggested" | "risky" }>(rows: readonly T[]): T[] {
+  const evidence = rows.filter((row) => row.tier === "evidence");
+  const figma = new Map<string, number>();
+  const code = new Map<string, number>();
+  for (const row of evidence) {
+    figma.set(row.figma, (figma.get(row.figma) ?? 0) + 1);
+    code.set(row.code, (code.get(row.code) ?? 0) + 1);
+  }
+  return rows.map((row) => {
+    if (row.tier !== "evidence") return row;
+    if (!evidencePair(row.figma, row.code) || (figma.get(row.figma) ?? 0) > 1 || (code.get(row.code) ?? 0) > 1) return { ...row, tier: "suggested" };
+    return row;
+  });
 }
 
 export function sameNameRow(figma: string, code: string, disagree: boolean): { figma: string; code: string; confidence: "suggested" | typeof RISKY_TIER; score: number; reasons: string[] } {
@@ -117,9 +160,9 @@ export function sameNameRow(figma: string, code: string, disagree: boolean): { f
   return { figma, code, confidence: RISKY_TIER, score: 1, reasons: [RISKY_TIER, "same name, no evidence"] };
 }
 
-/** Bulk confirm skips a same-name row with no positive evidence. Confirm that pair on its own. */
-export function forBulkConfirm<T extends { confidence?: string; reasons?: readonly string[] }>(rows: readonly T[]): T[] {
-  return rows.filter((row) => row.confidence !== RISKY_TIER && !(row.reasons ?? []).some((reason) => reason === RISKY_TIER || reason === "same name, no evidence"));
+/** Bulk confirm keeps evidence rows only. A suggested row is never included. */
+export function forBulkConfirm<T extends { tier?: string }>(rows: readonly T[]): T[] {
+  return rows.filter((row) => row.tier === "evidence");
 }
 
 /** `paired + parts + unmatched` against the Figma total. Parts on a pair and parts on an unpaired block both count once. */

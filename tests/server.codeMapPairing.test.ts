@@ -6,6 +6,7 @@ import { learnLibrary } from "@/server/learn";
 import { runCodeCommand, runLinkMap } from "@/server/code/command";
 import { confirmBulk, mapReport, writeMappings } from "@/server/code/map";
 import { buildCatalog, type CatalogEntry, type CodeCatalog } from "@/server/code/scan";
+import { proposalsFromReport } from "@/server/componentMap";
 import { secondSignal } from "@/server/mapPair";
 import { readConfig } from "@/server/mode";
 import { graphMasters } from "@/server/graphMasters";
@@ -65,7 +66,9 @@ describe("code-map pairing quality", () => {
     expect(report.suggestions?.find((row) => row.figma === "ingredients/acme-badge" && row.code === "acme-badge")?.confidence).toBe("risky: same name only");
     expect(report.bulkConfirm).not.toContain("ingredients/acme-badge=acme-badge");
     expect(report.bulkConfirm).not.toContain("ingredients/acme-clock=acme-clock");
-    expect(report.bulkConfirm).toContain("ingredients/date-note=date-field");
+    expect(report.bulkConfirm).not.toContain("ingredients/date-note=date-field");
+    expect(report.bulkConfirm).toContain("recipes/date-time-picker=date-time-picker");
+    expect(report.bulkConfirm).toContain("recipes/acme-footer=acme-footer");
     expect(report.pairs.map((pair) => pair.figma)).not.toContain("ingredients/acme-switch");
     expect(report.suggestions?.some((row) => row.figma === "ingredients/acme-switch" && row.code === "acme-switch" && row.reasons.includes("same name, no evidence"))).toBe(true);
     expect(report.suggestions?.find((row) => row.figma === "ingredients/acme-switch")?.confidence).toBe("risky: same name only");
@@ -86,8 +89,8 @@ describe("code-map pairing quality", () => {
     expect(denied.suggestions?.some((row) => row.figma === "recipes/date-time-picker")).toBe(false);
 
     built.figmaMasters = masters;
-    const bulk = confirmBulk(cfg, built, ["ingredients/acme-badge=acme-badge", "ingredients/acme-switch=acme-switch", "ingredients/date-note=date-field"]);
-    expect(bulk.added.map((row) => row.figma)).toEqual(["ingredients/date-note"]);
+    const bulk = confirmBulk(cfg, built, ["ingredients/acme-badge=acme-badge", "ingredients/acme-switch=acme-switch", "ingredients/date-note=date-field", "recipes/acme-footer=acme-footer"]);
+    expect(bulk.added.map((row) => row.figma)).toEqual(["recipes/acme-footer"]);
     expect(writeMappings(cfg, built, ["ingredients/acme-badge=acme-badge"]).added).toEqual([{ figma: "ingredients/acme-badge", code: "acme-badge" }]);
   });
 
@@ -173,6 +176,52 @@ describe("code-map pairing quality", () => {
       restore("RESOLVE_MODE", previous.mode);
       restore("RESOLVE_PAIR_DENY", previous.deny);
     }
+  });
+
+  it("puts BEM role parts in the evidence tier and keeps loose pairs suggested", () => {
+    const root = mkdtempSync(join(tmpdir(), "resolve-bem-"));
+    const store = join(root, "store");
+    const { cfg, catalog: built } = catalog(root, store, {
+      "building-blocks/acme-tabs/acme-tabs.css": css(".acme-tabs { color: var(--ink); }\n.acme-tabs__item { color: var(--ink); }\n.acme-tabs__icon { color: var(--ink); }\n"),
+      "building-blocks/acme-tag/acme-tag.css": css(".acme-tag { color: var(--ink); }\n"),
+      "building-blocks/acme-tooltip/acme-tooltip.css": css(".acme-tooltip { color: var(--ink); }\n"),
+      "building-blocks/acme-textarea/acme-textarea.css": css(".acme-textarea { color: var(--ink); }\n"),
+      "building-blocks/acme-progress/acme-progress.css": css(".acme-progress { color: var(--ink); }\n"),
+      "building-blocks/acme-card/acme-card.css": css(".acme-card { color: var(--ink); }\n"),
+      "building-blocks/acme-clock/acme-clock.css": css("/* Shows a time range for a shift. */\n.acme-clock { color: var(--ink); }\n.acme-clock--compact { color: var(--ink); }\n"),
+    });
+    const masters = [
+      { name: "ingredients/acme-tabs", nodeId: "8:1" },
+      { name: "base/acme-tab-item", nodeId: "8:2" },
+      { name: "base/acme-tab-icon", nodeId: "8:3" },
+      { name: "Acme Badge", nodeId: "8:4" },
+      { name: "Acme Popover", nodeId: "8:5" },
+      { name: "Acme Input", nodeId: "8:6" },
+      { name: "Acme Loading", nodeId: "8:7" },
+      { name: "Acme Tile", nodeId: "8:8" },
+      { name: "Acme Filter Tags", nodeId: "8:9" },
+      { name: "Acme Shell Container", nodeId: "8:10" },
+      { name: "Acme Clock", nodeId: "8:11", variants: ["compact"], description: "Picks one calendar day for a reminder." },
+    ];
+    const report = mapReport(built, cfg, { suggest: true, limit: 8, masters, infer: true });
+    const rows = proposalsFromReport(report);
+    const tier = (figma: string, code: string) => rows.find((row) => row.figma === figma && row.code === code)?.tier;
+    expect(report.pairs).toContainEqual({ figma: "ingredients/acme-tabs", code: "acme-tabs", confidence: "exact", parts: ["base/acme-tab-icon", "base/acme-tab-item"] });
+    expect(tier("ingredients/acme-tabs", "acme-tabs")).toBe("evidence");
+    expect(report.bulkConfirm).toContain("ingredients/acme-tabs=acme-tabs");
+    expect(tier("Acme Badge", "acme-tag")).toBe("suggested");
+    expect(tier("Acme Popover", "acme-tooltip")).toBe("suggested");
+    expect(tier("Acme Input", "acme-textarea")).toBe("suggested");
+    expect(tier("Acme Loading", "acme-progress")).toBe("suggested");
+    expect(tier("Acme Tile", "acme-card")).toBe("suggested");
+    expect(tier("Acme Filter Tags", "acme-tag")).toBe("suggested");
+    expect(rows.filter((row) => row.figma === "Acme Shell Container").every((row) => row.tier !== "evidence")).toBe(true);
+    expect(tier("Acme Clock", "acme-clock")).toBe("risky");
+    expect(report.bulkConfirm).not.toContain("Acme Badge=acme-tag");
+    expect(report.bulkConfirm).not.toContain("Acme Tile=acme-card");
+    expect(report.bulkConfirm).not.toContain("Acme Filter Tags=acme-tag");
+    expect(report.bulkConfirm).not.toContain("Acme Clock=acme-clock");
+    expect(rows.some((row) => row.tier === "evidence" && row.figma !== "ingredients/acme-tabs")).toBe(false);
   });
 
   it("lists base parts under a block that has no pair, including plural, family, and compound names", () => {
