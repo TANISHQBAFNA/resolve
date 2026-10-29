@@ -125,6 +125,7 @@ export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
   out(`${report.figmaComponents} Figma components (${figmaTotalCheck(report)}), ${report.codeComponents} coded components. Mapping file: ${report.mappingExists ? report.mappingFile : "none yet (" + report.mappingFile + ")"}`);
   for (const problem of report.problems ?? []) out(`  PROBLEM ${problem}`);
   if (sections.pairs) for (const pair of report.pairs) out(`  ${pair.confidence.padEnd(9)} ${pair.figma} -> ${pair.code}${pair.alias ? ` (alias "${pair.alias}")` : ""}${pair.source ? ` [${pair.source}]` : ""}${pair.parts?.length ? `  parts: ${pair.parts.join(", ")}` : ""}`);
+  if (sections.pairs) for (const row of report.awaitingReview ?? []) out(`  awaiting review (proposed, not joined) ${row.figma} -> ${row.code.join(", ")}`);
   if (sections.unmatched) {
     out(`Figma with no coded match: ${report.unmatchedFigma.join(", ") || "none"}`);
     out(`Coded with no Figma match: ${report.unmatchedCode.join(", ") || "none"}`);
