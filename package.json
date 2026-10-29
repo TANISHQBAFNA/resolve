@@ -24,6 +24,8 @@
     "commands",
     "dist-server",
     "docs",
+    "templates",
+    "examples",
     "schemas",
     "rules",
     "skills",
@@ -60,7 +62,7 @@
   },
   "resolveSizeBudget": {
     "code": 1914,
-    "server": 7100,
+    "server": 7200,
     "core": 35100
   },
   "engines": {

@@ -102,6 +102,7 @@ import { isLinkMapRequest, runLinkMap } from "./code/command";
 import { graphMasters } from "./graphMasters";
 import { refuseBadRows, runCodeMapExtra } from "./codeMapCommand";
 import { formatSpecMap, mapSpec, readSpec } from "@/core/query/specMap";
+import { runBriefCheck } from "./briefCheckCommand";
 import { recordVerifyUsage } from "./tools";
 import { learnLibrary } from "./learn";
 import { DESIGNER, designerFailure } from "./designerMessages";
@@ -295,6 +296,13 @@ async function dispatchCli(argv: string[]): Promise<void> {
     }
 
     case "brief": {
+      if (args[0] === "check") {
+        runBriefCheck(args.slice(1), (table) => {
+          const map = mapSpec(requireGraph(args).index, readSpec(table), recommendContextFromFlags(args).ranking);
+          return { json: map, text: formatSpecMap(map) };
+        });
+        return;
+      }
       const request = positionals(args)[0];
       if (!request) throw new Error('Usage: resolve brief "<screen request>"');
       const { ranking } = recommendContextFromFlags(args);
