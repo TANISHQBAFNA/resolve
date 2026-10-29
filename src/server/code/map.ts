@@ -4,12 +4,12 @@ import { dirname, join } from "node:path";
 import { figmaFolderKind, figmaIdentity, namespaceSet } from "@/core/rules/figmaNamespaces";
 import { codeMapCard } from "@/core/query/replacements";
 import type { ResolveConfig } from "../mode.ts";
-import { GENERIC_PAIR_WORDS, partOwner, secondSignal } from "../mapPair.ts";
+import { forBulkConfirm, GENERIC_PAIR_WORDS, pairDenySet, partOwner, sameNameRow, secondSignal } from "../mapPair.ts";
 import { resolveGraph } from "../store";
 import type { CatalogEntry, CodeCatalog, FigmaMaster, MatchBy } from "./scan.ts";
 import { nameWords, namespaceStems, RELATED, tokens } from "./words.ts";
 
-/** Joins, strongest first: mapped (a mapping.json confirm; a deny line wins), exact (same name plus one specific shared variant, modifier, or description phrase). Generic states do not count. Anything else is suggested, never joined. */
+/** Joins, strongest first: mapped (a mapping.json confirm; a deny line wins), exact (same name plus a specific variant, modifier, description phrase, or base parts that match elements). Generic states do not count. A denied name (built-in stepper, plus config pairDeny) does not auto-pair on the name alone. Anything else is suggested, never joined. */
 const byCode = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const plural = (w: string) => (w.length > 3 && w.endsWith("ies") ? `${w.slice(0, -3)}y` : w.length > 3 && w.endsWith("s") && !/(ss|us|is)$/.test(w) ? w.slice(0, -1) : w);
 export const norm = (name: string, namespaces: ReadonlySet<string> = namespaceSet()): string =>
@@ -106,10 +106,17 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
     const folder = figmaFolderKind(name, ns);
     return folder !== "part" && (!folder || folder === kind);
   };
+  const partMap = new Map<CatalogEntry, string[]>();
+  const blocks = catalog.components.filter((e) => e.kind === "block");
+  for (const part of parts) {
+    const parent = partOwner(part.name, blocks, ns, plural, byCode);
+    if (parent) partMap.set(parent, uniq([...(partMap.get(parent) ?? []), part.name]));
+  }
+  const deny = pairDenySet(cfg.pairDeny);
   const choose = (master: FigmaMaster, hits: CatalogEntry[]) => {
     const kinded = hits.filter((e) => folderOk(master.name, e.kind));
     const pool = kinded.length ? kinded : hits;
-    const agreed = pool.filter((entry) => secondSignal(master, entry).agree);
+    const agreed = pool.filter((entry) => secondSignal(master, entry, partMap.get(entry) ?? [], deny).agree);
     return agreed.length === 1 ? agreed[0] : undefined;
   };
 
@@ -140,13 +147,7 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
     const list = [...hits.keys()];
     if (list.length > 1) ambiguous.set(master.name, list);
   }
-  const partMap = new Map<CatalogEntry, string[]>();
-  const blocks = catalog.components.filter((e) => e.kind === "block");
-  for (const part of parts) {
-    const parent = partOwner(part.name, blocks, ns, plural, byCode);
-    if (parent) partMap.set(parent, uniq([...(partMap.get(parent) ?? []), part.name]));
-  }
-  return { rules, problems: uniq(problems), masters, parts, partMap, ns, links, ambiguous, codeAliases, figmaAliases, masterNames, entryNames, blocked };
+  return { rules, problems: uniq(problems), masters, parts, partMap, ns, deny, links, ambiguous, codeAliases, figmaAliases, masterNames, entryNames, blocked };
 }
 
 const uniqueEntries = (list: CatalogEntry[]) => [...new Set(list)];
@@ -198,7 +199,7 @@ function nameLike(a: string[], b: string[]) {
   return { score: a.length && b.length ? sum / Math.max(new Set(a).size, new Set(b).size) : 0, reasons };
 }
 
-export interface Suggestion { figma: string; code: string; confidence: "suggested"; score: number; reasons: string[] }
+export interface Suggestion { figma: string; code: string; confidence: "suggested" | "risky: same name only"; score: number; reasons: string[] }
 
 function suggestions(master: FigmaMaster, catalog: CodeCatalog, r: ReturnType<typeof compute>, limit: number): Suggestion[] {
   const skip = namespaceStems(r.ns);
@@ -207,8 +208,9 @@ function suggestions(master: FigmaMaster, catalog: CodeCatalog, r: ReturnType<ty
   const folder = figmaFolderKind(master.name, r.ns);
   const out = catalog.components.flatMap((entry): Suggestion[] => {
     if (folder === "part" || (folder && folder !== entry.kind) || r.blocked(master.name, entry.name)) return [];
-    if (norm(entry.name, r.ns) === norm(master.name, r.ns) && !secondSignal(master, entry).agree) {
-      return [{ figma: master.name, code: entry.name, confidence: "suggested", score: 1, reasons: ["same name, no evidence"] }];
+    if (norm(entry.name, r.ns) === norm(master.name, r.ns)) {
+      const signal = secondSignal(master, entry, r.partMap.get(entry) ?? [], r.deny);
+      if (!signal.agree) return [sameNameRow(master.name, entry.name, signal.disagree)];
     }
     let best = { score: 0, reasons: [] as string[] };
     for (const m of r.masterNames(master)) for (const e of r.entryNames(entry)) {
@@ -243,6 +245,7 @@ export function mapReport(catalog: CodeCatalog, cfg: ResolveConfig, opts: { sugg
     const names = r.partMap.get(entry);
     return names?.length && !linkedCode.has(entry.name) ? [{ code: entry.name, parts: names }] : [];
   }).sort((a, b) => byCode(a.code, b.code));
+  const suggested = opts.suggest ? unmatchedFigma.flatMap((m) => suggestions(m, catalog, r, Math.max(1, opts.limit ?? 3))) : undefined;
   return {
     mappingFile: mappingPath(cfg),
     mappingExists: existsSync(mappingPath(cfg)),
@@ -253,11 +256,18 @@ export function mapReport(catalog: CodeCatalog, cfg: ResolveConfig, opts: { sugg
     unmatchedFigma: [...unmatchedFigma, ...orphans].map((m) => m.name),
     unmatchedCode: known ? catalog.components.filter((e) => !linkedCode.has(e.name)).map((e) => e.name) : [],
     ...(unpairedParts.length ? { unpairedParts } : {}),
-    ...(opts.suggest ? { suggestions: unmatchedFigma.flatMap((m) => suggestions(m, catalog, r, Math.max(1, opts.limit ?? 3))) } : {}),
+    ...(suggested ? { suggestions: suggested, bulkConfirm: forBulkConfirm(suggested).map((row) => `${row.figma}=${row.code}`) } : {}),
     note: known
-      ? "A suggestion is not a link. Confirm pairs in the mapping file (or `resolve code-map --write \"Figma=code\"`); nothing is joined without that."
+      ? "A suggestion is not a link. Confirm one pair with `resolve code-map --write \"Figma=code\"`. A batch skips risky: same name only, so confirm that pair on its own."
       : "No Figma components known yet. Run code_scan with figma components (or learn the Figma library in both mode), then ask again.",
   };
+}
+
+/** Writes a batch of pairs. A risky same-name row is left out, so that pair is confirmed only when it is the one pair named. */
+export function confirmBulk(cfg: ResolveConfig, catalog: CodeCatalog, pairs: string[]) {
+  const report = mapReport(catalog, cfg, { suggest: true, limit: catalog.components.length || 1 });
+  const risky = new Set((report.suggestions ?? []).filter((row) => row.confidence === "risky: same name only" || row.reasons.includes("same name, no evidence")).map((row) => `${row.figma}=${row.code}`));
+  return writeMappings(cfg, catalog, pairs.filter((pair) => !risky.has(pair)));
 }
 
 /** Appends confirmed pairs ("Figma name=code" or "Figma name=code1,code2") to the mapping file. Writes nothing if any pair is wrong. */
