@@ -102,7 +102,7 @@ export function usage(): void {
       "  resolve code-map review [--out <file.csv>] [--import <file.csv>] [--replace]   Accept suggestions. Only status mapped is confirmed. Entries the CSV leaves out are kept",
       "  resolve code-map --pairs [--unmatched] [--suggest] [--limit <n>] [--json]",
       "      Same command. Import map, then how Figma and coded components join: pairs (mapped, exact, alias) and what is unmatched.",
-      "      --suggest adds likely pairs. A likely pair is not a link. --write \"Figma name=code[,code]\" appends confirmed pairs to .resolve/mapping.json.",
+      "      --suggest adds likely pairs. A likely pair is not a link. A same name with no evidence is risky: same name only. --write \"Figma name=code[,code]\" appends those pairs. A batch skips a risky same-name pair; confirm that pair on its own.",
       "  resolve code-map --import <file.csv> [--dry-run] [--force | --replace]   Turn the filled CSV into code-map.json (same checks as the loader)",
       "      --force keeps (and lists) existing entries the CSV has no row for; --replace drops them (and lists them). Extra columns are ignored.",
       "      Counts mapped / retired / unmapped / ambiguous / conflict / stale / ignored. Keyed by file key + id; a name works only when unique.",

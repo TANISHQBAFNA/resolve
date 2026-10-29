@@ -94,7 +94,7 @@ Needs: \`repoPath\` (folder with the design system CSS) in .resolve/config.json 
 2. code_pick with what the screen needs, one call per part (a transaction table, a confirm dialog, a status badge). It returns classes, modifiers, markup, rules, and deprecated classes to avoid. Build with exactly those. A modifier needs its base class. Use tokens for colour, space, and type. Include the design-system and theme stylesheets the picked components come from.
 3. code_check on the finished file. Errors: deprecated or unknown classes, unknown tokens. Warnings: modifier without base, literal colours. Fix them, run it again, and report what is left. Page-local classes with a local prefix (config localPrefixes) are reported as info.
 
-If nothing fits, say so. Do not invent a class. With both packs on, code_scan joins a Figma component to its coded one by exact name, alias, or .resolve/mapping.json; code_map (shell: code-map --pairs, --unmatched, --suggest) shows the pairs, the unmatched, and likely pairs. A suggested pair is not a link: ask the user to confirm it in the mapping file.
+If nothing fits, say so. Do not invent a class. With both packs on, code_scan joins a Figma component to its coded one when a mapping confirm says so, or the names match and a specific variant, description, or matching base parts agree. A generic state does not count. A same name with no evidence is risky: same name only, and is not a link. code_map (shell: code-map --pairs, --unmatched, --suggest) shows the pairs, the unmatched, and likely pairs. A suggested pair is not a link: ask the user to confirm it in the mapping file.
 
 Default tools: code_scan, code_pick, code_check, code_map.
 `;

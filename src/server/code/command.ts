@@ -5,7 +5,7 @@ import { deprecationNotice } from "../deprecations";
 import { figmaTotalCheck } from "../mapPair.ts";
 import { includesPack, readConfig } from "../mode.ts";
 import type { CheckResult } from "./check.ts";
-import { attachImportReport, writeMappings } from "./map.ts";
+import { attachImportReport, confirmBulk, writeMappings } from "./map.ts";
 import { checkTool, codeConfig, mapTool, pickTool, scanTool } from "./mcp.ts";
 import { loadCatalog } from "./scan.ts";
 import type { FigmaMaster } from "./scan.ts";
@@ -52,7 +52,8 @@ export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
   const pairs = words(args, ["--repo", "--css", "--theme", "--limit"]).filter((word) => word.includes("="));
   if (args.includes("--write")) {
     if (!pairs.length) throw new Error('Name the pairs to save, e.g. resolve code-map --write "Status Pill=badge". Run resolve code-map --suggest to see likely pairs.');
-    const done = writeMappings(cfg, loadCatalog(cfg), pairs);
+    const catalog = loadCatalog(cfg);
+    const done = pairs.length === 1 ? writeMappings(cfg, catalog, pairs) : confirmBulk(cfg, catalog, pairs);
     if (json) printJson(done);
     else out(`${done.added.length} pair(s) added to ${done.file}${done.skipped ? `, ${done.skipped} already there` : ""}.`);
     return;
@@ -78,7 +79,7 @@ export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
   }
   if (sections.suggest && report.suggestions) {
     out(report.suggestions.length ? "Suggested (not joined; confirm with code-map --write):" : "No suggestions.");
-    for (const suggestion of report.suggestions) out(`  suggested ${suggestion.figma} -> ${suggestion.code}  ${suggestion.score}  ${suggestion.reasons.join("; ")}`);
+    for (const suggestion of report.suggestions) out(`  ${suggestion.confidence === "risky: same name only" ? suggestion.confidence : "suggested"} ${suggestion.figma} -> ${suggestion.code}  ${suggestion.score}  ${suggestion.reasons.join("; ")}`);
   }
   out(report.note);
 }
