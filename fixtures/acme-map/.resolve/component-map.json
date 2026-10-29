@@ -1,0 +1,32 @@
+{
+  "entries": [
+    {
+      "figma": "Acme Button",
+      "code": "acme-button",
+      "status": "confirmed",
+      "by": "ada",
+      "at": "2026-01-15T12:00:00.000Z"
+    },
+    {
+      "figma": "Acme Badge",
+      "code": "acme-badge",
+      "status": "denied",
+      "by": "ada",
+      "at": "2026-01-15T12:00:00.000Z"
+    },
+    {
+      "figma": "Acme Banner",
+      "code": "acme-banner-alt",
+      "status": "confirmed",
+      "by": "ada",
+      "at": "2026-01-15T12:00:00.000Z"
+    },
+    {
+      "figma": "Acme Ghost",
+      "code": "acme-ghost",
+      "status": "confirmed",
+      "by": "ada",
+      "at": "2026-01-15T12:00:00.000Z"
+    }
+  ]
+}
