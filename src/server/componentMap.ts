@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join, relative } from "node:path";
 import { z } from "zod";
 import { figmaIdentity } from "@/core/rules/figmaNamespaces";
-import { forBulkConfirm } from "./mapPair.ts";
+import { demoteSharedLinks, evidencePair, forBulkConfirm, suggestionTier } from "./mapPair.ts";
 import type { ResolveConfig } from "./mode.ts";
 
 /**
@@ -294,7 +294,7 @@ const EVIDENCE: Record<"mapped" | "exact" | "alias", string> = {
   alias: "shared alias",
 };
 
-/** The current matcher, written as proposals. Never confirmed. Risky rows are the ones a batch confirm skips. */
+/** The current matcher, written as proposals. Never confirmed. Evidence is a same-name pair with a real signal. A shared side, a related word, or a different `-container` name stays suggested. */
 export function proposalsFromReport(report: {
   pairs: Array<{ figma: string; code: string; confidence: "mapped" | "exact" | "alias" }>;
   suggestions?: Array<{ figma: string; code: string; confidence?: string; reasons: string[] }>;
@@ -309,13 +309,12 @@ export function proposalsFromReport(report: {
   };
   for (const pair of report.pairs) {
     const reason = EVIDENCE[pair.confidence];
-    put({ figma: pair.figma, code: pair.code, status: "proposed", tier: "evidence", reason });
+    put({ figma: pair.figma, code: pair.code, status: "proposed", tier: evidencePair(pair.figma, pair.code) ? "evidence" : "suggested", reason });
   }
   for (const row of report.suggestions ?? []) {
-    const risky = forBulkConfirm([row]).length === 0;
-    put({ figma: row.figma, code: row.code, status: "proposed", tier: risky ? "risky" : "suggested", reason: row.reasons.join("; ") || "similar names" });
+    put({ figma: row.figma, code: row.code, status: "proposed", tier: suggestionTier(row), reason: row.reasons.join("; ") || "similar names" });
   }
-  return [...out.values()].sort((a, b) => rank[a.tier] - rank[b.tier] || byCode(a.figma, b.figma) || byCode(a.code, b.code));
+  return demoteSharedLinks([...out.values()]).sort((a, b) => rank[a.tier] - rank[b.tier] || byCode(a.figma, b.figma) || byCode(a.code, b.code));
 }
 
 function reviewedRow(pair: { figma: string; code: string }, status: "confirmed" | "denied", who: string, at: string, tier?: MapTier, reason?: string): ComponentMapEntry {
@@ -404,16 +403,12 @@ export function confirmComponentPairs(input: {
   return { file: current.path, updated, skipped };
 }
 
-/** Confirms proposed rows a batch confirm would keep. `risky: same name only` and `same name, no evidence` stay proposed. */
+/** Confirms proposed rows whose tier is evidence. Suggested and risky rows stay proposed. */
 export function confirmEvidenceTier(cfg: ResolveConfig, who: string, at: string): { file: string; confirmed: number; left: number } {
   const current = readComponentMap(cfg);
   if (!current.exists) throw new Error(`No component map at ${current.path}. Run code-map --draft first.`);
   if (current.problems.length) throw new Error(current.problems.join("\n"));
-  const rows = current.entries.flatMap((entry) => entry.status === "proposed" ? [{
-    entry,
-    confidence: entry.tier === "risky" ? "risky: same name only" : entry.tier === "evidence" ? "exact" : "suggested",
-    reasons: entry.reason.split("; ").map((part) => part.trim()),
-  }] : []);
+  const rows = current.entries.flatMap((entry) => entry.status === "proposed" ? [{ entry, tier: entry.tier }] : []);
   const allowed = new Set<ComponentMapEntry>(forBulkConfirm(rows).map((row) => row.entry));
   let confirmed = 0;
   const entries = current.entries.map((entry) => {

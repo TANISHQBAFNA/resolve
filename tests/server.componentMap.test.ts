@@ -126,6 +126,21 @@ describe("component map draft and review", () => {
     expect(rows.find((row) => row.figma === "Acme Button")?.reason).toMatch(/shared variant/);
   });
 
+  it("keeps a second link and a container without a code match at suggested", () => {
+    const rows = proposalsFromReport({
+      pairs: [
+        { figma: "Acme Choice", code: "acme-choice", confidence: "exact" },
+        { figma: "Acme Choices", code: "acme-choice", confidence: "exact" },
+        { figma: "Acme Shell Container", code: "acme-shell", confidence: "exact" },
+      ],
+      suggestions: [{ figma: "Acme Note", code: "acme-field", reasons: ["same words"] }],
+    });
+    expect(rows.find((row) => row.figma === "Acme Choice")?.tier).toBe("suggested");
+    expect(rows.find((row) => row.figma === "Acme Choices")?.tier).toBe("suggested");
+    expect(rows.find((row) => row.figma === "Acme Shell Container")?.tier).toBe("suggested");
+    expect(rows.find((row) => row.figma === "Acme Note")?.tier).toBe("suggested");
+  });
+
   it("keeps confirmed and denied rows when the draft is written again", () => {
     const store = mkdtempSync(join(tmpdir(), "resolve-draft-"));
     const repo = mkdtempSync(join(tmpdir(), "resolve-draft-repo-"));
@@ -194,6 +209,35 @@ describe("component map draft and review", () => {
     expect(saved.find((entry) => entry.code === "acme-button")).toMatchObject({ status: "confirmed", by: "ada", at: "2026-02-02T00:00:00.000Z", tier: "evidence" });
     expect(saved.find((entry) => entry.code === "acme-note")).toMatchObject({ status: "confirmed", by: "ada", at: "2026-02-01T00:00:00.000Z" });
     expect(saved.find((entry) => entry.code === "acme-badge")).toMatchObject({ status: "denied", by: "ada", at: "2026-02-01T00:00:00.000Z" });
+  });
+
+  it("never bulk-confirms a suggested row", () => {
+    const store = mkdtempSync(join(tmpdir(), "resolve-suggested-bulk-"));
+    const repo = mkdtempSync(join(tmpdir(), "resolve-suggested-bulk-repo-"));
+    tree(repo, {
+      "building-blocks/acme-button/acme-button.css": css(".acme-button { color: var(--ink); }\n.acme-button--primary { color: var(--ink); }\n"),
+      "building-blocks/acme-tag/acme-tag.css": css(".acme-tag { color: var(--ink); }\n"),
+      ".resolve/component-map.json": `${JSON.stringify({
+        entries: [
+          { figma: "Acme Button", code: "acme-button", status: "proposed", tier: "evidence", reason: "same name and a shared variant, modifier, or description" },
+          { figma: "Acme Badge", code: "acme-tag", status: "proposed", tier: "suggested", reason: "badge~tag" },
+        ],
+      })}\n`,
+    });
+    const cfg = config(repo, store);
+    const mastersFor = [
+      { name: "Acme Button", nodeId: "1:1", variants: ["primary"] },
+      { name: "Acme Badge", nodeId: "1:2" },
+    ];
+    const report = mapReport(buildCatalog(cfg), cfg, { suggest: true, limit: 5, masters: mastersFor, infer: true });
+    expect(report.bulkConfirm).toContain("Acme Button=acme-button");
+    expect(report.bulkConfirm).not.toContain("Acme Badge=acme-tag");
+    const bulk = confirmEvidenceTier(cfg, "ada", "2026-02-03T00:00:00.000Z");
+    expect(bulk.confirmed).toBe(1);
+    expect(bulk.left).toBe(1);
+    const saved = readComponentMap(cfg).entries;
+    expect(saved.find((entry) => entry.code === "acme-button")).toMatchObject({ status: "confirmed", tier: "evidence" });
+    expect(saved.find((entry) => entry.code === "acme-tag")).toMatchObject({ status: "proposed", tier: "suggested" });
   });
 });
 

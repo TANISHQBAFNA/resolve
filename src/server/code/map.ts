@@ -5,7 +5,7 @@ import { figmaFolderKind, figmaIdentity, namespaceSet } from "@/core/rules/figma
 import { codeMapCard } from "@/core/query/replacements";
 import { buildDeclaredLinks, componentMapPath, manifestBodies, readComponentMap, readManifests } from "../componentMap.ts";
 import type { ResolveConfig } from "../mode.ts";
-import { forBulkConfirm, GENERIC_PAIR_WORDS, pairDenySet, partOwner, sameNameRow, secondSignal } from "../mapPair.ts";
+import { demoteSharedLinks, evidencePair, GENERIC_PAIR_WORDS, pairDenySet, partOwner, sameNameRow, secondSignal } from "../mapPair.ts";
 import { resolveGraph } from "../store";
 import type { CatalogEntry, CodeCatalog, FigmaMaster, MatchBy } from "./scan.ts";
 import { nameWords, namespaceStems, RELATED, tokens } from "./words.ts";
@@ -303,21 +303,21 @@ export function mapReport(catalog: CodeCatalog, cfg: ResolveConfig, opts: { sugg
     ...(r.conflicts?.length ? { conflicts: r.conflicts } : {}),
     ...(r.denies?.length ? { denies: r.denies } : {}),
     ...(unpairedParts.length ? { unpairedParts } : {}),
-    ...(suggested ? { suggestions: suggested, bulkConfirm: forBulkConfirm(suggested).map((row) => `${row.figma}=${row.code}`) } : {}),
+    ...(suggested ? { suggestions: suggested, bulkConfirm: demoteSharedLinks(r.links.filter((link) => link.by === "exact" || link.by === "mapped").map((link) => ({ figma: link.master.name, code: link.entry.name, tier: evidencePair(link.master.name, link.entry.name) ? "evidence" as const : "suggested" as const }))).flatMap((row) => row.tier === "evidence" ? [`${row.figma}=${row.code}`] : []) } : {}),
     ...(!r.declared && !opts.infer ? { draftHint: "No component map yet. Run code-map --draft." } : {}),
     note: r.declared
       ? "Pairs come only from the component map and from component.json manifests. A proposed row is not a link. Nothing is guessed."
       : known
-        ? "A suggestion is not a link. Confirm one pair with `resolve code-map --write \"Figma=code\"`. A batch skips risky: same name only, so confirm that pair on its own."
+        ? "A suggestion is not a link. Confirm one pair with `resolve code-map --write \"Figma=code\"`. A batch confirms evidence rows only, so confirm a suggested row on its own."
         : "No Figma components known yet. Run code_scan with figma components (or learn the Figma library in both mode), then ask again.",
   };
 }
 
-/** Writes a batch of pairs. A risky same-name row is left out, so that pair is confirmed only when it is the one pair named. */
+/** Writes a batch of pairs. Only evidence rows are written. Confirm a suggested row on its own. */
 export function confirmBulk(cfg: ResolveConfig, catalog: CodeCatalog, pairs: string[]) {
   const report = mapReport(catalog, cfg, { suggest: true, limit: catalog.components.length || 1 });
-  const risky = new Set((report.suggestions ?? []).filter((row) => row.confidence === "risky: same name only" || row.reasons.includes("same name, no evidence")).map((row) => `${row.figma}=${row.code}`));
-  return writeMappings(cfg, catalog, pairs.filter((pair) => !risky.has(pair)));
+  const allowed = new Set(report.bulkConfirm ?? []);
+  return writeMappings(cfg, catalog, pairs.filter((pair) => allowed.has(pair)));
 }
 
 /** Appends confirmed pairs ("Figma name=code" or "Figma name=code1,code2") to the mapping file. Writes nothing if any pair is wrong. */
