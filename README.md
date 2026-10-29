@@ -153,10 +153,10 @@ The code workflow reads a repo of HTML/CSS and builds a catalog of its real comp
 | Questions and words | [Questions designers ask](docs/REFERENCE.md#questions-designers-ask) · [Words used here](docs/REFERENCE.md#words-used-here) · [FAQ](docs/REFERENCE.md#faq) |
 | Build Resolve yourself | [For developers](docs/REFERENCE.md#for-developers) |
 | Other guides | [Designer guide](docs/GUIDE.md) · [Recipes](docs/RECIPES.md) · [How to use the parts](docs/SOCI.md) · [Scoreboard](docs/SCOREBOARD.md) · [Architecture](docs/ARCHITECTURE.md) |
-
-Optional AIDLC add-on: [`addons/aidlc`](addons/aidlc/).
 | Upgrading from an older version | [Upgrading from the old names](#upgrading-from-the-old-names) |
 | What a component means to Resolve | [What a component means](docs/REFERENCE.md#what-a-component-means) |
+
+Optional AIDLC add-on: [`addons/aidlc`](addons/aidlc/).
 
 **Version history → [wiki](https://github.com/TANISHQBAFNA/resolve/wiki/Version-history)**
 
