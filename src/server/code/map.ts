@@ -5,20 +5,21 @@ import { figmaFolderKind, figmaIdentity, namespaceSet } from "@/core/rules/figma
 import { codeMapCard } from "@/core/query/replacements";
 import { buildDeclaredLinks, componentMapPath, manifestBodies, readComponentMap, readManifests } from "../componentMap.ts";
 import type { ResolveConfig } from "../mode.ts";
+import { awaitsReview, mappingStatus } from "../mappingStatus.ts";
 import { demoteSharedLinks, evidencePair, GENERIC_PAIR_WORDS, pairDenySet, partOwner, sameNameRow, secondSignal } from "../mapPair.ts";
 import { resolveGraph } from "../store";
 import type { CatalogEntry, CodeCatalog, FigmaMaster, MatchBy } from "./scan.ts";
 import { nameWords, namespaceStems, RELATED, tokens } from "./words.ts";
 
-/** Joins, strongest first: mapped (a mapping.json confirm; a deny line wins), exact (same name plus a specific variant, modifier, description phrase, or base parts that match elements). Generic states do not count. A denied name (built-in stepper, plus config pairDeny) does not auto-pair on the name alone. Anything else is suggested, never joined. */
+/** Joins, strongest first: mapped (a confirmed mapping.json line; a proposed line only awaits review; a deny line wins), exact (same name plus a specific variant, modifier, description phrase, or base parts that match elements). Generic states do not count. A denied name (built-in stepper, plus config pairDeny) does not auto-pair on the name alone. Anything else is suggested, never joined. */
 const byCode = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const plural = (w: string) => (w.length > 3 && w.endsWith("ies") ? `${w.slice(0, -3)}y` : w.length > 3 && w.endsWith("s") && !/(ss|us|is)$/.test(w) ? w.slice(0, -1) : w);
 export const norm = (name: string, namespaces: ReadonlySet<string> = namespaceSet()): string =>
   (nameWords(name, namespaces).toLowerCase().match(/[a-z0-9]+/g) ?? []).map(plural).join("");
 const uniq = (items: string[]) => [...new Set(items)].sort(byCode);
 
-/** One line of the mapping file. `figma` and `code` together make a pair; either alone gives that component aliases. */
-export interface MapRule { figma?: string; code: string[]; aliases: string[]; deny?: boolean; source?: "manifest" }
+/** One line of the mapping file. `figma` and `code` together make a pair; either alone gives that component aliases. A proposed line does neither. */
+export interface MapRule { figma?: string; code: string[]; aliases: string[]; deny?: boolean; proposed?: true; source?: "manifest" }
 
 export const mappingPath = (cfg: ResolveConfig) => join(cfg.storeDir, "mapping.json");
 
@@ -42,12 +43,13 @@ export function readMapping(cfg: ResolveConfig): { rules: MapRule[]; problems: s
       const figma = strings(row["figma"])[0];
       const code = strings(row["code"]);
       const aliases = strings(row["aliases"]);
-      const deny = row["deny"] === true;
+      const status = mappingStatus(row["status"], `mappings[${i}]`, problems);
+      const deny = row["deny"] === true || status === "denied";
       if (!figma && !code.length) {
         problems.push(`mappings[${i}] has neither "figma" nor "code".`);
         return [];
       }
-      return [{ ...(figma ? { figma } : {}), code, aliases, ...(deny ? { deny } : {}) }];
+      return [{ ...(figma ? { figma } : {}), code, aliases, ...(deny ? { deny } : {}), ...(status === "proposed" && !deny ? { proposed: true as const } : {}) }];
     });
     return { rules, problems, text };
   } catch {
@@ -74,6 +76,7 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
   const codeAliases = new Map<CatalogEntry, string[]>();
   const figmaAliases = new Map<string, string[]>();
   const pairRules: MapRule[] = [];
+  const awaiting = rules.filter((rule) => rule.proposed && rule.figma && rule.code.length).map((rule) => ({ figma: rule.figma as string, code: rule.code }));
   const denied = new Set<string>();
   const blocked = (figma: string, code: string) => {
     const key = figmaIdentity(figma);
@@ -94,6 +97,7 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
       if (rule.figma) for (const name of rule.code) denied.add(`${figmaIdentity(rule.figma)}\0${same(name)}`);
       continue;
     }
+    if (rule.proposed) continue;
     const found = targets(rule);
     for (const entry of found) codeAliases.set(entry, [...(codeAliases.get(entry) ?? []), ...rule.aliases]);
     if (rule.figma) {
@@ -186,7 +190,7 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
       if (list.length > 1) ambiguous.set(master.name, list);
     }
   }
-  return { rules, problems: uniq(problems), masters, parts, partMap, ns, deny, links, ambiguous, codeAliases, figmaAliases, masterNames, entryNames, blocked, covered, unlinkedCode, stale, conflicts, denies, declared: usingMap };
+  return { rules, problems: uniq(problems), masters, parts, partMap, ns, deny, links, ambiguous, codeAliases, figmaAliases, masterNames, entryNames, blocked, covered, unlinkedCode, stale, conflicts, denies, awaiting, declared: usingMap };
 }
 
 const uniqueEntries = (list: CatalogEntry[]) => [...new Set(list)];
@@ -302,6 +306,7 @@ export function mapReport(catalog: CodeCatalog, cfg: ResolveConfig, opts: { sugg
     ...(r.stale?.length ? { stale: r.stale } : {}),
     ...(r.conflicts?.length ? { conflicts: r.conflicts } : {}),
     ...(r.denies?.length ? { denies: r.denies } : {}),
+    ...(r.awaiting.length ? { awaitingReview: r.awaiting } : {}),
     ...(unpairedParts.length ? { unpairedParts } : {}),
     ...(suggested ? { suggestions: suggested, bulkConfirm: demoteSharedLinks(r.links.filter((link) => link.by === "exact" || link.by === "mapped").map((link) => ({ figma: link.master.name, code: link.entry.name, tier: evidencePair(link.master.name, link.entry.name) ? "evidence" as const : "suggested" as const }))).flatMap((row) => row.tier === "evidence" ? [`${row.figma}=${row.code}`] : []) } : {}),
     ...(!r.declared && !opts.infer ? { draftHint: "No component map yet. Run code-map --draft." } : {}),
@@ -320,7 +325,7 @@ export function confirmBulk(cfg: ResolveConfig, catalog: CodeCatalog, pairs: str
   return writeMappings(cfg, catalog, pairs.filter((pair) => allowed.has(pair)));
 }
 
-/** Appends confirmed pairs ("Figma name=code" or "Figma name=code1,code2") to the mapping file. Writes nothing if any pair is wrong. */
+/** Appends confirmed pairs ("Figma name=code" or "Figma name=code1,code2") to the mapping file, or marks a proposed line for that pair confirmed. Writes nothing if any pair is wrong. */
 export function writeMappings(cfg: ResolveConfig, catalog: CodeCatalog, pairs: string[]) {
   const path = mappingPath(cfg);
   let doc: Record<string, unknown> | unknown[] = { mappings: [] };
@@ -351,15 +356,16 @@ export function writeMappings(cfg: ResolveConfig, catalog: CodeCatalog, pairs: s
       continue;
     }
     const code = uniq(names as string[]);
-    const have = list.some((r) => {
+    const have = list.find((r) => {
       const row = (r ?? {}) as { figma?: unknown; code?: unknown };
       return typeof row.figma === "string" && figmaIdentity(row.figma) === figmaIdentity(figma) && code.every((c) => strings(row.code).some((x) => same(x) === same(c)));
-    });
-    if (!have) added.push({ figma, code: code.length === 1 ? (code[0] as string) : code });
+    }) as Record<string, unknown> | undefined;
+    if (have && !awaitsReview(have)) continue;
+    added.push({ figma, code: code.length === 1 ? (code[0] as string) : code });
+    if (have) have["status"] = "confirmed"; else list.push(added[added.length - 1]);
   }
   if (errors.length) throw new Error(errors.join("\n"));
   if (added.length) {
-    list.push(...added);
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, `${JSON.stringify(doc, null, 2)}\n`);
   }
