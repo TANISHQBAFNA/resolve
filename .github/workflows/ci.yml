@@ -29,6 +29,17 @@ jobs:
       - name: Check meaning files
         run: node scripts/check-meaning-sock.mjs meaning
       - run: npm test
+      # Core must build and pass with the optional add-ons folder absent.
+      - name: Core without optional add-ons
+        run: |
+          set -euo pipefail
+          aside="${RUNNER_TEMP}/addons-aside"
+          mv addons "$aside"
+          status=0
+          npm run build || status=$?
+          if [ "$status" -eq 0 ]; then npm test || status=$?; fi
+          mv "$aside" addons
+          exit "$status"
       # 625-ask regression gate: a correct main lead may not change without an allowlist reason.
       - run: npm run check:meaning
       - run: npm run check:size

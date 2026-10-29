@@ -1,3 +1,4 @@
+import { addonUsageLines } from "./addonHook";
 import { CODE_USAGE } from "./code/command.ts";
 /** Same flags `bindFromFlags` reads — keep help + usage errors in lockstep. */
 export const PACK_BIND_FLAGS =
@@ -124,8 +125,7 @@ export function usage(): void {
       "      Refuses when a retired component is on the screen (always) or a component is only a layer-name guess (unless --draft).",
       "      --out writes handoff.md, screen-<name>.md, ingredients.md and handoff.json. Never guesses code: unmapped says unmapped.",
       "      --out also writes decision.json + decision.md (what was asked, picked, rejected and why); --no-record skips them.",
-      "  resolve export aidlc <handoff folder> [--out aidlc.json] [--json]",
-      "      Opt-in AIDLC hook: handoff.json + decision.json as the resolve.aidlc schemaVersion 1 contract (docs/AIDLC.md).",
+      ...addonUsageLines(),
       "  --record <dir> on brief and recipe --compose writes decision-brief / decision-compose .json + .md there (--force to replace).",
       "  resolve decisions [--json]     List decision records stored by MCP record: true",
       "  resolve rules                  List human-authored bind rules",

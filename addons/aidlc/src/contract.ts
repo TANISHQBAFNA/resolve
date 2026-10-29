@@ -1,12 +1,21 @@
 import { isDeepStrictEqual } from "node:util";
 import { z } from "zod/v4";
-import { BriefAnswerIdsSchema, DecisionPickSchema, DecisionRejectSchema, recordFromHandoff, type DecisionPick, type DecisionRecord } from "./decisionRecord";
-import type { HandoffComponent, HandoffPack, HandoffScreen } from "./handoff";
+import {
+  BriefAnswerIdsSchema,
+  DecisionPickSchema,
+  DecisionRejectSchema,
+  recordFromHandoff,
+  type DecisionPick,
+  type DecisionRecord,
+  type HandoffComponent,
+  type HandoffPack,
+  type HandoffScreen,
+} from "@/public";
 
 /**
  * AIDLC hook: the contract between Resolve and AIDLC stages.
  * requirementsContext goes in to AIDLC; designHandoff comes out of Resolve.
- * This zod schema is the one owner; schemas/aidlc-handoff.schema.json is generated from it.
+ * This zod schema is the one owner; schema/aidlc-handoff.schema.json is generated from it.
  * Opt-in: only `resolve export aidlc` (or MCP export_aidlc) builds it, from files a handoff already wrote.
  */
 

@@ -986,7 +986,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
 
     default: {
       if (name === "spec_map") return runSpecTool(args, context(args).index, specRanking(args));
-      if (name === "decision_record" || name === "export_aidlc") return runDecisionTool(name, args);
+      if (name === "decision_record") return runDecisionTool(name, args);
       throw new ToolError(`Unknown tool \`${name}\`.`);
     }
   }

@@ -242,7 +242,7 @@ describe("slash commands: install", () => {
     const runs: Record<string, string[]> = {
       "resolve-status": [`${spec} resolve-figma status`, `${spec} resolve-setup`],
       parts: [`${spec} resolve-figma parts`],
-      handoff: [`${spec} resolve-figma handoff`, `${spec} resolve-figma export aidlc`],
+      handoff: [`${spec} resolve-figma handoff`],
       "code-map": [`\`resolve-figma\` means \`${spec} resolve-figma\``],
     };
     for (const name of NAMES) {

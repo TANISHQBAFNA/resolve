@@ -28,7 +28,7 @@ function recipeAlreadyEncodes(pattern: { masterId: string; name: string }, recip
 
 /**
  * Save a passing verify to SOCK: usage facts, cousin corrections, SOCI proposals. MCP verify_frame and CLI verify both
- * call this, so a frame checked from the command line (the AIDLC add-on's design-check) counts as a mapped screen too.
+ * call this, so a frame checked from the command line (a delivery-process design-check) counts as a mapped screen too.
  * Only real frames count toward patterns. The screen job comes from the journey, else the domain, else the frame name.
  */
 export function recordVerifyUsage(
