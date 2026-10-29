@@ -249,14 +249,15 @@ function suggestions(master: FigmaMaster, catalog: CodeCatalog, r: ReturnType<ty
   const words = (name: string) => tokens(nameWords(name, r.ns)).filter((word) => !skip.has(word));
   const mv = tokens((master.variants ?? []).join(" ").replace(/[-_]+/g, " ")).filter((word) => !skip.has(word));
   const folder = figmaFolderKind(master.name, r.ns);
+  const leaf = master.name.split("/").map((part) => part.trim()).filter(Boolean).pop() ?? master.name; // the last path segment, so a folder prefix (acme-lib/button) does not hide a same name
   const out = catalog.components.flatMap((entry): Suggestion[] => {
     if (folder === "part" || (folder && folder !== entry.kind) || r.blocked(master.name, entry.name)) return [];
-    if (norm(entry.name, r.ns) === norm(master.name, r.ns)) {
+    if (norm(entry.name, r.ns) === norm(master.name, r.ns) || norm(entry.name, r.ns) === norm(leaf, r.ns)) {
       const signal = secondSignal(master, entry, r.partMap.get(entry) ?? [], r.deny);
       if (!signal.agree) return [sameNameRow(master.name, entry.name, signal.disagree)];
     }
     let best = { score: 0, reasons: [] as string[] };
-    for (const m of r.masterNames(master)) for (const e of r.entryNames(entry)) {
+    for (const m of [...r.masterNames(master), leaf]) for (const e of r.entryNames(entry)) {
       const leftWords = words(m);
       const rightWords = words(e);
       const sharedWords = [...new Set(leftWords)].filter((word) => rightWords.includes(word));
