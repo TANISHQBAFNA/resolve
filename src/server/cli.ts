@@ -413,7 +413,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
 
     case "code-map": {
       if (args.includes("--help") || args.includes("-h")) {
-        throw new Error('Usage: resolve code-map [--json | --retired | --pairs | --unmatched | --suggest | --write "<Figma=code>" | --check "<name>" | --init | --import <file.csv> | scan <package> | suggest <package> | review]');
+        throw new Error('Usage: resolve code-map [--json | --retired | --pairs | --unmatched | --suggest | --draft | --confirm "<Figma=code>" | --deny "<Figma=code>" | --confirm-evidence | --write "<Figma=code>" | --check "<name>" | --init | --import <file.csv> | scan <package> | suggest <package> | review]');
       }
       if (isLinkMapRequest(args)) {
         const blocked = ["--init", "--import", "--check", "--retired", "--dry-run", "--force", "--replace"].filter((name) => args.includes(name));

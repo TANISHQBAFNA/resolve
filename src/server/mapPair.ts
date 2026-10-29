@@ -27,12 +27,14 @@ export function secondSignal(master: FigmaMaster, entry: CatalogEntry): { agree:
 }
 
 /** `paired + parts + unmatched` against the Figma total. Parts on a pair and parts on an unpaired block both count once. */
-export function figmaTotalCheck(report: { figmaComponents: number; pairs: Array<{ figma: string; parts?: string[] }>; unpairedParts?: Array<{ parts: string[] }>; unmatchedFigma: string[] }): string {
+export function figmaTotalCheck(report: { figmaComponents: number; pairs: Array<{ figma: string; parts?: string[] }>; unpairedParts?: Array<{ parts: string[] }>; unmatchedFigma: string[]; heldFigma?: string[] }): string {
   const paired = new Set(report.pairs.map((pair) => pair.figma)).size;
   const parts = new Set([...report.pairs.flatMap((pair) => pair.parts ?? []), ...(report.unpairedParts ?? []).flatMap((row) => row.parts)]).size;
   const open = report.unmatchedFigma.length;
-  const sum = paired + parts + open;
-  return `${paired} paired + ${parts} parts + ${open} unmatched = ${sum}${sum === report.figmaComponents ? "" : `, not ${report.figmaComponents}`}`;
+  const held = report.heldFigma?.length ?? 0;
+  const sum = paired + parts + open + held;
+  const review = held ? ` + ${held} in review` : "";
+  return `${paired} paired + ${parts} parts + ${open} unmatched${review} = ${sum}${sum === report.figmaComponents ? "" : `, not ${report.figmaComponents}`}`;
 }
 
 /** Block a part belongs on: plural (tab/tabs), compound (field-label), or a prefix family (steps/stepper). */

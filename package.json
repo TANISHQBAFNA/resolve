@@ -58,7 +58,7 @@
     "mcp": "node dist-server/mcp.mjs"
   },
   "resolveSizeBudget": {
-    "code": 1792,
+    "code": 1903,
     "server": 7100,
     "core": 35100
   },

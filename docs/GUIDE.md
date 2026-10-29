@@ -77,6 +77,10 @@ For clone flags, tokens, and the optional browser map, see [For developers](REFE
 
 Pictures in the README use **Acme**, a made-up library. Resolve works the same on any design system and any code stack: it learns the Figma library you point it at, and the code map holds whatever import line (and selector, inputs and outputs, when your components have them) your team uses. Resolve is also tested on an internal reference library, which has its own phrase board, kept separate from the sample-library board. See [Scoreboard](SCOREBOARD.md#reference-library-board).
 
+## Linking a Figma component to code
+
+Inference is a draft, not the record. In the design-system repo, `.resolve/component-map.json` lists each pair: the Figma component (key or name), the coded component id, and whether you confirmed or denied it, with your name and the date. Run `code-map --draft` to fill proposed rows. Confirm or deny them one at a time. A proposed row is not a link. A component folder can also hold `component.json` (`id`, and a Figma key or name). That file counts as confirmed. If it disagrees with the map, Resolve reports the conflict and does not pick a side. A deny in the map wins.
+
 ## Happy path (what you do, what you get)
 
 The steps below are the same for any library. A checkout summary is the generic screen. Swap the words for yours.

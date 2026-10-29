@@ -17,7 +17,7 @@ Needs `repoPath` (the folder with the design system CSS) in `.resolve/config.jso
 
 Resolve is read-only. Never invent a class, variant, token, or markup.
 
-**Figma and code names.** In both mode `code_map` lists how Figma and coded components join (mapped, exact, alias) and what is unmatched. `code_pick` also finds a component by its Figma name or aliases. A suggested pair is not a link: show it to the user and let them confirm it in `.resolve/mapping.json` (or `resolve code-map --write "Figma name=code"`). Never join names yourself.
+**Figma and code names.** In both mode `code_map` lists how Figma and coded components join. If the design-system repo has `.resolve/component-map.json`, only confirmed rows in that file, plus a `component.json` manifest in a component folder, are links. Do not infer a pair outside them. Without that file, joins are mapped, exact, or alias, and the report says to run `code-map --draft`. `code_pick` also finds a component by its Figma name or aliases. A suggested or proposed pair is not a link: show it to the user and let them confirm it (`code-map --confirm "Button=button"`, or `.resolve/mapping.json` when there is no component map). Never join names yourself.
 
 **Design work.** Simplest thing that works. Reuse a component before anything new. One check: `code_check`.
 
