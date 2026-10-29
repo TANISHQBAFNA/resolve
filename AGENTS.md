@@ -36,4 +36,6 @@ For ANY HTML, CSS, or JS screen or component built on the repo's design system, 
 2. `code_pick` with what the screen needs, for each part. Build with the returned classes, variants and markup only. A modifier needs its base class. Never use a class listed under `avoid`. Use tokens, not literal colours or sizes.
 3. `code_check` on the HTML file before you finish. Fix every error, check again, report what is left. Nothing fits: say so. Never invent a class.
 
+When the design-system repo has `.resolve/component-map.json`, that file plus any `component.json` manifest is the only source of Figma-to-code pairs. Do not infer a pair that is not confirmed there. Draft new rows with `code-map --draft`. Do not mark them confirmed.
+
 Full workflow, when this client can read MCP resources: `resolve://code`. In a shell: `resolve code scan|pick|check`.

@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { figmaFolderKind, figmaIdentity, namespaceSet } from "@/core/rules/figmaNamespaces";
 import { codeMapCard } from "@/core/query/replacements";
+import { buildDeclaredLinks, componentMapPath, manifestBodies, readComponentMap, readManifests } from "../componentMap.ts";
 import type { ResolveConfig } from "../mode.ts";
 import { forBulkConfirm, GENERIC_PAIR_WORDS, pairDenySet, partOwner, sameNameRow, secondSignal } from "../mapPair.ts";
 import { resolveGraph } from "../store";
@@ -17,7 +18,7 @@ export const norm = (name: string, namespaces: ReadonlySet<string> = namespaceSe
 const uniq = (items: string[]) => [...new Set(items)].sort(byCode);
 
 /** One line of the mapping file. `figma` and `code` together make a pair; either alone gives that component aliases. */
-export interface MapRule { figma?: string; code: string[]; aliases: string[]; deny?: boolean }
+export interface MapRule { figma?: string; code: string[]; aliases: string[]; deny?: boolean; source?: "manifest" }
 
 export const mappingPath = (cfg: ResolveConfig) => join(cfg.storeDir, "mapping.json");
 
@@ -56,13 +57,14 @@ export function readMapping(cfg: ResolveConfig): { rules: MapRule[]; problems: s
 
 export function mappingDigest(cfg: ResolveConfig): string {
   const { text } = readMapping(cfg);
-  return text ? createHash("sha256").update(text).digest("hex").slice(0, 16) : "";
+  const body = [text, readComponentMap(cfg).text, manifestBodies(cfg.repoPath)].filter(Boolean).join("\n");
+  return body ? createHash("sha256").update(body).digest("hex").slice(0, 16) : "";
 }
 
-interface Link { master: FigmaMaster; entry: CatalogEntry; by: MatchBy; alias?: string }
+interface Link { master: FigmaMaster; entry: CatalogEntry; by: MatchBy; alias?: string; source?: "map" | "manifest" }
 const STRENGTH: Record<MatchBy, number> = { mapped: 0, exact: 1, alias: 2 };
 
-function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]) {
+function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[], infer = false) {
   const { rules, problems } = readMapping(cfg);
   const ns = namespaceSet(cfg.figmaNamespaces);
   const same = (name: string) => norm(name, ns);
@@ -122,32 +124,69 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
 
   const links: Link[] = [];
   const ambiguous = new Map<string, CatalogEntry[]>();
-  for (const master of masters) {
-    const mine = pairRules.filter((r) => figmaIdentity(r.figma ?? "") === figmaIdentity(master.name));
-    if (mine.length) {
-      for (const entry of uniqueEntries(mine.flatMap((r) => targets(r)))) if (!blocked(master.name, entry.name)) links.push({ master, entry, by: "mapped" });
-      continue;
+  const mapFile = infer ? undefined : readComponentMap(cfg);
+  const manifests = infer ? undefined : readManifests(cfg.repoPath);
+  if (mapFile) problems.push(...mapFile.problems);
+  if (manifests) problems.push(...manifests.problems);
+  const usingMap = Boolean(mapFile?.exists);
+  let covered = new Set<string>();
+  let unlinkedCode: string[] | undefined;
+  let stale: Array<{ figma: string; code: string; missing: "figma" | "code" | "both" }> | undefined;
+  let conflicts: string[] | undefined;
+  let denies: string[] | undefined;
+  if (usingMap && mapFile && manifests) {
+    const built = buildDeclaredLinks({ mapEntries: mapFile.entries, manifests: manifests.entries, masters, components: catalog.components, same, folderKind: (name) => figmaFolderKind(name, ns) });
+    problems.push(...built.problems);
+    covered = new Set(built.covered);
+    unlinkedCode = built.unlinkedCode;
+    stale = built.stale;
+    conflicts = built.conflicts;
+    denies = built.denies;
+    for (const link of built.links) {
+      const master = masters.find((item) => item.name === link.masterName && (link.nodeId === undefined || item.nodeId === link.nodeId));
+      const entry = catalog.components.find((item) => item.name === link.code);
+      if (!master || !entry) continue;
+      links.push({ master, entry, by: "mapped", source: link.source });
     }
-    const named = catalog.components.filter((e) => same(e.name) === same(master.name));
-    if (named.length) {
-      const exact = choose(master, named);
-      if (exact && !blocked(master.name, exact.name)) links.push({ master, entry: exact, by: "exact" });
-      else if (named.filter((e) => folderOk(master.name, e.kind)).length > 1) ambiguous.set(master.name, named.filter((e) => folderOk(master.name, e.kind)));
-      continue;
-    }
-    const names = masterNames(master);
-    const hits = new Map<CatalogEntry, string>();
-    for (const entry of catalog.components) {
-      if (!folderOk(master.name, entry.kind)) continue;
-      for (const n of names) {
-        const other = entryNames(entry).find((e) => same(e) === same(n));
-        if (other !== undefined) hits.set(entry, same(n) === same(master.name) ? other : n);
+  } else {
+    if (manifests) {
+      for (const row of manifests.entries) {
+        const keys = [row.figma, row.name, row.key].filter((token): token is string => Boolean(token));
+        const hits = masters.filter((master) => keys.some((token) => figmaIdentity(master.name) === figmaIdentity(token) || master.nodeId === token || master.fileKey === token));
+        if (hits.length === 1) pairRules.push({ figma: hits[0]!.name, code: [row.code], aliases: [], source: "manifest" });
+        else problems.push(hits.length ? `${row.file} matches more than one Figma component.` : `${row.file} names ${row.name ?? row.figma}, which is not a Figma component.`);
       }
     }
-    const list = [...hits.keys()];
-    if (list.length > 1) ambiguous.set(master.name, list);
+    for (const master of masters) {
+      const mine = pairRules.filter((r) => figmaIdentity(r.figma ?? "") === figmaIdentity(master.name));
+      if (mine.length) {
+        for (const rule of mine) for (const entry of uniqueEntries(targets(rule))) {
+          if (blocked(master.name, entry.name) || links.some((have) => have.master === master && have.entry === entry)) continue;
+          links.push({ master, entry, by: "mapped", ...(rule.source ? { source: rule.source } : {}) });
+        }
+        continue;
+      }
+      const named = catalog.components.filter((e) => same(e.name) === same(master.name));
+      if (named.length) {
+        const exact = choose(master, named);
+        if (exact && !blocked(master.name, exact.name)) links.push({ master, entry: exact, by: "exact" });
+        else if (named.filter((e) => folderOk(master.name, e.kind)).length > 1) ambiguous.set(master.name, named.filter((e) => folderOk(master.name, e.kind)));
+        continue;
+      }
+      const names = masterNames(master);
+      const hits = new Map<CatalogEntry, string>();
+      for (const entry of catalog.components) {
+        if (!folderOk(master.name, entry.kind)) continue;
+        for (const n of names) {
+          const other = entryNames(entry).find((e) => same(e) === same(n));
+          if (other !== undefined) hits.set(entry, same(n) === same(master.name) ? other : n);
+        }
+      }
+      const list = [...hits.keys()];
+      if (list.length > 1) ambiguous.set(master.name, list);
+    }
   }
-  return { rules, problems: uniq(problems), masters, parts, partMap, ns, deny, links, ambiguous, codeAliases, figmaAliases, masterNames, entryNames, blocked };
+  return { rules, problems: uniq(problems), masters, parts, partMap, ns, deny, links, ambiguous, codeAliases, figmaAliases, masterNames, entryNames, blocked, covered, unlinkedCode, stale, conflicts, denies, declared: usingMap };
 }
 
 const uniqueEntries = (list: CatalogEntry[]) => [...new Set(list)];
@@ -233,13 +272,14 @@ function suggestions(master: FigmaMaster, catalog: CodeCatalog, r: ReturnType<ty
   return out.sort((a, b) => b.score - a.score || byCode(a.code, b.code)).slice(0, limit);
 }
 
-export function mapReport(catalog: CodeCatalog, cfg: ResolveConfig, opts: { suggest?: boolean; limit?: number; masters?: FigmaMaster[] } = {}) {
-  const r = compute(catalog, cfg, opts.masters);
+export function mapReport(catalog: CodeCatalog, cfg: ResolveConfig, opts: { suggest?: boolean; limit?: number; masters?: FigmaMaster[]; infer?: boolean } = {}) {
+  const r = compute(catalog, cfg, opts.masters, opts.infer === true);
   const linkedMasters = new Set(r.links.map((l) => l.master.name));
   const linkedCode = new Set(r.links.map((l) => l.entry.name));
   const attached = new Set([...r.partMap.values()].flat());
-  const unmatchedFigma = r.masters.filter((m) => !linkedMasters.has(m.name));
-  const orphans = r.parts.filter((part) => !attached.has(part.name));
+  const unmatchedFigma = r.masters.filter((m) => !linkedMasters.has(m.name) && !r.covered.has(m.name));
+  const orphans = r.parts.filter((part) => !attached.has(part.name) && !r.covered.has(part.name));
+  const heldFigma = r.masters.filter((m) => !linkedMasters.has(m.name) && r.covered.has(m.name)).map((m) => m.name);
   const known = r.masters.length + r.parts.length;
   const unpairedParts = catalog.components.flatMap((entry) => {
     const names = r.partMap.get(entry);
@@ -249,17 +289,27 @@ export function mapReport(catalog: CodeCatalog, cfg: ResolveConfig, opts: { sugg
   return {
     mappingFile: mappingPath(cfg),
     mappingExists: existsSync(mappingPath(cfg)),
+    componentMapFile: componentMapPath(cfg),
+    componentMapExists: r.declared,
     ...(r.problems.length ? { problems: r.problems } : {}),
     figmaComponents: known,
     codeComponents: catalog.components.length,
-    pairs: r.links.map((l) => ({ figma: l.master.name, code: l.entry.name, confidence: l.by, ...(l.alias ? { alias: l.alias } : {}), ...(r.partMap.get(l.entry)?.length ? { parts: r.partMap.get(l.entry) } : {}) })).sort((a, b) => byCode(a.figma, b.figma) || byCode(a.code, b.code)),
+    pairs: r.links.map((l) => ({ figma: l.master.name, code: l.entry.name, confidence: l.by, ...(l.alias ? { alias: l.alias } : {}), ...(l.source ? { source: l.source } : {}), ...(r.partMap.get(l.entry)?.length ? { parts: r.partMap.get(l.entry) } : {}) })).sort((a, b) => byCode(a.figma, b.figma) || byCode(a.code, b.code)),
     unmatchedFigma: [...unmatchedFigma, ...orphans].map((m) => m.name),
-    unmatchedCode: known ? catalog.components.filter((e) => !linkedCode.has(e.name)).map((e) => e.name) : [],
+    unmatchedCode: r.declared ? (r.unlinkedCode ?? []) : known ? catalog.components.filter((e) => !linkedCode.has(e.name)).map((e) => e.name) : [],
+    ...(r.declared ? { unlinkedFigma: [...unmatchedFigma, ...orphans].map((m) => m.name), unlinkedCode: r.unlinkedCode ?? [] } : {}),
+    ...(heldFigma.length ? { heldFigma } : {}),
+    ...(r.stale?.length ? { stale: r.stale } : {}),
+    ...(r.conflicts?.length ? { conflicts: r.conflicts } : {}),
+    ...(r.denies?.length ? { denies: r.denies } : {}),
     ...(unpairedParts.length ? { unpairedParts } : {}),
     ...(suggested ? { suggestions: suggested, bulkConfirm: forBulkConfirm(suggested).map((row) => `${row.figma}=${row.code}`) } : {}),
-    note: known
-      ? "A suggestion is not a link. Confirm one pair with `resolve code-map --write \"Figma=code\"`. A batch skips risky: same name only, so confirm that pair on its own."
-      : "No Figma components known yet. Run code_scan with figma components (or learn the Figma library in both mode), then ask again.",
+    ...(!r.declared && !opts.infer ? { draftHint: "No component map yet. Run code-map --draft." } : {}),
+    note: r.declared
+      ? "Pairs come only from the component map and from component.json manifests. A proposed row is not a link. Nothing is guessed."
+      : known
+        ? "A suggestion is not a link. Confirm one pair with `resolve code-map --write \"Figma=code\"`. A batch skips risky: same name only, so confirm that pair on its own."
+        : "No Figma components known yet. Run code_scan with figma components (or learn the Figma library in both mode), then ask again.",
   };
 }
 

@@ -1,0 +1,6 @@
+{
+  "id": "acme-button",
+  "figma": { "key": "btn-key", "name": "Acme Button" },
+  "version": "1",
+  "recipes": ["send-money"]
+}

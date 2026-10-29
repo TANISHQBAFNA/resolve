@@ -1,11 +1,14 @@
 import { existsSync, readFileSync } from "node:fs";
+import { actorName } from "@/core/query/bindRulesFit";
 import { formatCodeMapReport } from "@/core/query/codeMap";
+import { namespaceSet } from "@/core/rules/figmaNamespaces";
 import { printJson } from "../cliArgs";
+import { confirmComponentPairs, confirmEvidenceTier, proposalsFromReport, readComponentMap, writeDraft } from "../componentMap.ts";
 import { deprecationNotice } from "../deprecations";
 import { figmaTotalCheck } from "../mapPair.ts";
-import { includesPack, readConfig } from "../mode.ts";
+import { includesPack, readConfig, type ResolveConfig } from "../mode.ts";
 import type { CheckResult } from "./check.ts";
-import { attachImportReport, confirmBulk, writeMappings } from "./map.ts";
+import { attachImportReport, confirmBulk, mapReport, norm, writeMappings } from "./map.ts";
 import { checkTool, codeConfig, mapTool, pickTool, scanTool } from "./mcp.ts";
 import { loadCatalog } from "./scan.ts";
 import type { FigmaMaster } from "./scan.ts";
@@ -28,7 +31,7 @@ export const CODE_USAGE = [
 
 const out = (line = "") => process.stdout.write(`${line}\n`);
 
-const LINK_FLAGS = ["--pairs", "--unmatched", "--suggest", "--limit", "--write"];
+const LINK_FLAGS = ["--pairs", "--unmatched", "--suggest", "--limit", "--write", "--draft", "--confirm", "--deny", "--confirm-evidence"];
 
 /** Join view (`--pairs`, `--unmatched`, `--suggest`). A `scan` / `suggest` / `review` subcommand is not this view. */
 export function isLinkMapRequest(args: string[]): boolean {
@@ -44,16 +47,66 @@ function linkSections(args: string[]) {
   return { suggest, pairs: suggest || pairs || !asked, unmatched: suggest || unmatched || !asked };
 }
 
+const pairWords = (args: string[]) => words(args, ["--repo", "--css", "--theme", "--limit", "--who"]).filter((word) => word.includes("="));
+const sameName = (cfg: ResolveConfig) => (name: string) => norm(name, namespaceSet(cfg.figmaNamespaces));
+
 /** Import map plus Figma-to-coded joins. No section flag prints pairs and unmatched. */
 export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
   const json = args.includes("--json");
   const base = readConfig();
   const cfg = codeConfig({ repoPath: flag(args, "--repo"), cssEntry: flag(args, "--css"), theme: flag(args, "--theme") }, base);
-  const pairs = words(args, ["--repo", "--css", "--theme", "--limit"]).filter((word) => word.includes("="));
-  if (args.includes("--write")) {
-    if (!pairs.length) throw new Error('Name the pairs to save, e.g. resolve code-map --write "Status Pill=badge". Run resolve code-map --suggest to see likely pairs.');
+  if (args.includes("--draft") && ["--write", "--confirm", "--deny", "--confirm-evidence"].some((name) => args.includes(name))) {
+    throw new Error("Run code-map --draft on its own. Confirm afterwards.");
+  }
+  if (args.includes("--confirm-evidence") && ["--confirm", "--deny", "--write"].some((name) => args.includes(name))) {
+    throw new Error("--confirm-evidence confirms every proposed evidence row. It does not take a pair.");
+  }
+  if (args.includes("--confirm") && args.includes("--deny")) throw new Error("Use either --confirm or --deny.");
+  const who = actorName(flag(args, "--who"));
+  const at = new Date().toISOString();
+  const same = sameName(cfg);
+  const opened = () => {
     const catalog = loadCatalog(cfg);
-    const done = pairs.length === 1 ? writeMappings(cfg, catalog, pairs) : confirmBulk(cfg, catalog, pairs);
+    const masters = graph?.() ?? catalog.figmaMasters ?? [];
+    if (masters.length) catalog.figmaMasters = masters;
+    return { catalog, masters };
+  };
+  if (args.includes("--draft")) {
+    const { catalog, masters } = opened();
+    const inferred = mapReport(catalog, cfg, { suggest: true, limit: Number(flag(args, "--limit")) || 25, masters, infer: true });
+    const done = writeDraft(cfg, proposalsFromReport(inferred), same, masters);
+    const message = `Wrote ${done.file}: ${done.proposed} proposed, ${done.kept} confirmed or denied left as they were. Nothing was marked confirmed.`;
+    if (json) printJson({ ...done, message });
+    else out(message);
+    return;
+  }
+  if (args.includes("--confirm-evidence")) {
+    const done = confirmEvidenceTier(cfg, who, at);
+    if (json) printJson({ ...done, who, at });
+    else out(`Confirmed ${done.confirmed} evidence proposal(s) in ${done.file}. ${done.left} proposed row(s) still waiting.`);
+    return;
+  }
+  const named = pairWords(args);
+  if (args.includes("--confirm") || args.includes("--deny")) {
+    if (!named.length) throw new Error('Name one pair, e.g. resolve code-map --confirm "Button=button". --confirm-evidence confirms every evidence proposal.');
+    const { catalog, masters } = opened();
+    const action = args.includes("--deny") ? "deny" : "confirm";
+    const done = confirmComponentPairs({ cfg, pairs: named, action, who, at, masters, components: catalog.components, same });
+    if (json) printJson(done);
+    else out(`${action === "deny" ? "Denied" : "Confirmed"} ${done.updated.length} pair(s) in ${done.file}${done.skipped ? `, ${done.skipped} unchanged` : ""}.`);
+    return;
+  }
+  if (args.includes("--write")) {
+    if (!named.length) throw new Error('Name the pairs to save, e.g. resolve code-map --write "Status Pill=badge". Run resolve code-map --suggest to see likely pairs.');
+    if (readComponentMap(cfg).exists) {
+      const { catalog, masters } = opened();
+      const done = confirmComponentPairs({ cfg, pairs: named, action: "confirm", who, at, masters, components: catalog.components, same });
+      if (json) printJson(done);
+      else out(`Confirmed ${done.updated.length} pair(s) in ${done.file}${done.skipped ? `, ${done.skipped} unchanged` : ""}.`);
+      return;
+    }
+    const catalog = loadCatalog(cfg);
+    const done = named.length === 1 ? writeMappings(cfg, catalog, named) : confirmBulk(cfg, catalog, named);
     if (json) printJson(done);
     else out(`${done.added.length} pair(s) added to ${done.file}${done.skipped ? `, ${done.skipped} already there` : ""}.`);
     return;
@@ -71,17 +124,26 @@ export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
   } else out("Import map: no learned library.");
   out(`${report.figmaComponents} Figma components (${figmaTotalCheck(report)}), ${report.codeComponents} coded components. Mapping file: ${report.mappingExists ? report.mappingFile : "none yet (" + report.mappingFile + ")"}`);
   for (const problem of report.problems ?? []) out(`  PROBLEM ${problem}`);
-  if (sections.pairs) for (const pair of report.pairs) out(`  ${pair.confidence.padEnd(9)} ${pair.figma} -> ${pair.code}${pair.alias ? ` (alias "${pair.alias}")` : ""}${pair.parts?.length ? `  parts: ${pair.parts.join(", ")}` : ""}`);
+  if (sections.pairs) for (const pair of report.pairs) out(`  ${pair.confidence.padEnd(9)} ${pair.figma} -> ${pair.code}${pair.alias ? ` (alias "${pair.alias}")` : ""}${pair.source ? ` [${pair.source}]` : ""}${pair.parts?.length ? `  parts: ${pair.parts.join(", ")}` : ""}`);
   if (sections.unmatched) {
     out(`Figma with no coded match: ${report.unmatchedFigma.join(", ") || "none"}`);
     out(`Coded with no Figma match: ${report.unmatchedCode.join(", ") || "none"}`);
     for (const row of report.unpairedParts ?? []) out(`  ${row.code}: ${row.parts.join(", ")}`);
+  }
+  if (report.componentMapExists) {
+    const figma = (report.unlinkedFigma ?? []).map((name) => `${name} (figma)`);
+    const code = (report.unlinkedCode ?? []).map((name) => `${name} (code)`);
+    out(`unlinked, please confirm: ${[...figma, ...code].join(", ") || "none"}`);
+    for (const row of report.stale ?? []) out(`stale: ${row.figma} -> ${row.code} (${row.missing} missing)`);
+    for (const row of report.conflicts ?? []) out(`conflict: ${row}`);
+    for (const row of report.denies ?? []) out(`denied: ${row}`);
   }
   if (sections.suggest && report.suggestions) {
     out(report.suggestions.length ? "Suggested (not joined; confirm with code-map --write):" : "No suggestions.");
     for (const suggestion of report.suggestions) out(`  ${suggestion.confidence === "risky: same name only" ? suggestion.confidence : "suggested"} ${suggestion.figma} -> ${suggestion.code}  ${suggestion.score}  ${suggestion.reasons.join("; ")}`);
   }
   out(report.note);
+  if (report.draftHint) out(report.draftHint);
 }
 
 function flag(args: string[], name: string): string | undefined {
