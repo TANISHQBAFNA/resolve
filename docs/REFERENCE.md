@@ -220,7 +220,7 @@ Once Resolve is installed, type these in the chat of Claude Code or Cursor. Each
 | `/pick-code <need>` | Resolve picks coded components for a screen need, for example `/pick-code transaction table with pagination`. | The components with their classes, modifiers, markup and `avoid` list. Or "no match"; it never invents a class. |
 | `/check-html <file>` | Resolve checks an HTML screen against the coded design system. | Errors and warnings with line numbers, and the components used. |
 
-Resolve's ticket add-on for AIDLC, if your team uses it, uses `design-handoff`. It calls `/handoff` for the build sheet. It does not replace that command.
+A delivery-process ticket, if your team uses one, calls `/handoff` for the build sheet. It does not replace that command.
 
 ### Brief a screen
 
@@ -927,9 +927,6 @@ Fields (`schemaVersion` 1): `kind` (brief, compose, handoff), `createdAt`, `requ
 
 Follow-up, not in this version: an approved record does not yet skip future brief questions.
 
-#### export aidlc
-
-`resolve export aidlc <handoff folder> [--out aidlc.json] [--json]` (MCP advanced: `export_aidlc`, `folder` required). Opt-in. It reads and checks `handoff.json` and `decision.json` from a `handoff --out` folder; a record of another kind, version or screen, a pick that is not a part in `handoff.json`, a pick whose id, match or why differs from what `handoff.json` gives, or a duplicated or dropped pick, is refused and prints the `resolve.aidlc` contract, schemaVersion 1: `requirementsContext` (what AIDLC takes in) and `designHandoff` (what Resolve hands out). Schema: [`schemas/aidlc-handoff.schema.json`](../schemas/aidlc-handoff.schema.json). Contract in plain words: [`docs/AIDLC.md`](AIDLC.md). `--json` errors print `ok:false` and exit 1.
 #### rules, soci, approve, reject
 
 ```bash
@@ -987,11 +984,11 @@ The headline number is `npm run resolve -- score phrases` (designer phrases). Th
 
 `npm run resolve -- gaps [--json]` lists what designers asked `recommend` for (MCP tool or CLI) that came back empty or as a weak match, and screen asks with no mapped screen of that job, from `<store>/scoreboard/gaps.jsonl`. The same ask, ignoring letter case and spacing, is one row with a count and the last date, most asked first. `score phrases`, `recipe` and `resolve` do not add to it. Writing the file never fails a `recommend`. The file is under `scoreboard/`, which the `resolve-setup` ignore block already keeps out of git. Delete it to start over.
 
-#### The MCP tools: 8 by default, 18 with the advanced set
+#### The MCP tools: 8 by default, 17 with the advanced set
 
 This is the Figma mode. Only the active mode's tools are offered: `code` mode offers `code_scan`, `code_pick`, `code_check` and `code_map` instead, and `both` offers all 12 default tools. See [Modes](#modes-figma-code-or-both).
 
-The same abilities are offered to AI tools as 8 MCP tools by default: `learn_library`, `recipe`, `brief`, `recommend`, `resolve`, `get_example`, `verify_frame` and `check_cousins`. Set `RESOLVE_MCP_ADVANCED=1` for 10 more (18 in all): `list_soci`, `approve_proposal`, `reject_proposal`, `list_recipes`, `get_ingredients`, `get_handoff`, `list_graphs`, `spec_map`, `decision_record` and `export_aidlc`. They return the same cards as the command line. `get_ingredients` (see [ingredients](#ingredients)) and `get_handoff` (see [handoff](#handoff)) are in the advanced set. `code_map` is the one map tool, on the code workflow: pairs, unmatched, `suggest`, and `action` `scan`, `suggest`, or `review`. `code_map_scan`, `code_map_suggest`, and `code_map_review` still run when the advanced switch is on and say to use `code_map`. The [slash commands](#slash-commands-in-detail), including `/code-map`, are also offered as MCP prompts (`prompts/list`, `prompts/get`); prompts are not tools and do not change the count.
+The same abilities are offered to AI tools as 8 MCP tools by default: `learn_library`, `recipe`, `brief`, `recommend`, `resolve`, `get_example`, `verify_frame` and `check_cousins`. Set `RESOLVE_MCP_ADVANCED=1` for 9 more (17 in all): `list_soci`, `approve_proposal`, `reject_proposal`, `list_recipes`, `get_ingredients`, `get_handoff`, `list_graphs`, `spec_map` and `decision_record`. They return the same cards as the command line. `get_ingredients` (see [ingredients](#ingredients)) and `get_handoff` (see [handoff](#handoff)) are in the advanced set. `code_map` is the one map tool, on the code workflow: pairs, unmatched, `suggest`, and `action` `scan`, `suggest`, or `review`. `code_map_scan`, `code_map_suggest`, and `code_map_review` still run when the advanced switch is on and say to use `code_map`. The [slash commands](#slash-commands-in-detail), including `/code-map`, are also offered as MCP prompts (`prompts/list`, `prompts/get`); prompts are not tools and do not change the count.
 
 ### Team config files
 

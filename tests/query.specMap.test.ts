@@ -49,7 +49,7 @@ describe("spec map", () => {
     expect(() => runSpecTool({ markdown: "  " }, index, {})).toThrow(/markdown/);
     expect(listToolDefinitions(false, "figma").map((tool) => tool.name)).not.toContain("spec_map");
     expect(listToolDefinitions(true, "figma").map((tool) => tool.name)).toContain("spec_map");
-    expect(listToolDefinitions(true, "figma")).toHaveLength(18);
+    expect(listToolDefinitions(true, "figma")).toHaveLength(17);
     expect(listToolDefinitions(false, "both")).toHaveLength(12);
     expect(listToolDefinitions(true, "both").map((tool) => tool.name)).toEqual(
       expect.arrayContaining(["spec_map", "code_scan", "learn_library"]),

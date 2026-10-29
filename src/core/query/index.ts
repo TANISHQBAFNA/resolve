@@ -10,7 +10,6 @@ export * from "./contextPacks";
 export * from "./recipes";
 export * from "./recipeCompose";
 export * from "./decisionRecord";
-export * from "./aidlcContract";
 export * from "./workspace";
 export * from "./workspaceMerge";
 export * from "./cousins";

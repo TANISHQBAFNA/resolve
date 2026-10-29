@@ -30,7 +30,7 @@ const TOPIC_NAME: Record<BriefTopic, string> = {
   platform: "platform and density",
 };
 
-/** Option ids a briefing answer resolves to. The decision record and the AIDLC contract use these as enums. */
+/** Option ids a briefing answer resolves to. The decision record and a handoff export use these as enums. */
 export const BRIEF_SHAPE_IDS = ["table", "cards", "form", "summary", "counts"] as const;
 export const BRIEF_STATE_IDS = ["empty", "loading", "error", "pending"] as const;
 export const BRIEF_PLATFORM_IDS = ["desktop", "mobile", "phone", "compact", "comfortable"] as const;
@@ -399,7 +399,7 @@ export function briefAnswerLines(answers: BriefAnswers | undefined, index: Graph
   return lines;
 }
 
-/** Answers as option ids (a label like "Data Table" becomes "table"), for records and the AIDLC export. */
+/** Answers as option ids (a label like "Data Table" becomes "table"), for records and a handoff export. */
 export interface BriefAnswerIds {
   shape?: (typeof BRIEF_SHAPE_IDS)[number];
   platform?: (typeof BRIEF_PLATFORM_IDS)[number];

@@ -116,7 +116,7 @@ function handoff(args: string[]): void {
       accessSync(target, fsConstants.W_OK);
       result.screens.forEach((sheet, n) => writeFileSync(join(target, files[n]!), formatHandoffScreen(sheet, result.draft)));
       writeFileSync(join(target, "ingredients.md"), formatHandoffIngredients(result));
-      // Keep resolved briefing answers in handoff.json so later AIDLC export can verify decision answers against the same source.
+      // Keep resolved briefing answers in handoff.json so a later handoff export can verify decision answers against the same source.
       const handoffJson = answerIds ? { ...result, answers: answerIds } : result;
       writeFileSync(join(target, "handoff.json"), `${JSON.stringify(handoffJson, null, 2)}\n`);
       writeFileSync(join(target, "handoff.md"), formatHandoffIndex(result, files));

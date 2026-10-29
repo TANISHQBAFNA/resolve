@@ -19,7 +19,8 @@ import {
 } from "./cliArgs";
 import { composeFromCli } from "./composeCommand";
 import { runHandoff } from "./handoffCommand";
-import { contextFromFlags, recordFlag, runDecisions, runExport } from "./decisionCommand";
+import { runAddonCommand } from "./addonHook";
+import { contextFromFlags, recordFlag, runDecisions } from "./decisionCommand";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
@@ -306,7 +307,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
     }
 
     case "export":
-      return runExport(args);
+      return runAddonCommand("export", args);
 
     case "decisions":
       return runDecisions(args);

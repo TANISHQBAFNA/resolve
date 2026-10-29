@@ -53,7 +53,7 @@ describe("MCP default surface + SOCK loop", () => {
       "get_health",
     ];
     for (const name of removed) expect(TOOLS.map((tool) => tool.name)).not.toContain(name);
-    expect(TOOLS).toHaveLength(18);
+    expect(TOOLS).toHaveLength(17);
     expect(listToolDefinitions(true, "figma").map((tool) => tool.name)).toEqual(
       expect.arrayContaining(["approve_proposal", "reject_proposal", "list_soci", "spec_map"]),
     );

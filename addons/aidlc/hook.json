@@ -1,0 +1,8 @@
+{
+  "command": "export",
+  "bin": "bin/resolve-aidlc.mjs",
+  "usage": [
+    "  resolve export aidlc <handoff folder> [--out aidlc.json] [--json]",
+    "      Opt-in AIDLC hook: handoff.json + decision.json as the resolve.aidlc schemaVersion 1 contract (addons/aidlc/docs/AIDLC.md)."
+  ]
+}

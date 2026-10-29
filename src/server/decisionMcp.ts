@@ -10,22 +10,16 @@ import {
   type DecisionRecord,
   type HandoffPack,
 } from "@/core/query";
-import { aidlcFromFolder, decisionsDir, listDecisions, readDecision, storeDecision } from "./decisionCommand";
+import { decisionsDir, listDecisions, readDecision, storeDecision } from "./decisionCommand";
 import { resolveGraph } from "./store";
 
-/** Advanced MCP tools for decision records and the AIDLC export. Default tools do not change. */
+/** Advanced MCP tools for decision records. Default tools do not change. */
 export const DECISION_TOOLS = [
   {
     name: "decision_record",
     description:
       "List stored decision records (no ref), or read one back: what was asked, which parts were picked and why, what was rejected, and the recipe. Pass the path a brief, recipe compose or get_handoff call returned as decisionRecord, or a handoff folder's decision.json. Advanced surface.",
     inputSchema: { type: "object", properties: { ref: { type: "string", description: "Record name from the list, or a path to a decision*.json file. Leave out to list the stored records." } } },
-  },
-  {
-    name: "export_aidlc",
-    description:
-      "Opt-in AIDLC hook. Turns a handoff --out folder (handoff.json + decision.json) into the resolve.aidlc schemaVersion 1 contract: requirementsContext in, designHandoff out. Reads files only; never runs a handoff. Advanced surface.",
-    inputSchema: { type: "object", properties: { folder: { type: "string", description: "A folder written by resolve handoff --out." } }, required: ["folder"] },
   },
 ];
 
@@ -37,14 +31,10 @@ export const RECORD_PROPERTY = {
 export const RECORD_TOOLS = new Set(["brief", "recipe", "get_handoff"]);
 
 export function runDecisionTool(name: string, args: Record<string, unknown>): unknown {
-  if (name === "decision_record") {
-    const ref = typeof args["ref"] === "string" ? args["ref"].trim() : "";
-    // No ref: list what is stored, so a record can be found again.
-    return ref ? readDecision(ref) : { folder: decisionsDir(), records: listDecisions() };
-  }
-  const folder = typeof args["folder"] === "string" ? args["folder"] : "";
-  if (!folder.trim()) throw new Error("export_aidlc needs folder: the folder resolve handoff --out wrote. It never uses the current folder by itself.");
-  return aidlcFromFolder(folder);
+  if (name !== "decision_record") throw new Error(`Unknown tool \`${name}\`.`);
+  const ref = typeof args["ref"] === "string" ? args["ref"].trim() : "";
+  // No ref: list what is stored, so a record can be found again.
+  return ref ? readDecision(ref) : { folder: decisionsDir(), records: listDecisions() };
 }
 
 /** What `record` asks for, or why it is wrong. */

@@ -920,7 +920,7 @@ describe("verify_frame feeds the screen-job approach", () => {
     }
   }
 
-  it("CLI verify saves a real frame to SOCK like verify_frame, so the AIDLC design-check feeds screen jobs", async () => {
+  it("CLI verify saves a real frame to SOCK like verify_frame, so a delivery-process design-check feeds screen jobs", async () => {
     saveGraph(checkoutFrameGraph(3));
     for (let i = 1; i <= 3; i += 1) await quietCli(["verify", `node:frame-${i}`]);
     const facts = loadSock()?.facts ?? [];

@@ -23,7 +23,7 @@ It never needs the current folder: the handoff folder is required.
 
 ## Shape
 
-`kind` is `resolve.aidlc` and `schemaVersion` is `1`. The JSON Schema is [`schemas/aidlc-handoff.schema.json`](../schemas/aidlc-handoff.schema.json). It is generated from `src/core/query/aidlcContract.ts`, and a test fails if the two drift. Any change to the shape, including an added field, gets a new `schemaVersion`. Both `screens` lists have at least one item.
+`kind` is `resolve.aidlc` and `schemaVersion` is `1`. The JSON Schema is [`schema/aidlc-handoff.schema.json`](../schema/aidlc-handoff.schema.json). It is generated from `src/contract.ts`, and a test fails if the two drift. Any change to the shape, including an added field, gets a new `schemaVersion`. Both `screens` lists have at least one item.
 
 ### requirementsContext (into AIDLC)
 
@@ -80,7 +80,7 @@ What the screen was asked for, as given. Nothing is filled in by guess.
 
 ## Sample
 
-[`fixtures/aidlc/acme-sample.json`](../fixtures/aidlc/acme-sample.json): the Acme `Confirm payment` screen with the Acme example code map. A test rebuilds it and checks it is the same and passes the schema.
+[`fixtures/acme-sample.json`](../fixtures/acme-sample.json): the Acme `Confirm payment` screen with the Acme example code map. A test rebuilds it and checks it is the same and passes the schema.
 
 ## Not in version 1
 
