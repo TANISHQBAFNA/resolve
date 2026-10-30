@@ -137,6 +137,7 @@ export function usage(): void {
       "  --record <dir> on brief and recipe --compose writes decision-brief / decision-compose .json + .md there (--force to replace).",
       "  resolve decisions [--json]     List decision records stored by MCP record: true",
       "  resolve rules                  List human-authored bind rules",
+      "  resolve sync                   Sync <project>/.resolve/local (components, SOCK, SOCI) now; every run also does it",
       "  resolve soci                   List pending SOCI proposals (never auto-applied)",
       "  resolve approve <proposal-id> --who <name>   Approve: bind-rules, recipe overlay, or a recorded decision",
       "  resolve reject <proposal-id> --who <name>    Reject + audit line. SOCI never auto-applies.",

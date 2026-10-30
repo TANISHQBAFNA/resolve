@@ -10,6 +10,7 @@ import {
   defaultIngestRole,
   emptyBindRules,
   applySociDecision,
+  runProjectSync,
   emptySock,
   indexGraph,
   mergeRecipes,
@@ -28,6 +29,7 @@ import {
   upsertWorkspaceFile,
   type BindRulesFile,
   type AuditLine,
+  type ProjectCopyReport,
   normaliseA11y,
   type ContextBind,
   type ContextPackFile,
@@ -89,16 +91,9 @@ export interface StoreInfo {
 /** Folder name under `~/.resolve/`. Rejects `.`, `..`, and separators. */
 export function resolveWorkspaceName(raw: string | undefined): string {
   const value = raw?.trim() || "default";
-  if (value === "." || value === ".." || value.includes("/") || value.includes("\\")) {
-    throw new Error(
-      `RESOLVE_WORKSPACE "${value}" is not allowed. The store must stay under ~/.resolve/.`,
-    );
-  }
   const cleaned = value.replace(/[^A-Za-z0-9._-]/g, "_");
-  if (!cleaned || cleaned === "." || cleaned === "..") {
-    throw new Error(
-      `RESOLVE_WORKSPACE "${value}" is not allowed. The store must stay under ~/.resolve/.`,
-    );
+  if ([".", ".."].includes(value) || /[/\\]/.test(value) || !cleaned || [".", ".."].includes(cleaned)) {
+    throw new Error(`RESOLVE_WORKSPACE "${value}" is not allowed. The store must stay under ~/.resolve/.`);
   }
   return cleaned;
 }
@@ -170,9 +165,7 @@ export function storeInfo(): StoreInfo {
 
 export function missingGraphMessage(): string {
   const info = storeInfo();
-  const homeLine = info.resolveHome
-    ? `RESOLVE_HOME=${info.resolveHome}`
-    : "Default store is ~/.resolve/default (or RESOLVE_WORKSPACE). Set RESOLVE_HOME to pin a folder.";
+  const homeLine = info.resolveHome ? `RESOLVE_HOME=${info.resolveHome}` : "Default store is ~/.resolve/default (or RESOLVE_WORKSPACE). Set RESOLVE_HOME to pin a folder.";
   return (
     `No design system or screens are ingested yet. Looked in ${info.graph} (store ${info.path}). ${homeLine} ` +
     "Map the Figma file first: with Figma MCP connected, call learn_library with get_metadata XML + fileKey + role (library for the design system, product or client for screens). " +
@@ -180,7 +173,7 @@ export function missingGraphMessage(): string {
   );
 }
 
-function storeFingerprint(): string {
+export function storeFingerprint(): string {
   const parts: string[] = [];
   const add = (path: string) => {
     try {
@@ -916,4 +909,9 @@ export function resolveGraph(
 
 export function clearCache(): void {
   cache.clear();
+}
+
+/** Sync `<project>/.resolve/local` (components, SOCK, SOCI) from this store. Never throws. */
+export function syncProject(force = false): ProjectCopyReport | undefined {
+  return runProjectSync({ cwd: process.cwd(), env: process.env, storeRoot: storeRoot(), graphExists: existsSync(graphPath()) || existsSync(workspacePath()), storeFingerprint, loadIndex: () => loadGraph()?.index, loadSock, force });
 }

@@ -65,6 +65,7 @@ import {
   briefAnswerIds,
   recordFromBrief,
   briefScreen,
+  projectCopyNote,
 } from "@/core/query";
 import {
   deltaAgainst,
@@ -96,6 +97,7 @@ import {
   resolveGraph,
   storeInfo,
   storeRoot,
+  syncProject,
 } from "./store";
 import { stripFiller } from "./cards";
 import { formatGaps, readGaps, recordGap } from "./gaps";
@@ -151,6 +153,7 @@ export async function runCli(argv: string[]): Promise<void> {
   const previous = setJsonPretty(pretty);
   try {
     await dispatchCli(pretty ? argv.filter((arg) => arg !== "--pretty") : argv);
+    if (argv[0] && !["sync", "help"].includes(argv[0]) && !argv[0].startsWith("-")) process.stderr.write(projectCopyNote(syncProject()));
   } catch (error) {
     if (!argv.includes("--json") || !(error instanceof BriefAnswerError || argv[0] === "brief")) throw error;
     printJson({ ok: false, status: "error", message: error instanceof Error ? error.message : String(error), exitCode: 1 });
@@ -683,6 +686,10 @@ async function dispatchCli(argv: string[]): Promise<void> {
       });
       return;
     }
+
+    case "sync":
+      printJson(syncProject(true) ?? { synced: false, hint: "No project folder or no learned library here. next: run resolve inside the project folder after learn, or set RESOLVE_PROJECT_DIR." });
+      return;
 
     case "soci":
       printJson({
