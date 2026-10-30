@@ -106,6 +106,8 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
       if (found.length) pairRules.push({ ...rule, code: found.map((e) => e.name) });
     }
   }
+  const learned = new Set(ordered.map((m) => figmaIdentity(m.name)));
+  if (learned.size) for (const rule of rules) if (rule.figma && !rule.deny && !rule.proposed && !learned.has(figmaIdentity(rule.figma))) problems.push(`mapping figma "${rule.figma}" is not a learned Figma component. next: fix the name in mapping.json or learn the library that has it.`);
   const entryNames = (e: CatalogEntry) => [e.name, ...(codeAliases.get(e) ?? [])];
   const masterNames = (m: FigmaMaster) => [m.name, ...(m.aliases ?? []), ...(figmaAliases.get(figmaIdentity(m.name)) ?? [])];
   const folderOk = (name: string, kind: CatalogEntry["kind"]) => {

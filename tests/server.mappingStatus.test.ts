@@ -60,6 +60,21 @@ describe("mapping.json review status", () => {
     expect(report.problems?.some((line) => line.includes('"unconfirmed"'))).toBe(true);
   });
 
+  it("warns when a mapping line names a Figma component that is not learned, and still uses the other lines", () => {
+    const { cfg, catalog, masters, write } = setup();
+    write([
+      { figma: "Acme Buton", code: "acme-button" },
+      { figma: "Acme Badge", code: "acme-badge" },
+      { figma: "Acme Ghost", code: "acme-card", status: "proposed" },
+    ]);
+    const report = mapReport(catalog, cfg, { masters });
+    expect(report.pairs.map((pair) => pair.figma)).toEqual(["Acme Badge"]);
+    expect(report.problems).toEqual([
+      'mapping figma "Acme Buton" is not a learned Figma component. next: fix the name in mapping.json or learn the library that has it.',
+    ]);
+    expect(mapReport(catalog, cfg, { masters: [] }).problems ?? []).not.toContainEqual(expect.stringContaining("not a learned Figma component"));
+  });
+
   it("treats status denied like deny: true", () => {
     const { cfg, catalog, masters, write } = setup();
     write([{ figma: "Acme Button", code: "acme-button" }, { figma: "Acme Button", code: "acme-button", status: "denied" }]);
