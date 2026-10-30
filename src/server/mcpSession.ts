@@ -7,6 +7,7 @@ import { getPrompt, listPrompts } from "./commands";
 import { activeMode } from "./mode.ts";
 import { listToolDefinitions, ToolError, callTool, encodeToolResult, toolCardFormat } from "./tools";
 import { designerFailure } from "./designerMessages";
+import { syncProject } from "./store";
 import pkg from "../../package.json";
 
 /**
@@ -106,6 +107,7 @@ export function attachMcpStdio(streams: McpStreams): void {
           const args = (call.arguments ?? {}) as Record<string, unknown>;
           const format = toolCardFormat(args["format"]);
           const result = callTool(call.name, call.arguments);
+          for (const warning of syncProject()?.warnings ?? []) process.stderr.write(`[resolve] warning: ${warning.message} next: ${warning.next}\n`);
           reply(id, {
             content: [{ type: "text", text: encodeToolResult(result, format, call.name) }],
           });

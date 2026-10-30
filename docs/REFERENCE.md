@@ -579,6 +579,7 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `pack validate [path]` | Checks a context pack: slug id, known accessibility level, recipe ids that exist, and no Figma file key or node id. |
 | `rules` | Lists the bind rules people wrote. |
 | `soci` | Lists pending SOCI proposals (suggested rules and recipes). |
+| `sync` | Syncs this project's local copy (`.resolve/local/`) of components, SOCK and SOCI now. Every other command also does it when the store changed. |
 | `approve <id> --who <name>` / `reject <id> --who <name>` | A person says yes or no to a proposal. |
 | `cousins "<frame>"` | Finds look-alike copies of library parts in product files. Needs a frame name, or `--components a,b`. |
 | `workspace` | Linked files and store location. |
@@ -938,6 +939,16 @@ npm run resolve -- soci
 npm run resolve -- approve <proposal-id> --who "Priya"
 npm run resolve -- reject <proposal-id> --who "Priya"
 ```
+
+### The project's own copy of SOCK and SOCI
+
+Each project you run Resolve in keeps its own copy in `<project>/.resolve/local/` (the project is the nearest folder with `.git`, `package.json` or `.resolve`). Every run (CLI command or MCP tool call) syncs it from the store when the store changed:
+
+- `components.json`: every component and component set. New ones are added, changed ones get a new fingerprint and `updatedAt`. A component that left the library is kept and marked `stale` with `staleSince`. Nothing is deleted.
+- `sock.json`: the SOCK facts, refreshed from the store each time.
+- `soci.json`: the SOCI proposals. An approved proposal stays approved. If the store's version of it changes, the approved version is kept, the change waits under `incoming` and the proposal is flagged `changed`. An approved proposal that names a stale component is flagged `staleComponent`. Sync never approves anything. Only `resolve approve <id> --who <name>` does.
+
+Problems are warnings with a `next:` step on stderr and never stop the run. `resolve sync` forces a sync and prints the report. `RESOLVE_PROJECT_DIR` picks the folder; `RESOLVE_PROJECT_COPY=0` turns the copy off. Resolve never writes the copy into your home folder or into the store.
 
 `rules` lists human-written bind rules (must use / must not use / prefer; see [`docs/BIND-RULES.md`](BIND-RULES.md)). `soci` lists suggestions made from real use. Nothing is ever applied automatically. `approve` and `reject` record who decided (see [`docs/SOCI.md`](SOCI.md)).
 
