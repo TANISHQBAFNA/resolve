@@ -211,6 +211,17 @@ export function variantPropertiesFromNames(names: string[]): ComponentProperty[]
   });
 }
 
+/** New definitions win field by field; a property or value list only the old ones know (variant axes read from layer names) is kept. */
+function mergeProperties(old: ComponentProperty[] | undefined, incoming: ComponentProperty[]): ComponentProperty[] {
+  const merged = incoming.map((prop) => {
+    const before = old?.find((o) => o.name === prop.name);
+    if (!before?.options?.length || !prop.optionsUnknown) return prop;
+    const { optionsUnknown: _unknown, ...rest } = prop;
+    return { ...rest, options: before.options };
+  });
+  return [...merged, ...(old ?? []).filter((o) => !incoming.some((prop) => prop.name === o.name))];
+}
+
 /** Stamp definitions found in a design-context payload. Missing fields stay unknown. */
 export function applyLearnedProperties(graph: DesignGraph, raw: unknown): number {
   const names = nameIndexFromGraph(graph);
@@ -229,7 +240,7 @@ export function applyLearnedProperties(graph: DesignGraph, raw: unknown): number
       if (parsed?.length) {
         const node = graph.nodes.find((candidate) => candidate.figmaNodeId === id || candidate.id === `node:${id}`);
         if (node) {
-          node.propertyDefinitions = parsed;
+          node.propertyDefinitions = mergeProperties(node.propertyDefinitions, parsed);
           applied += 1;
         }
       }
