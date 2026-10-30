@@ -1,4 +1,5 @@
 import { namespaceHead } from "@/core/rules/figmaNamespaces";
+import { parseVariantName } from "./figmaRest";
 import type {
   SourceComponentMeta,
   SourceDocument,
@@ -247,6 +248,7 @@ function toSourceNode(
   element: XmlElement,
   components: Record<string, SourceComponentMeta>,
   fallbackId: string,
+  parentType?: string,
 ): SourceNode {
   const type = isMetadataComponentSet(element) ? "COMPONENT_SET" : figmaTypeForElement(element.tag);
   const name = element.attrs["name"] ?? "(unnamed)";
@@ -284,6 +286,9 @@ function toSourceNode(
 
   if (type === "COMPONENT") {
     rememberComponent(components, id, name, "id");
+    // A variant inside a set is named `Prop=Value, Prop2=Value2`, the same as REST.
+    const variantProperties = parentType === "COMPONENT_SET" ? parseVariantName(name) : undefined;
+    if (variantProperties) node.variantProperties = variantProperties;
   }
 
   if (type === "INSTANCE") {
@@ -307,7 +312,7 @@ function toSourceNode(
 
   if (element.children.length) {
     node.children = element.children.map((child, index) =>
-      toSourceNode(child, components, `${id}/${index}`),
+      toSourceNode(child, components, `${id}/${index}`, type),
     );
   }
 
