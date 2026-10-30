@@ -42,14 +42,14 @@ function handoff(args: string[]): void {
   const frames: string[] = [];
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i]!;
-    if (arg === "--json" || arg === "--draft" || arg === "--force" || arg === "--no-record") continue;
+    if (arg === "--json" || arg === "--draft" || arg === "--force" || arg === "--no-record" || arg === "--strict") continue;
     if (VALUE_FLAGS.includes(arg)) {
       const value = args[i + 1];
       if (value === undefined || value.startsWith("--")) throw new Error(`${arg} needs a value.`);
       i += 1;
       continue;
     }
-    if (arg.startsWith("--")) throw new Error(`Unknown handoff option "${arg}". Use --draft, --json, --out, --no-record, --recipe, --depth, --force, --answer, --rules or ${PACK_BIND_FLAGS}.`);
+    if (arg.startsWith("--")) throw new Error(`Unknown handoff option "${arg}". Use --draft, --strict, --json, --out, --no-record, --recipe, --depth, --force, --answer, --rules or ${PACK_BIND_FLAGS}.`);
     frames.push(arg);
   }
   if (!frames.length) {
@@ -67,6 +67,7 @@ function handoff(args: string[]): void {
   const briefParts = briefAnswerParts(briefed, index);
   const result = handoffSheet(index, frames, {
     draft: args.includes("--draft"),
+    strict: args.includes("--strict"),
     recipe: flag(args, "recipe"),
     recipes: loadRecipes(),
     ...(pack ? { context: pack } : {}),

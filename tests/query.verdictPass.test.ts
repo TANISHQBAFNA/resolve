@@ -122,14 +122,24 @@ describe("CLI check/verify JSON and MCP verify_frame", () => {
       { args: ["verify", "Misused"], exit: 7 },
     ] as const;
     for (const row of cases) {
-      const run = await capture([...row.args]);
+      // --strict keeps the old exit codes for CI.
+      const run = await capture([...row.args, "--strict"]);
       const json = JSON.parse(run.out) as { pass?: boolean };
       expect(run.code ?? 0, row.args.join(" ")).toBe(row.exit);
       expect(json.pass, row.args.join(" ")).toBe(row.exit === 0);
+      // Without it a finding never stops Resolve: exit 0, the same verdict, and a next step.
+      const soft = await capture([...row.args]);
+      const softJson = JSON.parse(soft.out) as { pass?: boolean; next?: string };
+      expect(soft.code ?? 0, row.args.join(" ")).toBe(0);
+      expect(softJson.pass, row.args.join(" ")).toBe(row.exit === 0);
+      expect(Boolean(softJson.next), row.args.join(" ")).toBe(row.exit !== 0);
     }
-    const text = await capture(["check", "Misused"]);
+    const text = await capture(["check", "Misused", "--strict"]);
     expect(text.code).toBe(7);
     expect(text.out.startsWith("FAIL: proper use")).toBe(true);
+    const softText = await capture(["check", "Misused"]);
+    expect(softText.code ?? 0).toBe(0);
+    expect(softText.out).toContain("\nnext: set each flagged property to one of the allowed values listed");
 
     for (const frame of ["Paid screen", "Misused"]) {
       const raw = callTool("verify_frame", { frame }) as { pass?: boolean; properUse?: { exitCode?: number } };
@@ -156,8 +166,9 @@ describe("CLI check/verify JSON and MCP verify_frame", () => {
     for (const row of frames) {
       const live = verifyFrame(index, { frame: row.frame }) as { result?: string };
       expect(live.result, row.frame).toBe(row.result);
-      const run = await capture(["verify", row.frame]);
+      const run = await capture(["verify", row.frame, "--strict"]);
       const json = JSON.parse(run.out) as { pass?: boolean; result?: string };
+      expect((await capture(["verify", row.frame])).code ?? 0, row.frame).toBe(0);
       expect(json.result, row.frame).toBe(row.result);
       expect(json.pass, row.frame).toBe((run.code ?? 0) === 0);
       expect(run.code, row.frame).toBe(1);
@@ -165,7 +176,8 @@ describe("CLI check/verify JSON and MCP verify_frame", () => {
       const mcp = JSON.parse(encodeToolResult(mcpRaw, "json", "verify_frame")) as { pass?: boolean };
       expect(mcp.pass, row.frame).toBe(verifyExitCode(mcpRaw) === 0);
     }
-    const missing = await capture(["check", "--components", "Gold", "--json"]);
+    const missing = await capture(["check", "--components", "Gold", "--json", "--strict"]);
+    expect((await capture(["check", "--components", "Gold", "--json"])).code ?? 0).toBe(0);
     const missingJson = JSON.parse(missing.out) as { pass?: boolean; invents?: unknown[] };
     expect(missing.code).toBe(1);
     expect(missingJson.pass).toBe(false);

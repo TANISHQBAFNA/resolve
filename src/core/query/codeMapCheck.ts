@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { CODE_MAP_NEXT } from "./nextSteps";
 import { listCodeMapEntries, type CodeMapListed, type CodeMapSkipped } from "./codeMap";
 
 /**
@@ -25,6 +26,8 @@ export interface CodeMapCheckResult {
   import?: string;
   /** Replacement to use when status is retired. */
   use?: string;
+  /** What to try next. A finding never stops Resolve; `--strict` exits with `exitCode`. */
+  next?: string;
   matchedBy?: CodeMapCheckMatch;
   codeMapPath?: string;
   handoffPath?: string;
@@ -156,7 +159,8 @@ function result(
   message: string,
   extra: Partial<CodeMapCheckResult> = {},
 ): CodeMapCheckResult {
-  return { ok: status === "ok", status, query, message, exitCode: EXIT[status], ...extra };
+  const next = CODE_MAP_NEXT[status];
+  return { ok: status === "ok", status, query, message, exitCode: EXIT[status], ...(next ? { next } : {}), ...extra };
 }
 
 function twinFields(entry: CodeMapListed, by: CodeMapCheckMatch): Partial<CodeMapCheckResult> {

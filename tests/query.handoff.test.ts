@@ -116,11 +116,34 @@ describe("handoff sheet", () => {
     else process.env["RESOLVE_HOME"] = previousHome;
   });
 
-  it("golden: Acme Send money is refused because the retired Old Button is on it, draft or not", () => {
+  it("golden: without --strict, Acme Send money still exports; the retired Old Button is a warning with a next step, draft or not", () => {
     putMap(angularMap);
     const index = indexGraph(acmeGraph());
     for (const draft of [false, true]) {
-      const pack = handoffSheet(index, ["Send money"], { draft, recipes: starterRecipes() });
+      const pack = ok(handoffSheet(index, ["Send money"], { draft, recipes: starterRecipes() }));
+      expect(pack.draft).toBe(draft);
+      const screen = pack.screens[0]!;
+      expect(screen.warnings).toEqual([
+        {
+          screen: "Send money",
+          figmaNodeId: "20:40",
+          kind: "retired",
+          component: "Old Button",
+          message:
+            "Retired component Old Button is on this screen (copy ACMEUI 20:43). Replace it with Button (code: AcmeButtonComponent from '@acme/ui-angular', <acme-button>, AcmeButtonModule), then run handoff again. A draft does not skip this.",
+          next: "swap the retired part for the replacement named above (verify_frame lists the copies), then run handoff again.",
+        },
+      ]);
+      expect(screen.components.find((c) => c.name === "Old Button")).toMatchObject({ status: "retired" });
+      expect(formatHandoffScreen(screen, draft)).toContain("## Warnings (did not stop the handoff)\n\n- Retired component Old Button is on this screen (copy ACMEUI 20:43).");
+    }
+  });
+
+  it("golden (--strict): Acme Send money is refused because the retired Old Button is on it, draft or not", () => {
+    putMap(angularMap);
+    const index = indexGraph(acmeGraph());
+    for (const draft of [false, true]) {
+      const pack = handoffSheet(index, ["Send money"], { draft, strict: true, recipes: starterRecipes() });
       expect(pack).toEqual({
         ok: false,
         handoff: 1,
@@ -202,7 +225,13 @@ describe("handoff sheet", () => {
       { builtAt: FROZEN },
     );
     const index = indexGraph(graph);
-    const refused = handoffSheet(index, ["Home"]);
+    const soft = ok(handoffSheet(index, ["Home"]));
+    expect(soft.draft).toBe(false);
+    expect(soft.screens[0]!.components[0]).toMatchObject({ name: "Promo card", identity: "name-guess" });
+    expect(soft.screens[0]!.warnings).toEqual([
+      expect.objectContaining({ kind: "identity", next: "learn the file with design context (learn_library with designContext) or Figma REST, then run handoff again." }),
+    ]);
+    const refused = handoffSheet(index, ["Home"], { strict: true });
     expect(refused.ok).toBe(false);
     if (refused.ok) return;
     expect(refused.refused).toEqual([
@@ -267,8 +296,9 @@ describe("handoff sheet", () => {
       ],
     });
     const index = indexGraph(graphOf(file));
-    // The retired copy inside the shared copy still refuses.
-    const refused = handoffSheet(index, ["ACMEUI:20:90"]);
+    // The retired copy inside the shared copy is a warning, and still refuses with --strict.
+    expect(ok(handoffSheet(index, ["ACMEUI:20:90"])).screens[0]!.warnings?.[0]).toMatchObject({ kind: "retired", component: "Old Button" });
+    const refused = handoffSheet(index, ["ACMEUI:20:90"], { strict: true });
     expect(refused.ok).toBe(false);
     if (!refused.ok) expect(refused.refused[0]).toMatchObject({ kind: "retired", component: "Old Button" });
     page.children[page.children.length - 1] = {
@@ -324,10 +354,18 @@ describe("resolve handoff (CLI) and get_handoff (MCP)", () => {
     return out.join("");
   }
 
-  it("refusal prints why, exits 1 and writes nothing", async () => {
+  it("without --strict a retired part does not stop the handoff: it is written, with the warning, and exits 0", async () => {
     saveGraph(acmeGraph());
     const dir = join(home, "out");
-    const text = await cli(["handoff", "Send money", "--out", dir]);
+    expect(await cli(["handoff", "Send money", "--out", dir])).toContain("Wrote");
+    expect(process.exitCode).toBeUndefined();
+    expect(readFileSync(join(dir, "screen-send-money.md"), "utf8")).toContain("next: swap the retired part for the replacement named above");
+  });
+
+  it("--strict refusal prints why, exits 1 and writes nothing", async () => {
+    saveGraph(acmeGraph());
+    const dir = join(home, "out");
+    const text = await cli(["handoff", "Send money", "--out", dir, "--strict"]);
     expect(text).toContain("Handoff refused. Nothing written.\n- Send money: Retired component Old Button is on this screen (copy ACMEUI 20:43).");
     expect(process.exitCode).toBe(1);
     expect(existsSync(dir)).toBe(false);
@@ -457,7 +495,7 @@ describe("handoff fixes after PR #37 UAT", () => {
     expect(callTool("get_handoff", { frame: "Send money", depth: 2 })).not.toHaveProperty("depthNote");
   });
 
-  it("M3: a retired part read from a main component refuses, draft or not", () => {
+  it("M3: a retired part read from a main component warns, and refuses with --strict, draft or not", () => {
     const file = fixedAcmeFile() as { document: unknown };
     const point = (node: { id?: string; componentId?: string; children?: unknown[] }) => {
       if (node.id === "30:31") node.componentId = "30:50";
@@ -466,7 +504,8 @@ describe("handoff fixes after PR #37 UAT", () => {
     point(file.document as Parameters<typeof point>[0]);
     const index = indexGraph(graphOf(file));
     for (const draft of [false, true]) {
-      const pack = handoffSheet(index, ["Send money"], { draft });
+      expect(ok(handoffSheet(index, ["Send money"], { draft })).screens[0]!.warnings).toEqual([expect.objectContaining({ kind: "retired", component: "Old Button" })]);
+      const pack = handoffSheet(index, ["Send money"], { draft, strict: true });
       expect(pack.ok).toBe(false);
       if (pack.ok) continue;
       expect(pack.refused).toEqual([
@@ -479,9 +518,12 @@ describe("handoff fixes after PR #37 UAT", () => {
     }
   });
 
-  it("M4: a copy whose component is in no learned file refuses as not-found with the real fix; the draft labels it not-found", () => {
+  it("M4: a copy whose component is in no learned file warns (refuses with --strict) as not-found with the real fix; the draft labels it not-found", () => {
     const index = indexGraph(fixedGraph());
-    const pack = handoffSheet(index, ["Receipt"]);
+    expect(ok(handoffSheet(index, ["Receipt"])).screens[0]!.warnings).toEqual([
+      expect.objectContaining({ kind: "not-found", component: "Legacy badge", next: "learn the library file that holds the component (resolve ingest), or replace the copy." }),
+    ]);
+    const pack = handoffSheet(index, ["Receipt"], { strict: true });
     expect(pack.ok).toBe(false);
     if (pack.ok) return;
     expect(pack.refused).toEqual([
@@ -609,7 +651,7 @@ describe("handoff fixes after PR #37 UAT", () => {
     expect(text).toContain("| secondary-cta | no | filled | Button [ACMEUI 30:10] | inside Payee picker |");
   });
 
-  it("R-N1: a not-found part inside a library component's definition refuses, like a retired one; a draft only labels it", () => {
+  it("R-N1: a not-found part inside a library component's definition warns (refuses with --strict), like a retired one; a draft only labels it", () => {
     const file = fixedAcmeFile() as { document: unknown };
     const add = (node: { id?: string; children?: unknown[] }) => {
       if (node.id === "30:30") node.children = [...(node.children ?? []), { id: "30:34", name: "Legacy badge", type: "INSTANCE", componentId: "40:99", absoluteBoundingBox: { x: 0, y: 0, width: 10, height: 10 }, children: [] }];
@@ -617,7 +659,10 @@ describe("handoff fixes after PR #37 UAT", () => {
     };
     add(file.document as Parameters<typeof add>[0]);
     const index = indexGraph(graphOf(file));
-    const pack = handoffSheet(index, ["Send money"]);
+    expect(ok(handoffSheet(index, ["Send money"])).screens[0]!.warnings).toEqual([
+      expect.objectContaining({ kind: "not-found", component: "Legacy badge", message: expect.stringContaining("is inside Payee picker [ACMEUI 30:30]") }),
+    ]);
+    const pack = handoffSheet(index, ["Send money"], { strict: true });
     expect(pack.ok).toBe(false);
     if (pack.ok) return;
     expect(pack.refused).toEqual([

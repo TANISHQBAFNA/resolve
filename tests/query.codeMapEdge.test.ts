@@ -175,7 +175,10 @@ describe("code map edge fixture", () => {
     expect(doc.packages?.["@acme/edge-legacy"]).toBe("0.9.1");
     saveGraph(graph("figma-acme-edge-v2.json"));
     clearCache();
-    const sheet = handoffSheet(indexGraph(graph("figma-acme-edge-v2.json")), ["Edge screen"]);
+    const soft = handoffSheet(indexGraph(graph("figma-acme-edge-v2.json")), ["Edge screen"]);
+    if (!soft.ok) throw new Error("a stale link is a warning, not a refusal");
+    expect(soft.screens[0]!.warnings?.some((row) => row.kind === "review" && /Button/.test(row.message) && /re-review the code link/.test(row.next ?? ""))).toBe(true);
+    const sheet = handoffSheet(indexGraph(graph("figma-acme-edge-v2.json")), ["Edge screen"], { strict: true });
     expect(sheet.ok).toBe(false);
     if (!sheet.ok) expect(sheet.refused.some((row) => row.kind === "review" && /Button/.test(row.message))).toBe(true);
     const parts = screenPartsCard(indexGraph(graph("figma-acme-edge-v2.json")), "Edge screen");

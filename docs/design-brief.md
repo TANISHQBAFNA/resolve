@@ -37,7 +37,9 @@ resolve brief check <brief.md | handoff-folder>
 
 The input is either a complete brief, or a Resolve handoff pack (the folder `resolve handoff "<frame>" --out <folder>` wrote) that is not a draft and where verify passed on every screen.
 
-| Exit | Meaning |
+Findings never stop Resolve: without `--strict` the check exits 0 (1 only when the input is missing or unreadable), prints `FAIL`, and gives each issue a `next:` step. With `--strict` (for CI) it exits with these codes:
+
+| Exit (`--strict`) | Meaning |
 |---|---|
 | 0 | Pass |
 | 1 | The file or folder is missing or unreadable (the CLI's usual error) |
@@ -56,4 +58,4 @@ When several things fail, the lowest code is the exit code and every problem is 
 
 ## Using the exit code
 
-The exit code is the only contract. Any delivery process can run `resolve brief check` on a ticket and treat 0 as "ready for planning" and anything else as "not yet". The brief is built from the requirements document, and `requirements_source` points to it. Nothing in the brief names a code stack or a process, and Resolve's other features are not needed to fill it in.
+The `--strict` exit code is the contract. Any delivery process can run `resolve brief check --strict` on a ticket and treat 0 as "ready for planning" and anything else as "not yet". The brief is built from the requirements document, and `requirements_source` points to it. Nothing in the brief names a code stack or a process, and Resolve's other features are not needed to fill it in.

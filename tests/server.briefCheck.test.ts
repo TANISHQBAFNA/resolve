@@ -56,7 +56,14 @@ describe("resolve brief check", () => {
     expect(out).toMatch(/^Brief check: PASS \(brief\)/);
   });
 
-  it("exits with a distinct code per failure type and lists the problem", async () => {
+  it("without --strict a finding exits 0, keeps the FAIL label, and gives each issue a next step", async () => {
+    const { out, code } = await run([brief(EXAMPLE.replace("status: complete", "status: draft"))]);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^Brief check: FAIL \(brief\) .*findings do not stop Resolve \(--strict exits 6\)/);
+    expect(out).toMatch(/\[status\] .* next: set status: complete when the brief is ready\./);
+  });
+
+  it("with --strict, exits with a distinct code per failure type and lists the problem", async () => {
     const cases: Array<[string, string, RegExp]> = [
       ["frontmatter", EXAMPLE.replace(/^ticket: .*\n/m, ""), /\[frontmatter\] ticket/],
       ["screens", EXAMPLE.replace("N/A — the list has no submit action, so there is nothing to confirm.", "N/A"), /\[screens\].*no reason/],
@@ -66,7 +73,7 @@ describe("resolve brief check", () => {
     ];
     const seen = new Set<number>();
     for (const [type, text, message] of cases) {
-      const { out, code } = await run([brief(text)]);
+      const { out, code } = await run([brief(text), "--strict"]);
       expect(code, type).toBe(BRIEF_EXIT[type as keyof typeof BRIEF_EXIT]);
       expect(out, type).toMatch(/^Brief check: FAIL/);
       expect(out, type).toMatch(message);
@@ -83,7 +90,8 @@ describe("resolve brief check", () => {
     expect(await run([folder])).toMatchObject({ code: 0 });
     expect((await run([folder])).out).toMatch(/PASS \(handoff\)/);
     writeFileSync(join(folder, "handoff.json"), JSON.stringify({ ...pack, draft: true }));
-    const failed = await run([folder]);
+    expect((await run([folder])).code).toBe(0);
+    const failed = await run([folder, "--strict"]);
     expect(failed.code).toBe(BRIEF_EXIT.handoff);
     expect(failed.out).toMatch(/draft/);
   });
@@ -114,7 +122,7 @@ describe("resolve brief check", () => {
     expect(passing.code).toBe(0);
     expect(passing.out).toMatch(/Advisory only/);
     expect(passing.out).toMatch(/Mapped \d+ · weak \d+ · no match \d+/);
-    const failing = await run([brief(EXAMPLE.replace("status: complete", "status: draft")), "--suggest"]);
+    const failing = await run([brief(EXAMPLE.replace("status: complete", "status: draft")), "--suggest", "--strict"]);
     expect(failing.code).toBe(BRIEF_EXIT.status);
     const json = JSON.parse((await run([EXAMPLE_PATH, "--suggest", "--json"])).out);
     expect(json.exitCode).toBe(0);

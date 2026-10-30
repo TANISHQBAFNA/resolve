@@ -66,6 +66,7 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
   }
   out.push(`- ${s.summary.components} component${s.summary.components === 1 ? "" : "s"} placed (${s.summary.copies} cop${s.summary.copies === 1 ? "y" : "ies"}), ${s.summary.linkedToCode} linked to code, ${s.summary.unmapped} unmapped. ${s.summary.parts} part${s.summary.parts === 1 ? "" : "s"} inside, ${s.summary.partsLinkedToCode} linked to code.${s.summary.otherLibrary ? ` ${s.summary.otherLibrary} from a library file that is not learned.` : ""}`);
   if (s.note) out.push(`- Note: ${md(s.note)}`);
+  if (s.warnings?.length) out.push("", "## Warnings (did not stop the handoff)", "", ...s.warnings.map((w) => `- ${md(w.message)} next: ${md(w.next ?? "")}`));
   out.push("", "## Recipe", "");
   if (s.recipe) {
     out.push(`${md(s.recipe.title)} (\`${s.recipe.id}\`)${s.recipe.matchedBy === "screen name" ? ", matched from the screen name; pass --recipe <id> to pick another" : ""}`, "", "| Slot | Required | Recipe status | Component | On this screen |", "|---|---|---|---|---|");

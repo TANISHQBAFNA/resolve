@@ -14,6 +14,7 @@ import {
   readDesignContextFile,
   requireGraph,
   setJsonPretty,
+  strictExit,
   toGraph,
   writeStored,
 } from "./cliArgs";
@@ -25,6 +26,7 @@ import { dirname, join, resolve } from "node:path";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
 import { publishedVerdict, verifyExitCode } from "@/core/query/properUse";
+import { verifyNext } from "@/core/query/nextSteps";
 import {
   componentUsageCard,
   listRecipes,
@@ -413,9 +415,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
         workspace: bind.workspace ?? readWorkspace(),
       });
       printJson(cousins);
-      if (cousins.checked === false && cousins.reason !== "no-placements" && cousins.reason !== "no-library-file" && cousins.reason !== "no-graph") {
-        process.exitCode = 1;
-      }
+      strictExit(args, cousins.checked === false && cousins.reason !== "no-placements" && cousins.reason !== "no-library-file" && cousins.reason !== "no-graph" ? 1 : 0);
       return;
     }
 
@@ -436,7 +436,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       for (let i = 0; i < args.length; i += 1) {
         const arg = args[i]!;
         if (["--out", "--import", "--id", "--check", "--handoff"].includes(arg)) i += 1;
-        else if (arg.startsWith("--") && !["--json", "--retired", "--init", "--force", "--dry-run", "--replace"].includes(arg)) {
+        else if (arg.startsWith("--") && !["--json", "--retired", "--init", "--force", "--dry-run", "--replace", "--strict"].includes(arg)) {
           throw new Error(`Unknown code-map option "${arg}". Use --check "<name>" [--handoff <handoff.json>] [--json], --init [--out <file.csv>] [--force], --import <file.csv> [--dry-run] [--force | --replace], --json or --retired.`);
         }
       }
@@ -469,8 +469,9 @@ async function dispatchCli(argv: string[]): Promise<void> {
         const handoff = handoffGiven ?? handoffDefault;
         const checked = checkComponentFiles(name, mapPath, handoff, checkNamesFromNodes(resolveGraph()?.index.getNodesByType("COMPONENT_SET", "MAIN_COMPONENT") ?? []));
         if (args.includes("--json")) printJson(checked);
-        else process.stdout.write(`${checked.message}\n`);
-        if (checked.exitCode !== 0) process.exitCode = checked.exitCode;
+        else process.stdout.write(`${checked.message}${checked.next ? `\nnext: ${checked.next}` : ""}\n`);
+        if (checked.exitCode === 1) process.exitCode = 1;
+        else strictExit(args, checked.exitCode);
         return;
       }
       if (args.includes("--init") && args.includes("--import")) throw new Error("Use either --init or --import, not both.");
@@ -665,10 +666,11 @@ async function dispatchCli(argv: string[]): Promise<void> {
         domain: flag(args, "domain"),
       });
       const exitCode = verifyExitCode(verified);
+      const next = verifyNext(exitCode);
       if (command === "check" && !args.includes("--json")) {
-        process.stdout.write(`${presentToolResult(verified, "markdown", "verify_frame")}\n`);
-      } else printJson(publishedVerdict(verified));
-      if (exitCode !== 0) process.exitCode = exitCode;
+        process.stdout.write(`${presentToolResult(verified, "markdown", "verify_frame")}${next ? `\nnext: ${next}` : ""}\n`);
+      } else printJson({ ...publishedVerdict(verified), ...(next ? { next } : {}) });
+      strictExit(args, exitCode);
       return;
     }
 

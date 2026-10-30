@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { BRIEF_EXIT, checkBrief, checkHandoffPack, inventoryTable, type BriefReport } from "@/core/query/designBrief";
-import { printJson } from "./cliArgs";
+import { printJson, strictExit } from "./cliArgs";
 
 export const BRIEF_CHECK_USAGE = 'Usage: resolve brief check <brief.md | handoff-folder> [--suggest] [--json]';
 
@@ -32,9 +32,9 @@ function readInput(target: string): BriefReport & { markdown?: string } {
 }
 
 function formatReport(report: BriefReport, target: string): string {
-  const out = [report.ok ? `Brief check: PASS (${report.input}) ${target}` : `Brief check: FAIL (${report.input}) ${target}, exit ${report.exitCode}`];
+  const out = [report.ok ? `Brief check: PASS (${report.input}) ${target}` : `Brief check: FAIL (${report.input}) ${target}, findings do not stop Resolve (--strict exits ${report.exitCode})`];
   if (report.note) out.push(report.note);
-  for (const issue of report.issues) out.push(`- [${issue.type}] ${issue.where}: ${issue.message}`);
+  for (const issue of report.issues) out.push(`- [${issue.type}] ${issue.where}: ${issue.message}${issue.next ? ` next: ${issue.next}` : ""}`);
   return `${out.join("\n")}\n`;
 }
 
@@ -66,5 +66,6 @@ export function runBriefCheck(args: string[], suggest: (table: string) => BriefS
 
   if (json) printJson({ ...report, target, exitCodes: BRIEF_EXIT, ...(advisory ? { advisory: { note: ADVISORY, ...(advisory.json !== undefined ? { rows: advisory.json } : { message: advisory.text }) } } : {}) });
   else process.stdout.write(`${formatReport(report, target)}${advisory ? `\n${ADVISORY}\n${advisory.text}${advisory.text.endsWith("\n") ? "" : "\n"}` : ""}`);
-  if (report.exitCode !== 0) process.exitCode = report.exitCode;
+  if (report.exitCode === 1) process.exitCode = 1;
+  else strictExit(args, report.exitCode);
 }

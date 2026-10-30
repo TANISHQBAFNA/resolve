@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { actorName } from "@/core/query/bindRulesFit";
 import { formatCodeMapReport } from "@/core/query/codeMap";
 import { namespaceSet } from "@/core/rules/figmaNamespaces";
-import { printJson } from "../cliArgs";
+import { printJson, strictExit } from "../cliArgs";
 import { confirmComponentPairs, confirmEvidenceTier, proposalsFromReport, readComponentMap, writeDraft } from "../componentMap.ts";
 import { deprecationNotice } from "../deprecations";
 import { figmaTotalCheck } from "../mapPair.ts";
@@ -261,5 +261,5 @@ export function runCodeCommand(argv: string[], graph?: () => FigmaMaster[]): voi
   const result: CheckResult = checkTool(cfg, file);
   if (json) out(JSON.stringify(result));
   else for (const line of formatCheck(result)) out(line);
-  if (!result.ok) process.exitCode = 1;
+  strictExit(argv, result.ok ? 0 : 1);
 }
