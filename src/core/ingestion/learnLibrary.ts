@@ -95,8 +95,11 @@ export interface LearnResult {
   report: LearnReport;
 }
 
+/** Bump when parsing learns more from the same payload, so a re-learn is not skipped as a duplicate. 2: variant axes (#112). */
+export const LEARN_PARSER_VERSION = 2;
+
 export function hashLearnPayload(xml: string): string {
-  return createHash("sha256").update(xml).digest("hex").slice(0, 16);
+  return createHash("sha256").update(`parser:${LEARN_PARSER_VERSION}\0${xml}`).digest("hex").slice(0, 16);
 }
 
 export function flattenCatalog(raw: unknown): LearnCatalogItem[] {
