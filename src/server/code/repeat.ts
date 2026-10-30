@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { mulberry32 } from "@/core/layout/force";
 import type { ResolveConfig } from "../mode.ts";
 import { pickComponents } from "./pick.ts";
 import { buildCatalog, catalogDigest, loadCatalog, type CodeCatalog } from "./scan.ts";
@@ -16,18 +17,8 @@ export interface RepeatOptions {
   shuffle?: boolean;
 }
 
-function seeded(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return (((t ^ (t >>> 14)) >>> 0) / 4294967296);
-  };
-}
-
 function shuffled<T>(items: T[], seed: number): T[] {
-  const rand = seeded(seed);
+  const rand = mulberry32(seed);
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i -= 1) {
     const j = Math.floor(rand() * (i + 1));

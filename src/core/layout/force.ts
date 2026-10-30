@@ -43,7 +43,8 @@ export interface SimulationOptions {
   iterations?: number;
 }
 
-function mulberry32(seed: number): () => number {
+/** Seeded random numbers (same seed, same order). */
+export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
