@@ -24,4 +24,6 @@ Core never imports this folder. The hook is a `hook.json` plus a bin. An in-proc
 
 It reads only files a handoff already wrote: `handoff.json` and, when present, `decision.json`. Exit status is `0` when the contract is written and `1` when the export is refused or the file cannot be written (`EXIT_OK` and `EXIT_ERROR` from `src/public.ts`). It imports that public module only.
 
+`--ids` adds an advisory report of versioned component ids (`ds@1.2.ingredients.button`) and version drift between Figma and code. It never blocks or changes an exit code. It also reads `.resolve/aidlc.json` and `component.json` files under its `codeRepo`. See [Versioned component ids](docs/AIDLC.md#versioned-component-ids).
+
 The schema in `schema/aidlc-handoff.schema.json` is unchanged, including its generator note. Behavior is the same contract as before this move. See [docs/AIDLC.md](docs/AIDLC.md).

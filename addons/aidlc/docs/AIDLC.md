@@ -78,6 +78,69 @@ What the screen was asked for, as given. Nothing is filled in by guess.
 | `answers.states` | `empty` · `loading` · `error` · `pending` |
 | `answers.platform` | `desktop` · `mobile` · `phone` · `compact` · `comfortable` |
 
+## Versioned component ids
+
+A component can carry one id that says which design system it is from, which version, which tier and which component:
+
+```
+<prefix>@<major>.<minor>[.<patch>].<tier>.<name>
+ds@1.2.ingredients.button
+ds@1.2.1.ingredients.button
+```
+
+| Part | Rule |
+|---|---|
+| `prefix` | Lowercase letters, digits or hyphens, starting with a letter. Set it with `idPrefix` in `.resolve/aidlc.json`; the default is `ds` |
+| version | `major.minor` or `major.minor.patch`. A missing patch counts as 0 |
+| `tier` | `base`, `ingredients` or `recipes` (`recipe` is read as `recipes`) |
+| `name` | kebab-case: lowercase words joined by hyphens |
+
+A malformed id is listed as a problem with the reason (for example `the tier "widgets" must be base, ingredients or recipes`). It is never joined.
+
+### Where ids are read
+
+- **Figma:** the component and variant names of each part in `handoff.json`, including the parts inside it. Put the id in the component name, for example `Button ds@1.2.ingredients.button`. Component descriptions are not in `handoff.json` yet, so an id written only in a description is not seen.
+- **Code:** the code-map text of each part in `handoff.json`, and `resolveId` in each `component.json` under `codeRepo`:
+
+```json
+{ "id": "acme-button", "figma": { "name": "Button" }, "resolveId": "ds@1.2.ingredients.button" }
+```
+
+`.resolve/aidlc.json` (Resolve reads `RESOLVE_HOME` first, then the nearest `.resolve` folder above the current folder or the handoff folder):
+
+```json
+{ "idPrefix": "ds", "codeRepo": "../design-system" }
+```
+
+`codeRepo` is relative to the project folder that holds `.resolve`. It is a path on your machine, so keep `.resolve/` in `.gitignore`. A bad file or a bad `idPrefix` is a problem in the report, and the default prefix is used.
+
+### Join and drift
+
+Figma and code join on `<tier>.<name>` when both have the configured prefix, never on the whole id: `ds@1.3.ingredients.button` in Figma joins `ds@1.2.ingredients.button` in code. An id with another prefix is listed under `otherPrefix` and not joined. The two versions are then compared:
+
+| Change | Meaning | Code behind Figma |
+|---|---|---|
+| same | Nothing to do | `ok` |
+| patch | A small visual tweak, such as padding or radius | `info` |
+| minor | A design change, or a new variant or property | `warning` |
+| major | Breaking: a removed variant, a renamed property, or changed behaviour | `warning`, with the strongest wording (`MAJOR: … Do not map this part to the old code without checking`) |
+
+Code ahead of Figma is `info`. A key seen at two versions on one side is a problem, and the newest is compared.
+
+### Advisory only
+
+The id report is a guide for developers mapping Figma components to code. It never blocks: no drift level, malformed id or bad config changes an exit code, refuses a handoff, or changes the `resolve.aidlc` export. The report says `"blocks": false`.
+
+```
+resolve export aidlc handoff --ids                   # summary, strongest drift first
+resolve export aidlc handoff --ids --json            # the report as JSON
+resolve export aidlc handoff --ids --out ids.json    # write the report
+```
+
+MCP (advanced surface): `export_aidlc` with `folder` and `ids: true`.
+
+The report is its own document: `kind` `resolve.aidlc.ids`, `schemaVersion` 1, with `prefix`, `blocks`, `summary` (counts), `pairs` (`key`, `figma`, `code`, `change`, `direction`, `level`, `message`, `figmaFrom`, `codeFrom`), `figmaOnly`, `codeOnly`, `otherPrefix` and `problems`. The `resolve.aidlc` contract above is unchanged.
+
 ## Sample
 
 [`fixtures/acme-sample.json`](../fixtures/acme-sample.json): the Acme `Confirm payment` screen with the Acme example code map. A test rebuilds it and checks it is the same and passes the schema.
