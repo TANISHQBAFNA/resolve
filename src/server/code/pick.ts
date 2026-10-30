@@ -1,3 +1,4 @@
+import { codeValueWarnings } from "@/core/query/codeValueGaps";
 import { byCode, type CatalogEntry, type CodeCatalog } from "./scan.ts";
 import { nameWords, RELATED, stem, tokens } from "./words.ts";
 
@@ -86,7 +87,7 @@ export function pickComponents(catalog: CodeCatalog, query: string, limit = 5) {
         : {}),
       rules: entry.rules,
       ...(entry.aliases ? { aliases: entry.aliases } : {}),
-      ...(entry.figma ? { figma: entry.figma, matchedBy: entry.matchedBy, matched: entry.matched, ...(entry.figmaAlso ? { figmaAlso: entry.figmaAlso } : {}) } : {}),
+      ...(entry.figma ? { figma: entry.figma, matchedBy: entry.matchedBy, matched: entry.matched, ...(entry.figmaAlso ? { figmaAlso: entry.figmaAlso } : {}), ...codeValueWarnings(entry.figma.properties, code?.modifiers) } : {}),
     };
   });
   return {
