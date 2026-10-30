@@ -122,19 +122,20 @@ export function listToolDefinitions(advanced = process.env["RESOLVE_MCP_ADVANCED
   const allowed = new Set<string>(DEFAULT_TOOL_NAMES);
   const figma = includesPack(mode, "figma") ? (advanced ? TOOLS : TOOLS.filter((tool) => allowed.has(tool.name))) : [];
   const tools = [...figma, ...(includesPack(mode, "code") ? CODE_TOOLS : [])];
+  // A shared input (format, graphId, a11y, freshness...) is described in full once; later tools point back to it.
+  const firstSeen = new Map<string, string>();
   return tools.map((tool) => {
-    const schema = tool.inputSchema;
-    const properties = schema["properties"];
-    return {
-      ...tool,
-      inputSchema: {
-        ...schema,
-        properties: {
-          ...(properties && typeof properties === "object" ? properties : {}),
-          ...formatProperty,
-        },
-      },
-    };
+    const raw = tool.inputSchema["properties"];
+    const properties: Record<string, unknown> = { ...(raw && typeof raw === "object" ? raw : {}), ...formatProperty };
+    for (const [key, value] of Object.entries(properties)) {
+      const prop = value as { description?: string };
+      if (!prop.description || prop.description.length < 40) continue;
+      const seen = `${key}\0${JSON.stringify(prop)}`;
+      const first = firstSeen.get(seen);
+      if (first) properties[key] = { ...prop, description: `Same as ${first}.` };
+      else firstSeen.set(seen, tool.name);
+    }
+    return { ...tool, inputSchema: { ...tool.inputSchema, properties } };
   });
 }
 
