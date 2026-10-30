@@ -242,11 +242,15 @@ function pickVariant(variants: GraphNode[], ask: string, hooks: IngredientHooks)
   const want = ask.trim().toLowerCase();
   const byName = variants.filter((v) => v.name.trim().toLowerCase() === want || hooks.cardName(v).trim().toLowerCase() === want);
   if (byName.length) return byName;
-  const asked = parseProps(ask);
-  if (!asked) return [];
+  // "Size=Medium", a bare value ("Medium"), or both ("Primary, Size=Medium"). A bare value matches any property.
+  const asked = ask.split(",").map((part) => part.trim()).filter(Boolean).map((part) => {
+    const [k, val, ...extra] = part.split("=").map((side) => side.trim().toLowerCase());
+    return val === undefined ? { val: k! } : extra.length || !k || !val ? undefined : { k, val };
+  });
+  if (!asked.length || asked.some((cond) => !cond)) return [];
   return variants.filter((v) => {
     const have = propsOf(v);
-    return [...asked].every(([k, val]) => have.get(k) === val);
+    return asked.every((cond) => (cond!.k ? have.get(cond!.k) === cond!.val : [...have.values()].includes(cond!.val)));
   });
 }
 

@@ -187,6 +187,16 @@ describe("ingredient card", () => {
     expect(ingredientCard(index, "Chip", { variant: "Kind=Icon" }).found).toBe(false);
   });
 
+  it("--variant takes a bare value, or a bare value next to Prop=Value", () => {
+    const index = kit();
+    expect(found(ingredientCard(index, "Field", { variant: "Icon" })).variant).toMatchObject({ name: "Field / Kind=Icon", how: "asked" });
+    const many = ingredientCard(acme(), "Button", { variant: "Primary" });
+    expect(!many.found && many.hint).toContain("matches 2 variants");
+    expect(found(ingredientCard(acme(), "Button", { variant: "Primary, Size=Medium" })).variant?.how).toBe("asked");
+    expect(ingredientCard(index, "Field", { variant: "Huge" }).found).toBe(false);
+    expect(ingredientCard(index, "Field", { variant: "Kind=Icon=Big" }).found).toBe(false);
+  });
+
   it("lists only parts directly inside; deeper parts show as a count or with depth", () => {
     const index = kit();
     const row = found(ingredientCard(index, "List row"));
@@ -621,6 +631,7 @@ describe("ingredients command and MCP tool", () => {
     expect(json.found).toBe(true);
     expect(json.parts).toHaveLength(2);
     expect(await cli(["ingredients", "Button", "--variant", "Variant=Danger"])).toContain("Variant: Button / Variant=Danger, Size=Medium (asked)");
+    expect(await cli(["ingredients", "Button", "--variant", "Danger"])).toContain("Variant: Button / Variant=Danger, Size=Medium (asked)");
     expect(await cli(["ingredients", "--all"])).toContain("2 of 6 components are built from other parts");
     expect(JSON.parse(await cli(["ingredients", "--all", "--json"]))).toMatchObject({ composites: 2, linkedToCode: 2 });
     expect(process.exitCode ?? 0).toBe(0);
