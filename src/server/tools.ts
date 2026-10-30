@@ -506,6 +506,8 @@ const asString = (value: unknown, name: string): string => {
   return value;
 };
 
+/** The workspace, usage, rules, and placeholders a recommend or brief reads. */
+const shared = (workspace: ReturnType<typeof recommendContextFromArgs>["bind"]["workspace"], pack?: { bindRules?: Parameters<typeof mergeBindRules>[1] }) => ({ workspace, sock: readSock(), bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules), placeholders: readPlaceholders() });
 function recommendContextFromArgs(args: Record<string, unknown>) {
   const bind = contextBindFromArgs(args);
   const pack = packForRecommend(bind);
@@ -767,10 +769,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         recipes: loadRecipes(),
         decisions: readApprovedDecisions(),
         ...(resolvedContext ? { context: resolvedContext } : {}),
-        workspace: bind.workspace,
-        sock: readSock(),
-        bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
-        placeholders: readPlaceholders(),
+        ...shared(bind.workspace, pack),
       });
     }
 
@@ -789,10 +788,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const card = recommendMasters(index, intent, {
         budgetChars: budget,
         ...(resolvedContext ? { context: resolvedContext } : {}),
-        workspace: bind.workspace,
-        sock: readSock(),
-        bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
-        placeholders: readPlaceholders(),
+        ...shared(bind.workspace, pack),
       });
       recordGap(intent, card);
       return card;
