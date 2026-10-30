@@ -92,6 +92,17 @@ export function partsLineUp(entry: CatalogEntry, partNames: readonly string[]): 
   return roles.some((row) => row.matched) && roles.every((row) => row.matched || row.generic);
 }
 
+/** Words in more than half the Figma names and more than half the coded names (a house prefix such as "acme"). They say nothing about which two belong together. */
+export function houseWords(figma: string[][], code: string[][]): Set<string> {
+  const often = (lists: string[][]) => {
+    const seen = new Map<string, number>();
+    for (const list of lists) for (const word of new Set(list)) seen.set(word, (seen.get(word) ?? 0) + 1);
+    return new Set([...seen].filter(([, count]) => lists.length >= 3 && count * 2 > lists.length).map(([word]) => word));
+  };
+  const inCode = often(code);
+  return new Set([...often(figma)].filter((word) => inCode.has(word)));
+}
+
 /** One shared word from this set must not clear the suggestion floor by itself. */
 export const GENERIC_PAIR_WORDS = new Set("group card input item list row icon text label box field view container wrapper content element block section panel tile set".split(" "));
 
