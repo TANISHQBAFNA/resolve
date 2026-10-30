@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -28,9 +28,13 @@ describe("generic add-on hook", () => {
     process.exitCode = undefined;
   });
 
-  it("ships with no add-on: no hooks and no extra help lines", () => {
-    expect(addonHooks()).toEqual([]);
-    expect(addonUsageLines()).toEqual([]);
+  it("ships with no add-on: installed add-on folders are gitignored and never packed, and help lists only installed hooks", () => {
+    const root = join(__dirname, "..");
+    expect(readFileSync(join(root, ".gitignore"), "utf8").split(/\r?\n/)).toContain("addons/*/");
+    const files = (JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { files: string[] }).files;
+    expect(files.filter((entry) => entry === "addons" || entry.startsWith("addons/"))).toEqual([]);
+    // A locally installed add-on (addons/<name>/) may add hooks; help shows exactly their lines.
+    expect(addonUsageLines()).toEqual(addonHooks().flatMap((hook) => hook.usage));
   });
 
   it("finds hook.json add-ons, skips broken ones, runs the bin and passes its exit code on", () => {
