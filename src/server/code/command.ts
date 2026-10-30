@@ -67,7 +67,7 @@ export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
   const same = sameName(cfg);
   const opened = () => {
     const catalog = loadCatalog(cfg);
-    const masters = graph?.() ?? catalog.figmaMasters ?? [];
+    const masters = [graph?.() ?? [], catalog.figmaMasters ?? []].find((list) => list.length) ?? [];
     if (masters.length) catalog.figmaMasters = masters;
     return { catalog, masters };
   };
