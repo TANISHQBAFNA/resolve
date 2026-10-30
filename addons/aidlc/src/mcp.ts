@@ -1,12 +1,19 @@
 import { withCost } from "@/public";
-import { aidlcFromFolder } from "./exportCommand";
+import { aidlcFromFolder, idsFromFolder } from "./exportCommand";
 
 /** Advanced MCP tool for the AIDLC export. Default tools do not change. */
 export const EXPORT_TOOL = {
   name: "export_aidlc",
   description:
-    "Opt-in AIDLC hook. Turns a handoff --out folder (handoff.json + decision.json) into the resolve.aidlc schemaVersion 1 contract: requirementsContext in, designHandoff out. Reads files only; never runs a handoff. Advanced surface.",
-  inputSchema: { type: "object", properties: { folder: { type: "string", description: "A folder written by resolve handoff --out." } }, required: ["folder"] },
+    "Opt-in AIDLC hook. Turns a handoff --out folder (handoff.json + decision.json) into the resolve.aidlc schemaVersion 1 contract: requirementsContext in, designHandoff out. Reads files only; never runs a handoff. Advanced surface. ids:true returns the versioned component id report instead (advisory, never blocks).",
+  inputSchema: {
+    type: "object",
+    properties: {
+      folder: { type: "string", description: "A folder written by resolve handoff --out." },
+      ids: { type: "boolean", description: "Return the versioned component id and version drift report for this handoff." },
+    },
+    required: ["folder"],
+  },
 };
 
 /** Same call the core MCP server used: advanced surface only, folder required, cost block attached. */
@@ -17,5 +24,5 @@ export function callTool(name: string, args: Record<string, unknown>): unknown {
   }
   const folder = typeof args["folder"] === "string" ? args["folder"] : "";
   if (!folder.trim()) throw new Error("export_aidlc needs folder: the folder resolve handoff --out wrote. It never uses the current folder by itself.");
-  return withCost(aidlcFromFolder(folder));
+  return withCost(args["ids"] === true ? idsFromFolder(folder) : aidlcFromFolder(folder));
 }
