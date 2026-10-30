@@ -22,7 +22,6 @@ import { runHandoff } from "./handoffCommand";
 import { runAddonCommand } from "./addonHook";
 import { contextFromFlags, recordFlag, runDecisions } from "./decisionCommand";
 import { dirname, join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
 import { publishedVerdict, verifyExitCode } from "@/core/query/properUse";
@@ -105,7 +104,7 @@ import { formatSpecMap, mapSpec, readSpec } from "@/core/query/specMap";
 import { runBriefCheck } from "./briefCheckCommand";
 import { recordVerifyUsage } from "./tools";
 import { learnLibrary } from "./learn";
-import { DESIGNER, designerFailure } from "./designerMessages";
+import { DESIGNER } from "./designerMessages";
 import { presentToolResult } from "./cards";
 import { statusReport } from "./status";
 import { DEPRECATED_INSTEAD } from "./deprecations";
@@ -921,12 +920,4 @@ async function dispatchCli(argv: string[]): Promise<void> {
     default:
       usage();
   }
-}
-
-if (!process.env["VITEST"] && process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  runCli(process.argv.slice(2)).catch((error) => {
-    const raw = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`${designerFailure(raw)}\n`);
-    process.exit(1);
-  });
 }
