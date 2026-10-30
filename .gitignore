@@ -22,3 +22,6 @@ eval/
 !.mcp.json
 !src/data/*.mcp.json
 !src/mock/*.mcp.json
+
+# Locally installed add-ons (addons/<name>/). Only addons/README.md is tracked.
+addons/*/

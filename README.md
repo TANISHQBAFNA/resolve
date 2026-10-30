@@ -156,7 +156,7 @@ The code workflow reads a repo of HTML/CSS and builds a catalog of its real comp
 | Upgrading from an older version | [Upgrading from the old names](#upgrading-from-the-old-names) |
 | What a component means to Resolve | [What a component means](docs/REFERENCE.md#what-a-component-means) |
 
-Optional AIDLC add-on: [`addons/aidlc`](addons/aidlc/).
+Optional add-ons: [`addons/README.md`](addons/README.md).
 
 **Version history → [wiki](https://github.com/TANISHQBAFNA/resolve/wiki/Version-history)**
 

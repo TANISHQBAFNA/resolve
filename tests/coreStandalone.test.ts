@@ -5,7 +5,6 @@ import { runAddonCommand } from "@/server/addonHook";
 
 const word = String.fromCharCode(97, 105, 100, 108, 99);
 const pattern = new RegExp(word, "i");
-const allowedLine = `Optional ${word.toUpperCase()} add-on: [\`addons/${word}\`](addons/${word}/).`;
 const skipDir = new Set(["node_modules", ".git", "coverage"]);
 const skipFile = new Set(["package-lock.json"]);
 
@@ -25,20 +24,19 @@ describe("core stands alone", () => {
     await expect(runAddonCommand("not-a-real-command", [])).rejects.toThrow(/Unknown command: not-a-real-command/);
   });
 
-  it("no file outside the optional add-on names that delivery contract", () => {
+  it("no file in the product names that delivery contract", () => {
     const root = process.cwd();
-    const home = `addons/${word}/`;
     const hits: string[] = [];
     for (const path of files(root)) {
       const rel = relative(root, path).split("\\").join("/");
-      if (rel === `addons/${word}` || rel.startsWith(home)) continue;
+      // A locally installed add-on (addons/<name>/, gitignored) is not part of the product.
+      if (/^addons\/[^/]+\//.test(rel)) continue;
       if (statSync(path).size > 2_000_000) continue;
       const text = readFileSync(path);
       if (text.includes(0)) continue;
       const lines = text.toString("utf8").split(/\r?\n/);
       lines.forEach((line, index) => {
         if (!pattern.test(line)) return;
-        if (rel === "README.md" && line === allowedLine) return;
         hits.push(`${rel}:${index + 1}`);
       });
     }

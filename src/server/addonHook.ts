@@ -4,9 +4,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Optional add-ons live in addons/<name>/hook.json. Core discovers them.
+ * Optional add-ons live in addons/<name>/hook.json: { "command", "bin", "usage" }. Core discovers them.
  * It does not import add-on code. A registered handler (tests, in-process) wins;
- * otherwise the add-on bin is spawned.
+ * otherwise the add-on bin is spawned. Example: addons/hello/hook.json with command "hello"
+ * and bin "bin/hello.mjs" makes `resolve hello <args>` run that bin and lists its usage lines in --help.
  */
 export type AddonCommand = (args: string[]) => void | Promise<void>;
 
@@ -31,8 +32,7 @@ export function packageRoot(): string {
   return dir;
 }
 
-export function addonHooks(): Hook[] {
-  const root = join(packageRoot(), "addons");
+export function addonHooks(root: string = join(packageRoot(), "addons")): Hook[] {
   if (!existsSync(root)) return [];
   const hooks: Hook[] = [];
   for (const name of readdirSync(root)) {
@@ -57,8 +57,8 @@ export function addonUsageLines(): string[] {
 }
 
 /** Always run the add-on bin, ignoring an in-process handler. */
-export function spawnAddonCommand(command: string, args: string[]): void {
-  const hook = addonHooks().find((item) => item.command === command);
+export function spawnAddonCommand(command: string, args: string[], root?: string): void {
+  const hook = addonHooks(root).find((item) => item.command === command);
   if (!hook) throw new Error(`Unknown command: ${command}`);
   const bin = join(hook.dir, hook.bin);
   if (!existsSync(bin)) throw new Error(`Add-on command ${command} is missing (${bin}).`);
