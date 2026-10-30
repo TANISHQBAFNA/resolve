@@ -6,7 +6,7 @@ import { codeMapCard } from "@/core/query/replacements";
 import { buildDeclaredLinks, componentMapPath, manifestBodies, readComponentMap, readManifests } from "../componentMap.ts";
 import type { ResolveConfig } from "../mode.ts";
 import { awaitsReview, mappingStatus } from "../mappingStatus.ts";
-import { demoteSharedLinks, evidencePair, GENERIC_PAIR_WORDS, pairDenySet, partOwner, sameNameRow, secondSignal } from "../mapPair.ts";
+import { demoteSharedLinks, evidencePair, GENERIC_PAIR_WORDS, houseWords, pairDenySet, partOwner, sameNameRow, secondSignal } from "../mapPair.ts";
 import { resolveGraph } from "../store";
 import type { CatalogEntry, CodeCatalog, FigmaMaster, MatchBy } from "./scan.ts";
 import { nameWords, namespaceStems, RELATED, tokens } from "./words.ts";
@@ -245,7 +245,7 @@ function nameLike(a: string[], b: string[]) {
 export interface Suggestion { figma: string; code: string; confidence: "suggested" | "risky: same name only"; score: number; reasons: string[] }
 
 function suggestions(master: FigmaMaster, catalog: CodeCatalog, r: ReturnType<typeof compute>, limit: number): Suggestion[] {
-  const skip = namespaceStems(r.ns);
+  const skip = new Set([...namespaceStems(r.ns), ...houseWords(r.masters.map((m) => tokens(nameWords(m.name, r.ns))), catalog.components.map((e) => tokens(nameWords(e.name, r.ns))))]);
   const words = (name: string) => tokens(nameWords(name, r.ns)).filter((word) => !skip.has(word));
   const mv = tokens((master.variants ?? []).join(" ").replace(/[-_]+/g, " ")).filter((word) => !skip.has(word));
   const folder = figmaFolderKind(master.name, r.ns);
