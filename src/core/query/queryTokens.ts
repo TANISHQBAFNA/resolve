@@ -80,6 +80,7 @@ const STOPWORDS = new Set([
   "its",
   "them",
   "they",
+  "titled",
 ]);
 export const tokensOf = (text: string): string[] =>
   text

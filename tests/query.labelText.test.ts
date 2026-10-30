@@ -7,6 +7,7 @@ import { buildGraph } from "@/core/transform/buildGraph";
 import { indexGraph } from "@/core/query/GraphIndex";
 import { recommendMasters } from "@/core/query";
 import { dropLabelText } from "@/core/query/labelText";
+import { tokensOf } from "@/core/query/queryTokens";
 import { clearCache } from "@/server/store";
 
 const part = (id: string, name: string, extra: Record<string, unknown> = {}) => ({ id, name, type: "COMPONENT", ...extra });
@@ -87,6 +88,11 @@ describe("Figma pick with label text after the part name", () => {
 
   it("does not let label copy pull in a part named like the copy", () => {
     expect(names("button labelled Pay now")).not.toContain("recipes/payment-parties");
+  });
+
+  it("a leading 'titled' describes the part and is not a word to match", () => {
+    expect(tokensOf("a titled card")).toEqual(["card"]);
+    expect(names("a titled button")[0]).toBe("ingredients/button");
   });
 
   it("keeps the gate: extra words that are not label copy still find nothing", () => {
