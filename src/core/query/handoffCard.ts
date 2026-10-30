@@ -21,6 +21,7 @@ import type { WorkspaceManifest } from "./workspace";
 
 export interface HandoffInput {
   draft?: boolean;
+  strict?: boolean;
   recipe?: string;
   recipes?: Recipe[];
   context?: ContextPack;
@@ -108,6 +109,7 @@ export function handoffSheet(index: GraphIndex, frames: string[], input: Handoff
   };
   const pack = buildHandoff(index, frames, hooks, {
     draft: input.draft,
+    strict: input.strict,
     recipe: input.recipe,
     recipes: input.recipes,
     matchRecipe,

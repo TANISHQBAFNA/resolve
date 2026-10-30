@@ -279,21 +279,30 @@ describe("resolve code-map --check on committed files only", () => {
       ["codeMapPath", "component", "exitCode", "handoffPath", "import", "matchedBy", "message", "module", "ok", "query", "selector", "status"].sort(),
     );
 
-    const retired = await run(["code-map", "--check", "OldButton", "--handoff", home, "--json"]);
+    // Never stop: without --strict a finding exits 0 and says what to try next.
+    const soft = await run(["code-map", "--check", "OldButton", "--handoff", home, "--json"]);
+    expect(soft.code).toBeUndefined();
+    expect(JSON.parse(soft.out)["status"]).toBe("retired");
+    expect(JSON.parse(soft.out)["next"]).toBe("use the replacement named above.");
+    const softUnmapped = await run(["code-map", "--check", "Avatar", "--handoff", join(home, "handoff.json")]);
+    expect(softUnmapped.code).toBeUndefined();
+    expect(softUnmapped.out).toMatch(/\nnext: add a code-map row/);
+
+    const retired = await run(["code-map", "--check", "OldButton", "--handoff", home, "--json", "--strict"]);
     expect(retired.code).toBe(2);
     expect(JSON.parse(retired.out)["use"]).toBe("Button");
     expect(JSON.parse(retired.out)["status"]).toBe("retired");
 
-    const unmapped = await run(["code-map", "--check", "Avatar", "--handoff", join(home, "handoff.json"), "--json"]);
+    const unmapped = await run(["code-map", "--check", "Avatar", "--handoff", join(home, "handoff.json"), "--json", "--strict"]);
     expect(unmapped.code).toBe(4);
     expect(JSON.parse(unmapped.out)["status"]).toBe("unmapped");
     expect(JSON.parse(unmapped.out)["import"]).toBeUndefined();
 
-    const elsewhere = await run(["code-map", "--check", "MatButton", "--handoff", join(home, "handoff.json"), "--json"]);
+    const elsewhere = await run(["code-map", "--check", "MatButton", "--handoff", join(home, "handoff.json"), "--json", "--strict"]);
     expect(elsewhere.code).toBe(3);
     expect(JSON.parse(elsewhere.out)["status"]).toBe("not-in-handoff");
 
-    const missing = await run(["code-map", "--check", "PayeeDropdown", "--handoff", join(home, "handoff.json"), "--json"]);
+    const missing = await run(["code-map", "--check", "PayeeDropdown", "--handoff", join(home, "handoff.json"), "--json", "--strict"]);
     expect(missing.code).toBe(5);
     expect(JSON.parse(missing.out)["status"]).toBe("not-found");
 

@@ -213,6 +213,9 @@ export function existingEntries(path: string): unknown[] {
 
 let jsonPretty = false;
 
+/** Findings never stop Resolve (exit 0). `--strict` (CI) sets the finding's exit code. */
+export const strictExit = (args: readonly string[], code: number) => { if (code !== 0 && args.includes("--strict")) process.exitCode = code; };
+
 export function printJson(value: unknown): void {
   const text = jsonPretty ? JSON.stringify(value, null, 2) : JSON.stringify(value);
   process.stdout.write(`${text}\n`);

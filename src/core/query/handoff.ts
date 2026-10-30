@@ -8,6 +8,7 @@ import type { ContextPack } from "./contextPacks";
 import type { SociProposal } from "./sock";
 import { designerPlacedInstances, hiddenUnder } from "./placed";
 import { copyValues, propertyBlock, type PropertyRow } from "./componentProperties";
+import { HANDOFF_NEXT } from "./nextSteps";
 import { nodeFileKey } from "./workspaceMerge";
 
 /**
@@ -79,8 +80,10 @@ export interface HandoffDecisionInput {
 }
 
 export interface HandoffOptions {
-  /** Allow name-guess identities (labelled). Retired components still refuse. */
+  /** Allow name-guess identities (labelled) without a warning. */
   draft?: boolean;
+  /** CI: refuse the pack on a finding (retired, stale link, name-guess, missing component) instead of a warning. */
+  strict?: boolean;
   /** Recipe id or intent. Default: the recipe whose name or alias matches the screen name, if any. */
   recipe?: string;
   recipes?: Recipe[];
@@ -229,6 +232,8 @@ export interface HandoffScreen {
     otherLibrary: number;
   };
   note?: string;
+  /** Findings that did not stop the handoff, each with a `next` step (see nextSteps.ts). */
+  warnings?: HandoffRefusal[];
 }
 
 export interface HandoffRefusal {
@@ -238,6 +243,8 @@ export interface HandoffRefusal {
   kind: "retired" | "identity" | "not-found" | "review";
   component?: string;
   message: string;
+  /** What the AI can try next (warnings only; a strict refusal has none). */
+  next?: string;
 }
 
 export type HandoffPack =
@@ -609,7 +616,8 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     const main = mainOf(copy);
     if (main && !main.isRemote && !hooks.retired(main) && !index.getChildren(copy.id).length) walkDefinition(main, copy);
   }
-  if (refused.length) return { ok: false, refused };
+  if (refused.length && options.strict) return { ok: false, refused };
+  const warnings = refused.map((r) => ({ ...r, next: HANDOFF_NEXT[r.kind] }));
 
   // Components placed on the screen, one entry per main component (variant).
   const groups = new Map<string, { main?: GraphNode; copies: GraphNode[] }>();
@@ -887,6 +895,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
       otherLibrary,
     },
     ...(notes.length ? { note: notes.join(" ") } : {}),
+    ...(warnings.length ? { warnings } : {}),
   };
   return { ok: true, sheet };
 }

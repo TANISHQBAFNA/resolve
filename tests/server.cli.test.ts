@@ -149,12 +149,14 @@ describe("resolve ingest --role", () => {
     expect(existsSync(workspacePath())).toBe(false);
   });
 
-  it("exits non-zero when verify fails", async () => {
+  it("exits 0 when verify fails, and non-zero with --strict", async () => {
     const xmlPath = join(process.env["RESOLVE_HOME"]!, "verify.xml");
     writeFileSync(xmlPath, `<frame id="1:1" name="Screen"><component id="9:9" name="Button" /></frame>\n`);
     await runCli(["ingest", xmlPath, "--file-key", "LIB"]);
     process.exitCode = undefined;
     await runCli(["verify", "--components", "Not A Real Widget"]);
+    expect(process.exitCode).toBeUndefined();
+    await runCli(["verify", "--components", "Not A Real Widget", "--strict"]);
     expect(process.exitCode).toBe(1);
     process.exitCode = undefined;
   });
@@ -171,7 +173,7 @@ describe("resolve ingest --role", () => {
     }) as typeof process.stdout.write;
     process.exitCode = undefined;
     try {
-      await runCli(["verify", "--components", "Button"]);
+      await runCli(["verify", "--components", "Button", "--strict"]);
     } finally {
       process.stdout.write = write;
     }
@@ -328,7 +330,7 @@ describe("resolve ingest --role", () => {
     }) as typeof process.stdout.write;
     process.exitCode = undefined;
     try {
-      await runCli(["verify", "F1"]);
+      await runCli(["verify", "F1", "--strict"]);
     } finally {
       process.stdout.write = write;
     }

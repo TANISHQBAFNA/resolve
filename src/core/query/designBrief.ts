@@ -4,6 +4,8 @@
  * go through the same exit codes, so a delivery process does not care which one a ticket used.
  */
 
+import { BRIEF_NEXT } from "./nextSteps";
+
 export type BriefFailure = "frontmatter" | "screens" | "fields" | "questions" | "status" | "handoff";
 
 /** 0 pass. 1 is for input that cannot be read at all (the CLI's usual error). When several types fail, the lowest code is the exit code. */
@@ -20,6 +22,8 @@ export interface BriefIssue {
   type: BriefFailure;
   where: string;
   message: string;
+  /** What to try next. A finding never stops Resolve; `--strict` exits with the report's code. */
+  next?: string;
 }
 
 export interface BriefReport {
@@ -204,7 +208,7 @@ function checkQuestions(section: { lines: string[] } | undefined): BriefIssue[] 
 
 function finish(input: BriefReport["input"], issues: BriefIssue[], note?: string): BriefReport {
   const codes = issues.map((issue) => BRIEF_EXIT[issue.type]);
-  return { ok: !issues.length, input, exitCode: codes.length ? Math.min(...codes) : 0, issues, ...(note ? { note } : {}) };
+  return { ok: !issues.length, input, exitCode: codes.length ? Math.min(...codes) : 0, issues: issues.map((issue) => ({ ...issue, next: BRIEF_NEXT[issue.type] })), ...(note ? { note } : {}) };
 }
 
 /** The screen-inventory table as Markdown, without N/A rows, for `resolve spec`. Empty when there is none. */
