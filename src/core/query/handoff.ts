@@ -7,7 +7,7 @@ import type { FilledRecipe, Recipe } from "./recipes";
 import type { ContextPack } from "./contextPacks";
 import type { SociProposal } from "./sock";
 import { designerPlacedInstances, hiddenUnder } from "./placed";
-import { propertyBlock, type PropertyRow } from "./componentProperties";
+import { copyValues, propertyBlock, type PropertyRow } from "./componentProperties";
 import { nodeFileKey } from "./workspaceMerge";
 
 /**
@@ -139,6 +139,8 @@ export interface HandoffComponent {
   angular?: AngularTwin;
   /** Figma variant properties of the placed variant. */
   figmaProps?: Record<string, string>;
+  /** On/off, text, and swap values each placed copy sets (first 10 copies), so the build uses the designed values, not the defaults. */
+  copyValues?: Array<{ copy: string; values: Record<string, string> }>;
   /** Angular inputs whose name matches a Figma property (suggested values). */
   inputs?: InputHint[];
   /** One-line Angular template (suggested). */
@@ -734,6 +736,10 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     const guess = !main ? !missing : hooks.nameGuess(main);
     const states = main && !remote ? statesOf(index, main) : undefined;
     const definitions = main && !remote ? propertyBlock(index, set ?? main, undefined, twin?.angular) : undefined;
+    const perCopy = copies.slice(0, 10).flatMap((c) => {
+      const values = c.figmaNodeId ? copyValues(index, c) : undefined;
+      return values ? [{ copy: c.figmaNodeId!, values }] : [];
+    });
     components.push({
       name,
       ...(props ? { variant: Object.entries(props).map(([k, v]) => `${k}=${v}`).join(", ") } : {}),
@@ -748,6 +754,7 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
       code: twin ? twin.line : remote || missing ? "unknown" : "unmapped",
       ...(twin?.angular ? { angular: twin.angular } : {}),
       ...(props ? { figmaProps: props } : {}),
+      ...(perCopy.length ? { copyValues: perCopy } : {}),
       ...(hints.length ? { inputs: hints } : {}),
       ...(template ? { template } : {}),
       ...(states ? { states } : {}),
