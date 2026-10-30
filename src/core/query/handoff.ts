@@ -735,7 +735,9 @@ function buildScreen(index: GraphIndex, ask: string, hooks: HandoffHooks, option
     const parts = card.found ? trimParts(card.parts) : [];
     const guess = !main ? !missing : hooks.nameGuess(main);
     const states = main && !remote ? statesOf(index, main) : undefined;
-    const definitions = main && !remote ? propertyBlock(index, set ?? main, undefined, twin?.angular) : undefined;
+    // A name-guessed copy borrows the property list of the learned component with the same name (still labelled name-guess).
+    const namesake = guess && main ? index.getNodesByType("COMPONENT_SET", "MAIN_COMPONENT").find((n) => n.id !== main.id && n.propertyDefinitions?.length && clean(n.name) === clean(main.name)) : undefined;
+    const definitions = main && !remote ? propertyBlock(index, namesake ?? set ?? main, undefined, twin?.angular) : undefined;
     const perCopy = copies.slice(0, 10).flatMap((c) => {
       const values = c.figmaNodeId ? copyValues(index, c) : undefined;
       return values ? [{ copy: c.figmaNodeId!, values }] : [];
