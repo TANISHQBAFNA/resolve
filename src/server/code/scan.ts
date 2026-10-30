@@ -8,7 +8,7 @@ import { parseHtml } from "./html.ts";
 import { linkFigma, mappingDigest } from "./map.ts";
 
 /** A Figma component as the catalog keeps it. */
-export interface FigmaRef { name: string; fileKey?: string; nodeId?: string; variants?: string[]; aliases?: string[]; published?: boolean; description?: string }
+export interface FigmaRef { name: string; fileKey?: string; nodeId?: string; variants?: string[]; properties?: Record<string, string[]>; aliases?: string[]; published?: boolean; description?: string }
 export type MatchBy = "exact" | "alias" | "mapped";
 
 /** One entry per component. `figma` and `code` are both optional; they join by name, alias or the mapping file (see map.ts). */
