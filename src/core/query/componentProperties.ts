@@ -298,6 +298,22 @@ function valueIsAllowed(prop: ComponentProperty, value: string, names: ReturnTyp
   return Boolean(resolved && options.includes(resolved));
 }
 
+/** Values a placed copy sets on its non-variant properties (on/off, text, swap). Swap ids read as component names. */
+export function copyValues(index: GraphIndex, instance: GraphNode): Record<string, string> | undefined {
+  const raw = instance.metadata?.["componentProperties"];
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const names = nameIndexFromGraph(index.graph);
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const row = value && typeof value === "object" ? (value as { type?: unknown; value?: unknown }) : undefined;
+    if (!row || row.type === "VARIANT") continue;
+    if (typeof row.value !== "string" && typeof row.value !== "boolean" && typeof row.value !== "number") continue;
+    const text = String(row.value);
+    out[cleanPropertyName(key).name] = row.type === "INSTANCE_SWAP" ? (names.byId.get(text) ?? names.byKey.get(text) ?? text) : text;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function instancePropertyFindings(
   index: GraphIndex,
   instance: GraphNode,

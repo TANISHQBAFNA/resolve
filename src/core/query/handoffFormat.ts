@@ -97,6 +97,7 @@ export function formatHandoffScreen(s: HandoffScreen, draft: boolean): string {
       const hints = c.inputs?.length ? ` → inputs (suggested): ${c.inputs.map(inputText).map(md).join(", ")}` : "";
       out.push(`- Figma properties: ${Object.entries(c.figmaProps).map(([k, v]) => `${md(k)}=${md(v)}`).join(", ")}${hints}`);
     }
+    if (c.copyValues?.length) out.push(`- Copy values: ${c.copyValues.map((row) => `${md(row.copy)} ${Object.entries(row.values).map(([k, v]) => `${md(k)}=${md(v)}`).join(", ")}`).join("; ")}`);
     if (c.properties?.length) {
       out.push("- Properties:");
       for (const line of formatPropertyLines(c.properties)) out.push(`  ${line}`);
