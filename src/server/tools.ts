@@ -440,7 +440,7 @@ export const TOOLS: ToolDefinition[] = [
       properties: {
         ...graphIdProperty,
         name: { type: "string", description: "Exact component name, variant name, graph id, figma node id, or fileKey:nodeId (an instance id follows the variant it uses)." },
-        variant: { type: "string", description: 'Variant to follow, e.g. "Size=Medium, State=Default". Only for a component with variants.' },
+        variant: { type: "string", description: 'Variant to follow, e.g. "Size=Medium, State=Default" or a bare value "Medium". Only for a component with variants.' },
         depth: { type: "number", description: "Levels of parts to show, 1-3. Default 1." },
       },
       required: ["name"],

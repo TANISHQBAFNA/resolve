@@ -598,7 +598,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       }
       const variant = flag(args, "variant");
       if (args.includes("--variant") && (!variant || variant.startsWith("--"))) {
-        throw new Error('--variant needs a value, for example --variant "Size=Medium".');
+        throw new Error('--variant needs a value, for example --variant "Size=Medium" or --variant Medium.');
       }
       const card = ingredientCard(requireGraph(args).index, name, { variant, depth });
       if (json) printJson(card);
