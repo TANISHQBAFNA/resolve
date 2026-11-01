@@ -30,7 +30,7 @@ import { verifyNext } from "@/core/query/nextSteps";
 import {
   componentUsageCard,
   listRecipes,
-  listSoci,
+  listDsci,
   mergeBindRules,
   appliedContext,
   packForRecommend,
@@ -65,7 +65,7 @@ import {
   briefAnswerIds,
   recordFromBrief,
   briefScreen,
-  projectCopyNote,
+  projectCopyNote, renamedTo,
 } from "@/core/query";
 import {
   deltaAgainst,
@@ -88,7 +88,7 @@ import {
   readLibraryRules,
   proposalDecisionBody,
   readPlaceholders,
-  readSock,
+  readDsck,
   readApprovedDecisions,
   readWorkspace,
   runProposalDecision,
@@ -111,7 +111,7 @@ import { learnLibrary } from "./learn";
 import { DESIGNER } from "./designerMessages";
 import { presentToolResult } from "./cards";
 import { statusReport } from "./status";
-import { DEPRECATED_INSTEAD } from "./deprecations";
+import { DEPRECATED_INSTEAD, warnDeprecated } from "./deprecations";
 import {
   previousScore,
   scoreboardHistoryDir,
@@ -134,7 +134,7 @@ function recommendContextFromFlags(args: string[]) {
   const ranking = {
     ...(context ? { context } : {}),
     workspace: bind.workspace,
-    sock: readSock(),
+    dsck: readDsck(),
     bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
     placeholders: readPlaceholders(),
   };
@@ -165,6 +165,8 @@ export async function runCli(argv: string[]): Promise<void> {
 
 async function dispatchCli(argv: string[]): Promise<void> {
   const [command, ...args] = argv;
+  const renamed = command ? renamedTo(command) : undefined;
+  if (renamed) return (warnDeprecated(command!, renamed), dispatchCli([renamed, ...args]));
 
   switch (command) {
     case "ingest": {
@@ -255,16 +257,16 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const query = positionals(args)[0];
       const recipes = loadRecipes();
       const bind = bindFromFlags(args);
-      const sock = readSock();
+      const dsck = readDsck();
       const bindRules = readBindRules();
       if (args.includes("--compose") || args.includes("--propose")) return composeFromCli(args, query);
       if (!query || query === "list") {
         printJson(
-          listRecipes(recipes, resolveGraph(flag(args, "id"))?.index, bind, sock, bindRules, readPlaceholders()),
+          listRecipes(recipes, resolveGraph(flag(args, "id"))?.index, bind, dsck, bindRules, readPlaceholders()),
         );
         return;
       }
-      const screen = screenAskCard(query, { sock, index: resolveGraph(flag(args, "id"))?.index, recipes });
+      const screen = screenAskCard(query, { dsck, index: resolveGraph(flag(args, "id"))?.index, recipes });
       if (screen) {
         printJson(screen);
         return;
@@ -276,7 +278,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
           resolveGraph(flag(args, "id"))?.index,
           flag(args, "intent"),
           bind,
-          sock,
+          dsck,
           bindRules,
           readPlaceholders(),
         ),
@@ -292,7 +294,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
         exampleCard(requireGraph(args).index, name, {
           ...(context ? { context } : {}),
           workspace: bind.workspace,
-          sock: readSock(),
+          dsck: readDsck(),
           placeholders: readPlaceholders(),
         }),
       );
@@ -337,7 +339,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const { ranking } = recommendContextFromFlags(args);
       const index = requireGraph(args).index;
       const intent = applyBriefIntent(asked, briefAnswersFromFlags(args), index);
-      const screen = screenAskCard(intent, { sock: readSock(), index, recipes: loadRecipes() });
+      const screen = screenAskCard(intent, { dsck: readDsck(), index, recipes: loadRecipes() });
       if (screen) {
         recordGap(intent, screen);
         printJson(screen);
@@ -376,7 +378,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const { bind, pack, context } = recommendContextFromFlags(args);
       const card = componentUsageCard(requireGraph(args).index, name, {
         budgetChars: Number.isFinite(budget) && budget > 0 ? budget : undefined,
-        sock: readSock(),
+        dsck: readDsck(),
         placeholders: readPlaceholders(),
         workspace: bind.workspace ?? readWorkspace(),
         bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
@@ -651,7 +653,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
         rules: readLibraryRules(rulesPath),
         context: pack,
         bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
-        sock: readSock(),
+        dsck: readDsck(),
         workspace: bind.workspace ?? readWorkspace(),
         placeholders: readPlaceholders(),
         ...(designContext !== undefined ? { designContext } : {}),
@@ -682,7 +684,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       printJson({
         rules: bindRules.rules,
         ...(bindRules.warnings?.length ? { warnings: bindRules.warnings } : {}),
-        hint: "Human-authored. Copy src/data/bind-rules.example.json to bind-rules.json in the active store (resolve where). Approve SOCI proposals with resolve approve <id> --who <name>.",
+        hint: "Human-authored. Copy src/data/bind-rules.example.json to bind-rules.json in the active store (resolve where). Approve DSCI proposals with resolve approve <id> --who <name>.",
       });
       return;
     }
@@ -691,10 +693,10 @@ async function dispatchCli(argv: string[]): Promise<void> {
       printJson(syncProject(true) ?? { synced: false, hint: "No project folder or no learned library here. next: run resolve inside the project folder after learn, or set RESOLVE_PROJECT_DIR." });
       return;
 
-    case "soci":
+    case "dsci":
       printJson({
-        proposals: listSoci(readSock()),
-        hint: "SOCI never auto-applies. resolve approve <id> --who <name> writes bind-rules or a recipe overlay, or records a design-team decision. resolve reject <id> keeps files as-is.",
+        proposals: listDsci(readDsck()),
+        hint: "DSCI never auto-applies. resolve approve <id> --who <name> writes bind-rules or a recipe overlay, or records a design-team decision. resolve reject <id> keeps files as-is.",
       });
       return;
 
@@ -799,7 +801,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
         const report = scorePhrases(loaded.index, loadPhraseCases(source), {
           ...(note ? { note } : {}),
           source,
-          sock: readSock(),
+          dsck: readDsck(),
           bindRules: readBindRules(),
           workspace: readWorkspace(),
         });
@@ -842,7 +844,7 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const previous = previousScore(historyDir, { goldenHash, workspace: workspaceName });
       const report = scoreGraph(loaded.index, cases, {
         recipes: loadRecipes(),
-        sock: readSock(),
+        dsck: readDsck(),
         bindRules: readBindRules(),
         workspace: readWorkspace(),
         workspaceName,

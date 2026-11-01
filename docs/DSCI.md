@@ -1,10 +1,10 @@
-# SOCI — suggestions from real usage
+# DSCI (DS of Connected Intelligence) — suggestions from real usage
 
-**SOCI never changes a file on its own.** It watches verified screens, then asks you. You say yes or no.
+**DSCI never changes a file on its own.** It watches verified screens, then asks you. You say yes or no.
 
-SOCK is the usage log (which masters showed up on real frames). SOCI is the loop that turns that log into **pending improvements**. A proposal is a note for you, not a Figma edit.
+DSCK (DS of Connected Knowledge) is the usage log (which masters showed up on real frames). DSCI is the loop that turns that log into **pending improvements**. A proposal is a note for you, not a Figma edit.
 
-Everyday agents do not see the list. `list_soci` stays on the advanced surface. Recipe and verify cards only say `pending improvements: N` when something is waiting.
+Everyday agents do not see the list. `list_dsci` stays on the advanced surface. Recipe and verify cards only say `pending improvements: N` when something is waiting.
 
 ---
 
@@ -18,40 +18,40 @@ Each proposal has an id, a type, a scope, one plain-English line, a short eviden
 
 Checkout screens keep using **Stepper** in the header, but the checkout recipe has no Stepper there.
 
-SOCI asks: add or rebind that recipe slot. Approving writes `.resolve/recipes.json` (or the same file in `~/.resolve/<workspace>/`) atomically. It does not touch Figma.
+DSCI asks: add or rebind that recipe slot. Approving writes `.resolve/recipes.json` (or the same file in `~/.resolve/<workspace>/`) atomically. It does not touch Figma.
 
 ### 2. Variant candidate
 
 The same master is overridden the same way on three or more real screens — for example Card always picks up a Badge.
 
-SOCI asks: consider an official variant. Approving **records the decision** for the design team. It does not create a variant in Figma and does not rewrite masters.
+DSCI asks: consider an official variant. Approving **records the decision** for the design team. It does not create a variant in Figma and does not rewrite masters.
 
 This only fires from data Figma actually sent:
 
 - REST `overrides` / `componentProperties` (when a default is present to compare)
 - Extra nested instances visible in the ingested tree (Badge sitting inside a Card instance)
 
-**Gaps we skip rather than guess:** Figma MCP `get_metadata` has no override payload. Plugin-only `detachedInfo` is not on REST or MCP, so “this used to be an instance and someone detached it” is not a SOCI signal.
+**Gaps we skip rather than guess:** Figma MCP `get_metadata` has no override payload. Plugin-only `detachedInfo` is not on REST or MCP, so “this used to be an instance and someone detached it” is not a DSCI signal.
 
 ### 3. Deprecation candidate
 
 Master A has **zero** verified-frame usage in the log, while a cousin (shared specific name, not a generic “button”) is strong on three or more screens.
 
-SOCI asks: review deprecate or merge. Approving records the decision. Figma is not edited.
+DSCI asks: review deprecate or merge. Approving records the decision. Figma is not edited.
 
 ### 4. Wrong-cousin hotspot
 
 Verify keeps correcting agents from cousin X to library master Y (or from product file to shared DS).
 
-SOCI asks: prefer the library file over the cousin file, or rename X toward Y. Approving writes a prefer-over bind rule when the two live in different workspace files. Same-file naming fixes are a recorded note only.
+DSCI asks: prefer the library file over the cousin file, or rename X toward Y. Approving writes a prefer-over bind rule when the two live in different workspace files. Same-file naming fixes are a recorded note only.
 
-Require-rules from strong usage (the original SOCI shape) still exist. Approving those still writes `bind-rules.json`.
+Require-rules from strong usage (the original DSCI shape) still exist. Approving those still writes `bind-rules.json`.
 
 ---
 
 ## Screen jobs: a read, not a proposal
 
-A designer, through the agent, says "payment screen" or "inquiry screen". `recommend` and `recipe` answer that from mapped screens in SOCK. Nobody writes a recipe, a synonym, or a part name for it.
+A designer, through the agent, says "payment screen" or "inquiry screen". `recommend` and `recipe` answer that from mapped screens in DSCK. Nobody writes a recipe, a synonym, or a part name for it.
 
 **The job word has a meaning.** `src/data/screen-jobs.json` lists four jobs, with their words only. It holds no master ids and no slots.
 
@@ -78,9 +78,9 @@ This read never writes `recipes.json` and never waits for approve. Recipe-update
 ## How you say yes
 
 ```bash
-npm run resolve -- soci
-npm run resolve -- approve soci:recipe-update:checkout-summary-header-node-stepper --who "Tanishk"
-npm run resolve -- reject soci:variant-candidate:node-card-nested-badge --who "Tanishk"
+npm run resolve -- dsci
+npm run resolve -- approve dsci:recipe-update:checkout-summary-header-node-stepper --who "Tanishk"
+npm run resolve -- reject dsci:variant-candidate:node-card-nested-badge --who "Tanishk"
 ```
 
 `--who` is required. In an AI tool: `RESOLVE_MCP_ADVANCED=1`, then `approve_proposal` / `reject_proposal` with `confirmedBy`.
@@ -100,6 +100,6 @@ The Rules tab groups pending proposals by type and shows the evidence. `/api/gov
 
 ## What this is not
 
-- Not auto-governance. SOCI never applies a proposal.
+- Not auto-governance. DSCI never applies a proposal.
 - Not a Figma writer. Variants and deprecations stay human work in Figma.
 - Not a dump of the library map. Cards stay short.

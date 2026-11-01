@@ -7,14 +7,14 @@ import {
   freshnessSummary,
   isRemovedByAbsence,
   patternFor,
-  type SockState,
-} from "./sock";
+  type DsckState,
+} from "./dsck";
 import type { WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
 import type { Recipe } from "./recipes";
 
 /**
- * Human-authored bind rules. SOCK may propose; only a human writes the file.
+ * Human-authored bind rules. DSCK may propose; only a human writes the file.
  * Never invent a master id.
  */
 
@@ -387,7 +387,7 @@ interface BindContext {
   pack?: string;
   workspace?: WorkspaceManifest;
   graphFileKey?: string;
-  sock?: SockState;
+  dsck?: DsckState;
 }
 
 function haystackOf(parts: Array<string | undefined>): string {
@@ -448,10 +448,10 @@ export function requireRuleApplies(rule: RequireBindRule, input: BindContext): b
   );
 }
 
-function forbidMatches(rule: ForbidBindRule, node: GraphNode, sock?: SockState): boolean {
+function forbidMatches(rule: ForbidBindRule, node: GraphNode, dsck?: DsckState): boolean {
   const needle = rule.forbid.trim().toLowerCase();
   if (needle === "deprecated") return node.status === "deprecated";
-  if (needle === "removed") return isRemovedByAbsence(sock, node) || node.metadata?.["removedByAbsence"] === true;
+  if (needle === "removed") return isRemovedByAbsence(dsck, node) || node.metadata?.["removedByAbsence"] === true;
   if (node.id.toLowerCase() === needle) return true;
   if (node.name.toLowerCase() === needle) return true;
   if (node.figmaNodeId && idVariants(node.figmaNodeId).some((id) => id.toLowerCase() === needle)) return true;
@@ -483,7 +483,7 @@ export function bindRuleHit(rules: BindRulesFile, node: GraphNode, options: Bind
         }
         break;
       case "forbid":
-        if (forbidMatches(rule, node, options.sock)) return ruleLabel(rule);
+        if (forbidMatches(rule, node, options.dsck)) return ruleLabel(rule);
         break;
       case "prefer":
         if (preferBoost(rule, node, options) > 0) return ruleLabel(rule);
@@ -516,7 +516,7 @@ export function filterAndScoreByBindRules<T extends { node: GraphNode; score: nu
 ): T[] {
   let next = entries.filter((entry) => {
     for (const rule of rules.rules) {
-      if (rule.kind === "forbid" && forbidMatches(rule, entry.node, options.sock)) return false;
+      if (rule.kind === "forbid" && forbidMatches(rule, entry.node, options.dsck)) return false;
     }
     return true;
   });
@@ -576,19 +576,19 @@ export function whyLine(facts: WhyFacts): string {
 export function whyLineForMaster(
   node: GraphNode,
   options: {
-    sock?: SockState;
+    dsck?: DsckState;
     packJourney?: string;
     bindRule?: string;
     graphFileKey?: string;
     instances?: number;
   } = {},
 ): string {
-  const pattern = options.sock ? patternFor(options.sock, node.id) : undefined;
-  const freshness = options.sock
-    ? freshnessSummary(options.sock, nodeFileKey(node, options.graphFileKey))
+  const pattern = options.dsck ? patternFor(options.dsck, node.id) : undefined;
+  const freshness = options.dsck
+    ? freshnessSummary(options.dsck, nodeFileKey(node, options.graphFileKey))
     : undefined;
   const removed =
-    isRemovedByAbsence(options.sock, node) || node.metadata?.["removedByAbsence"] === true;
+    isRemovedByAbsence(options.dsck, node) || node.metadata?.["removedByAbsence"] === true;
   return whyLine({
     usageScreens: pattern?.screens.length,
     confidence: pattern?.confidence,
@@ -626,13 +626,13 @@ export function verifyBindRules(
     product?: string;
     frameName?: string;
     pack?: string;
-    sock?: SockState;
+    dsck?: DsckState;
   } = {},
 ): BindRuleFailure | undefined {
   for (const rule of rules.rules) {
     switch (rule.kind) {
       case "forbid": {
-        const hit = placed.find((node) => forbidMatches(rule, node, options.sock));
+        const hit = placed.find((node) => forbidMatches(rule, node, options.dsck));
         if (!hit) break;
         const reason =
           rule.forbid === "deprecated"

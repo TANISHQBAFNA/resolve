@@ -29,14 +29,14 @@ import {
   type LearnUnitMaster,
 } from "@/core/ingestion/learnLibrary";
 import { unwrapLibraryList } from "@/core/query/recommendContext";
-import { applyFreshness, emptySock, type RemovedMaster } from "@/core/query/sock";
+import { applyFreshness, emptyDsck, type RemovedMaster } from "@/core/query/dsck";
 import {
   loadFileGraph,
   loadLearnCheckpoint,
-  loadSock,
+  loadDsck,
   saveIngestedFile,
   saveLearnCheckpoint,
-  saveSock,
+  saveDsck,
   storeInfo,
 } from "./store";
 
@@ -279,9 +279,9 @@ export function learnLibrary(input: LearnInput): LearnResult {
   };
   saveLearnCheckpoint(nextCheckpoint);
 
-  const priorRemoved = loadSock()?.freshness[fileKey]?.removed ?? [];
+  const priorRemoved = loadDsck()?.freshness[fileKey]?.removed ?? [];
   const nextRemoved = uniqueRemovedMasters([...priorRemoved, ...removed]);
-  const sock = applyFreshness(loadSock() ?? emptySock(), [
+  const dsck = applyFreshness(loadDsck() ?? emptyDsck(), [
     {
       fileKey,
       lastModified: input.lastModified,
@@ -291,9 +291,9 @@ export function learnLibrary(input: LearnInput): LearnResult {
       removed: nextRemoved,
     },
   ]);
-  const row = sock.freshness[fileKey];
+  const row = dsck.freshness[fileKey];
   if (row) {
-    sock.freshness[fileKey] = {
+    dsck.freshness[fileKey] = {
       ...row,
       stale: false,
       delta: remaining.map((unit) => ({
@@ -305,7 +305,7 @@ export function learnLibrary(input: LearnInput): LearnResult {
       removed: nextRemoved,
     };
   }
-  saveSock(sock);
+  saveDsck(dsck);
 
   const gaps = learnGaps(graph, catalog != null);
   const realComponents = realLearnedComponentCount(graph, fileKey);
@@ -326,7 +326,7 @@ export function learnLibrary(input: LearnInput): LearnResult {
       : productRole
         ? productHint
         : gaps[0]?.hint ??
-          `${progress}. SOCK updated (${graph.nodes.length} nodes). Next: recipe or recommend. Do not Read graph.json. Store ${storeInfo().path}`;
+          `${progress}. DSCK updated (${graph.nodes.length} nodes). Next: recipe or recommend. Do not Read graph.json. Store ${storeInfo().path}`;
   return {
     learned: !libraryMiss && !productMiss,
     fileKey,

@@ -1,6 +1,6 @@
 /**
- * SOCK — source of component knowledge beyond the graph:
- * verified usage facts, file freshness, and SOCI rule proposals.
+ * DSCK — source of component knowledge beyond the graph:
+ * verified usage facts, file freshness, and DSCI rule proposals.
  *
  * Usage facts write themselves. Rules never do.
  */
@@ -11,15 +11,15 @@ import { isGenericScreenToken, jobOfName } from "./screenJobs";
 export const DEFAULT_USAGE_THRESHOLD = 3;
 
 export type UsageConfidence = "low" | "strong";
-export type SociStatus = "pending" | "approved" | "rejected";
-export type SociProposalType =
+export type DsciStatus = "pending" | "approved" | "rejected";
+export type DsciProposalType =
   | "require-rule"
   | "recipe-update"
   | "variant-candidate"
   | "deprecation-candidate"
   | "wrong-cousin";
 
-export interface SociEvidenceItem {
+export interface DsciEvidenceItem {
   frameId?: string;
   screenId?: string;
   screenName?: string;
@@ -28,7 +28,7 @@ export interface SociEvidenceItem {
   note?: string;
 }
 
-export interface SociScope {
+export interface DsciScope {
   screenType?: string;
   slot?: string;
   journey?: string;
@@ -77,7 +77,7 @@ export interface UsagePattern {
   promoted: boolean;
 }
 
-export interface SociSuggestedRule {
+export interface DsciSuggestedRule {
   id?: string;
   screenType?: string;
   slot?: string;
@@ -94,7 +94,7 @@ export interface SociSuggestedRule {
   overMasterId?: string;
 }
 
-export interface SociSuggestedRecipe {
+export interface DsciSuggestedRecipe {
   recipeId: string;
   slotRole: string;
   action: "add-slot" | "rebind";
@@ -104,14 +104,14 @@ export interface SociSuggestedRecipe {
   required?: boolean;
 }
 
-export interface SociSuggestedVariant {
+export interface DsciSuggestedVariant {
   masterId: string;
   masterName: string;
   overrideKey: string;
   note: string;
 }
 
-export interface SociSuggestedDeprecation {
+export interface DsciSuggestedDeprecation {
   masterId: string;
   masterName: string;
   cousinId: string;
@@ -132,24 +132,24 @@ export interface CousinCorrection {
   verifiedAt: string;
 }
 
-export interface SociProposal {
+export interface DsciProposal {
   id: string;
   createdAt: string;
   updatedAt?: string;
   /** @deprecated Use `type`. Kept so existing require-rule rows still load. */
   kind?: "rule";
-  type?: SociProposalType;
-  scope?: SociScope;
-  status: SociStatus;
+  type?: DsciProposalType;
+  scope?: DsciScope;
+  status: DsciStatus;
   summary: string;
-  evidence: string | SociEvidenceItem[];
+  evidence: string | DsciEvidenceItem[];
   confidence?: UsageConfidence;
-  suggestedRule?: SociSuggestedRule;
-  suggestedRecipe?: SociSuggestedRecipe;
+  suggestedRule?: DsciSuggestedRule;
+  suggestedRecipe?: DsciSuggestedRecipe;
   /** recipe-update that adds a whole composed recipe. Approval writes it to the overlay. */
   suggestedNewRecipe?: Recipe;
-  suggestedVariant?: SociSuggestedVariant;
-  suggestedDeprecation?: SociSuggestedDeprecation;
+  suggestedVariant?: DsciSuggestedVariant;
+  suggestedDeprecation?: DsciSuggestedDeprecation;
   namingFix?: string;
   decisionNote?: string;
 }
@@ -185,19 +185,19 @@ export interface FileFreshness {
   removed?: RemovedMaster[];
 }
 
-export interface SockState {
+export interface DsckState {
   version: 1;
   threshold: number;
   facts: UsageFact[];
   freshness: Record<string, FileFreshness>;
-  proposals: SociProposal[];
+  proposals: DsciProposal[];
   corrections?: CousinCorrection[];
   proposalCap?: number;
-  /** Load-time notes. Not written back to sock.json. */
+  /** Load-time notes. Not written back to dsck.json. */
   warnings?: string[];
 }
 
-export function emptySock(threshold = DEFAULT_USAGE_THRESHOLD): SockState {
+export function emptyDsck(threshold = DEFAULT_USAGE_THRESHOLD): DsckState {
   return { version: 1, threshold, facts: [], freshness: {}, proposals: [], corrections: [] };
 }
 
@@ -219,7 +219,7 @@ export function isRealVerifiedFrame(frame?: {
 }
 
 export function recordVerifiedUsage(
-  state: SockState,
+  state: DsckState,
   input: {
     screenId: string;
     screenName: string;
@@ -249,7 +249,7 @@ export function recordVerifiedUsage(
     /** Default true so unit tests can simulate real screens. Tools must pass false for list-only. */
     countsTowardThreshold?: boolean;
   },
-): SockState {
+): DsckState {
   const verifiedAt = input.verifiedAt ?? new Date().toISOString();
   const countsTowardThreshold = input.countsTowardThreshold !== false;
   const nextFacts = [...state.facts];
@@ -286,7 +286,7 @@ export function recordVerifiedUsage(
   return { ...state, facts: nextFacts };
 }
 
-export function patternsOf(state: SockState): UsagePattern[] {
+export function patternsOf(state: DsckState): UsagePattern[] {
   const byMaster = new Map<string, UsagePattern>();
   for (const fact of state.facts) {
     let row = byMaster.get(fact.masterId);
@@ -343,7 +343,7 @@ export interface ScreenPattern {
  * A master ranks by how many distinct screens of the job used it. A tie keeps the order of the screen that holds the
  * most of those masters, then first-seen order. Empty when no screen of the job is mapped.
  */
-export function screenPatternFor(state: SockState, job: string): ScreenPattern {
+export function screenPatternFor(state: DsckState, job: string): ScreenPattern {
   const facts = (Array.isArray(state.facts) ? state.facts : []).filter(
     (fact): fact is UsageFact =>
       Boolean(fact) &&
@@ -400,13 +400,13 @@ export function screenPatternFor(state: SockState, job: string): ScreenPattern {
   };
 }
 
-export function patternFor(state: SockState, masterId: string): UsagePattern | undefined {
+export function patternFor(state: DsckState, masterId: string): UsagePattern | undefined {
   return patternsOf(state).find((row) => row.masterId === masterId);
 }
 
 /** Singletons never drive recipes. Graph where-used (instances > 0) still may. */
 export function usageAllowsRecipeFill(
-  state: SockState | undefined,
+  state: DsckState | undefined,
   masterId: string,
   instances: number,
 ): boolean {
@@ -419,7 +419,7 @@ export function usageAllowsRecipeFill(
 }
 
 export function applyFreshness(
-  state: SockState,
+  state: DsckState,
   files: Array<{
     fileKey: string;
     lastModified?: string;
@@ -429,7 +429,7 @@ export function applyFreshness(
     stale?: boolean;
   }>,
   checkedAt = new Date().toISOString(),
-): SockState {
+): DsckState {
   const freshness = { ...state.freshness };
   for (const file of files) {
     const key = file.fileKey.trim();
@@ -463,7 +463,7 @@ export function applyFreshness(
   return { ...state, freshness };
 }
 
-export function freshnessSummary(state: SockState, fileKey?: string): FileFreshness | undefined {
+export function freshnessSummary(state: DsckState, fileKey?: string): FileFreshness | undefined {
   if (fileKey) return state.freshness[fileKey];
   const values = Object.values(state.freshness);
   if (!values.length) return undefined;
@@ -471,13 +471,13 @@ export function freshnessSummary(state: SockState, fileKey?: string): FileFreshn
   return values[0];
 }
 
-function evidenceList(evidence: string | SociEvidenceItem[]): SociEvidenceItem[] {
+function evidenceList(evidence: string | DsciEvidenceItem[]): DsciEvidenceItem[] {
   if (Array.isArray(evidence)) return evidence;
   if (evidence.trim()) return [{ note: evidence.trim() }];
   return [];
 }
 
-function requireRuleId(summary: string, suggestedRule?: SociSuggestedRule): string {
+function requireRuleId(summary: string, suggestedRule?: DsciSuggestedRule): string {
   const key = [
     suggestedRule?.require,
     suggestedRule?.screenType,
@@ -493,15 +493,15 @@ function requireRuleId(summary: string, suggestedRule?: SociSuggestedRule): stri
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 96);
-  return `soci:require-rule:${key || "rule"}`;
+  return `dsci:require-rule:${key || "rule"}`;
 }
 
 export function proposeRuleChange(
-  state: SockState,
+  state: DsckState,
   summary: string,
-  evidence: string | SociEvidenceItem[],
-  suggestedRule?: SociSuggestedRule,
-): SockState {
+  evidence: string | DsciEvidenceItem[],
+  suggestedRule?: DsciSuggestedRule,
+): DsckState {
   const createdAt = new Date().toISOString();
   const id = requireRuleId(summary, suggestedRule);
   const existing = state.proposals.find((row) => row.id === id);
@@ -534,7 +534,7 @@ export function proposeRuleChange(
       ),
     };
   }
-  const proposal: SociProposal = {
+  const proposal: DsciProposal = {
     id,
     createdAt,
     updatedAt: createdAt,
@@ -561,11 +561,11 @@ export function proposeRuleChange(
   return { ...state, proposals: [...state.proposals, proposal] };
 }
 
-export function listSoci(state: SockState): SociProposal[] {
+export function listDsci(state: DsckState): DsciProposal[] {
   return state.proposals;
 }
 
-export function newlyStrongPatterns(before: SockState, after: SockState): UsagePattern[] {
+export function newlyStrongPatterns(before: DsckState, after: DsckState): UsagePattern[] {
   const prev = new Set(
     patternsOf(before)
       .filter((row) => row.confidence === "strong")
@@ -635,7 +635,7 @@ export function scopeFromUsageFacts(facts: UsageFact[]): {
 export function evidenceFromFact(
   fact: Pick<UsageFact, "frameId" | "screenId" | "screenName" | "fileKey">,
   note?: string,
-): SociEvidenceItem {
+): DsciEvidenceItem {
   return {
     frameId: fact.frameId ?? fact.screenId,
     screenId: fact.screenId,
@@ -647,10 +647,10 @@ export function evidenceFromFact(
 }
 
 export function proposeStrongPatterns(
-  state: SockState,
+  state: DsckState,
   patterns: UsagePattern[],
   alreadyEncoded: (pattern: UsagePattern) => boolean,
-): SockState {
+): DsckState {
   let next = state;
   for (const pattern of patterns) {
     if (alreadyEncoded(pattern)) continue;
@@ -672,7 +672,7 @@ export function proposeStrongPatterns(
   return next;
 }
 
-export function isRemovedByAbsence(state: SockState | undefined, node: { id: string; figmaNodeId?: string }): boolean {
+export function isRemovedByAbsence(state: DsckState | undefined, node: { id: string; figmaNodeId?: string }): boolean {
   if (!state) return false;
   for (const row of Object.values(state.freshness)) {
     if (

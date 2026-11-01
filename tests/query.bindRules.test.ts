@@ -14,7 +14,7 @@ import {
   recommendMasters,
   verifyFrame,
 } from "@/core/query";
-import { emptySock, recordVerifiedUsage } from "@/core/query/sock";
+import { emptyDsck, recordVerifiedUsage } from "@/core/query/dsck";
 import type { WorkspaceManifest } from "@/core/query/workspace";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
@@ -273,37 +273,37 @@ describe("verify_frame bind rules", () => {
   });
 });
 
-describe("why line (SOCK facts only)", () => {
+describe("why line (DSCK facts only)", () => {
   it("says not verified when there are no facts", () => {
     expect(whyLine({})).toBe("not verified on a screen yet");
     expect(whyLine({ instances: 4 })).toBe("used 4× in file");
     const { index, ids } = paymentLab();
     const node = index.getNode(ids.live)!;
-    expect(whyLineForMaster(node, { sock: emptySock() })).toBe("not verified on a screen yet");
+    expect(whyLineForMaster(node, { dsck: emptyDsck() })).toBe("not verified on a screen yet");
   });
 
   it("is a snapshot of counted real-screen usage, confidence, freshness, status, pack, rule", () => {
     const { index, ids } = paymentLab();
     const node = index.getNode(ids.live)!;
-    let sock = emptySock(3);
-    sock = recordVerifiedUsage(sock, {
+    let dsck = emptyDsck(3);
+    dsck = recordVerifiedUsage(dsck, {
       screenId: "s1",
       screenName: "Pay 1",
       masters: [{ id: ids.live, name: "Pay CTA" }],
       countsTowardThreshold: true,
     });
-    sock = recordVerifiedUsage(sock, {
+    dsck = recordVerifiedUsage(dsck, {
       screenId: "s2",
       screenName: "Pay 2",
       masters: [{ id: ids.live, name: "Pay CTA" }],
     });
-    sock = recordVerifiedUsage(sock, {
+    dsck = recordVerifiedUsage(dsck, {
       screenId: "s3",
       screenName: "Pay 3",
       masters: [{ id: ids.live, name: "Pay CTA" }],
     });
     const line = whyLineForMaster(node, {
-      sock,
+      dsck,
       packJourney: "Storefront checkout",
       bindRule: "require payment/primary-action",
     });

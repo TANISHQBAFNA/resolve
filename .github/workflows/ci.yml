@@ -27,7 +27,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: Check meaning files
-        run: node scripts/check-meaning-sock.mjs meaning
+        run: node scripts/check-meaning-dsck.mjs meaning
       - run: npm test
       # Core must build and pass with the optional add-ons folder absent.
       - name: Core without optional add-ons

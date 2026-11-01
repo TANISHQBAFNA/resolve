@@ -23,7 +23,7 @@ import {
   CLONE_INSTRUCTION,
 } from "@/core/query";
 import { TextInputError } from "@/core/ingestion/textStamps";
-import { emptySock, recordVerifiedUsage } from "@/core/query/sock";
+import { emptyDsck, recordVerifiedUsage } from "@/core/query/dsck";
 import { inventsInCard } from "@/core/query/scoreboard";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
@@ -409,7 +409,7 @@ describe("preferred example after verified use", () => {
     const frames = ["node:a", "node:b", "node:c", "node:d"] as const;
     const names = ["Alpha", "Beta", "Gamma", "Wire"];
     const nodes: GraphNode[] = [
-      n("file:S", "FILE", "Sock lab", { fileKey: "S" }),
+      n("file:S", "FILE", "Dsck lab", { fileKey: "S" }),
       n("node:page", "PAGE", "Use", { parentId: "file:S", pageId: "node:page" }),
       n(card, "MAIN_COMPONENT", "Card", {
         parentId: "node:page",
@@ -458,36 +458,36 @@ describe("preferred example after verified use", () => {
       expect(alone.example.nodeId).toBe("6:4");
     }
 
-    let sock = emptySock();
+    let dsck = emptyDsck();
     for (const frame of ["node:a", "node:b"] as const) {
       const fact = exampleFactForMasterOnFrame(index, frame, card);
       expect(fact?.configKey).toBeTruthy();
-      sock = recordVerifiedUsage(sock, {
+      dsck = recordVerifiedUsage(dsck, {
         screenId: frame,
         screenName: index.getNode(frame)!.name,
         countsTowardThreshold: true,
         masters: [{ id: card, name: "Card", ...fact }],
       });
     }
-    const two = getExample(index, index.getNode(card)!, { sock });
+    const two = getExample(index, index.getNode(card)!, { dsck });
     expect(two.found).toBe(true);
     if (two.found) expect(two.example.preferred).toBe(false);
 
     const gamma = exampleFactForMasterOnFrame(index, "node:c", card);
-    sock = recordVerifiedUsage(sock, {
+    dsck = recordVerifiedUsage(dsck, {
       screenId: "node:c",
       screenName: "Gamma",
       countsTowardThreshold: true,
       masters: [{ id: card, name: "Card", ...gamma }],
     });
-    const three = getExample(index, index.getNode(card)!, { sock });
+    const three = getExample(index, index.getNode(card)!, { dsck });
     expect(three.found).toBe(true);
     if (three.found) {
       expect(three.example.preferred).toBe(true);
       expect(three.example.nodeId).not.toBe("6:4");
       expect(three.example.summary).toMatch(/Dropdown Information×2/);
     }
-    expect(inventsInCard(recommendMasters(index, "card", { sock }), index)).toEqual([]);
+    expect(inventsInCard(recommendMasters(index, "card", { dsck }), index)).toEqual([]);
   });
 });
 
@@ -639,19 +639,19 @@ describe("example pointer review fixes", () => {
     expect(dangerExample.found).toBe(true);
     if (dangerExample.found) expect(dangerExample.example.nodeId).toBe("1:2");
 
-    let sock = emptySock();
+    let dsck = emptyDsck();
     for (const id of ["s1", "s2", "s3"]) {
       const fact = exampleFactForMasterOnFrame(index, screen, danger);
-      sock = recordVerifiedUsage(sock, {
+      dsck = recordVerifiedUsage(dsck, {
         screenId: id,
         screenName: "Pay",
         countsTowardThreshold: true,
         masters: [{ id: danger, name: "Type=Destructive", ...fact }],
       });
     }
-    const learned = getExample(index, primaryNode, { sock });
+    const learned = getExample(index, primaryNode, { dsck });
     expect(learned).toEqual({ found: false, reason: "not on any screen" });
-    const dangerLearned = getExample(index, index.getNode(danger)!, { sock });
+    const dangerLearned = getExample(index, index.getNode(danger)!, { dsck });
     expect(dangerLearned.found).toBe(true);
     if (dangerLearned.found) expect(dangerLearned.example.preferred).toBe(true);
   });
@@ -892,10 +892,10 @@ describe("example pointer review fixes", () => {
       }
     }
     const index = graphOf(nodes, edges, "S");
-    let sock = emptySock();
+    let dsck = emptyDsck();
     for (const screen of screens.slice(0, 3)) {
       const fact = exampleFactForMasterOnFrame(index, screen.id, card);
-      sock = recordVerifiedUsage(sock, {
+      dsck = recordVerifiedUsage(dsck, {
         screenId: screen.id,
         screenName: screen.name,
         countsTowardThreshold: true,
@@ -903,14 +903,14 @@ describe("example pointer review fixes", () => {
         masters: [{ id: card, name: "Summary", ...fact }],
       });
     }
-    const cards = getExample(index, index.getNode(card)!, { sock, product: "Cards" });
+    const cards = getExample(index, index.getNode(card)!, { dsck, product: "Cards" });
     expect(cards.found).toBe(true);
     if (cards.found) {
       expect(cards.example.nodeId).toBe("6:1");
       expect(cards.example.preferred).toBe(false);
       expect(cards.example.exNote).toBeUndefined();
     }
-    const other = getExample(index, index.getNode(card)!, { sock, product: "Treasury" });
+    const other = getExample(index, index.getNode(card)!, { dsck, product: "Treasury" });
     expect(other.found).toBe(true);
     if (other.found) expect(other.example.exNote).toBe("other product");
   });

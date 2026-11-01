@@ -6,7 +6,7 @@ import type { ExampleReason } from "./examples";
 import type { GraphIndex } from "./GraphIndex";
 import { isMasterType } from "./masterNames";
 import { screenOf, slotNamesOf } from "./screenInventory";
-import { type SockState, staleRefreshHint } from "./sock";
+import { type DsckState, staleRefreshHint } from "./dsck";
 
 export const asMaster = (index: GraphIndex, node: GraphNode): GraphNode | undefined => {
   if (isMasterType(node.type)) return node;
@@ -90,11 +90,11 @@ export function parseLibraryRules(raw: unknown): LibraryRules {
   return { allow: trimmedStrings(record["allow"]), deny: trimmedStrings(record["deny"]) };
 }
 export const REFRESH_HINT = "If stale, learn_library. Do not Read graph.json.";
-export function refreshHintFor(sock?: SockState, fileKey?: string): string {
-  if (!sock) return REFRESH_HINT;
-  const values = Object.values(sock.freshness);
+export function refreshHintFor(dsck?: DsckState, fileKey?: string): string {
+  if (!dsck) return REFRESH_HINT;
+  const values = Object.values(dsck.freshness);
   const stale = fileKey
-    ? sock.freshness[fileKey]
+    ? dsck.freshness[fileKey]
     : values.find((row) => row.stale) ?? values[0];
   return staleRefreshHint(stale);
 }

@@ -9,9 +9,9 @@ import {
   assertIngestRoleChange,
   defaultIngestRole,
   emptyBindRules,
-  applySociDecision,
+  applyDsciDecision, canonicalProposalId, LEGACY_DSCK_FILE,
   runProjectSync,
-  emptySock,
+  emptyDsck,
   indexGraph,
   mergeRecipes,
   mergeWorkspaceGraphs,
@@ -25,7 +25,7 @@ import {
   serializeRecipeFile,
   stampFileKey,
   starterRecipes,
-  SOCI_CORRECTION_CAP,
+  DSCI_CORRECTION_CAP,
   upsertWorkspaceFile,
   type BindRulesFile,
   type AuditLine,
@@ -36,8 +36,8 @@ import {
   type GraphIndex,
   type LibraryRules,
   type Recipe,
-  type SockState,
-  type SociDecision,
+  type DsckState,
+  type DsciDecision,
   type WorkspaceFile,
   type WorkspaceFileRole,
   type WorkspaceManifest,
@@ -183,11 +183,7 @@ export function storeFingerprint(): string {
       parts.push(`${path}:missing`);
     }
   };
-  add(graphPath());
-  add(workspacePath());
-  add(sockPath());
-  add(bindRulesPath());
-  add(libraryRulesPath());
+  for (const path of [graphPath(), workspacePath(), dsckPath(), dsckPath(true), bindRulesPath(), libraryRulesPath()]) add(path);
   const filesDir = workspaceFilesDir();
   if (existsSync(filesDir)) {
     for (const name of readdirSync(filesDir).sort()) {
@@ -239,44 +235,44 @@ export function workspaceFilesDir(): string {
   return join(storeRoot(), "files");
 }
 
-export function sockPath(): string {
-  return join(storeRoot(), "sock.json");
+export function dsckPath(legacy = false): string {
+  return join(storeRoot(), legacy ? LEGACY_DSCK_FILE : "dsck.json");
 }
 
 export function learnCheckpointPath(fileKey: string): string {
   return join(storeRoot(), "learn", `${safeFileKey(fileKey)}.json`);
 }
 
-function sanitizeProposals(raw: unknown, warnings: string[]): SockState["proposals"] {
+function sanitizeProposals(raw: unknown, warnings: string[]): DsckState["proposals"] {
   if (raw == null) return [];
   if (!Array.isArray(raw)) {
-    warnings.push("sock.json proposals was not an array; ignored");
+    warnings.push("dsck.json proposals was not an array; ignored");
     return [];
   }
-  const kept: SockState["proposals"] = [];
+  const kept: DsckState["proposals"] = [];
   let dropped = 0;
   for (const entry of raw) {
     if (!isRecord(entry) || typeof entry["id"] !== "string" || typeof entry["status"] !== "string") {
       dropped += 1;
       continue;
     }
-    kept.push(entry as unknown as SockState["proposals"][number]);
+    kept.push({ ...(entry as unknown as DsckState["proposals"][number]), id: canonicalProposalId(entry["id"]) });
   }
   if (dropped) {
     warnings.push(
-      `sock.json dropped ${dropped} proposal ${dropped === 1 ? "entry" : "entries"} without a string id and status`,
+      `dsck.json dropped ${dropped} proposal ${dropped === 1 ? "entry" : "entries"} without a string id and status`,
     );
   }
   return kept;
 }
 
-function sanitizeCorrections(raw: unknown, warnings: string[]): SockState["corrections"] {
+function sanitizeCorrections(raw: unknown, warnings: string[]): DsckState["corrections"] {
   if (raw == null) return [];
   if (!Array.isArray(raw)) {
-    warnings.push("sock.json corrections was not an array; ignored");
+    warnings.push("dsck.json corrections was not an array; ignored");
     return [];
   }
-  const kept: NonNullable<SockState["corrections"]> = [];
+  const kept: NonNullable<DsckState["corrections"]> = [];
   let dropped = 0;
   for (const entry of raw) {
     if (
@@ -288,16 +284,16 @@ function sanitizeCorrections(raw: unknown, warnings: string[]): SockState["corre
       dropped += 1;
       continue;
     }
-    kept.push(entry as unknown as NonNullable<SockState["corrections"]>[number]);
+    kept.push(entry as unknown as NonNullable<DsckState["corrections"]>[number]);
   }
   if (dropped) {
     warnings.push(
-      `sock.json dropped ${dropped} correction ${dropped === 1 ? "entry" : "entries"} without string fromId, toId, and screenId`,
+      `dsck.json dropped ${dropped} correction ${dropped === 1 ? "entry" : "entries"} without string fromId, toId, and screenId`,
     );
   }
-  if (kept.length > SOCI_CORRECTION_CAP) {
-    warnings.push(`sock.json corrections trimmed to the latest ${SOCI_CORRECTION_CAP}`);
-    return kept.slice(-SOCI_CORRECTION_CAP);
+  if (kept.length > DSCI_CORRECTION_CAP) {
+    warnings.push(`dsck.json corrections trimmed to the latest ${DSCI_CORRECTION_CAP}`);
+    return kept.slice(-DSCI_CORRECTION_CAP);
   }
   return kept;
 }
@@ -306,7 +302,7 @@ function clampThreshold(raw: unknown, warnings: string[]): number {
   if (typeof raw !== "number" || !Number.isFinite(raw)) return 3;
   const floored = Math.floor(raw);
   if (floored < 3) {
-    warnings.push(`sock.json threshold ${raw} clamped to 3`);
+    warnings.push(`dsck.json threshold ${raw} clamped to 3`);
     return 3;
   }
   return floored;
@@ -316,18 +312,18 @@ function clampProposalCap(raw: unknown, warnings: string[]): number | undefined 
   if (typeof raw !== "number" || !Number.isFinite(raw)) return undefined;
   const floored = Math.floor(raw);
   if (floored > 12) {
-    warnings.push(`sock.json proposalCap ${raw} clamped to 12`);
+    warnings.push(`dsck.json proposalCap ${raw} clamped to 12`);
     return 12;
   }
   if (floored < 1) {
-    warnings.push(`sock.json proposalCap ${raw} clamped to 1`);
+    warnings.push(`dsck.json proposalCap ${raw} clamped to 1`);
     return 1;
   }
   return floored;
 }
 
-export function loadSock(): SockState | undefined {
-  const path = sockPath();
+export function loadDsck(): DsckState | undefined {
+  const path = dsckPath(!existsSync(dsckPath()));
   if (!existsSync(path)) return undefined;
   try {
     const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
@@ -337,8 +333,8 @@ export function loadSock(): SockState | undefined {
     return {
       version: 1,
       threshold: clampThreshold(raw["threshold"], warnings),
-      facts: raw["facts"] as SockState["facts"],
-      freshness: (raw["freshness"] as SockState["freshness"]) ?? {},
+      facts: raw["facts"] as DsckState["facts"],
+      freshness: (raw["freshness"] as DsckState["freshness"]) ?? {},
       proposals: sanitizeProposals(raw["proposals"], warnings),
       corrections: sanitizeCorrections(raw["corrections"], warnings),
       ...(proposalCap !== undefined ? { proposalCap } : {}),
@@ -349,23 +345,23 @@ export function loadSock(): SockState | undefined {
   }
 }
 
-export function saveSock(state: SockState): void {
+export function saveDsck(state: DsckState): void {
   mkdirSync(storeRoot(), { recursive: true });
-  const persist: SockState = { ...state };
+  const persist: DsckState = { ...state };
   delete persist.warnings;
-  writeFileAtomic(sockPath(), `${JSON.stringify(persist, null, 2)}\n`);
+  writeFileAtomic(dsckPath(), `${JSON.stringify(persist, null, 2)}\n`);
 }
 
-export function readSock(): SockState {
-  return loadSock() ?? emptySock();
+export function readDsck(): DsckState {
+  return loadDsck() ?? emptyDsck();
 }
 
 /**
- * Approved SOCI proposals with who / when from the audit log (newest approval per proposal).
+ * Approved DSCI proposals with who / when from the audit log (newest approval per proposal).
  * A proposal approved without an audit line is skipped: a decision on a handoff sheet always says who and when.
  */
-export function readApprovedDecisions(): Array<{ proposal: SockState["proposals"][number]; who: string; when: string }> {
-  const approved = readSock().proposals.filter((p) => p.status === "approved");
+export function readApprovedDecisions(): Array<{ proposal: DsckState["proposals"][number]; who: string; when: string }> {
+  const approved = readDsck().proposals.filter((p) => p.status === "approved");
   if (!approved.length || !existsSync(bindAuditPath())) return [];
   const last = new Map<string, { who: string; when: string }>();
   for (const line of readFileSync(bindAuditPath(), "utf8").split("\n")) {
@@ -373,7 +369,7 @@ export function readApprovedDecisions(): Array<{ proposal: SockState["proposals"
     try {
       const row = JSON.parse(line) as { who?: unknown; when?: unknown; proposalId?: unknown; action?: unknown };
       if (row.action === "approve" && typeof row.proposalId === "string" && typeof row.who === "string" && typeof row.when === "string") {
-        last.set(row.proposalId, { who: row.who, when: row.when });
+        last.set(canonicalProposalId(row.proposalId), { who: row.who, when: row.when });
       }
     } catch {
       // A torn line is skipped, never fatal.
@@ -627,7 +623,7 @@ export function readBindRules(explicitPath?: string): BindRulesFile {
   return loadBindRulesLenient(raw, {
     index: loaded?.index,
     workspace: readWorkspace(),
-    sock: readSock(),
+    dsck: readDsck(),
   });
 }
 
@@ -647,21 +643,21 @@ export function appendBindAudit(line: AuditLine): void {
 
 /**
  * Bind-rules / recipe overlay first, then proposal status, then audit.
- * Variant and deprecation approvals skip file writes besides sock + audit.
+ * Variant and deprecation approvals skip file writes besides dsck + audit.
  */
 export function commitProposalDecision(
   decided: {
-    sock: SockState;
+    dsck: DsckState;
     rules: BindRulesFile;
     audit: AuditLine;
     recipeOverlay?: Recipe[];
     writesRules?: boolean;
     writesRecipes?: boolean;
-  } & Partial<SociDecision>,
+  } & Partial<DsciDecision>,
 ): void {
   if (decided.writesRules !== false) writeBindRules(decided.rules);
   if (decided.writesRecipes && decided.recipeOverlay) writeRecipeOverlay(decided.recipeOverlay);
-  saveSock(decided.sock);
+  saveDsck(decided.dsck);
   appendBindAudit(decided.audit);
 }
 
@@ -670,12 +666,12 @@ export function runProposalDecision(
   action: "approve" | "reject",
   who: string,
   note?: string,
-): SociDecision {
+): DsciDecision {
   const loaded = loadGraph();
-  const decided = applySociDecision(
-    readSock(),
+  const decided = applyDsciDecision(
+    readDsck(),
     readBindRules(),
-    proposalId,
+    canonicalProposalId(proposalId),
     action,
     who,
     new Date().toISOString(),
@@ -692,14 +688,14 @@ export function runProposalDecision(
 }
 
 export function proposalDecisionBody(
-  decided: SociDecision,
+  decided: DsciDecision,
   action: "approve" | "reject",
   proposalId: string,
 ) {
   return {
     ok: true as const,
     action,
-    proposalId,
+    proposalId: canonicalProposalId(proposalId),
     who: decided.audit.who,
     when: decided.audit.when,
     rules: decided.rules.rules,
@@ -911,7 +907,7 @@ export function clearCache(): void {
   cache.clear();
 }
 
-/** Sync `<project>/.resolve/local` (components, SOCK, SOCI) from this store. Never throws. */
+/** Sync `<project>/.resolve/local` (components, DSCK, DSCI) from this store. Never throws. */
 export function syncProject(force = false): ProjectCopyReport | undefined {
-  return runProjectSync({ cwd: process.cwd(), env: process.env, storeRoot: storeRoot(), graphExists: existsSync(graphPath()) || existsSync(workspacePath()), storeFingerprint, loadIndex: () => loadGraph()?.index, loadSock, force });
+  return runProjectSync({ cwd: process.cwd(), env: process.env, storeRoot: storeRoot(), graphExists: existsSync(graphPath()) || existsSync(workspacePath()), storeFingerprint, loadIndex: () => loadGraph()?.index, loadDsck, force });
 }

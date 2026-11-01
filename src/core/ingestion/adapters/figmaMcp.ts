@@ -39,7 +39,7 @@ import type {
  * 4. **No prototype data.** `PROTOTYPES_TO` needs REST or the plugin API.
  * 5. **No instance overrides / detaches.** `get_metadata` XML has names, types,
  *    and geometry only — no `overrides`, `componentProperties`, or Plugin
- *    `detachedInfo`. SOCI variant proposals that need those signals only fire
+ *    `detachedInfo`. DSCI variant proposals that need those signals only fire
  *    after a REST ingest (or when extra nested instances are visible in the
  *    tree). Detach-from-master is skipped; that field is Plugin-API only.
  */

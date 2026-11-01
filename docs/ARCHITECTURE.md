@@ -10,13 +10,13 @@ One module owns each shared rule. Call it. Do not copy it.
 |---|---|
 | Same family (a variant and its set) | `src/core/rules/family.ts` — `sameFamily`, `setOf`. The cousin check and the scoreboard both use this. |
 | Retired / deprecated | `src/core/rules/retired.ts` — `isRetired`, `retiredNameKind`, `descriptionIsRetired`. Ingest (`parseGovernance`) calls `retiredNameKind` and still records whether the tag came from the name or from a legacy keyword. |
-| Name folding | `src/core/rules/names.ts` — `collapseName`, `foldLibName`, `isPrivateMasterName`, `isNameInferredMaster`, `nameTokens`, `GENERIC_UI_NOUNS`. Rankers keep their own stopword lists (`queryTokens.ts`, `recipes.ts`). Do not merge those lists. Cousin check, SOCI, and the scoreboard share `GENERIC_UI_NOUNS` only. |
+| Name folding | `src/core/rules/names.ts` — `collapseName`, `foldLibName`, `isPrivateMasterName`, `isNameInferredMaster`, `nameTokens`, `GENERIC_UI_NOUNS`. Rankers keep their own stopword lists (`queryTokens.ts`, `recipes.ts`). Do not merge those lists. Cousin check, DSCI, and the scoreboard share `GENERIC_UI_NOUNS` only. |
 | Id spelling (`12:34` and `12-34`) | `src/core/rules/ids.ts` — `idVariants`. |
 | Card text for people and for slash commands | `src/server/cards.ts` — `presentToolResult`. CLI `ingredients`, `handoff` (stdout), `parts`, and `status` print that Markdown. `--json` stays compact JSON (`--pretty` indents it). |
 | Synonym words and property-hint aliases | `src/data/synonyms.json` and `BUILTIN_PROPERTY_HINTS` in `componentProperties.ts`. `synonymLayer.ts` builds one alias map from those hints (plus a context pack or `property-hints.json` on that ask). Ranking does not keep a second copy. |
 | What a component means | `src/core/query/meaning/`. Every library starts from `src/data/meaning/default.json`. Acme and the internal reference library add their own words in their own files (Acme's is `acme.json`) and never replace the shared density, device, or exclusion words. The parse decides the lead, whether the answer is empty, and whether it is weak. `list` is the head: a density word one or two words before it is that list's density, unless the word describes the noun right after it. A joined, split, or hyphenated plural matches the name with the same spaces-and-hyphens-removed singular form. "rather than" and "instead of" exclude a part the same way "not" does. The lexical scorer only orders ties and typos. |
 | Proper use on a frame (detached, unbound values, property misuse, contrast, tap size, icon-only) | `src/core/query/properUse.ts` — `checkProperUse`. `verify_frame`, `/check`, and `resolve check` call it. No extra default MCP tool. |
-| Hidden layers and instances placed in a Figma slot | `src/core/query/placed.ts` — `hiddenUnder`, `designerPlacedInstances`. Verify, handoff, and SOCK call these. A hidden instance is left out. An instance in a slot counts as on the screen. |
+| Hidden layers and instances placed in a Figma slot | `src/core/query/placed.ts` — `hiddenUnder`, `designerPlacedInstances`. Verify, handoff, and DSCK call these. A hidden instance is left out. An instance in a slot counts as on the screen. |
 | Tier path prefixes (`base/`, `ingredients/`, `recipes/`) | `src/core/query/recommendLexicon.ts` — `stripTier`, `dropShadowedBaseTier`. The finder strips the prefix. `ingredients/` and `recipes/` beat `base/` for the same part unless the ask says `base/`. |
 | Re-learning a page or frame | `src/core/ingestion/learnLibrary.ts` — `replaceResentSubtrees`. The new subtree replaces the old one. A master that left stays so absence can mark it removed. |
 
@@ -121,7 +121,7 @@ namespaced ids and reverse relationships stored.
 
 ```
 Figma REST ─┐
-Plugin API ─┼─▶ SourceDocument ─▶ buildGraph ─▶ DesignGraph ─▶ GraphIndex ─▶ recommend / recipe / verify / SOCI
+Plugin API ─┼─▶ SourceDocument ─▶ buildGraph ─▶ DesignGraph ─▶ GraphIndex ─▶ recommend / recipe / verify / DSCI
 Figma MCP  ─┤                                                              └─▶ library + rules UI
 JSON/mock  ─┘
 ```
@@ -182,7 +182,7 @@ each shape.
 
 ## 4. What the app shows
 
-Library counts, health, the scoreboard, and the rules page. There is no graph canvas, no atlas, and no AI side panel. Agents get context from `recommend`, `recipe`, `resolve`, `verify_frame`, and SOCI — not from a canvas export.
+Library counts, health, the scoreboard, and the rules page. There is no graph canvas, no atlas, and no AI side panel. Agents get context from `recommend`, `recipe`, `resolve`, `verify_frame`, and DSCI — not from a canvas export.
 
 ## 5. Project structure
 

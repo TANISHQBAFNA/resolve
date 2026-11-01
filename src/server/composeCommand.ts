@@ -1,7 +1,7 @@
 import { briefAnswerIds, briefAnswerParts, briefAnswersFromFlags, composeCard, recordFromCompose, type ComposeCardLike, type ComposeInput } from "@/core/query";
 import { recordFlag } from "./decisionCommand";
 import { bindFromFlags, flag, printJson, withJsonErrors } from "./cliArgs";
-import { loadRecipes, readBindRules, readPlaceholders, readSock, resolveGraph, saveSock } from "./store";
+import { loadRecipes, readBindRules, readPlaceholders, readDsck, resolveGraph, saveDsck } from "./store";
 
 /** Input checks shared by the CLI and MCP. Returns what is wrong, or undefined. */
 export function composeProblem(compose: unknown, propose: unknown, request: string): string | undefined {
@@ -16,7 +16,7 @@ export function composeProblem(compose: unknown, propose: unknown, request: stri
 /** Compose, and save the proposal when one was filed. Nothing else writes. */
 export function runCompose(input: ComposeInput, propose: boolean): object {
   const out = composeCard(input, propose, new Date().toISOString());
-  if (out.state) saveSock(out.state);
+  if (out.state) saveDsck(out.state);
   return out.card;
 }
 
@@ -36,7 +36,7 @@ export function composeFromCli(args: string[], query: string | undefined): void 
   // Bad answers throw BriefAnswerError; runCli prints that as ok:false JSON with --json.
   const answers = briefAnswersFromFlags(args);
   const answerParts = briefAnswerParts(answers, index);
-  const input = { request, answerParts, index, recipes: loadRecipes(), bind: bindFromFlags(args), sock: readSock(), bindRules: readBindRules(), placeholders: readPlaceholders() };
+  const input = { request, answerParts, index, recipes: loadRecipes(), bind: bindFromFlags(args), dsck: readDsck(), bindRules: readBindRules(), placeholders: readPlaceholders() };
   const card = runCompose(input, Boolean(propose));
   const record = () => recordFlag(args, () => recordFromCompose({ request, answers: briefAnswerIds(answers, index), card: card as ComposeCardLike, createdAt: new Date().toISOString() }));
   if (withJsonErrors(args, record, request)) printJson(card);

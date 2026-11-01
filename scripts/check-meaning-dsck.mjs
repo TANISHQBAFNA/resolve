@@ -1,9 +1,9 @@
 /**
- * Meaning SOCK file checks. Runs on the committed tree, then diffs a fresh generate.
- *   node scripts/check-meaning-sock.mjs <dir>
+ * Meaning DSCK file checks. Runs on the committed tree, then diffs a fresh generate.
+ *   node scripts/check-meaning-dsck.mjs <dir>
  *
  * Fails on empty files, garbage files, missing index lines, orphaned files,
- * files out of sync with scripts/build-meaning-sock.mjs, a component file over
+ * files out of sync with scripts/build-meaning-dsck.mjs, a component file over
  * 4 KB, an index line over 150 characters, a link that does not resolve, a link
  * chain deeper than 2 hops from the index, a context pack over 6k tokens,
  * a library over 6k tokens, or the same 4-line block copied into two files.
@@ -172,7 +172,7 @@ export function checkSync(root) {
   const tmp = mkdtempSync(join(tmpdir(), "meaning-gen-"));
   const errors = [];
   try {
-    const child = spawnSync(process.execPath, [join(repo, "scripts/build-meaning-sock.mjs"), tmp], {
+    const child = spawnSync(process.execPath, [join(repo, "scripts/build-meaning-dsck.mjs"), tmp], {
       cwd: repo,
       encoding: "utf8",
     });
@@ -198,7 +198,7 @@ export function checkSync(root) {
 function main() {
   const root = process.argv[2];
   if (!root) {
-    process.stderr.write("Usage: node scripts/check-meaning-sock.mjs <dir> [--structural]\n");
+    process.stderr.write("Usage: node scripts/check-meaning-dsck.mjs <dir> [--structural]\n");
     process.exit(1);
   }
   const structural = process.argv.includes("--structural");
@@ -209,7 +209,7 @@ function main() {
   }
   const count = walk(root).filter((file) => file.endsWith(".md")).length;
   const tokens = Math.ceil(readFileSync(join(root, "pack.txt"), "utf8").length / 4);
-  process.stdout.write(`meaning pack ${tokens} tokens\nmeaning sock files ok (${count} markdown)\n`);
+  process.stdout.write(`meaning pack ${tokens} tokens\nmeaning dsck files ok (${count} markdown)\n`);
 }
 
 const invoked = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;

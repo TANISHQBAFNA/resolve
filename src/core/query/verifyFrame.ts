@@ -22,7 +22,7 @@ import { isPrivateMaster, wholeNameTypo } from "./recommendLexicon";
 import { asMaster, type LibraryRules, type RecommendContext, REFRESH_HINT, ruleMatches } from "./recommendSupport";
 import { codeMapView, replacementOf } from "./replacements";
 import { searchNodes } from "./search";
-import type { SockState } from "./sock";
+import type { DsckState } from "./dsck";
 import type { WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
 
@@ -160,7 +160,7 @@ type VerifyInput = {
   rules?: LibraryRules;
   context?: RecommendContext;
   bindRules?: BindRulesFile;
-  sock?: SockState;
+  dsck?: DsckState;
   workspace?: WorkspaceManifest;
   placeholders?: string[];
   /** Figma get_design_context, or get_metadata that includes characters. */
@@ -473,7 +473,7 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
         product: input.context?.product?.name || input.context?.product?.id,
         pack: input.context?.id,
         frameName: frameNode?.name ?? input.frame,
-        sock: input.sock,
+        dsck: input.dsck,
       })
     : undefined;
   const bindPass = !ruleFailure;
@@ -493,7 +493,7 @@ function verifyFrameCard(index: GraphIndex, input: VerifyInput, used: GraphNode[
         ruleFailure.expected ? ` Place ${ruleFailure.expected.name} (${ruleFailure.expected.id}).` : ""
       }`
     : undefined;
-  const pending = input.sock?.proposals.filter((row) => row.status === "pending").length ?? 0;
+  const pending = input.dsck?.proposals.filter((row) => row.status === "pending").length ?? 0;
   const hint = linkHint
     ? linkHint
     : nameOnlyPass

@@ -9,18 +9,18 @@ import {
   proposeStrongPatterns,
   scopeFromUsageFacts,
   type CousinCorrection,
-  type SociEvidenceItem,
-  type SociProposal,
-  type SociProposalType,
-  type SociScope,
-  type SociSuggestedDeprecation,
-  type SociSuggestedRecipe,
-  type SociSuggestedVariant,
-  type SockState,
+  type DsciEvidenceItem,
+  type DsciProposal,
+  type DsciProposalType,
+  type DsciScope,
+  type DsciSuggestedDeprecation,
+  type DsciSuggestedRecipe,
+  type DsciSuggestedVariant,
+  type DsckState,
   evidenceFromFact,
   type UsageFact,
   type UsagePattern,
-} from "./sock";
+} from "./dsck";
 import {
   type AuditLine,
   type BindRulesFile,
@@ -30,19 +30,19 @@ import { designerPlacedInstances } from "./placed";
 import { nodeFileKey } from "./workspaceMerge";
 
 /**
- * SOCI — loop engineer. Turns verified-frame usage into human-approved
+ * DSCI — loop engineer. Turns verified-frame usage into human-approved
  * proposals. Never auto-applies. Never invents node ids.
  */
 
-export const SOCI_PROPOSAL_TYPES = [
+export const DSCI_PROPOSAL_TYPES = [
   "require-rule",
   "recipe-update",
   "variant-candidate",
   "deprecation-candidate",
   "wrong-cousin",
-] as const satisfies readonly SociProposalType[];
+] as const satisfies readonly DsciProposalType[];
 
-export const SOCI_TYPE_LABELS: Record<SociProposalType, string> = {
+export const DSCI_TYPE_LABELS: Record<DsciProposalType, string> = {
   "require-rule": "Require rules",
   "recipe-update": "Recipe updates",
   "variant-candidate": "Variant candidates",
@@ -50,23 +50,23 @@ export const SOCI_TYPE_LABELS: Record<SociProposalType, string> = {
   "wrong-cousin": "Wrong-cousin hotspots",
 };
 
-export const DEFAULT_SOCI_CAP = 12;
-export const SOCI_EVIDENCE_CAP = 8;
-export const SOCI_CORRECTION_CAP = 200;
+export const DEFAULT_DSCI_CAP = 12;
+export const DSCI_EVIDENCE_CAP = 8;
+export const DSCI_CORRECTION_CAP = 200;
 
 const MASTER_TYPES = new Set<string>(COMPONENT_DEFINITION_TYPES);
 
-export interface SociDraft {
-  type: SociProposalType;
+export interface DsciDraft {
+  type: DsciProposalType;
   fingerprint: string;
-  scope?: SociScope;
+  scope?: DsciScope;
   summary: string;
-  evidence: SociEvidenceItem[];
+  evidence: DsciEvidenceItem[];
   confidence: "low" | "strong";
-  suggestedRule?: SociProposal["suggestedRule"];
-  suggestedRecipe?: SociSuggestedRecipe;
-  suggestedVariant?: SociSuggestedVariant;
-  suggestedDeprecation?: SociSuggestedDeprecation;
+  suggestedRule?: DsciProposal["suggestedRule"];
+  suggestedRecipe?: DsciSuggestedRecipe;
+  suggestedVariant?: DsciSuggestedVariant;
+  suggestedDeprecation?: DsciSuggestedDeprecation;
   namingFix?: string;
 }
 
@@ -78,14 +78,14 @@ function uniqueKey(value: string): string {
   return value.trim().toLowerCase();
 }
 
-export function proposalTypeOf(proposal: SociProposal): SociProposalType {
-  if (proposal.type && (SOCI_PROPOSAL_TYPES as readonly string[]).includes(proposal.type)) {
+export function proposalTypeOf(proposal: DsciProposal): DsciProposalType {
+  if (proposal.type && (DSCI_PROPOSAL_TYPES as readonly string[]).includes(proposal.type)) {
     return proposal.type;
   }
   return "require-rule";
 }
 
-export function asEvidenceList(evidence: SociProposal["evidence"] | undefined): SociEvidenceItem[] {
+export function asEvidenceList(evidence: DsciProposal["evidence"] | undefined): DsciEvidenceItem[] {
   if (Array.isArray(evidence)) {
     return evidence.filter((item) => item && typeof item === "object");
   }
@@ -95,9 +95,9 @@ export function asEvidenceList(evidence: SociProposal["evidence"] | undefined): 
   return [];
 }
 
-export function normalizeProposal(raw: SociProposal): SociProposal {
+export function normalizeProposal(raw: DsciProposal): DsciProposal {
   const type = proposalTypeOf(raw);
-  const evidence = asEvidenceList(raw.evidence).slice(0, SOCI_EVIDENCE_CAP);
+  const evidence = asEvidenceList(raw.evidence).slice(0, DSCI_EVIDENCE_CAP);
   return {
     ...raw,
     type,
@@ -111,13 +111,13 @@ export function normalizeProposal(raw: SociProposal): SociProposal {
   };
 }
 
-export function pendingImprovementCount(sock?: SockState): number {
-  if (!sock) return 0;
-  return sock.proposals.filter((row) => row.status === "pending").length;
+export function pendingImprovementCount(dsck?: DsckState): number {
+  if (!dsck) return 0;
+  return dsck.proposals.filter((row) => row.status === "pending").length;
 }
 
-export function withPendingImprovements<T extends object>(payload: T, sock?: SockState): T {
-  const n = pendingImprovementCount(sock);
+export function withPendingImprovements<T extends object>(payload: T, dsck?: DsckState): T {
+  const n = pendingImprovementCount(dsck);
   if (!n) return payload;
   return { ...payload, pendingImprovements: n };
 }
@@ -132,16 +132,33 @@ function sanitizeFingerprint(value: string): string {
   );
 }
 
-export function proposalIdFor(type: SociProposalType, fingerprint: string): string {
-  return `soci:${type}:${sanitizeFingerprint(fingerprint)}`;
+/** Proposal ids written before the rename began with this prefix. They are read as "dsci:". */
+const LEGACY_PROPOSAL_PREFIX = "soci:";
+/** Store files from before the rename. Read when the new file is missing; never written. */
+export const LEGACY_DSCK_FILE = "sock.json";
+export const LEGACY_DSCI_FILE = "soci.json";
+/** CLI word and MCP tool names from before the rename. Still accepted, with a deprecation warning. */
+const RENAMED_TO: Record<string, string> = { soci: "dsci", list_soci: "list_dsci" };
+
+export function renamedTo(name: string): string | undefined {
+  return Object.hasOwn(RENAMED_TO, name) ? RENAMED_TO[name] : undefined;
 }
 
-function countedFacts(state: SockState): UsageFact[] {
+/** Old ids from an earlier store or a typed command map to the current id. */
+export function canonicalProposalId(id: string): string {
+  return id.startsWith(LEGACY_PROPOSAL_PREFIX) ? `dsci:${id.slice(LEGACY_PROPOSAL_PREFIX.length)}` : id;
+}
+
+export function proposalIdFor(type: DsciProposalType, fingerprint: string): string {
+  return `dsci:${type}:${sanitizeFingerprint(fingerprint)}`;
+}
+
+function countedFacts(state: DsckState): UsageFact[] {
   return state.facts.filter((fact) => fact.countsTowardThreshold !== false);
 }
 
-function evidenceFromFacts(facts: UsageFact[], note?: string): SociEvidenceItem[] {
-  const byScreen = new Map<string, SociEvidenceItem>();
+function evidenceFromFacts(facts: UsageFact[], note?: string): DsciEvidenceItem[] {
+  const byScreen = new Map<string, DsciEvidenceItem>();
   for (const fact of facts) {
     const key = fact.screenId;
     const existing = byScreen.get(key);
@@ -151,11 +168,11 @@ function evidenceFromFacts(facts: UsageFact[], note?: string): SociEvidenceItem[
     }
     byScreen.set(key, evidenceFromFact(fact, note));
   }
-  return [...byScreen.values()].slice(0, SOCI_EVIDENCE_CAP);
+  return [...byScreen.values()].slice(0, DSCI_EVIDENCE_CAP);
 }
 
-function mergeEvidence(left: SociEvidenceItem[], right: SociEvidenceItem[]): SociEvidenceItem[] {
-  const byKey = new Map<string, SociEvidenceItem>();
+function mergeEvidence(left: DsciEvidenceItem[], right: DsciEvidenceItem[]): DsciEvidenceItem[] {
+  const byKey = new Map<string, DsciEvidenceItem>();
   for (const item of [...left, ...right]) {
     const key = uniqueKey(item.screenId || item.frameId || item.note || JSON.stringify(item));
     const existing = byKey.get(key);
@@ -171,10 +188,10 @@ function mergeEvidence(left: SociEvidenceItem[], right: SociEvidenceItem[]): Soc
   }
   return [...byKey.values()]
     .sort((a, b) => (b.count ?? 0) - (a.count ?? 0))
-    .slice(0, SOCI_EVIDENCE_CAP);
+    .slice(0, DSCI_EVIDENCE_CAP);
 }
 
-function suggestedFields(draft: SociDraft) {
+function suggestedFields(draft: DsciDraft) {
   return {
     ...(draft.suggestedRule ? { suggestedRule: draft.suggestedRule } : {}),
     ...(draft.suggestedRecipe ? { suggestedRecipe: draft.suggestedRecipe } : {}),
@@ -184,13 +201,13 @@ function suggestedFields(draft: SociDraft) {
   };
 }
 
-function upsertDraft(state: SockState, draft: SociDraft, now: string): SockState {
+function upsertDraft(state: DsckState, draft: DsciDraft, now: string): DsckState {
   const id = proposalIdFor(draft.type, draft.fingerprint);
   const existing = state.proposals.find((row) => row.id === id);
   if (existing && existing.status !== "pending") return state;
   if (existing) {
     const merged = mergeEvidence(asEvidenceList(existing.evidence), draft.evidence);
-    const next: SociProposal = {
+    const next: DsciProposal = {
       ...existing,
       type: draft.type,
       kind: draft.type === "require-rule" ? "rule" : existing.kind,
@@ -206,7 +223,7 @@ function upsertDraft(state: SockState, draft: SociDraft, now: string): SockState
       proposals: state.proposals.map((row) => (row.id === id ? next : row)),
     };
   }
-  const created: SociProposal = {
+  const created: DsciProposal = {
     id,
     createdAt: now,
     updatedAt: now,
@@ -214,7 +231,7 @@ function upsertDraft(state: SockState, draft: SociDraft, now: string): SockState
     kind: draft.type === "require-rule" ? "rule" : undefined,
     status: "pending",
     summary: draft.summary,
-    evidence: draft.evidence.slice(0, SOCI_EVIDENCE_CAP),
+    evidence: draft.evidence.slice(0, DSCI_EVIDENCE_CAP),
     confidence: draft.confidence,
     ...(draft.scope ? { scope: draft.scope } : {}),
     ...suggestedFields(draft),
@@ -222,7 +239,7 @@ function upsertDraft(state: SockState, draft: SociDraft, now: string): SockState
   return { ...state, proposals: [...state.proposals, created] };
 }
 
-const TYPE_RANK: Record<SociProposalType, number> = {
+const TYPE_RANK: Record<DsciProposalType, number> = {
   "wrong-cousin": 0,
   "recipe-update": 1,
   "require-rule": 2,
@@ -230,7 +247,7 @@ const TYPE_RANK: Record<SociProposalType, number> = {
   "variant-candidate": 4,
 };
 
-function evidenceScreens(proposal: SociProposal): number {
+function evidenceScreens(proposal: DsciProposal): number {
   const items = asEvidenceList(proposal.evidence);
   const screens = new Set(
     items.map((item) => item.screenId || item.frameId || item.note).filter((value): value is string => Boolean(value)),
@@ -238,7 +255,7 @@ function evidenceScreens(proposal: SociProposal): number {
   return screens.size || items.length;
 }
 
-export function capSociProposals(state: SockState, cap = DEFAULT_SOCI_CAP): SockState {
+export function capDsciProposals(state: DsckState, cap = DEFAULT_DSCI_CAP): DsckState {
   const pending = state.proposals.filter((row) => row.status === "pending");
   const settled = state.proposals.filter((row) => row.status !== "pending");
   if (pending.length <= cap) return state;
@@ -285,10 +302,10 @@ interface RecipeSlotCandidate {
  * fingerprint, or null when the slot should keep no pending proposal.
  */
 function detectRecipeUpdates(
-  state: SockState,
+  state: DsckState,
   recipes: Recipe[],
-): { drafts: SociDraft[]; closedSlots: Map<string, string | null> } {
-  const drafts: SociDraft[] = [];
+): { drafts: DsciDraft[]; closedSlots: Map<string, string | null> } {
+  const drafts: DsciDraft[] = [];
   const closedSlots = new Map<string, string | null>();
   if (!recipes.length) return { drafts, closedSlots };
   const counted = countedFacts(state);
@@ -464,7 +481,7 @@ export function harvestOverrideKeysForFrame(index: GraphIndex, frameId: string):
   return byMaster;
 }
 
-function detectVariantCandidates(state: SockState): SociDraft[] {
+function detectVariantCandidates(state: DsckState): DsciDraft[] {
   const counted = countedFacts(state);
   const byKey = new Map<string, { masterId: string; masterName: string; overrideKey: string; facts: UsageFact[] }>();
   for (const fact of counted) {
@@ -483,7 +500,7 @@ function detectVariantCandidates(state: SockState): SociDraft[] {
       }
     }
   }
-  const drafts: SociDraft[] = [];
+  const drafts: DsciDraft[] = [];
   for (const row of byKey.values()) {
     const screens = new Set(row.facts.map((fact) => fact.screenId));
     if (screens.size < state.threshold) continue;
@@ -508,13 +525,13 @@ function detectVariantCandidates(state: SockState): SociDraft[] {
   return drafts;
 }
 
-function detectDeprecations(state: SockState, index?: GraphIndex): SociDraft[] {
+function detectDeprecations(state: DsckState, index?: GraphIndex): DsciDraft[] {
   if (!index) return [];
   const patterns = patternsOf(state);
   const strong = patterns.filter((row) => row.confidence === "strong" && row.promoted);
   if (!strong.length) return [];
   const used = new Set(countedFacts(state).map((fact) => fact.masterId));
-  const drafts: SociDraft[] = [];
+  const drafts: DsciDraft[] = [];
   for (const node of index.getNodesByType(...COMPONENT_DEFINITION_TYPES)) {
     if (!MASTER_TYPES.has(node.type)) continue;
     if (used.has(node.id)) continue;
@@ -555,7 +572,7 @@ function detectDeprecations(state: SockState, index?: GraphIndex): SociDraft[] {
   return drafts;
 }
 
-function detectWrongCousins(state: SockState, workspace?: WorkspaceManifest): SociDraft[] {
+function detectWrongCousins(state: DsckState, workspace?: WorkspaceManifest): DsciDraft[] {
   const byPair = new Map<
     string,
     {
@@ -585,11 +602,11 @@ function detectWrongCousins(state: SockState, workspace?: WorkspaceManifest): So
       });
     }
   }
-  const drafts: SociDraft[] = [];
+  const drafts: DsciDraft[] = [];
   for (const pair of byPair.values()) {
     const screens = new Set(pair.rows.map((row) => row.screenId));
     if (screens.size < state.threshold) continue;
-    const evidence: SociEvidenceItem[] = pair.rows.slice(0, SOCI_EVIDENCE_CAP).map((row) => ({
+    const evidence: DsciEvidenceItem[] = pair.rows.slice(0, DSCI_EVIDENCE_CAP).map((row) => ({
       frameId: row.frameId ?? row.screenId,
       screenId: row.screenId,
       screenName: row.screenName,
@@ -652,7 +669,7 @@ function detectWrongCousins(state: SockState, workspace?: WorkspaceManifest): So
 }
 
 export function recordCousinCorrections(
-  state: SockState,
+  state: DsckState,
   input: {
     screenId: string;
     screenName: string;
@@ -668,7 +685,7 @@ export function recordCousinCorrections(
     }>;
     verifiedAt?: string;
   },
-): SockState {
+): DsckState {
   if (!input.hits.length) return state;
   const verifiedAt = input.verifiedAt ?? new Date().toISOString();
   const next = [...(state.corrections ?? [])];
@@ -691,11 +708,11 @@ export function recordCousinCorrections(
       verifiedAt,
     });
   }
-  const corrections = next.length > SOCI_CORRECTION_CAP ? next.slice(-SOCI_CORRECTION_CAP) : next;
+  const corrections = next.length > DSCI_CORRECTION_CAP ? next.slice(-DSCI_CORRECTION_CAP) : next;
   return { ...state, corrections };
 }
 
-export interface AdvanceSociOptions {
+export interface AdvanceDsciOptions {
   recipes?: Recipe[];
   index?: GraphIndex;
   workspace?: WorkspaceManifest;
@@ -704,13 +721,13 @@ export interface AdvanceSociOptions {
   now?: string;
 }
 
-export function advanceSoci(state: SockState, options: AdvanceSociOptions = {}): SockState {
+export function advanceDsci(state: DsckState, options: AdvanceDsciOptions = {}): DsckState {
   const now = options.now ?? new Date().toISOString();
   const alreadyEncoded = options.alreadyEncoded ?? (() => false);
   const strong = patternsOf(state).filter((row) => row.confidence === "strong" && row.promoted);
   let next = proposeStrongPatterns(state, strong, alreadyEncoded);
   const recipeScan = detectRecipeUpdates(next, options.recipes ?? []);
-  const drafts: SociDraft[] = [
+  const drafts: DsciDraft[] = [
     ...recipeScan.drafts,
     ...detectVariantCandidates(next),
     ...detectDeprecations(next, options.index),
@@ -735,11 +752,11 @@ export function advanceSoci(state: SockState, options: AdvanceSociOptions = {}):
       })
       .map((row) => normalizeProposal(row)),
   };
-  return capSociProposals(next, options.cap ?? next.proposalCap ?? DEFAULT_SOCI_CAP);
+  return capDsciProposals(next, options.cap ?? next.proposalCap ?? DEFAULT_DSCI_CAP);
 }
 
 /** Apply a human-approved recipe slot change. Never invents a master id. */
-export function applyRecipeSlotChange(recipe: Recipe, change: SociSuggestedRecipe): Recipe {
+export function applyRecipeSlotChange(recipe: Recipe, change: DsciSuggestedRecipe): Recipe {
   const role = change.slotRole.trim();
   if (!role) return recipe;
   const hints = [...new Set([...(change.hints ?? []), ...tokensOf(change.masterName)])].filter(Boolean);
@@ -767,18 +784,18 @@ export function overlayWithRecipe(overlay: Recipe[], updated: Recipe): Recipe[] 
   return [...overlay.filter((recipe) => recipe.id !== updated.id), updated];
 }
 
-export function groupSociProposals(
-  proposals: SociProposal[],
-): Array<{ type: SociProposalType; label: string; proposals: SociProposal[] }> {
-  const byType = new Map<SociProposalType, SociProposal[]>();
-  for (const type of SOCI_PROPOSAL_TYPES) byType.set(type, []);
+export function groupDsciProposals(
+  proposals: DsciProposal[],
+): Array<{ type: DsciProposalType; label: string; proposals: DsciProposal[] }> {
+  const byType = new Map<DsciProposalType, DsciProposal[]>();
+  for (const type of DSCI_PROPOSAL_TYPES) byType.set(type, []);
   for (const proposal of proposals) {
     const type = proposalTypeOf(proposal);
     byType.get(type)!.push(normalizeProposal(proposal));
   }
-  return SOCI_PROPOSAL_TYPES.map((type) => ({
+  return DSCI_PROPOSAL_TYPES.map((type) => ({
     type,
-    label: SOCI_TYPE_LABELS[type],
+    label: DSCI_TYPE_LABELS[type],
     proposals: byType.get(type) ?? [],
   })).filter((group) => group.proposals.length > 0);
 }
@@ -787,8 +804,8 @@ export function stampFileKeyOf(node: GraphNode, fallback?: string): string | und
   return nodeFileKey(node, fallback);
 }
 
-export interface SociDecision {
-  sock: SockState;
+export interface DsciDecision {
+  dsck: DsckState;
   rules: BindRulesFile;
   audit: AuditLine;
   recipeOverlay?: Recipe[];

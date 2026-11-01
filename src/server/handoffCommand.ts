@@ -24,7 +24,7 @@ import {
   readBindRules,
   readLibraryRules,
   readPlaceholders,
-  readSock,
+  readDsck,
   readWorkspace,
 } from "./store";
 
@@ -72,7 +72,7 @@ function handoff(args: string[]): void {
     recipes: loadRecipes(),
     ...(pack ? { context: pack } : {}),
     bindRules: mergeBindRules(readBindRules(), pack?.bindRules),
-    sock: readSock(),
+    dsck: readDsck(),
     workspace: bind.workspace ?? readWorkspace(),
     placeholders: readPlaceholders(),
     rules: readLibraryRules(flag(args, "rules")),

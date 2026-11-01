@@ -2,7 +2,7 @@ import lexicon from "@/data/screen-jobs.json";
 
 /**
  * Screen jobs. A job word has a meaning ("inquiry": look up something that already exists).
- * The parts of a job come only from verified frames in SOCK, never from this file.
+ * The parts of a job come only from verified frames in DSCK, never from this file.
  */
 
 export interface ScreenJob {

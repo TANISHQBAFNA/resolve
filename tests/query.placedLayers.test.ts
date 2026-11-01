@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { adaptFigmaMcpMetadata } from "@/core/ingestion";
 import { buildGraph } from "@/core/transform";
 import { handoffSheet, indexGraph, recommendMasters, verifyFrame } from "@/core/query";
-import { topLevelMasterIds } from "@/core/query/soci";
+import { topLevelMasterIds } from "@/core/query/dsci";
 import type { GraphIndex } from "@/core/query/GraphIndex";
 
 function indexFrom(xml: string): GraphIndex {

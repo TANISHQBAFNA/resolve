@@ -9,7 +9,7 @@ import {
   BindRuleError,
   componentUsageCard,
   freshnessSummary,
-  listSoci,
+  listDsci,
   mergeBindRules,
   parseLibraryRules,
   capRecipePayload,
@@ -35,21 +35,21 @@ import {
   briefAnswerParts,
   briefAnswers,
   briefScreen,
-  BriefAnswerError,
+  BriefAnswerError, renamedTo,
 } from "@/core/query";
 import { presentToolResult, type ToolCardFormat } from "./cards";
 import { learnLibrary } from "./learn";
-import { DEPRECATED_INSTEAD, REMOVED_MCP_TOOLS, withDeprecation } from "./deprecations";
+import { DEPRECATED_INSTEAD, deprecationNotice, REMOVED_MCP_TOOLS, warnDeprecated, withDeprecation } from "./deprecations";
 import {
   listGraphs,
   loadContextBind,
   loadRecipes,
   missingGraphMessage,
   readLibraryRules,
-  readSock,
+  readDsck,
   readWorkspace,
   resolveGraph,
-  saveSock,
+  saveDsck,
   storeInfo,
   readBindRules,
   readPlaceholders,
@@ -151,7 +151,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "learn_library",
     description:
-      "Load or update SOCK from Figma MCP output. Pass get_metadata XML as metadataXml plus fileKey and role (library|product). Optional libraries = search_design_system / get_libraries (stamps published component keys). Pass designContext too when you have it: metadata usually has no characters, and learn keeps master default text only from real characters. Incremental and resumable across sessions — use that for big libraries (view/free seats have a low read quota; progress is saved). Needs a paid Figma MCP seat (Dev/Full) or a REST token ingest. Do not invent a hand-built capture.",
+      "Load or update DSCK from Figma MCP output. Pass get_metadata XML as metadataXml plus fileKey and role (library|product). Optional libraries = search_design_system / get_libraries (stamps published component keys). Pass designContext too when you have it: metadata usually has no characters, and learn keeps master default text only from real characters. Incremental and resumable across sessions — use that for big libraries (view/free seats have a low read quota; progress is saved). Needs a paid Figma MCP seat (Dev/Full) or a REST token ingest. Do not invent a hand-built capture.",
     inputSchema: {
       type: "object",
       properties: {
@@ -187,7 +187,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "recommend",
     description:
-      "Intent in, ranked library masters out. A bare screen job (inquiry, summary, approval or payment screen) answers from mapped screens instead: approaches with masters in order. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.resolve/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (SOCK facts, 'used N× in file', or 'not verified on a screen yet') and, when a real populated instance is known, an ex id (or fileKey:nodeId when it lives in another file). No example is omitted. Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. The card echoes that context with its source (document, pack <id>, or active pack). Pass the same context on recipe and verify_frame. Every pick shows fileKey and figmaNodeId. The structured card is capped at 600 characters; Markdown is shorter. Empty candidates means stop. Do not invent a component. Do not Read graph.json.",
+      "Intent in, ranked library masters out. A bare screen job (inquiry, summary, approval or payment screen) answers from mapped screens instead: approaches with masters in order. Ranks by name/intent, variant props, where-used and sibling co-occurrence, live over stale, deprecated demoted. Bind rules (.resolve/bind-rules.json) require/forbid/prefer. The top pick has a one-line why (DSCK facts, 'used N× in file', or 'not verified on a screen yet') and, when a real populated instance is known, an ex id (or fileKey:nodeId when it lives in another file). No example is omitted. Call get_example for the other hits and for file key, screen, variant, structure, and sizing. Clone that instance and replace content; do not start from the default variant. Set context from the requirements or FSD: pack, or only the product, journey, audience, and a11y that document states. Do not ask for those four. The card echoes that context with its source (document, pack <id>, or active pack). Pass the same context on recipe and verify_frame. Every pick shows fileKey and figmaNodeId. The structured card is capped at 600 characters; Markdown is shorter. Empty candidates means stop. Do not invent a component. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -271,7 +271,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "resolve",
     description:
-      "I know the name, give me the id. Exact master name or id always returns fileKey and figmaNodeId even when unused (zero instances). One-line why from SOCK facts. Pass the same context as recommend (pack, or product, journey, audience, a11y). The card echoes that context with its source. screenType/journey/domain break cousin ties. A deprecated master comes back flagged, plus its live replacement. Names starting with _ or . return only on an exact name; a fuzzy ask does not. Unknown name: the card says it was not found and to call recommend, not an empty list. Frame names return a screen inventory. The structured card is capped at about 2000 characters; Markdown is shorter.",
+      "I know the name, give me the id. Exact master name or id always returns fileKey and figmaNodeId even when unused (zero instances). One-line why from DSCK facts. Pass the same context as recommend (pack, or product, journey, audience, a11y). The card echoes that context with its source. screenType/journey/domain break cousin ties. A deprecated master comes back flagged, plus its live replacement. Names starting with _ or . return only on an exact name; a fuzzy ask does not. Unknown name: the card says it was not found and to call recommend, not an empty list. Frame names return a screen inventory. The structured card is capped at about 2000 characters; Markdown is shorter.",
     inputSchema: {
       type: "object",
       properties: {
@@ -354,19 +354,19 @@ export const TOOLS: ToolDefinition[] = [
     },
   },
   {
-    name: "list_soci",
+    name: "list_dsci",
     description:
-      "List SOCI proposals (require-rule, recipe-update, variant-candidate, deprecation-candidate, wrong-cousin). Usage facts write themselves; SOCI never auto-applies. Approve or reject with approve_proposal / reject_proposal (this advanced surface, confirmedBy required).",
+      "List DSCI proposals (require-rule, recipe-update, variant-candidate, deprecation-candidate, wrong-cousin). Usage facts write themselves; DSCI never auto-applies. Approve or reject with approve_proposal / reject_proposal (this advanced surface, confirmedBy required).",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "approve_proposal",
     description:
-      "Human-only. Apply a pending SOCI proposal to bind-rules.json and append an audit line (confirmedBy, when, proposal id, before/after). Rules never auto-change. Advanced surface. Needs RESOLVE_MCP_ADVANCED=1 and confirmedBy.",
+      "Human-only. Apply a pending DSCI proposal to bind-rules.json and append an audit line (confirmedBy, when, proposal id, before/after). Rules never auto-change. Advanced surface. Needs RESOLVE_MCP_ADVANCED=1 and confirmedBy.",
     inputSchema: {
       type: "object",
       properties: {
-        proposalId: { type: "string", description: "Pending SOCI proposal id." },
+        proposalId: { type: "string", description: "Pending DSCI proposal id." },
         confirmedBy: { type: "string", description: "Human name confirming this write. Required. Agents cannot confirm." },
         note: { type: "string", description: "Optional note stored with variant/deprecation decisions." },
       },
@@ -376,11 +376,11 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "reject_proposal",
     description:
-      "Human-only. Reject a pending SOCI proposal. Appends an audit line. Does not change bind-rules.json. Advanced surface. Needs RESOLVE_MCP_ADVANCED=1 and confirmedBy.",
+      "Human-only. Reject a pending DSCI proposal. Appends an audit line. Does not change bind-rules.json. Advanced surface. Needs RESOLVE_MCP_ADVANCED=1 and confirmedBy.",
     inputSchema: {
       type: "object",
       properties: {
-        proposalId: { type: "string", description: "Pending SOCI proposal id." },
+        proposalId: { type: "string", description: "Pending DSCI proposal id." },
         confirmedBy: { type: "string", description: "Human name confirming this reject. Required. Agents cannot confirm." },
       },
       required: ["proposalId", "confirmedBy"],
@@ -508,7 +508,7 @@ const asString = (value: unknown, name: string): string => {
 };
 
 /** The workspace, usage, rules, and placeholders a recommend or brief reads. */
-const shared = (workspace: ReturnType<typeof recommendContextFromArgs>["bind"]["workspace"], pack?: { bindRules?: Parameters<typeof mergeBindRules>[1] }) => ({ workspace, sock: readSock(), bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules), placeholders: readPlaceholders() });
+const shared = (workspace: ReturnType<typeof recommendContextFromArgs>["bind"]["workspace"], pack?: { bindRules?: Parameters<typeof mergeBindRules>[1] }) => ({ workspace, dsck: readDsck(), bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules), placeholders: readPlaceholders() });
 function recommendContextFromArgs(args: Record<string, unknown>) {
   const bind = contextBindFromArgs(args);
   const pack = packForRecommend(bind);
@@ -523,7 +523,7 @@ function listedRecipes(args: Record<string, unknown>) {
       loadRecipes(),
       resolveGraph(graphId)?.index,
       contextBindFromArgs(args),
-      readSock(),
+      readDsck(),
       loadBindRulesSafe(),
       readPlaceholders(),
     ),
@@ -572,7 +572,7 @@ function contextBindFromArgs(args: Record<string, unknown>) {
 
 function specRanking(args: Record<string, unknown>) {
   const { bind, pack, context: resolved } = recommendContextFromArgs(args);
-  return { ...(resolved ? { context: resolved } : {}), workspace: bind.workspace, sock: readSock(), bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules), placeholders: readPlaceholders() };
+  return { ...(resolved ? { context: resolved } : {}), workspace: bind.workspace, dsck: readDsck(), bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules), placeholders: readPlaceholders() };
 }
 
 function context(args: Record<string, unknown>) {
@@ -598,8 +598,8 @@ function attachCardMeta(result: unknown, args: Record<string, unknown>): unknown
     fileKey &&
     (typeof args["lastModified"] === "string" || typeof args["version"] === "string")
   ) {
-    saveSock(
-      applyFreshness(readSock(), [
+    saveDsck(
+      applyFreshness(readDsck(), [
         {
           fileKey,
           lastModified: typeof args["lastModified"] === "string" ? args["lastModified"] : undefined,
@@ -608,7 +608,7 @@ function attachCardMeta(result: unknown, args: Record<string, unknown>): unknown
       ]),
     );
   }
-  const freshness = freshnessSummary(readSock(), fileKey);
+  const freshness = freshnessSummary(readDsck(), fileKey);
   return freshness ? { ...result, freshness } : result;
 }
 
@@ -630,6 +630,8 @@ function briefingAnswers(raw: unknown, index: ReturnType<typeof context>["index"
 }
 
 export function callTool(name: string, rawArgs: unknown): unknown {
+  const renamed = renamedTo(name);
+  if (renamed) return (warnDeprecated(name, renamed), { deprecation: deprecationNotice(name, renamed), ...(callTool(renamed, rawArgs) as object) });
   if (REMOVED_MCP_TOOLS.has(name)) {
     const instead = DEPRECATED_INSTEAD[name] ?? "the current tools";
     throw new ToolError(`Tool "${name}" was removed. Use ${instead}.`);
@@ -698,11 +700,11 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       }
     }
 
-    case "list_soci":
+    case "list_dsci":
       return {
-        proposals: listSoci(readSock()),
-        pendingImprovements: readSock().proposals.filter((row) => row.status === "pending").length,
-        hint: "SOCI never auto-applies. Approve with approve_proposal (confirmedBy) or CLI: resolve approve <id> --who <name>. Recipe updates write recipes.json; variant/deprecation record a decision only.",
+        proposals: listDsci(readDsck()),
+        pendingImprovements: readDsck().proposals.filter((row) => row.status === "pending").length,
+        hint: "DSCI never auto-applies. Approve with approve_proposal (confirmedBy) or CLI: resolve approve <id> --who <name>. Recipe updates write recipes.json; variant/deprecation record a decision only.",
       };
 
     case "approve_proposal":
@@ -715,7 +717,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         const decided = runProposalDecision(proposalId, action, who, note);
         const hint =
           action === "reject"
-            ? "Proposal rejected. Audit line appended. SOCI never auto-applies."
+            ? "Proposal rejected. Audit line appended. DSCI never auto-applies."
             : decided.writesRecipes
               ? "Recipe overlay written atomically. Audit line appended. Figma was not edited."
               : decided.writesRules
@@ -734,7 +736,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       return exampleCard(index, asString(args["name"] ?? args["id"] ?? args["query"], "name"), {
         ...(resolvedContext ? { context: resolvedContext } : {}),
         workspace: bind.workspace,
-        sock: readSock(),
+        dsck: readDsck(),
         placeholders: readPlaceholders(),
       });
     }
@@ -745,7 +747,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const { bind, pack, context: resolvedContext } = recommendContextFromArgs(args);
       const card = componentUsageCard(index, asString(args["name"] ?? args["query"], "name"), {
         budgetChars: budget,
-        sock: readSock(),
+        dsck: readDsck(),
         workspace: bind.workspace ?? readWorkspace(),
         placeholders: readPlaceholders(),
         bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
@@ -781,7 +783,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const intent = briefingAnswers(args["answers"], index).intent(
         asString(args["intent"] ?? args["question"] ?? args["query"], "intent"),
       );
-      const screen = screenAskCard(intent, { sock: readSock(), index, recipes: loadRecipes() });
+      const screen = screenAskCard(intent, { dsck: readDsck(), index, recipes: loadRecipes() });
       if (screen) {
         recordGap(intent, screen);
         return screen;
@@ -833,7 +835,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           rules: libraryRulesFromArgs(args),
           context: pack,
           bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
-          sock: readSock(),
+          dsck: readDsck(),
           workspace: bind.workspace ?? readWorkspace(),
           placeholders: readPlaceholders(),
           designContext: args["designContext"],
@@ -854,7 +856,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         pack: typeof args["pack"] === "string" ? args["pack"] : undefined,
         domain: typeof args["domain"] === "string" ? args["domain"] : undefined,
       });
-      return withPendingImprovements(result, readSock());
+      return withPendingImprovements(result, readDsck());
     }
 
     case "list_recipes":
@@ -874,11 +876,11 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       if (compose && process.env["RESOLVE_MCP_ADVANCED"] === "1") {
         const { index } = context(args);
         const answerParts = briefingAnswers(args["answers"], index).parts;
-        const input = { request: query, answerParts, index, recipes, bind: contextBindFromArgs(args), sock: readSock(), bindRules: loadBindRulesSafe(), placeholders: readPlaceholders() };
+        const input = { request: query, answerParts, index, recipes, bind: contextBindFromArgs(args), dsck: readDsck(), bindRules: loadBindRulesSafe(), placeholders: readPlaceholders() };
         return capRecipePayload(runCompose(input, args["propose"] === true));
       }
-      const screen = screenAskCard(query, { sock: readSock(), index: resolveGraph(graphId)?.index, recipes });
-      if (screen) return withPendingImprovements(screen, readSock());
+      const screen = screenAskCard(query, { dsck: readDsck(), index: resolveGraph(graphId)?.index, recipes });
+      if (screen) return withPendingImprovements(screen, readDsck());
       const ranked = rankRecipes(recipes, query);
       const card = recipeCard(
         recipes,
@@ -886,7 +888,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         resolveGraph(graphId)?.index,
         extra,
         contextBindFromArgs(args),
-        readSock(),
+        readDsck(),
         loadBindRulesSafe(),
         readPlaceholders(),
       );
@@ -894,7 +896,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
       const note = compose ? { compose: "Composing needs the advanced surface (RESOLVE_MCP_ADVANCED=1)." } : {};
       return withPendingImprovements(
         capRecipePayload({ ...card, ...(also.length ? { also } : {}), ...note }),
-        readSock(),
+        readDsck(),
       );
     }
 
@@ -928,7 +930,7 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
           recipes: loadRecipes(),
           ...(pack ? { context: pack } : {}),
           bindRules: mergeBindRules(loadBindRulesSafe(), pack?.bindRules),
-          sock: readSock(),
+          dsck: readDsck(),
           workspace: bind.workspace ?? readWorkspace(),
           placeholders: readPlaceholders(),
           rules: libraryRulesFromArgs(args),

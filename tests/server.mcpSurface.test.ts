@@ -3,17 +3,17 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_TOOL_NAMES, ToolError, TOOLS, callTool, listToolDefinitions } from "@/server/tools";
-import { clearCache, graphPath, loadGraph, readSock, storeRoot } from "@/server/store";
+import { clearCache, graphPath, loadGraph, readDsck, storeRoot } from "@/server/store";
 import { saveGraph } from "@/server/store";
 import { graph, ids } from "./fixture";
 import { fillRecipe, starterRecipes } from "@/core/query";
-import { emptySock, recordVerifiedUsage } from "@/core/query/sock";
+import { emptyDsck, recordVerifiedUsage } from "@/core/query/dsck";
 import { indexGraph } from "@/core/query";
 import type { DesignGraph } from "@/core/model";
 
 const XML = `<frame id="1:1" name="Home"><component id="9:9" name="Main Card" /></frame>`;
 
-describe("MCP default surface + SOCK loop", () => {
+describe("MCP default surface + DSCK loop", () => {
   const previousHome = process.env["RESOLVE_HOME"];
   const previousAdvanced = process.env["RESOLVE_MCP_ADVANCED"];
 
@@ -55,7 +55,7 @@ describe("MCP default surface + SOCK loop", () => {
     for (const name of removed) expect(TOOLS.map((tool) => tool.name)).not.toContain(name);
     expect(TOOLS).toHaveLength(17);
     expect(listToolDefinitions(true, "figma").map((tool) => tool.name)).toEqual(
-      expect.arrayContaining(["approve_proposal", "reject_proposal", "list_soci", "spec_map"]),
+      expect.arrayContaining(["approve_proposal", "reject_proposal", "list_dsci", "spec_map"]),
     );
     expect(listToolDefinitions(true).length).toBe(TOOLS.length);
     expect(() => callTool("get_recipe", { query: "sign-in" })).toThrow(/was removed[\s\S]*recipe/);
@@ -99,9 +99,9 @@ describe("MCP default surface + SOCK loop", () => {
     saveGraph(graph);
     const result = callTool("verify_frame", { components: [ids.buttonSet] }) as { pass: boolean };
     expect(result.pass).toBe(true);
-    const sock = readSock();
-    expect(sock.facts.some((fact) => fact.name === "Button")).toBe(true);
-    expect(sock.facts.every((fact) => fact.countsTowardThreshold === false)).toBe(true);
+    const dsck = readDsck();
+    expect(dsck.facts.some((fact) => fact.name === "Button")).toBe(true);
+    expect(dsck.facts.every((fact) => fact.countsTowardThreshold === false)).toBe(true);
   });
 
   it("three list-only verify permutations do not make Button strong", () => {
@@ -109,13 +109,13 @@ describe("MCP default surface + SOCK loop", () => {
     callTool("verify_frame", { components: ["Button"] });
     callTool("verify_frame", { components: ["Button", "Card"] });
     callTool("verify_frame", { components: ["Card", "Button"] });
-    const sock = readSock();
+    const dsck = readDsck();
     const screens = new Set(
-      sock.facts.filter((fact) => fact.name === "Button" && fact.countsTowardThreshold !== false).map((fact) => fact.screenId),
+      dsck.facts.filter((fact) => fact.name === "Button" && fact.countsTowardThreshold !== false).map((fact) => fact.screenId),
     );
     expect(screens.size).toBe(0);
-    expect(sock.facts.filter((fact) => fact.name === "Button")).toEqual([]);
-    expect(sock.proposals).toEqual([]);
+    expect(dsck.facts.filter((fact) => fact.name === "Button")).toEqual([]);
+    expect(dsck.proposals).toEqual([]);
   });
 
   it("stale version on a later query is exposed in card metadata", () => {
@@ -135,7 +135,7 @@ describe("MCP default surface + SOCK loop", () => {
     expect(next.freshness?.stale).toBe(true);
   });
 
-  it("singleton SOCK usage does not fill a recipe; N screens can", () => {
+  it("singleton DSCK usage does not fill a recipe; N screens can", () => {
     const unused: DesignGraph = {
       ...graph,
       nodes: graph.nodes.map((node) =>
@@ -149,33 +149,33 @@ describe("MCP default surface + SOCK loop", () => {
     const banner = unused.nodes.find((node) => node.name === "Banner");
     expect(banner).toBeDefined();
 
-    let sock = emptySock(3);
-    sock = recordVerifiedUsage(sock, {
+    let dsck = emptyDsck(3);
+    dsck = recordVerifiedUsage(dsck, {
       screenId: "only",
       screenName: "One",
       masters: [{ id: banner!.id, name: "Banner", figmaNodeId: banner!.figmaNodeId }],
     });
-    const weak = fillRecipe(index, recipe!, undefined, undefined, undefined, sock);
+    const weak = fillRecipe(index, recipe!, undefined, undefined, undefined, dsck);
     const weakSlot = weak.slots.find((slot) => slot.role === "illustration" || slot.hints.includes("empty"));
     void weakSlot;
     const bannerFill = weak.slots.find((slot) => slot.master?.name === "Banner");
     expect(bannerFill).toBeUndefined();
 
-    sock = recordVerifiedUsage(sock, {
+    dsck = recordVerifiedUsage(dsck, {
       screenId: "two",
       screenName: "Two",
       masters: [{ id: banner!.id, name: "Banner" }],
     });
-    sock = recordVerifiedUsage(sock, {
+    dsck = recordVerifiedUsage(dsck, {
       screenId: "three",
       screenName: "Three",
       masters: [{ id: banner!.id, name: "Banner" }],
     });
-    expect(usageReady(sock, banner!.id)).toBe(true);
+    expect(usageReady(dsck, banner!.id)).toBe(true);
   });
 });
 
-function usageReady(sock: ReturnType<typeof readSock>, id: string): boolean {
-  const screens = new Set(sock.facts.filter((fact) => fact.masterId === id).map((fact) => fact.screenId));
-  return screens.size >= sock.threshold;
+function usageReady(dsck: ReturnType<typeof readDsck>, id: string): boolean {
+  const screens = new Set(dsck.facts.filter((fact) => fact.masterId === id).map((fact) => fact.screenId));
+  return screens.size >= dsck.threshold;
 }

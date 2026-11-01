@@ -16,7 +16,7 @@ import { recommendMasters } from "./recommendMasters";
 import type { RecommendContext } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementFor } from "./replacements";
 import { screenInventory } from "./screenInventory";
-import type { SockState } from "./sock";
+import type { DsckState } from "./dsck";
 import { asResolvedNode, exampleQuery, namedNode, usageCardForComponent } from "./usageCard";
 import type { WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
@@ -135,7 +135,7 @@ export function componentUsageCard(
   name: string,
   options: {
     budgetChars?: number;
-    sock?: SockState;
+    dsck?: DsckState;
     context?: RecommendContext;
     workspace?: WorkspaceManifest;
     placeholders?: string[];
@@ -233,7 +233,7 @@ export function exampleCard(
   index: GraphIndex,
   name: string,
   options: {
-    sock?: SockState;
+    dsck?: DsckState;
     context?: RecommendContext;
     workspace?: WorkspaceManifest;
     placeholders?: string[];

@@ -18,7 +18,7 @@ import {
 import type { BindRulesFile } from "./bindRules";
 import { recipeCard, starterRecipes, type Recipe } from "./recipes";
 import { TOP3_REPORT_MIN, top1Label, top3Label } from "./scoreLabels";
-import type { SockState } from "./sock";
+import type { DsckState } from "./dsck";
 import type { WorkspaceManifest } from "./workspace";
 import {
   asRecord,
@@ -294,7 +294,7 @@ function bindCases(index: GraphIndex, cases: GoldenCase[]): BoundCase[] {
 
 export interface ScoreRunOptions {
   recipes?: Recipe[];
-  sock?: SockState;
+  dsck?: DsckState;
   bindRules?: BindRulesFile;
   workspace?: WorkspaceManifest;
   at?: string;
@@ -362,13 +362,13 @@ function runTool(
       return recommendMasters(index, row.intent, {
         ...(context ? { context } : {}),
         ...(options.workspace ? { workspace: options.workspace } : {}),
-        ...(options.sock ? { sock: options.sock } : {}),
+        ...(options.dsck ? { dsck: options.dsck } : {}),
         ...(options.bindRules ? { bindRules: options.bindRules } : {}),
       });
     case "resolve":
       return componentUsageCard(index, row.intent, {
         ...(context ? { context } : {}),
-        ...(options.sock ? { sock: options.sock } : {}),
+        ...(options.dsck ? { dsck: options.dsck } : {}),
         ...(options.bindRules ? { bindRules: options.bindRules } : {}),
       });
     case "recipe":
@@ -387,7 +387,7 @@ function runTool(
           : options.workspace
             ? { packs: [], workspace: options.workspace }
             : undefined,
-        options.sock,
+        options.dsck,
         options.bindRules,
       );
     case "verify":
@@ -395,7 +395,7 @@ function runTool(
         components: [row.intent],
         ...(context ? { context } : {}),
         ...(options.bindRules ? { bindRules: options.bindRules } : {}),
-        ...(options.sock ? { sock: options.sock } : {}),
+        ...(options.dsck ? { dsck: options.dsck } : {}),
       });
     default: {
       const _exhaustive: never = tool;

@@ -6,10 +6,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
 import { indexGraph } from "@/core/query/GraphIndex";
-import { packFromFiles, validateAiPick, type MeaningPack, type PickRequest } from "@/core/query/meaning/sock";
+import { packFromFiles, validateAiPick, type MeaningPack, type PickRequest } from "@/core/query/meaning/dsck";
 import { recommendMasters } from "@/core/query/recommendMasters";
 import { aiPicksEnabled } from "@/server/pluginSettings";
-import { loadPacks } from "../scripts/meaning-sock-build";
+import { loadPacks } from "../scripts/meaning-dsck-build";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
 const MAIN_RECOMMEND =

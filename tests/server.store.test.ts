@@ -11,13 +11,13 @@ import {
   listGraphs,
   loadContextBind,
   loadGraph,
-  loadSock,
+  loadDsck,
   missingGraphMessage,
   readContextPacks,
   readWorkspace,
   saveGraph,
   saveIngestedFile,
-  sockPath,
+  dsckPath,
   storeInfo,
   storeRoot,
   workspacePath,
@@ -208,7 +208,7 @@ describe("store", () => {
     expect(() => defaultGlobalStore({ HOME: "/tmp/fake-home", RESOLVE_WORKSPACE: "a\\b" })).toThrow(/RESOLVE_WORKSPACE/);
   });
 
-  it("clamps sock.json threshold and proposalCap and trims corrections", () => {
+  it("clamps dsck.json threshold and proposalCap and trims corrections", () => {
     const corrections = Array.from({ length: 201 }, (_, i) => ({
       fromId: "a",
       toId: "b",
@@ -219,17 +219,17 @@ describe("store", () => {
       verifiedAt: "2026-01-01T00:00:00.000Z",
     }));
     writeFileSync(
-      sockPath(),
+      dsckPath(),
       `${JSON.stringify({ version: 1, threshold: 1, proposalCap: 99, facts: [], freshness: {}, proposals: [], corrections })}\n`,
     );
     clearCache();
-    const sock = loadSock();
-    expect(sock?.threshold).toBe(3);
-    expect(sock?.proposalCap).toBe(12);
-    expect(sock?.corrections).toHaveLength(200);
-    expect(sock?.corrections?.[0]?.screenId).toBe("s1");
-    expect(sock?.warnings?.some((line) => /threshold/.test(line))).toBe(true);
-    expect(sock?.warnings?.some((line) => /proposalCap/.test(line))).toBe(true);
-    expect(sock?.warnings?.some((line) => /200/.test(line))).toBe(true);
+    const dsck = loadDsck();
+    expect(dsck?.threshold).toBe(3);
+    expect(dsck?.proposalCap).toBe(12);
+    expect(dsck?.corrections).toHaveLength(200);
+    expect(dsck?.corrections?.[0]?.screenId).toBe("s1");
+    expect(dsck?.warnings?.some((line) => /threshold/.test(line))).toBe(true);
+    expect(dsck?.warnings?.some((line) => /proposalCap/.test(line))).toBe(true);
+    expect(dsck?.warnings?.some((line) => /200/.test(line))).toBe(true);
   });
 });

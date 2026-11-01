@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { engineShortlist, stableShortlist } from "@/core/query/meaning/sock";
-import type { MeaningPack, SockComponent } from "@/core/query/meaning/sock";
+import { engineShortlist, stableShortlist } from "@/core/query/meaning/dsck";
+import type { MeaningPack, DsckComponent } from "@/core/query/meaning/dsck";
 
-function component(id: string, name: string, description: string): SockComponent {
+function component(id: string, name: string, description: string): DsckComponent {
   return {
     id,
     name,

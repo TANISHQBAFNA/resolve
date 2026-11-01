@@ -5,7 +5,7 @@ import { bindingName, codeText, type AngularTwin, type Twin } from "./codeMap";
 import type { IngredientPart } from "./ingredients";
 import type { FilledRecipe, Recipe } from "./recipes";
 import type { ContextPack } from "./contextPacks";
-import type { SociProposal } from "./sock";
+import type { DsciProposal } from "./dsck";
 import { designerPlacedInstances, hiddenUnder } from "./placed";
 import { copyValues, propertyBlock, type PropertyRow } from "./componentProperties";
 import { HANDOFF_NEXT } from "./nextSteps";
@@ -74,7 +74,7 @@ export interface VerifyLike {
 }
 
 export interface HandoffDecisionInput {
-  proposal: SociProposal;
+  proposal: DsciProposal;
   who: string;
   when: string;
 }
@@ -89,7 +89,7 @@ export interface HandoffOptions {
   recipes?: Recipe[];
   matchRecipe?: (recipes: Recipe[], query: string) => Recipe | undefined;
   context?: ContextPack;
-  /** Approved SOCI decisions (with who / when from the audit log). Only those about this screen are shown. */
+  /** Approved DSCI decisions (with who / when from the audit log). Only those about this screen are shown. */
   decisions?: HandoffDecisionInput[];
   /** Levels of parts per component (1-3). Default 3. */
   depth?: number;

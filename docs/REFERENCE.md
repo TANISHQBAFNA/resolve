@@ -248,24 +248,24 @@ Two kinds of files live in `.resolve/` on your computer. **Team files** are the 
 
 ## How it works in detail
 
-### What an MSOCK is
+### What a DSMCK is
 
-**In plain words:** Resolve keeps two things. **SOCK** is the facts: what each of your components is. **SOCI** is the instructions: how to use them on a screen. **MSOCK** is just the name for both together. You never need these words to use Resolve.
+**In plain words:** Resolve keeps two things. **DSCK** (DS of Connected Knowledge) is the facts: what each of your components is. **DSCI** (DS of Connected Intelligence) is the instructions: how to use them on a screen. **DSMCK** (DS Master Connected Knowledge) is just the name for both together. You never need these words to use Resolve.
 
-Resolve is a design-system **MSOCK**: **SOCK** knowledge plus **SOCI** instructions, packed so that an AI can get the right component and the right context to design a screen.
+Resolve is a design-system **DSMCK**: **DSCK** knowledge plus **DSCI** instructions, packed so that an AI can get the right component and the right context to design a screen.
 
 | Part | What it holds | Where it lives | Example (Acme) |
 | --- | --- | --- | --- |
-| **SOCK** (System of Connected Knowledge) | The facts about your library: every component, its variants and properties with allowed values and defaults, real examples of it on screens, which parts are retired, which screens used it and passed the check, and (when the team maps it) its React or other code twin. | The learned graph and SOCK facts in your store (`.resolve/`), plus your team files (code map, synonyms). | Payee picker = Avatar + Button. Code: `AcmePayeePickerComponent`, `<acme-payee-picker>`. |
-| **SOCI** (System of Connected Intelligence) and instructions | How the AI must use that knowledge: the always-on "ask Resolve first" rule, screen recipes, context from the requirements, human bind rules, and SOCI's suggested rules and recipes (a person approves each one). | `rules/resolve.mdc`, `rules/resolve-figma.mdc`, `skills/resolve/SKILL.md`, `skills/resolve-figma/SKILL.md`, the slash commands, `.resolve/recipes.json`, `.resolve/bind-rules.json`, `.resolve/context-packs.json`, approved SOCI decisions. | "On the pay step, use Button." "A Send money screen needs a payee picker, an amount field and a primary button." |
+| **DSCK** (DS of Connected Knowledge) | The facts about your library: every component, its variants and properties with allowed values and defaults, real examples of it on screens, which parts are retired, which screens used it and passed the check, and (when the team maps it) its React or other code twin. | The learned graph and DSCK facts in your store (`.resolve/`), plus your team files (code map, synonyms). | Payee picker = Avatar + Button. Code: `AcmePayeePickerComponent`, `<acme-payee-picker>`. |
+| **DSCI** (DS of Connected Intelligence) and instructions | How the AI must use that knowledge: the always-on "ask Resolve first" rule, screen recipes, context from the requirements, human bind rules, and DSCI's suggested rules and recipes (a person approves each one). | `rules/resolve.mdc`, `rules/resolve-figma.mdc`, `skills/resolve/SKILL.md`, `skills/resolve-figma/SKILL.md`, the slash commands, `.resolve/recipes.json`, `.resolve/bind-rules.json`, `.resolve/context-packs.json`, approved DSCI decisions. | "On the pay step, use Button." "A Send money screen needs a payee picker, an amount field and a primary button." |
 
-The AI tool asks; Resolve answers from the MSOCK; the AI tool draws. Resolve never draws and never changes your Figma file.
+The AI tool asks; Resolve answers from the DSMCK; the AI tool draws. Resolve never draws and never changes your Figma file.
 
 ```
 Designer / requirements ──► AI tool (Claude Code or Cursor)
                                │  always-on rule: "ask Resolve first"
                                ▼
-                      Resolve (MSOCK, read-only)
+                      Resolve (DSMCK, read-only)
      known name?  ── yes ──► resolve      → that exact component + Figma id
                   └─ no ───► recommend    → best match, "weak match", or no match
      screen job?  ─────────► recipe       → slots filled with real components
@@ -413,8 +413,8 @@ These are explained where they first appear. This list is a reminder, and you do
 - **Graph:** the map of your library that learning builds from the Figma file. It is a file in the store (`graph.json`). Every answer comes from it, so Resolve never needs to open Figma to answer.
 - **Stub:** an empty placeholder for a component that lives in another Figma file. It has a name but no variants and no details here. Resolve ignores a stub when a real component has the same name.
 - **Bind rule:** a human-written rule such as "on the pay step, use this Button".
-- **SOCI** (System of Connected Intelligence): the part of Resolve that watches which components pass the check on real screens and *suggests* a rule or recipe. It never applies a suggestion; a person approves or rejects it. **SOCK** (System of Connected Knowledge) is the learned facts about your library that those suggestions come from.
-- **MSOCK:** Resolve as a whole: SOCK knowledge plus SOCI instructions that an AI uses to pick the right component and context for a screen. See [What an MSOCK is](#what-an-msock-is).
+- **DSCI** (DS of Connected Intelligence): the part of Resolve that watches which components pass the check on real screens and *suggests* a rule or recipe. It never applies a suggestion; a person approves or rejects it. **DSCK** (DS of Connected Knowledge) is the learned facts about your library that those suggestions come from.
+- **DSMCK** (DS Master Connected Knowledge): Resolve as a whole: DSCK knowledge plus DSCI instructions that an AI uses to pick the right component and context for a screen. See [What a DSMCK is](#what-a-dsmck-is).
 - **Phrase finder:** `recommend`, used when the component name is not known. When the name is known, `resolve` answers directly.
 
 ## For engineers and testers
@@ -578,8 +578,8 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `code-map [--json \| --retired \| --pairs \| --unmatched \| --suggest]` | One command for the Figma-to-code map. The report lists imports and selectors. `--retired` lists retired parts with their code and replacement. `--pairs` and `--unmatched` show how Figma components and coded components join (mapped, exact, alias) and what is unmatched on each side. `--suggest` adds likely pairs; a likely pair is not a link. `--write "Figma name=code[,code]"` appends confirmed pairs to `.resolve/mapping.json` until a component map exists, then it confirms that one pair in the component map. `--draft` writes proposed rows (evidence, suggested, or risky) into `.resolve/component-map.json` and never marks them confirmed. `--confirm "Figma=code"` and `--deny "Figma=code"` review one row. `--confirm-evidence` confirms proposed rows whose tier is `evidence` and leaves suggested and `risky: same name only` rows proposed. With the component map present, the run links only confirmed rows and `component.json` manifests, and reports `unlinked, please confirm` and `stale`. Without it, joining is unchanged and the report says to run `--draft`. `--init` writes a spreadsheet (CSV) to fill in; `--import <file.csv>` turns it into the import map (`--force` keeps entries the CSV has no row for, `--replace` drops them). A broken `code-map.json` is not overwritten. `--check "<name>" [--handoff <handoff.json>]` answers from the committed handoff and code map only (no learned cache). `--handoff` defaults to `./handoff.json`. `scan`, `suggest`, and `review` read a component package, propose pairs, and confirm them. |
 | `pack validate [path]` | Checks a context pack: slug id, known accessibility level, recipe ids that exist, and no Figma file key or node id. |
 | `rules` | Lists the bind rules people wrote. |
-| `soci` | Lists pending SOCI proposals (suggested rules and recipes). |
-| `sync` | Syncs this project's local copy (`.resolve/local/`) of components, SOCK and SOCI now. Every other command also does it when the store changed. |
+| `dsci` | Lists pending DSCI proposals (suggested rules and recipes). |
+| `sync` | Syncs this project's local copy (`.resolve/local/`) of components, DSCK and DSCI now. Every other command also does it when the store changed. |
 | `approve <id> --who <name>` / `reject <id> --who <name>` | A person says yes or no to a proposal. |
 | `cousins "<frame>"` | Finds look-alike copies of library parts in product files. Needs a frame name, or `--components a,b`. |
 | `workspace` | Linked files and store location. |
@@ -897,7 +897,7 @@ One sheet a developer can build a designed screen from. For each screen it lists
   - the parts inside it, up to 3 levels (`--depth`), each with its code.
 - **Ingredients**: every part once, with its code, its status (`mapped`, `unmapped`, `retired`, `name-guess`, `other-library`, `not-found`) and which components use it.
 - **Verify**: the same check as `verify`.
-- **Decisions**: approved SOCI decisions about this screen, its recipe or the components placed on it, with who, when (with its time zone, for example `2026-02-03 10:00 UTC`) and why (from the approval audit line). It says "None approved for this screen yet" until the first approval.
+- **Decisions**: approved DSCI decisions about this screen, its recipe or the components placed on it, with who, when (with its time zone, for example `2026-02-03 10:00 UTC`) and why (from the approval audit line). It says "None approved for this screen yet" until the first approval.
 - **Open questions**: unmapped components and parts, components and parts from libraries you have not learned, required recipe slots that are not on the screen, and anything verify flagged.
 
 A component from a library file you have not learned is `status: "other-library"`: it has no Figma id of this file and its code is unknown, so the sheet says to learn that library rather than to map it. It does not block the handoff. In the JSON its `code` is `"unknown"` (as is a `not-found` one in a draft), not `"unmapped"`, and `summary.unmapped` does not count it.
@@ -931,26 +931,26 @@ Fields (`schemaVersion` 1): `kind` (brief, compose, handoff), `createdAt`, `requ
 
 Follow-up, not in this version: an approved record does not yet skip future brief questions.
 
-#### rules, soci, approve, reject
+#### rules, dsci, approve, reject
 
 ```bash
 npm run resolve -- rules
-npm run resolve -- soci
+npm run resolve -- dsci
 npm run resolve -- approve <proposal-id> --who "Priya"
 npm run resolve -- reject <proposal-id> --who "Priya"
 ```
 
-### The project's own copy of SOCK and SOCI
+### The project's own copy of DSCK and DSCI
 
 Each project you run Resolve in keeps its own copy in `<project>/.resolve/local/` (the project is the nearest folder with `.git`, `package.json` or `.resolve`). Every run (CLI command or MCP tool call) syncs it from the store when the store changed:
 
 - `components.json`: every component and component set. New ones are added, changed ones get a new fingerprint and `updatedAt`. A component that left the library is kept and marked `stale` with `staleSince`. Nothing is deleted.
-- `sock.json`: the SOCK facts, refreshed from the store each time.
-- `soci.json`: the SOCI proposals. An approved proposal stays approved. If the store's version of it changes, the approved version is kept, the change waits under `incoming` and the proposal is flagged `changed`. An approved proposal that names a stale component is flagged `staleComponent`. Sync never approves anything. Only `resolve approve <id> --who <name>` does.
+- `dsck.json`: the DSCK facts, refreshed from the store each time.
+- `dsci.json`: the DSCI proposals. An approved proposal stays approved. If the store's version of it changes, the approved version is kept, the change waits under `incoming` and the proposal is flagged `changed`. An approved proposal that names a stale component is flagged `staleComponent`. Sync never approves anything. Only `resolve approve <id> --who <name>` does.
 
 Problems are warnings with a `next:` step on stderr and never stop the run. `resolve sync` forces a sync and prints the report. `RESOLVE_PROJECT_DIR` picks the folder; `RESOLVE_PROJECT_COPY=0` turns the copy off. Resolve never writes the copy into your home folder or into the store.
 
-`rules` lists human-written bind rules (must use / must not use / prefer; see [`docs/BIND-RULES.md`](BIND-RULES.md)). `soci` lists suggestions made from real use. Nothing is ever applied automatically. `approve` and `reject` record who decided (see [`docs/SOCI.md`](SOCI.md)).
+`rules` lists human-written bind rules (must use / must not use / prefer; see [`docs/BIND-RULES.md`](BIND-RULES.md)). `dsci` lists suggestions made from real use. Nothing is ever applied automatically. `approve` and `reject` record who decided (see [`docs/DSCI.md`](DSCI.md)).
 
 #### cousins
 
@@ -1002,7 +1002,7 @@ The headline number is `npm run resolve -- score phrases` (designer phrases). Th
 
 This is the Figma mode. Only the active mode's tools are offered: `code` mode offers `code_scan`, `code_pick`, `code_check` and `code_map` instead, and `both` offers all 12 default tools. See [Modes](#modes-figma-code-or-both).
 
-The same abilities are offered to AI tools as 8 MCP tools by default: `learn_library`, `recipe`, `brief`, `recommend`, `resolve`, `get_example`, `verify_frame` and `check_cousins`. Set `RESOLVE_MCP_ADVANCED=1` for 9 more (17 in all): `list_soci`, `approve_proposal`, `reject_proposal`, `list_recipes`, `get_ingredients`, `get_handoff`, `list_graphs`, `spec_map` and `decision_record`. They return the same cards as the command line. `get_ingredients` (see [ingredients](#ingredients)) and `get_handoff` (see [handoff](#handoff)) are in the advanced set. `code_map` is the one map tool, on the code workflow: pairs, unmatched, `suggest`, and `action` `scan`, `suggest`, or `review`. `code_map_scan`, `code_map_suggest`, and `code_map_review` still run when the advanced switch is on and say to use `code_map`. The [slash commands](#slash-commands-in-detail), including `/code-map`, are also offered as MCP prompts (`prompts/list`, `prompts/get`); prompts are not tools and do not change the count.
+The same abilities are offered to AI tools as 8 MCP tools by default: `learn_library`, `recipe`, `brief`, `recommend`, `resolve`, `get_example`, `verify_frame` and `check_cousins`. Set `RESOLVE_MCP_ADVANCED=1` for 9 more (17 in all): `list_dsci`, `approve_proposal`, `reject_proposal`, `list_recipes`, `get_ingredients`, `get_handoff`, `list_graphs`, `spec_map` and `decision_record`. They return the same cards as the command line. `get_ingredients` (see [ingredients](#ingredients)) and `get_handoff` (see [handoff](#handoff)) are in the advanced set. `code_map` is the one map tool, on the code workflow: pairs, unmatched, `suggest`, and `action` `scan`, `suggest`, or `review`. `code_map_scan`, `code_map_suggest`, and `code_map_review` still run when the advanced switch is on and say to use `code_map`. The [slash commands](#slash-commands-in-detail), including `/code-map`, are also offered as MCP prompts (`prompts/list`, `prompts/get`); prompts are not tools and do not change the count.
 
 ### Team config files
 
@@ -1240,7 +1240,7 @@ Acme, when the library has Compact List:
 
 If two parts tie, the older word score breaks the tie. A one-letter typo still finds the part. A lead is weak only when part of the ask names a different part.
 
-`meaning/` is a generated copy of each component's own name, properties, and description. In every copy, `Aliases:` lines come from the repo's synonym list (`src/data/synonyms.json`), not from the library or its docs. A copy can also carry one published sentence from a public library's own docs, with its source and licence kept in the data file. Acme copies add no other text the pack does not already contain. A `Thin:` line means the description or the guidelines are missing. Rebuild with `node scripts/build-meaning-sock.mjs meaning`. `recommend` and `brief` keep using the dictionary above.
+`meaning/` is a generated copy of each component's own name, properties, and description. In every copy, `Aliases:` lines come from the repo's synonym list (`src/data/synonyms.json`), not from the library or its docs. A copy can also carry one published sentence from a public library's own docs, with its source and licence kept in the data file. Acme copies add no other text the pack does not already contain. A `Thin:` line means the description or the guidelines are missing. Rebuild with `node scripts/build-meaning-dsck.mjs meaning`. `recommend` and `brief` keep using the dictionary above.
 
 AI picks stay off unless `RESOLVE_AI_PICKS=1`. With the switch off, `recommend` is unchanged. `resolve pick` needs a repo checkout for now, because the installed package does not ship the meaning files. An Acme request, when the switch is on:
 
@@ -1293,7 +1293,7 @@ npm run build     # typecheck + browser build + server build
 - Plug-and-play next to Figma: [`docs/SETUP-MCP.md`](SETUP-MCP.md)
 - Designer guide: [`docs/GUIDE.md`](GUIDE.md)
 - Bind rules and approving a proposal: [`docs/BIND-RULES.md`](BIND-RULES.md)
-- SOCI: [`docs/SOCI.md`](SOCI.md)
+- DSCI: [`docs/DSCI.md`](DSCI.md)
 - Screen recipes: [`docs/RECIPES.md`](RECIPES.md)
 - Accuracy scoreboard: [`docs/SCOREBOARD.md`](SCOREBOARD.md)
 - Cursor steps: [`docs/CURSOR-RESOLVE.md`](CURSOR-RESOLVE.md)

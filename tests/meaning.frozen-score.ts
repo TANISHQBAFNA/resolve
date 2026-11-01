@@ -1,11 +1,11 @@
 /**
  * Score the frozen meaning set. The fixture's expectations are not edited here.
- * Report only. No score floor. Generate files with scripts/build-meaning-sock.mjs.
+ * Report only. No score floor. Generate files with scripts/build-meaning-dsck.mjs.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { meaningCandidates, type MeaningCandidate, type MeaningPack } from "@/core/query/meaning/sock";
-import { loadPacks, writePacks } from "../scripts/meaning-sock-build";
+import { meaningCandidates, type MeaningCandidate, type MeaningPack } from "@/core/query/meaning/dsck";
+import { loadPacks, writePacks } from "../scripts/meaning-dsck-build";
 
 export { writePacks };
 

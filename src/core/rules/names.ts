@@ -41,7 +41,7 @@ export function nameTokens(text: string): string[] {
 
 /**
  * Nouns that do not name a specific component.
- * Cousin check, SOCI, and the scoreboard share this set.
+ * Cousin check, DSCI, and the scoreboard share this set.
  * Recommend and recipe keep their own stopword lists.
  */
 export function sharedNameTokens(

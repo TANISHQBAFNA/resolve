@@ -10,7 +10,7 @@ import {
   storedText,
 } from "@/core/ingestion/textStamps";
 import type { GraphIndex } from "./GraphIndex";
-import type { SockState, UsageFact } from "./sock";
+import type { DsckState, UsageFact } from "./dsck";
 import { nodeFileKey } from "./workspaceMerge";
 
 export { TEXT_DEFAULT_UNKNOWN, TEXT_NO_FRAME, TEXT_NO_LAYERS, TEXT_UNCHECKED_REASON };
@@ -54,7 +54,7 @@ const LOREM_EXACT = new Set([
 const MASTER_TYPES = new Set<string>(COMPONENT_DEFINITION_TYPES);
 
 export interface ExampleQuery {
-  sock?: SockState;
+  dsck?: DsckState;
   product?: string;
   journey?: string;
   domain?: string;
@@ -502,11 +502,11 @@ function factMatchesScreen(fact: UsageFact, screen: GraphNode, fileKey?: string)
   return Boolean(fileKey && fact.screenId === `${fileKey}:${fig}`);
 }
 
-function preferredConfig(sock: SockState | undefined, ids: string[]): string | undefined {
-  if (!sock) return undefined;
+function preferredConfig(dsck: DsckState | undefined, ids: string[]): string | undefined {
+  if (!dsck) return undefined;
   const family = new Set(ids);
   const screens = new Map<string, Set<string>>();
-  for (const fact of sock.facts) {
+  for (const fact of dsck.facts) {
     if (!family.has(fact.masterId)) continue;
     if (fact.countsTowardThreshold === false || !fact.promoted || fact.deprecated || fact.private) continue;
     if (!fact.configKey) continue;
@@ -519,7 +519,7 @@ function preferredConfig(sock: SockState | undefined, ids: string[]): string | u
   }
   let best: { key: string; count: number } | undefined;
   for (const [key, bucket] of screens) {
-    if (bucket.size < sock.threshold) continue;
+    if (bucket.size < dsck.threshold) continue;
     if (!best || bucket.size > best.count || (bucket.size === best.count && key < best.key)) {
       best = { key, count: bucket.size };
     }
@@ -552,7 +552,7 @@ function resolveExample(index: GraphIndex, master: GraphNode, query: ExampleQuer
 
   const variantPick = node.type === "VARIANT";
   const ids = variantPick ? [node.id] : familyIds(index, node);
-  const preferredKey = preferredConfig(query.sock, ids);
+  const preferredKey = preferredConfig(query.dsck, ids);
   const instances = variantPick ? index.getAllInstancesOf(node.id) : instancesOfFamily(index, node);
   const ranked: Array<{
     instance: GraphNode;
@@ -593,7 +593,7 @@ function resolveExample(index: GraphIndex, master: GraphNode, query: ExampleQuer
       continue;
     }
     const fileKey = fileKeyOf(index, screen, query);
-    const facts = (query.sock?.facts ?? []).filter(
+    const facts = (query.dsck?.facts ?? []).filter(
       (fact) => ids.includes(fact.masterId) && factMatchesScreen(fact, screen, fileKey),
     );
     const verified = facts.some((fact) => fact.countsTowardThreshold !== false && fact.promoted);
@@ -692,7 +692,7 @@ export function examplePointer(
   };
 }
 
-/** Populated shape on this frame, for SOCK. Bare defaults are omitted. */
+/** Populated shape on this frame, for DSCK. Bare defaults are omitted. */
 export function exampleFactForMasterOnFrame(
   index: GraphIndex,
   frameId: string,

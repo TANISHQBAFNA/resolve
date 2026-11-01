@@ -14,10 +14,10 @@ export * from "./workspace";
 export * from "./workspaceMerge";
 export * from "./cousins";
 export * from "./placeReady";
-export * from "./sock";
+export * from "./dsck";
 export * from "./bindRules";
-export * from "./soci";
-export * from "./sociDecide";
+export * from "./dsci";
+export * from "./dsciDecide";
 export * from "./screenJobs";
 export * from "./examples";
 export {

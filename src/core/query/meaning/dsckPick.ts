@@ -1,4 +1,4 @@
-import type { MeaningPack, PickCheck, PickRequest, PickResult, PickTier, SockComponent, ThinEntry } from "./sock";
+import type { MeaningPack, PickCheck, PickRequest, PickResult, PickTier, DsckComponent, ThinEntry } from "./dsck";
 
 const PICK_TIERS = ["place", "ask", "no-fit"] as const;
 const RETIRED_TEXT = /\bdeprecated\b|\bretired\b|replaced by/i;
@@ -15,13 +15,13 @@ function wordCount(quote: string): number {
   return quote.split(" ").filter(Boolean).length;
 }
 
-function staleLine(libraryBuiltAt: string | undefined, sockBuiltAt: string): string | undefined {
-  if (!libraryBuiltAt || !sockBuiltAt) return undefined;
-  if (libraryBuiltAt > sockBuiltAt) return `Meaning files are older than the library (${sockBuiltAt} < ${libraryBuiltAt}). Rebuild them.`;
+function staleLine(libraryBuiltAt: string | undefined, dsckBuiltAt: string): string | undefined {
+  if (!libraryBuiltAt || !dsckBuiltAt) return undefined;
+  if (libraryBuiltAt > dsckBuiltAt) return `Meaning files are older than the library (${dsckBuiltAt} < ${libraryBuiltAt}). Rebuild them.`;
   return undefined;
 }
 
-function textRetired(component: SockComponent): boolean {
+function textRetired(component: DsckComponent): boolean {
   if (component.retired) return true;
   return RETIRED_TEXT.test(`${component.description}\n${component.job}`);
 }
@@ -39,21 +39,21 @@ function contentWord(quote: string): boolean {
   });
 }
 
-function textLines(component: SockComponent): string[] {
+function textLines(component: DsckComponent): string[] {
   const lines = component.quoteLines?.length ? component.quoteLines : [component.description, component.job].filter(Boolean);
   return lines.flatMap((line) => line.split(/\r?\n/)).map((line) => line.trim()).filter(Boolean);
 }
 
-function hasRealDescription(component: SockComponent): boolean {
+function hasRealDescription(component: DsckComponent): boolean {
   const name = bare(component.name);
   return textLines(component).some((line) => bare(line) !== name);
 }
 
-function hasProperties(component: SockComponent): boolean {
+function hasProperties(component: DsckComponent): boolean {
   return Object.keys(component.propOptions).length > 0;
 }
 
-function aliasHit(component: SockComponent, quote: string): boolean {
+function aliasHit(component: DsckComponent, quote: string): boolean {
   const key = bare(quote);
   return component.aliases.some((name) => bare(name) === key);
 }
@@ -66,7 +66,7 @@ function visible(text: string): string {
   return text.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/https?:\/\/\S+/gi, " ").replace(/\bwww\.\S+/gi, " ");
 }
 
-function quoteCheck(component: SockComponent, reason: string | undefined): { fail?: "quote" | "alias-quote"; nameOnly?: boolean } {
+function quoteCheck(component: DsckComponent, reason: string | undefined): { fail?: "quote" | "alias-quote"; nameOnly?: boolean } {
   if (!reason || /[\r\n]/.test(reason) || hasLink(reason)) return { fail: "quote" };
   const quote = normQuote(reason);
   if (!quote) return { fail: "quote" };
@@ -91,7 +91,7 @@ function quoteCheck(component: SockComponent, reason: string | undefined): { fai
   return { fail: "quote" };
 }
 
-function propsFail(component: SockComponent, props: Record<string, string>): boolean {
+function propsFail(component: DsckComponent, props: Record<string, string>): boolean {
   for (const [key, value] of Object.entries(props)) {
     const options = component.propOptions[key.toLowerCase()];
     if (!options || !options.some((option) => option.toLowerCase() === value.toLowerCase())) return true;
@@ -122,7 +122,7 @@ function contentTokens(text: string): Set<string> {
   return new Set(bare(text).split(" ").map(stem).filter((word) => word.length > 1 && !STOP.has(word)));
 }
 
-function componentTokens(component: SockComponent): Set<string> {
+function componentTokens(component: DsckComponent): Set<string> {
   return contentTokens([component.name, ...component.aliases, ...textLines(component)].join(" "));
 }
 
@@ -139,7 +139,7 @@ const OFFERED_BONUS = 1;
  * Fewer than two scored neighbours: fill from the ids the model offered, A–Z.
  * ponytail: word overlap only, long descriptions score high; swap in a real similarity if a blind run says top-3 fell.
  */
-export function engineShortlist(pack: MeaningPack, lead: SockComponent, ask: string, offered: readonly string[]): string[] {
+export function engineShortlist(pack: MeaningPack, lead: DsckComponent, ask: string, offered: readonly string[]): string[] {
   const askWords = contentTokens(ask);
   const leadWords = componentTokens(lead);
   const shared = (words: Set<string>, other: Set<string>) => [...words].filter((word) => other.has(word)).length;
@@ -222,7 +222,7 @@ function proseLines(markdown: string): string[] {
   });
 }
 
-export function componentFromMarkdown(id: string, markdown: string): SockComponent {
+export function componentFromMarkdown(id: string, markdown: string): DsckComponent {
   const lines = markdown.split("\n");
   const title = lines.find((line) => line.startsWith("# ")) ?? "";
   const name = title.includes(" / ") ? title.slice(title.lastIndexOf(" / ") + 3).trim() : id;
