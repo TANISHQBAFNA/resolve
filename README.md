@@ -6,7 +6,7 @@
 
 <p align="center">
 	<a href="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml"><img src="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-	<a href="LICENSE"><img src="https://img.shields.io/badge/license-use%20only-lightgrey.svg" alt="License: use only"></a>
+	<a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
 	<a href="package.json"><img src="https://img.shields.io/badge/version-0.1.3-2dd4bf.svg" alt="Version 0.1.3"></a>
 	<a href="package.json"><img src="https://img.shields.io/badge/node-%E2%89%A522.12-339933.svg" alt="Node 22.12 or newer"></a>
 	<a href=".claude-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Claude%20Code-d97757.svg" alt="Claude Code plugin"></a>
@@ -162,7 +162,7 @@ Optional add-ons: [`addons/README.md`](addons/README.md).
 
 ## License
 
-You may install and use Resolve, unchanged, inside your AI tools (Claude Code, Cursor and similar). You may not modify, copy, redistribute or build other products from it without written permission. Earlier MIT versions stay MIT for those copies. See [`LICENSE`](LICENSE).
+Resolve is open source under the [MIT License](LICENSE). You can use, copy, change and share it, including in commercial work, as long as you keep the copyright notice and licence text. Copyright (c) 2026 Tanishq Bafna.
 
 ## Upgrading from the old names
 
