@@ -4,9 +4,9 @@
  * The scorer scores both paths under the old rule (a weak lead still counts) and the new rule
  * (a weak lead fails). Tier ask is a weak lead on every path (mainPath in ai-picks-eval.mjs).
  */
-import { meaningCandidates } from "../src/core/query/meaning/sock";
+import { meaningCandidates } from "../src/core/query/meaning/dsck";
 import { scoreAsks } from "../tests/meaning.score";
-import { loadPacks, type PackName } from "./meaning-sock-build";
+import { loadPacks, type PackName } from "./meaning-dsck-build";
 
 interface CaseRow {
   id: string;

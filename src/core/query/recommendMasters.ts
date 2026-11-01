@@ -22,7 +22,7 @@ import { type RecommendContext } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
 import { inflectionStems, overlap, similarUsage } from "./screenInventory";
 import { usePropertyHints } from "./synonymLayer";
-import { isRemovedByAbsence, patternFor, type SockState } from "./sock";
+import { isRemovedByAbsence, patternFor, type DsckState } from "./dsck";
 import { isLibraryFileKey, type WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
 
@@ -34,7 +34,7 @@ export function recommendMasters(
     budgetChars?: number;
     context?: RecommendContext;
     workspace?: WorkspaceManifest;
-    sock?: SockState;
+    dsck?: DsckState;
     bindRules?: BindRulesFile;
     placeholders?: string[];
     /** Plain token overlap, without the meaning parse. For the live-difference test. */
@@ -122,7 +122,7 @@ export function recommendMasters(
     pack: options.context?.id,
     workspace,
     graphFileKey,
-    sock: options.sock,
+    dsck: options.dsck,
   };
   const bindRules = options.bindRules;
   const ruleBonus = bindRules?.rules.length
@@ -266,12 +266,12 @@ export function recommendMasters(
     if (journeyHit > 0) why.push("journey");
     if (libraryHit) why.push("library");
     if (instances > 0) why.push("usage");
-    const sockPattern = options.sock ? patternFor(options.sock, node.id) : undefined;
-    if (sockPattern?.promoted && sockPattern.confidence === "strong") why.push("sock-usage");
+    const dsckPattern = options.dsck ? patternFor(options.dsck, node.id) : undefined;
+    if (dsckPattern?.promoted && dsckPattern.confidence === "strong") why.push("dsck-usage");
     if (stale) why.push("stale");
 
     const typeBoost = node.type === "COMPONENT_SET" ? 3 : node.type === "MAIN_COMPONENT" ? 2 : 1;
-    const sockBoost = sockPattern?.promoted && sockPattern.confidence === "strong" ? 20 : 0;
+    const dsckBoost = dsckPattern?.promoted && dsckPattern.confidence === "strong" ? 20 : 0;
     let context =
       Math.min(whereUsedScore, 4) * 40 +
       Math.min(coOccur, 4) * 8 +
@@ -281,7 +281,7 @@ export function recommendMasters(
       Math.min(journeyHit, 4) * 50 +
       (analogHit ? 25 : 0) +
       (libraryHit ? 20 : 0) +
-      sockBoost +
+      dsckBoost +
       (stale ? 0 : Math.min(36, Math.round(Math.log1p(instances) * 10))) +
       typeBoost;
     if (stale) context -= 30;
@@ -341,7 +341,7 @@ export function recommendMasters(
     const set = setOf(index, node);
     if (deniedByRules(index, node, packRules)) continue;
     if (node.metadata?.["removedByAbsence"] === true) continue;
-    if (isRemovedByAbsence(options.sock, node)) continue;
+    if (isRemovedByAbsence(options.dsck, node)) continue;
     const entry = scoreNode(node, set);
     if (!entry) continue;
     if (isPrivateMaster(index, node)) {
@@ -427,7 +427,7 @@ export function recommendMasters(
       if (isNameInferredMaster(node)) continue;
       if (deniedByRules(index, node, packRules)) continue;
       if (node.metadata?.["removedByAbsence"] === true) continue;
-      if (isRemovedByAbsence(options.sock, node)) continue;
+      if (isRemovedByAbsence(options.dsck, node)) continue;
       if (!wholeNameTypo(intentNeedle, node.name)) continue;
       winners.push(node);
     }

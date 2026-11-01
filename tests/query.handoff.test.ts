@@ -22,8 +22,8 @@ import {
 import { runCli } from "@/server/cli";
 import { formatLearnedAt } from "@/server/localTime";
 import { callTool, listToolDefinitions } from "@/server/tools";
-import { appendBindAudit, clearCache, saveGraph, saveSock } from "@/server/store";
-import { emptySock } from "@/core/query/sock";
+import { appendBindAudit, clearCache, saveGraph, saveDsck } from "@/server/store";
+import { emptyDsck } from "@/core/query/dsck";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
 
@@ -425,19 +425,19 @@ describe("resolve handoff (CLI) and get_handoff (MCP)", () => {
     expect(await cli(["handoff", "No such screen xyz"])).toContain("Handoff refused");
   });
 
-  it("decisions come from approved SOCI proposals and their audit line", async () => {
+  it("decisions come from approved DSCI proposals and their audit line", async () => {
     saveGraph(fixedGraph());
-    saveSock({
-      ...emptySock(),
+    saveDsck({
+      ...emptyDsck(),
       proposals: [
-        { id: "soci-btn", createdAt: FROZEN, status: "approved", type: "require-rule", summary: "Primary action uses Button", evidence: [{ screenName: "Send money" }] },
-        { id: "soci-pending", createdAt: FROZEN, status: "pending", type: "require-rule", summary: "Not yet", evidence: [{ screenName: "Send money" }] },
+        { id: "dsci-btn", createdAt: FROZEN, status: "approved", type: "require-rule", summary: "Primary action uses Button", evidence: [{ screenName: "Send money" }] },
+        { id: "dsci-pending", createdAt: FROZEN, status: "pending", type: "require-rule", summary: "Not yet", evidence: [{ screenName: "Send money" }] },
       ],
     });
-    appendBindAudit({ who: "Ana", when: "2026-03-04T09:00:00.000Z", proposalId: "soci-btn", action: "approve", before: [], after: [] });
+    appendBindAudit({ who: "Ana", when: "2026-03-04T09:00:00.000Z", proposalId: "dsci-btn", action: "approve", before: [], after: [] });
     const json = JSON.parse(await cli(["handoff", "Send money", "--json"])) as { screens: Array<{ decisions: unknown[] }> };
     expect(json.screens[0]?.decisions).toEqual([
-      { proposalId: "soci-btn", type: "require-rule", summary: "Primary action uses Button", who: "Ana", when: "2026-03-04T09:00:00.000Z", why: "Primary action uses Button" },
+      { proposalId: "dsci-btn", type: "require-rule", summary: "Primary action uses Button", who: "Ana", when: "2026-03-04T09:00:00.000Z", why: "Primary action uses Button" },
     ]);
   });
 

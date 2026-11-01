@@ -14,7 +14,7 @@ import {
   type BindRuleWarning,
   type BindRulesFile,
 } from "./bindRules";
-import { isRemovedByAbsence, type SociProposal, type SockState } from "./sock";
+import { isRemovedByAbsence, type DsciProposal, type DsckState } from "./dsck";
 import type { WorkspaceManifest } from "./workspace";
 
 const WARNING_OVERFLOW = (count: number) => `and ${count} more warnings`;
@@ -103,7 +103,7 @@ export function assertRuleWritable(
   options: {
     index?: GraphIndex;
     workspace?: WorkspaceManifest;
-    sock?: SockState;
+    dsck?: DsckState;
     existing?: BindRulesFile;
   } = {},
 ): BindRule {
@@ -128,7 +128,7 @@ export function assertRuleWritable(
           `Bind rule ${ruleLabel(rule)}: master "${master.name}" (${master.id}) is deprecated. Never guessing.`,
         );
       }
-      if (isRemovedByAbsence(options.sock, master) || master.metadata?.["removedByAbsence"] === true) {
+      if (isRemovedByAbsence(options.dsck, master) || master.metadata?.["removedByAbsence"] === true) {
         throw new BindRuleError(
           `Bind rule ${ruleLabel(rule)}: master "${master.name}" (${master.id}) was removed. Never guessing.`,
         );
@@ -150,7 +150,7 @@ export function assertRuleWritable(
 
 function resolveOneLenient(
   rule: BindRule,
-  options: { index?: GraphIndex; workspace?: WorkspaceManifest; sock?: SockState },
+  options: { index?: GraphIndex; workspace?: WorkspaceManifest; dsck?: DsckState },
 ): { rule?: BindRule; warning?: BindRuleWarning } {
   try {
     if (rule.kind === "require" && !requireHasScope(rule)) {
@@ -171,7 +171,7 @@ function resolveOneLenient(
           },
         };
       }
-      if (isRemovedByAbsence(options.sock, master) || master.metadata?.["removedByAbsence"] === true) {
+      if (isRemovedByAbsence(options.dsck, master) || master.metadata?.["removedByAbsence"] === true) {
         return {
           warning: {
             rule: ruleLabel(rule),
@@ -198,7 +198,7 @@ function resolveOneLenient(
 /** Load-time parse: skip invalid rules, keep the rest, name each skip. */
 export function loadBindRulesLenient(
   raw: unknown,
-  options: { index?: GraphIndex; workspace?: WorkspaceManifest; sock?: SockState } = {},
+  options: { index?: GraphIndex; workspace?: WorkspaceManifest; dsck?: DsckState } = {},
 ): BindRulesFile {
   const warnings: BindRuleWarning[] = [];
   if (raw == null) return emptyBindRules();
@@ -241,8 +241,8 @@ export function loadBindRulesLenient(
   return { version: 1, rules: kept, ...(warnings.length ? { warnings } : {}) };
 }
 
-export function requirePendingProposal(sock: SockState, proposalId: string): SociProposal {
-  const proposal = sock.proposals.find((row) => row.id === proposalId);
+export function requirePendingProposal(dsck: DsckState, proposalId: string): DsciProposal {
+  const proposal = dsck.proposals.find((row) => row.id === proposalId);
   if (!proposal) {
     throw new BindRuleError(`Proposal "${proposalId}" not found.`);
   }
@@ -253,11 +253,11 @@ export function requirePendingProposal(sock: SockState, proposalId: string): Soc
 }
 
 export function applyProposalDecision(
-  sock: SockState, rules: BindRulesFile, proposalId: string,
+  dsck: DsckState, rules: BindRulesFile, proposalId: string,
   action: "approve" | "reject", who: string, when: string,
   options: { index?: GraphIndex; workspace?: WorkspaceManifest } = {},
-): { sock: SockState; rules: BindRulesFile; audit: AuditLine } {
-  const proposal = requirePendingProposal(sock, proposalId);
+): { dsck: DsckState; rules: BindRulesFile; audit: AuditLine } {
+  const proposal = requirePendingProposal(dsck, proposalId);
   const before = rules.rules;
   let after = before;
   let nextRules = rules;
@@ -273,18 +273,18 @@ export function applyProposalDecision(
       assertRuleWritable(rule, {
         index: options.index,
         workspace: options.workspace,
-        sock,
+        dsck,
         existing: rules,
       }),
     );
     nextRules = mergeBindRules(rules, { version: 1, rules: written });
     after = nextRules.rules;
   }
-  const nextProposals: SociProposal[] = sock.proposals.map((row) =>
+  const nextProposals: DsciProposal[] = dsck.proposals.map((row) =>
     row.id === proposalId ? { ...row, status: action === "approve" ? "approved" : "rejected" } : row,
   );
   return {
-    sock: { ...sock, proposals: nextProposals },
+    dsck: { ...dsck, proposals: nextProposals },
     rules: nextRules,
     audit: {
       who,

@@ -12,7 +12,7 @@ function check(files: Record<string, string>): string {
       mkdirSync(join(path, ".."), { recursive: true });
       writeFileSync(path, body);
     }
-    const result = spawnSync(process.execPath, ["scripts/check-meaning-sock.mjs", dir, "--structural"], { encoding: "utf8" });
+    const result = spawnSync(process.execPath, ["scripts/check-meaning-dsck.mjs", dir, "--structural"], { encoding: "utf8" });
     return `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -29,7 +29,7 @@ describe("meaning file checker", () => {
       "acme/index.md": index,
       "acme/switch.md": component,
     });
-    expect(output).toContain("meaning sock files ok");
+    expect(output).toContain("meaning dsck files ok");
   });
 
   it("fails an empty file", () => {

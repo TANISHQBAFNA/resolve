@@ -10,7 +10,7 @@ import { recommendMasters } from "./recommendMasters";
 import type { RecommendContext } from "./recommendSupport";
 import { composeParts, composeRecipe } from "./recipeCompose";
 import { sameWordForm } from "./screenInventory";
-import type { SociProposal, SockState } from "./sock";
+import type { DsciProposal, DsckState } from "./dsck";
 import type { WorkspaceManifest } from "./workspace";
 
 /**
@@ -127,7 +127,7 @@ interface Choice extends BriefOption {
 }
 
 export interface BriefDecision {
-  proposal: SociProposal;
+  proposal: DsciProposal;
   who: string;
   when: string;
 }
@@ -140,7 +140,7 @@ export interface BriefInput {
   decisions?: BriefDecision[];
   context?: RecommendContext;
   workspace?: WorkspaceManifest;
-  sock?: SockState;
+  dsck?: DsckState;
   bindRules?: BindRulesFile;
   placeholders?: string[];
 }
@@ -536,7 +536,7 @@ export function briefScreen(input: BriefInput): BriefResult {
     index: input.index,
     recipes: input.recipes ?? [],
     ...(input.workspace ? { bind: { packs: [], workspace: input.workspace } } : {}),
-    sock: input.sock,
+    dsck: input.dsck,
     bindRules: input.bindRules,
     placeholders: input.placeholders,
   });
@@ -567,7 +567,7 @@ function briefRequest(input: BriefInput): BriefResult {
       budgetChars: 4000,
       ...(input.context ? { context: input.context } : {}),
       workspace: input.workspace,
-      sock: input.sock,
+      dsck: input.dsck,
       bindRules: input.bindRules,
       placeholders: input.placeholders,
     }) as { match?: string; candidates?: Array<{ id?: string; name?: string; fileKey?: string; figmaNodeId?: string }> };
@@ -765,7 +765,7 @@ function recipeCandidates(input: BriefInput, recipe: Recipe): BriefCandidate[] {
     undefined,
     undefined,
     input.workspace,
-    input.sock,
+    input.dsck,
     input.bindRules,
     input.placeholders,
   );

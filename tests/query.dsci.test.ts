@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DesignGraph, GraphEdge, GraphNode, NodeType } from "@/core/model";
 import {
-  advanceSoci,
-  applySociDecision,
-  capSociProposals,
-  emptySock,
+  advanceDsci,
+  applyDsciDecision,
+  capDsciProposals,
+  emptyDsck,
   filterAndScoreByBindRules,
   fitBindRuleWarnings,
   indexGraph,
@@ -28,11 +28,11 @@ import { callTool } from "@/server/tools";
 import {
   clearCache,
   commitProposalDecision,
-  loadSock,
+  loadDsck,
   readBindRules,
   saveGraph,
-  saveSock,
-  sockPath,
+  saveDsck,
+  dsckPath,
 } from "@/server/store";
 import { graph as fixtureGraph } from "./fixture";
 
@@ -47,13 +47,13 @@ function e(type: GraphEdge["type"], source: string, target: string): GraphEdge {
 }
 
 function usage(
-  sock: ReturnType<typeof emptySock>,
+  dsck: ReturnType<typeof emptyDsck>,
   screenId: string,
   screenName: string,
   masters: Array<{ id: string; name: string; overrideKeys?: string[] }>,
   extra: { slot?: string; countsTowardThreshold?: boolean; fileKey?: string; frameId?: string } = {},
 ) {
-  return recordVerifiedUsage(sock, {
+  return recordVerifiedUsage(dsck, {
     screenId,
     screenName,
     masters: masters.map((master) => ({
@@ -110,17 +110,17 @@ function stepperGraph() {
   return indexGraph(graph);
 }
 
-describe("SOCI v1 proposal types", () => {
+describe("DSCI v1 proposal types", () => {
   it("proposes a recipe slot change from strong verified-frame usage", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["c1", "c2", "c3"]) {
-      sock = usage(sock, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], {
+      dsck = usage(dsck, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], {
         slot: "header",
         frameId: `1:${screen}`,
         fileKey: "LIB",
       });
     }
-    const next = advanceSoci(sock, { recipes: starterRecipes(), now: FROZEN });
+    const next = advanceDsci(dsck, { recipes: starterRecipes(), now: FROZEN });
     const recipe = next.proposals.find((row) => row.type === "recipe-update");
     expect(recipe?.status).toBe("pending");
     expect(recipe?.summary).toMatch(/Stepper/i);
@@ -134,17 +134,17 @@ describe("SOCI v1 proposal types", () => {
   });
 
   it("proposes a variant candidate from repeated override keys on real frames", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["s1", "s2", "s3"]) {
-      sock = usage(
-        sock,
+      dsck = usage(
+        dsck,
         screen,
         "Account",
         [{ id: "node:card", name: "Main Card", overrideKeys: ["nested:Badge"] }],
         { frameId: screen, fileKey: "LIB" },
       );
     }
-    const next = advanceSoci(sock, { now: FROZEN });
+    const next = advanceDsci(dsck, { now: FROZEN });
     const variant = next.proposals.find((row) => row.type === "variant-candidate");
     expect(variant?.status).toBe("pending");
     expect(variant?.summary).toMatch(/official variant/i);
@@ -155,22 +155,22 @@ describe("SOCI v1 proposal types", () => {
   });
 
   it("skips variant proposals when no override/detach signal exists", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["s1", "s2", "s3"]) {
-      sock = usage(sock, screen, "Account", [{ id: "node:card", name: "Main Card" }]);
+      dsck = usage(dsck, screen, "Account", [{ id: "node:card", name: "Main Card" }]);
     }
-    const next = advanceSoci(sock, { now: FROZEN });
+    const next = advanceDsci(dsck, { now: FROZEN });
     expect(next.proposals.some((row) => row.type === "variant-candidate")).toBe(false);
   });
 
   it("proposes a deprecation candidate when a cousin is strong and the master has zero verified usage", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["s1", "s2", "s3"]) {
-      sock = usage(sock, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], {
+      dsck = usage(dsck, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], {
         slot: "header",
       });
     }
-    const next = advanceSoci(sock, { index: stepperGraph(), now: FROZEN });
+    const next = advanceDsci(dsck, { index: stepperGraph(), now: FROZEN });
     const deprecation = next.proposals.find((row) => row.type === "deprecation-candidate");
     expect(deprecation?.suggestedDeprecation).toMatchObject({
       masterId: "node:old-step",
@@ -180,9 +180,9 @@ describe("SOCI v1 proposal types", () => {
   });
 
   it("proposes a wrong-cousin hotspot from repeated verify corrections", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["p1", "p2", "p3"]) {
-      sock = recordCousinCorrections(sock, {
+      dsck = recordCousinCorrections(dsck, {
         screenId: screen,
         screenName: `Product ${screen}`,
         frameId: screen,
@@ -200,7 +200,7 @@ describe("SOCI v1 proposal types", () => {
         verifiedAt: FROZEN,
       });
     }
-    const next = advanceSoci(sock, {
+    const next = advanceDsci(dsck, {
       now: FROZEN,
       workspace: {
         version: 1,
@@ -223,22 +223,22 @@ describe("SOCI v1 proposal types", () => {
   });
 
   it("dedupes and merges evidence when the same proposal recurs", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["c1", "c2", "c3"]) {
-      sock = usage(sock, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], {
+      dsck = usage(dsck, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], {
         slot: "header",
         frameId: screen,
       });
     }
-    sock = advanceSoci(sock, { recipes: starterRecipes(), now: FROZEN });
-    const first = sock.proposals.filter((row) => row.type === "recipe-update");
+    dsck = advanceDsci(dsck, { recipes: starterRecipes(), now: FROZEN });
+    const first = dsck.proposals.filter((row) => row.type === "recipe-update");
     expect(first).toHaveLength(1);
-    sock = usage(sock, "c4", "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], {
+    dsck = usage(dsck, "c4", "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], {
       slot: "header",
       frameId: "c4",
     });
-    sock = advanceSoci(sock, { recipes: starterRecipes(), now: "2026-01-02T00:00:00.000Z" });
-    const again = sock.proposals.filter((row) => row.type === "recipe-update");
+    dsck = advanceDsci(dsck, { recipes: starterRecipes(), now: "2026-01-02T00:00:00.000Z" });
+    const again = dsck.proposals.filter((row) => row.type === "recipe-update");
     expect(again).toHaveLength(1);
     expect(again[0]?.id).toBe(first[0]?.id);
     expect(Array.isArray(again[0]?.evidence) && again[0].evidence.length).toBe(4);
@@ -246,12 +246,12 @@ describe("SOCI v1 proposal types", () => {
   });
 
   it("caps pending proposals to top-N", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (let i = 0; i < 20; i += 1) {
       const key = `nested:Badge${i}`;
       for (const screen of ["a", "b", "c"]) {
-        sock = usage(
-          sock,
+        dsck = usage(
+          dsck,
           `${screen}-${i}`,
           "Account",
           [{ id: "node:card", name: "Main Card", overrideKeys: [key] }],
@@ -259,20 +259,20 @@ describe("SOCI v1 proposal types", () => {
         );
       }
     }
-    const next = advanceSoci(sock, { cap: 5, now: FROZEN });
+    const next = advanceDsci(dsck, { cap: 5, now: FROZEN });
     expect(next.proposals.filter((row) => row.status === "pending")).toHaveLength(5);
-    expect(capSociProposals(next, 3).proposals.filter((row) => row.status === "pending")).toHaveLength(3);
+    expect(capDsciProposals(next, 3).proposals.filter((row) => row.status === "pending")).toHaveLength(3);
   });
 
   it("does not propose from list-only verifies", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["obs:a", "obs:b", "obs:c"]) {
-      sock = usage(sock, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], {
+      dsck = usage(dsck, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], {
         slot: "header",
         countsTowardThreshold: false,
       });
     }
-    sock = recordCousinCorrections(sock, {
+    dsck = recordCousinCorrections(dsck, {
       screenId: "obs:a",
       screenName: "Checkout",
       hits: [
@@ -284,16 +284,16 @@ describe("SOCI v1 proposal types", () => {
         },
       ],
     });
-    const next = advanceSoci(sock, { recipes: starterRecipes(), index: stepperGraph(), now: FROZEN });
+    const next = advanceDsci(dsck, { recipes: starterRecipes(), index: stepperGraph(), now: FROZEN });
     expect(next.proposals).toEqual([]);
   });
 });
 
-describe("SOCI approve / reject", () => {
+describe("DSCI approve / reject", () => {
   const previousHome = process.env["RESOLVE_HOME"];
 
   beforeEach(() => {
-    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-dsci-"));
     clearCache();
   });
 
@@ -304,18 +304,18 @@ describe("SOCI approve / reject", () => {
   });
 
   it("approve of a recipe update writes the overlay atomically and audits", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["c1", "c2", "c3"]) {
-      sock = usage(sock, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], {
+      dsck = usage(dsck, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], {
         slot: "header",
       });
     }
-    sock = advanceSoci(sock, { recipes: starterRecipes(), now: FROZEN });
-    const proposal = sock.proposals.find((row) => row.type === "recipe-update");
+    dsck = advanceDsci(dsck, { recipes: starterRecipes(), now: FROZEN });
+    const proposal = dsck.proposals.find((row) => row.type === "recipe-update");
     expect(proposal).toBeDefined();
-    saveSock(sock);
-    const decided = applySociDecision(
-      sock,
+    saveDsck(dsck);
+    const decided = applyDsciDecision(
+      dsck,
       parseBindRulesFile({ rules: [] }),
       proposal!.id,
       "approve",
@@ -349,33 +349,33 @@ describe("SOCI approve / reject", () => {
     expect(existsSync(join(process.env["RESOLVE_HOME"]!, "bind-rules.json"))).toBe(false);
     const audit = readFileSync(join(process.env["RESOLVE_HOME"]!, "bind-rules.audit.jsonl"), "utf8");
     expect(audit).toMatch(/tanishk/);
-    const saved = JSON.parse(readFileSync(join(process.env["RESOLVE_HOME"]!, "sock.json"), "utf8")) as {
+    const saved = JSON.parse(readFileSync(join(process.env["RESOLVE_HOME"]!, "dsck.json"), "utf8")) as {
       proposals: Array<{ id: string; status: string }>;
     };
     expect(saved.proposals.find((row) => row.id === proposal!.id)?.status).toBe("approved");
   });
 
   it("variant and deprecation approvals never write rules or masters", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["s1", "s2", "s3"]) {
-      sock = usage(
-        sock,
+      dsck = usage(
+        dsck,
         screen,
         "Account",
         [{ id: "node:card", name: "Main Card", overrideKeys: ["nested:Badge"] }],
         { frameId: screen },
       );
     }
-    sock = usage(sock, "s1", "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], { slot: "header" });
-    sock = usage(sock, "s2", "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], { slot: "header" });
-    sock = usage(sock, "s3", "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], { slot: "header" });
-    sock = advanceSoci(sock, { index: stepperGraph(), now: FROZEN });
-    const variant = sock.proposals.find((row) => row.type === "variant-candidate");
-    const deprecation = sock.proposals.find((row) => row.type === "deprecation-candidate");
+    dsck = usage(dsck, "s1", "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], { slot: "header" });
+    dsck = usage(dsck, "s2", "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], { slot: "header" });
+    dsck = usage(dsck, "s3", "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], { slot: "header" });
+    dsck = advanceDsci(dsck, { index: stepperGraph(), now: FROZEN });
+    const variant = dsck.proposals.find((row) => row.type === "variant-candidate");
+    const deprecation = dsck.proposals.find((row) => row.type === "deprecation-candidate");
     expect(variant && deprecation).toBeTruthy();
-    saveSock(sock);
+    saveDsck(dsck);
     const rulesBefore = parseBindRulesFile({ rules: [{ forbid: "deprecated" }] });
-    const variantDecision = applySociDecision(sock, rulesBefore, variant!.id, "approve", "tanishk", FROZEN, {
+    const variantDecision = applyDsciDecision(dsck, rulesBefore, variant!.id, "approve", "tanishk", FROZEN, {
       index: stepperGraph(),
     });
     expect(variantDecision.writesRules).toBe(false);
@@ -383,11 +383,11 @@ describe("SOCI approve / reject", () => {
     expect(variantDecision.rules.rules).toEqual(rulesBefore.rules);
     commitProposalDecision(variantDecision);
     expect(existsSync(join(process.env["RESOLVE_HOME"]!, "recipes.json"))).toBe(false);
-    const afterVariant = JSON.parse(readFileSync(join(process.env["RESOLVE_HOME"]!, "sock.json"), "utf8")) as {
+    const afterVariant = JSON.parse(readFileSync(join(process.env["RESOLVE_HOME"]!, "dsck.json"), "utf8")) as {
       proposals: Array<{ id: string; status: string; type?: string }>;
     };
-    sock = { ...sock, proposals: afterVariant.proposals } as typeof sock;
-    const depDecision = applySociDecision(sock, readBindRules(), deprecation!.id, "approve", "tanishk", FROZEN, {
+    dsck = { ...dsck, proposals: afterVariant.proposals } as typeof dsck;
+    const depDecision = applyDsciDecision(dsck, readBindRules(), deprecation!.id, "approve", "tanishk", FROZEN, {
       index: stepperGraph(),
     });
     expect(depDecision.writesRules).toBe(false);
@@ -520,7 +520,7 @@ describe("scoped wrong-cousin prefer", () => {
   const previousHome = process.env["RESOLVE_HOME"];
 
   beforeEach(() => {
-    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-scope-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-dsci-scope-"));
     clearCache();
   });
 
@@ -531,9 +531,9 @@ describe("scoped wrong-cousin prefer", () => {
   });
 
   it("approves a scoped prefer and does not move the rest of the file", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["p1", "p2", "p3"]) {
-      sock = recordCousinCorrections(sock, {
+      dsck = recordCousinCorrections(dsck, {
         screenId: screen,
         screenName: `Product ${screen}`,
         hits: [
@@ -549,11 +549,11 @@ describe("scoped wrong-cousin prefer", () => {
         verifiedAt: FROZEN,
       });
     }
-    sock = advanceSoci(sock, { now: FROZEN, workspace: preferWorkspace });
-    const proposal = sock.proposals.find((row) => row.type === "wrong-cousin");
+    dsck = advanceDsci(dsck, { now: FROZEN, workspace: preferWorkspace });
+    const proposal = dsck.proposals.find((row) => row.type === "wrong-cousin");
     expect(proposal?.summary).toMatch(/Prefer Pay CTA over Save CTA for product/);
-    const decided = applySociDecision(
-      sock,
+    const decided = applyDsciDecision(
+      dsck,
       parseBindRulesFile({ rules: [] }),
       proposal!.id,
       "approve",
@@ -590,9 +590,9 @@ describe("scoped wrong-cousin prefer", () => {
   });
 
   it("keeps a naming note when screens share no scope", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["Alpha", "Beta", "Gamma"]) {
-      sock = recordCousinCorrections(sock, {
+      dsck = recordCousinCorrections(dsck, {
         screenId: screen,
         screenName: screen,
         hits: [
@@ -608,11 +608,11 @@ describe("scoped wrong-cousin prefer", () => {
         verifiedAt: FROZEN,
       });
     }
-    sock = advanceSoci(sock, { now: FROZEN, workspace: preferWorkspace });
-    const proposal = sock.proposals.find((row) => row.type === "wrong-cousin");
+    dsck = advanceDsci(dsck, { now: FROZEN, workspace: preferWorkspace });
+    const proposal = dsck.proposals.find((row) => row.type === "wrong-cousin");
     expect(proposal?.suggestedRule).toBeUndefined();
     expect(proposal?.summary).toMatch(/Naming fix/);
-    const decided = applySociDecision(sock, parseBindRulesFile({ rules: [] }), proposal!.id, "approve", "tanishk", FROZEN, {
+    const decided = applyDsciDecision(dsck, parseBindRulesFile({ rules: [] }), proposal!.id, "approve", "tanishk", FROZEN, {
       index: payMasters(),
       workspace: preferWorkspace,
     });
@@ -624,20 +624,20 @@ describe("scoped wrong-cousin prefer", () => {
 
 describe("approve refuses a stale master", () => {
   function recipeProposal() {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["c1", "c2", "c3"]) {
-      sock = usage(sock, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], { slot: "header" });
+      dsck = usage(dsck, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], { slot: "header" });
     }
-    sock = advanceSoci(sock, { recipes: starterRecipes(), now: FROZEN });
-    const proposal = sock.proposals.find((row) => row.type === "recipe-update");
-    return { sock, proposal: proposal! };
+    dsck = advanceDsci(dsck, { recipes: starterRecipes(), now: FROZEN });
+    const proposal = dsck.proposals.find((row) => row.type === "recipe-update");
+    return { dsck, proposal: proposal! };
   }
 
   it("leaves a recipe proposal pending when the master is gone, deprecated, or removed", () => {
     const gone = recipeProposal();
     gone.proposal.suggestedRecipe = { ...gone.proposal.suggestedRecipe!, masterId: "node:GONE:1" };
     expect(() =>
-      applySociDecision(gone.sock, parseBindRulesFile({ rules: [] }), gone.proposal.id, "approve", "tanishk", FROZEN, {
+      applyDsciDecision(gone.dsck, parseBindRulesFile({ rules: [] }), gone.proposal.id, "approve", "tanishk", FROZEN, {
         index: stepperGraph(),
         recipes: starterRecipes(),
         overlay: [],
@@ -649,8 +649,8 @@ describe("approve refuses a stale master", () => {
     const deprecatedIndex = stepperGraph();
     deprecatedIndex.getNode("node:stepper")!.status = "deprecated";
     expect(() =>
-      applySociDecision(
-        deprecated.sock,
+      applyDsciDecision(
+        deprecated.dsck,
         parseBindRulesFile({ rules: [] }),
         deprecated.proposal.id,
         "approve",
@@ -665,7 +665,7 @@ describe("approve refuses a stale master", () => {
     const removedIndex = stepperGraph();
     removedIndex.getNode("node:stepper")!.metadata = { removedByAbsence: true };
     expect(() =>
-      applySociDecision(removed.sock, parseBindRulesFile({ rules: [] }), removed.proposal.id, "approve", "tanishk", FROZEN, {
+      applyDsciDecision(removed.dsck, parseBindRulesFile({ rules: [] }), removed.proposal.id, "approve", "tanishk", FROZEN, {
         index: removedIndex,
         recipes: starterRecipes(),
         overlay: [],
@@ -675,24 +675,24 @@ describe("approve refuses a stale master", () => {
   });
 
   it("leaves variant and deprecation proposals pending when their targets are missing", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["s1", "s2", "s3"]) {
-      sock = usage(sock, screen, "Account", [{ id: "node:card", name: "Main Card", overrideKeys: ["nested:Badge"] }]);
-      sock = usage(sock, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], { slot: "header" });
+      dsck = usage(dsck, screen, "Account", [{ id: "node:card", name: "Main Card", overrideKeys: ["nested:Badge"] }]);
+      dsck = usage(dsck, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], { slot: "header" });
     }
-    sock = advanceSoci(sock, { index: stepperGraph(), recipes: starterRecipes(), now: FROZEN });
-    const variant = sock.proposals.find((row) => row.type === "variant-candidate")!;
-    const deprecation = sock.proposals.find((row) => row.type === "deprecation-candidate")!;
+    dsck = advanceDsci(dsck, { index: stepperGraph(), recipes: starterRecipes(), now: FROZEN });
+    const variant = dsck.proposals.find((row) => row.type === "variant-candidate")!;
+    const deprecation = dsck.proposals.find((row) => row.type === "deprecation-candidate")!;
     variant.suggestedVariant = { ...variant.suggestedVariant!, masterId: "node:GONE:1" };
     expect(() =>
-      applySociDecision(sock, parseBindRulesFile({ rules: [] }), variant.id, "approve", "tanishk", FROZEN, {
+      applyDsciDecision(dsck, parseBindRulesFile({ rules: [] }), variant.id, "approve", "tanishk", FROZEN, {
         index: stepperGraph(),
       }),
     ).toThrow(/Left pending/);
     expect(variant.status).toBe("pending");
     deprecation.suggestedDeprecation = { ...deprecation.suggestedDeprecation!, cousinId: "node:GONE:1" };
     expect(() =>
-      applySociDecision(sock, parseBindRulesFile({ rules: [] }), deprecation.id, "approve", "tanishk", FROZEN, {
+      applyDsciDecision(dsck, parseBindRulesFile({ rules: [] }), deprecation.id, "approve", "tanishk", FROZEN, {
         index: stepperGraph(),
       }),
     ).toThrow(/Left pending/);
@@ -702,10 +702,10 @@ describe("approve refuses a stale master", () => {
 
 describe("one recipe proposal per slot", () => {
   it("skips a tie and ignores nested masters that only inherited a frame slot", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["c1", "c2", "c3"]) {
-      sock = usage(
-        sock,
+      dsck = usage(
+        dsck,
         screen,
         "Checkout",
         [
@@ -715,20 +715,20 @@ describe("one recipe proposal per slot", () => {
         { slot: "header" },
       );
     }
-    sock = advanceSoci(sock, { recipes: starterRecipes(), now: FROZEN });
-    expect(sock.proposals.filter((row) => row.type === "recipe-update")).toEqual([]);
+    dsck = advanceDsci(dsck, { recipes: starterRecipes(), now: FROZEN });
+    expect(dsck.proposals.filter((row) => row.type === "recipe-update")).toEqual([]);
   });
 
   it("keeps the master with the most screens", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (const screen of ["c1", "c2", "c3"]) {
-      sock = usage(sock, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], { slot: "header" });
-      sock = usage(sock, screen, "Checkout", [{ id: "node:badge", name: "Badge" }]);
+      dsck = usage(dsck, screen, "Checkout", [{ id: "node:stepper", name: "Checkout Stepper" }], { slot: "header" });
+      dsck = usage(dsck, screen, "Checkout", [{ id: "node:badge", name: "Badge" }]);
     }
-    sock = usage(sock, "c1", "Checkout", [{ id: "node:card", name: "Card" }], { slot: "header" });
-    sock = usage(sock, "c2", "Checkout", [{ id: "node:card", name: "Card" }], { slot: "header" });
-    sock = advanceSoci(sock, { recipes: starterRecipes(), now: FROZEN });
-    const recipes = sock.proposals.filter((row) => row.type === "recipe-update");
+    dsck = usage(dsck, "c1", "Checkout", [{ id: "node:card", name: "Card" }], { slot: "header" });
+    dsck = usage(dsck, "c2", "Checkout", [{ id: "node:card", name: "Card" }], { slot: "header" });
+    dsck = advanceDsci(dsck, { recipes: starterRecipes(), now: FROZEN });
+    const recipes = dsck.proposals.filter((row) => row.type === "recipe-update");
     expect(recipes).toHaveLength(1);
     expect(recipes[0]?.suggestedRecipe?.masterId).toBe("node:stepper");
     expect(recipes[0]?.suggestedRecipe?.slotRole).toBe("header");
@@ -838,7 +838,7 @@ describe("frame slot does not leak onto nested instances", () => {
   const previousHome = process.env["RESOLVE_HOME"];
 
   beforeEach(() => {
-    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-slot-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-dsci-slot-"));
     clearCache();
   });
 
@@ -856,21 +856,21 @@ describe("frame slot does not leak onto nested instances", () => {
     for (let i = 1; i <= 3; i += 1) {
       callTool("verify_frame", { frame: `node:frame-${i}`, slot: "header" });
     }
-    const tiedSock = loadSock();
-    expect(tiedSock?.facts.filter((fact) => fact.masterId === "node:badge").every((fact) => !fact.slot)).toBe(true);
-    expect(tiedSock?.facts.filter((fact) => fact.masterId === "node:stepper").every((fact) => fact.slot === "header")).toBe(
+    const tiedDsck = loadDsck();
+    expect(tiedDsck?.facts.filter((fact) => fact.masterId === "node:badge").every((fact) => !fact.slot)).toBe(true);
+    expect(tiedDsck?.facts.filter((fact) => fact.masterId === "node:stepper").every((fact) => fact.slot === "header")).toBe(
       true,
     );
-    expect(tiedSock?.proposals.filter((row) => row.type === "recipe-update")).toEqual([]);
+    expect(tiedDsck?.proposals.filter((row) => row.type === "recipe-update")).toEqual([]);
 
     clearCache();
     saveGraph(checkoutFrameGraph(2));
-    writeFileSync(sockPath(), `${JSON.stringify(emptySock(3))}\n`);
+    writeFileSync(dsckPath(), `${JSON.stringify(emptyDsck(3))}\n`);
     clearCache();
     for (let i = 1; i <= 3; i += 1) {
       callTool("verify_frame", { frame: `node:frame-${i}`, slot: "header" });
     }
-    const winner = loadSock()?.proposals.filter((row) => row.type === "recipe-update") ?? [];
+    const winner = loadDsck()?.proposals.filter((row) => row.type === "recipe-update") ?? [];
     expect(winner).toHaveLength(1);
     expect(winner[0]?.suggestedRecipe).toMatchObject({ slotRole: "header", masterId: "node:stepper" });
     expect(winner.some((row) => /Badge|Card/.test(row.summary))).toBe(false);
@@ -881,7 +881,7 @@ describe("verify_frame feeds the screen-job approach", () => {
   const previousHome = process.env["RESOLVE_HOME"];
 
   beforeEach(() => {
-    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-job-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-dsci-job-"));
     clearCache();
   });
 
@@ -894,7 +894,7 @@ describe("verify_frame feeds the screen-job approach", () => {
   it("tags Checkout frames as payment, keeps nested parts out, and recommend ranks what the screens placed", () => {
     saveGraph(checkoutFrameGraph(2));
     for (let i = 1; i <= 3; i += 1) callTool("verify_frame", { frame: `node:frame-${i}` });
-    const facts = loadSock()?.facts ?? [];
+    const facts = loadDsck()?.facts ?? [];
     expect(facts.length).toBeGreaterThan(0);
     expect(facts.every((fact) => fact.job === "payment")).toBe(true);
     expect(facts.filter((fact) => fact.masterId === "node:badge").every((fact) => fact.nested === true)).toBe(true);
@@ -920,10 +920,10 @@ describe("verify_frame feeds the screen-job approach", () => {
     }
   }
 
-  it("CLI verify saves a real frame to SOCK like verify_frame, so a delivery-process design-check feeds screen jobs", async () => {
+  it("CLI verify saves a real frame to DSCK like verify_frame, so a delivery-process design-check feeds screen jobs", async () => {
     saveGraph(checkoutFrameGraph(3));
     for (let i = 1; i <= 3; i += 1) await quietCli(["verify", `node:frame-${i}`]);
-    const facts = loadSock()?.facts ?? [];
+    const facts = loadDsck()?.facts ?? [];
     expect(facts.filter((fact) => fact.countsTowardThreshold && fact.job === "payment").length).toBeGreaterThan(0);
     const card = callTool("recommend", { intent: "payment screen" }) as { approaches: Array<{ mappedScreens: number; masters: Array<{ id: string }> }> };
     expect(card.approaches[0]?.mappedScreens).toBe(3);
@@ -937,7 +937,7 @@ describe("verify_frame feeds the screen-job approach", () => {
     await quietCli(["verify", "node:frame-1", "--journey", "send", "--domain", "payments"]);
     callTool("verify_frame", { frame: "node:frame-2", journey: "send", domain: "payments" });
     callTool("verify_frame", { frame: "node:frame-3", journey: "send" });
-    const jobs = (loadSock()?.facts ?? []).filter((fact) => fact.countsTowardThreshold).map((fact) => [fact.screenName, fact.job ?? null]);
+    const jobs = (loadDsck()?.facts ?? []).filter((fact) => fact.countsTowardThreshold).map((fact) => [fact.screenName, fact.job ?? null]);
     expect(new Set(jobs.filter(([name]) => name === "Send money 1" || name === "Send money 2").map(([, job]) => job))).toEqual(new Set(["payment"]));
     expect(new Set(jobs.filter(([name]) => name === "Send money 3").map(([, job]) => job))).toEqual(new Set([null]));
     const card = callTool("recommend", { intent: "payment screen" }) as { approaches: Array<{ mappedScreens: number; confidence: string }> };
@@ -945,11 +945,11 @@ describe("verify_frame feeds the screen-job approach", () => {
   });
 });
 
-describe("malformed sock.json", () => {
+describe("malformed dsck.json", () => {
   const previousHome = process.env["RESOLVE_HOME"];
 
   beforeEach(() => {
-    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-soci-sock-"));
+    process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-dsci-dsck-"));
     clearCache();
     saveGraph(fixtureGraph);
   });
@@ -979,7 +979,7 @@ describe("malformed sock.json", () => {
     ];
     for (const proposals of shapes) {
       writeFileSync(
-        sockPath(),
+        dsckPath(),
         `${JSON.stringify({
           version: 1,
           threshold: 3,
@@ -991,10 +991,10 @@ describe("malformed sock.json", () => {
       );
       clearCache();
       const view = governanceView();
-      expect(view.warnings.some((row) => row.rule === "sock.json")).toBe(true);
+      expect(view.warnings.some((row) => row.rule === "dsck.json")).toBe(true);
       if (Array.isArray(proposals)) {
         expect(view.proposals.map((row) => row.id)).toEqual(["ok"]);
-        expect(loadSock()?.corrections).toHaveLength(1);
+        expect(loadDsck()?.corrections).toHaveLength(1);
       } else {
         expect(view.proposals).toEqual([]);
       }
@@ -1045,17 +1045,17 @@ describe("verify card budget includes cost", () => {
 
 describe("corrections log cap", () => {
   it("keeps the latest 200 corrections", () => {
-    let sock = emptySock(3);
+    let dsck = emptyDsck(3);
     for (let i = 0; i < 201; i += 1) {
-      sock = recordCousinCorrections(sock, {
+      dsck = recordCousinCorrections(dsck, {
         screenId: `s${i}`,
         screenName: "Alpha",
         hits: [{ fromId: "node:a", fromName: "A", toId: "node:b", toName: "B" }],
         verifiedAt: FROZEN,
       });
     }
-    expect(sock.corrections).toHaveLength(200);
-    expect(sock.corrections?.[0]?.screenId).toBe("s1");
-    expect(sock.corrections?.at(-1)?.screenId).toBe("s200");
+    expect(dsck.corrections).toHaveLength(200);
+    expect(dsck.corrections?.[0]?.screenId).toBe("s1");
+    expect(dsck.corrections?.at(-1)?.screenId).toBe("s200");
   });
 });

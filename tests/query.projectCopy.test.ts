@@ -3,9 +3,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { learnLibrary } from "@/server/learn";
-import { clearCache, loadSock, saveSock, syncProject } from "@/server/store";
+import { clearCache, loadDsck, saveDsck, syncProject } from "@/server/store";
 import { runCli } from "@/server/cli";
-import { emptySock, projectCopyDir, type SociProposal } from "@/core/query";
+import { emptyDsck, projectCopyDir, type DsciProposal } from "@/core/query";
 
 const KIT = (parts: string) => `<frame id="1:1" name="Kit">${parts}</frame>`;
 const BUTTON = `<component_set id="5:1" name="Button"><component id="5:2" name="Type=Primary" /><component id="5:3" name="Type=Ghost" /></component_set>`;
@@ -17,9 +17,9 @@ function read<T>(dir: string, name: string): T {
 }
 
 interface Row { id: string; name: string; stale?: true; staleSince?: string; fingerprint: string }
-interface SociRow { id: string; status: string; summary: string; changed?: true; incoming?: SociProposal; staleComponent?: string; missingFromStore?: true }
+interface DsciRow { id: string; status: string; summary: string; changed?: true; incoming?: DsciProposal; staleComponent?: string; missingFromStore?: true }
 
-const proposal = (id: string, summary: string, status: SociProposal["status"], masterId?: string): SociProposal => ({
+const proposal = (id: string, summary: string, status: DsciProposal["status"], masterId?: string): DsciProposal => ({
   id,
   type: "require-rule",
   createdAt: "2026-10-01T00:00:00.000Z",
@@ -29,7 +29,7 @@ const proposal = (id: string, summary: string, status: SociProposal["status"], m
   ...(masterId ? { suggestedRule: { require: "Badge", masterId } } : {}),
 });
 
-describe("per-project local SOCK / SOCI copy", () => {
+describe("per-project local DSCK / DSCI copy", () => {
   const saved = { home: process.env["RESOLVE_HOME"], copy: process.env["RESOLVE_PROJECT_COPY"], dir: process.env["RESOLVE_PROJECT_DIR"] };
   let project: string;
   let local: string;
@@ -49,16 +49,16 @@ describe("per-project local SOCK / SOCI copy", () => {
     clearCache();
   });
 
-  it("the first run writes components, SOCK and SOCI into the project", () => {
+  it("the first run writes components, DSCK and DSCI into the project", () => {
     learnLibrary({ fileKey: "LIB", role: "library", metadataXml: KIT(BUTTON + BADGE) });
-    saveSock({ ...emptySock(), proposals: [proposal("p1", "Use Badge on cards", "pending")] });
+    saveDsck({ ...emptyDsck(), proposals: [proposal("p1", "Use Badge on cards", "pending")] });
     const report = syncProject()!;
     expect(report.synced).toBe(true);
     expect(report.components).toMatchObject({ total: 2, added: 2, stale: 0 });
     const names = read<{ components: Row[] }>(local, "components.json").components.map((row) => row.name);
     expect(names).toEqual(["Badge", "Button"]);
-    expect(read<{ proposals: SociRow[] }>(local, "soci.json").proposals).toEqual([expect.objectContaining({ id: "p1", status: "pending" })]);
-    expect(existsSync(join(local, "sock.json"))).toBe(true);
+    expect(read<{ proposals: DsciRow[] }>(local, "dsci.json").proposals).toEqual([expect.objectContaining({ id: "p1", status: "pending" })]);
+    expect(existsSync(join(local, "dsck.json"))).toBe(true);
     expect(report.warnings).toEqual([]);
   });
 
@@ -85,16 +85,16 @@ describe("per-project local SOCK / SOCI copy", () => {
     expect(report.warnings[0]?.next).toMatch(/swap stale components/);
   });
 
-  it("keeps an approved SOCI proposal, flags it when it changes, and never approves anything itself", () => {
+  it("keeps an approved DSCI proposal, flags it when it changes, and never approves anything itself", () => {
     learnLibrary({ fileKey: "LIB", role: "library", metadataXml: KIT(BUTTON + BADGE) });
-    saveSock({ ...emptySock(), proposals: [proposal("p1", "Require Badge on cards", "approved"), proposal("p2", "Prefer Button", "pending")] });
+    saveDsck({ ...emptyDsck(), proposals: [proposal("p1", "Require Badge on cards", "approved"), proposal("p2", "Prefer Button", "pending")] });
     syncProject();
 
-    const sock = loadSock()!;
-    saveSock({ ...sock, proposals: [proposal("p1", "Require Badge on every card and list row", "pending"), proposal("p2", "Prefer Button", "pending"), proposal("p3", "New idea", "pending")] });
+    const dsck = loadDsck()!;
+    saveDsck({ ...dsck, proposals: [proposal("p1", "Require Badge on every card and list row", "pending"), proposal("p2", "Prefer Button", "pending"), proposal("p3", "New idea", "pending")] });
     clearCache();
     const report = syncProject()!;
-    const rows = read<{ proposals: SociRow[] }>(local, "soci.json").proposals;
+    const rows = read<{ proposals: DsciRow[] }>(local, "dsci.json").proposals;
     const p1 = rows.find((row) => row.id === "p1")!;
     expect(p1.status).toBe("approved");
     expect(p1.summary).toBe("Require Badge on cards");
@@ -102,24 +102,24 @@ describe("per-project local SOCK / SOCI copy", () => {
     expect(p1.incoming?.summary).toBe("Require Badge on every card and list row");
     expect(rows.find((row) => row.id === "p3")?.status).toBe("pending");
     expect(rows.filter((row) => row.status === "approved").map((row) => row.id)).toEqual(["p1"]);
-    expect(report.soci).toMatchObject({ approved: 1, pending: 2, changedApproved: 1, added: 1 });
+    expect(report.dsci).toMatchObject({ approved: 1, pending: 2, changedApproved: 1, added: 1 });
     expect(report.warnings.map((warning) => warning.next).join(" ")).toMatch(/approve it again/);
     // The store itself is never changed by a sync.
-    expect(loadSock()!.proposals.find((row) => row.id === "p1")?.status).toBe("pending");
+    expect(loadDsck()!.proposals.find((row) => row.id === "p1")?.status).toBe("pending");
   });
 
   it("flags an approved rule whose component went stale, and keeps an approved rule that left the store", () => {
     learnLibrary({ fileKey: "LIB", role: "library", metadataXml: KIT(BUTTON + BADGE) });
     syncProject();
     const badgeId = read<{ components: Row[] }>(local, "components.json").components.find((row) => row.name === "Badge")!.id;
-    saveSock({ ...emptySock(), proposals: [proposal("p1", "Require Badge", "approved", badgeId), proposal("p2", "Old rule", "approved")] });
+    saveDsck({ ...emptyDsck(), proposals: [proposal("p1", "Require Badge", "approved", badgeId), proposal("p2", "Old rule", "approved")] });
     clearCache();
     syncProject();
     learnLibrary({ fileKey: "LIB", role: "library", metadataXml: KIT(BUTTON), resume: false });
-    saveSock({ ...loadSock()!, proposals: [proposal("p1", "Require Badge", "approved", badgeId)] });
+    saveDsck({ ...loadDsck()!, proposals: [proposal("p1", "Require Badge", "approved", badgeId)] });
     clearCache();
     const report = syncProject()!;
-    const rows = read<{ proposals: SociRow[] }>(local, "soci.json").proposals;
+    const rows = read<{ proposals: DsciRow[] }>(local, "dsci.json").proposals;
     expect(rows.find((row) => row.id === "p1")?.staleComponent).toBe(badgeId);
     expect(rows.find((row) => row.id === "p2")).toMatchObject({ status: "approved", missingFromStore: true });
     expect(report.warnings.some((warning) => /stale component/.test(warning.message))).toBe(true);

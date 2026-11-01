@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { learnLibrary } from "@/server/learn";
 import { statusReport } from "@/server/status";
-import { clearCache, loadGraph, loadLearnCheckpoint, readSock, readWorkspace } from "@/server/store";
+import { clearCache, loadGraph, loadLearnCheckpoint, readDsck, readWorkspace } from "@/server/store";
 import { placeReady } from "@/core/query/placeReady";
 import {
   applyPublishedCatalog,
@@ -233,9 +233,9 @@ describe("learn_library from Figma MCP get_metadata", () => {
     const card = loadGraph()?.graph.nodes.find((node) => node.name === "Main Card");
     expect(card?.status).toBe("deprecated");
     expect(card?.metadata?.["removedByAbsence"]).toBe(true);
-    expect(readSock().freshness["LIB"]?.removed?.filter((row) => row.name === "Main Card")).toHaveLength(1);
+    expect(readDsck().freshness["LIB"]?.removed?.filter((row) => row.name === "Main Card")).toHaveLength(1);
 
-    const rec = recommendMasters(indexGraph(loadGraph()!.graph), "Main Card", { sock: readSock() });
+    const rec = recommendMasters(indexGraph(loadGraph()!.graph), "Main Card", { dsck: readDsck() });
     expect(rec.candidates.some((row) => row.name === "Main Card")).toBe(false);
   });
 
@@ -265,7 +265,7 @@ describe("learn_library from Figma MCP get_metadata", () => {
     const divider = loadGraph()?.graph.nodes.find((node) => node.name === "Divider");
     expect(divider?.status).not.toBe("deprecated");
     expect(divider?.metadata?.["removedByAbsence"]).not.toBe(true);
-    expect(readSock().freshness["LIB"]?.removed?.some((row) => row.name === "Divider")).toBeFalsy();
+    expect(readDsck().freshness["LIB"]?.removed?.some((row) => row.name === "Divider")).toBeFalsy();
   });
 
   it("marks a component removed-by-absence exactly once when its frame is re-learned without it", () => {
@@ -287,7 +287,7 @@ describe("learn_library from Figma MCP get_metadata", () => {
     expect(card?.metadata?.["removedByAbsence"]).toBe(true);
     expect(divider?.status).not.toBe("deprecated");
     expect(divider?.metadata?.["removedByAbsence"]).not.toBe(true);
-    const removed = readSock().freshness["LIB"]?.removed ?? [];
+    const removed = readDsck().freshness["LIB"]?.removed ?? [];
     expect(removed.filter((row) => row.name === "Main Card")).toHaveLength(1);
     expect(removed.some((row) => row.name === "Divider")).toBe(false);
   });

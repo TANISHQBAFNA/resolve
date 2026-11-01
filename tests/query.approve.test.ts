@@ -8,14 +8,14 @@ import {
   serializeBindRulesFile,
 } from "@/core/query/bindRules";
 import {
-  emptySock,
+  emptyDsck,
   newlyStrongPatterns,
   proposeRuleChange,
   proposeStrongPatterns,
   recordVerifiedUsage,
-} from "@/core/query/sock";
+} from "@/core/query/dsck";
 import { indexGraph, recommendMasters, verifyFrame } from "@/core/query";
-import { clearCache, commitProposalDecision, readBindRules, saveGraph, saveSock } from "@/server/store";
+import { clearCache, commitProposalDecision, readBindRules, saveGraph, saveDsck } from "@/server/store";
 import { governanceView } from "@/server/governance";
 import { runCli } from "@/server/cli";
 import { callTool, listToolDefinitions, ToolError } from "@/server/tools";
@@ -41,16 +41,16 @@ describe("approve / reject proposal", () => {
   });
 
   it("approve writes the rules file and an audit line", () => {
-    let sock = emptySock();
-    sock = proposeRuleChange(sock, "Require Card on payment", "strong on 3 screens", {
+    let dsck = emptyDsck();
+    dsck = proposeRuleChange(dsck, "Require Card on payment", "strong on 3 screens", {
       screenType: "payment",
       slot: "primary-action",
       require: ids.card,
     });
-    const proposalId = sock.proposals[0]!.id;
+    const proposalId = dsck.proposals[0]!.id;
     const before = parseBindRulesFile({ rules: [] });
     const decided = applyProposalDecision(
-      sock,
+      dsck,
       before,
       proposalId,
       "approve",
@@ -58,7 +58,7 @@ describe("approve / reject proposal", () => {
       "2026-09-27T00:00:00.000Z",
       { index: demo },
     );
-    expect(decided.sock.proposals[0]?.status).toBe("approved");
+    expect(decided.dsck.proposals[0]?.status).toBe("approved");
     expect(decided.rules.rules).toHaveLength(1);
     expect(decided.rules.rules[0]).toMatchObject({
       kind: "require",
@@ -95,22 +95,22 @@ describe("approve / reject proposal", () => {
   });
 
   it("reject leaves rules unchanged and still audits", () => {
-    let sock = emptySock();
-    sock = proposeRuleChange(sock, "Require Pay CTA", "strong on 3 screens", {
+    let dsck = emptyDsck();
+    dsck = proposeRuleChange(dsck, "Require Pay CTA", "strong on 3 screens", {
       require: "node:live",
     });
     const existing = parseBindRulesFile({
       rules: [{ forbid: "deprecated" }],
     });
     const decided = applyProposalDecision(
-      sock,
+      dsck,
       existing,
-      sock.proposals[0]!.id,
+      dsck.proposals[0]!.id,
       "reject",
       "tanishk",
       "2026-09-27T00:00:00.000Z",
     );
-    expect(decided.sock.proposals[0]?.status).toBe("rejected");
+    expect(decided.dsck.proposals[0]?.status).toBe("rejected");
     expect(decided.rules.rules).toHaveLength(1);
     expect(decided.rules.rules[0]).toMatchObject({ kind: "forbid", forbid: "deprecated" });
     expect(decided.audit.action).toBe("reject");
@@ -119,10 +119,10 @@ describe("approve / reject proposal", () => {
 
   it("CLI approve writes the file and MCP approve stays off the default surface", async () => {
     expect(listToolDefinitions(false).map((tool) => tool.name)).not.toContain("approve_proposal");
-    let sock = emptySock();
-    sock = proposeRuleChange(sock, "Forbid deprecated", "strong", { forbid: "deprecated" });
-    saveSock(sock);
-    const id = sock.proposals[0]!.id;
+    let dsck = emptyDsck();
+    dsck = proposeRuleChange(dsck, "Forbid deprecated", "strong", { forbid: "deprecated" });
+    saveDsck(dsck);
+    const id = dsck.proposals[0]!.id;
     const chunks: string[] = [];
     const write = process.stdout.write.bind(process.stdout);
     process.stdout.write = ((chunk: string | Uint8Array) => {
@@ -140,9 +140,9 @@ describe("approve / reject proposal", () => {
     expect(payload.who).toBe("tanishk");
 
     process.env["RESOLVE_MCP_ADVANCED"] = "1";
-    const again = emptySock();
+    const again = emptyDsck();
     const rejected = proposeRuleChange(again, "Other", "n", { forbid: "removed" });
-    saveSock(rejected);
+    saveDsck(rejected);
     const result = callTool("reject_proposal", {
       proposalId: rejected.proposals[0]!.id,
       confirmedBy: "tanishk",
@@ -155,14 +155,14 @@ describe("approve / reject proposal", () => {
   });
 
   it("callTool refuses approve_proposal and reject_proposal unless RESOLVE_MCP_ADVANCED=1", () => {
-    let sock = emptySock();
-    sock = proposeRuleChange(sock, "Require Card", "strong", {
+    let dsck = emptyDsck();
+    dsck = proposeRuleChange(dsck, "Require Card", "strong", {
       screenType: "payment",
       slot: "body",
       require: ids.card,
     });
-    saveSock(sock);
-    const proposalId = sock.proposals[0]!.id;
+    saveDsck(dsck);
+    const proposalId = dsck.proposals[0]!.id;
     expect(() => callTool("approve_proposal", { proposalId, confirmedBy: "tanishk" })).toThrow(ToolError);
     expect(() => callTool("approve_proposal", { proposalId, confirmedBy: "tanishk" })).toThrow(
       /RESOLVE_MCP_ADVANCED/,
@@ -171,33 +171,33 @@ describe("approve / reject proposal", () => {
     expect(() => callTool("reject_proposal", { proposalId, confirmedBy: "tanishk" })).toThrow(
       /RESOLVE_MCP_ADVANCED/,
     );
-    expect(readSockStatus(proposalId)).toBe("pending");
+    expect(readDsckStatus(proposalId)).toBe("pending");
   });
 
   it("callTool refuses approve/reject without confirmedBy even when the flag is set", () => {
     process.env["RESOLVE_MCP_ADVANCED"] = "1";
-    let sock = emptySock();
-    sock = proposeRuleChange(sock, "Require Card", "strong", {
+    let dsck = emptyDsck();
+    dsck = proposeRuleChange(dsck, "Require Card", "strong", {
       screenType: "payment",
       slot: "body",
       require: ids.card,
     });
-    saveSock(sock);
-    const proposalId = sock.proposals[0]!.id;
+    saveDsck(dsck);
+    const proposalId = dsck.proposals[0]!.id;
     expect(() => callTool("approve_proposal", { proposalId, who: "tanishk" })).toThrow(/confirmedBy/);
     expect(() => callTool("reject_proposal", { proposalId })).toThrow(/confirmedBy/);
     expect(readBindRules().rules).toEqual([]);
-    expect(readSockStatus(proposalId)).toBe("pending");
+    expect(readDsckStatus(proposalId)).toBe("pending");
   });
 
   it("refuses unscoped require on approve", () => {
-    let sock = emptySock();
-    sock = proposeRuleChange(sock, "Global Input", "strong", { require: ids.inputSet });
+    let dsck = emptyDsck();
+    dsck = proposeRuleChange(dsck, "Global Input", "strong", { require: ids.inputSet });
     expect(() =>
       applyProposalDecision(
-        sock,
+        dsck,
         parseBindRulesFile({ rules: [] }),
-        sock.proposals[0]!.id,
+        dsck.proposals[0]!.id,
         "approve",
         "tanishk",
         "t",
@@ -208,7 +208,7 @@ describe("approve / reject proposal", () => {
 
   it("refuses unknown, deprecated, removed, and duplicate masters on approve", () => {
     const empty = parseBindRulesFile({ rules: [] });
-    const unknown = proposeRuleChange(emptySock(), "gone", "e", {
+    const unknown = proposeRuleChange(emptyDsck(), "gone", "e", {
       screenType: "payment",
       require: "node:gone",
     });
@@ -216,7 +216,7 @@ describe("approve / reject proposal", () => {
       applyProposalDecision(unknown, empty, unknown.proposals[0]!.id, "approve", "tanishk", "t", { index: demo }),
     ).toThrow(/unknown master "node:gone"/);
 
-    const deprecated = proposeRuleChange(emptySock(), "banner", "e", {
+    const deprecated = proposeRuleChange(emptyDsck(), "banner", "e", {
       screenType: "payment",
       require: ids.banner,
     });
@@ -232,7 +232,7 @@ describe("approve / reject proposal", () => {
         node.id === ids.card ? { ...node, metadata: { ...node.metadata, removedByAbsence: true } } : node,
       ),
     });
-    const removed = proposeRuleChange(emptySock(), "card", "e", {
+    const removed = proposeRuleChange(emptyDsck(), "card", "e", {
       screenType: "payment",
       require: ids.card,
     });
@@ -242,7 +242,7 @@ describe("approve / reject proposal", () => {
       }),
     ).toThrow(/removed/);
 
-    const first = proposeRuleChange(emptySock(), "card", "e", {
+    const first = proposeRuleChange(emptyDsck(), "card", "e", {
       screenType: "payment",
       slot: "body",
       require: ids.card,
@@ -250,7 +250,7 @@ describe("approve / reject proposal", () => {
     const approved = applyProposalDecision(first, empty, first.proposals[0]!.id, "approve", "tanishk", "t", {
       index: demo,
     });
-    const dup = proposeRuleChange(emptySock(), "card again", "e", {
+    const dup = proposeRuleChange(emptyDsck(), "card again", "e", {
       screenType: "payment",
       slot: "body",
       require: ids.card,
@@ -263,25 +263,25 @@ describe("approve / reject proposal", () => {
   });
 
   it("scoped Input proposal does not hijack unrelated recommend/verify", () => {
-    let sock = emptySock(3);
-    const before = sock;
+    let dsck = emptyDsck(3);
+    const before = dsck;
     for (const screen of ["Payment 1", "Payment 2", "Payment 3"]) {
-      sock = recordVerifiedUsage(sock, {
+      dsck = recordVerifiedUsage(dsck, {
         screenId: screen,
         screenName: screen,
         masters: [{ id: ids.inputSet, name: "Input" }],
         slot: "field",
       });
     }
-    sock = proposeStrongPatterns(sock, newlyStrongPatterns(before, sock), () => false);
-    const proposal = sock.proposals[0];
+    dsck = proposeStrongPatterns(dsck, newlyStrongPatterns(before, dsck), () => false);
+    const proposal = dsck.proposals[0];
     expect(proposal?.suggestedRule).toMatchObject({
       require: ids.inputSet,
       screenType: "payment",
       slot: "field",
     });
     const decided = applyProposalDecision(
-      sock,
+      dsck,
       parseBindRulesFile({ rules: [] }),
       proposal!.id,
       "approve",
@@ -307,8 +307,8 @@ describe("approve / reject proposal", () => {
   });
 });
 
-function readSockStatus(proposalId: string): string | undefined {
-  const raw = JSON.parse(readFileSync(join(process.env["RESOLVE_HOME"]!, "sock.json"), "utf8")) as {
+function readDsckStatus(proposalId: string): string | undefined {
+  const raw = JSON.parse(readFileSync(join(process.env["RESOLVE_HOME"]!, "dsck.json"), "utf8")) as {
     proposals: Array<{ id: string; status: string }>;
   };
   return raw.proposals.find((row) => row.id === proposalId)?.status;

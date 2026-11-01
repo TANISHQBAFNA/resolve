@@ -17,7 +17,7 @@ import { allSynonymGroups, appliedRecommendContext } from "./recommendContext";
 import { isPrivateMaster, isSetModifierVariant, namesThisNode, setCoversAsk, weakCheckWhy, weakMatchWhy } from "./recommendLexicon";
 import { type RecommendAlternate, type RecommendCandidate, type RecommendContext, type RecommendHit, refreshHintFor, slotsForComponent, whereUsedRows } from "./recommendSupport";
 import { tokensOf } from "./queryTokens";
-import type { SockState } from "./sock";
+import type { DsckState } from "./dsck";
 import { exampleQuery } from "./usageCard";
 import type { WorkspaceManifest } from "./workspace";
 
@@ -50,7 +50,7 @@ export function finishRecommendCard(input: {
     budgetChars?: number;
     context?: RecommendContext;
     workspace?: WorkspaceManifest;
-    sock?: SockState;
+    dsck?: DsckState;
     bindRules?: BindRulesFile;
     placeholders?: string[];
     lexicalOnly?: boolean;
@@ -71,7 +71,7 @@ export function finishRecommendCard(input: {
     pack?: string;
     workspace?: WorkspaceManifest;
     graphFileKey: string;
-    sock?: SockState;
+    dsck?: DsckState;
   };
 }) {
   let {
@@ -207,7 +207,7 @@ export function finishRecommendCard(input: {
     const why =
       entry.whyOverride ??
       whyLineForMaster(entry.node, {
-        sock: options.sock,
+        dsck: options.dsck,
         packJourney,
         bindRule: options.bindRules
           ? bindRuleHit(options.bindRules, entry.node, bindQuery)
@@ -373,11 +373,11 @@ export function finishRecommendCard(input: {
         (weakLead
           ? "Weak match. Do not Read graph.json."
           : candidates.length === 0
-            ? `No master matched. Do not invent. ${refreshHintFor(options.sock, graphFileKey)}`
+            ? `No master matched. Do not invent. ${refreshHintFor(options.dsck, graphFileKey)}`
             : candidates.length > 1 &&
                 candidates.slice(1).some((row) => !("fileKey" in row && row.fileKey) || !("figmaNodeId" in row && row.figmaNodeId))
-              ? `Place fileKey+nodeId on the top hit. Resolve an alternate by id before placing it. ${refreshHintFor(options.sock, graphFileKey)}`
-              : `Place fileKey+nodeId. ${refreshHintFor(options.sock, graphFileKey)}`),
+              ? `Place fileKey+nodeId on the top hit. Resolve an alternate by id before placing it. ${refreshHintFor(options.dsck, graphFileKey)}`
+              : `Place fileKey+nodeId. ${refreshHintFor(options.dsck, graphFileKey)}`),
     };
     const fitted = fitBindRuleWarnings(options.bindRules?.warnings, base, budgetChars);
     return { ...base, ...fitted };

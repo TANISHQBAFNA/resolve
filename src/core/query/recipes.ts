@@ -17,7 +17,7 @@ import {
 import { computeComponentUsage } from "./analytics";
 import { examplePointer, type ExampleQuery, type ExampleReason } from "./examples";
 import { placeReady, type PlaceFields } from "./placeReady";
-import { usageAllowsRecipeFill, type SockState } from "./sock";
+import { usageAllowsRecipeFill, type DsckState } from "./dsck";
 import { whyLineForMaster, mergeBindRules, type BindRulesFile } from "./bindRules";
 import {
   appliedContext,
@@ -280,7 +280,7 @@ export function listRecipes(
   recipes: Recipe[],
   index?: GraphIndex,
   bind?: ContextBind,
-  sock?: SockState,
+  dsck?: DsckState,
   bindRules?: BindRulesFile,
   placeholders?: string[],
 ) {
@@ -289,7 +289,7 @@ export function listRecipes(
     .map((recipe) => {
       const pack = bind ? packForRecipe(recipe, bind) : undefined;
       const filled = index
-        ? fillRecipe(index, recipe, undefined, pack, bind?.workspace, sock, bindRules, placeholders)
+        ? fillRecipe(index, recipe, undefined, pack, bind?.workspace, dsck, bindRules, placeholders)
         : unboundCard(recipe, undefined, pack);
       const context = pack ? appliedContext(pack) : undefined;
       return {
@@ -477,12 +477,12 @@ export function slotRecommendIntent(
 
 function exampleQueryFor(
   index: GraphIndex,
-  sock?: SockState,
+  dsck?: DsckState,
   pack?: ContextPack,
   placeholders?: string[],
 ): ExampleQuery {
   return {
-    sock,
+    dsck,
     graphFileKey: index.graph.fileKey,
     product: pack?.product?.name || pack?.product?.id,
     journey: pack?.journey?.screenJob || pack?.journey?.step,
@@ -495,7 +495,7 @@ function masterFromNode(
   index: GraphIndex,
   node: GraphNode,
   hint: string,
-  sock?: SockState,
+  dsck?: DsckState,
   pack?: ContextPack,
   placeholders?: string[],
 ): RecipeMaster {
@@ -504,7 +504,7 @@ function masterFromNode(
   const pointer = examplePointer(
     index,
     node,
-    exampleQueryFor(index, sock, pack, placeholders),
+    exampleQueryFor(index, dsck, pack, placeholders),
     "screen",
   );
   return {
@@ -518,7 +518,7 @@ function masterFromNode(
     deprecated: node.status === "deprecated",
     hint,
     why: whyLineForMaster(node, {
-      sock,
+      dsck,
       graphFileKey: index.graph.fileKey,
       instances: computeComponentUsage(index, node).instanceCount,
     }),
@@ -526,7 +526,7 @@ function masterFromNode(
   };
 }
 
-function masterFromCandidate(candidate: RecommendCandidate, sock?: SockState, graphFileKey?: string): RecipeMaster {
+function masterFromCandidate(candidate: RecommendCandidate, dsck?: DsckState, graphFileKey?: string): RecipeMaster {
   return {
     id: candidate.id,
     name: candidate.name,
@@ -548,7 +548,7 @@ function masterFromCandidate(candidate: RecommendCandidate, sock?: SockState, gr
     ...(candidate.exNote ? { exNote: candidate.exNote } : {}),
     why: candidate.why || whyLineForMaster(
       { id: candidate.id, name: candidate.name, type: candidate.type as GraphNode["type"], status: candidate.status },
-      { sock, graphFileKey, instances: candidate.instances },
+      { dsck, graphFileKey, instances: candidate.instances },
     ),
   };
 }
@@ -587,7 +587,7 @@ function fillSlot(
   extraIntent?: string,
   pack?: ContextPack,
   workspace?: WorkspaceManifest,
-  sock?: SockState,
+  dsck?: DsckState,
   bindRules?: BindRulesFile,
   placeholders?: string[],
 ): FilledSlot {
@@ -631,7 +631,7 @@ function fillSlot(
           index,
           master,
           "Deprecated — do not place. Call recommend for a live master for this slot.",
-          sock,
+          dsck,
           pack,
           placeholders,
         ),
@@ -645,7 +645,7 @@ function fillSlot(
         index,
         master,
         "Place this stored figmaNodeId. It is still in the graph.",
-        sock,
+        dsck,
         pack,
         placeholders,
       ),
@@ -665,7 +665,7 @@ function fillSlot(
     budgetChars: 2000,
     ...(pack ? { context: pack } : {}),
     ...(workspace ? { workspace } : {}),
-    ...(sock ? { sock } : {}),
+    ...(dsck ? { dsck } : {}),
     ...(mergedRules.rules.length ? { bindRules: mergedRules } : {}),
     ...(placeholders?.length ? { placeholders } : {}),
   });
@@ -675,7 +675,7 @@ function fillSlot(
       candidate.deprecated !== false ||
       !candidate.figmaNodeId ||
       isPrivateMasterName(candidate.name) ||
-      !usageAllowsRecipeFill(sock, candidate.id, candidate.instances)
+      !usageAllowsRecipeFill(dsck, candidate.id, candidate.instances)
     ) {
       return false;
     }
@@ -695,7 +695,7 @@ function fillSlot(
   return {
     ...base,
     status: "filled",
-    master: masterFromCandidate(pick, sock, index.graph.fileKey),
+    master: masterFromCandidate(pick, dsck, index.graph.fileKey),
     hint: pick.hint ?? "Place fileKey + nodeId.",
   };
 }
@@ -716,12 +716,12 @@ export function fillRecipe(
   extraIntent?: string,
   pack?: ContextPack,
   workspace?: WorkspaceManifest,
-  sock?: SockState,
+  dsck?: DsckState,
   bindRules?: BindRulesFile,
   placeholders?: string[],
 ): FilledRecipe {
   const slots = recipe.slots.map((slot) =>
-    fillSlot(index, recipe, slot, extraIntent, pack, workspace, sock, bindRules, placeholders),
+    fillSlot(index, recipe, slot, extraIntent, pack, workspace, dsck, bindRules, placeholders),
   );
   const next = slots
     .filter((slot) => slot.status === "unbound" || slot.status === "missing" || slot.status === "deprecated")
@@ -764,7 +764,7 @@ export function recipeCard(
   index?: GraphIndex,
   extraIntent?: string,
   bind?: ContextBind,
-  sock?: SockState,
+  dsck?: DsckState,
   bindRules?: BindRulesFile,
   placeholders?: string[],
 ) {
@@ -778,7 +778,7 @@ export function recipeCard(
   }
   const pack = bind ? packForRecipe(recipe, bind) : undefined;
   const filled = index
-    ? fillRecipe(index, recipe, extraIntent, pack, bind?.workspace, sock, bindRules, placeholders)
+    ? fillRecipe(index, recipe, extraIntent, pack, bind?.workspace, dsck, bindRules, placeholders)
     : unboundCard(recipe, extraIntent, pack);
   return withCost({
     found: true as const,

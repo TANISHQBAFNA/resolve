@@ -177,7 +177,7 @@ describe("slash commands: install", () => {
       "icon-libraries.json",
       "library-rules.json",
       "workspace.json",
-      "sock.json",
+      "dsck.json",
     ];
     const cwd = temp("gitignore-sets");
     const home = temp("gitignore-sets-home");

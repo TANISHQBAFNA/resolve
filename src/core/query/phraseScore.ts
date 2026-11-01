@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { GraphIndex } from "./GraphIndex";
 import { recommendMasters } from "./agentSurface";
 import type { BindRulesFile } from "./bindRules";
-import type { SockState } from "./sock";
+import type { DsckState } from "./dsck";
 import type { WorkspaceManifest } from "./workspace";
 import {
   inventsInCard,
@@ -102,7 +102,7 @@ export interface PhraseRunOptions {
   note?: string;
   source?: string[];
   workspace?: WorkspaceManifest;
-  sock?: SockState;
+  dsck?: DsckState;
   bindRules?: BindRulesFile;
 }
 
@@ -215,7 +215,7 @@ export function scorePhrases(index: GraphIndex, cases: PhraseCase[], options: Ph
 
     const card = recommendMasters(index, row.phrase, {
       ...(options.workspace ? { workspace: options.workspace } : {}),
-      ...(options.sock ? { sock: options.sock } : {}),
+      ...(options.dsck ? { dsck: options.dsck } : {}),
       ...(options.bindRules ? { bindRules: options.bindRules } : {}),
     });
     const picks = recommendPicks(card, vocab);

@@ -9,7 +9,7 @@ import { buildGraph } from "@/core/transform";
 import { briefScreen, composeParts, composeRecipe, indexGraph, starterRecipes, type GraphIndex, type Recipe } from "@/core/query";
 import { runCli } from "@/server/cli";
 import { callTool, DEFAULT_TOOL_NAMES, ToolError } from "@/server/tools";
-import { clearCache, loadRecipes, readSock, saveGraph, saveSock } from "@/server/store";
+import { clearCache, loadRecipes, readDsck, saveGraph, saveDsck } from "@/server/store";
 import set from "../scoreboard/compose/acme.json";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -136,9 +136,9 @@ describe("composed recipes", () => {
     expect(plain.compose).toMatch(/advanced/);
 
     const proposed = await cliJson(["recipe", request, "--compose", "--propose", "--json"]);
-    expect(proposed.proposal).toMatch(/^soci:recipe-update:new-composed-profile-page-[0-9a-f]{8}$/);
+    expect(proposed.proposal).toMatch(/^dsci:recipe-update:new-composed-profile-page-[0-9a-f]{8}$/);
     expect(loadRecipes().some((recipe) => recipe.id === "composed-profile-page")).toBe(false);
-    expect(readSock().proposals.find((row) => row.id === proposed.proposal)?.status).toBe("pending");
+    expect(readDsck().proposals.find((row) => row.id === proposed.proposal)?.status).toBe("pending");
 
     await cliJson(["approve", proposed.proposal!, "--who", "Avery", "--json"]);
     clearCache();
@@ -222,11 +222,11 @@ describe("composed recipes", () => {
         ["no id", { id: " ", title: "E", slots: [{ role: "x", required: true, hints: ["x"], defaultMasterId: tag }] }],
         ["same id or title", { id: "composed-f", title: "Checkout summary", slots: [{ role: "x", required: true, hints: ["x"], defaultMasterId: tag }, { role: "y", required: true, hints: ["y"], defaultMasterId: byName("Chip").id }] }],
       ];
-      const sock = readSock();
-      saveSock({
-        ...sock,
+      const dsck = readDsck();
+      saveDsck({
+        ...dsck,
         proposals: bad.map(([why, recipe], i) => ({
-          id: `soci:recipe-update:bad-${i}`,
+          id: `dsci:recipe-update:bad-${i}`,
           createdAt: "2026-01-01T00:00:00.000Z",
           type: "recipe-update" as const,
           status: "pending" as const,
@@ -237,7 +237,7 @@ describe("composed recipes", () => {
       });
       const want = [/is private/, /variant inside a set/, /not a library component/, /no parts/, /no id/, /same id or title/];
       for (const [i, [why]] of bad.entries()) {
-        await expect(runCli(["approve", `soci:recipe-update:bad-${i}`, "--who", "Avery"]), why).rejects.toThrow(want[i]!);
+        await expect(runCli(["approve", `dsci:recipe-update:bad-${i}`, "--who", "Avery"]), why).rejects.toThrow(want[i]!);
       }
     });
 
@@ -285,7 +285,7 @@ describe("composed recipes", () => {
       const brief = (request: string) => briefScreen({ request, index, recipes: starterRecipes() });
       const offered = brief("profile page with an avatar, a text field and a save button");
       expect(offered.composeOffer).toMatch(/^No saved recipe fits\. .*compose.*Not run\.$/);
-      expect(readSock().proposals).toEqual([]);
+      expect(readDsck().proposals).toEqual([]);
       for (const request of ["checkout summary", "a tag", "warp drive console with flux gauges and a hologram"]) {
         expect(brief(request).composeOffer, request).toBeUndefined();
       }
@@ -332,10 +332,10 @@ describe("composed recipes", () => {
       const graph = fixtureGraph();
       saveGraph(graph);
       const tag = indexGraph(graph).getNodesByType("MAIN_COMPONENT", "COMPONENT_SET").find((node) => node.name === "Tag")!.id;
-      saveSock({
-        ...readSock(),
+      saveDsck({
+        ...readDsck(),
         proposals: [{
-          id: "soci:recipe-update:trimmed",
+          id: "dsci:recipe-update:trimmed",
           createdAt: "2026-01-01T00:00:00.000Z",
           type: "recipe-update",
           status: "pending",
@@ -344,7 +344,7 @@ describe("composed recipes", () => {
           suggestedNewRecipe: { id: "composed-trimmed", title: "Trimmed", intentAliases: [], slots: [{ role: "tag", required: true, hints: ["tag"], defaultMasterId: tag }, { role: "gone", required: false, hints: ["gone"] }] },
         }],
       });
-      await expect(runCli(["approve", "soci:recipe-update:trimmed", "--who", "Avery"])).rejects.toThrow(/needs 2 or more parts; this one has 1/);
+      await expect(runCli(["approve", "dsci:recipe-update:trimmed", "--who", "Avery"])).rejects.toThrow(/needs 2 or more parts; this one has 1/);
     });
 
     it("L5: on/in phrases are context, not parts, and the card says so", () => {

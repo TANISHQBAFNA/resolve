@@ -1,6 +1,6 @@
 /**
  * Generate meaning/ from pack data.
- *   node scripts/build-meaning-sock.mjs <out-dir>
+ *   node scripts/build-meaning-dsck.mjs <out-dir>
  *
  * Angular Material docs attach only when the library id is angular-material.
  */
@@ -11,7 +11,7 @@ import { SourceDocumentSchema } from "@/core/ingestion/types";
 import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
 import { indexGraph, type GraphIndex } from "@/core/query/GraphIndex";
 import { ANGULAR_MATERIAL_LIBRARY_ID } from "@/core/query/meaning/materialDocs";
-import { estimateTokens, staleWarning, writeMeaningPack, buildMeaningPack, type MeaningPack } from "@/core/query/meaning/sock";
+import { estimateTokens, staleWarning, writeMeaningPack, buildMeaningPack, type MeaningPack } from "@/core/query/meaning/dsck";
 import { buildGraph } from "@/core/transform/buildGraph";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";

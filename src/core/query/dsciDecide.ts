@@ -3,12 +3,12 @@ import type { GraphIndex } from "./GraphIndex";
 import { exactRecipe } from "./recipes";
 import type { Recipe } from "./recipes";
 import { jobById, jobsInAsk } from "./screenJobs";
-import { emptySock, isRemovedByAbsence, screenPatternFor, type SockState, type UsageConfidence } from "./sock";
+import { emptyDsck, isRemovedByAbsence, screenPatternFor, type DsckState, type UsageConfidence } from "./dsck";
 import { applyProposalDecision, BindRuleError, requirePendingProposal, type BindRulesFile } from "./bindRules";
 import type { WorkspaceManifest } from "./workspace";
 import { nodeFileKey } from "./workspaceMerge";
 import { COMPOSE_MIN_PARTS } from "./recipeCompose";
-import { applyRecipeSlotChange, overlayWithRecipe, proposalTypeOf, type SociDecision } from "./soci";
+import { applyRecipeSlotChange, overlayWithRecipe, proposalTypeOf, type DsciDecision } from "./dsci";
 
 function refusePending(detail: string): never {
   throw new BindRuleError(`${detail} Left pending.`);
@@ -16,7 +16,7 @@ function refusePending(detail: string): never {
 
 function assertCurrentMaster(
   index: GraphIndex | undefined,
-  sock: SockState,
+  dsck: DsckState,
   id: string,
   label: string,
 ): void {
@@ -30,19 +30,19 @@ function assertCurrentMaster(
   if (node.status === "deprecated") {
     refusePending(`Cannot approve: ${label} "${node.name}" (${id}) is deprecated.`);
   }
-  if (isRemovedByAbsence(sock, node) || node.metadata?.["removedByAbsence"] === true) {
+  if (isRemovedByAbsence(dsck, node) || node.metadata?.["removedByAbsence"] === true) {
     refusePending(`Cannot approve: ${label} "${node.name}" (${id}) was removed.`);
   }
 }
 
 /** A composed recipe saves only real, public, top-level masters, and never replaces or doubles a recipe. */
-function assertComposedRecipe(recipe: Recipe, index: GraphIndex | undefined, sock: SockState, recipes: Recipe[]): void {
+function assertComposedRecipe(recipe: Recipe, index: GraphIndex | undefined, dsck: DsckState, recipes: Recipe[]): void {
   if (!recipe.id?.trim()) refusePending("Cannot approve: the composed recipe has no id.");
   if (!recipe.title?.trim()) refusePending("Cannot approve: the composed recipe has no title.");
   const ids = (recipe.slots ?? []).flatMap((slot) => (slot.defaultMasterId ? [slot.defaultMasterId] : []));
   if (!ids.length) refusePending("Cannot approve: the composed recipe has no parts.");
   for (const id of ids) {
-    assertCurrentMaster(index, sock, id, "recipe master");
+    assertCurrentMaster(index, dsck, id, "recipe master");
     const node = index!.getNode(id)!;
     if (node.componentSetId || node.type === "VARIANT") {
       refusePending(`Cannot approve: "${node.name}" (${id}) is a variant inside a set; store the set.`);
@@ -62,20 +62,20 @@ function assertComposedRecipe(recipe: Recipe, index: GraphIndex | undefined, soc
 }
 
 function ruleDecision(
-  sock: SockState,
+  dsck: DsckState,
   rules: BindRulesFile,
   proposalId: string,
   action: "approve" | "reject",
   who: string,
   when: string,
   options: { index?: GraphIndex; workspace?: WorkspaceManifest },
-): SociDecision {
-  const decided = applyProposalDecision(sock, rules, proposalId, action, who, when, options);
+): DsciDecision {
+  const decided = applyProposalDecision(dsck, rules, proposalId, action, who, when, options);
   return { ...decided, writesRules: true, writesRecipes: false };
 }
 
 function recordedDecision(
-  sock: SockState,
+  dsck: DsckState,
   rules: BindRulesFile,
   proposalId: string,
   action: "approve" | "reject",
@@ -89,9 +89,9 @@ function recordedDecision(
     recipeBefore?: Recipe;
     recipeAfter: Recipe;
   },
-): SociDecision {
+): DsciDecision {
   return {
-    sock: markProposal(sock, proposalId, action, note),
+    dsck: markProposal(dsck, proposalId, action, note),
     rules,
     audit: {
       who,
@@ -109,14 +109,14 @@ function recordedDecision(
 }
 
 function markProposal(
-  sock: SockState,
+  dsck: DsckState,
   proposalId: string,
   action: "approve" | "reject",
   note?: string,
-): SockState {
+): DsckState {
   return {
-    ...sock,
-    proposals: sock.proposals.map((row) =>
+    ...dsck,
+    proposals: dsck.proposals.map((row) =>
       row.id === proposalId
         ? {
             ...row,
@@ -128,17 +128,17 @@ function markProposal(
   };
 }
 
-export function applySociDecision(
-  sock: SockState, rules: BindRulesFile, proposalId: string,
+export function applyDsciDecision(
+  dsck: DsckState, rules: BindRulesFile, proposalId: string,
   action: "approve" | "reject", who: string, when: string,
   options: {
     index?: GraphIndex; workspace?: WorkspaceManifest; recipes?: Recipe[]; overlay?: Recipe[]; note?: string;
   } = {},
-): SociDecision {
-  const proposal = requirePendingProposal(sock, proposalId);
+): DsciDecision {
+  const proposal = requirePendingProposal(dsck, proposalId);
   const type = proposalTypeOf(proposal);
   const note = options.note?.trim();
-  const ruled = () => ruleDecision(sock, rules, proposalId, action, who, when, options);
+  const ruled = () => ruleDecision(dsck, rules, proposalId, action, who, when, options);
 
   switch (type) {
     case "require-rule":
@@ -146,20 +146,20 @@ export function applySociDecision(
     case "wrong-cousin": {
       if (action === "approve" && proposal.suggestedRule?.prefer && proposal.suggestedRule.over) {
         const rule = proposal.suggestedRule;
-        if (rule.masterId) assertCurrentMaster(options.index, sock, rule.masterId, "preferred master");
-        if (rule.overMasterId) assertCurrentMaster(options.index, sock, rule.overMasterId, "cousin");
+        if (rule.masterId) assertCurrentMaster(options.index, dsck, rule.masterId, "preferred master");
+        if (rule.overMasterId) assertCurrentMaster(options.index, dsck, rule.overMasterId, "cousin");
         return ruled();
       }
-      return recordedDecision(sock, rules, proposalId, action, who, when, note ?? proposal.namingFix);
+      return recordedDecision(dsck, rules, proposalId, action, who, when, note ?? proposal.namingFix);
     }
     case "recipe-update": {
       if (action === "reject") {
-        return recordedDecision(sock, rules, proposalId, action, who, when, note);
+        return recordedDecision(dsck, rules, proposalId, action, who, when, note);
       }
       const added = proposal.suggestedNewRecipe;
       if (added) {
-        if (action === "approve") assertComposedRecipe(added, options.index, sock, options.recipes ?? []);
-        return recordedDecision(sock, rules, proposalId, action, who, when, note, {
+        if (action === "approve") assertComposedRecipe(added, options.index, dsck, options.recipes ?? []);
+        return recordedDecision(dsck, rules, proposalId, action, who, when, note, {
           writesRecipes: true,
           recipeOverlay: overlayWithRecipe(options.overlay ?? [], added),
           recipeAfter: added,
@@ -169,7 +169,7 @@ export function applySociDecision(
       if (!change) {
         throw new BindRuleError(`Proposal "${proposalId}" has no recipe change. Write recipes.json by hand.`);
       }
-      assertCurrentMaster(options.index, sock, change.masterId, "recipe master");
+      assertCurrentMaster(options.index, dsck, change.masterId, "recipe master");
       const recipes = options.recipes ?? [];
       const current = recipes.find((recipe) => recipe.id === change.recipeId);
       if (!current) {
@@ -178,7 +178,7 @@ export function applySociDecision(
         );
       }
       const updated = applyRecipeSlotChange(current, change);
-      return recordedDecision(sock, rules, proposalId, action, who, when, note, {
+      return recordedDecision(dsck, rules, proposalId, action, who, when, note, {
         writesRecipes: true,
         recipeOverlay: overlayWithRecipe(options.overlay ?? [], updated),
         recipeBefore: current,
@@ -188,16 +188,16 @@ export function applySociDecision(
     case "variant-candidate":
     case "deprecation-candidate": {
       if (action === "approve" && type === "variant-candidate" && proposal.suggestedVariant?.masterId) {
-        assertCurrentMaster(options.index, sock, proposal.suggestedVariant.masterId, "variant master");
+        assertCurrentMaster(options.index, dsck, proposal.suggestedVariant.masterId, "variant master");
       }
       if (action === "approve" && type === "deprecation-candidate" && proposal.suggestedDeprecation?.cousinId) {
-        assertCurrentMaster(options.index, sock, proposal.suggestedDeprecation.cousinId, "cousin");
+        assertCurrentMaster(options.index, dsck, proposal.suggestedDeprecation.cousinId, "cousin");
       }
       const fallback =
         type === "variant-candidate"
           ? proposal.suggestedVariant?.note ?? "Recorded for the design team. Figma masters were not edited."
           : "Recorded for the design team. Figma masters were not edited.";
-      return recordedDecision(sock, rules, proposalId, action, who, when, note ?? fallback);
+      return recordedDecision(dsck, rules, proposalId, action, who, when, note ?? fallback);
     }
     default: {
       const _exhaustive: never = type;
@@ -226,10 +226,10 @@ function exPointer(index: GraphIndex | undefined, exampleNodeId: string | undefi
 }
 
 /**
- * How mapped screens of one job are built: a SOCK read. Never writes recipes.json, never waits for approve.
+ * How mapped screens of one job are built: a DSCK read. Never writes recipes.json, never waits for approve.
  * No mapped screen of the job: no masters, nothing invented.
  */
-export function approachFor(state: SockState, job: string, index?: GraphIndex): ScreenApproach {
+export function approachFor(state: DsckState, job: string, index?: GraphIndex): ScreenApproach {
   const pattern = screenPatternFor(state, job);
   return {
     job,
@@ -251,15 +251,15 @@ export function approachFor(state: SockState, job: string, index?: GraphIndex): 
 }
 
 /**
- * recommend / recipe on a screen ask ("inquiry screen", "approval summary"): answered from mapped screens in SOCK.
+ * recommend / recipe on a screen ask ("inquiry screen", "approval summary"): answered from mapped screens in DSCK.
  * Undefined when the ask is not only job words, or when it names two or more jobs and is exactly a recipe
  * id, title or alias ("checkout summary"), so that recipe and component ranking answer as before.
  */
-export function screenAskCard(intent: string, options: { sock?: SockState; index?: GraphIndex; recipes?: Recipe[] } = {}) {
+export function screenAskCard(intent: string, options: { dsck?: DsckState; index?: GraphIndex; recipes?: Recipe[] } = {}) {
   const jobs = jobsInAsk(intent);
   if (!jobs) return undefined;
   if (jobs.length > 1 && options.recipes && exactRecipe(options.recipes, intent)) return undefined;
-  const state = options.sock ?? emptySock();
+  const state = options.dsck ?? emptyDsck();
   const approaches = jobs
     .map((job) => approachFor(state, job, options.index))
     .sort((a, b) => b.mappedScreens - a.mappedScreens);

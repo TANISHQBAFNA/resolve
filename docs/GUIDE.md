@@ -87,7 +87,7 @@ The steps below are the same for any library. A checkout summary is the generic 
 
 ### 1. Refresh the library (learn / ingest)
 
-Everyday path (Figma MCP + Resolve MCP): ask the agent to `get_metadata` on a library frame, then `learn_library` with that XML, the file key, and `role: library`. Optional: pass `search_design_system` results so cards include the published component key. SOCK lives in `~/.resolve/default` so CLI and MCP share it. A big library is several short passes — Resolve checkpoints and resumes.
+Everyday path (Figma MCP + Resolve MCP): ask the agent to `get_metadata` on a library frame, then `learn_library` with that XML, the file key, and `role: library`. Optional: pass `search_design_system` results so cards include the published component key. DSCK lives in `~/.resolve/default` so CLI and MCP share it. A big library is several short passes — Resolve checkpoints and resumes.
 
 Placing a component into a **different** Figma file needs the library published, and `search_design_system` output passed as `libraries`. Otherwise build inside the library file.
 
@@ -375,7 +375,7 @@ Optional allow / deny for the whole library: `.resolve/library-rules.json` with 
 
 If icons live in their own Figma library (or on a page of stubs), list them in `.resolve/icon-libraries.json` by file name, file key, or page name (`{ "libraries": ["Acme Icons", { "fileKey": "ICONS" }, { "page": "Acme Icons Page" }] }`). Remote masters in another file need ingest with `FIGMA_ACCESS_TOKEN` so Resolve can look up the published component and stamp that source file/page on the stub; without that, the list cannot match those stubs. Those masters come back when the ask is for an icon, or for that icon’s exact distinctive name. An unmatched name prints once on stderr (skipped if the lookup could not run); a name that matches the main library is ignored.
 
-**Bind rules** (require this master for this slot, forbid deprecated, prefer library A over B) live in `.resolve/bind-rules.json`. How to write one and how to approve a suggestion: [Bind rules and proposals](BIND-RULES.md). Usage can also suggest recipe slot changes, official variants, deprecation reviews, and wrong-cousin fixes — you still approve each one: [SOCI](SOCI.md).
+**Bind rules** (require this master for this slot, forbid deprecated, prefer library A over B) live in `.resolve/bind-rules.json`. How to write one and how to approve a suggestion: [Bind rules and proposals](BIND-RULES.md). Usage can also suggest recipe slot changes, official variants, deprecation reviews, and wrong-cousin fixes — you still approve each one: [DSCI](DSCI.md).
 
 ---
 
@@ -385,7 +385,7 @@ Be honest with yourself and with agents:
 
 - **Not a Figma replacement.** You still design, comment, and ship in Figma.
 - **Does not create components.** Recipes and packs only point at masters that already exist.
-- **Does not stay live by itself.** Changing Figma does nothing until you ingest again. A pending proposal is only a suggestion until you approve it. SOCI never auto-applies.
+- **Does not stay live by itself.** Changing Figma does nothing until you ingest again. A pending proposal is only a suggestion until you approve it. DSCI never auto-applies.
 
 ---
 
@@ -428,7 +428,7 @@ Resolve is case-sensitive for deprecated and private masters. The exact-case nam
 ## Where to go next
 
 - **You are a designer using Resolve** — you are in the right file. Keep this tab.
-- **You want to write a bind rule or approve a suggestion** — [Bind rules and proposals](BIND-RULES.md) and [SOCI](SOCI.md).
+- **You want to write a bind rule or approve a suggestion** — [Bind rules and proposals](BIND-RULES.md) and [DSCI](DSCI.md).
 - **You want to add or replace a screen pack** — [Screen recipes](RECIPES.md) (JSON details under a short plain-English intro).
 - **You want to see if Resolve is picking the right masters** — [Scoreboard](SCOREBOARD.md). It scores a sample library offline, and the same command scores a library you learned from Figma.
 - **You work mainly in Cursor** — [Cursor + Resolve](CURSOR-RESOLVE.md) is the same happy path with editor wiring.

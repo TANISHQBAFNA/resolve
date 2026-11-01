@@ -7,8 +7,8 @@ import { withCost } from "./agentSurface";
 import { isPrivateMasterName, nameTokens } from "@/core/rules/names";
 import { allSynonymGroups } from "./recommendContext";
 import { sameWordForm } from "./screenInventory";
-import { proposalIdFor } from "./soci";
-import { emptySock, type SockState } from "./sock";
+import { proposalIdFor } from "./dsci";
+import { emptyDsck, type DsckState } from "./dsck";
 
 /**
  * Composed recipes. Only when asked (`--compose`, MCP `compose: true`).
@@ -104,7 +104,7 @@ export interface ComposeInput {
   index: GraphIndex;
   recipes: Recipe[];
   bind?: ContextBind;
-  sock?: SockState;
+  dsck?: DsckState;
   bindRules?: BindRulesFile;
   placeholders?: string[];
 }
@@ -148,7 +148,7 @@ function duplicates(input: ComposeInput, title: string, ids: string[]): string[]
   return input.recipes
     .filter((recipe) => {
       if (title && recipe.title.toLowerCase() === title.toLowerCase()) return true;
-      const filled = fillRecipe(input.index, recipe, undefined, undefined, input.bind?.workspace, input.sock, input.bindRules, input.placeholders);
+      const filled = fillRecipe(input.index, recipe, undefined, undefined, input.bind?.workspace, input.dsck, input.bindRules, input.placeholders);
       const theirs = filled.slots.flatMap((slot) => (slot.master && slot.status !== "deprecated" ? [slot.master.id] : []));
       return want.length > 0 && key(theirs) === want;
     })
@@ -159,13 +159,13 @@ export function composeRecipe(input: ComposeInput) {
   const { request, index } = input;
   const saved = exactRecipe(input.recipes, request);
   if (saved) {
-    const card = recipeCard(input.recipes, saved.id, index, undefined, input.bind, input.sock, input.bindRules, input.placeholders);
+    const card = recipeCard(input.recipes, saved.id, index, undefined, input.bind, input.dsck, input.bindRules, input.placeholders);
     return { card: { ...card, composed: false as const, note: `Saved recipe ${saved.title} covers this. Nothing composed.` } };
   }
   const split = composeParts(request);
   const { title } = split;
   const pack = input.bind ? packForRecipe({ id: "composed" }, input.bind) : undefined;
-  const fill = (recipe: Recipe) => fillRecipe(index, recipe, undefined, pack, input.bind?.workspace, input.sock, input.bindRules, input.placeholders);
+  const fill = (recipe: Recipe) => fillRecipe(index, recipe, undefined, pack, input.bind?.workspace, input.dsck, input.bindRules, input.placeholders);
   const isFit = (slot: FilledSlot) => Boolean(slot.master) && (slot.status === "filled" || slot.status === "bound") && headMatches(index, slot);
   // On/in words are a part when they fit a library part under the same strict rule; else context.
   const phrases = [...split.phrases];
@@ -284,21 +284,21 @@ export function composedProposalId(recipe: Recipe): string {
 }
 
 /** CLI and MCP both call this. `state` is set only when a proposal was filed; the caller saves it. */
-export function composeCard(input: ComposeInput, propose: boolean, now: string): { card: object; state?: SockState } {
+export function composeCard(input: ComposeInput, propose: boolean, now: string): { card: object; state?: DsckState } {
   const { card, recipe, duplicates: same } = composeRecipe(input);
   if (!propose) return { card };
   const refuse = (why: string) => ({ card: { ...card, proposal: "none", hint: `${why} Nothing filed.` } });
   if (!recipe) return refuse("Nothing composed to propose.");
   if (same?.length) return refuse(`Saved recipe ${same.join(", ")} already covers this.`);
   if (input.recipes.some((row) => row.id === recipe.id)) return refuse(`A saved recipe already uses the id ${recipe.id}.`);
-  const sock = input.sock ?? emptySock();
+  const dsck = input.dsck ?? emptyDsck();
   const id = composedProposalId(recipe);
-  const earlier = sock.proposals.find((row) => row.id === id);
+  const earlier = dsck.proposals.find((row) => row.id === id);
   if (earlier?.status === "pending") {
     return { card: { ...card, proposal: id, hint: `Already proposed as ${id}; not saved until a person approves it (resolve approve ${id} --who <name>).` } };
   }
   if (earlier) return refuse(`This exact recipe was already ${earlier.status} as ${id}.`);
-  const filed = proposeComposedRecipe(sock, recipe, now);
+  const filed = proposeComposedRecipe(dsck, recipe, now);
   return {
     card: { ...card, proposal: filed.proposalId, hint: `Proposed as ${filed.proposalId}; not saved until a person approves it (resolve approve ${filed.proposalId} --who <name>).` },
     state: filed.state,
@@ -306,7 +306,7 @@ export function composeCard(input: ComposeInput, propose: boolean, now: string):
 }
 
 /** File a pending recipe-update proposal that adds the composed recipe. A person approves it; nothing else writes recipes.json. */
-export function proposeComposedRecipe(state: SockState, recipe: Recipe, now: string): { state: SockState; proposalId: string } {
+export function proposeComposedRecipe(state: DsckState, recipe: Recipe, now: string): { state: DsckState; proposalId: string } {
   const proposalId = composedProposalId(recipe);
   if (state.proposals.some((row) => row.id === proposalId)) return { state, proposalId };
   const parts = recipe.slots.filter((slot) => slot.defaultMasterId).length;

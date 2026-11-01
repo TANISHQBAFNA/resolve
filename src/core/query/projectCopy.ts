@@ -4,13 +4,14 @@ import { homedir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import type { GraphNode } from "@/core/model";
 import type { GraphIndex } from "./GraphIndex";
-import type { SociProposal, SockState } from "./sock";
+import { canonicalProposalId, LEGACY_DSCI_FILE } from "./dsci";
+import type { DsciProposal, DsckState } from "./dsck";
 
 /**
- * A copy of the components, SOCK and SOCI that Resolve keeps in each project
+ * A copy of the components, DSCK and DSCI that Resolve keeps in each project
  * folder (`<project>/.resolve/local/`). Every run syncs it from the store:
  * components are added or updated, removed ones are marked stale (never
- * deleted), SOCK is refreshed, and SOCI keeps what a person approved. An
+ * deleted), DSCK is refreshed, and DSCI keeps what a person approved. An
  * approved proposal that changed in the store is flagged, not re-approved.
  * Sync never approves anything and never stops a run: problems are warnings.
  */
@@ -31,17 +32,17 @@ export interface LocalComponent {
   staleSince?: string;
 }
 
-export interface LocalSociProposal {
+export interface LocalDsciProposal {
   id: string;
   type?: string;
-  status: SociProposal["status"];
+  status: DsciProposal["status"];
   summary: string;
   fingerprint: string;
-  proposal: SociProposal;
+  proposal: DsciProposal;
   /** Approved here, then the store's proposal changed. The approved content is kept; the new one waits in `incoming`. */
   changed?: true;
   changedAt?: string;
-  incoming?: SociProposal;
+  incoming?: DsciProposal;
   /** Approved here, then the proposal left the store. */
   missingFromStore?: true;
   /** The proposal names a component that is now stale. */
@@ -57,8 +58,8 @@ export interface ProjectCopyReport {
   dir: string;
   synced: boolean;
   components: { total: number; added: number; updated: number; stale: number; newlyStale: number; revived: number };
-  sock: { facts: number; staleFacts: number };
-  soci: { pending: number; approved: number; rejected: number; changedApproved: number; added: number };
+  dsck: { facts: number; staleFacts: number };
+  dsci: { pending: number; approved: number; rejected: number; changedApproved: number; added: number };
   warnings: ProjectCopyWarning[];
 }
 
@@ -151,12 +152,12 @@ export function libraryComponents(index: GraphIndex): Array<{ node: GraphNode; f
   return out;
 }
 
-function proposalFingerprint(proposal: SociProposal): string {
+function proposalFingerprint(proposal: DsciProposal): string {
   const { status: _status, createdAt: _created, updatedAt: _updated, decisionNote: _note, ...content } = proposal;
   return hash(content);
 }
 
-function proposalMasterIds(proposal: SociProposal): string[] {
+function proposalMasterIds(proposal: DsciProposal): string[] {
   return [
     proposal.scope?.masterId,
     proposal.suggestedRule?.masterId,
@@ -173,7 +174,7 @@ export interface SyncInput {
   storeRoot: string;
   storeFingerprint?: string;
   index?: GraphIndex;
-  sock?: SockState;
+  dsck?: DsckState;
   now?: string;
 }
 
@@ -183,7 +184,7 @@ export function projectCopyFresh(dir: string, storeFingerprint: string | undefin
   const meta = readJson<Meta>(join(dir, "meta.json"));
   return Boolean(
     meta?.storeFingerprint === storeFingerprint &&
-      ["components.json", "sock.json", "soci.json"].every((name) => existsSync(join(dir, name))),
+      ["components.json", "dsck.json", "dsci.json"].every((name) => existsSync(join(dir, name))),
   );
 }
 
@@ -239,30 +240,34 @@ export function syncProjectCopy(input: SyncInput): ProjectCopyReport {
     });
   }
 
-  // SOCK: refreshed from the store every run.
-  const sock = input.sock;
-  const facts = sock?.facts ?? [];
+  // DSCK: refreshed from the store every run.
+  const dsck = input.dsck;
+  const facts = dsck?.facts ?? [];
   const staleFacts = facts.filter((fact) => staleIds.has(fact.masterId)).length;
   if (staleFacts) {
     warnings.push({
-      message: `${staleFacts} usage fact${staleFacts === 1 ? "" : "s"} in SOCK point at stale components.`,
-      next: "verify the screens that use them again so SOCK learns the replacement.",
+      message: `${staleFacts} usage fact${staleFacts === 1 ? "" : "s"} in DSCK point at stale components.`,
+      next: "verify the screens that use them again so DSCK learns the replacement.",
     });
   }
 
-  // SOCI: mirror the store, keep what was approved here, flag approved ones that changed. Never approve.
-  const oldSoci = readJson<{ proposals?: LocalSociProposal[] }>(join(dir, "soci.json"))?.proposals ?? [];
-  const oldById = new Map(oldSoci.map((row) => [row.id, row]));
-  const storeProposals = sock?.proposals ?? [];
-  const sociRows: LocalSociProposal[] = [];
-  const sociCounts = { pending: 0, approved: 0, rejected: 0, changedApproved: 0, added: 0 };
+  // DSCI: mirror the store, keep what was approved here, flag approved ones that changed. Never approve.
+  const localDsci = existsSync(join(dir, "dsci.json")) ? "dsci.json" : LEGACY_DSCI_FILE;
+  const oldDsci = (readJson<{ proposals?: LocalDsciProposal[] }>(join(dir, localDsci))?.proposals ?? []).map((row) => ({
+    ...row,
+    id: canonicalProposalId(row.id),
+  }));
+  const oldById = new Map(oldDsci.map((row) => [row.id, row]));
+  const storeProposals = dsck?.proposals ?? [];
+  const dsciRows: LocalDsciProposal[] = [];
+  const dsciCounts = { pending: 0, approved: 0, rejected: 0, changedApproved: 0, added: 0 };
   const inStore = new Set<string>();
   for (const proposal of storeProposals) {
     inStore.add(proposal.id);
     const fingerprint = proposalFingerprint(proposal);
     const old = oldById.get(proposal.id);
-    if (!old) sociCounts.added += 1;
-    let row: LocalSociProposal;
+    if (!old) dsciCounts.added += 1;
+    let row: LocalDsciProposal;
     if (old?.status === "approved" && old.fingerprint !== fingerprint) {
       row = { ...old, changed: true, changedAt: old.changed ? (old.changedAt ?? now) : now, incoming: proposal };
       delete row.missingFromStore;
@@ -276,32 +281,32 @@ export function syncProjectCopy(input: SyncInput): ProjectCopyReport {
         proposal,
       };
     }
-    sociRows.push(row);
+    dsciRows.push(row);
   }
-  for (const old of oldSoci) {
+  for (const old of oldDsci) {
     if (inStore.has(old.id) || old.status !== "approved") continue;
-    sociRows.push({ ...old, missingFromStore: true });
+    dsciRows.push({ ...old, missingFromStore: true });
   }
-  for (const row of sociRows) {
+  for (const row of dsciRows) {
     const staleId = proposalMasterIds(row.proposal).find((id) => staleIds.has(id));
     if (staleId) row.staleComponent = staleId;
     else delete row.staleComponent;
-    if (row.status === "approved") sociCounts.approved += 1;
-    else if (row.status === "rejected") sociCounts.rejected += 1;
-    else sociCounts.pending += 1;
-    if (row.changed) sociCounts.changedApproved += 1;
+    if (row.status === "approved") dsciCounts.approved += 1;
+    else if (row.status === "rejected") dsciCounts.rejected += 1;
+    else dsciCounts.pending += 1;
+    if (row.changed) dsciCounts.changedApproved += 1;
   }
-  if (sociCounts.changedApproved) {
-    const ids = sociRows.filter((row) => row.changed).map((row) => row.id);
+  if (dsciCounts.changedApproved) {
+    const ids = dsciRows.filter((row) => row.changed).map((row) => row.id);
     warnings.push({
-      message: `${ids.length} approved SOCI proposal${ids.length === 1 ? "" : "s"} changed since approval (${ids.join(", ")}). The approved version is kept; the change is not approved.`,
+      message: `${ids.length} approved DSCI proposal${ids.length === 1 ? "" : "s"} changed since approval (${ids.join(", ")}). The approved version is kept; the change is not approved.`,
       next: "show the change to the designer; approve it again with `resolve approve <id> --who <name>` or reject it.",
     });
   }
-  const staleRules = sociRows.filter((row) => row.status === "approved" && row.staleComponent).map((row) => row.id);
+  const staleRules = dsciRows.filter((row) => row.status === "approved" && row.staleComponent).map((row) => row.id);
   if (staleRules.length) {
     warnings.push({
-      message: `Approved SOCI ${staleRules.join(", ")} name${staleRules.length === 1 ? "s" : ""} a stale component.`,
+      message: `Approved DSCI ${staleRules.join(", ")} name${staleRules.length === 1 ? "s" : ""} a stale component.`,
       next: "ask the designer to re-point or reject the rule; Resolve does not change approved rules on its own.",
     });
   }
@@ -313,23 +318,23 @@ export function syncProjectCopy(input: SyncInput): ProjectCopyReport {
     ...(input.storeFingerprint ? { storeFingerprint: input.storeFingerprint } : {}),
   };
   writeJson(join(dir, "components.json"), { version: PROJECT_COPY_VERSION, syncedAt: now, components: rows });
-  writeJson(join(dir, "sock.json"), {
+  writeJson(join(dir, "dsck.json"), {
     version: PROJECT_COPY_VERSION,
     syncedAt: now,
-    threshold: sock?.threshold,
+    threshold: dsck?.threshold,
     facts,
-    freshness: sock?.freshness ?? {},
-    corrections: sock?.corrections ?? [],
+    freshness: dsck?.freshness ?? {},
+    corrections: dsck?.corrections ?? [],
   });
-  writeJson(join(dir, "soci.json"), { version: PROJECT_COPY_VERSION, syncedAt: now, proposals: sociRows });
+  writeJson(join(dir, "dsci.json"), { version: PROJECT_COPY_VERSION, syncedAt: now, proposals: dsciRows });
   writeJson(join(dir, "meta.json"), meta);
 
   return {
     dir,
     synced: true,
     components: counts,
-    sock: { facts: facts.length, staleFacts },
-    soci: sociCounts,
+    dsck: { facts: facts.length, staleFacts },
+    dsci: dsciCounts,
     warnings,
   };
 }
@@ -343,7 +348,7 @@ export function projectCopyNote(report: ProjectCopyReport | undefined): string {
   if (c.updated) parts.push(`${c.updated} updated`);
   if (c.newlyStale) parts.push(`${c.newlyStale} newly stale`);
   if (c.revived) parts.push(`${c.revived} back`);
-  if (report.soci.added) parts.push(`${report.soci.added} new SOCI`);
+  if (report.dsci.added) parts.push(`${report.dsci.added} new DSCI`);
   if (!parts.length && !report.warnings.length) return "";
   const lines = report.synced ? [`[resolve] project copy ${report.dir}: ${parts.length ? parts.join(", ") : "synced"}`] : [];
   for (const warning of report.warnings) lines.push(`[resolve] warning: ${warning.message} next: ${warning.next}`);
@@ -357,7 +362,7 @@ export interface ProjectSyncDeps {
   graphExists: boolean;
   storeFingerprint: () => string;
   loadIndex: () => GraphIndex | undefined;
-  loadSock: () => SockState | undefined;
+  loadDsck: () => DsckState | undefined;
   force?: boolean;
 }
 
@@ -369,16 +374,16 @@ export function runProjectSync(deps: ProjectSyncDeps): ProjectCopyReport | undef
     const fingerprint = deps.storeFingerprint();
     if (!deps.force && projectCopyFresh(dir, fingerprint)) return undefined;
     const index = deps.loadIndex();
-    const sock = deps.loadSock();
-    return syncProjectCopy({ dir, storeRoot: deps.storeRoot, storeFingerprint: fingerprint, ...(index ? { index } : {}), ...(sock ? { sock } : {}) });
+    const dsck = deps.loadDsck();
+    return syncProjectCopy({ dir, storeRoot: deps.storeRoot, storeFingerprint: fingerprint, ...(index ? { index } : {}), ...(dsck ? { dsck } : {}) });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
       dir: "",
       synced: false,
       components: { total: 0, added: 0, updated: 0, stale: 0, newlyStale: 0, revived: 0 },
-      sock: { facts: 0, staleFacts: 0 },
-      soci: { pending: 0, approved: 0, rejected: 0, changedApproved: 0, added: 0 },
+      dsck: { facts: 0, staleFacts: 0 },
+      dsci: { pending: 0, approved: 0, rejected: 0, changedApproved: 0, added: 0 },
       warnings: [{ message: `The project copy was not synced (${message}).`, next: "check the project folder is writable, then run Resolve again." }],
     };
   }

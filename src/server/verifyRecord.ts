@@ -1,5 +1,5 @@
 import {
-  advanceSoci,
+  advanceDsci,
   checkCousins,
   exampleFactForMasterOnFrame,
   harvestOverrideKeysForFrame,
@@ -16,7 +16,7 @@ import {
   type Recipe,
 } from "@/core/query";
 import { hiddenUnder } from "@/core/query/placed";
-import { loadRecipes, readPlaceholders, readSock, readWorkspace, saveSock } from "./store";
+import { loadRecipes, readPlaceholders, readDsck, readWorkspace, saveDsck } from "./store";
 
 function recipeAlreadyEncodes(pattern: { masterId: string; name: string }, recipes: Recipe[]): boolean {
   return recipes.some((recipe) =>
@@ -27,7 +27,7 @@ function recipeAlreadyEncodes(pattern: { masterId: string; name: string }, recip
 }
 
 /**
- * Save a passing verify to SOCK: usage facts, cousin corrections, SOCI proposals. MCP verify_frame and CLI verify both
+ * Save a passing verify to DSCK: usage facts, cousin corrections, DSCI proposals. MCP verify_frame and CLI verify both
  * call this, so a frame checked from the command line (a delivery-process design-check) counts as a mapped screen too.
  * Only real frames count toward patterns. The screen job comes from the journey, else the domain, else the frame name.
  */
@@ -111,7 +111,7 @@ export function recordVerifyUsage(
     const journeyArg = input.journey;
     const screenName = result.frame?.name ?? frame ?? "observation";
     const job = realFrame ? (jobOfName(journeyArg) ?? jobOfName(input.domain) ?? jobOfName(screenName)) : undefined;
-    let next = recordVerifiedUsage(readSock(), {
+    let next = recordVerifiedUsage(readDsck(), {
       screenId,
       screenName,
       masters: mastersWithOverrides,
@@ -147,8 +147,8 @@ export function recordVerifyUsage(
         hits,
       });
     }
-    saveSock(
-      advanceSoci(next, {
+    saveDsck(
+      advanceDsci(next, {
         recipes: loadRecipes(),
         index,
         workspace: bind.workspace ?? readWorkspace(),

@@ -223,10 +223,10 @@ export const GIT_TEAM = [
   "icon-libraries.json",
   "library-rules.json",
   "workspace.json",
-  "sock.json",
+  "dsck.json",
 ];
 export const GIT_BLOCK = [
-  `# Learned cache. Rebuild it with /design-system. Commit team files in .resolve/: ${GIT_TEAM.join(", ")}. sock.json holds decisions. Also commit scoreboard/phrases/ and scoreboard/golden/ (team phrase sets and the golden file from score --init). Run history under scoreboard/ stays ignored.`,
+  `# Learned cache. Rebuild it with /design-system. Commit team files in .resolve/: ${GIT_TEAM.join(", ")}. dsck.json holds decisions. Also commit scoreboard/phrases/ and scoreboard/golden/ (team phrase sets and the golden file from score --init). Run history under scoreboard/ stays ignored.`,
   ...GIT_CACHE,
 ].join("\n");
 

@@ -5,9 +5,9 @@ import { join } from "node:path";
 import { createServer } from "http";
 import { createServer as createViteServer, preview } from "vite";
 import { fileURLToPath } from "node:url";
-import { emptySock, proposeRuleChange } from "@/core/query/sock";
+import { emptyDsck, proposeRuleChange } from "@/core/query/dsck";
 import { parseBindRulesFile } from "@/core/query/bindRules";
-import { clearCache, saveSock, writeBindRules } from "@/server/store";
+import { clearCache, saveDsck, writeBindRules } from "@/server/store";
 import { governanceView } from "@/server/governance";
 import { governanceMiddleware } from "@/server/governanceHttp";
 
@@ -35,8 +35,8 @@ describe("/api/governance", () => {
         rules: [{ screenType: "payment", slot: "primary-action", require: "Pay CTA" }, { forbid: "deprecated" }],
       }),
     );
-    saveSock(
-      proposeRuleChange(emptySock(), "Require Pay CTA for payment/primary-action", "used on 3 screens", {
+    saveDsck(
+      proposeRuleChange(emptyDsck(), "Require Pay CTA for payment/primary-action", "used on 3 screens", {
         screenType: "payment",
         slot: "primary-action",
         require: "Pay CTA",
@@ -51,8 +51,8 @@ describe("/api/governance", () => {
 
   it("serves /api/governance from the Vite middleware", async () => {
     writeBindRules(parseBindRulesFile({ rules: [{ forbid: "deprecated" }] }));
-    saveSock(
-      proposeRuleChange(emptySock(), "Pending rule", "evidence from Payment", {
+    saveDsck(
+      proposeRuleChange(emptyDsck(), "Pending rule", "evidence from Payment", {
         screenType: "payment",
         slot: "primary-action",
         require: "Pay CTA",

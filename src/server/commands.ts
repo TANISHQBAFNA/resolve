@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { PickRequest } from "../core/query/meaning/sock";
-import { packFromFiles, stableShortlist, validateAiPick } from "../core/query/meaning/sockPick";
+import type { PickRequest } from "../core/query/meaning/dsck";
+import { packFromFiles, stableShortlist, validateAiPick } from "../core/query/meaning/dsckPick";
 import type { Mode } from "./mode.ts";
 import { activeMode, includesPack } from "./mode.ts";
 import { aiPicksEnabled } from "./pluginSettings";

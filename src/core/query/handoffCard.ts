@@ -16,7 +16,7 @@ import { realByKey } from "./ingredients";
 import { missingNodeSentence, readFigmaLink } from "./learnedLink";
 import type { BriefCandidate } from "./brief";
 import { fillRecipe, matchRecipe, type Recipe } from "./recipes";
-import type { SockState } from "./sock";
+import type { DsckState } from "./dsck";
 import type { WorkspaceManifest } from "./workspace";
 
 export interface HandoffInput {
@@ -26,7 +26,7 @@ export interface HandoffInput {
   recipes?: Recipe[];
   context?: ContextPack;
   bindRules?: BindRulesFile;
-  sock?: SockState;
+  dsck?: DsckState;
   workspace?: WorkspaceManifest;
   placeholders?: string[];
   rules?: { allow?: string[]; deny?: string[] };
@@ -100,12 +100,12 @@ export function handoffSheet(index: GraphIndex, frames: string[], input: Handoff
         ...(input.rules ? { rules: input.rules } : {}),
         ...(input.context ? { context: input.context } : {}),
         ...(input.bindRules ? { bindRules: input.bindRules } : {}),
-        ...(input.sock ? { sock: input.sock } : {}),
+        ...(input.dsck ? { dsck: input.dsck } : {}),
         ...(input.workspace ? { workspace: input.workspace } : {}),
         ...(input.placeholders ? { placeholders: input.placeholders } : {}),
       }) as unknown as VerifyLike,
     frame: (ask) => findFrame(index, ask),
-    fillRecipe: (recipe) => fillRecipe(index, recipe, undefined, input.context, input.workspace, input.sock, input.bindRules, input.placeholders),
+    fillRecipe: (recipe) => fillRecipe(index, recipe, undefined, input.context, input.workspace, input.dsck, input.bindRules, input.placeholders),
   };
   const pack = buildHandoff(index, frames, hooks, {
     draft: input.draft,

@@ -1,11 +1,11 @@
 /**
- * DEV set only. Not the frozen acceptance set. Used while building the meaning SOCK.
+ * DEV set only. Not the frozen acceptance set. Used while building the meaning DSCK.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { DesignGraph, GraphNode, NodeType } from "@/core/model";
 import { indexGraph } from "@/core/query/GraphIndex";
-import { buildMeaningPack, meaningCandidates, thinComponents, validateAiPick } from "@/core/query/meaning/sock";
+import { buildMeaningPack, meaningCandidates, thinComponents, validateAiPick } from "@/core/query/meaning/dsck";
 import { readFrozenCases } from "./meaning.frozen-score";
 
 const FROZEN = "2026-01-01T00:00:00.000Z";
@@ -27,7 +27,7 @@ function packFrom(names: Array<[string, string]>) {
   return buildMeaningPack(indexGraph(graph), "Acme", FROZEN);
 }
 
-describe("meaning SOCK dev set", () => {
+describe("meaning DSCK dev set", () => {
   it("is labeled as a development set and is not the frozen fixture", () => {
     const dev = JSON.parse(readFileSync("scoreboard/meaning/dev-set.json", "utf8")) as { label: string; cases: unknown[] };
     expect(dev.label).toMatch(/DEV ONLY/);

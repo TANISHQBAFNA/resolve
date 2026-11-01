@@ -1,5 +1,5 @@
 /**
- * Meaning SOCK: one component's job, from that component's own data.
+ * Meaning DSCK: one component's job, from that component's own data.
  * The ask is scored against that text. A pick is quoted from it, then checked.
  */
 
@@ -15,7 +15,7 @@ import { DOC_ATTRIBUTION, docsForLibrary } from "./materialDocs";
 
 export type MeaningTier = "sure" | "weak";
 
-export interface SockComponent {
+export interface DsckComponent {
   id: string;
   name: string;
   aliases: string[];
@@ -35,7 +35,7 @@ export interface MeaningPack {
   library: string;
   vocab: string;
   builtAt: string;
-  components: SockComponent[];
+  components: DsckComponent[];
 }
 
 export interface MeaningCandidate {
@@ -81,7 +81,7 @@ export interface PickResult {
   shortlist?: string[];
 }
 
-export { componentFromMarkdown, engineShortlist, packFromFiles, stableShortlist, validateAiPick } from "./sockPick";
+export { componentFromMarkdown, engineShortlist, packFromFiles, stableShortlist, validateAiPick } from "./dsckPick";
 
 const STOP = new Set([
   "a", "an", "the", "and", "or", "of", "to", "for", "with", "in", "at", "by", "from", "into",
@@ -120,7 +120,7 @@ export function slugId(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "part";
 }
 
-function quoteFor(component: SockComponent, askStems: readonly string[]): string {
+function quoteFor(component: DsckComponent, askStems: readonly string[]): string {
   const wanted = new Set(askStems);
   const sentences = [component.job, component.description].flatMap((text) => text.split(/(?<=\.)\s+/)).map((line) => line.trim()).filter(Boolean);
   let best = "";
@@ -136,12 +136,12 @@ function quoteFor(component: SockComponent, askStems: readonly string[]): string
   return hits > 0 ? best : "";
 }
 
-function ownText(component: SockComponent): string {
+function ownText(component: DsckComponent): string {
   return [component.name, component.job, component.description, component.aliases.join(" "), component.properties.join(" ")].join(" ");
 }
 
 interface Scored {
-  component: SockComponent;
+  component: DsckComponent;
   score: number;
   hits: number;
   reason: string;
@@ -151,7 +151,7 @@ function idfOf(df: Map<string, number>, total: number, token: string): number {
   return Math.log((total + 1) / ((df.get(token) ?? 0) + 0.5));
 }
 
-function excludedIds(ask: string, components: readonly SockComponent[]): Set<string> {
+function excludedIds(ask: string, components: readonly DsckComponent[]): Set<string> {
   const match = /\b(?:rather\s+than|instead\s+of|not)\s+(.+)$/i.exec(ask);
   const tail = match?.[1]?.toLowerCase().trim();
   if (!tail) return new Set();
@@ -175,7 +175,7 @@ function leftClause(ask: string): string {
   return match?.index ? ask.slice(0, match.index) : ask;
 }
 
-function loneInflected(ask: string, components: readonly SockComponent[]): boolean {
+function loneInflected(ask: string, components: readonly DsckComponent[]): boolean {
   const raw = words(ask);
   if (raw.length !== 1) return false;
   const token = raw[0] ?? "";
@@ -268,9 +268,9 @@ export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-export function staleWarning(libraryBuiltAt: string, sockBuiltAt: string): string | undefined {
-  if (!libraryBuiltAt || !sockBuiltAt) return undefined;
-  if (libraryBuiltAt > sockBuiltAt) return `Meaning files are older than the library (${sockBuiltAt} < ${libraryBuiltAt}). Rebuild them.`;
+export function staleWarning(libraryBuiltAt: string, dsckBuiltAt: string): string | undefined {
+  if (!libraryBuiltAt || !dsckBuiltAt) return undefined;
+  if (libraryBuiltAt > dsckBuiltAt) return `Meaning files are older than the library (${dsckBuiltAt} < ${libraryBuiltAt}). Rebuild them.`;
   return undefined;
 }
 
@@ -335,7 +335,7 @@ export function buildMeaningPack(
   const docs = docsForLibrary(libraryId);
   loadSynonymOverlay();
   const used = new Set<string>();
-  const components: SockComponent[] = [];
+  const components: DsckComponent[] = [];
   for (const node of componentNodes(index)) {
     let id = slugId(node.name);
     let n = 2;
@@ -369,7 +369,7 @@ export function buildMeaningPack(
   return { library, vocab: "", builtAt, components };
 }
 
-export function renderComponent(component: SockComponent, library = ""): string {
+export function renderComponent(component: DsckComponent, library = ""): string {
   const job = component.job || component.description || component.name;
   const lines = [`# ${library || "library"} / ${component.name}`, job];
   if (component.description && component.description !== job) lines.push(component.description);
@@ -384,7 +384,7 @@ export function renderComponent(component: SockComponent, library = ""): string 
   return `${lines.join("\n")}\n`;
 }
 
-function indexLine(component: SockComponent): string {
+function indexLine(component: DsckComponent): string {
   const prefix = `- [${component.id}](${component.id}.md) — `;
   const job = component.thin.length > 0 ? "thin" : (component.description || component.job || component.name).replace(/\s+/g, " ").trim();
   const body = component.thin.length > 0 ? job : `${job} — ${component.name}`;

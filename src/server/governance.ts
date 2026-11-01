@@ -1,12 +1,12 @@
 import { ruleLabel, whyLine, type BindRule, type BindRuleWarning } from "@/core/query/bindRules";
-import { patternsOf, type SockState } from "@/core/query/sock";
-import { groupSociProposals, pendingImprovementCount } from "@/core/query/soci";
-import { loadSock, readBindRules } from "./store";
+import { patternsOf, type DsckState } from "@/core/query/dsck";
+import { groupDsciProposals, pendingImprovementCount } from "@/core/query/dsci";
+import { loadDsck, readBindRules } from "./store";
 
 export interface GovernanceView {
   rules: Array<BindRule & { label: string }>;
-  proposals: NonNullable<SockState["proposals"]>;
-  proposalGroups: ReturnType<typeof groupSociProposals>;
+  proposals: NonNullable<DsckState["proposals"]>;
+  proposalGroups: ReturnType<typeof groupDsciProposals>;
   pendingImprovements: number;
   patterns: Array<{
     masterId: string;
@@ -22,8 +22,8 @@ export interface GovernanceView {
 /** Read-only snapshot for the human rules page. Never dumps the graph. */
 export function governanceView(): GovernanceView {
   const rules = readBindRules();
-  const sock = loadSock() ?? { version: 1 as const, threshold: 3, facts: [], freshness: {}, proposals: [], corrections: [] };
-  const patterns = patternsOf(sock).map((row) => ({
+  const dsck = loadDsck() ?? { version: 1 as const, threshold: 3, facts: [], freshness: {}, proposals: [], corrections: [] };
+  const patterns = patternsOf(dsck).map((row) => ({
     masterId: row.masterId,
     name: row.name,
     screens: row.screens.length,
@@ -33,19 +33,19 @@ export function governanceView(): GovernanceView {
       confidence: row.confidence,
     }),
   }));
-  const pending = pendingImprovementCount(sock);
+  const pending = pendingImprovementCount(dsck);
   return {
     rules: rules.rules.map((rule) => ({ ...rule, label: ruleLabel(rule) })),
-    proposals: sock.proposals,
-    proposalGroups: groupSociProposals(sock.proposals),
+    proposals: dsck.proposals,
+    proposalGroups: groupDsciProposals(dsck.proposals),
     pendingImprovements: pending,
     patterns,
     warnings: [
       ...(rules.warnings ?? []),
-      ...(sock.warnings ?? []).map((reason) => ({ rule: "sock.json", reason })),
+      ...(dsck.warnings ?? []).map((reason) => ({ rule: "dsck.json", reason })),
     ],
     hint: pending
-      ? `Read-only. pending improvements: ${pending}. Write bind-rules.json / recipes.json yourself, or resolve approve <id> --who <name>. SOCI never auto-applies.`
-      : "Read-only. Write bind-rules.json yourself, or resolve approve <id> --who <name> for a pending proposal. SOCI never auto-applies.",
+      ? `Read-only. pending improvements: ${pending}. Write bind-rules.json / recipes.json yourself, or resolve approve <id> --who <name>. DSCI never auto-applies.`
+      : "Read-only. Write bind-rules.json yourself, or resolve approve <id> --who <name> for a pending proposal. DSCI never auto-applies.",
   };
 }

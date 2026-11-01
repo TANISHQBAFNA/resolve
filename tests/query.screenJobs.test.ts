@@ -4,16 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   approachFor,
-  emptySock,
+  emptyDsck,
   jobOfName,
   jobsInAsk,
   recordVerifiedUsage,
   screenAskCard,
   starterRecipes,
-  type SockState,
+  type DsckState,
 } from "@/core/query";
 import { formatGaps, readGaps } from "@/server/gaps";
-import { clearCache, saveGraph, saveSock } from "@/server/store";
+import { clearCache, saveGraph, saveDsck } from "@/server/store";
 import { callTool, encodeToolResult } from "@/server/tools";
 import { graph } from "./fixture";
 
@@ -24,8 +24,8 @@ const header = { id: "m-header", name: "Header", fileKey: "LIB", figmaNodeId: "1
 const icon = { id: "m-icon", name: "Icon", fileKey: "LIB", figmaNodeId: "10:4", nested: true };
 
 /** Three verified inquiry frames sharing Search and List. No master is named Inquiry. */
-function inquirySock(): SockState {
-  let state = emptySock(3);
+function inquiryDsck(): DsckState {
+  let state = emptyDsck(3);
   const frames: Array<[string, string, typeof search[]]> = [
     ["LIB:20:1", "Account inquiry", [search, list, header, icon]],
     ["LIB:20:2", "Balance enquiry v2", [search, list, icon]],
@@ -54,8 +54,8 @@ describe("screen jobs", () => {
     expect(jobOfName("Approval summary")).toBeUndefined();
   });
 
-  it("ranks the masters of mapped inquiry screens from SOCK, with ids from the facts", () => {
-    const approach = approachFor(inquirySock(), "inquiry");
+  it("ranks the masters of mapped inquiry screens from DSCK, with ids from the facts", () => {
+    const approach = approachFor(inquiryDsck(), "inquiry");
     expect(approach).toMatchObject({ job: "inquiry", confidence: "strong", mappedScreens: 3 });
     expect(approach.masters.map((row) => [row.name, row.screens, row.figmaNodeId])).toEqual([
       ["Search", 3, "10:1"],
@@ -66,23 +66,23 @@ describe("screen jobs", () => {
   });
 
   it("classifies an old fact with no job from its screen name, and one mapped screen is low", () => {
-    const old = recordVerifiedUsage(emptySock(3), { screenId: "LIB:30:1", screenName: "Loan approval", masters: [header], verifiedAt: at });
+    const old = recordVerifiedUsage(emptyDsck(3), { screenId: "LIB:30:1", screenName: "Loan approval", masters: [header], verifiedAt: at });
     expect(old.facts[0]?.job).toBeUndefined();
     expect(approachFor(old, "approval")).toMatchObject({ confidence: "low", mappedScreens: 1, masters: [{ name: "Header", screens: 1 }] });
   });
 
   it("an unmapped job answers empty, never a starter recipe or a look-alike part", () => {
-    const card = screenAskCard("summary screen", { sock: inquirySock(), recipes: starterRecipes() });
+    const card = screenAskCard("summary screen", { dsck: inquiryDsck(), recipes: starterRecipes() });
     expect(card?.approaches).toEqual([{ job: "summary", meaning: expect.any(String), confidence: "low", mappedScreens: 0, masters: [] }]);
     expect(card?.hint).toMatch(/No mapped summary screen yet/);
     expect(card).not.toHaveProperty("recipe");
   });
 
   it("two jobs give both approaches, stronger first; an exact recipe title keeps the recipe", () => {
-    const card = screenAskCard("approval inquiry", { sock: inquirySock(), recipes: starterRecipes() });
+    const card = screenAskCard("approval inquiry", { dsck: inquiryDsck(), recipes: starterRecipes() });
     expect(card?.approaches.map((row) => row.job)).toEqual(["inquiry", "approval"]);
-    expect(screenAskCard("checkout summary", { sock: inquirySock(), recipes: starterRecipes() })).toBeUndefined();
-    expect(screenAskCard("primary button", { sock: inquirySock(), recipes: starterRecipes() })).toBeUndefined();
+    expect(screenAskCard("checkout summary", { dsck: inquiryDsck(), recipes: starterRecipes() })).toBeUndefined();
+    expect(screenAskCard("primary button", { dsck: inquiryDsck(), recipes: starterRecipes() })).toBeUndefined();
   });
 });
 
@@ -93,7 +93,7 @@ describe("screen jobs on the agent path", () => {
     process.env["RESOLVE_HOME"] = mkdtempSync(join(tmpdir(), "resolve-jobs-"));
     clearCache();
     saveGraph(graph);
-    saveSock(inquirySock());
+    saveDsck(inquiryDsck());
   });
 
   afterEach(() => {
@@ -102,7 +102,7 @@ describe("screen jobs on the agent path", () => {
     else process.env["RESOLVE_HOME"] = previousHome;
   });
 
-  it("recommend answers a screen ask from SOCK; a component ask is unchanged", () => {
+  it("recommend answers a screen ask from DSCK; a component ask is unchanged", () => {
     const screen = callTool("recommend", { intent: "inquiry screen" }) as { approaches: Array<{ masters: Array<{ name: string }> }> };
     expect(screen.approaches[0]?.masters.map((row) => row.name)).toEqual(["Search", "List", "Header"]);
     const markdown = encodeToolResult(screen);

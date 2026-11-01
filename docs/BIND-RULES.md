@@ -56,34 +56,34 @@ In `.resolve/context-packs.json`, add `bindRules` on a pack with the same `{ "ru
 
 ## Approve a proposal
 
-SOCK (verified usage) can **suggest** a rule after a master is strong on three real screens. That suggestion is a **pending proposal**. It does not edit your file.
+DSCK (verified usage) can **suggest** a rule after a master is strong on three real screens. That suggestion is a **pending proposal**. It does not edit your file.
 
 See them:
 
 ```bash
-npm run resolve -- soci
+npm run resolve -- dsci
 ```
 
 Each row has an id, a type, a one-line summary, and the evidence (which frames). Same suggestion again? Evidence merges. The list stays capped.
 
-There are more types than “require this master”: recipe slot changes, variant candidates, deprecation review, and wrong-cousin hotspots. Plain examples: [SOCI — suggestions from real usage](SOCI.md).
+There are more types than “require this master”: recipe slot changes, variant candidates, deprecation review, and wrong-cousin hotspots. Plain examples: [DSCI — suggestions from real usage](DSCI.md).
 
 **Approve a require-rule** (writes `bind-rules.json` and an audit line: who, when, proposal id, before/after):
 
 ```bash
-npm run resolve -- approve soci:require-rule:pay-cta-payment --who "Tanishk"
+npm run resolve -- approve dsci:require-rule:pay-cta-payment --who "Tanishk"
 ```
 
 **Approve a recipe update** (writes `recipes.json` overlay, not Figma):
 
 ```bash
-npm run resolve -- approve soci:recipe-update:checkout-summary-header-node-stepper --who "Tanishk"
+npm run resolve -- approve dsci:recipe-update:checkout-summary-header-node-stepper --who "Tanishk"
 ```
 
 **Reject** (keeps the files as-is, still writes an audit line):
 
 ```bash
-npm run resolve -- reject soci:require-rule:pay-cta-payment --who "Tanishk"
+npm run resolve -- reject dsci:require-rule:pay-cta-payment --who "Tanishk"
 ```
 
 `--who` is required on the CLI. Resolve will not fall back to your user name.

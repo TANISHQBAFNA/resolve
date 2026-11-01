@@ -11,15 +11,15 @@ import { isMasterType, RECOMMEND_BUDGET, USAGE_CARD_BUDGET, variantCardName } fr
 import { placeReady } from "./placeReady";
 import type { RecommendContext } from "./recommendSupport";
 import { screenOf, slotNamesOf } from "./screenInventory";
-import type { SockState } from "./sock";
+import type { DsckState } from "./dsck";
 import { nodeFileKey } from "./workspaceMerge";
 
 export function exampleQuery(
   index: GraphIndex,
-  options: { sock?: SockState; context?: RecommendContext; placeholders?: string[] },
+  options: { dsck?: DsckState; context?: RecommendContext; placeholders?: string[] },
 ): ExampleQuery {
   return {
-    sock: options.sock,
+    dsck: options.dsck,
     graphFileKey: index.graph.fileKey,
     product: options.context?.product?.name || options.context?.product?.id,
     journey: options.context?.journey?.screenJob || options.context?.journey?.step,
@@ -32,7 +32,7 @@ export function usageCardForComponent(
   node: GraphNode,
   options: {
     budgetChars?: number;
-    sock?: SockState;
+    dsck?: DsckState;
     context?: RecommendContext;
     placeholders?: string[];
   } = {},
@@ -108,7 +108,7 @@ export function usageCardForComponent(
     }
   }
   const why = whyLineForMaster(node, {
-    sock: options.sock,
+    dsck: options.dsck,
     graphFileKey: index.graph.fileKey,
     instances: usage.instanceCount,
   });
