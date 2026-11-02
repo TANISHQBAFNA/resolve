@@ -211,6 +211,7 @@ export const GIT_CACHE = [
   ".resolve/learn/",
   ".resolve/ingest/",
   ".resolve/setup-record.json",
+  ".resolve/local/",
 ];
 /** Team knowledge. Never an ignore path. */
 export const GIT_TEAM = [

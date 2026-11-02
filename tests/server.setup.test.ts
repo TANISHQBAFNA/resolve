@@ -24,6 +24,14 @@ function setup(args: string[], cwd: string, home?: string): { status: number | n
 }
 
 describe("resolve-setup", () => {
+  it("gitignores the per-project copy in .resolve/local/", () => {
+    const cwd = tempDir("local-copy");
+    mkdirSync(cwd, { recursive: true });
+    expect(setup(["--yes"], cwd, tempDir("home")).status).toBe(0);
+    const ignore = readFileSync(join(cwd, ".gitignore"), "utf8");
+    expect(ignore.split("\n")).toContain(".resolve/local/");
+  });
+
   it("writes the three files, then a second run leaves user text outside the markers", () => {
     const cwd = tempDir("project");
     mkdirSync(cwd, { recursive: true });
