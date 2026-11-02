@@ -290,15 +290,9 @@ export function buildDeclaredLinks(input: {
   return { links, problems, covered: [...covered].sort(byCode), unlinkedCode, stale, conflicts: conflicts.sort(byCode), denies: denies.sort(byCode) };
 }
 
-const EVIDENCE: Record<"mapped" | "exact" | "alias", string> = {
-  mapped: "named in the mapping file",
-  exact: "same name and a shared variant, modifier, or description",
-  alias: "shared alias",
-};
-
-/** The current matcher, written as proposals. Never confirmed. Evidence is a same-name pair with a real signal. A shared side, a related word, or a different `-container` name stays suggested. */
+/** The current links and suggestions, written as proposals. Never confirmed. Evidence is a shared-ID link, or a confirmed mapping.json pair with the same name. A shared side, a related word, or a same name alone is not evidence. */
 export function proposalsFromReport(report: {
-  pairs: Array<{ figma: string; code: string; confidence: "mapped" | "exact" | "alias" }>;
+  pairs: Array<{ figma: string; code: string; confidence: "mapped" | "exact" | "alias"; source?: string }>;
   suggestions?: Array<{ figma: string; code: string; confidence?: string; reasons: string[] }>;
 }): ProposedEntry[] {
   const out = new Map<string, ProposedEntry>();
@@ -310,8 +304,8 @@ export function proposalsFromReport(report: {
     if (!have || rank[entry.tier] < rank[have.tier]) out.set(id, entry);
   };
   for (const pair of report.pairs) {
-    const reason = EVIDENCE[pair.confidence];
-    put({ figma: pair.figma, code: pair.code, status: "proposed", tier: evidencePair(pair.figma, pair.code) ? "evidence" : "suggested", reason });
+    const id = pair.source === "id";
+    put({ figma: pair.figma, code: pair.code, status: "proposed", tier: id || evidencePair(pair.figma, pair.code) ? "evidence" : "suggested", reason: id ? "same shared ID" : "named in the mapping file" });
   }
   for (const row of report.suggestions ?? []) {
     put({ figma: row.figma, code: row.code, status: "proposed", tier: suggestionTier(row), reason: row.reasons.join("; ") || "similar names" });

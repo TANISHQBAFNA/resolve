@@ -1,12 +1,12 @@
 import type { GraphNode } from "@/core/model";
-import { packageClassPrefix, selectorAlternatives, splitWords, type AngularComponentRecord, type AngularInventory } from "@/adapters/angular";
+import { packageClassPrefix, splitWords, type AngularComponentRecord, type AngularInventory } from "@/adapters/angular";
 import { angularInputFor } from "./componentProperties";
 import type { GraphIndex } from "./GraphIndex";
 import type { AngularTwin } from "./codeMap";
 
 /**
- * Propose Figma ↔ code pairs from names and from Figma properties ↔ inputs.
- * Every pair is `suggested` or `partial`. Neither is a confirmed twin.
+ * Propose Figma ↔ code pairs from whole names and from Figma properties ↔ inputs.
+ * Every pair is `suggested` or `partial`, a draft for a person to review. Neither is a confirmed twin.
  */
 
 export type SuggestRelation = "maps" | "composed-of";
@@ -57,24 +57,6 @@ function classWords(component: AngularComponentRecord, prefix?: string): string[
   return words(bare);
 }
 
-/**
- * A selector alias counts only when the selector list also names the class.
- * `acme-pill` on AcmeBadgeComponent does not match Pill. `acme-dropdown` on AcmeSelectComponent does match Dropdown.
- */
-function aliasWords(component: AngularComponentRecord, figma: string[], prefix?: string): boolean {
-  const cls = classWords(component, prefix);
-  const alts = selectorAlternatives(component.selector);
-  if (!alts.some((alt) => same(alt, cls))) return false;
-  return alts.some((alt) => same(alt, figma));
-}
-
-function pluralStem(figma: string[]): string[] | undefined {
-  if (figma.length !== 1) return undefined;
-  const word = figma[0]!;
-  if (word.length > 4 && word.endsWith("s") && !word.endsWith("ss")) return [word.slice(0, -1)];
-  return undefined;
-}
-
 function ioNames(items: AngularComponentRecord["inputs"]): string[] | undefined {
   const list = items.map((item) => (item.alias && item.alias !== item.name ? `${item.name}: ${item.alias}` : item.name));
   return list.length ? list : undefined;
@@ -121,30 +103,9 @@ function toPair(
 
 type MatchKind = "token" | "partial";
 
-/** Stem, an added suffix, or a shared family prefix. Never a character prefix. Always partial. */
-function heuristicHits(wanted: string[], inventory: AngularInventory): AngularComponentRecord[] {
-  const own = packageClassPrefix(inventory.packageName);
-  const found = new Map<string, AngularComponentRecord>();
-  const add = (rows: AngularComponentRecord[]) => {
-    for (const row of rows) found.set(row.component, row);
-  };
-  const stem = pluralStem(wanted);
-  if (stem) add(inventory.components.filter((component) => same(classWords(component, own), stem)));
-  add(inventory.components.filter((component) => same(classWords(component, own), [...wanted, "button"])));
-  const prefix = wanted.length >= 3 ? wanted.slice(0, -1) : [];
-  if (prefix.length >= 2) {
-    const family = inventory.components.filter((component) => {
-      const cls = classWords(component, own);
-      return cls.length === prefix.length + 1 && prefix.every((word, index) => cls[index] === word);
-    });
-    if (family.length >= 2) add(family);
-  }
-  return [...found.values()];
-}
-
 /**
- * Whole words only. One exact class or selector alias can be suggested.
- * Two exact matches are both partial, never suggested. A character prefix is never a match.
+ * Whole words only: the class name, without the package prefix, equals the Figma name.
+ * Two exact matches are both partial, never suggested. No plural, suffix, family or selector-alias guess.
  */
 function matchesFor(wanted: string[], inventory: AngularInventory): { component: AngularComponentRecord; kind: MatchKind }[] {
   if (!wanted.length) return [];
@@ -158,10 +119,7 @@ function matchesFor(wanted: string[], inventory: AngularInventory): { component:
     const rows = prefixed.length > 1 ? prefixed : exact;
     return rows.map((component) => ({ component, kind: "partial" }));
   }
-  const alias = inventory.components.filter((component) => aliasWords(component, wanted, own));
-  if (alias.length === 1) return [{ component: alias[0]!, kind: "token" }];
-  if (alias.length > 1) return [];
-  return heuristicHits(wanted, inventory).map((component) => ({ component, kind: "partial" }));
+  return [];
 }
 
 export interface SuggestOptions {

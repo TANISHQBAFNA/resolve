@@ -7,12 +7,12 @@ import { codeMapCard } from "@/core/query/replacements";
 import { buildDeclaredLinks, componentMapPath, manifestBodies, readComponentMap, readManifests } from "../componentMap.ts";
 import type { ResolveConfig } from "../mode.ts";
 import { awaitsReview, mappingStatus } from "../mappingStatus.ts";
-import { demoteSharedLinks, evidencePair, GENERIC_PAIR_WORDS, houseWords, pairDenySet, partOwner, sameNameRow, secondSignal } from "../mapPair.ts";
+import { demoteSharedLinks, evidencePair, partOwner, sameNameRow } from "../mapPair.ts";
 import { resolveGraph } from "../store";
 import type { CatalogEntry, CodeCatalog, FigmaMaster, MatchBy } from "./scan.ts";
 import { nameWords, namespaceStems, RELATED, tokens } from "./words.ts";
 
-/** Joins, in order: 1. the shared ID (ds@semver.tier.name) on both sides, exact; 2. mapped (a confirmed mapping.json line; a proposed line only awaits review; a deny line wins), exact (same name plus a specific variant, modifier, description phrase, or base parts that match elements). Generic states do not count. A denied name (built-in stepper, plus config pairDeny) does not auto-pair on the name alone. Anything else is suggested, never joined. */
+/** Joins, in order: 1. the shared ID (ds@semver.tier.name) on both sides, exact; 2. a confirmed pair (mapping.json, component-map.json, component.json; a proposed line only awaits review; a deny line wins). Nothing joins on a name. Anything else is a suggestion for a person to review, never joined. */
 const byCode = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const plural = (w: string) => (w.length > 3 && w.endsWith("ies") ? `${w.slice(0, -3)}y` : w.length > 3 && w.endsWith("s") && !/(ss|us|is)$/.test(w) ? w.slice(0, -1) : w);
 export const norm = (name: string, namespaces: ReadonlySet<string> = namespaceSet()): string =>
@@ -111,26 +111,13 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
   if (learned.size) for (const rule of rules) if (rule.figma && !rule.deny && !rule.proposed && !learned.has(figmaIdentity(rule.figma))) problems.push(`mapping figma "${rule.figma}" is not a learned Figma component. next: fix the name in mapping.json or learn the library that has it.`);
   const entryNames = (e: CatalogEntry) => [e.name, ...(codeAliases.get(e) ?? [])];
   const masterNames = (m: FigmaMaster) => [m.name, ...(m.aliases ?? []), ...(figmaAliases.get(figmaIdentity(m.name)) ?? [])];
-  const folderOk = (name: string, kind: CatalogEntry["kind"]) => {
-    const folder = figmaFolderKind(name, ns);
-    return folder !== "part" && (!folder || folder === kind);
-  };
   const partMap = new Map<CatalogEntry, string[]>();
   const blocks = catalog.components.filter((e) => e.kind === "block");
   for (const part of parts) {
     const parent = partOwner(part.name, blocks, ns, plural, byCode);
     if (parent) partMap.set(parent, uniq([...(partMap.get(parent) ?? []), part.name]));
   }
-  const deny = pairDenySet(cfg.pairDeny);
-  const choose = (master: FigmaMaster, hits: CatalogEntry[]) => {
-    const kinded = hits.filter((e) => folderOk(master.name, e.kind));
-    const pool = kinded.length ? kinded : hits;
-    const agreed = pool.filter((entry) => secondSignal(master, entry, partMap.get(entry) ?? [], deny).agree);
-    return agreed.length === 1 ? agreed[0] : undefined;
-  };
-
   const links: Link[] = [];
-  const ambiguous = new Map<string, CatalogEntry[]>();
   const mapFile = infer ? undefined : readComponentMap(cfg);
   const manifests = infer ? undefined : readManifests(cfg.repoPath);
   if (mapFile) problems.push(...mapFile.problems);
@@ -185,16 +172,9 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
         }
         continue;
       }
-      const named = catalog.components.filter((e) => same(e.name) === same(master.name));
-      if (named.length) {
-        const exact = choose(master, named);
-        if (exact && !blocked(master.name, exact.name)) links.push({ master, entry: exact, by: "exact" });
-        else if (named.filter((e) => folderOk(master.name, e.kind)).length > 1) ambiguous.set(master.name, named.filter((e) => folderOk(master.name, e.kind)));
-        continue;
-      }
     }
   }
-  return { rules, problems: uniq(problems), masters, parts, partMap, ns, deny, links, ambiguous, codeAliases, figmaAliases, masterNames, entryNames, blocked, covered, unlinkedCode, stale, conflicts, denies, awaiting, declared: usingMap };
+  return { rules, problems: uniq(problems), masters, parts, partMap, ns, links, codeAliases, figmaAliases, masterNames, entryNames, blocked, covered, unlinkedCode, stale, conflicts, denies, awaiting, declared: usingMap };
 }
 
 const uniqueEntries = (list: CatalogEntry[]) => [...new Set(list)];
@@ -249,24 +229,16 @@ function nameLike(a: string[], b: string[]) {
 export interface Suggestion { figma: string; code: string; confidence: "suggested" | "risky: same name only"; score: number; reasons: string[] }
 
 function suggestions(master: FigmaMaster, catalog: CodeCatalog, r: ReturnType<typeof compute>, limit: number): Suggestion[] {
-  const skip = new Set([...namespaceStems(r.ns), ...houseWords(r.masters.map((m) => tokens(nameWords(m.name, r.ns))), catalog.components.map((e) => tokens(nameWords(e.name, r.ns))))]);
+  const skip = namespaceStems(r.ns);
   const words = (name: string) => tokens(nameWords(name, r.ns)).filter((word) => !skip.has(word));
   const mv = tokens((master.variants ?? []).join(" ").replace(/[-_]+/g, " ")).filter((word) => !skip.has(word));
   const folder = figmaFolderKind(master.name, r.ns);
-  const leaf = master.name.split("/").map((part) => part.trim()).filter(Boolean).pop() ?? master.name; // the last path segment, so a folder prefix (acme-lib/button) does not hide a same name
   const out = catalog.components.flatMap((entry): Suggestion[] => {
     if (folder === "part" || (folder && folder !== entry.kind) || r.blocked(master.name, entry.name)) return [];
-    if (norm(entry.name, r.ns) === norm(master.name, r.ns) || norm(entry.name, r.ns) === norm(leaf, r.ns)) {
-      const signal = secondSignal(master, entry, r.partMap.get(entry) ?? [], r.deny);
-      if (!signal.agree) return [sameNameRow(master.name, entry.name, signal.disagree)];
-    }
+    if (norm(entry.name, r.ns) === norm(master.name, r.ns)) return [sameNameRow(master.name, entry.name)];
     let best = { score: 0, reasons: [] as string[] };
-    for (const m of [...r.masterNames(master), leaf]) for (const e of r.entryNames(entry)) {
-      const leftWords = words(m);
-      const rightWords = words(e);
-      const sharedWords = [...new Set(leftWords)].filter((word) => rightWords.includes(word));
-      const genericOnly = sharedWords.length > 0 && sharedWords.every((word) => GENERIC_PAIR_WORDS.has(word)) && norm(m, r.ns) !== norm(e, r.ns);
-      const s = nameLike(genericOnly ? leftWords.filter((word) => !GENERIC_PAIR_WORDS.has(word)) : leftWords, genericOnly ? rightWords.filter((word) => !GENERIC_PAIR_WORDS.has(word)) : rightWords);
+    for (const m of r.masterNames(master)) for (const e of r.entryNames(entry)) {
+      const s = nameLike(words(m), words(e));
       if (s.score > best.score) best = s;
     }
     const ev = variantWords(entry);
@@ -275,7 +247,7 @@ function suggestions(master: FigmaMaster, catalog: CodeCatalog, r: ReturnType<ty
     const vscore = mv.length && ev.size ? shared.length / Math.min(new Set(mv).size, ev.size) : 0;
     const score = Math.round((0.7 * best.score + 0.3 * vscore) * 100) / 100;
     if (score < 0.25) return [];
-    const reasons = [...best.reasons, ...(r.ambiguous.get(master.name)?.includes(entry) ? ["alias shared with several coded components"] : []), ...(shared.length ? [`variants: ${uniq(shared).join(", ")}`] : [])];
+    const reasons = [...best.reasons, ...(shared.length ? [`variants: ${uniq(shared).join(", ")}`] : [])];
     return [{ figma: master.name, code: entry.name, confidence: "suggested", score, reasons: reasons.length ? reasons : ["same words"] }];
   });
   return out.sort((a, b) => b.score - a.score || byCode(a.code, b.code)).slice(0, limit);

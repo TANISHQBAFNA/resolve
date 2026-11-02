@@ -1,143 +1,13 @@
-import type { CatalogEntry, FigmaMaster } from "./code/scan.ts";
-import { nameWords, RELATED, stem, STOP, tokens } from "./code/words.ts";
+import type { CatalogEntry } from "./code/scan.ts";
+import { nameWords, RELATED, stem } from "./code/words.ts";
 
-/** Names that never auto-pair on the name alone. Config `pairDeny` adds more. A mapping deny still beats a confirm. */
-export const BUILTIN_PAIR_DENY = ["stepper"];
 export const RISKY_TIER = "risky: same name only";
 
 const plural = (word: string) => (word.length > 3 && word.endsWith("ies") ? `${word.slice(0, -3)}y` : word.length > 3 && word.endsWith("s") && !/(ss|us|is)$/.test(word) ? word.slice(0, -1) : word);
-const NEGATIVE = /avoid\s*:|don['’]?t\s+use|do\s+not\s+use|instead\s+use/gi;
 
 /** Comparable key for a Figma or code name. Same folding as the pairer: case, hyphen, plural. */
 export function pairKey(name: string): string {
   return (nameWords(name).toLowerCase().match(/[a-z0-9]+/g) ?? []).map(plural).join("");
-}
-
-export function pairDenySet(extra?: readonly string[]): Set<string> {
-  return new Set([...BUILTIN_PAIR_DENY, ...(extra ?? [])].map((name) => pairKey(name)));
-}
-
-/** Whole tokens, hyphen kept. `multi-step` stays one token and does not equal `stepper`. Stems compare as whole tokens too. */
-function phraseKeys(text: string): string[] {
-  const words = text.toLowerCase().match(/[a-z0-9]+(?:-[a-z0-9]+)*/g) ?? [];
-  const out: string[] = [];
-  for (const word of words) {
-    if (!word.includes("-")) {
-      out.push(...tokens(word));
-      continue;
-    }
-    const key = word.split("-").map((part) => stem(part)).join("-");
-    if (key.length > 1 && !STOP.has(word) && !key.split("-").every((part) => STOP.has(part))) out.push(key);
-  }
-  return out;
-}
-
-/** Text after Avoid:, Don't use, Do not use, or instead use is negative. The rest of that sentence only. */
-function poles(text: string): { yes: string; no: string } {
-  let yes = "";
-  let no = "";
-  let cursor = 0;
-  for (const mark of text.matchAll(new RegExp(NEGATIVE.source, "gi"))) {
-    const at = mark.index ?? 0;
-    if (at < cursor) continue;
-    yes += ` ${text.slice(cursor, at)}`;
-    const from = at + mark[0].length;
-    const rest = text.slice(from);
-    const stop = rest.search(/[.!?](?:\s|$)/);
-    const end = stop < 0 ? text.length : from + stop + 1;
-    no += ` ${text.slice(from, end)}`;
-    cursor = end;
-  }
-  yes += ` ${text.slice(cursor)}`;
-  return { yes, no };
-}
-
-function nameFragment(word: string, names: readonly string[]): boolean {
-  return word.split("-").some((part) => {
-    const piece = stem(part);
-    return piece.length >= 4 && names.some((name) => name.length >= 4 && name !== piece && (name.startsWith(piece) || piece.startsWith(name)));
-  });
-}
-
-function partSlug(name: string): string {
-  return nameWords(name).toLowerCase().trim().replace(/\s+/g, "-");
-}
-
-function specificPart(name: string): boolean {
-  return partSlug(name).split("-").map((word) => stem(word)).some((word) => word && !GENERIC_STATES.has(word) && !GENERIC_PAIR_WORDS.has(word));
-}
-
-const genericWord = (word: string) => GENERIC_PAIR_WORDS.has(word) || GENERIC_PAIR_WORDS.has(stem(word)) || GENERIC_STATES.has(stem(word));
-
-function stripBlockName(slug: string, block: string): string {
-  const partWords = slug.split("-").filter(Boolean);
-  const blockWords = block.toLowerCase().split("-").filter(Boolean);
-  if (!partWords.length || !blockWords.length || partWords.length <= blockWords.length) return slug;
-  if (!blockWords.every((word, index) => stem(partWords[index] ?? "") === stem(word))) return slug;
-  return partWords.slice(blockWords.length).join("-");
-}
-
-/** `base/tab` lines up with `.tabs__tab`. `base/tab-item` lines up with `.tabs__item` after the block name is removed. One non-generic part must match. A missing specific role contradicts; a missing generic role does not. */
-export function partsLineUp(entry: CatalogEntry, partNames: readonly string[]): boolean {
-  const tails = new Set((entry.code?.elements ?? []).map((cls) => (cls.split("__").pop() ?? cls).toLowerCase()));
-  const specific = partNames.filter(specificPart);
-  if (!specific.length || tails.size === 0) return false;
-  const blocks = new Set([entry.name.toLowerCase(), ...(entry.code?.elements ?? []).flatMap((cls) => { const head = cls.split("__")[0]?.toLowerCase(); return head ? [head] : []; })]);
-  const roles = specific.map((name) => {
-    const slug = partSlug(name);
-    const role = [...blocks].reduce((best, block) => { const next = stripBlockName(slug, block); return next.length < best.length ? next : best; }, slug);
-    const words = role.split("-").filter(Boolean);
-    return { matched: tails.has(slug) || tails.has(role), generic: words.length > 0 && words.every(genericWord) };
-  });
-  return roles.some((row) => row.matched) && roles.every((row) => row.matched || row.generic);
-}
-
-/** Words in more than half the Figma names and more than half the coded names (a house prefix such as "acme"). They say nothing about which two belong together. */
-export function houseWords(figma: string[][], code: string[][]): Set<string> {
-  const often = (lists: string[][]) => {
-    const seen = new Map<string, number>();
-    for (const list of lists) for (const word of new Set(list)) seen.set(word, (seen.get(word) ?? 0) + 1);
-    return new Set([...seen].filter(([, count]) => lists.length >= 3 && count * 2 > lists.length).map(([word]) => word));
-  };
-  const inCode = often(code);
-  return new Set([...often(figma)].filter((word) => inCode.has(word)));
-}
-
-/** One shared word from this set must not clear the suggestion floor by itself. */
-export const GENERIC_PAIR_WORDS = new Set("group card input item list row icon text label box field view container wrapper content element block section panel tile set".split(" "));
-
-/** States and sizes. A shared one is not evidence. Compared after stemming, same as `tokens`. */
-const GENERIC_STATES = new Set(
-  "disabled hover hovered focus focused focus-visible active default selected error size pressed checked enabled loading open closed expanded collapsed invalid success warning visited readonly visible small medium large xs sm md lg xl style state variant type mode appearance".split(" ").map((word) => stem(word)),
-);
-
-const specific = (words: string[]) => words.filter((word) => !GENERIC_STATES.has(word) && !GENERIC_PAIR_WORDS.has(word));
-
-/** Positive overlap only: a specific variant, modifier, description phrase, or base parts that match elements. A missing signal is not agreement. Generic states never count. Negative description text never counts as agreement. */
-export function secondSignal(master: FigmaMaster, entry: CatalogEntry, partNames: readonly string[] = [], deny: ReadonlySet<string> = pairDenySet()): { agree: boolean; disagree: boolean } {
-  const mv = specific(tokens((master.variants ?? []).join(" ").replace(/[-_]+/g, " ")));
-  const modifiers = Object.values(entry.code?.modifiers ?? {}).flat().map((cls) => cls.split("--").pop() ?? cls);
-  const ev = specific(tokens([...entry.variants, ...modifiers].join(" ").replace(/[-_]+/g, " ")));
-  const names = [pairKey(master.name), pairKey(entry.name)];
-  const denied = names.some((name) => deny.has(name));
-  const own = new Set(tokens(`${nameWords(master.name)} ${nameWords(entry.name)}`));
-  const keep = (text: string) => specific(phraseKeys(text)).filter((word) => !own.has(word) && !(denied && nameFragment(word, names)));
-  const left = poles(master.description ?? "");
-  const right = poles(`${entry.description} ${entry.doc ?? ""}`);
-  const posL = keep(left.yes);
-  const posR = keep(right.yes);
-  const negL = keep(left.no);
-  const negR = keep(right.no);
-  const hit = (a: string[], b: readonly string[]) => a.some((word) => b.includes(word));
-  const variantHit = hit(mv, ev);
-  const textAgree = hit(posL, posR);
-  const textConflict = posL.length > 0 && posR.length > 0 && !textAgree;
-  const negConflict = hit(negL, posR) || hit(negR, posL);
-  const variantConflict = mv.length > 0 && ev.length > 0 && !variantHit;
-  const structural = partsLineUp(entry, partNames) && !negConflict && !textConflict && !variantConflict;
-  const agree = !textConflict && !negConflict && (variantHit || textAgree || structural);
-  const disagree = !agree && (variantConflict || textConflict || negConflict);
-  return { agree, disagree };
 }
 
 /** Same name after namespace prefixes and plurals. Related words, one shared token, and a `-container` name with a different code name are not evidence. */
@@ -166,9 +36,9 @@ export function demoteSharedLinks<T extends { figma: string; code: string; tier:
   });
 }
 
-export function sameNameRow(figma: string, code: string, disagree: boolean): { figma: string; code: string; confidence: "suggested" | typeof RISKY_TIER; score: number; reasons: string[] } {
-  if (disagree) return { figma, code, confidence: "suggested", score: 1, reasons: ["same name, no evidence"] };
-  return { figma, code, confidence: RISKY_TIER, score: 1, reasons: [RISKY_TIER, "same name, no evidence"] };
+/** A same name is only a suggestion for review. It never links on its own. */
+export function sameNameRow(figma: string, code: string): { figma: string; code: string; confidence: typeof RISKY_TIER; score: number; reasons: string[] } {
+  return { figma, code, confidence: RISKY_TIER, score: 1, reasons: [RISKY_TIER, "same name, no evidence; confirm it or add the shared ID"] };
 }
 
 /** `paired + parts + unmatched` against the Figma total. Parts on a pair and parts on an unpaired block both count once. */

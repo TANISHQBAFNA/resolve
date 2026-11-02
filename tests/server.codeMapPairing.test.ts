@@ -4,11 +4,8 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { learnLibrary } from "@/server/learn";
 import { runCodeCommand, runLinkMap } from "@/server/code/command";
-import { confirmBulk, mapReport, writeMappings } from "@/server/code/map";
-import { buildCatalog, type CatalogEntry, type CodeCatalog } from "@/server/code/scan";
-import { proposalsFromReport } from "@/server/componentMap";
-import { secondSignal } from "@/server/mapPair";
-import { readConfig } from "@/server/mode";
+import { mapReport } from "@/server/code/map";
+import { buildCatalog, type CodeCatalog } from "@/server/code/scan";
 import { graphMasters } from "@/server/graphMasters";
 import type { ResolveConfig } from "@/server/mode";
 import { clearCache } from "@/server/store";
@@ -34,195 +31,6 @@ function catalog(repo: string, store: string, files: Record<string, string>): { 
 }
 
 describe("code-map pairing quality", () => {
-  it("demotes a same-name hit when variants and description disagree, unless mapping.json confirms or denies", () => {
-    const root = mkdtempSync(join(tmpdir(), "resolve-pair-"));
-    const store = join(root, "store");
-    const { cfg, catalog: built } = catalog(root, store, {
-      "building-blocks/acme-clock/acme-clock.css": css("/* Picks one calendar day for a reminder. */\n.acme-clock { color: var(--ink); }\n.acme-clock--single { color: var(--ink); }\n"),
-      "building-blocks/acme-badge/acme-badge.css": css(".acme-badge { color: var(--ink); }\n"),
-      "building-blocks/acme-switch/acme-switch.css": css(".acme-switch { color: var(--ink); }\n.acme-switch--disabled { color: var(--ink); }\n"),
-      "building-blocks/date-time-picker/date-time-picker.css": css(".date-time-picker { color: var(--ink); }\n.date-time-picker--compact { color: var(--ink); }\n"),
-      "building-blocks/acme-footer/acme-footer.css": css("/* Site links along the page bottom. */\n.acme-footer { color: var(--ink); }\n"),
-      "building-blocks/time-picker/time-picker.css": css(".time-picker { color: var(--ink); }\n.time-picker--compact { color: var(--ink); }\n"),
-      "building-blocks/radio-group/radio-group.css": css(".radio-group { color: var(--ink); }\n"),
-      "building-blocks/button-group/button-group.css": css(".button-group { color: var(--ink); }\n"),
-      "building-blocks/date-field/date-field.css": css(".date-field { color: var(--ink); }\n"),
-    });
-    const masters = [
-      { name: "ingredients/acme-clock", nodeId: "1:1", variants: ["range"], description: "Shows a time range for a shift." },
-      { name: "ingredients/acme-badge", nodeId: "1:2" },
-      { name: "ingredients/acme-switch", nodeId: "1:8", variants: ["disabled"] },
-      { name: "recipes/date-time-picker", nodeId: "1:3", variants: ["compact"] },
-      { name: "recipes/acme-footer", nodeId: "1:4", description: "Site links along the page bottom." },
-      { name: "recipes/picker", nodeId: "1:5", variants: ["compact"] },
-      { name: "ingredients/choice-group", nodeId: "1:6" },
-      { name: "ingredients/date-note", nodeId: "1:7" },
-    ];
-    const report = mapReport(built, cfg, { suggest: true, masters });
-    expect(report.pairs.map((pair) => pair.figma)).not.toContain("ingredients/acme-clock");
-    expect(report.suggestions?.some((row) => row.figma === "ingredients/acme-clock" && row.code === "acme-clock")).toBe(true);
-    expect(report.pairs.map((pair) => pair.figma)).not.toContain("ingredients/acme-badge");
-    expect(report.suggestions?.some((row) => row.figma === "ingredients/acme-badge" && row.code === "acme-badge" && row.reasons.includes("same name, no evidence"))).toBe(true);
-    expect(report.suggestions?.find((row) => row.figma === "ingredients/acme-badge" && row.code === "acme-badge")?.confidence).toBe("risky: same name only");
-    expect(report.bulkConfirm).not.toContain("ingredients/acme-badge=acme-badge");
-    expect(report.bulkConfirm).not.toContain("ingredients/acme-clock=acme-clock");
-    expect(report.bulkConfirm).not.toContain("ingredients/date-note=date-field");
-    expect(report.bulkConfirm).toContain("recipes/date-time-picker=date-time-picker");
-    expect(report.bulkConfirm).toContain("recipes/acme-footer=acme-footer");
-    expect(report.pairs.map((pair) => pair.figma)).not.toContain("ingredients/acme-switch");
-    expect(report.suggestions?.some((row) => row.figma === "ingredients/acme-switch" && row.code === "acme-switch" && row.reasons.includes("same name, no evidence"))).toBe(true);
-    expect(report.suggestions?.find((row) => row.figma === "ingredients/acme-switch")?.confidence).toBe("risky: same name only");
-    expect(report.pairs).toContainEqual({ figma: "recipes/date-time-picker", code: "date-time-picker", confidence: "exact" });
-    expect(report.pairs).toContainEqual({ figma: "recipes/acme-footer", code: "acme-footer", confidence: "exact" });
-    expect(report.pairs.map((pair) => pair.figma)).not.toContain("recipes/picker");
-    expect(report.suggestions?.some((row) => row.figma === "ingredients/choice-group" && (row.code === "button-group" || row.code === "radio-group"))).toBe(false);
-    expect(report.suggestions?.some((row) => row.figma === "ingredients/date-note" && row.code === "date-field")).toBe(true);
-
-    mkdirSync(store, { recursive: true });
-    writeFileSync(join(store, "mapping.json"), `${JSON.stringify({ mappings: [{ figma: "ingredients/acme-clock", code: "acme-clock" }] })}\n`);
-    const confirmed = mapReport(built, cfg, { masters });
-    expect(confirmed.pairs).toContainEqual({ figma: "ingredients/acme-clock", code: "acme-clock", confidence: "mapped" });
-
-    writeFileSync(join(store, "mapping.json"), `${JSON.stringify({ mappings: [{ figma: "recipes/date-time-picker", code: "date-time-picker", deny: true }] })}\n`);
-    const denied = mapReport(built, cfg, { suggest: true, masters });
-    expect(denied.pairs.map((pair) => pair.figma)).not.toContain("recipes/date-time-picker");
-    expect(denied.suggestions?.some((row) => row.figma === "recipes/date-time-picker")).toBe(false);
-
-    built.figmaMasters = masters;
-    const bulk = confirmBulk(cfg, built, ["ingredients/acme-badge=acme-badge", "ingredients/acme-switch=acme-switch", "ingredients/date-note=date-field", "recipes/acme-footer=acme-footer"]);
-    expect(bulk.added.map((row) => row.figma)).toEqual(["recipes/acme-footer"]);
-    expect(writeMappings(cfg, built, ["ingredients/acme-badge=acme-badge"]).added).toEqual([{ figma: "ingredients/acme-badge", code: "acme-badge" }]);
-  });
-
-  it("auto-links tabs from matching parts, and refuses a stepper trap and a configured name-only deny", () => {
-    const root = mkdtempSync(join(tmpdir(), "resolve-evidence-"));
-    const store = join(root, "store");
-    const { cfg, catalog: built } = catalog(root, store, {
-      "building-blocks/tabs/tabs.css": css(".tabs { color: var(--ink); }\n.tabs__tab { color: var(--ink); }\n.tabs__tab-item { color: var(--ink); }\n"),
-      "building-blocks/stepper/stepper.css": css("/* Multi-step navigation. */\n.stepper { color: var(--ink); }\n"),
-      "building-blocks/navigator/navigator.css": css("/* This is navigation. */\n.navigator { color: var(--ink); }\n.navigator--compact { color: var(--ink); }\n"),
-      "building-blocks/acme-knob/acme-knob.css": css(".acme-knob { color: var(--ink); }\n.acme-knob__disabled { color: var(--ink); }\n"),
-      "building-blocks/acme-badge/acme-badge.css": css(".acme-badge { color: var(--ink); }\n"),
-    });
-    const masters = [
-      { name: "ingredients/tabs", nodeId: "9:1" },
-      { name: "base/tab", nodeId: "9:2" },
-      { name: "base/tab-item", nodeId: "9:3" },
-      { name: "ingredients/stepper", nodeId: "9:4", description: "Avoid: multi-step navigation" },
-      { name: "ingredients/navigator", nodeId: "9:5", description: "Navigation." },
-      { name: "ingredients/acme-knob", nodeId: "9:6", variants: ["disabled"] },
-      { name: "ingredients/acme-badge", nodeId: "9:7" },
-    ];
-    const bare = (name: string, description: string) => ({ name, description, variants: [], kind: "block", rules: [] }) as CatalogEntry;
-    expect(secondSignal(bare("alpha", "multi-step"), bare("beta", "stepper")).agree).toBe(false);
-    expect(secondSignal(bare("alpha", "Avoid: multi-step navigation"), bare("beta", "Multi-step navigation.")).agree).toBe(false);
-    expect(secondSignal(bare("alpha", "Don't use multi-step navigation"), bare("beta", "Multi-step navigation.")).agree).toBe(false);
-    expect(secondSignal(bare("alpha", "Do not use multi-step navigation"), bare("beta", "Multi-step navigation.")).agree).toBe(false);
-    expect(secondSignal(bare("alpha", "Skip it, instead use multi-step navigation."), bare("beta", "Multi-step navigation.")).agree).toBe(false);
-    expect(secondSignal(bare("alpha", "Multi-step navigation."), bare("beta", "Use multi-step navigation.")).agree).toBe(true);
-
-    const report = mapReport(built, cfg, { suggest: true, masters });
-    expect(report.pairs).toContainEqual({ figma: "ingredients/tabs", code: "tabs", confidence: "exact", parts: ["base/tab", "base/tab-item"] });
-    expect(report.pairs.map((pair) => pair.figma)).not.toContain("ingredients/stepper");
-    expect(report.pairs).toContainEqual({ figma: "ingredients/navigator", code: "navigator", confidence: "exact" });
-    expect(report.pairs.map((pair) => pair.figma)).not.toContain("ingredients/acme-knob");
-    expect(report.suggestions?.find((row) => row.figma === "ingredients/acme-knob")?.confidence).toBe("risky: same name only");
-    expect(report.suggestions?.find((row) => row.figma === "ingredients/acme-badge")?.reasons).toContain("risky: same name only");
-
-    const deniedCfg = { ...cfg, pairDeny: ["navigator"] };
-    const denied = mapReport(built, deniedCfg, { suggest: true, masters });
-    expect(denied.pairs.map((pair) => pair.figma)).not.toContain("ingredients/navigator");
-    expect(denied.suggestions?.find((row) => row.figma === "ingredients/navigator")?.confidence).toBe("risky: same name only");
-    const evidenced = mapReport(built, deniedCfg, { masters: masters.map((master) => master.name === "ingredients/navigator" ? { ...master, variants: ["compact"] } : master) });
-    expect(evidenced.pairs).toContainEqual({ figma: "ingredients/navigator", code: "navigator", confidence: "exact" });
-
-    mkdirSync(store, { recursive: true });
-    writeFileSync(join(store, "mapping.json"), `${JSON.stringify({ mappings: [{ figma: "ingredients/stepper", code: "stepper" }, { figma: "ingredients/stepper", code: "stepper", deny: true }] })}\n`);
-    expect(mapReport(built, cfg, { suggest: true, masters }).pairs.map((pair) => pair.figma)).not.toContain("ingredients/stepper");
-    expect(mapReport(built, cfg, { suggest: true, masters }).suggestions?.some((row) => row.figma === "ingredients/stepper")).toBe(false);
-    writeFileSync(join(store, "mapping.json"), `${JSON.stringify({ mappings: [{ figma: "ingredients/stepper", code: "stepper" }] })}\n`);
-    expect(mapReport(built, cfg, { masters }).pairs).toContainEqual({ figma: "ingredients/stepper", code: "stepper", confidence: "mapped" });
-
-    const previous = { home: process.env["RESOLVE_HOME"], mode: process.env["RESOLVE_MODE"], deny: process.env["RESOLVE_PAIR_DENY"] };
-    process.env["RESOLVE_HOME"] = store;
-    process.env["RESOLVE_MODE"] = "code";
-    delete process.env["RESOLVE_PAIR_DENY"];
-    const lines: string[] = [];
-    const write = process.stdout.write.bind(process.stdout);
-    process.stdout.write = ((chunk: string | Uint8Array) => (lines.push(String(chunk)), true)) as typeof process.stdout.write;
-    try {
-      runLinkMap(["--repo", root, "--suggest"], () => masters);
-      const text = lines.join("");
-      expect(text).toContain("risky: same name only ingredients/acme-badge -> acme-badge");
-      expect(text).toContain("exact     ingredients/tabs -> tabs");
-      lines.length = 0;
-      runLinkMap(["--repo", root, "--suggest", "--json"], () => masters);
-      const json = JSON.parse(lines.join("")) as { suggestions: Array<{ figma: string; code: string; confidence: string; reasons: string[] }>; bulkConfirm: string[] };
-      const badge = json.suggestions.find((row) => row.figma === "ingredients/acme-badge");
-      expect(badge?.confidence).toBe("risky: same name only");
-      expect(badge?.reasons).toContain("risky: same name only");
-      expect(json.bulkConfirm).not.toContain("ingredients/acme-badge=acme-badge");
-      writeFileSync(join(store, "config.json"), JSON.stringify({ pairDeny: ["navigator"] }));
-      expect(readConfig().pairDeny).toEqual(["navigator"]);
-      process.env["RESOLVE_PAIR_DENY"] = "wizard";
-      expect(readConfig().pairDeny).toEqual(["wizard"]);
-    } finally {
-      process.stdout.write = write;
-      const restore = (key: "RESOLVE_HOME" | "RESOLVE_MODE" | "RESOLVE_PAIR_DENY", value: string | undefined) => {
-        if (value === undefined) delete process.env[key];
-        else process.env[key] = value;
-      };
-      restore("RESOLVE_HOME", previous.home);
-      restore("RESOLVE_MODE", previous.mode);
-      restore("RESOLVE_PAIR_DENY", previous.deny);
-    }
-  });
-
-  it("puts BEM role parts in the evidence tier and keeps loose pairs suggested", () => {
-    const root = mkdtempSync(join(tmpdir(), "resolve-bem-"));
-    const store = join(root, "store");
-    const { cfg, catalog: built } = catalog(root, store, {
-      "building-blocks/acme-tabs/acme-tabs.css": css(".acme-tabs { color: var(--ink); }\n.acme-tabs__item { color: var(--ink); }\n.acme-tabs__icon { color: var(--ink); }\n"),
-      "building-blocks/acme-tag/acme-tag.css": css(".acme-tag { color: var(--ink); }\n"),
-      "building-blocks/acme-tooltip/acme-tooltip.css": css(".acme-tooltip { color: var(--ink); }\n"),
-      "building-blocks/acme-textarea/acme-textarea.css": css(".acme-textarea { color: var(--ink); }\n"),
-      "building-blocks/acme-progress/acme-progress.css": css(".acme-progress { color: var(--ink); }\n"),
-      "building-blocks/acme-card/acme-card.css": css(".acme-card { color: var(--ink); }\n"),
-      "building-blocks/acme-clock/acme-clock.css": css("/* Shows a time range for a shift. */\n.acme-clock { color: var(--ink); }\n.acme-clock--compact { color: var(--ink); }\n"),
-    });
-    const masters = [
-      { name: "ingredients/acme-tabs", nodeId: "8:1" },
-      { name: "base/acme-tab-item", nodeId: "8:2" },
-      { name: "base/acme-tab-icon", nodeId: "8:3" },
-      { name: "Acme Badge", nodeId: "8:4" },
-      { name: "Acme Popover", nodeId: "8:5" },
-      { name: "Acme Input", nodeId: "8:6" },
-      { name: "Acme Loading", nodeId: "8:7" },
-      { name: "Acme Tile", nodeId: "8:8" },
-      { name: "Acme Filter Tags", nodeId: "8:9" },
-      { name: "Acme Shell Container", nodeId: "8:10" },
-      { name: "Acme Clock", nodeId: "8:11", variants: ["compact"], description: "Picks one calendar day for a reminder." },
-    ];
-    const report = mapReport(built, cfg, { suggest: true, limit: 8, masters, infer: true });
-    const rows = proposalsFromReport(report);
-    const tier = (figma: string, code: string) => rows.find((row) => row.figma === figma && row.code === code)?.tier;
-    expect(report.pairs).toContainEqual({ figma: "ingredients/acme-tabs", code: "acme-tabs", confidence: "exact", parts: ["base/acme-tab-icon", "base/acme-tab-item"] });
-    expect(tier("ingredients/acme-tabs", "acme-tabs")).toBe("evidence");
-    expect(report.bulkConfirm).toContain("ingredients/acme-tabs=acme-tabs");
-    expect(tier("Acme Badge", "acme-tag")).toBe("suggested");
-    expect(tier("Acme Popover", "acme-tooltip")).toBe("suggested");
-    expect(tier("Acme Input", "acme-textarea")).toBe("suggested");
-    expect(tier("Acme Loading", "acme-progress")).toBe("suggested");
-    expect(tier("Acme Tile", "acme-card")).toBe("suggested");
-    expect(tier("Acme Filter Tags", "acme-tag")).toBe("suggested");
-    expect(rows.filter((row) => row.figma === "Acme Shell Container").every((row) => row.tier !== "evidence")).toBe(true);
-    expect(tier("Acme Clock", "acme-clock")).toBe("risky");
-    expect(report.bulkConfirm).not.toContain("Acme Badge=acme-tag");
-    expect(report.bulkConfirm).not.toContain("Acme Tile=acme-card");
-    expect(report.bulkConfirm).not.toContain("Acme Filter Tags=acme-tag");
-    expect(report.bulkConfirm).not.toContain("Acme Clock=acme-clock");
-    expect(rows.some((row) => row.tier === "evidence" && row.figma !== "ingredients/acme-tabs")).toBe(false);
-  });
 
   it("lists base parts under a block that has no pair, including plural, family, and compound names", () => {
     const root = mkdtempSync(join(tmpdir(), "resolve-parts-"));
@@ -241,8 +49,10 @@ describe("code-map pairing quality", () => {
       { name: "base/field-label", nodeId: "2:5" },
       { name: "base/dropdown-option", nodeId: "2:6" },
     ];
+    mkdirSync(store, { recursive: true });
+    writeFileSync(join(store, "mapping.json"), `${JSON.stringify({ mappings: [{ figma: "ingredients/field", code: "field" }] })}\n`);
     const report = mapReport(built, cfg, { masters });
-    expect(report.pairs).toContainEqual({ figma: "ingredients/field", code: "field", confidence: "exact", parts: ["base/field-label"] });
+    expect(report.pairs).toContainEqual({ figma: "ingredients/field", code: "field", confidence: "mapped", parts: ["base/field-label"] });
     for (const name of ["base/tabs", "base/steps-icon", "base/steps-label", "base/dropdown-option", "base/field-label"]) {
       expect(report.unmatchedFigma).not.toContain(name);
     }
@@ -306,6 +116,8 @@ describe("code-map pairing quality", () => {
       { name: "base/tabs", nodeId: "4:3" },
       { name: "ingredients/ghost", nodeId: "4:4" },
     ];
+    mkdirSync(store, { recursive: true });
+    writeFileSync(join(store, "mapping.json"), `${JSON.stringify({ mappings: [{ figma: "ingredients/field", code: "field" }] })}\n`);
     const previous = { home: process.env["RESOLVE_HOME"], mode: process.env["RESOLVE_MODE"] };
     process.env["RESOLVE_HOME"] = store;
     process.env["RESOLVE_MODE"] = "code";

@@ -32,6 +32,7 @@ function repo(): string {
     ".btn { color: var(--ink); }\n.btn--primary { color: var(--ink); }\n/* deprecated .btn-old use .btn */\n",
   );
   writeFileSync(join(root, "components", "badge", "badge.css"), ".badge { color: var(--ink); }\n");
+  writeFileSync(join(root, "components", "button", "button.html"), '<button class="btn" data-ds-id="ds@1.0.0.core.button">Pay</button>\n');
   writeFileSync(join(root, "tokens.css"), ":root { --ink: #112233; }\n");
   writeFileSync(
     join(root, "screen.html"),
@@ -49,12 +50,12 @@ describe("code tools", () => {
     }
   });
 
-  it("scans a repo, picks the button, checks the screen, and maps Button by name", () => {
+  it("scans a repo, picks the button, checks the screen, and maps Button by its shared ID", () => {
     const root = repo();
     const scan = runCodeTool("code_scan", {
       repoPath: root,
       list: true,
-      figma: [{ name: "Button", nodeId: "30:10", fileKey: "ACME", variants: ["primary"] }],
+      figma: [{ name: "Button", nodeId: "30:10", fileKey: "ACME", variants: ["primary"], description: "Main action. ds@1.0.0.core.button" }],
     }) as { components: number; list: Array<{ name: string }> };
     expect(scan.components).toBe(2);
     expect(scan.list.map((row) => row.name).sort()).toEqual(["badge", "button"]);
@@ -80,7 +81,7 @@ describe("code tools", () => {
     const map = runCodeTool("code_map", { repoPath: root }) as {
       pairs: Array<{ figma: string; code: string; confidence: string }>;
     };
-    expect(map.pairs).toEqual([{ figma: "Button", code: "button", confidence: "exact" }]);
+    expect(map.pairs).toEqual([{ figma: "Button", code: "button", confidence: "mapped", source: "id" }]);
     expect(() => runCodeTool("code_pick", { repoPath: root, query: "  " })).toThrow(/query/);
   });
 });

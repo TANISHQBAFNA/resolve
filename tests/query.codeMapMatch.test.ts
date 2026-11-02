@@ -47,30 +47,6 @@ describe("code map name matching", () => {
     expect(pairs).toEqual([]);
   });
 
-  it("labels an added button suffix partial, and prefers the exact class when both exist", () => {
-    const onlyButton = pairsFor("Beacon", [{ component: "BeaconButtonComponent", selector: "acme-beacon-button" }]);
-    expect(onlyButton.map((pair) => ({ component: pair.component, status: pair.status }))).toEqual([
-      { component: "BeaconButtonComponent", status: "partial" },
-    ]);
-    const both = pairsFor("Beacon", [
-      { component: "BeaconComponent", selector: "acme-beacon" },
-      { component: "BeaconButtonComponent", selector: "acme-beacon-button" },
-    ]);
-    expect(both.map((pair) => ({ component: pair.component, status: pair.status }))).toEqual([
-      { component: "BeaconComponent", status: "suggested" },
-    ]);
-  });
-
-  it("labels family siblings partial", () => {
-    const pairs = pairsFor("Color scale legend", [
-      { component: "ColorScaleTickComponent", selector: "acme-color-scale-tick" },
-      { component: "ColorScaleLabelComponent", selector: "acme-color-scale-label" },
-    ]);
-    expect(pairs.map((pair) => pair.status)).toEqual(["partial", "partial"]);
-    expect(pairs.map((pair) => pair.component).sort()).toEqual(["ColorScaleLabelComponent", "ColorScaleTickComponent"]);
-    expect(pairs.some((pair) => pair.status === "suggested")).toBe(false);
-  });
-
   it("returns both partial candidates when an Acme class and a decoy share a name", () => {
     const pairs = pairsFor("Nimbus", [
       { component: "NimbusComponent", selector: "acme-nimbus" },
@@ -79,13 +55,6 @@ describe("code map name matching", () => {
     expect(pairs.map((pair) => pair.status)).toEqual(["partial", "partial"]);
     expect(pairs.map((pair) => pair.component).sort()).toEqual(["AcmeNimbusComponent", "NimbusComponent"]);
     expect(pairs.some((pair) => pair.status === "suggested")).toBe(false);
-  });
-
-  it("stems a plural to partial, never suggested", () => {
-    const pairs = pairsFor("Lanterns", [{ component: "LanternComponent", selector: "acme-lantern" }]);
-    expect(pairs.map((pair) => ({ component: pair.component, status: pair.status }))).toEqual([
-      { component: "LanternComponent", status: "partial" },
-    ]);
   });
 
   it("drops the Mat prefix only for @angular/material, and never inside a word like Matrix", () => {
