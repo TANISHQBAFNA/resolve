@@ -52,14 +52,15 @@ describe("component map", () => {
     expect(report.draftHint).toBeUndefined();
   });
 
-  it("still infers when the component map is absent, and says to draft one", () => {
+  it("without the component map, links manifests and confirmed pairs only, and says to draft one", () => {
     const store = mkdtempSync(join(tmpdir(), "resolve-acme-infer-"));
     const repo = mkdtempSync(join(tmpdir(), "resolve-acme-repo-"));
     cpSync(root, repo, { recursive: true });
     rmSync(join(repo, ".resolve", "component-map.json"));
     const cfg = config(repo, store);
     const report = mapReport(buildCatalog(cfg), cfg, { masters });
-    expect(report.pairs).toContainEqual({ figma: "Acme Chip", code: "acme-chip", confidence: "exact" });
+    expect(report.pairs.map((pair) => pair.figma)).not.toContain("Acme Chip");
+    expect(report.unmatchedFigma).toContain("Acme Chip");
     expect(report.pairs).toContainEqual({ figma: "Acme Button", code: "acme-button", confidence: "mapped", source: "manifest" });
     expect(report.draftHint).toBe("No component map yet. Run code-map --draft.");
     expect(report.componentMapExists).toBe(false);
@@ -108,7 +109,7 @@ describe("component map draft and review", () => {
   it("classifies matcher rows and never marks them confirmed", () => {
     const rows = proposalsFromReport({
       pairs: [
-        { figma: "Acme Button", code: "acme-button", confidence: "exact" },
+        { figma: "Acme Button", code: "acme-button", confidence: "mapped", source: "id" },
         { figma: "Acme Card", code: "acme-card", confidence: "mapped" },
       ],
       suggestions: [
@@ -123,7 +124,8 @@ describe("component map draft and review", () => {
       ["Acme Note", "suggested"],
       ["Acme Badge", "risky"],
     ]);
-    expect(rows.find((row) => row.figma === "Acme Button")?.reason).toMatch(/shared variant/);
+    expect(rows.find((row) => row.figma === "Acme Button")?.reason).toBe("same shared ID");
+    expect(rows.find((row) => row.figma === "Acme Card")?.reason).toBe("named in the mapping file");
   });
 
   it("keeps a second link and a container without a code match at suggested", () => {
@@ -224,6 +226,8 @@ describe("component map draft and review", () => {
         ],
       })}\n`,
     });
+    mkdirSync(store, { recursive: true });
+    writeFileSync(join(store, "mapping.json"), `${JSON.stringify({ mappings: [{ figma: "Acme Button", code: "acme-button" }] })}\n`);
     const cfg = config(repo, store);
     const mastersFor = [
       { name: "Acme Button", nodeId: "1:1", variants: ["primary"] },
@@ -242,7 +246,7 @@ describe("component map draft and review", () => {
 });
 
 describe("component map command text", () => {
-  function capture(args: string[], mastersFor?: typeof masters) {
+  function capture(args: string[], mastersFor?: Array<{ name: string; nodeId: string; variants?: string[]; description?: string }>) {
     const lines: string[] = [];
     const write = process.stdout.write.bind(process.stdout);
     process.stdout.write = ((chunk: string | Uint8Array) => (lines.push(String(chunk)), true)) as typeof process.stdout.write;
@@ -280,11 +284,14 @@ describe("component map command text", () => {
   it("drafts proposals from the command and does not confirm them", () => {
     const store = mkdtempSync(join(tmpdir(), "resolve-draft-cli-"));
     const repo = mkdtempSync(join(tmpdir(), "resolve-draft-cli-repo-"));
-    tree(repo, { "building-blocks/acme-button/acme-button.css": css(".acme-button { color: var(--ink); }\n.acme-button--primary { color: var(--ink); }\n") });
+    tree(repo, {
+      "building-blocks/acme-button/acme-button.css": css(".acme-button { color: var(--ink); }\n.acme-button--primary { color: var(--ink); }\n"),
+      "building-blocks/acme-button/acme-button.html": '<button class="acme-button" data-ds-id="ds@1.0.0.core.button">Go</button>\n',
+    });
     const previous = process.env["RESOLVE_HOME"];
     process.env["RESOLVE_HOME"] = store;
     try {
-      const text = capture(["--repo", repo, "--draft"], [{ name: "Acme Button", nodeId: "1:1", variants: ["primary"] }]);
+      const text = capture(["--repo", repo, "--draft"], [{ name: "Acme Button", nodeId: "1:1", variants: ["primary"], description: "ds@1.0.0.core.button" }]);
       expect(text).toContain("Nothing was marked confirmed.");
       const saved = JSON.parse(readFileSync(join(repo, ".resolve", "component-map.json"), "utf8")) as { entries: Array<{ status: string; tier: string }> };
       expect(saved.entries.every((entry) => entry.status === "proposed")).toBe(true);

@@ -211,15 +211,17 @@ describe("Angular Material public reference", () => {
     const formField = entries.find((entry) => entry["name"] === "Form field");
     expect((formField?.["code"] as { import: string }).import).toBe("import { MatFormFieldModule } from '@angular/material/form-field'");
     expect(score.extra).toEqual([]);
-    expect(score).toMatchObject({ hits: 32, proposed: 32, labelled: 40 });
+    expect(score).toMatchObject({ hits: 30, proposed: 30, labelled: 40 });
     expect(score.precision).toBe(1);
-    expect(score.recall).toBeCloseTo(32 / 40);
+    expect(score.recall).toBeCloseTo(30 / 40);
     expect(score.missed.map((pair) => `${pair.figma} → ${pair.component}`).sort()).toEqual(
       [
         "Bottom sheet → MatBottomSheet",
         "Date picker → MatDatepicker",
         "Dialog → MatDialog",
         "Extended FAB → MatFabButton",
+        "FAB → MatFabButton",
+        "Mini FAB → MatMiniFabButton",
         "Snackbar → MatSnackBar",
         "Tabs → MatTabGroup",
         "Text field → MatInput",

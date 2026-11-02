@@ -232,23 +232,6 @@
     },
     {
       "fileKey": "M3SPEC",
-      "id": "1:12",
-      "name": "FAB",
-      "component": "MatFabButton",
-      "importPath": "@angular/material",
-      "selector": "button[mat-fab], a[mat-fab], button[matFab], a[matFab]",
-      "standalone": true,
-      "inputs": [
-        "extended"
-      ],
-      "relation": "maps",
-      "status": "partial",
-      "figmaVersion": "public-spec-2026-10-20",
-      "packageVersion": "22.2.3",
-      "because": "name is only close to MatFabButton; not a whole-word match"
-    },
-    {
-      "fileKey": "M3SPEC",
       "id": "1:98",
       "name": "Form field",
       "component": "MatFormField",
@@ -383,20 +366,6 @@
       "figmaVersion": "public-spec-2026-10-20",
       "packageVersion": "22.2.3",
       "because": "name matches MatMenu; Figma properties match its inputs"
-    },
-    {
-      "fileKey": "M3SPEC",
-      "id": "1:17",
-      "name": "Mini FAB",
-      "component": "MatMiniFabButton",
-      "importPath": "@angular/material",
-      "selector": "button[mat-mini-fab], a[mat-mini-fab], button[matMiniFab], a[matMiniFab]",
-      "standalone": true,
-      "relation": "maps",
-      "status": "partial",
-      "figmaVersion": "public-spec-2026-10-20",
-      "packageVersion": "22.2.3",
-      "because": "name is only close to MatMiniFabButton; not a whole-word match"
     },
     {
       "fileKey": "M3SPEC",

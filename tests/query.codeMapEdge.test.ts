@@ -65,7 +65,7 @@ describe("code map edge fixture", () => {
     expect(inventory.components.find((row) => row.component === "AcmeTooltipSourceDirective")?.selectorConflict).toEqual(["AcmeTooltipDirective"]);
   });
 
-  it("suggests the 49-pair key with no wrong link when every suggestion is accepted", () => {
+  it("suggests whole-name pairs from the 49-pair key with no wrong link when every suggestion is accepted", () => {
     const index = indexGraph(graph());
     const pairs = suggestPairs(index, scanAngularPackage(PKG), libraryCodeTargets(index), { retired: (node) => isRetired(index, node) });
     const score = scoreSuggestions(
@@ -88,13 +88,14 @@ describe("code map edge fixture", () => {
     expect(wrongMappedLinks(accepted, KEY.pairs)).toEqual([]);
     expect(pairs.filter((pair) => KEY.noCode.includes(pair.name) && pair.status === "suggested")).toEqual([]);
     expect(suggested.extra).toEqual([]);
-    expect(suggested).toMatchObject({ proposed: 43, labelled: 49, hits: 43, precision: 1, recall: 43 / 49 });
+    expect(suggested).toMatchObject({ proposed: 42, labelled: 49, hits: 42, precision: 1, recall: 42 / 49 });
     expect(suggested.missed.map(label).sort()).toEqual(
       [
         "Avatar → AcmeAvatarComponent",
         "Breadcrumbs → AcmeBreadcrumbComponent",
         "Date range picker → AcmeDateRangeEndComponent",
         "Date range picker → AcmeDateRangeStartComponent",
+        "Dropdown → AcmeSelectComponent",
         "Pagination → AcmePaginatorComponent",
         "Radio → AcmeRadioButtonComponent",
       ].sort(),
@@ -103,10 +104,19 @@ describe("code map edge fixture", () => {
     expect(avatar.map((pair) => pair.component).sort()).toEqual(["AcmeAvatarComponent", "AvatarComponent"]);
     expect(avatar.every((pair) => pair.status === "partial")).toBe(true);
     expect(partial.extra).toEqual([{ figma: "Avatar", component: "AvatarComponent", relation: "maps" }]);
-    expect(partial).toMatchObject({ proposed: 6, labelled: 49, hits: 5, precision: 5 / 6, recall: 5 / 49 });
+    expect(partial).toMatchObject({ proposed: 2, labelled: 49, hits: 1, precision: 1 / 2, recall: 1 / 49 });
     expect(score.extra).toEqual([{ figma: "Avatar", component: "AvatarComponent", relation: "maps" }]);
-    expect(score.missed.map(label).sort()).toEqual(["Pagination → AcmePaginatorComponent"]);
-    expect(score).toMatchObject({ proposed: 49, labelled: 49, hits: 48, precision: 48 / 49, recall: 48 / 49 });
+    expect(score.missed.map(label).sort()).toEqual(
+      [
+        "Breadcrumbs → AcmeBreadcrumbComponent",
+        "Date range picker → AcmeDateRangeEndComponent",
+        "Date range picker → AcmeDateRangeStartComponent",
+        "Dropdown → AcmeSelectComponent",
+        "Pagination → AcmePaginatorComponent",
+        "Radio → AcmeRadioButtonComponent",
+      ].sort(),
+    );
+    expect(score).toMatchObject({ proposed: 44, labelled: 49, hits: 43, precision: 43 / 44, recall: 43 / 49 });
     expect(pairs.some((pair) => pair.component === "AcmeBannerComponent" && pair.codeDeprecated)).toBe(true);
   });
 

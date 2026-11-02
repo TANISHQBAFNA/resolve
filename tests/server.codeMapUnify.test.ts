@@ -87,6 +87,7 @@ describe("one code-map command", () => {
   });
 
   it("merges the import map with pairs, unmatched, and suggestions", async () => {
+    writeFileSync(join(root, "store", "mapping.json"), `${JSON.stringify({ mappings: [{ figma: "Button", code: "button" }] })}\n`);
     const plain = await capture(() => runCli(["code-map"]));
     expect(plain.err).toBe("");
     expect(plain.out).toContain("1 mapped");
@@ -118,7 +119,7 @@ describe("one code-map command", () => {
       suggestions: unknown[];
     };
     expect(json.imports.counts.mapped).toBe(1);
-    expect(json.pairs).toContainEqual({ figma: "Button", code: "button", confidence: "exact" });
+    expect(json.pairs).toContainEqual({ figma: "Button", code: "button", confidence: "mapped" });
     expect(json.unmatchedFigma).toEqual(["Payee picker"]);
     expect(json.unmatchedCode).toEqual(["badge"]);
     expect(json.suggestions).toEqual(expect.any(Array));

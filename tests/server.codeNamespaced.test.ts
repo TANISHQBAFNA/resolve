@@ -40,7 +40,7 @@ function catalog(repo: string, store: string, files: Record<string, string>, fig
 }
 
 describe("namespaced Figma names join the coded component", () => {
-  it("matches the name after the namespace and refuses a recipe that only shares the last word", () => {
+  it("joins confirmed pairs to the right block or recipe after the namespace, and never a recipe that only shares the last word", () => {
     const root = mkdtempSync(join(tmpdir(), "resolve-ns-"));
     const store = join(root, "store");
     const { cfg, catalog: built } = catalog(root, store, {
@@ -62,11 +62,17 @@ describe("namespaced Figma names join the coded component", () => {
       { name: "base/button-content", nodeId: "1:6" },
       { name: "Status", nodeId: "1:7", variants: ["pill"] },
     ];
+    // Names never join on their own; these four are confirmed pairs. The folder still picks the block or the recipe.
+    mkdirSync(store, { recursive: true });
+    const confirmed = [["ingredients/button", "button"], ["ingredients/text-field", "text-field"], ["recipes/header", "header"], ["Status", "status"]];
+    writeFileSync(join(store, "mapping.json"), `${JSON.stringify({ mappings: confirmed.map(([figma, code]) => ({ figma, code })) })}\n`);
     const report = mapReport(built, cfg, { suggest: true, masters });
-    expect(report.pairs).toContainEqual({ figma: "ingredients/button", code: "button", confidence: "exact", parts: ["base/button-content"] });
-    expect(report.pairs).toContainEqual({ figma: "ingredients/text-field", code: "text-field", confidence: "exact" });
-    expect(report.pairs).toContainEqual({ figma: "recipes/header", code: "header", confidence: "exact" });
-    expect(report.pairs).toContainEqual({ figma: "Status", code: "status", confidence: "exact" });
+    expect(report.pairs).toContainEqual({ figma: "ingredients/button", code: "button", confidence: "mapped", parts: ["base/button-content"] });
+    expect(report.pairs).toContainEqual({ figma: "ingredients/text-field", code: "text-field", confidence: "mapped" });
+    expect(report.pairs).toContainEqual({ figma: "recipes/header", code: "header", confidence: "mapped" });
+    // "status" is both a block and a recipe, and the Figma name has no folder: the confirm is refused, not guessed.
+    expect(report.pairs.map((pair) => pair.figma)).not.toContain("Status");
+    expect(report.problems).toContain('mapping code "status" matches more than one coded component.');
     expect(report.pairs.map((pair) => pair.figma)).not.toContain("recipes/button");
     expect(report.pairs.map((pair) => pair.figma)).not.toContain("base/button-content");
     expect(report.unmatchedFigma).not.toContain("base/button-content");
@@ -76,15 +82,13 @@ describe("namespaced Figma names join the coded component", () => {
     expect(report.pairs.filter((pair) => pair.code === "header" && pair.figma === "recipes/header")).toHaveLength(1);
     expect(header?.name).toBe("header");
     expect(blockHeader?.name).toBe("header");
-    const status = report.pairs.find((pair) => pair.figma === "Status");
     expect(built.components.find((entry) => entry.kind === "block" && entry.name === "status")?.variants).toContain("pill");
-    expect(status?.code).toBe("status");
     expect(report.suggestions?.filter((row) => row.code === "card-recipes" || row.figma.startsWith("base/"))).toEqual([]);
     expect(report.suggestions?.some((row) => row.figma === "recipes/button" && row.code === "button")).toBe(false);
     linkFigma(built, cfg, masters);
     expect(built.components.find((entry) => entry.kind === "recipe" && entry.name === "header")?.figma?.name).toBe("recipes/header");
     expect(built.components.find((entry) => entry.kind === "block" && entry.name === "header")?.figma).toBeUndefined();
-    expect(built.components.find((entry) => entry.kind === "block" && entry.name === "status")?.figma?.name).toBe("Status");
+    expect(built.components.find((entry) => entry.kind === "block" && entry.name === "status")?.figma).toBeUndefined();
     expect(built.components.find((entry) => entry.kind === "recipe" && entry.name === "status")?.figma).toBeUndefined();
     expect(built.components.find((entry) => entry.name === "button")?.parts).toEqual(["base/button-content"]);
     const banner = built.components.find((entry) => entry.name === "banner");
@@ -121,21 +125,6 @@ describe("namespaced Figma names join the coded component", () => {
     expect(report.pairs.map((pair) => pair.figma)).not.toContain("ingredients/text-field");
   });
 
-  it("uses a configured namespace and ignores one that is not configured", () => {
-    const root = mkdtempSync(join(tmpdir(), "resolve-ns-cfg-"));
-    const store = join(root, "store");
-    const files = { "building-blocks/toggle/toggle.css": ".toggle { color: var(--ink); }\n.toggle--compact { color: var(--ink); }\n" };
-    const plain = catalog(root, store, files);
-    expect(mapReport(plain.catalog, plain.cfg, { masters: [{ name: "widgets/toggle", nodeId: "8:1", variants: ["compact"] }] }).pairs).toEqual([]);
-    expect(mapReport(plain.catalog, plain.cfg, { masters: [{ name: "Toggle/Primary", nodeId: "8:2", variants: ["compact"] }] }).pairs).toEqual([
-      { figma: "Toggle/Primary", code: "toggle", confidence: "exact" },
-    ]);
-    const custom = catalog(join(root, "b"), join(root, "store-b"), files, ["widgets"]);
-    expect(mapReport(custom.catalog, custom.cfg, { masters: [{ name: "widgets/toggle", nodeId: "8:1", variants: ["compact"] }] }).pairs).toEqual([
-      { figma: "widgets/toggle", code: "toggle", confidence: "exact" },
-    ]);
-  });
-
   it("skips an unpublished master and keeps a published sibling", () => {
     const root = mkdtempSync(join(tmpdir(), "resolve-pub-"));
     const store = join(root, "store");
@@ -143,6 +132,8 @@ describe("namespaced Figma names join the coded component", () => {
       "building-blocks/button/button.css": ".button { color: var(--ink); }\n.button--primary { color: var(--ink); }\n",
       "building-blocks/draft-knob/draft-knob.css": ".draft-knob { color: var(--ink); }\n",
     });
+    mkdirSync(store, { recursive: true });
+    writeFileSync(join(store, "mapping.json"), `${JSON.stringify({ mappings: [{ figma: "ingredients/button", code: "button" }, { figma: "ingredients/draft-knob", code: "draft-knob" }] })}\n`);
     const report = mapReport(built, cfg, {
       masters: [
         { name: "ingredients/button", nodeId: "3:1", published: true, variants: ["primary"] },

@@ -109,7 +109,7 @@ export function usage(): void {
       "  resolve code-map suggest <package or path> [--json] [--write]   Propose Figma ↔ code pairs. Every pair is suggested, never mapped",
       "  resolve code-map review [--out <file.csv>] [--import <file.csv>] [--replace]   Accept suggestions. Only status mapped is confirmed. Entries the CSV leaves out are kept",
       "  resolve code-map --pairs [--unmatched] [--suggest] [--limit <n>] [--json]",
-      "      Same command. Import map, then how Figma and coded components join: pairs (shared ID ds@semver.tier.name first, then mapped, exact) and what is unmatched.",
+      "      Same command. Import map, then how Figma and coded components join: pairs (shared ID ds@semver.tier.name first, then confirmed pairs; never a name) and what is unmatched.",
       "      --suggest adds likely pairs. A likely pair is not a link. A same name with no evidence is risky: same name only. --write \"Figma name=code[,code]\" appends those pairs until a component map exists. A batch confirms evidence rows only; confirm a suggested row on its own.",
       "  resolve code-map --draft [--who <name>]   Write .resolve/component-map.json in the design-system repo. Rows are proposed (evidence, suggested, or risky), never confirmed.",
       "      Running --draft again leaves confirmed and denied rows alone. --confirm \"Figma=code\" and --deny \"Figma=code\" review one pair. --who records who confirmed it.",

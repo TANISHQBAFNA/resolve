@@ -19,18 +19,6 @@ function setup(names: string[]) {
 }
 
 describe("a house prefix shared by most names is not a reason to pair", () => {
-  it("does not suggest every Acme component for every other one", () => {
-    const { cfg, catalog } = setup(["acme-avatar", "acme-badge", "acme-banner", "acme-card", "acme-chip", "acme-slider"]);
-    const masters = ["Acme Avatar", "Acme Badge", "Acme Banner", "Acme Card", "Acme Chip", "Acme Slider"].map((name, i) => ({ name, nodeId: `1:${i + 1}` }));
-    const report = mapReport(catalog, cfg, { suggest: true, limit: 25, masters });
-    const rows = (report.suggestions ?? []).map((row) => `${row.figma}=${row.code}:${row.reasons.join(";")}`);
-    expect(rows.filter((row) => row.endsWith(":same words"))).toEqual([]);
-    for (const name of ["avatar", "badge", "banner", "card", "chip", "slider"]) {
-      const figma = `Acme ${name[0]!.toUpperCase()}${name.slice(1)}`;
-      expect(report.suggestions?.find((row) => row.figma === figma && row.code === `acme-${name}`)?.confidence).toBe("risky: same name only");
-    }
-    expect(rows).toContain("Acme Badge=acme-chip:badg~chip");
-  });
 
   it("keeps a real shared word that only a few names carry", () => {
     const { cfg, catalog } = setup(["acme-date-field", "acme-badge", "acme-card", "acme-chip"]);

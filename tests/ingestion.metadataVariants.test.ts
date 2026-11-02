@@ -1,13 +1,5 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { adaptFigmaMcpMetadata } from "@/core/ingestion";
-import { mapReport } from "@/server/code/map";
-import { buildCatalog } from "@/server/code/scan";
-import { graphMasters } from "@/server/graphMasters";
-import { learnLibrary } from "@/server/learn";
-import type { ResolveConfig } from "@/server/mode";
 import { clearCache } from "@/server/store";
 
 const KIT = `
@@ -43,29 +35,4 @@ describe("get_metadata learn keeps variant names", () => {
     expect(JSON.stringify(doc)).not.toContain("variantProperties");
   });
 
-  it("lets a metadata-learned set join its coded twin on a shared variant", () => {
-    const root = mkdtempSync(join(tmpdir(), "resolve-meta-variants-"));
-    const store = join(root, ".resolve");
-    mkdirSync(store, { recursive: true });
-    for (const [name, body] of [
-      ["acme-button", ".acme-button { color: var(--ink); }\n.acme-button--primary { color: var(--ink); }\n"],
-      ["acme-banner", ".acme-banner { color: var(--ink); }\n.acme-banner--promo { color: var(--ink); }\n"],
-      ["acme-badge", ".acme-badge { color: var(--ink); }\n"],
-    ]) {
-      mkdirSync(join(root, "building-blocks", name), { recursive: true });
-      writeFileSync(join(root, "building-blocks", name, `${name}.css`), body);
-    }
-    process.env["RESOLVE_HOME"] = store;
-    process.env["RESOLVE_MODE"] = "both";
-    clearCache();
-    learnLibrary({ fileKey: "ACMEKIT", role: "library", fileName: "Acme Kit", metadataXml: KIT });
-    const masters = graphMasters();
-    expect(masters.find((m) => m.name === "Acme Button")?.variants).toEqual(["Large", "Primary"]);
-    expect(masters.find((m) => m.name === "Acme Banner")?.variants).toEqual(["Promo"]);
-
-    const cfg: ResolveConfig = { mode: "both", modeSource: "env", repoPath: root, localPrefixes: [], storeDir: store };
-    const report = mapReport(buildCatalog(cfg), cfg, { suggest: true, masters });
-    expect(report.pairs.map((pair) => `${pair.figma}=${pair.code}:${pair.confidence}`).sort()).toEqual(["Acme Banner=acme-banner:exact", "Acme Button=acme-button:exact"]);
-    expect(report.suggestions?.find((row) => row.figma === "Acme Badge" && row.code === "acme-badge")?.confidence).toBe("risky: same name only");
-  });
 });
