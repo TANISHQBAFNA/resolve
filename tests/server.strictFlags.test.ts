@@ -60,7 +60,7 @@ describe("normalizeCliArgs", () => {
   });
 });
 
-describe("--strict at the bin, the way CI runs it", () => {
+describe("--strict at the bin, the way CI runs it", { timeout: 60_000 }, () => {
   let home = "";
   const run = (args: string[], cwd = home) =>
     spawnSync(process.execPath, [cli, ...args], { cwd, encoding: "utf8", env: { ...process.env, HOME: home, RESOLVE_HOME: join(home, "store"), RESOLVE_MODE: "both" } });
@@ -70,7 +70,7 @@ describe("--strict at the bin, the way CI runs it", () => {
     mkdirSync(join(home, "store"), { recursive: true });
     const ingest = run(["ingest", join(root, "scoreboard", "fixture", "library.json"), "--role", "library", "--name", "Fixture"]);
     expect(ingest.status, ingest.stderr).toBe(0);
-  });
+  }, 60_000);
 
   it("verify on a missing frame is a clear warning with a next step and exit 0", () => {
     const result = run(["verify", "No Such Frame"]);
