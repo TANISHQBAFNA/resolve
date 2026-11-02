@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join, relative } from "node:path";
 import { z } from "zod";
 import { figmaIdentity } from "@/core/rules/figmaNamespaces";
-import { demoteSharedLinks, evidencePair, forBulkConfirm, suggestionTier } from "./mapPair.ts";
+import { demoteSharedLinks, evidencePair, suggestionTier } from "./mapPair.ts";
 import type { ResolveConfig } from "./mode.ts";
 
 /**
@@ -44,6 +44,7 @@ const ManifestSchema = z.object({
   id: figmaName,
   figma: z.object({ key: figmaName.optional(), name: figmaName.optional() }).refine((figma) => Boolean(figma.key || figma.name), { message: "needs a key or a name" }),
   version: figmaName.optional(),
+  dsId: figmaName.optional(),
   recipes: z.array(figmaName).optional(),
 });
 
@@ -54,6 +55,7 @@ export interface ManifestRow {
   figma: string;
   name?: string;
   key?: string;
+  dsId?: string; // shared ID ds@semver.tier.name
   file: string;
 }
 
@@ -149,7 +151,7 @@ export function readManifests(repo?: string): { entries: ManifestRow[]; problems
     }
     const key = result.data.figma.key;
     const name = result.data.figma.name;
-    entries.push({ code: result.data.id, figma: key ?? name ?? result.data.id, ...(name ? { name } : {}), ...(key ? { key } : {}), file: rel });
+    entries.push({ code: result.data.id, figma: key ?? name ?? result.data.id, ...(name ? { name } : {}), ...(key ? { key } : {}), ...(result.data.dsId ? { dsId: result.data.dsId } : {}), file: rel });
   }
   return { entries, problems };
 }
@@ -409,7 +411,7 @@ export function confirmEvidenceTier(cfg: ResolveConfig, who: string, at: string)
   if (!current.exists) throw new Error(`No component map at ${current.path}. Run code-map --draft first.`);
   if (current.problems.length) throw new Error(current.problems.join("\n"));
   const rows = current.entries.flatMap((entry) => entry.status === "proposed" ? [{ entry, tier: entry.tier }] : []);
-  const allowed = new Set<ComponentMapEntry>(forBulkConfirm(rows).map((row) => row.entry));
+  const allowed = new Set<ComponentMapEntry>(rows.filter((row) => row.tier === "evidence").map((row) => row.entry));
   let confirmed = 0;
   const entries = current.entries.map((entry) => {
     if (!allowed.has(entry) || entry.status !== "proposed") return entry;

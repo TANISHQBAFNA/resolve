@@ -171,11 +171,6 @@ export function sameNameRow(figma: string, code: string, disagree: boolean): { f
   return { figma, code, confidence: RISKY_TIER, score: 1, reasons: [RISKY_TIER, "same name, no evidence"] };
 }
 
-/** Bulk confirm keeps evidence rows only. A suggested row is never included. */
-export function forBulkConfirm<T extends { tier?: string }>(rows: readonly T[]): T[] {
-  return rows.filter((row) => row.tier === "evidence");
-}
-
 /** `paired + parts + unmatched` against the Figma total. Parts on a pair and parts on an unpaired block both count once. */
 export function figmaTotalCheck(report: { figmaComponents: number; pairs: Array<{ figma: string; parts?: string[] }>; unpairedParts?: Array<{ parts: string[] }>; unmatchedFigma: string[]; heldFigma?: string[] }): string {
   const paired = new Set(report.pairs.map((pair) => pair.figma)).size;
