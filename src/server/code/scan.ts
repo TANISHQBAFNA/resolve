@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { parseDsId } from "@/core/rules/dsId";
 import { STORE_DIRS } from "../../core/query/overlayFile.ts";
 import type { ResolveConfig } from "../mode.ts";
 import { normHex, parseCss, selectorClasses, varRefs } from "./css.ts";
@@ -31,6 +32,8 @@ export interface CatalogEntry {
   aliases?: string[];
   /** Figma `base/*` sub-parts of this block. Not separate pairs. */
   parts?: string[];
+  /** Shared ID (ds@semver.tier.name) from a `data-ds-id` on the component's root in the repo's HTML. */
+  dsId?: string;
   code?: {
     roots: string[];
     primary: string;
@@ -338,6 +341,7 @@ export function buildCatalog(cfg: ResolveConfig, order: <T>(items: T[]) => T[] =
         const own = owner.get(cls);
         const entry = own ? entryOf.get(own) : undefined;
         if (!entry?.code || cls !== entry.code.primary) continue; // markup shows the component's own root, not a helper root
+        const ds = parseDsId(tag.attrs["data-ds-id"]); if (ds) entry.dsId ??= ds.id;
         const u = usage.get(entry.name) ?? { tags: new Map(), combos: new Map(), files: new Set() };
         usage.set(entry.name, u);
         u.tags.set(tag.tag, (u.tags.get(tag.tag) ?? 0) + 1);

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { dsIdOf, parseDsId, sameButVersion, type DsId } from "@/core/rules/dsId";
 import { figmaFolderKind, figmaIdentity, namespaceSet } from "@/core/rules/figmaNamespaces";
 import { codeMapCard } from "@/core/query/replacements";
 import { buildDeclaredLinks, componentMapPath, manifestBodies, readComponentMap, readManifests } from "../componentMap.ts";
@@ -11,7 +12,7 @@ import { resolveGraph } from "../store";
 import type { CatalogEntry, CodeCatalog, FigmaMaster, MatchBy } from "./scan.ts";
 import { nameWords, namespaceStems, RELATED, tokens } from "./words.ts";
 
-/** Joins, strongest first: mapped (a confirmed mapping.json line; a proposed line only awaits review; a deny line wins), exact (same name plus a specific variant, modifier, description phrase, or base parts that match elements). Generic states do not count. A denied name (built-in stepper, plus config pairDeny) does not auto-pair on the name alone. Anything else is suggested, never joined. */
+/** Joins, in order: 1. the shared ID (ds@semver.tier.name) on both sides, exact; 2. mapped (a confirmed mapping.json line; a proposed line only awaits review; a deny line wins), exact (same name plus a specific variant, modifier, description phrase, or base parts that match elements). Generic states do not count. A denied name (built-in stepper, plus config pairDeny) does not auto-pair on the name alone. Anything else is suggested, never joined. */
 const byCode = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const plural = (w: string) => (w.length > 3 && w.endsWith("ies") ? `${w.slice(0, -3)}y` : w.length > 3 && w.endsWith("s") && !/(ss|us|is)$/.test(w) ? w.slice(0, -1) : w);
 export const norm = (name: string, namespaces: ReadonlySet<string> = namespaceSet()): string =>
@@ -63,7 +64,7 @@ export function mappingDigest(cfg: ResolveConfig): string {
   return body ? createHash("sha256").update(body).digest("hex").slice(0, 16) : "";
 }
 
-interface Link { master: FigmaMaster; entry: CatalogEntry; by: MatchBy; alias?: string; source?: "map" | "manifest" }
+interface Link { master: FigmaMaster; entry: CatalogEntry; by: MatchBy; alias?: string; source?: "map" | "manifest" | "id" }
 const STRENGTH: Record<MatchBy, number> = { mapped: 0, exact: 1, alias: 2 };
 
 function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[], infer = false) {
@@ -135,6 +136,17 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
   if (mapFile) problems.push(...mapFile.problems);
   if (manifests) problems.push(...manifests.problems);
   const usingMap = Boolean(mapFile?.exists);
+  // 1. Exact lookup on the shared ID. No name is compared; a deny line still wins.
+  const codeIds = new Map<string, { ds: DsId; entry: CatalogEntry }>();
+  for (const [ds, entry] of [...catalog.components.map((e) => [parseDsId(e.dsId), e] as const), ...(manifests?.entries ?? []).map((row) => [parseDsId(row.dsId), catalog.components.find((e) => e.name === row.code)] as const)]) if (ds && entry && !codeIds.has(ds.id)) codeIds.set(ds.id, { ds, entry });
+  const idLinked = new Set<FigmaMaster>();
+  for (const master of masters) {
+    const ds = dsIdOf(master.description, master.name);
+    const hit = ds ? codeIds.get(ds.id) : undefined;
+    if (hit && !blocked(master.name, hit.entry.name)) { links.push({ master, entry: hit.entry, by: "mapped", source: "id" }); idLinked.add(master); continue; }
+    const near = ds && !hit ? [...codeIds.values()].find((other) => sameButVersion(ds, other.ds)) : undefined;
+    if (ds && near) problems.push(`${master.name} has ${ds.id} but ${near.entry.name} has ${near.ds.id}. They differ only by version, so they are not linked. next: put the same ID on both sides.`);
+  }
   let covered = new Set<string>();
   let unlinkedCode: string[] | undefined;
   let stale: Array<{ figma: string; code: string; missing: "figma" | "code" | "both" }> | undefined;
@@ -151,7 +163,7 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
     for (const link of built.links) {
       const master = masters.find((item) => item.name === link.masterName && (link.nodeId === undefined || item.nodeId === link.nodeId));
       const entry = catalog.components.find((item) => item.name === link.code);
-      if (!master || !entry) continue;
+      if (!master || !entry || idLinked.has(master)) continue;
       links.push({ master, entry, by: "mapped", source: link.source });
     }
   } else {
@@ -164,6 +176,7 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
       }
     }
     for (const master of masters) {
+      if (idLinked.has(master)) continue;
       const mine = pairRules.filter((r) => figmaIdentity(r.figma ?? "") === figmaIdentity(master.name));
       if (mine.length) {
         for (const rule of mine) for (const entry of uniqueEntries(targets(rule))) {
@@ -179,17 +192,6 @@ function compute(catalog: CodeCatalog, cfg: ResolveConfig, given?: FigmaMaster[]
         else if (named.filter((e) => folderOk(master.name, e.kind)).length > 1) ambiguous.set(master.name, named.filter((e) => folderOk(master.name, e.kind)));
         continue;
       }
-      const names = masterNames(master);
-      const hits = new Map<CatalogEntry, string>();
-      for (const entry of catalog.components) {
-        if (!folderOk(master.name, entry.kind)) continue;
-        for (const n of names) {
-          const other = entryNames(entry).find((e) => same(e) === same(n));
-          if (other !== undefined) hits.set(entry, same(n) === same(master.name) ? other : n);
-        }
-      }
-      const list = [...hits.keys()];
-      if (list.length > 1) ambiguous.set(master.name, list);
     }
   }
   return { rules, problems: uniq(problems), masters, parts, partMap, ns, deny, links, ambiguous, codeAliases, figmaAliases, masterNames, entryNames, blocked, covered, unlinkedCode, stale, conflicts, denies, awaiting, declared: usingMap };

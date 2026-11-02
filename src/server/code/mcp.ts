@@ -25,7 +25,7 @@ export const CODE_TOOLS: ToolDefinition[] = [
         theme: { type: "string", description: "Theme token file inside repoPath (e.g. theme/tokens.css) or a data-theme name." },
         figma: {
           type: "array",
-          description: "Figma components to join with the coded ones (by name, alias or .resolve/mapping.json): [{ name, nodeId?, fileKey?, variants?, aliases? }]. Optional; both mode reads them from the learned library.",
+          description: "Figma components to join with the coded ones (by shared ID ds@semver.tier.name, .resolve/mapping.json, or name): [{ name, nodeId?, fileKey?, variants?, aliases? }]. Optional; both mode reads them from the learned library.",
           items: { type: "object", properties: { name: { type: "string" }, nodeId: { type: "string" }, fileKey: { type: "string" }, variants: { type: "array", items: { type: "string" } }, aliases: { type: "array", items: { type: "string" } } }, required: ["name"] },
         },
         list: { type: "boolean", description: "Also return every component with its variants." },
