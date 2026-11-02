@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { learnLibrary } from "@/server/learn";
 import { clearCache, loadDsck, saveDsck, syncProject } from "@/server/store";
 import { runCli } from "@/server/cli";
-import { emptyDsck, projectCopyDir, type DsciProposal } from "@/core/query";
+import { emptyDsck, projectCopyDir, projectRoot, runProjectSync, type DsciProposal } from "@/core/query";
 
 const KIT = (parts: string) => `<frame id="1:1" name="Kit">${parts}</frame>`;
 const BUTTON = `<component_set id="5:1" name="Button"><component id="5:2" name="Type=Primary" /><component id="5:3" name="Type=Ghost" /></component_set>`;
@@ -151,5 +151,89 @@ describe("per-project local DSCK / DSCI copy", () => {
     mkdirSync(nested, { recursive: true });
     mkdirSync(join(project, ".git"));
     expect(projectCopyDir(nested, { HOME: home }, store)).toBe(join(project, ".resolve", "local"));
+  });
+  it("stops at the real project root and never writes into an unrelated parent folder", () => {
+    const home = mkdtempSync(join(tmpdir(), "resolve-home-"));
+    const outside = mkdtempSync(join(tmpdir(), "resolve-outside-"));
+    // An unrelated parent with a marker, and a marker-less folder three levels below it.
+    writeFileSync(join(outside, "package.json"), "{}");
+    const loose = join(outside, "a", "b", "c");
+    mkdirSync(loose, { recursive: true });
+    expect(projectRoot(loose, home)).toBeUndefined();
+    expect(projectCopyDir(loose, { HOME: home }, join(home, ".resolve"))).toBeUndefined();
+    // Inside home with no marker: no copy in the current folder either.
+    const plain = join(home, "notes");
+    mkdirSync(plain, { recursive: true });
+    expect(projectCopyDir(plain, { HOME: home }, join(home, ".resolve"))).toBeUndefined();
+    // The current folder with its own marker is the project.
+    writeFileSync(join(loose, "package.json"), "{}");
+    expect(projectRoot(loose, home)).toBe(loose);
+    // In a git repo: the nearest marker below the repo top (a monorepo package), never above .git.
+    const repo = join(outside, "repo");
+    const pkg = join(repo, "packages", "app");
+    mkdirSync(join(pkg, "src"), { recursive: true });
+    mkdirSync(join(repo, ".git"));
+    writeFileSync(join(pkg, "package.json"), "{}");
+    expect(projectRoot(join(pkg, "src"), home)).toBe(pkg);
+    mkdirSync(join(repo, "docs"));
+    expect(projectRoot(join(repo, "docs"), home)).toBe(repo);
+  });
+
+  it("does not silently revert a hand edit: it warns once and leaves the file until resolve sync", () => {
+    learnLibrary({ fileKey: "LIB", role: "library", metadataXml: KIT(BUTTON) });
+    saveDsck({ ...emptyDsck(), proposals: [proposal("p1", "Use Badge on cards", "pending")] });
+    syncProject();
+    const file = join(local, "dsci.json");
+    const edited = read<{ proposals: DsciRow[] }>(local, "dsci.json");
+    edited.proposals[0]!.status = "approved";
+    writeFileSync(file, JSON.stringify(edited, null, 2));
+
+    learnLibrary({ fileKey: "LIB", role: "library", metadataXml: KIT(BUTTON + BADGE), resume: false });
+    clearCache();
+    const first = syncProject()!;
+    expect(read<{ proposals: DsciRow[] }>(local, "dsci.json").proposals[0]?.status).toBe("approved");
+    expect(read<{ components: Row[] }>(local, "components.json").components).toHaveLength(2);
+    const edits = first.warnings.filter((warning) => /edited by hand/.test(warning.message));
+    expect(edits).toHaveLength(1);
+    expect(edits[0]!.next).toMatch(/resolve approve/);
+
+    learnLibrary({ fileKey: "LIB", role: "library", metadataXml: KIT(BUTTON_MORE + BADGE), resume: false });
+    clearCache();
+    const second = syncProject()!;
+    expect(second.warnings.filter((warning) => /edited by hand/.test(warning.message))).toEqual([]);
+    expect(read<{ proposals: DsciRow[] }>(local, "dsci.json").proposals[0]?.status).toBe("approved");
+
+    const forced = syncProject(true)!;
+    expect(forced.warnings.some((warning) => /replaced it and kept your version/.test(warning.message))).toBe(true);
+    expect(read<{ proposals: DsciRow[] }>(local, "dsci.json").proposals[0]?.status).toBe("pending");
+    expect(read<{ proposals: DsciRow[] }>(local, "dsci.edited.json").proposals[0]?.status).toBe("approved");
+    // The store never took the hand edit.
+    expect(loadDsck()!.proposals[0]?.status).toBe("pending");
+  });
+
+  it("warns once on a read-only project folder, then stays quiet", () => {
+    const store = process.env["RESOLVE_HOME"]!;
+    const locked = mkdtempSync(join(tmpdir(), "resolve-locked-"));
+    chmodSync(locked, 0o555);
+    try {
+      const deps = {
+        cwd: locked,
+        env: { RESOLVE_PROJECT_DIR: locked },
+        storeRoot: store,
+        graphExists: true,
+        storeFingerprint: () => "f1",
+        loadIndex: () => undefined,
+        loadDsck: () => undefined,
+      };
+      const first = runProjectSync(deps);
+      expect(first?.synced).toBe(false);
+      expect(first?.warnings[0]?.message).toMatch(/read-only/);
+      expect(first?.warnings[0]?.next).toBeTruthy();
+      expect(runProjectSync(deps)).toBeUndefined();
+      expect(runProjectSync({ ...deps, storeFingerprint: () => "f2" })).toBeUndefined();
+      expect(existsSync(join(locked, ".resolve"))).toBe(false);
+    } finally {
+      chmodSync(locked, 0o755);
+    }
   });
 });

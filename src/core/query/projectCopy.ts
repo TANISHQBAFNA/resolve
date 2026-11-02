@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { accessSync, constants, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import type { GraphNode } from "@/core/model";
@@ -14,6 +14,9 @@ import type { DsciProposal, DsckState } from "./dsck";
  * deleted), DSCK is refreshed, and DSCI keeps what a person approved. An
  * approved proposal that changed in the store is flagged, not re-approved.
  * Sync never approves anything and never stops a run: problems are warnings.
+ * It is a rebuildable cache (setup gitignores it). A file someone edited by hand
+ * is left as it is, with one warning, until `resolve sync` replaces it (keeping a
+ * `.edited.json` backup) or the file is deleted.
  */
 
 export const PROJECT_COPY_VERSION = 1;
@@ -68,6 +71,10 @@ interface Meta {
   syncedAt: string;
   store: string;
   storeFingerprint?: string;
+  /** Hash of each file as Resolve last wrote it, to tell a hand edit from a sync. */
+  files?: Record<string, string>;
+  /** Hand-edited files already warned about, so the warning prints once. */
+  editWarned?: string[];
 }
 
 function hash(value: unknown): string {
@@ -83,11 +90,25 @@ function readJson<T>(path: string): T | undefined {
   }
 }
 
+const jsonText = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
+
 function writeJson(path: string, value: unknown): void {
   mkdirSync(dirname(path), { recursive: true });
   const tmp = `${path}.${process.pid}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`);
+  writeFileSync(tmp, jsonText(value));
   renameSync(tmp, path);
+}
+
+const textHash = (text: string) => createHash("sha256").update(text).digest("hex").slice(0, 16);
+
+/** True when the file is not what Resolve last wrote there. */
+function handEdited(path: string, written: string | undefined): boolean {
+  if (!written || !existsSync(path)) return false;
+  try {
+    return textHash(readFileSync(path, "utf8")) !== written;
+  } catch {
+    return false;
+  }
 }
 
 const PROJECT_MARKERS = [".git", "package.json", ".resolve"];
@@ -97,9 +118,29 @@ function inside(child: string, parent: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !rel.startsWith(sep) && rel !== "..");
 }
 
+const hasMarker = (dir: string, markers: readonly string[]) => markers.some((marker) => existsSync(join(dir, marker)));
+
+/**
+ * The real project root. Inside a git work tree it is the nearest folder with a marker, never above the
+ * repo's top (`.git`). Outside a git work tree it is the current folder only when that folder has a marker.
+ * It never climbs past the home folder. No root means no copy: nothing is written into an unrelated folder.
+ */
+export function projectRoot(cwd: string, home: string): string | undefined {
+  const start = resolve(cwd);
+  let nearest: string | undefined;
+  for (let dir = start; dir !== home; ) {
+    if (!nearest && hasMarker(dir, PROJECT_MARKERS)) nearest = dir;
+    if (existsSync(join(dir, ".git"))) return nearest ?? dir;
+    const parent = resolve(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return nearest === start ? start : undefined;
+}
+
 /**
  * `<project>/.resolve/local`, or undefined when there is no project to write into
- * (RESOLVE_PROJECT_COPY=0, the home folder itself, or inside the store).
+ * (RESOLVE_PROJECT_COPY=0, no project root, the home folder itself, or inside the store).
  */
 export function projectCopyDir(
   cwd: string,
@@ -109,19 +150,8 @@ export function projectCopyDir(
   if (env.RESOLVE_PROJECT_COPY?.trim() === "0") return undefined;
   const home = resolve(env.HOME?.trim() || env.USERPROFILE?.trim() || homedir());
   const explicit = env.RESOLVE_PROJECT_DIR?.trim();
-  let root = resolve(explicit || cwd);
-  if (!explicit) {
-    for (let dir = root; dir !== home; ) {
-      if (PROJECT_MARKERS.some((marker) => existsSync(join(dir, marker)))) {
-        root = dir;
-        break;
-      }
-      const parent = resolve(dir, "..");
-      if (parent === dir) break;
-      dir = parent;
-    }
-  }
-  if (root === home || root === resolve("/")) return undefined;
+  const root = explicit ? resolve(explicit) : projectRoot(cwd, home);
+  if (!root || root === home || root === resolve("/")) return undefined;
   if (inside(root, resolve(storeRoot)) || inside(root, join(home, ".resolve"))) return undefined;
   return join(root, ".resolve", "local");
 }
@@ -176,6 +206,8 @@ export interface SyncInput {
   index?: GraphIndex;
   dsck?: DsckState;
   now?: string;
+  /** `resolve sync`: replace hand-edited files too, after saving a `.edited.json` backup. */
+  force?: boolean;
 }
 
 /** Skip the sync when the store has not changed since the last one and the copy is complete. */
@@ -311,22 +343,42 @@ export function syncProjectCopy(input: SyncInput): ProjectCopyReport {
     });
   }
 
+  const lastMeta = readJson<Meta>(join(dir, "meta.json"));
+  const files: Record<string, string> = { ...(lastMeta?.files ?? {}) };
+  const editWarned = new Set(lastMeta?.editWarned ?? []);
+  const outputs: Array<[string, unknown]> = [
+    ["components.json", { version: PROJECT_COPY_VERSION, syncedAt: now, components: rows }],
+    ["dsck.json", { version: PROJECT_COPY_VERSION, syncedAt: now, threshold: dsck?.threshold, facts, freshness: dsck?.freshness ?? {}, corrections: dsck?.corrections ?? [] }],
+    ["dsci.json", { version: PROJECT_COPY_VERSION, syncedAt: now, proposals: dsciRows }],
+  ];
+  for (const [name, value] of outputs) {
+    const path = join(dir, name);
+    if (handEdited(path, files[name])) {
+      if (!input.force) {
+        if (!editWarned.has(name)) {
+          warnings.push({
+            message: `${path} was edited by hand, so Resolve left it as it is and stopped syncing it. This folder is a copy of the store; nothing reads your edit.`,
+            next: "make the change in the store instead (for DSCI: resolve approve <id> --who <name>), then delete the file or run resolve sync to refresh it.",
+          });
+          editWarned.add(name);
+        }
+        continue;
+      }
+      copyFileSync(path, path.replace(/\.json$/, ".edited.json"));
+      warnings.push({ message: `${path} was edited by hand. resolve sync replaced it and kept your version in ${path.replace(/\.json$/, ".edited.json")}.`, next: "make the change in the store if you still want it (for DSCI: resolve approve <id> --who <name>)." });
+    }
+    writeJson(path, value);
+    files[name] = textHash(jsonText(value));
+    editWarned.delete(name);
+  }
   const meta: Meta = {
     version: PROJECT_COPY_VERSION,
     syncedAt: now,
     store: input.storeRoot,
     ...(input.storeFingerprint ? { storeFingerprint: input.storeFingerprint } : {}),
+    files,
+    ...(editWarned.size ? { editWarned: [...editWarned].sort() } : {}),
   };
-  writeJson(join(dir, "components.json"), { version: PROJECT_COPY_VERSION, syncedAt: now, components: rows });
-  writeJson(join(dir, "dsck.json"), {
-    version: PROJECT_COPY_VERSION,
-    syncedAt: now,
-    threshold: dsck?.threshold,
-    facts,
-    freshness: dsck?.freshness ?? {},
-    corrections: dsck?.corrections ?? [],
-  });
-  writeJson(join(dir, "dsci.json"), { version: PROJECT_COPY_VERSION, syncedAt: now, proposals: dsciRows });
   writeJson(join(dir, "meta.json"), meta);
 
   return {
@@ -366,25 +418,62 @@ export interface ProjectSyncDeps {
   force?: boolean;
 }
 
+/** The folder the copy would be created in can be written (the nearest folder that exists). */
+function writable(dir: string): boolean {
+  let at = dir;
+  while (!existsSync(at)) {
+    const parent = dirname(at);
+    if (parent === at) return false;
+    at = parent;
+  }
+  try {
+    accessSync(at, constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Read-only project folders already warned about, kept in the store so the warning prints once. */
+const READ_ONLY_FILE = "project-copy-read-only.json";
+
+function warnReadOnlyOnce(storeRoot: string, dir: string): boolean {
+  const path = join(storeRoot, READ_ONLY_FILE);
+  const seen = readJson<string[]>(path) ?? [];
+  if (seen.includes(dir)) return false;
+  try {
+    writeJson(path, [...seen, dir].sort());
+  } catch {
+    // The store is read-only too: warning on every run is the honest fallback.
+  }
+  return true;
+}
+
+const failed = (dir: string, warnings: ProjectCopyWarning[]): ProjectCopyReport => ({
+  dir,
+  synced: false,
+  components: { total: 0, added: 0, updated: 0, stale: 0, newlyStale: 0, revived: 0 },
+  dsck: { facts: 0, staleFacts: 0 },
+  dsci: { pending: 0, approved: 0, rejected: 0, changedApproved: 0, added: 0 },
+  warnings,
+});
+
 /** Keep `<project>/.resolve/local` in step with the store. Never throws: a failure is a warning with a next step. */
 export function runProjectSync(deps: ProjectSyncDeps): ProjectCopyReport | undefined {
   try {
     const dir = projectCopyDir(deps.cwd, deps.env, deps.storeRoot);
     if (!dir || !deps.graphExists) return undefined;
+    if (!writable(dir)) {
+      if (!deps.force && !warnReadOnlyOnce(deps.storeRoot, dir)) return undefined;
+      return failed(dir, [{ message: `The project folder is read-only, so Resolve keeps no copy in ${dir}. Shown once.`, next: "nothing to do; to keep a copy, make the folder writable or set RESOLVE_PROJECT_DIR. RESOLVE_PROJECT_COPY=0 turns the copy off." }]);
+    }
     const fingerprint = deps.storeFingerprint();
     if (!deps.force && projectCopyFresh(dir, fingerprint)) return undefined;
     const index = deps.loadIndex();
     const dsck = deps.loadDsck();
-    return syncProjectCopy({ dir, storeRoot: deps.storeRoot, storeFingerprint: fingerprint, ...(index ? { index } : {}), ...(dsck ? { dsck } : {}) });
+    return syncProjectCopy({ dir, storeRoot: deps.storeRoot, storeFingerprint: fingerprint, ...(index ? { index } : {}), ...(dsck ? { dsck } : {}), ...(deps.force ? { force: true } : {}) });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return {
-      dir: "",
-      synced: false,
-      components: { total: 0, added: 0, updated: 0, stale: 0, newlyStale: 0, revived: 0 },
-      dsck: { facts: 0, staleFacts: 0 },
-      dsci: { pending: 0, approved: 0, rejected: 0, changedApproved: 0, added: 0 },
-      warnings: [{ message: `The project copy was not synced (${message}).`, next: "check the project folder is writable, then run Resolve again." }],
-    };
+    return failed("", [{ message: `The project copy was not synced (${message}).`, next: "check the project folder is writable, then run Resolve again." }]);
   }
 }
