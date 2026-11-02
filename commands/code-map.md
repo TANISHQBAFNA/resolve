@@ -4,7 +4,7 @@ argument-hint: scan|suggest|review <package or path>
 ---
 The designer typed: $ARGUMENTS
 
-This command keeps the code map. A suggestion is not the truth. Only a mapped pair is a code twin. `/parts` and `/handoff` show mapped twins only. An unmapped part means stop and ask.
+This command keeps the code map. A suggestion is not the truth. Only a mapped pair is a code twin. `/parts` shows mapped twins only. An unmapped part means stop and ask.
 
 1. The input starts with `scan`, `suggest`, or `review`. If it is empty, ask which one and stop.
 2. Run in the project folder. In the lines below, `resolve-figma` means `npx -y -p github:TANISHQBAFNA/resolve#v0.1.3 resolve-figma`, the same package spec as Resolve's MCP server entry. Use exactly this spec. Never run `npx resolve-figma` on its own: that looks the name up on the npm registry, not in Resolve's GitHub repo. The first run downloads the package and can take a minute. If `npx` is not found, say: Resolve is not installed in this project. In the chat, paste: Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md. Do not create the files yourself. If the download fails, say Resolve could not be downloaded and to check the network, then stop.

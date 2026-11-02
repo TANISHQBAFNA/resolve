@@ -8,7 +8,7 @@ import {
   formatHandoffIndex,
   formatHandoffIngredients,
   formatHandoffScreen,
-  handoffSheet,
+  handoffEnabled, handoffOffText, handoffSheet,
   mergeBindRules,
   packForRecommend,
   recordFromHandoff,
@@ -28,16 +28,17 @@ import {
   readWorkspace,
 } from "./store";
 
-/** `resolve handoff` (moved out of cli.ts unchanged; cli.ts was at the 1000-line cap). */
+const HANDOFF_USAGE = 'Usage: resolve handoff "<frame>" ["<frame>" ...] [--draft] [--json] [--out <dir>] [--recipe <id>] [--depth 1-3]';
+
+/** `resolve handoff` (moved out of cli.ts unchanged; cli.ts was at the 1000-line cap). Opt-in: RESOLVE_HANDOFF=1. */
 /** With --json, any refusal (a used --out folder, a bad flag) is ok:false JSON and exit 1, not plain text. */
 export function runHandoff(args: string[]): void {
   withJsonErrors(args, () => handoff(args));
 }
 
 function handoff(args: string[]): void {
-  if (args.includes("--help") || args.includes("-h")) {
-    throw new Error('Usage: resolve handoff "<frame>" ["<frame>" ...] [--draft] [--json] [--out <dir>] [--recipe <id>] [--depth 1-3]');
-  }
+  if (!handoffEnabled()) return void process.stderr.write(handoffOffText());
+  if (args.includes("--help") || args.includes("-h")) throw new Error(HANDOFF_USAGE);
   const VALUE_FLAGS = ["--out", "--recipe", "--depth", "--rules", "--pack", "--product", "--journey", "--domain", "--audience", "--a11y", "--packs", "--id", "--answer"];
   const frames: string[] = [];
   for (let i = 0; i < args.length; i += 1) {
@@ -52,9 +53,7 @@ function handoff(args: string[]): void {
     if (arg.startsWith("--")) throw new Error(`Unknown handoff option "${arg}". Use --draft, --strict, --json, --out, --no-record, --recipe, --depth, --force, --answer, --rules or ${PACK_BIND_FLAGS}.`);
     frames.push(arg);
   }
-  if (!frames.length) {
-    throw new Error('Usage: resolve handoff "<frame>" ["<frame>" ...] [--draft] [--json] [--out <dir>] [--recipe <id>] [--depth 1-3]');
-  }
+  if (!frames.length) throw new Error(HANDOFF_USAGE);
   const rawDepth = flag(args, "depth");
   const depth = rawDepth === undefined ? 3 : Number(rawDepth);
   if (!Number.isInteger(depth) || depth < 1 || depth > 3) throw new Error("--depth must be 1, 2 or 3.");

@@ -106,7 +106,7 @@ Every problem comes with its fix. Retired parts, detached parts, hard-coded valu
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/code-dark.svg"><img src="docs/assets/v4/code-light.svg" alt="The Acme code map. Button links to acme-button, Text field to acme-text-field and Payee picker to acme-payee-picker. Old Button is retired: use Button. Avatar has no code twin yet, so stop and ask." width="100%"></picture>
 
-The code map says which Figma part is which code part. Resolve can read your component package and suggest pairs. A suggestion is not the truth: someone confirms it. Only a confirmed pair shows on `/parts` and `/handoff`. If a part has no confirmed pair, stop and ask. Details: [Code map in the reference](docs/REFERENCE.md#scan-suggest-review).
+The code map says which Figma part is which code part. Resolve can read your component package and suggest pairs. A suggestion is not the truth: someone confirms it. Only a confirmed pair shows on `/parts`. If a part has no confirmed pair, stop and ask. Details: [Code map in the reference](docs/REFERENCE.md#scan-suggest-review).
 
 ## Figma or code
 
@@ -140,7 +140,7 @@ Resolve never stops on a finding. Every problem is a warning with a `next:` step
 
 ## Commands
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/commands-dark.svg"><img src="docs/assets/v4/commands-light.svg" alt="A command palette listing /design-system, /find, /check, /parts, /handoff, /brief and /spec, each with what it does." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/commands-dark.svg"><img src="docs/assets/v4/commands-light.svg" alt="A command palette listing /design-system, /find, /check, /parts, /code-map, /brief and /spec, each with what it does." width="100%"></picture>
 
 | Type | You get |
 | --- | --- |
@@ -148,7 +148,6 @@ Resolve never stops on a finding. Every problem is a warning with a `next:` step
 | `/find <phrase>` | The right component, a weak match marked as weak, or "no match". |
 | `/check <link>` | Pass, or the retired, wrong and unknown parts plus proper-use problems. |
 | `/parts <link>` | Each component on the screen and its mapped code twin. Unmapped means stop and ask. |
-| `/handoff <link>` | A developer build sheet for the screen. Mapped code twins only. |
 | `/brief` | Asks up to 3 quick questions before Resolve picks parts. |
 | `/code-map` | One command: the import map, package scan/suggest/review, and coded joins (`--pairs`, `--unmatched`, `--suggest`). |
 | `/spec <link>` | Reads a Figma spec and maps each screen requirement to a real component, or says no match. |

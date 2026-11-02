@@ -48,7 +48,7 @@ function nextStep(files: number, rule: StatusReport["rule"], relearn: boolean): 
     ? "Run /design-system and paste the Figma link to your library."
     : rule === "not installed"
       ? "Run resolve-setup in this project so the always-on rule is installed."
-      : "Use /find for a component, /check for a screen, or /handoff for the developer build sheet.";
+      : "Use /find for a component, /check for a screen, or /parts for its components and their code.";
   return relearn ? `${base} Learn this library again so Properties show up.` : base;
 }
 
