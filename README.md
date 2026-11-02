@@ -7,7 +7,7 @@
 <p align="center">
 	<a href="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml"><img src="https://github.com/TANISHQBAFNA/resolve/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 	<a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
-	<a href="package.json"><img src="https://img.shields.io/badge/version-0.1.3-2dd4bf.svg" alt="Version 0.1.3"></a>
+	<a href="package.json"><img src="https://img.shields.io/badge/version-0.2.0-2dd4bf.svg" alt="Version 0.2.0"></a>
 	<a href="package.json"><img src="https://img.shields.io/badge/node-%E2%89%A522.12-339933.svg" alt="Node 22.12 or newer"></a>
 	<a href=".claude-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Claude%20Code-d97757.svg" alt="Claude Code plugin"></a>
 	<a href=".cursor-plugin/plugin.json"><img src="https://img.shields.io/badge/plugin-Cursor-555555.svg" alt="Cursor plugin"></a>
@@ -128,9 +128,9 @@ Resolve never stops on a finding. Every problem is a warning with a `next:` step
 # GitHub Actions step (Node 22 or newer)
 - name: Check screens with Resolve
   run: |
-    npx -y -p github:TANISHQBAFNA/resolve#v0.1.3 resolve-figma verify "Send money" --strict
-    npx -y -p github:TANISHQBAFNA/resolve#v0.1.3 resolve-figma code check prototype/index.html --strict
-    npx -y -p github:TANISHQBAFNA/resolve#v0.1.3 resolve-figma brief check briefs/send-money.md --strict
+    npx -y -p github:TANISHQBAFNA/resolve#v0.2.0 resolve-figma verify "Send money" --strict
+    npx -y -p github:TANISHQBAFNA/resolve#v0.2.0 resolve-figma code check prototype/index.html --strict
+    npx -y -p github:TANISHQBAFNA/resolve#v0.2.0 resolve-figma brief check briefs/send-money.md --strict
 ```
 
 - Flag names ignore case, and `--strict=true` works too. `--strict=false` turns it off.
@@ -170,7 +170,7 @@ Resolve never stops on a finding. Every problem is a warning with a `next:` step
 | Questions and words | [Questions designers ask](docs/REFERENCE.md#questions-designers-ask) · [Words used here](docs/REFERENCE.md#words-used-here) · [FAQ](docs/REFERENCE.md#faq) |
 | Build Resolve yourself | [For developers](docs/REFERENCE.md#for-developers) |
 | Other guides | [Designer guide](docs/GUIDE.md) · [Recipes](docs/RECIPES.md) · [How to use the parts](docs/DSCI.md) · [Scoreboard](docs/SCOREBOARD.md) · [Architecture](docs/ARCHITECTURE.md) |
-| Upgrading from an older version | [Upgrading from the old names](#upgrading-from-the-old-names) |
+| Upgrading from an older version | [Upgrading to 0.2.0](#upgrading-to-020) and [Upgrading from the old names](#upgrading-from-the-old-names) |
 | What a component means to Resolve | [What a component means](docs/REFERENCE.md#what-a-component-means) |
 
 Optional add-ons: [`addons/README.md`](addons/README.md).
@@ -180,6 +180,15 @@ Optional add-ons: [`addons/README.md`](addons/README.md).
 ## License
 
 Resolve is open source under the [MIT License](LICENSE). You can use, copy, change and share it, including in commercial work, as long as you keep the copyright notice and licence text. Copyright (c) 2026 Tanishq Bafna.
+
+## Upgrading to 0.2.0
+
+- **Findings never stop a run.** `verify`, `check`, `code check` and `brief check` print each finding as a warning with a `next:` step and exit 0. Add `--strict` when CI should fail on findings ([Using Resolve in CI](#using-resolve-in-ci)). Flag names ignore case, `--strict=true` works, and an unknown flag prints a warning instead of being dropped silently. A `verify` on a frame that is not in the learned library now says so with a `next:` step (exit 0, or 1 with `--strict`).
+- **The DSCK / DSCI rename.** Proposal files and ids saved before the rename are still read. Nothing is moved or deleted; new data goes to `dsck.json` and `dsci.json`.
+- **Handoff is off by default.** Resolve stops at the readiness check (`resolve brief check`). Set `RESOLVE_HANDOFF=1` to turn `resolve handoff` and `get_handoff` back on.
+- **Project copy.** `.resolve/local/` is written only inside a project, is added to `.gitignore`, and a hand edit is kept (with one warning) until you run `resolve sync`.
+- **Code map.** A shared ID (`ds@<semver>.<tier>.<name>`) on both sides now joins a Figma component to its code first, before any name.
+- **Pinned install.** The MCP entry that `resolve-setup` writes, the plugin settings, the slash commands and the CI example now pin `#v0.2.0`. `resolve-setup` leaves an older pinned `resolve` entry alone; run `npx -y -p github:TANISHQBAFNA/resolve#v0.2.0 resolve-setup --force` to replace only that entry.
 
 ## Upgrading from the old names
 
