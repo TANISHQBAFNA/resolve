@@ -1,5 +1,6 @@
 import { addonUsageLines } from "./addonHook";
 import { CODE_USAGE } from "./code/command.ts";
+import { handoffEnabled } from "@/core/query/handoffGate";
 /** Same flags `bindFromFlags` reads — keep help + usage errors in lockstep. */
 export const PACK_BIND_FLAGS =
   "[--pack <id>] [--product <name>] [--journey <step>] [--domain <domain>] [--audience <who>] [--a11y <bar>]";
@@ -9,7 +10,7 @@ export function usage(): void {
     [
       "Resolve — Figma rules. Agents resolve.",
       "JSON commands print one compact line. --pretty prints indented JSON. Flag names ignore case; --name=value and --strict=true work; an unknown flag is a warning.",
-      "Findings never stop Resolve: each is a warning with a next: step, and the command exits 0. --strict (opt-in, for CI) gives the exit codes below and the handoff refusal.",
+      "Findings never stop Resolve: each is a warning with a next: step, and the command exits 0. --strict (opt-in, for CI) gives the exit codes below.",
       "",
       "  resolve ingest <file.json | file.xml | figma-url | file-key> [--id <graphId>] [--file-key <key>] [--name <fileName>] [--from-metadata] [--scope node|screens|file] [--role library|product|client] [--force-role] [--label <name>]",
       "      Build a graph and add it to the workspace. JSON: REST body, MCP capture, or a graph.",
@@ -89,7 +90,7 @@ export function usage(): void {
       "      A passing check of a real frame is saved to DSCK, the same as MCP verify_frame (--slot <role> tags its top-level parts).",
       "      Its screen job comes from --journey, else --domain, else the frame name, so \"payment screen\" can answer from it.",
       "  resolve parts \"<screen link or frame name>\" [--json]",
-      "      What is on this screen: each real component with its mapped code twin, or unmapped. Not the build sheet; that is handoff.",
+      "      What is on this screen: each real component with its mapped code twin, or unmapped.",
       "  resolve spec <spec.md | -> [--all] [--json]",
       "      Map a Figma spec to library components. Pass the spec's Markdown (the agent reads it with figma.spec.getContent); - reads stdin.",
       "      Each list item, table row and sentence that asks for something on screen goes through the same ranking as recommend.",
@@ -125,12 +126,12 @@ export function usage(): void {
       "      Each part shows its code component from .resolve/code-map.json, or 'no code link yet'. Never guessed.",
       "      A part known only from a layer name is labelled as a guess. Retired parts show their code and their replacement. Exact name or id only.",
       "  resolve ingredients --all [--json]   Library-wide counts: composites, parts inside them, and how many link to code.",
-      `  resolve handoff "<frame>" ["<frame>" ...] [--draft] [--json] [--out <dir>] [--recipe <id>] [--depth 1-3] [--answer <topic>=<option>] [--force] [--no-record] [--strict] ${PACK_BIND_FLAGS}`,
+      ...(handoffEnabled() ? [`  resolve handoff "<frame>" ["<frame>" ...] [--draft] [--json] [--out <dir>] [--recipe <id>] [--depth 1-3] [--answer <topic>=<option>] [--force] [--no-record] [--strict] ${PACK_BIND_FLAGS}`,
       "      Developer handoff sheet for a designed screen: recipe slots, each placed component with its Figma id and code (any stack),",
       "      the parts inside it, suggested inputs from Figma variant properties, verify result, approved decisions, open questions.",
       "      A retired part, a stale code link, a layer-name guess (unless --draft), or a missing component is a warning with a next: step; --strict refuses instead.",
       "      --out writes handoff.md, screen-<name>.md, ingredients.md and handoff.json. Never guesses code: unmapped says unmapped.",
-      "      --out also writes decision.json + decision.md (what was asked, picked, rejected and why); --no-record skips them.",
+      "      --out also writes decision.json + decision.md (what was asked, picked, rejected and why); --no-record skips them. Opt-in: RESOLVE_HANDOFF=1."] : []),
       ...addonUsageLines(),
       "  --record <dir> on brief and recipe --compose writes decision-brief / decision-compose .json + .md there (--force to replace).",
       "  resolve decisions [--json]     List decision records stored by MCP record: true",

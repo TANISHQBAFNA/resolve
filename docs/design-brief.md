@@ -1,6 +1,6 @@
 # Design brief
 
-A design brief is a short file a designer fills in **before** drawing a screen. It is built from the requirements document. It works with or without Resolve: a hand-written brief and a Resolve handoff pack pass the same check.
+A design brief is a short file a designer fills in **before** drawing a screen. It is built from the requirements document. It works with or without Resolve.
 
 ## Files
 
@@ -32,10 +32,10 @@ Set `ui_scope: true` for these. A backend-only ticket sets `ui_scope: false` and
 A ticket is ready for planning when one command exits 0:
 
 ```
-resolve brief check <brief.md | handoff-folder>
+resolve brief check <brief.md>
 ```
 
-The input is either a complete brief, or a Resolve handoff pack (the folder `resolve handoff "<frame>" --out <folder>` wrote) that is not a draft and where verify passed on every screen.
+The input is a brief file.
 
 Findings never stop Resolve: without `--strict` the check exits 0 (1 only when the input is missing or unreadable), prints `FAIL`, and gives each issue a `next:` step. With `--strict` (for CI) it exits with these codes:
 
@@ -48,7 +48,7 @@ Findings never stop Resolve: without `--strict` the check exits 0 (1 only when t
 | 4 | A content field with no source or no provenance |
 | 5 | An open question is unanswered (checked when `status: complete`) |
 | 6 | `status` is still `draft`. A ticket needs a `complete` brief |
-| 7 | The handoff pack is a draft, was refused, or verify did not pass |
+| 7 | Reserved |
 
 When several things fail, the lowest code is the exit code and every problem is listed. `--json` prints the same report as data.
 

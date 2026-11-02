@@ -91,3 +91,4 @@ export {
 } from "./brief";
 export * from "./projectCopy";
 export * from "./cliFlags";
+export * from "./handoffGate";

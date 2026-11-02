@@ -11,7 +11,7 @@ Before you pick components, brief this screen. Do not draw anything yet.
 3. If Resolve says no design system is learned, tell the designer to run `/design-system <Figma link>` first. Stop.
 4. If the result says `No match`, say there is no match. Do not ask questions and do not invent a part.
 5. If the result has `questions`, ask only those questions, in order, at most 3. Each question is multiple choice. A states question can take more than one option. Read the options out. Do not add your own. Wait for the answers, then call `brief` again with those `answers`.
-6. If the result is `ready`, do not ask anything. Tell the designer the assumptions in one or two sentences. The candidates are the parts to use. Pass the same `answers` to `recommend` and to `get_handoff`. The handoff parts change with the answers.
+6. If the result is `ready`, do not ask anything. Tell the designer the assumptions in one or two sentences. The candidates are the parts to use. Pass the same `answers` to `recommend`.
 7. If the designer said "just build", "go ahead and build", or "build without asking", the result is `ready`. Show the assumptions. If it says no match, do not pick a part.
 8. If there are no candidates, say Resolve has no component for this screen. Do not guess or make one up.
 9. If the result has `composeOffer`, tell the designer Resolve can compose a recipe from the parts they named, and ask if they want it. Do not compose unless they say yes. If it has `savedRecipe`, use that saved recipe instead.
