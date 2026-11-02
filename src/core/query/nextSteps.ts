@@ -27,6 +27,12 @@ export const CODE_MAP_NEXT: Partial<Record<string, string>> = {
   "other-library": "learn that library file to see its code.",
 };
 
+/** Verify found no frame by that name, so nothing was checked. A warning, not a pass. */
+export const VERIFY_MISSING_FRAME = {
+  warning: "nothing was checked: no frame by that name is in the learned files.",
+  next: "check the frame name (resolve status lists the learned files), or learn the file that holds the frame (resolve ingest or learn), then check the screen again.",
+} as const;
+
 /** Next step for a verify verdict that is not a pass (exit 1 components, 7 proper use). */
 export function verifyNext(exit: number): string | undefined {
   if (exit === 7) return "set each flagged property to one of the allowed values listed, then check the screen again.";

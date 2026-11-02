@@ -26,7 +26,7 @@ import { dirname, join, resolve } from "node:path";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
 import { overlayFile } from "@/core/query/overlayFile";
 import { publishedVerdict, verifyExitCode } from "@/core/query/properUse";
-import { verifyNext } from "@/core/query/nextSteps";
+import { VERIFY_MISSING_FRAME, verifyNext } from "@/core/query/nextSteps";
 import {
   componentUsageCard,
   listRecipes,
@@ -671,10 +671,11 @@ async function dispatchCli(argv: string[]): Promise<void> {
         domain: flag(args, "domain"),
       });
       const exitCode = verifyExitCode(verified);
-      const next = verifyNext(exitCode);
+      const missing = "unresolved" in verified && verified.unresolved.some((row) => row.reason === "frame-not-in-graph") ? VERIFY_MISSING_FRAME : undefined;
+      const next = missing ? (process.stderr.write(`warning: ${missing.warning} (${frame})\nnext: ${missing.next}\n`), missing.next) : verifyNext(exitCode);
       if (command === "check" && !args.includes("--json")) {
         process.stdout.write(`${presentToolResult(verified, "markdown", "verify_frame")}${next ? `\nnext: ${next}` : ""}\n`);
-      } else printJson({ ...publishedVerdict(verified), ...(next ? { next } : {}) });
+      } else printJson({ ...publishedVerdict(verified), ...(missing ? { checked: false, warning: missing.warning } : {}), ...(next ? { next } : {}) });
       strictExit(args, exitCode);
       return;
     }

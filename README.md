@@ -120,6 +120,24 @@ One engine, two workflows. Your words pick the workflow: "design this in Figma" 
 
 The code workflow reads a repo of HTML/CSS and builds a catalog of its real components (classes, variants, markup, deprecated classes, tokens). `/learn-code` builds it, `/pick-code` picks parts, `/check-html` checks a screen. The same steps run in a shell: `resolve code scan`, `resolve code pick "<need>"`, `resolve code check <file.html>`. `resolve mode` shows what is active. Resolve only reads the repo.
 
+## Using Resolve in CI
+
+Resolve never stops on a finding. Every problem is a warning with a `next:` step, and the command exits 0, so a designer or an AI tool can keep going. A CI job wants the opposite, so add `--strict` to each check. With `--strict`, a finding gives its non-zero exit code and the job fails.
+
+```yaml
+# GitHub Actions step (Node 22 or newer)
+- name: Check screens with Resolve
+  run: |
+    npx -y -p github:TANISHQBAFNA/resolve#v0.1.3 resolve-figma verify "Send money" --strict
+    npx -y -p github:TANISHQBAFNA/resolve#v0.1.3 resolve-figma code check prototype/index.html --strict
+    npx -y -p github:TANISHQBAFNA/resolve#v0.1.3 resolve-figma brief check briefs/send-money.md --strict
+```
+
+- Flag names ignore case, and `--strict=true` works too. `--strict=false` turns it off.
+- A misspelled flag (for example `--stirct`) is not silently dropped: Resolve prints `warning: unknown flag` with a `did you mean` hint. Read the job log, or fail on that line if you want to be sure.
+- Without `--strict` the same commands exit 0, so a job without it will always pass.
+- Exit codes per command: [Every command](docs/REFERENCE.md#every-command).
+
 ## Commands
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/commands-dark.svg"><img src="docs/assets/v4/commands-light.svg" alt="A command palette listing /design-system, /find, /check, /parts, /handoff, /brief and /spec, each with what it does." width="100%"></picture>
