@@ -74,7 +74,7 @@ describe("--strict at the bin, the way CI runs it", { timeout: 60_000 }, () => {
 
   it("verify on a missing frame is a clear warning with a next step and exit 0", () => {
     const result = run(["verify", "No Such Frame"]);
-    expect(result.status).toBe(0);
+    expect(result.status, result.stderr).toBe(0);
     expect(result.stderr).toContain("warning: nothing was checked");
     expect(result.stderr).toContain("next:");
     const json = JSON.parse(result.stdout) as { checked?: boolean; warning?: string; next?: string };
@@ -93,7 +93,7 @@ describe("--strict at the bin, the way CI runs it", { timeout: 60_000 }, () => {
 
   it("a misspelled --strict warns with a did-you-mean and does not fail", () => {
     const result = run(["verify", "No Such Frame", "--stirct"]);
-    expect(result.status).toBe(0);
+    expect(result.status, result.stderr).toBe(0);
     expect(result.stderr).toContain("unknown flag --stirct");
     expect(result.stderr).toContain("did you mean --strict?");
   });
@@ -123,7 +123,7 @@ describe("--strict at the bin, the way CI runs it", { timeout: 60_000 }, () => {
     const brief = join(home, "draft.md");
     writeFileSync(brief, "---\nstatus: draft\n---\n# Draft\n");
     const loose = run(["brief", "check", brief]);
-    expect(loose.status).toBe(0);
+    expect(loose.status, loose.stderr).toBe(0);
     expect(loose.stdout).toContain("findings do not stop Resolve");
     const strict = run(["brief", "check", brief, "--strict"]);
     expect(strict.status).not.toBe(0);
