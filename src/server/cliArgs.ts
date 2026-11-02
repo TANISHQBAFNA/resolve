@@ -7,7 +7,7 @@ import { adaptFigmaMcpMetadata } from "@/core/ingestion/adapters/figmaMcp";
 import { fetchFigmaRestDocument, figmaAccessToken } from "@/core/ingestion/adapters/figmaRestSource";
 import { buildGraph } from "@/core/transform";
 import {
-  describeRole,
+  describeRole, hasStrict,
   iconLibraryWarnings,
   indexGraph,
   parseIngestRole,
@@ -211,10 +211,11 @@ export function existingEntries(path: string): unknown[] {
   }
 }
 
+export { hasStrict };
 let jsonPretty = false;
 
-/** Findings never stop Resolve (exit 0). `--strict` (CI) sets the finding's exit code. */
-export const strictExit = (args: readonly string[], code: number) => { if (code !== 0 && args.includes("--strict")) process.exitCode = code; };
+/** Findings never stop Resolve (exit 0). `--strict` (CI, any case, or --strict=true) sets the finding's exit code. */
+export const strictExit = (args: readonly string[], code: number) => { if (code !== 0 && hasStrict(args)) process.exitCode = code; };
 
 export function printJson(value: unknown): void {
   const text = jsonPretty ? JSON.stringify(value, null, 2) : JSON.stringify(value);

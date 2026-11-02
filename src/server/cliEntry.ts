@@ -1,6 +1,7 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { designerFailure } from "./designerMessages";
+import { normalizeCliArgs } from "@/core/query/cliFlags";
 
 /** Same file even when one path goes through a symlinked folder. */
 function samePath(left: string, right: string): boolean {
@@ -15,7 +16,7 @@ function samePath(left: string, right: string): boolean {
 const isEntry = process.argv[1] !== undefined && samePath(import.meta.url, process.argv[1]);
 
 async function main(): Promise<void> {
-  const argv = process.argv.slice(2);
+  const { argv } = normalizeCliArgs(process.argv.slice(2), (line) => process.stderr.write(`${line}\n`));
   const command = argv.find((arg) => arg !== "--pretty");
   if (command === "pick") {
     const { runPickCommand } = await import("./commands");
