@@ -1,11 +1,13 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
+import { visualSignal } from "@/core/query/visualMatch";
 import { dsIdOf, parseDsId } from "@/core/rules/dsId";
 import { nameWords, RELATED, tokens } from "@/server/code/words";
 
 /**
  * Ranked draft for a Figma component and a coded component that do not share a name or an ID.
- * Props 30, visual 20 (always 0, not yet measured), parts 15, tokens 15, mapping.json alias 15, recipe 10, name 10.
+ * Props 30, visual 20, parts 15, tokens 15, mapping.json alias 15, recipe 10, name 10.
+ * Visual match reads a PNG from `.resolve/figma-images` and stays 0 when that PNG or a browser is missing.
  * A shared ID is 100 and skips the rest. The number never links a pair.
  */
 
@@ -38,6 +40,8 @@ export interface DraftFigmaInput {
   /** Aliases from `.resolve/mapping.json` only. */
   aliases?: string[];
   dsId?: string;
+  /** Figma node id, used to find `.resolve/figma-images/<id>.png`. */
+  nodeId?: string;
 }
 
 export interface RankedDraft {
@@ -56,6 +60,7 @@ interface Side {
   recipes: string[];
   aliases: string[];
   dsId?: string;
+  nodeId?: string;
   files: FileRef[];
 }
 
@@ -81,7 +86,7 @@ export function scoreUnmatched(input: {
   const drop = commonLabels(codes);
   const cache = new Map<string, string[]>();
   const ranked = codes.flatMap((code) => {
-    const scored = scorePair(figma, code, drop, alias, cache, skip, namespaces);
+    const scored = scorePair(figma, code, drop, alias, cache, skip, namespaces, repo, input.aliasFile ? dirname(input.aliasFile) : "");
     return scored.score >= MIN_DRAFT ? [{ code: code.name, score: scored.score, reasons: scored.lines }] : [];
   });
   ranked.sort((a, b) => b.score - a.score || (a.code < b.code ? -1 : a.code > b.code ? 1 : 0));
@@ -104,6 +109,7 @@ export function formatPackageDraft(
       variants: (node?.propertyDefinitions ?? []).flatMap((prop) => [prop.name, ...(prop.options ?? [])]),
       parts: node ? index.getNestedInstances(node.id).map((item) => item.name) : [],
       dsId: dsIdOf(node?.description, pair.name)?.id,
+      nodeId: node?.figmaNodeId ?? pair.id,
     }, new Set()),
     codeSide({
       name: pair.component,
@@ -117,6 +123,9 @@ export function formatPackageDraft(
     emptyDrop(),
     undefined,
     new Map(),
+    new Set(),
+    undefined,
+    packageRoot,
   );
   return scored.lines.join("\n");
 }
@@ -276,6 +285,7 @@ function figmaSide(figma: DraftFigmaInput, skip: ReadonlySet<string>): Side {
     recipes: recipeKeys(description),
     aliases: figma.aliases ?? [],
     dsId: figma.dsId ?? dsIdOf(description, figma.name)?.id,
+    nodeId: figma.nodeId,
     files: [],
   };
 }
@@ -336,7 +346,7 @@ function commonLabels(codes: Side[]): Drop {
   return { props: frequent(codes.map((code) => code.props)), parts: frequent(codes.map((code) => code.parts)), tokens: frequent(codes.map((code) => code.tokens)), recipes: frequent(codes.map((code) => code.recipes)) };
 }
 
-function scorePair(figma: Side, code: Side, drop: Drop, alias: FileRef | undefined, cache: Map<string, string[]>, skip: ReadonlySet<string> = new Set(), namespaces?: ReadonlySet<string>): { score: number; lines: string[] } {
+function scorePair(figma: Side, code: Side, drop: Drop, alias: FileRef | undefined, cache: Map<string, string[]>, skip: ReadonlySet<string> = new Set(), namespaces?: ReadonlySet<string>, repo = "", home = ""): { score: number; lines: string[] } {
   if (figma.dsId && code.dsId && figma.dsId === code.dsId) return { score: 100, lines: ["score 100/100", "shared ID 100/100 (other signals not measured)"] };
   const props = overlap(figma.props, code.props, DRAFT_MAX.props, drop.props);
   const parts = overlap(figma.parts, code.parts, DRAFT_MAX.parts, drop.parts);
@@ -346,14 +356,15 @@ function scorePair(figma: Side, code: Side, drop: Drop, alias: FileRef | undefin
   const aliasPoints = aliasHit.length ? DRAFT_MAX.alias : 0;
   const like = bestName(figma.names, code.names, skip, namespaces);
   const namePoints = Math.round(DRAFT_MAX.name * like.score);
-  const score = props.points + parts.points + token.points + aliasPoints + recipe.points + namePoints;
+  const visual = visualSignal({ repo, home, figmaName: figma.name, nodeId: figma.nodeId, dsId: figma.dsId, codeName: code.name, files: code.files });
+  const score = Math.min(100, props.points + visual.points + parts.points + token.points + aliasPoints + recipe.points + namePoints);
   const cite = (labels: string[], extra?: FileRef) => evidence(extra ? [extra, ...code.files] : code.files, labels, cache);
   return {
     score,
     lines: [
       `score ${score}/100`,
       signal("props", DRAFT_MAX.props, props.points, cite(props.shared)),
-      `visual 0/${DRAFT_MAX.visual} not yet measured`,
+      visual.text,
       signal("parts", DRAFT_MAX.parts, parts.points, cite(parts.shared)),
       signal("tokens", DRAFT_MAX.tokens, token.points, cite(token.shared)),
       signal("alias", DRAFT_MAX.alias, aliasPoints, aliasPoints ? evidence(alias ? [alias] : code.files, aliasHit, cache) : ""),
