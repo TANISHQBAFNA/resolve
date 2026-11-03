@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { actorName } from "@/core/query/bindRulesFit";
 import { formatCodeMapReport } from "@/core/query/codeMap";
+import { confirmSharedId } from "@/core/query/draftScore";
 import { namespaceSet } from "@/core/rules/figmaNamespaces";
 import { printJson, strictExit } from "../cliArgs";
 import { confirmComponentPairs, confirmEvidenceTier, proposalsFromReport, readComponentMap, writeDraft } from "../componentMap.ts";
@@ -92,8 +93,12 @@ export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
     const { catalog, masters } = opened();
     const action = args.includes("--deny") ? "deny" : "confirm";
     const done = confirmComponentPairs({ cfg, pairs: named, action, who, at, masters, components: catalog.components, same });
-    if (json) printJson(done);
-    else out(`${action === "deny" ? "Denied" : "Confirmed"} ${done.updated.length} pair(s) in ${done.file}${done.skipped ? `, ${done.skipped} unchanged` : ""}.`);
+    const shared = action === "confirm" ? confirmSharedId({ repo: cfg.repoPath, write: args.includes("--write-id"), pairs: done.updated, components: catalog.components.map((entry) => ({ name: entry.name, dsId: entry.dsId, files: entry.code?.cssFiles ?? [] })), masters }) : [];
+    if (json) printJson({ ...done, ...(shared.length ? { sharedId: shared } : {}) });
+    else {
+      out(`${action === "deny" ? "Denied" : "Confirmed"} ${done.updated.length} pair(s) in ${done.file}${done.skipped ? `, ${done.skipped} unchanged` : ""}.`);
+      for (const line of shared) out(line);
+    }
     return;
   }
   if (args.includes("--write")) {
@@ -101,8 +106,12 @@ export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
     if (readComponentMap(cfg).exists) {
       const { catalog, masters } = opened();
       const done = confirmComponentPairs({ cfg, pairs: named, action: "confirm", who, at, masters, components: catalog.components, same });
-      if (json) printJson(done);
-      else out(`Confirmed ${done.updated.length} pair(s) in ${done.file}${done.skipped ? `, ${done.skipped} unchanged` : ""}.`);
+      const shared = confirmSharedId({ repo: cfg.repoPath, write: args.includes("--write-id"), pairs: done.updated, components: catalog.components.map((entry) => ({ name: entry.name, dsId: entry.dsId, files: entry.code?.cssFiles ?? [] })), masters });
+      if (json) printJson({ ...done, ...(shared.length ? { sharedId: shared } : {}) });
+      else {
+        out(`Confirmed ${done.updated.length} pair(s) in ${done.file}${done.skipped ? `, ${done.skipped} unchanged` : ""}.`);
+        for (const line of shared) out(line);
+      }
       return;
     }
     const catalog = loadCatalog(cfg);

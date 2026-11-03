@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { scoreUnmatched } from "@/core/query/draftScore";
 import { dsIdOf, parseDsId, sameButVersion, type DsId } from "@/core/rules/dsId";
 import { figmaFolderKind, figmaIdentity, namespaceSet } from "@/core/rules/figmaNamespaces";
 import { codeMapCard } from "@/core/query/replacements";
@@ -10,7 +11,7 @@ import { awaitsReview, mappingStatus } from "../mappingStatus.ts";
 import { demoteSharedLinks, evidencePair, partOwner, sameNameRow } from "../mapPair.ts";
 import { resolveGraph } from "../store";
 import type { CatalogEntry, CodeCatalog, FigmaMaster, MatchBy } from "./scan.ts";
-import { nameWords, namespaceStems, RELATED, tokens } from "./words.ts";
+import { nameWords, namespaceStems } from "./words.ts";
 
 /** Joins, in order: 1. the shared ID (ds@semver.tier.name) on both sides, exact; 2. a confirmed pair (mapping.json, component-map.json, component.json; a proposed line only awaits review; a deny line wins). Nothing joins on a name. Anything else is a suggestion for a person to review, never joined. */
 const byCode = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -206,51 +207,23 @@ export function linkFigma(catalog: CodeCatalog, cfg: ResolveConfig, given?: Figm
   return { linked: per.size, byKind, figmaOnly: open.filter((m) => !matched.has(m.name)).map((m) => m.name), problems: r.problems };
 }
 
-const variantWords = (entry: CatalogEntry) =>
-  new Set(tokens([...entry.variants, ...Object.values(entry.code?.modifiers ?? {}).flat().map((c) => c.split("--").pop() ?? c)].join(" ").replace(/[-_]+/g, " ")));
-
-/** How alike two names look as words: same word 1, related word (modal/dialog) 0.7. */
-function nameLike(a: string[], b: string[]) {
-  const reasons: string[] = [];
-  let sum = 0;
-  for (const w of new Set(a)) {
-    if (b.includes(w)) sum += 1;
-    else {
-      const best = (RELATED.get(w) ?? []).filter(([o]) => b.includes(o)).sort((x, y) => y[1] - x[1])[0];
-      if (best) {
-        sum += best[1];
-        reasons.push(`${w}~${best[0]}`);
-      }
-    }
-  }
-  return { score: a.length && b.length ? sum / Math.max(new Set(a).size, new Set(b).size) : 0, reasons };
-}
-
 export interface Suggestion { figma: string; code: string; confidence: "suggested" | "risky: same name only"; score: number; reasons: string[] }
 
-function suggestions(master: FigmaMaster, catalog: CodeCatalog, r: ReturnType<typeof compute>, limit: number): Suggestion[] {
-  const skip = namespaceStems(r.ns);
-  const words = (name: string) => tokens(nameWords(name, r.ns)).filter((word) => !skip.has(word));
-  const mv = tokens((master.variants ?? []).join(" ").replace(/[-_]+/g, " ")).filter((word) => !skip.has(word));
+/** Same names stay risky. Different names are ranked drafts. Neither is a link, whatever the score. */
+function suggestions(master: FigmaMaster, catalog: CodeCatalog, r: ReturnType<typeof compute>, limit: number, aliasFile: string): Suggestion[] {
   const folder = figmaFolderKind(master.name, r.ns);
-  const out = catalog.components.flatMap((entry): Suggestion[] => {
-    if (folder === "part" || (folder && folder !== entry.kind) || r.blocked(master.name, entry.name)) return [];
-    if (norm(entry.name, r.ns) === norm(master.name, r.ns)) return [sameNameRow(master.name, entry.name)];
-    let best = { score: 0, reasons: [] as string[] };
-    for (const m of r.masterNames(master)) for (const e of r.entryNames(entry)) {
-      const s = nameLike(words(m), words(e));
-      if (s.score > best.score) best = s;
-    }
-    const ev = variantWords(entry);
-    const shared = mv.filter((w) => ev.has(w));
-    if (!best.score && shared.length < 2) return [];
-    const vscore = mv.length && ev.size ? shared.length / Math.min(new Set(mv).size, ev.size) : 0;
-    const score = Math.round((0.7 * best.score + 0.3 * vscore) * 100) / 100;
-    if (score < 0.25) return [];
-    const reasons = [...best.reasons, ...(shared.length ? [`variants: ${uniq(shared).join(", ")}`] : [])];
-    return [{ figma: master.name, code: entry.name, confidence: "suggested", score, reasons: reasons.length ? reasons : ["same words"] }];
+  const open = catalog.components.filter((entry) => folder !== "part" && (!folder || folder === entry.kind) && !r.blocked(master.name, entry.name));
+  const same = open.filter((entry) => norm(entry.name, r.ns) === norm(master.name, r.ns));
+  const ranked = scoreUnmatched({
+    figma: { name: master.name, variants: master.variants, properties: master.properties, description: master.description, names: [master.name, ...(master.aliases ?? [])], aliases: r.figmaAliases.get(figmaIdentity(master.name)), dsId: dsIdOf(master.description, master.name)?.id },
+    codes: open.filter((entry) => !same.includes(entry)).map((entry) => ({ name: entry.name, variants: entry.variants, modifiers: Object.values(entry.code?.modifiers ?? {}).flat(), elements: entry.code?.elements ?? [], tokens: entry.code?.tokens ?? [], aliases: r.codeAliases.get(entry) ?? [], dsId: entry.dsId, files: entry.code?.cssFiles ?? [] })),
+    repo: catalog.repoPath,
+    aliasFile,
+    skip: namespaceStems(r.ns),
+    namespaces: r.ns,
+    limit,
   });
-  return out.sort((a, b) => b.score - a.score || byCode(a.code, b.code)).slice(0, limit);
+  return [...same.map((entry) => sameNameRow(master.name, entry.name)), ...ranked.map((row) => ({ figma: master.name, code: row.code, confidence: "suggested" as const, score: row.score, reasons: row.reasons }))];
 }
 
 export function mapReport(catalog: CodeCatalog, cfg: ResolveConfig, opts: { suggest?: boolean; limit?: number; masters?: FigmaMaster[]; infer?: boolean } = {}) {
@@ -266,7 +239,7 @@ export function mapReport(catalog: CodeCatalog, cfg: ResolveConfig, opts: { sugg
     const names = r.partMap.get(entry);
     return names?.length && !linkedCode.has(entry.name) ? [{ code: entry.name, parts: names }] : [];
   }).sort((a, b) => byCode(a.code, b.code));
-  const suggested = opts.suggest ? unmatchedFigma.flatMap((m) => suggestions(m, catalog, r, Math.max(1, opts.limit ?? 3))) : undefined;
+  const suggested = opts.suggest ? unmatchedFigma.flatMap((m) => suggestions(m, catalog, r, Math.max(1, opts.limit ?? 3), mappingPath(cfg))) : undefined;
   return {
     mappingFile: mappingPath(cfg),
     mappingExists: existsSync(mappingPath(cfg)),

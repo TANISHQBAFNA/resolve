@@ -93,6 +93,8 @@ A folder of plain HTML, CSS and JS is mapped the same way. Point `repoPath` at i
 
 That ID links the button to the Figma component whose description carries `ds@1.4.0.core.button`. The class, the token `--acme-ink`, and `data-tone` are evidence only. A component with no ID is a draft for review (`risky: same name only` when the names match) and is not linked. An ID that is not `ds@<semver>.<tier>.<name>` is a warning with a `next:` step. The command still exits 0.
 
+When the names differ and there is no shared ID, `code-map --suggest` ranks a draft from 0 to 100. AcmeTag in Figma and `pill` in code can score well above a lookalike: props and variants 30, parts and slots 15, tokens 15, an alias in `.resolve/mapping.json` 15, the same recipe 10, name likeness 10, and visual match 0 (not yet measured). Each signal names the file and line it came from. The score does not link them. `code-map --confirm "AcmeTag=pill" --write-id` writes `data-ds-id` on the pill HTML and `dsId` in `component.json`, and prints a line to paste into the Figma description. Resolve does not edit Figma.
+
 ## Happy path (what you do, what you get)
 
 The steps below are the same for any library. A checkout summary is the generic screen. Swap the words for yours.
