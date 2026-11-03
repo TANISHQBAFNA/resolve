@@ -15,7 +15,7 @@ import type { FigmaMaster } from "./scan.ts";
 import { readRequests, repeatCheck } from "./repeat.ts";
 
 export const CODE_USAGE = [
-  "  resolve code scan [--repo <folder>] [--css <entry.css>] [--theme <file|name>] [--figma <masters.json>] [--list] [--json]",
+  "  resolve code scan [--repo <folder or git URL>] [--ref <rev>] [--css <entry.css>] [--theme <file|name>] [--figma <masters.json>] [--list] [--json]",
   "      Learn the coded design system. Saves .resolve/code-catalog.json. Read-only on the repo.",
   '  resolve code pick "<what the screen needs>" [--limit <n>] [--json]',
   "      Real classes, variants, markup and rules for the matching components.",
@@ -47,14 +47,14 @@ function linkSections(args: string[]) {
   return { suggest, pairs: suggest || pairs || !asked, unmatched: suggest || unmatched || !asked };
 }
 
-const pairWords = (args: string[]) => words(args, ["--repo", "--css", "--theme", "--limit", "--who"]).filter((word) => word.includes("="));
+const pairWords = (args: string[]) => words(args, ["--repo", "--css", "--theme", "--limit", "--who", "--ref"]).filter((word) => word.includes("="));
 const sameName = (cfg: ResolveConfig) => (name: string) => norm(name, namespaceSet(cfg.figmaNamespaces));
 
 /** Import map plus Figma-to-coded joins. No section flag prints pairs and unmatched. */
 export function runLinkMap(args: string[], graph?: () => FigmaMaster[]): void {
   const json = args.includes("--json");
   const base = readConfig();
-  const cfg = codeConfig({ repoPath: flag(args, "--repo"), cssEntry: flag(args, "--css"), theme: flag(args, "--theme") }, base);
+  const cfg = codeConfig({ repoPath: flag(args, "--repo"), cssEntry: flag(args, "--css"), theme: flag(args, "--theme"), ref: flag(args, "--ref") }, base);
   if (args.includes("--draft") && ["--write", "--confirm", "--deny", "--confirm-evidence"].some((name) => args.includes(name))) {
     throw new Error("Run code-map --draft on its own. Confirm afterwards.");
   }
@@ -184,7 +184,7 @@ export function runCodeCommand(argv: string[], graph?: () => FigmaMaster[]): voi
   const json = rest.includes("--json");
   const base = readConfig();
   const repo = flag(rest, "--repo");
-  const cfg = codeConfig({ repoPath: repo, cssEntry: flag(rest, "--css"), theme: flag(rest, "--theme") }, base);
+  const cfg = codeConfig({ repoPath: repo, cssEntry: flag(rest, "--css"), theme: flag(rest, "--theme"), ref: flag(rest, "--ref") }, base);
   if (base.mode === "figma" && (base.modeSource !== "default" || sub === "scan" || sub === "pick" || sub === "check")) throw new Error(`Tool "${sub === "scan" ? "code_scan" : sub === "pick" ? "code_pick" : sub === "check" ? "code_check" : sub === "map" ? "code_map" : "code"}" is in the code workflow, which is off (mode: ${base.mode}). Set mode to code or both in .resolve/config.json, or RESOLVE_MODE.`);
   if (!sub || !["scan", "pick", "check", "map"].includes(sub)) {
     out(CODE_USAGE);
@@ -207,6 +207,7 @@ export function runCodeCommand(argv: string[], graph?: () => FigmaMaster[]): voi
     out(`${result.componentClasses} component classes, ${result.globalClasses} global classes, ${result.tokens} tokens (${result.colorTokens} colour)`);
     out(`deprecated: ${result.deprecated.length ? result.deprecated.join(" ") : "none"}`);
     if (result.withFigma) out(`linked to Figma: ${result.withFigma}${result.matchedBy ? ` (${Object.entries(result.matchedBy).map(([k, n]) => `${n} ${k}`).join(", ")})` : ""}`);
+    for (const warning of result.warnings ?? []) process.stderr.write(`warning: ${warning}\n`);
     for (const row of result.list ?? []) out(`  ${row.name} [${row.kind}] ${row.variants} variants`);
     out(`saved: ${result.saved}`);
     return;
@@ -217,7 +218,7 @@ export function runCodeCommand(argv: string[], graph?: () => FigmaMaster[]): voi
     return;
   }
   if (sub === "pick") {
-    const valueFlags = ["--limit", "--repo", "--css", "--theme", "--file", "--repeat"];
+    const valueFlags = ["--limit", "--repo", "--css", "--theme", "--file", "--repeat", "--ref"];
     const query = words(rest, valueFlags).join(" ");
     const file = flag(rest, "--file");
     const repeat = Number(flag(rest, "--repeat")) || 0;
@@ -256,7 +257,7 @@ export function runCodeCommand(argv: string[], graph?: () => FigmaMaster[]): voi
     out(("guidance" in result ? result.guidance : result.message) ?? "");
     return;
   }
-  const file = words(rest, ["--repo", "--css", "--theme"])[0];
+  const file = words(rest, ["--repo", "--css", "--theme", "--ref"])[0];
   if (!file) throw new Error("Usage: resolve code check <file.html>");
   const result: CheckResult = checkTool(cfg, file);
   if (json) out(JSON.stringify(result));

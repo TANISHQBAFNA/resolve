@@ -10,7 +10,7 @@ export const KNOWN_FLAGS: ReadonlySet<string> = new Set([
   "css", "deny", "depth", "design-context", "domain", "draft", "dry-run", "figma", "file", "file-key", "force",
   "force-role", "from-metadata", "golden", "handoff", "help", "id", "import", "init", "intent", "job", "journey",
   "json", "label", "last-modified", "libraries", "library-built-at", "limit", "list", "mcp", "name", "no-record",
-  "out", "pack", "package", "packs", "pairs", "phrases", "pretty", "product", "propose", "recipe", "record",
+  "out", "pack", "package", "packs", "pairs", "phrases", "pretty", "product", "propose", "recipe", "record", "ref",
   "repeat", "replace", "repo", "rescan", "resume", "retired", "role", "rules", "scope", "screen-type", "shuffle",
   "slot", "strict", "suggest", "texts", "theme", "unmatched", "url", "variant", "version", "who", "whole-file",
   "workspace", "write", "yes",

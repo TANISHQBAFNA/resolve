@@ -106,6 +106,7 @@ export function usage(): void {
       "      Unknown fields are warnings. Exit 0 when there are no errors, 1 when there are. Loading a pack skips a bad field instead.",
       "  resolve code-map --init [--out <file.csv>] [--force]   Write a CSV with one row per component, to fill in a spreadsheet",
       "  resolve code-map scan <package or path> [--json] [--out <file.json>]   Read a component package (compiled .d.ts, then component source)",
+      "  resolve code scan --repo <folder or git URL> [--ref <rev>]   A vanilla HTML/CSS/JS folder counts. data-ds-id or component.json dsId. A bad ID is a warning with next:; exit 0.",
       "  resolve code-map suggest <package or path> [--json] [--write]   Propose Figma ↔ code pairs. Every pair is suggested, never mapped",
       "  resolve code-map review [--out <file.csv>] [--import <file.csv>] [--replace]   Accept suggestions. Only status mapped is confirmed. Entries the CSV leaves out are kept",
       "  resolve code-map --pairs [--unmatched] [--suggest] [--limit <n>] [--json]",

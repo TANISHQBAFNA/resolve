@@ -1,4 +1,5 @@
 import { isAbsolute, resolve } from "node:path";
+import { isGitSpec } from "@/adapters/vanilla/read";
 import type { ResolveConfig } from "../mode.ts";
 import { readConfig } from "../mode.ts";
 import { resolveGraph } from "../store";
@@ -20,7 +21,8 @@ export const CODE_TOOLS: ToolDefinition[] = [
     inputSchema: {
       type: "object",
       properties: {
-        repoPath: { type: "string", description: "Repo or folder with the design system CSS. Default: config repoPath." },
+        repoPath: { type: "string", description: "Repo or folder with the design system, or a git URL. A vanilla HTML/CSS/JS folder counts. Default: config repoPath." },
+        ref: { type: "string", description: "Git ref when repoPath is a git URL." },
         cssEntry: { type: "string", description: "Entry stylesheet inside repoPath, e.g. acme-ds/css/acme.css. Default: config cssEntry, else every CSS file." },
         theme: { type: "string", description: "Theme token file inside repoPath (e.g. theme/tokens.css) or a data-theme name." },
         figma: {
@@ -77,11 +79,13 @@ export function codeConfig(args: Record<string, unknown> = {}, base: ResolveConf
   const repo = text(args["repoPath"]);
   const cssEntry = text(args["cssEntry"]);
   const theme = text(args["theme"]);
+  const ref = text(args["ref"]);
   return {
     ...base,
-    ...(repo ? { repoPath: isAbsolute(repo) ? repo : resolve(repo) } : {}),
+    ...(repo ? { repoPath: repo && (isGitSpec(repo) || isAbsolute(repo)) ? repo : resolve(repo) } : {}),
     ...(cssEntry ? { cssEntry } : {}),
     ...(theme ? { theme } : {}),
+    ...(ref ? { sourceRef: ref } : {}),
   };
 }
 
@@ -111,6 +115,7 @@ export function scanTool(cfg: ResolveConfig, args: Record<string, unknown> = {},
     saved: catalogPath(cfg),
     ...(link ? { figmaLinked: link.linked, matchedBy: link.byKind, figmaOnly: link.figmaOnly.slice(0, 20), ...(link.problems.length ? { mappingProblems: link.problems } : {}) } : {}),
     ...(args["list"] === true ? { list: catalog.components.map((c) => ({ name: c.name, kind: c.kind, variants: c.variants.length, description: c.description })) } : {}),
+    ...(catalog.sourceWarnings?.length ? { warnings: catalog.sourceWarnings } : {}),
     next: 'Call code_pick "<what the screen needs>", build with the classes returned, then code_check on the HTML file.',
   };
 }
