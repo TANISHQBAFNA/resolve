@@ -81,6 +81,18 @@ Pictures in the README use **Acme**, a made-up library. Resolve works the same o
 
 Inference is a draft, not the record. In the design-system repo, `.resolve/component-map.json` lists each pair: the Figma component (key or name), the coded component id, and whether you confirmed or denied it, with your name and the date. Run `code-map --draft` to fill proposed rows. Confirm or deny them one at a time. A proposed row is not a link. A component folder can also hold `component.json` (`id`, and a Figma key or name). That file counts as confirmed. If it disagrees with the map, Resolve reports the conflict and does not pick a side. A deny in the map wins.
 
+A folder of plain HTML, CSS and JS is mapped the same way. Point `repoPath` at it, or pass a git URL and `--ref` to `resolve code scan`. A component is a folder or a file. The shared ID sits on the root element as `data-ds-id`, or in `component.json` as `dsId`.
+
+```html
+<button class="acme-button" data-ds-id="ds@1.4.0.core.button" data-tone="bold">Pay</button>
+```
+
+```css
+.acme-button { color: var(--acme-ink); }
+```
+
+That ID links the button to the Figma component whose description carries `ds@1.4.0.core.button`. The class, the token `--acme-ink`, and `data-tone` are evidence only. A component with no ID is a draft for review (`risky: same name only` when the names match) and is not linked. An ID that is not `ds@<semver>.<tier>.<name>` is a warning with a `next:` step. The command still exits 0.
+
 ## Happy path (what you do, what you get)
 
 The steps below are the same for any library. A checkout summary is the generic screen. Swap the words for yours.

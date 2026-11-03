@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { applyVanilla, emptyCodeCatalog, openComponentSource } from "@/adapters/vanilla/read";
 import { parseDsId } from "@/core/rules/dsId";
 import { STORE_DIRS } from "../../core/query/overlayFile.ts";
 import type { ResolveConfig } from "../mode.ts";
@@ -64,6 +65,8 @@ export interface CodeCatalog {
   figmaMasters?: FigmaMaster[];
   /** Hash of the mapping file the links were made with. */
   mappingDigest?: string;
+  /** Vanilla source findings. Each one is a warning with a next: step, never a failure. */
+  sourceWarnings?: string[];
 }
 
 export type FigmaMaster = FigmaRef;
@@ -192,9 +195,11 @@ interface Acc {
 
 /** `order` only reorders the files before the build (used by the repeat check). Output does not depend on it. */
 export function buildCatalog(cfg: ResolveConfig, order: <T>(items: T[]) => T[] = (items) => items): CodeCatalog {
-  const repo = cfg.repoPath;
+  const opened = openComponentSource(cfg.repoPath, cfg.sourceRef);
+  const repo = opened.root;
   if (!repo || !existsSync(repo) || !statSync(repo).isDirectory()) {
-    throw new Error(`repoPath is missing or not a folder${repo ? `: ${repo}` : ". Set repoPath in .resolve/config.json or RESOLVE_REPO_PATH."}`);
+    if (opened.warnings.length) return emptyCodeCatalog(cfg.repoPath ?? "", opened.warnings);
+    throw new Error(`repoPath is missing or not a folder${cfg.repoPath ? `: ${cfg.repoPath}` : ". Set repoPath in .resolve/config.json or RESOLVE_REPO_PATH."}`);
   }
   let files: string[];
   if (cfg.cssEntry) {
@@ -331,6 +336,9 @@ export function buildCatalog(cfg: ResolveConfig, order: <T>(items: T[]) => T[] =
     });
   }
 
+  const vanilla = applyVanilla(repo, entries);
+  const sourceWarnings = [...opened.warnings, ...vanilla.warnings];
+
   // Real markup from the repo's own HTML beats a guessed tag.
   const usage = new Map<string, { tags: Map<string, number>; combos: Map<string, number>; files: Set<string> }>();
   const entryOf = new Map(entries.map((e) => [e.name, e]));
@@ -368,11 +376,12 @@ export function buildCatalog(cfg: ResolveConfig, order: <T>(items: T[]) => T[] =
     repoPath: repo,
     ...(cfg.cssEntry ? { cssEntry: cfg.cssEntry } : {}),
     ...(cfg.theme ? { theme: themeFile ? { file: posix(relative(repo, themeFile)) } : { name: cfg.theme } } : {}),
-    cssFiles: [...files.map((f) => posix(relative(repo, f))), ...htmlPaths.map((file) => posix(relative(repo, file)))],
+    cssFiles: [...files.map((f) => posix(relative(repo, f))), ...htmlPaths.map((file) => posix(relative(repo, file))), ...vanilla.jsonFiles],
     components: entries,
     globalClasses: [...globals].filter((c) => !owner.has(c) && !isDep(c)).sort(),
     deprecated,
     tokens: { names: [...names].sort(), colors: sortedRecord(colors), fonts: sortedRecord(fonts) },
+    ...(sourceWarnings.length ? { sourceWarnings } : {}),
   };
 }
 

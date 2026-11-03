@@ -11,6 +11,8 @@ export interface ResolveConfig {
   modeSource: "env" | "config" | "inferred" | "default";
   libraryFileKey?: string;
   repoPath?: string;
+  /** Git ref when repoPath is a git URL. */
+  sourceRef?: string;
   theme?: string;
   cssEntry?: string;
   localPrefixes: string[];

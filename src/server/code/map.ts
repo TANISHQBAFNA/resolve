@@ -272,7 +272,7 @@ export function mapReport(catalog: CodeCatalog, cfg: ResolveConfig, opts: { sugg
     mappingExists: existsSync(mappingPath(cfg)),
     componentMapFile: componentMapPath(cfg),
     componentMapExists: r.declared,
-    ...(r.problems.length ? { problems: r.problems } : {}),
+    ...((r.problems.length || catalog.sourceWarnings?.length) ? { problems: uniq([...r.problems, ...(catalog.sourceWarnings ?? [])]) } : {}),
     figmaComponents: known,
     codeComponents: catalog.components.length,
     pairs: r.links.map((l) => ({ figma: l.master.name, code: l.entry.name, confidence: l.by, ...(l.alias ? { alias: l.alias } : {}), ...(l.source ? { source: l.source } : {}), ...(r.partMap.get(l.entry)?.length ? { parts: r.partMap.get(l.entry) } : {}) })).sort((a, b) => byCode(a.figma, b.figma) || byCode(a.code, b.code)),

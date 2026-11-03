@@ -7,7 +7,7 @@ description: For ANY HTML, CSS, or JS screen or component built on the repo's de
 
 For ANY HTML, CSS, or JS screen or component built on the repo's design system, call Resolve before writing markup. Use the Resolve MCP tools (or `resolve code ...` in a shell). Never write a class from memory.
 
-Needs `repoPath` (the folder with the design system CSS) in `.resolve/config.json` or `RESOLVE_REPO_PATH`. Optional: `cssEntry` (entry stylesheet), `theme` (token file). No `repoPath`: stop and ask the user for it.
+Needs `repoPath` (the folder with the design system CSS, or a vanilla HTML/CSS/JS component folder, local or a git URL and ref) in `.resolve/config.json` or `RESOLVE_REPO_PATH`. Optional: `cssEntry` (entry stylesheet), `theme` (token file). No `repoPath`: stop and ask the user for it. A vanilla component is a folder or file with `data-ds-id` on the root, or `component.json` `dsId`.
 
 **Path:**
 
