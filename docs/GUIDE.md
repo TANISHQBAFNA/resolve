@@ -95,6 +95,10 @@ That ID links the button to the Figma component whose description carries `ds@1.
 
 When the names differ and there is no shared ID, `code-map --suggest` ranks a draft from 0 to 100. AcmeTag in Figma and `pill` in code can score well above a lookalike: props and variants 30, parts and slots 15, tokens 15, an alias in `.resolve/mapping.json` 15, the same recipe 10, name likeness 10, and visual match 0 (not yet measured). Each signal names the file and line it came from. The score does not link them. `code-map --confirm "AcmeTag=pill" --write-id` writes `data-ds-id` on the pill HTML and `dsId` in `component.json`, and prints a line to paste into the Figma description. Resolve does not edit Figma.
 
+## Check a prototype
+
+When the screen is a working HTML, CSS and JS prototype, run `resolve ready` on the project folder before it goes to developers. The folder holds `project.config.json` (the design system pin: a local path or a git URL, plus a ref), `2-brief/screens.md`, and `4-code/prototype` with `vendor/<name>@<ref>`. Resolve writes `5-readiness/report.md`. Each item is a pass or a warning with a next step. The command exits 0. `--strict` is opt-in. See [Prototype readiness](readiness.md). The Acme example is `fixtures/acme-ready/good`.
+
 ## Happy path (what you do, what you get)
 
 The steps below are the same for any library. A checkout summary is the generic screen. Swap the words for yours.

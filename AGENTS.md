@@ -35,7 +35,8 @@ For ANY HTML, CSS, or JS screen or component built on the repo's design system, 
 1. `code_scan` once, and again when the design system changes. It builds the catalog: components, variants, rules, real markup, deprecated classes, tokens. Never Read `.resolve/code-catalog.json`. A vanilla HTML, CSS and JS folder counts too (a local path, or a git URL and ref): a component is a folder or file with `data-ds-id` on the root, or `component.json` `dsId`.
 2. `code_pick` with what the screen needs, for each part. Build with the returned classes, variants and markup only. A modifier needs its base class. Never use a class listed under `avoid`. Use tokens, not literal colours or sizes.
 3. `code_check` on the HTML file before you finish. Fix every error, check again, report what is left. Nothing fits: say so. Never invent a class.
+4. `ready` on a prototype project (`4-code/prototype`) before it goes to developers. It writes `5-readiness/report.md`. Findings are warnings. `--strict` is opt-in.
 
 When the design-system repo has `.resolve/component-map.json`, that file plus any `component.json` manifest is the only source of Figma-to-code pairs. Do not infer a pair that is not confirmed there. Draft new rows with `code-map --draft`. Do not mark them confirmed. A different name with no shared ID is a ranked draft (0-100) with each signal and its file:line. A score never links. On confirm, `--write-id` writes `data-ds-id` and `dsId`, and prints a line to paste into the Figma description.
 
-Full workflow, when this client can read MCP resources: `resolve://code`. In a shell: `resolve code scan|pick|check`.
+Full workflow, when this client can read MCP resources: `resolve://code`. In a shell: `resolve code scan|pick|check`, and `resolve ready` for a prototype.

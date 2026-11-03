@@ -1,0 +1,7 @@
+{
+  "designSystem": {
+    "name": "acme",
+    "source": "https://github.com/acme/ds.git",
+    "ref": "v1.4.0"
+  }
+}

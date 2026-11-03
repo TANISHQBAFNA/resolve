@@ -161,6 +161,7 @@ Resolve never stops on a finding. Every problem is a warning with a `next:` step
 | Topic | Where |
 | --- | --- |
 | A brief before the screens | [Design brief](docs/design-brief.md) |
+| A prototype before developers | [Prototype readiness](docs/readiness.md) |
 | How it works, step by step | [How it works in detail](docs/REFERENCE.md#how-it-works-in-detail) |
 | Proper-use checks | [Check that a screen uses the library properly](docs/REFERENCE.md#check-that-a-screen-uses-the-library-properly) |
 | Accuracy and the phrase scoreboard | [Accuracy and honesty rules](docs/REFERENCE.md#accuracy-and-honesty-rules) |

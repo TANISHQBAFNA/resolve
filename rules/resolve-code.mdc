@@ -14,6 +14,7 @@ Needs `repoPath` (the folder with the design system CSS, or a vanilla HTML/CSS/J
 1. `code_scan` once, and again after the design system changes. It builds a catalog: one entry per component with variants, rules, real markup, deprecated classes, and tokens. Saved to `.resolve/code-catalog.json`. Never Read that file; call `code_pick`.
 2. `code_pick "<what the screen needs>"` for each part of the screen. Build with the returned classes, variants, and markup. A modifier needs its base class. Never use a class listed under `avoid`. Use tokens for colour, space, and type, never literal values. Link the design-system and theme stylesheets.
 3. `code_check <file.html>` before you finish. Fix every error and each warning you can, check again, and report what is left. If nothing fits, say so instead of inventing a class.
+4. `ready` on a prototype project (`4-code/prototype`) before it goes to developers. It writes `5-readiness/report.md`. Findings are warnings. `--strict` is opt-in.
 
 Resolve is read-only. Never invent a class, variant, token, or markup.
 

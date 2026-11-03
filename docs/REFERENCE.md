@@ -458,8 +458,8 @@ Resolve has one engine with two workflows. Only the rules for the active workflo
 | Mode | For | MCP tools | Resource |
 |---|---|---|---|
 | `figma` | Designing in Figma with real library components. | 8 by default, 18 with `RESOLVE_MCP_ADVANCED=1` | `resolve://figma` |
-| `code` | HTML, CSS and JS screens built from the repo's coded components. | `code_scan`, `code_pick`, `code_check`, `code_map` | `resolve://code` |
-| `both` | A task that needs both (the `figma` and `code` tools together, 12 by default). | 12 by default | both resources |
+| `code` | HTML, CSS and JS screens built from the repo's coded components. | `code_scan`, `code_pick`, `code_check`, `code_map`, `ready` | `resolve://code` |
+| `both` | A task that needs both (the `figma` and `code` tools together, 13 by default). | 13 by default | both resources |
 
 `resolve://workflow` is kept as an alias: in `figma` and `code` mode it is that mode's workflow, and in `both` mode it is the core text that points to the two resources.
 
@@ -580,6 +580,7 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `code scan [--repo <folder>] [--css <entry.css>] [--theme <file\|name>] [--figma <masters.json>] [--list] [--json]` | Reads the repo's CSS and saves the code catalog. Code and both modes only. |
 | `code pick "<need>" [--limit <n>] [--json]` | The coded components, classes, modifiers and markup for a screen need. |
 | `code check <file.html> [--json] [--strict]` | Checks an HTML file against the catalog. Errors are listed; exit is 0 (1 with `--strict`). |
+| `ready [project] [--json] [--strict] [--out <file>]` | Checks a vanilla HTML/CSS/JS prototype before it goes to developers and writes `5-readiness/report.md`. Each item is a pass or a warning. Exit is 0. `--strict` is opt-in. See [Prototype readiness](readiness.md). |
 | `npm run size` | Line count per area (code engine, rest of server, Figma core) with each share; fails over the limits in `resolveSizeBudget` in `package.json`. |
 | `orient`, `query`, `path`, `explain`, `check` | Optional exploration of the stored graph. |
 | `list`, `reindex`, `rm --yes`, `where` | Look after the store. |
