@@ -42,8 +42,8 @@ function repo(): string {
 }
 
 describe("code tools", () => {
-  it("offers the four code tools in code mode and not in figma mode", () => {
-    expect(listToolDefinitions(false, "code").map((tool) => tool.name)).toEqual([...CODE_TOOL_NAMES]);
+  it("offers the code tools in code mode and not in figma mode", () => {
+    expect(listToolDefinitions(false, "code").map((tool) => tool.name)).toEqual([...CODE_TOOL_NAMES, "ready"]);
     for (const name of CODE_TOOL_NAMES) {
       expect(listToolDefinitions(false, "figma").map((tool) => tool.name)).not.toContain(name);
       expect(listToolDefinitions(true, "figma").map((tool) => tool.name)).not.toContain(name);

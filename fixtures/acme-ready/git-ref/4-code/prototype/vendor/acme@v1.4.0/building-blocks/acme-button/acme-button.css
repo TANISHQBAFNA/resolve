@@ -1,0 +1,13 @@
+.acme-button {
+  color: var(--ink);
+  background: var(--paper);
+  padding: var(--space-2);
+}
+
+.acme-button--primary {
+  background: var(--action);
+}
+
+.acme-button--quiet {
+  background: var(--paper);
+}

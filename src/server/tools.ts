@@ -1,4 +1,5 @@
 import { TextInputError } from "@/core/ingestion/textStamps";
+import { READY_TOOL, runReadyTool } from "@/ready/run.ts";
 import { CODE_TOOL_NAMES, CODE_TOOLS, runCodeTool } from "./code/mcp.ts";
 import { graphMasters } from "./graphMasters.ts";
 import { asStringList, parseLearnOutline } from "./toolArgs.ts";
@@ -121,7 +122,7 @@ const formatProperty = {
 export function listToolDefinitions(advanced = process.env["RESOLVE_MCP_ADVANCED"] === "1", mode: Mode = activeMode()): ToolDefinition[] {
   const allowed = new Set<string>(DEFAULT_TOOL_NAMES);
   const figma = includesPack(mode, "figma") ? (advanced ? TOOLS : TOOLS.filter((tool) => allowed.has(tool.name))).filter((tool) => tool.name !== "get_handoff" || handoffEnabled()) : [];
-  const tools = [...figma, ...(includesPack(mode, "code") ? CODE_TOOLS : [])];
+  const tools = [...figma, ...(includesPack(mode, "code") ? [...CODE_TOOLS, READY_TOOL] : [])];
   // A shared input (format, graphId, a11y, freshness...) is described in full once; later tools point back to it.
   const firstSeen = new Map<string, string>();
   return tools.map((tool) => {
@@ -649,12 +650,13 @@ export function callTool(name: string, rawArgs: unknown): unknown {
     const mode = activeMode();
     const figmaTool = TOOLS.some((tool) => tool.name === name);
     if (figmaTool && !includesPack(mode, "figma")) throw new ToolError(`Tool "${name}" is in the Figma workflow, which is off (mode: ${mode}). Set mode to figma or both in .resolve/config.json, or RESOLVE_MODE.`);
-    if (CODE_TOOL_SET.has(name) && !includesPack(mode, "code")) throw new ToolError(`Tool "${name}" is in the code workflow, which is off (mode: ${mode}). Set mode to code or both in .resolve/config.json, or RESOLVE_MODE.`);
+    if ((name === "ready" || CODE_TOOL_SET.has(name)) && !includesPack(mode, "code")) throw new ToolError(`Tool "${name}" is in the code workflow, which is off (mode: ${mode}). Set mode to code or both in .resolve/config.json, or RESOLVE_MODE.`);
     throw new ToolError(name === "get_handoff" && !handoffEnabled() ? `${HANDOFF_OFF.warning} next: ${HANDOFF_OFF.next}` :
       `Tool "${name}" is not on the default MCP surface. Set RESOLVE_MCP_ADVANCED=1 to enable it. Agents cannot call advanced tools.`,
     );
   }
   const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
+  if (name === "ready") return withCost(runReadyTool(args));
   if (CODE_TOOL_SET.has(name)) {
     try {
       return runCodeTool(name, args, graphMasters);

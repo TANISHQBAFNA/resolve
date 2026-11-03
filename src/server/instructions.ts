@@ -68,6 +68,7 @@ export const CODE_INSTRUCTIONS = [
   "1. code_scan once (and after the design system changes). It reads the repo from config repoPath or RESOLVE_REPO_PATH. No repoPath: tell the user to set it.",
   '2. code_pick "<what the screen needs>" for each part of the screen. Build with the returned classes, variants, and markup. Avoid the deprecated classes it lists. Style with tokens, never literal colours.',
   "3. code_check on the finished HTML file before you finish. Fix every error and each warning you can. Report what is left.",
+  "4. ready checks a vanilla HTML/CSS/JS prototype (4-code/prototype) before it goes to developers. It writes 5-readiness/report.md. Findings are warnings.",
   "",
   "Longer workflow: read resource resolve://code.",
 ].join("\n");
@@ -79,7 +80,7 @@ export const BOTH_INSTRUCTIONS = [
   "Pick one: what the user says wins (Figma file, frame, or design = Figma; HTML, CSS, prototype, repo, or code = code). Otherwise follow config mode. If still unclear, ask one short question. Load both only when the task needs both.",
   "",
   "Figma workflow: read resource resolve://figma, then learn_library, recipe, brief, recommend, get_example, verify_frame, check_cousins.",
-  "Code workflow: read resource resolve://code, then code_scan, code_pick, code_check, code_map.",
+  "Code workflow: read resource resolve://code, then code_scan, code_pick, code_check, code_map, ready.",
   "",
   "Resolve is read-only. Never invent a component, class, name, or node id.",
 ].join("\n");
@@ -93,10 +94,11 @@ Needs: \`repoPath\` (folder with the design system CSS) in .resolve/config.json 
 1. code_scan reads the CSS and HTML under repoPath. It builds one catalog entry per component: name, variants, rules, real markup, CSS file, deprecated classes, and tokens. It saves .resolve/code-catalog.json and is reused until a CSS file changes. Re-run it after the design system changes.
 2. code_pick with what the screen needs, one call per part (a transaction table, a confirm dialog, a status badge). It returns classes, modifiers, markup, rules, and deprecated classes to avoid. Build with exactly those. A modifier needs its base class. Use tokens for colour, space, and type. Include the design-system and theme stylesheets the picked components come from.
 3. code_check on the finished file. Errors: deprecated or unknown classes, unknown tokens. Warnings: modifier without base, literal colours. Fix them, run it again, and report what is left. Page-local classes with a local prefix (config localPrefixes) are reported as info.
+4. ready on a prototype project before it goes to developers. The project holds project.config.json, 2-brief/screens.md and 4-code/prototype (vendor/<name>@<ref> is the pinned design system). It writes 5-readiness/report.md. Each item is a pass or a warning with a next step. It does not block. --strict is opt-in.
 
 If nothing fits, say so. Do not invent a class. With both packs on, a \`.resolve/component-map.json\` in the design-system repo is the only source of Figma-to-code pairs: confirmed rows and \`component.json\` manifests. A deny in the map wins. Do not infer anything outside it. A shared ID (ds@semver.tier.name) on both sides joins first. Without that file, code_scan joins a Figma component to its coded one only when a mapping confirm or a component.json says so. A name never joins on its own: a same name is risky: same name only, a draft to review, and is not a link. The report says to run code-map --draft. code_map (shell: code-map --pairs, --unmatched, --suggest) shows the pairs, the unmatched, and likely pairs. A suggested or proposed pair is not a link: ask the user to confirm it. A different name with no shared ID is a ranked draft (0-100) with each signal and its file:line. A score never links. On confirm, --write-id writes data-ds-id and dsId and prints a line to paste into the Figma description.
 
-Default tools: code_scan, code_pick, code_check, code_map.
+Default tools: code_scan, code_pick, code_check, code_map, ready.
 `;
 
 const CORE_MARKDOWN = `# Resolve

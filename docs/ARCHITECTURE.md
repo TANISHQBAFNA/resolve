@@ -19,6 +19,7 @@ One module owns each shared rule. Call it. Do not copy it.
 | Hidden layers and instances placed in a Figma slot | `src/core/query/placed.ts` — `hiddenUnder`, `designerPlacedInstances`. Verify and DSCK call these. A hidden instance is left out. An instance in a slot counts as on the screen. |
 | Tier path prefixes (`base/`, `ingredients/`, `recipes/`) | `src/core/query/recommendLexicon.ts` — `stripTier`, `dropShadowedBaseTier`. The finder strips the prefix. `ingredients/` and `recipes/` beat `base/` for the same part unless the ask says `base/`. |
 | Re-learning a page or frame | `src/core/ingestion/learnLibrary.ts` — `replaceResentSubtrees`. The new subtree replaces the old one. A master that left stays so absence can mark it removed. |
+| Prototype readiness | `src/ready/` — `resolve ready` and the MCP tool `ready`. Checks a vanilla HTML/CSS/JS prototype before it goes to developers. Every finding is a warning. |
 
 `src/core/query/agentSurface.ts` re-exports the recommend, resolve, verify, and orient helpers. The implementations live next to it (`recommendMasters.ts`, `verifyFrame.ts`, `cardCopy.ts`, and the other query modules). Do not grow a file past about 1,000 lines. CI fails the build when `src/**/*.ts` does, except a generated file (`*.generated.ts`, `*.gen.ts`, `*.d.ts`).
 

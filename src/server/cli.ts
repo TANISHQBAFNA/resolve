@@ -929,6 +929,12 @@ async function dispatchCli(argv: string[]): Promise<void> {
       return;
     }
 
+    case "ready": {
+      const { runReadyCli } = await import("@/ready/run.ts");
+      await runReadyCli(args);
+      return;
+    }
+
     default:
       usage();
   }

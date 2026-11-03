@@ -35,7 +35,8 @@ For ANY HTML, CSS, or JS screen or component built on the repo's design system, 
 1. `code_scan` once, and again when the design system changes. It builds the catalog: components, variants, rules, real markup, deprecated classes, tokens. Never Read `.resolve/code-catalog.json`.
 2. `code_pick` with what the screen needs, for each part. Build with the returned classes, variants and markup only. A modifier needs its base class. Never use a class listed under `avoid`. Use tokens, not literal colours or sizes.
 3. `code_check` on the HTML file before you finish. Fix every error, check again, report what is left. Nothing fits: say so. Never invent a class.
+4. `ready` on a prototype project (`4-code/prototype`) before it goes to developers. It writes `5-readiness/report.md`. Findings are warnings. `--strict` is opt-in.
 
-Full workflow, when this client can read MCP resources: `resolve://code`. In a shell: `resolve code scan|pick|check`.
+Full workflow, when this client can read MCP resources: `resolve://code`. In a shell: `resolve code scan|pick|check`, and `resolve ready` for a prototype.
 
 Designers add recipes in JSON (`src/data/recipes.json` or `.resolve/recipes.json`), product+journey+domain packs in `.resolve/context-packs.json`, and linked files in `.resolve/workspace.json`. See [GUIDE.md](GUIDE.md).
