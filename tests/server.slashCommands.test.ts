@@ -13,7 +13,7 @@ import { listToolDefinitions } from "@/server/tools";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const bin = join(root, "bin", "resolve-setup.mjs");
 const BEGIN = "<!-- resolve-setup:begin -->";
-const CODE_COMMANDS = ["check-html", "learn-code", "pick-code"];
+const CODE_COMMANDS = ["check-html", "code-knowledge", "learn-code", "pick-code"];
 const SHIPPED = readdirSync(join(root, "commands"))
   .filter((file) => file.endsWith(".md"))
   .map((file) => file.replace(/\.md$/, ""))

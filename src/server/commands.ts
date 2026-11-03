@@ -135,7 +135,7 @@ export function runPickCommand(args: readonly string[], env: NodeJS.ProcessEnv =
 }
 
 /** Code pack commands. Every other command belongs to the Figma pack. */
-export const CODE_COMMANDS = ["learn-code", "pick-code", "check-html"];
+export const CODE_COMMANDS = ["learn-code", "pick-code", "check-html", "code-knowledge"];
 
 /** Only the active pack's commands. */
 export function loadCommands(mode: Mode = activeMode()): CommandPrompt[] {

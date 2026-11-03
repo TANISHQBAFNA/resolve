@@ -1,0 +1,35 @@
+---
+description: Write DSCK and DSCI drafts from a code repo, then check them
+argument-hint: [check <dsck.json> | confirm]
+---
+The user typed: $ARGUMENTS
+
+This writes coded-component knowledge beside the scanner. It does not replace the scanner. Resolve still scans the repo.
+
+DSCK is the ingredients. DSCI is the recipes. Every claim needs file:line evidence. A person confirms the draft. Nothing is approved for you.
+
+1. Take the repo. A local folder: read that folder. A git URL plus a ref: clone it, check out that ref, and read only that checkout.
+   `git clone <url> <folder>`
+   `git -C <folder> checkout <ref>`
+2. Read vanilla HTML, CSS, and JS. Class names, data-ds-id, modifiers (--), parts (__), tokens (var(--name)), slot attributes, and components used in the same file all count.
+3. Copy `templates/code-knowledge/dsck.json` and `templates/code-knowledge/dsci.json`.
+4. Fill DSCK with one object per coded component. `id` is `ds@semver.tier.name`, for example `ds@1.0.0.core.button`. props, variants, parts, slots, tokens, and aliases each have a name plus evidence. evidence is `{ "file": "<path from the repo root>", "line": <1-based line> }`. The file and the line must exist. `figma`, when you know the Figma component name, is a mapping draft. It stays proposed.
+5. Fill DSCI with one recipe per place components are composed together: an id, the component ids, and evidence for that file.
+6. Set `source` to `ai` and `status` to `proposed`. Do not set confirmed.
+7. Run `resolve code knowledge` to print these steps again. Then run `resolve code knowledge check <dsck.json> --repo <folder> --usage <dsci.json>`. A git URL works as `--repo` when you also pass `--ref <rev>`. Resolve checks out that ref and reads evidence there.
+8. Fix every warning. Each warning ends with `next:`. The check exits 0 either way.
+9. A person confirms: `resolve code knowledge confirm --who "<name>" --repo <folder>`. Mapping rows use the same review as scanner drafts: `resolve code-map --confirm "Figma=code" --who "<name>"`. A proposed row is not a link. Do not mark a row confirmed yourself.
+
+Schemas: `schemas/dsck.schema.json` and `schemas/dsci.schema.json`. Acme example: `fixtures/acme-code-knowledge/`.
+
+Never invent a component, name, or node id.
+
+## If this fails
+
+Tell the user in one or two plain sentences, then stop. Never show a stack trace, a path inside node_modules, or a dump of code.
+
+- That does not look like a Figma link. Copy the link from the browser address bar. It contains figma.com/design/. A screen link also contains node-id.
+- Figma needs you to sign in again. The token is missing or has expired. Connect Figma in this app, then run this command again.
+- Figma refused this file. The seat may only be able to view it, or this token may not have access. Learning a library needs a Dev or Full seat and access to the file. Ask someone with that seat to run /design-system, or check access, then try again.
+- Resolve has not learned a design system yet. Run /design-system and paste the Figma link to the library.
+- Resolve is not installed in this project. In the chat, paste: Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md. Do not create the files yourself.

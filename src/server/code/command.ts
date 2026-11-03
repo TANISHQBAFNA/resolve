@@ -14,6 +14,7 @@ import { checkTool, codeConfig, mapTool, pickTool, scanTool } from "./mcp.ts";
 import { loadCatalog } from "./scan.ts";
 import type { FigmaMaster } from "./scan.ts";
 import { readRequests, repeatCheck } from "./repeat.ts";
+import { runCodeKnowledge } from "../codeKnowledgeRun.ts";
 
 export const CODE_USAGE = [
   "  resolve code scan [--repo <folder or git URL>] [--ref <rev>] [--css <entry.css>] [--theme <file|name>] [--figma <masters.json>] [--list] [--json]",
@@ -26,6 +27,12 @@ export const CODE_USAGE = [
   "  resolve code check <file.html> [--json] [--strict]",
   "      Unknown/deprecated classes, literal colours, unknown tokens, missing stylesheets. Exit 0; with --strict, exit 1 on errors.",
   "  resolve code map   Deprecated spelling of resolve code-map. Alone, same report as code-map --pairs --unmatched. Prints one notice.",
+  "  resolve code knowledge",
+  "      Steps for an AI tool to fill DSCK and DSCI drafts from a local folder or a git URL plus a ref. File:line evidence on every claim.",
+  "  resolve code knowledge check <dsck.json> [--repo <folder or git URL>] [--ref <rev>] [--usage <dsci.json>] [--json]",
+  "      Schema, evidence, and scanner comparison. Each pair is source ai or scanner. Warnings exit 0 and end with next:. Nothing is confirmed.",
+  "  resolve code knowledge confirm --who <name> [--repo <folder>]",
+  "      A person confirms the knowledge draft. Mapping rows stay proposed until code-map --confirm.",
   "  resolve mode",
   "      Which workflow is active (figma, code, both) and why.",
 ].join("\n");
@@ -190,6 +197,10 @@ export function runModeCommand(): void {
 
 export function runCodeCommand(argv: string[], graph?: () => FigmaMaster[]): void {
   const [sub, ...rest] = argv;
+  if (sub === "knowledge") {
+    runCodeKnowledge(rest);
+    return;
+  }
   const json = rest.includes("--json");
   const base = readConfig();
   const repo = flag(rest, "--repo");
