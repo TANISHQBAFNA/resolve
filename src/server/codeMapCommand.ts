@@ -12,6 +12,7 @@ import {
   readCodeMapDocument,
   reviewEntries,
 } from "@/core/query/codeMapCsv";
+import { formatPackageDraft, formatReviewDrafts } from "@/core/query/draftScore";
 import { mergeSuggestions, suggestionEntries, suggestPairs } from "@/core/query/codeMapSuggest";
 import { overlayFile } from "@/core/query/overlayFile";
 import { codeMapCard, libraryCodeTargets } from "@/core/query/replacements";
@@ -94,7 +95,11 @@ function scan(args: string[]): void {
 
 export function preparedSuggestions(packageOrPath: string, index: ReturnType<typeof requireGraph>["index"]) {
   const inventory = scanAngularPackage(resolve(packageOrPath));
-  const pairs = suggestPairs(index, inventory, libraryCodeTargets(index), { retired: (node) => isRetired(index, node) });
+  const root = resolve(packageOrPath);
+  const pairs = suggestPairs(index, inventory, libraryCodeTargets(index), { retired: (node) => isRetired(index, node) }).map((pair) => ({
+    ...pair,
+    draft: formatPackageDraft(pair, inventory, index, root),
+  }));
   return { inventory, pairs };
 }
 
@@ -128,7 +133,7 @@ function suggest(args: string[]): void {
     printJson({ packageName: inventory.packageName, packageVersion: inventory.packageVersion, suggestions: pairs });
     return;
   }
-  const lines = pairs.map((pair) => `${pair.name} -> ${pair.component} (${pair.relation}, ${pair.status}) ${pair.because}`);
+  const lines = pairs.map((pair) => `${pair.name} -> ${pair.component} (${pair.relation}, ${pair.status}) ${pair.because}\n${pair.draft.split("\n").map((line) => `  ${line}`).join("\n")}`);
   process.stdout.write(
     lines.length
       ? `Suggested ${pairs.length} (none of these are mapped):\n${lines.join("\n")}\n`
@@ -210,7 +215,8 @@ function review(args: string[]): void {
   if (existsSync(out) && !args.includes("--force")) throw new Error(`${out} already exists. Add --force to replace it.`);
   writeFileSync(out, entriesToCsv(previous.entries));
   const pending = previous.entries.filter((entry) => isRecord(entry) && (entry["status"] === "suggested" || entry["status"] === "partial")).length;
+  const drafts = formatReviewDrafts(previous.entries);
   process.stdout.write(
-    `Wrote ${out}. ${pending} suggestion${pending === 1 ? "" : "s"} to accept or fix. Set status to mapped on the rows you confirm, then run: resolve code-map review --import ${out}\nA blank status stays suggested. Entries the CSV leaves out are kept.\n`,
+    `Wrote ${out}. ${pending} suggestion${pending === 1 ? "" : "s"} to accept or fix. Set status to mapped on the rows you confirm, then run: resolve code-map review --import ${out}\nA blank status stays suggested. Entries the CSV leaves out are kept.\n${drafts ? `${drafts}\n` : ""}`,
   );
 }

@@ -13,11 +13,11 @@ export const KNOWN_FLAGS: ReadonlySet<string> = new Set([
   "out", "pack", "package", "packs", "pairs", "phrases", "pretty", "product", "propose", "recipe", "record", "ref",
   "repeat", "replace", "repo", "rescan", "resume", "retired", "role", "rules", "scope", "screen-type", "shuffle",
   "slot", "strict", "suggest", "texts", "theme", "unmatched", "url", "variant", "version", "who", "whole-file",
-  "workspace", "write", "yes",
+  "workspace", "write", "write-id", "yes",
 ]);
 
 /** Switches that take no value, so `--json=true` means `--json` and `--json=false` means off. */
-const SWITCHES = new Set(["strict", "json", "pretty", "all", "yes", "dry-run", "force", "force-role", "no-record", "draft"]);
+const SWITCHES = new Set(["strict", "json", "pretty", "all", "yes", "dry-run", "force", "force-role", "no-record", "draft", "write-id"]);
 const TRUE = new Set(["true", "1", "yes", "on"]);
 const FALSE = new Set(["false", "0", "no", "off"]);
 
