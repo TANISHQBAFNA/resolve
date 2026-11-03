@@ -215,7 +215,7 @@ function suggestions(master: FigmaMaster, catalog: CodeCatalog, r: ReturnType<ty
   const open = catalog.components.filter((entry) => folder !== "part" && (!folder || folder === entry.kind) && !r.blocked(master.name, entry.name));
   const same = open.filter((entry) => norm(entry.name, r.ns) === norm(master.name, r.ns));
   const ranked = scoreUnmatched({
-    figma: { name: master.name, variants: master.variants, properties: master.properties, description: master.description, names: [master.name, ...(master.aliases ?? [])], aliases: r.figmaAliases.get(figmaIdentity(master.name)), dsId: dsIdOf(master.description, master.name)?.id },
+    figma: { name: master.name, nodeId: master.nodeId, variants: master.variants, properties: master.properties, description: master.description, names: [master.name, ...(master.aliases ?? [])], aliases: r.figmaAliases.get(figmaIdentity(master.name)), dsId: dsIdOf(master.description, master.name)?.id },
     codes: open.filter((entry) => !same.includes(entry)).map((entry) => ({ name: entry.name, variants: entry.variants, modifiers: Object.values(entry.code?.modifiers ?? {}).flat(), elements: entry.code?.elements ?? [], tokens: entry.code?.tokens ?? [], aliases: r.codeAliases.get(entry) ?? [], dsId: entry.dsId, files: entry.code?.cssFiles ?? [] })),
     repo: catalog.repoPath,
     aliasFile,
