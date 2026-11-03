@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "dsck.schema.json",
+  "title": "DSCK",
+  "description": "Coded-component knowledge. Ingredients for one design system. Every claim cites file:line evidence. status stays proposed until a person confirms it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "source", "components"],
+  "properties": {
+    "version": { "const": 1 },
+    "source": { "const": "ai" },
+    "repo": { "type": "string", "description": "Local folder, or the git URL the draft was read from." },
+    "ref": { "type": "string", "description": "Git ref when repo is a URL. The checkout that was read." },
+    "status": { "enum": ["proposed", "confirmed"] },
+    "components": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/component" }
+    }
+  },
+  "definitions": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "line"],
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "evidence"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "values": { "type": "array", "items": { "type": "string" } },
+        "evidence": { "$ref": "#/definitions/evidence" }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "evidence"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^ds@[0-9]+\\.[0-9]+\\.[0-9]+\\.[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*[a-z0-9]$" },
+        "figma": { "type": "string", "minLength": 1, "description": "Figma component name. A mapping draft. Stays proposed until a person confirms it." },
+        "props": { "type": "array", "items": { "$ref": "#/definitions/claim" } },
+        "variants": { "type": "array", "items": { "$ref": "#/definitions/claim" } },
+        "parts": { "type": "array", "items": { "$ref": "#/definitions/claim" } },
+        "slots": { "type": "array", "items": { "$ref": "#/definitions/claim" } },
+        "tokens": { "type": "array", "items": { "$ref": "#/definitions/claim" } },
+        "aliases": { "type": "array", "items": { "$ref": "#/definitions/claim" } },
+        "evidence": { "$ref": "#/definitions/evidence" }
+      }
+    }
+  }
+}

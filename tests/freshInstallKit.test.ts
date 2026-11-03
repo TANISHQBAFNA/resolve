@@ -21,7 +21,7 @@ describe("F4-R1 fresh-install kit", () => {
 
   it("runs every shipped command, and the code commands only when a repo is passed", () => {
     const shipped = readdirSync(join(__dirname, "..", "commands")).map((file) => file.replace(/\.md$/, "")).sort();
-    const code = ["check-html", "learn-code", "pick-code"];
+    const code = ["check-html", "code-knowledge", "learn-code", "pick-code"];
     expect(commandPlan(undefined, "/repo").map(([name]) => name).sort()).toEqual(shipped);
     expect(commandPlan().map(([name]) => name).sort()).toEqual(shipped.filter((name) => !code.includes(name)));
     expect(commandPlan().map(([name]) => name)).toContain("spec");

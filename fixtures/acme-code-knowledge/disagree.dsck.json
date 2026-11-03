@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "source": "ai",
+  "status": "proposed",
+  "components": [
+    {
+      "id": "ds@1.0.0.core.button",
+      "variants": [
+        { "name": "danger", "evidence": { "file": "building-blocks/button/button.css", "line": 2 } }
+      ],
+      "tokens": [
+        { "name": "--ink", "evidence": { "file": "building-blocks/button/button.css", "line": 1 } }
+      ],
+      "evidence": { "file": "building-blocks/button/button.html", "line": 1 }
+    }
+  ]
+}

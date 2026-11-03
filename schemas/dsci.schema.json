@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "dsci.schema.json",
+  "title": "DSCI",
+  "description": "Usage recipes. Which coded components are composed together, with file:line evidence. status stays proposed until a person confirms it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "source", "recipes"],
+  "properties": {
+    "version": { "const": 1 },
+    "source": { "const": "ai" },
+    "repo": { "type": "string" },
+    "ref": { "type": "string" },
+    "status": { "enum": ["proposed", "confirmed"] },
+    "recipes": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/recipe" }
+    }
+  },
+  "definitions": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "line"],
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "recipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "components", "evidence"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "name": { "type": "string" },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^ds@[0-9]+\\.[0-9]+\\.[0-9]+\\.[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*[a-z0-9]$" }
+        },
+        "evidence": { "$ref": "#/definitions/evidence" }
+      }
+    }
+  }
+}
