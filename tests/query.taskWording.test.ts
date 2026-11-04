@@ -8,7 +8,7 @@ import { clearCache } from "@/server/store";
 
 // Asks worded the way a designer writes a task, from the 18-task component-selection run.
 const FROZEN = "2026-01-01T00:00:00.000Z";
-const parts = ["Toggle", "Date Picker", "Input Field", "Button", "Favourite", "Help Text", "Card", "Loading Mesage"];
+const parts = ["Toggle", "Date Picker", "Time Picker", "Input Field", "Button", "Favourite", "Help Text", "Card", "Loading Mesage", "Step", "Avatar"];
 const nodes: GraphNode[] = [
   { id: "file:LIB", type: "FILE", name: "Lib", fileKey: "LIB" },
   { id: "page:parts", type: "PAGE", name: "Components", fileKey: "LIB" },
@@ -60,5 +60,29 @@ describe("task-worded asks", () => {
     const names = (ask: string) => recommendMasters(indexGraph(graph), ask, { budgetChars: 3000 }).candidates.map((row) => row.name);
     expect(names("stacked cards")).not.toContain("cards");
     expect(names("illustration cards")).toContain("cards");
+  });
+  // The asked part is not in this library: say so, never force a near word.
+  it.each([
+    "a timer for each cooking step",
+    "timeline of match events in time order",
+    "image gallery of property photos",
+  ])("%s → empty", (ask) => {
+    expect(recommendMasters(indexGraph(graph), ask).candidates).toEqual([]);
+  });
+
+  it.each([
+    ["week view", "Date Picker", "view"],
+    ["swipeable card with stacked photos", "Card", "swipeable"],
+  ])("%s → %s, flagged as a stand-in", (ask, name, word) => {
+    const card = recommendMasters(indexGraph(graph), ask) as { match?: string; candidates: { name: string; why?: string }[] };
+    expect(card.candidates[0]?.name).toBe(name);
+    expect(card.match).toBe("weak match");
+    expect(card.candidates[0]?.why).toContain(`"${word}"`);
+  });
+
+  it.each(["pick a week", "date of birth", "a way to pick a date"])("%s is still a plain Date Picker", (ask) => {
+    const card = recommendMasters(indexGraph(graph), ask) as { match?: string; candidates: { name: string }[] };
+    expect(card.candidates[0]?.name).toBe("Date Picker");
+    expect(card.match).toBeUndefined();
   });
 });

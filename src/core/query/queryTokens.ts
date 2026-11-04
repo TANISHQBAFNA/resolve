@@ -87,6 +87,14 @@ export const tokensOf = (text: string): string[] =>
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter((part) => part.length > 1 && !STOPWORDS.has(part));
+/** Words that start a description of the part: what it is for, what it holds, where it sits, what it does ("switch that turns"). */
+export const DESCRIBING_WORD = new Set(["for", "to", "with", "when", "while", "on", "at", "under", "above", "below", "after", "before", "showing", "holding", "that", "which", "whose"]);
+/** Words that only stand in for a part: "a way to pick a date", "a tool to save the draft". */
+export const FILLER_HEAD = new Set(["something", "anything", "stuff", "thing", "things", "widget", "control", "way", "tool"]);
+/** "a calendar to choose the date" is a chooser of what it chooses. */
+export const CHOOSE = new Set(["choose", "pick", "grab", "select"]);
+/** A bare entry word takes its kind from what it takes: "field to pick the date". */
+export const ENTRY_NOUN = new Set(["field", "input", "box", "picker"]);
 /** Shared UI nouns. One of these alone must not steal a more specific ask. */
 export const GENERIC_NAME_TOKENS = new Set([
   "button",
