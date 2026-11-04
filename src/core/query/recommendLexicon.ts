@@ -445,8 +445,10 @@ export function phraseNamesMatch(ask: string, name: string): boolean {
 }
 export function phraseCoversAsk(ask: string): boolean {
   const collapsedAsk = collapsedName(ask);
+  // "an error message" is the phrase "error message": an article does not make it a new ask.
+  const bareAsk = tokensOf(ask).join(" ");
   return allSynonymGroups().some((group) =>
-    group.terms.some((term) => term.includes(" ") && collapsedName(term) === collapsedAsk),
+    group.terms.some((term) => term.includes(" ") && (collapsedName(term) === collapsedAsk || tokensOf(term).join(" ") === bareAsk)),
   );
 }
 /** Ask contains a multi-word synonym, and the family name covers that phrase. */

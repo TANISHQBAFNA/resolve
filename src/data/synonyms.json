@@ -120,6 +120,14 @@
     {
       "terms": ["banner", "announcement"],
       "reason": "An announcement across the page is a banner."
+    },
+    {
+      "terms": ["favourite", "favorite", "heart"],
+      "reason": "A heart on a card is the favourite control, in either spelling."
+    },
+    {
+      "terms": ["help text", "hint text", "helper text", "error message", "error text", "validation message"],
+      "reason": "The line under a field that hints or says what went wrong is its help text."
     }
   ]
 }

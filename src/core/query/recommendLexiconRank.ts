@@ -6,7 +6,7 @@ import type { GraphIndex } from "./GraphIndex";
 import { familyNameOf, MASTER_TYPES } from "./masterNames";
 import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "./queryTokens";
 import { adjacentSwap, typoHeavy, wordSlip } from "./typo";
-import { allSynonymGroups, fromIconLibrary, iconShelf, SYNONYM_OF } from "./recommendContext";
+import { allSynonymGroups, artShelf, fromIconLibrary, iconShelf, SYNONYM_OF } from "./recommendContext";
 import type { WorkspaceManifest } from "./workspace";
 import { componentKeyOf, nodeFileKey } from "./workspaceMerge";
 import {
@@ -101,9 +101,10 @@ function longestCoveredName(token: string, nameSets: readonly Set<string>[]): nu
   }
   return best;
 }
-/** Words that start a description of the part: what it is for, what it holds, where it sits. */
-const DESCRIBING_WORD = new Set(["for", "to", "with", "when", "while", "on", "at", "under", "above", "below", "after", "before", "showing", "holding"]);
+/** Words that start a description of the part: what it is for, what it holds, where it sits, what it does ("switch that turns"). */
+const DESCRIBING_WORD = new Set(["for", "to", "with", "when", "while", "on", "at", "under", "above", "below", "after", "before", "showing", "holding", "that", "which", "whose"]);
 type NameSets = readonly Set<string>[];
+const ENTRY_NOUN = new Set(["field", "input", "box", "picker"]);
 const namedIn = (names: Set<string>, token: string, allowClip: boolean) =>
   nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, allowClip);
 /**
@@ -139,6 +140,8 @@ export function partBeforeLink(ask: string, nameSets: NameSets, allowClip: boole
   const lead = tokensOf(words.slice(0, at).join(" "));
   // "checkout summary with primary button": the lead is a screen, so the part after the link is the ask.
   if (lead.every((token) => screens.includes(token))) return undefined;
+  // "field to pick the date": a bare entry word takes its kind from what it takes. "card showing a chip" and "button to open" still lead.
+  if (lead.every((token) => ENTRY_NOUN.has(token))) return undefined;
   const leadSets = nameSets.filter((names) => lead.some((token) => namedIn(names, token, allowClip)));
   if (!leadSets.length) return undefined;
   const tail = tokensOf(words.slice(at + 1).join(" ")).filter(
@@ -173,7 +176,13 @@ export function askGate(
   const describe = describingTail(ask, nameSets, allowClip);
   const content = tokens.filter((token) => !RETIRED_NAME_TOKENS.has(token));
   if (content.length < 2) return open;
-  const exact = (token: string) => nameSets.some((names) => names.has(token) || [...names].some((name) => inflectsName(token, name)) || synonymIn(token, names, allowClip));
+  // Words of a known phrase ("error message") are known, even when one is a near-miss of a misspelled master.
+  const phraseWords = new Set(
+    allSynonymGroups().flatMap((group) =>
+      group.terms.filter((term) => term.includes(" ") && tokensOf(term).every((word) => content.includes(word))).flatMap((term) => tokensOf(term)),
+    ),
+  );
+  const exact = (token: string) => phraseWords.has(token) || nameSets.some((names) => names.has(token) || [...names].some((name) => inflectsName(token, name)) || synonymIn(token, names, allowClip));
   const slips = (token: string) => nameSets.some((names) => [...names].some((name) => wordSlip(token, name)));
   if (typoHeavy(content, exact, slips, (token) => modifierWord(token) || exempt.has(token) || describe.has(token))) {
     return { outOfDomain: true, lowConfidence: false };
@@ -695,6 +704,7 @@ export function shouldDemoteIcon(
     return true;
   }
   if (askedExact) return false;
+  if (artShelf(index, node, workspace)) return !tokens.some((token) => token === "illustration" || token === "illustrations");
   if (names.some((name) => codedIconName(name))) return true;
   if (!names.some((name) => iconWordName(name))) return false;
   const extra = tokensOf(names.join(" ")).filter(
