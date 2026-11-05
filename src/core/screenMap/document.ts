@@ -6,7 +6,7 @@ import { indexGraph, type GraphIndex } from "@/core/query/GraphIndex";
 import { realMastersNamed } from "@/core/query/masterNames";
 import { isScreen } from "@/core/query/screenInventory";
 import { projectMeta } from "./capture";
-import { SCREEN_MAP_VERSION, type MapDs, type MapIdentity, type MapNode, type ScreenMapDocument } from "./types";
+import { SCREEN_MAP_VERSION, type MapDs, type MapIdentity, type MapNode, type MasterBody, type ScreenMapDocument } from "./types";
 
 const TREE = new Set(["FILE", "PAGE", "SECTION", "FRAME", "AUTO_LAYOUT_CONTAINER", "GROUP", "LAYER", "TEXT_LAYER", "MEDIA_LAYER", "COMPONENT_SET", "MAIN_COMPONENT", "VARIANT", "COMPONENT_INSTANCE"]);
 const REGION = new Set(["FRAME", "AUTO_LAYOUT_CONTAINER", "GROUP", "SECTION"]);
@@ -141,7 +141,7 @@ function includeSet(index: GraphIndex, frameId?: string): Set<string> {
   return keep;
 }
 
-export interface BuildMapOptions { builtAt?: string; frameId?: string }
+export interface BuildMapOptions { builtAt?: string; frameId?: string; refs?: boolean }
 
 export function buildScreenMap(graph: DesignGraph, options: BuildMapOptions = {}): ScreenMapDocument {
   const index = indexGraph(graph);
@@ -152,7 +152,7 @@ export function buildScreenMap(graph: DesignGraph, options: BuildMapOptions = {}
     if (!node) continue;
     nodes[id] = toMapNode(index, node, index.getChildren(id).map((child) => child.id).filter((childId) => include.has(childId)), include);
   }
-  return {
+  const built: ScreenMapDocument = {
     version: SCREEN_MAP_VERSION,
     fileKey: graph.fileKey,
     fileName: graph.fileName,
@@ -162,6 +162,7 @@ export function buildScreenMap(graph: DesignGraph, options: BuildMapOptions = {}
     rootId: index.getFileNode()?.id ?? `file:${graph.fileKey}`,
     nodes,
   };
+  return options.refs ? applyRefs(built) : built;
 }
 
 export function screenMapDir(root: string): string {
@@ -208,4 +209,76 @@ export function readScreenMap(root: string, fileKey?: string): ScreenMapDocument
   } catch {
     return undefined;
   }
+}
+
+function takeSubtree(nodes: Record<string, MapNode>, id: string, into: Record<string, MapNode>) {
+  const node = nodes[id];
+  if (!node || into[id]) return;
+  into[id] = node;
+  for (const child of node.childIds) takeSubtree(nodes, child, into);
+}
+
+/** Repeated master internals once. Instances keep `ref`. Definition stays in `nodes`. */
+export function applyRefs(doc: ScreenMapDocument): ScreenMapDocument {
+  const nodes = structuredClone(doc.nodes);
+  const counts = new Map<string, number>();
+  for (const node of Object.values(nodes)) {
+    const masterId = node.ds?.masterId;
+    if (masterId && node.id !== masterId) counts.set(masterId, (counts.get(masterId) ?? 0) + 1);
+  }
+  const masters: Record<string, MasterBody> = {};
+  const drop = new Set<string>();
+  for (const masterId of [...counts.keys()].sort()) {
+    if ((counts.get(masterId) ?? 0) < 2) continue;
+    const master = nodes[masterId];
+    if (!master?.childIds.length) continue;
+    const body: Record<string, MapNode> = {};
+    for (const child of master.childIds) takeSubtree(nodes, child, body);
+    masters[masterId] = { id: masterId, name: master.name, childIds: [...master.childIds], nodes: body };
+    for (const node of Object.values(nodes)) {
+      if (node.ds?.masterId !== masterId || node.id === masterId) continue;
+      const mark = (id: string) => {
+        const child = nodes[id];
+        if (!child || drop.has(id)) return;
+        drop.add(id);
+        for (const next of child.childIds) mark(next);
+      };
+      for (const child of node.childIds) mark(child);
+      node.childIds = [];
+      node.ref = masterId;
+    }
+  }
+  if (!Object.keys(masters).length) return { ...doc, nodes };
+  const kept: Record<string, MapNode> = {};
+  for (const id of Object.keys(nodes).sort()) if (!drop.has(id)) kept[id] = nodes[id]!;
+  return { ...doc, nodes: kept, masters };
+}
+
+export function expandRef(doc: ScreenMapDocument, ref: string): MasterBody | undefined {
+  return doc.masters?.[ref];
+}
+
+/** Graft each ref back under its instance. Logical tree matches a build without refs. */
+export function expandAll(doc: ScreenMapDocument): ScreenMapDocument {
+  if (!doc.masters) return doc;
+  const nodes = structuredClone(doc.nodes);
+  for (const node of Object.values(nodes)) {
+    const body = node.ref ? doc.masters[node.ref] : undefined;
+    if (!body) continue;
+    const copyId = (id: string) => `${node.id}~${id}`;
+    node.childIds = body.childIds.map(copyId);
+    delete node.ref;
+    for (const [id, child] of Object.entries(body.nodes)) {
+      const parentInBody = Boolean(child.parentId && body.nodes[child.parentId]);
+      nodes[copyId(id)] = {
+        ...structuredClone(child),
+        id: copyId(id),
+        parentId: parentInBody ? copyId(child.parentId ?? id) : node.id,
+        childIds: child.childIds.map(copyId),
+      };
+    }
+  }
+  const next: ScreenMapDocument = { ...doc, nodes };
+  delete next.masters;
+  return next;
 }
