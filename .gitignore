@@ -8,6 +8,7 @@ dist-server
 coverage
 .resolve
 .resolve/
+# Screen Map trees: .resolve/private/screen-map/ (private, no images, no text content).
 .graphify
 .graphify/
 test-results

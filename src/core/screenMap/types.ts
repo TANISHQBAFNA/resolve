@@ -28,45 +28,22 @@ export interface MapText { present: boolean; lines?: number }
 export interface MapFlags { hidden?: boolean; detached?: boolean; overridden?: boolean; lookalike?: boolean; hasImageFill?: boolean }
 export interface MapControl { property: string; type: ControlType }
 export interface MapDs {
-  componentId?: string;
-  masterId?: string;
-  setId?: string;
+  componentId?: string; masterId?: string; setId?: string;
   variantProperties?: Record<string, string>;
   componentProperties?: Record<string, string | number | boolean | null>;
   propertyDefinitions?: Array<{ name: string; type: ControlType }>;
 }
 export interface MapNode {
-  id: string;
-  figmaNodeId?: string;
-  type: string;
-  name: string;
-  path: string;
-  parentId?: string;
-  childIds: string[];
-  ds?: MapDs;
-  layout?: MapLayout;
-  style?: MapStyle;
-  binding?: MapBinding[];
-  text?: MapText;
-  flags?: MapFlags;
-  controlledBy?: MapControl;
-  identity?: MapIdentity;
-  ref?: string;
+  id: string; figmaNodeId?: string; type: string; name: string; path: string; parentId?: string; childIds: string[];
+  ds?: MapDs; layout?: MapLayout; style?: MapStyle; binding?: MapBinding[]; text?: MapText;
+  flags?: MapFlags; controlledBy?: MapControl; identity?: MapIdentity; ref?: string;
   /** Reserved for a later meaning pass. Left null or omitted. */
-  partJob?: null;
-  /** Reserved for a later meaning pass. Left null or omitted. */
-  slot?: null;
+  partJob?: null; slot?: null;
 }
 export interface MasterBody { id: string; name: string; childIds: string[]; nodes: Record<string, MapNode> }
 export interface ScreenMapDocument {
-  version: typeof SCREEN_MAP_VERSION;
-  fileKey: string;
-  fileName: string;
-  fileVersion: string;
-  sourceKind: ScreenMapSourceKind;
-  builtAt: string;
-  rootId: string;
-  nodes: Record<string, MapNode>;
-  masters?: Record<string, MasterBody>;
+  version: typeof SCREEN_MAP_VERSION; fileKey: string; fileName: string; fileVersion: string;
+  sourceKind: ScreenMapSourceKind; builtAt: string; rootId: string;
+  nodes: Record<string, MapNode>; masters?: Record<string, MasterBody>;
 }
 export interface MapWarning { code: string; message: string; next: string }
