@@ -1,0 +1,277 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "screen-map.schema.json",
+  "title": "ScreenMapDocument",
+  "description": "Private tree of one learned file version. Text is a slot (present and line count). No text content, no images, no thumbnails. Examples use Acme. Component meaning stays in DSCK and DSCI; partJob and slot are reserved and empty.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "fileKey", "fileName", "fileVersion", "sourceKind", "builtAt", "rootId", "nodes"],
+  "properties": {
+    "version": { "const": 1 },
+    "fileKey": { "type": "string", "minLength": 1 },
+    "fileName": { "type": "string" },
+    "fileVersion": { "type": "string" },
+    "sourceKind": { "enum": ["figma-rest", "figma-plugin", "figma-mcp", "json", "mock"] },
+    "builtAt": { "type": "string", "minLength": 1 },
+    "rootId": { "type": "string", "minLength": 1 },
+    "nodes": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/mapNode" }
+    },
+    "masters": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/masterBody" }
+    }
+  },
+  "definitions": {
+    "mapNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "name", "path", "childIds"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "figmaNodeId": { "type": "string" },
+        "type": {
+          "enum": [
+            "FILE", "PAGE", "SECTION", "FRAME", "AUTO_LAYOUT_CONTAINER", "GROUP", "LAYER", "TEXT_LAYER", "MEDIA_LAYER",
+            "COMPONENT_SET", "MAIN_COMPONENT", "VARIANT", "COMPONENT_INSTANCE",
+            "STYLE", "VARIABLE", "VARIABLE_COLLECTION", "EXTERNAL_LIBRARY", "PROTOTYPE_INTERACTION", "ANNOTATION",
+            "screen", "region", "instance", "text", "atom"
+          ]
+        },
+        "name": { "type": "string" },
+        "path": { "type": "string" },
+        "parentId": { "type": "string" },
+        "childIds": { "type": "array", "items": { "type": "string" } },
+        "ds": { "$ref": "#/definitions/ds" },
+        "layout": { "$ref": "#/definitions/layout" },
+        "style": { "$ref": "#/definitions/style" },
+        "binding": { "type": "array", "items": { "$ref": "#/definitions/binding" } },
+        "text": { "$ref": "#/definitions/textSlot" },
+        "flags": { "$ref": "#/definitions/flags" },
+        "controlledBy": { "$ref": "#/definitions/controlledBy" },
+        "identity": { "enum": ["extracted", "guessed", "unknown"] },
+        "ref": { "type": "string" },
+        "partJob": { "type": "null" },
+        "slot": { "type": "null" }
+      }
+    },
+    "ds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "componentId": { "type": "string" },
+        "masterId": { "type": "string" },
+        "setId": { "type": "string" },
+        "variantProperties": { "type": "object", "additionalProperties": { "type": "string" } },
+        "componentProperties": {
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean", "null"] }
+        },
+        "propertyDefinitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "type"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "type": { "enum": ["VARIANT", "BOOLEAN", "TEXT", "INSTANCE_SWAP", "SLOT", "UNKNOWN"] }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "direction": { "enum": ["HORIZONTAL", "VERTICAL", "GRID"] },
+        "padding": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "type": "number" }
+        },
+        "gap": { "type": "number" },
+        "align": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "primary": { "type": "string" },
+            "counter": { "type": "string" }
+          }
+        },
+        "wrap": { "type": "string" },
+        "sizing": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "horizontal": { "type": "string" },
+            "vertical": { "type": "string" },
+            "primary": { "type": "string" },
+            "counter": { "type": "string" }
+          }
+        },
+        "radius": {
+          "oneOf": [
+            { "type": "number" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "tl": { "type": "number" },
+                "tr": { "type": "number" },
+                "br": { "type": "number" },
+                "bl": { "type": "number" }
+              }
+            }
+          ]
+        },
+        "unknown": { "type": "boolean" }
+      }
+    },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fills": { "type": "array", "items": { "$ref": "#/definitions/paint" } },
+        "strokes": { "type": "array", "items": { "$ref": "#/definitions/paint" } },
+        "effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "bound"],
+            "properties": {
+              "type": { "type": "string" },
+              "bound": { "type": "boolean" }
+            }
+          }
+        },
+        "textStyle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fontSize": { "type": "number" },
+            "fontWeight": { "type": "number" },
+            "styleId": { "type": "string" },
+            "variableId": { "type": "string" }
+          }
+        }
+      }
+    },
+    "paint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hex", "bound"],
+      "properties": {
+        "hex": { "type": "string" },
+        "bound": { "type": "boolean" },
+        "opacity": { "type": "number" }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slot", "kind"],
+      "properties": {
+        "slot": { "type": "string" },
+        "kind": { "enum": ["variable", "style", "raw", "unknown"] },
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "raw": {
+          "oneOf": [
+            { "type": ["string", "number", "boolean", "null"] },
+            { "type": "array", "items": { "type": "number" } }
+          ]
+        }
+      }
+    },
+    "textSlot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["present"],
+      "properties": {
+        "present": { "type": "boolean" },
+        "lines": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hidden": { "type": "boolean" },
+        "detached": { "type": "boolean" },
+        "overridden": { "type": "boolean" },
+        "lookalike": { "type": "boolean" },
+        "hasImageFill": { "type": "boolean" }
+      }
+    },
+    "controlledBy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["property", "type"],
+      "properties": {
+        "property": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["VARIANT", "BOOLEAN", "TEXT", "INSTANCE_SWAP", "SLOT", "UNKNOWN"] }
+      }
+    },
+    "masterBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "childIds", "nodes"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "childIds": { "type": "array", "items": { "type": "string" } },
+        "nodes": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/mapNode" }
+        }
+      }
+    },
+    "warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "next"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "next": { "type": "string", "minLength": 1 }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["view", "warnings", "next"],
+      "properties": {
+        "view": { "enum": ["outline", "screen", "node", "journey", "drift", "expand"] },
+        "warnings": { "type": "array", "items": { "$ref": "#/definitions/warning" } },
+        "next": { "type": "string", "minLength": 1 },
+        "viewCapped": { "type": "boolean" },
+        "truncated": { "const": false },
+        "fileKey": { "type": "string" },
+        "fileVersion": { "type": "string" },
+        "items": { "type": "array" },
+        "nodes": { "type": "array", "items": { "$ref": "#/definitions/mapNode" } },
+        "steps": { "type": "array" },
+        "loops": { "type": "array" },
+        "raw": { "type": "array" },
+        "detached": { "type": "array" },
+        "lookalikes": { "type": "array" },
+        "master": { "$ref": "#/definitions/masterBody" },
+        "page": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["size", "offset", "total"],
+          "properties": {
+            "size": { "type": "integer", "minimum": 0 },
+            "offset": { "type": "integer", "minimum": 0 },
+            "total": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    }
+  }
+}
