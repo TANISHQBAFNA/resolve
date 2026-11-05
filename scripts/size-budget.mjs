@@ -7,7 +7,7 @@ const areas = {
   server: { dirs: ["src/server"], skip: ["src/server/code"], label: "rest of server (src/server)" },
   core: { dirs: ["src/core"], label: "Figma core (src/core)" },
 };
-// core 35350: Tanishk approved about 250 lines for src/core/screenMap/ only. Do not spend them on other modules.
+// core 35440: Screen Map. 35350 covered the views; the CLI runner in src/core/screenMap/run.ts needs the rest, with room for the lookalike flag.
 const budget = JSON.parse(readFileSync("package.json", "utf8")).resolveSizeBudget ?? {};
 
 const FILE_CAP = 1000;

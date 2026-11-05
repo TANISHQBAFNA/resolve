@@ -1,4 +1,6 @@
 import { READY_USAGE } from "@/ready/types.ts";
+import { screenMapUsageLines } from "@/core/screenMap/run";
+import { readConfig } from "./mode";
 import { addonUsageLines } from "./addonHook";
 import { CODE_USAGE } from "./code/command.ts";
 import { handoffEnabled } from "@/core/query/handoffGate";
@@ -171,6 +173,8 @@ export function usage(): void {
       "      Read from <store>/scoreboard/gaps.jsonl (local, git-ignored). Each row needs a team word, a recipe, or a new part.",
       "  resolve status [--json]      One short answer: learned files, when, version, Figma token, always-on rule, code map, and what to do next",
       "  resolve where                Print store path, graph.json, and builtAt (same as MCP list_graphs.store)",
+      "",
+      ...screenMapUsageLines(readConfig().screenMap?.enabled === true),
       "",
       ...READY_USAGE,
       "",
