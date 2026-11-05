@@ -11,6 +11,7 @@ import { SCREEN_MAP_VERSION, type MapDs, type MapIdentity, type MapNode, type Ma
 const TREE = new Set(["FILE", "PAGE", "SECTION", "FRAME", "AUTO_LAYOUT_CONTAINER", "GROUP", "LAYER", "TEXT_LAYER", "MEDIA_LAYER", "COMPONENT_SET", "MAIN_COMPONENT", "VARIANT", "COMPONENT_INSTANCE"]);
 const REGION = new Set(["FRAME", "AUTO_LAYOUT_CONTAINER", "GROUP", "SECTION"]);
 const DETACHED = new Set(["FRAME", "GROUP", "AUTO_LAYOUT_CONTAINER"]);
+const LOOKALIKE = new Set(["LAYER", "TEXT_LAYER", "MEDIA_LAYER"]);
 const rec = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 
@@ -70,7 +71,7 @@ function dsOf(index: GraphIndex, node: GraphNode): MapDs | undefined {
   return Object.keys(ds).length ? ds : undefined;
 }
 
-function toMapNode(index: GraphIndex, node: GraphNode, childIds: string[], include: Set<string>): MapNode {
+function toMapNode(index: GraphIndex, node: GraphNode, childIds: string[], include: Set<string>, lookalikes = false): MapNode {
   const variables: Record<string, string> = {};
   const styles: Record<string, string> = {};
   const names: Record<string, string> = {};
@@ -91,9 +92,11 @@ function toMapNode(index: GraphIndex, node: GraphNode, childIds: string[], inclu
     textNode: node.type === "TEXT_LAYER" || node.metadata?.["figmaType"] === "TEXT",
   });
   const insideInstance = index.getAncestors(node.id).some((item) => item.type === "COMPONENT_INSTANCE");
-  const detached = DETACHED.has(node.type) && !node.isInstance && node.metadata?.["hidden"] !== true && !insideInstance && realMastersNamed(index, node.name).length > 0;
+  const named = !insideInstance && !node.isInstance && node.metadata?.["hidden"] !== true && realMastersNamed(index, node.name).length > 0;
+  const detached = DETACHED.has(node.type) && named;
+  const lookalike = lookalikes && LOOKALIKE.has(node.type) && named;
   const overridden = Array.isArray(node.metadata?.["overrides"]) && (node.metadata["overrides"] as unknown[]).length > 0;
-  const flags = { ...projected.flags, ...(node.metadata?.["hidden"] === true ? { hidden: true } : {}), ...(detached ? { detached: true } : {}), ...(overridden ? { overridden: true } : {}) };
+  const flags = { ...projected.flags, ...(node.metadata?.["hidden"] === true ? { hidden: true } : {}), ...(detached ? { detached: true } : {}), ...(lookalike ? { lookalike: true } : {}), ...(overridden ? { overridden: true } : {}) };
   delete projected.flags;
   const parent = index.getParent(node.id);
   const identity = identityOf(index, node);
@@ -141,7 +144,7 @@ function includeSet(index: GraphIndex, frameId?: string): Set<string> {
   return keep;
 }
 
-export interface BuildMapOptions { builtAt?: string; frameId?: string; refs?: boolean }
+export interface BuildMapOptions { builtAt?: string; frameId?: string; refs?: boolean; lookalikes?: boolean }
 
 export function buildScreenMap(graph: DesignGraph, options: BuildMapOptions = {}): ScreenMapDocument {
   const index = indexGraph(graph);
@@ -150,7 +153,7 @@ export function buildScreenMap(graph: DesignGraph, options: BuildMapOptions = {}
   for (const id of [...include].sort()) {
     const node = index.getNode(id);
     if (!node) continue;
-    nodes[id] = toMapNode(index, node, index.getChildren(id).map((child) => child.id).filter((childId) => include.has(childId)), include);
+    nodes[id] = toMapNode(index, node, index.getChildren(id).map((child) => child.id).filter((childId) => include.has(childId)), include, options.lookalikes === true);
   }
   const built: ScreenMapDocument = {
     version: SCREEN_MAP_VERSION,

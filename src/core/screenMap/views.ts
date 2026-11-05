@@ -75,11 +75,11 @@ function screenOf(index: GraphIndex, doc: ScreenMapDocument, id: string): MapNod
 const guessed = (doc: ScreenMapDocument): MapWarning[] =>
   Object.values(doc.nodes).some((node) => node.identity === "guessed") ? [warn("W-MAP-GUESSED", LAYER_NAME_GUESS)] : [];
 
-export function loadMap(root: string, graph: DesignGraph | undefined, fileKey?: string, builtAt?: string) {
+export function loadMap(root: string, graph: DesignGraph | undefined, fileKey?: string, builtAt?: string, lookalikes = false) {
   const saved = readScreenMap(root, fileKey);
   if (saved && (!graph?.source.version || saved.fileVersion === graph.source.version)) return { doc: saved, warnings: [] as MapWarning[] };
   if (!graph) return { doc: undefined, warnings: [warn("E-MAP-GRAPH", "No learned graph.")] };
-  const doc = buildScreenMap(graph, builtAt ? { builtAt } : {});
+  const doc = buildScreenMap(graph, { ...(builtAt ? { builtAt } : {}), ...(lookalikes ? { lookalikes: true } : {}) });
   return { doc, warnings: [warn("W-MAP-STALE", saved ? "The learned file is newer than the private map." : "No private map is on disk yet.")] };
 }
 

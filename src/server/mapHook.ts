@@ -7,6 +7,7 @@ function io() {
   return {
     cwd: process.cwd(),
     enabled: config.screenMap?.enabled === true,
+    lookalikes: config.screenMap?.lookalikes === true,
     loadGraph: () => resolveGraph()?.graph,
     stdout: (text: string) => process.stdout.write(text),
   };
