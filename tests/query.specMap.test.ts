@@ -50,7 +50,8 @@ describe("spec map", () => {
     expect(listToolDefinitions(false, "figma").map((tool) => tool.name)).not.toContain("spec_map");
     expect(listToolDefinitions(true, "figma").map((tool) => tool.name)).toContain("spec_map");
     expect(listToolDefinitions(true, "figma")).toHaveLength(17);
-    expect(listToolDefinitions(false, "both")).toHaveLength(13);
+    expect(listToolDefinitions(true, "figma").map((tool) => tool.name)).not.toContain("get_handoff");
+    expect(listToolDefinitions(false, "both")).toHaveLength(14);
     expect(listToolDefinitions(true, "both").map((tool) => tool.name)).toEqual(
       expect.arrayContaining(["spec_map", "code_scan", "learn_library"]),
     );

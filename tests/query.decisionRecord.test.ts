@@ -21,6 +21,8 @@ import { runCli } from "@/server/cli";
 import { callTool } from "@/server/tools";
 import { clearCache, saveGraph } from "@/server/store";
 
+process.env["RESOLVE_HANDOFF"] = "1";
+
 const FROZEN = "2026-01-01T00:00:00.000Z";
 const graph = () => buildGraph(adaptFigmaRestFile({ fileKey: "ACMEUI", file: acmeFile, kind: "mock", ingestedAt: FROZEN }), { builtAt: FROZEN });
 

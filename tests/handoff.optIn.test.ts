@@ -43,6 +43,7 @@ describe("handoff is opt-in", () => {
     expect(listToolDefinitions(false, "figma").map((tool) => tool.name)).not.toContain("get_handoff");
     process.env["RESOLVE_HANDOFF"] = "1";
     expect(listToolDefinitions(true, "figma").map((tool) => tool.name)).toContain("get_handoff");
+    expect(listToolDefinitions(true, "figma")).toHaveLength(18);
   });
 
   it("calling get_handoff while it is off says how to turn it on", () => {

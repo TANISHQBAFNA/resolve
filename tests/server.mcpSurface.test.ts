@@ -33,7 +33,7 @@ describe("MCP default surface + DSCK loop", () => {
 
   it("default tool list is the agent tools", () => {
     const names = listToolDefinitions(false).map((tool) => tool.name);
-    expect(names).toHaveLength(8);
+    expect(names).toHaveLength(9);
     expect([...names].sort()).toEqual([...DEFAULT_TOOL_NAMES].sort());
     expect(names).not.toContain("approve_proposal");
     expect(names).not.toContain("reject_proposal");
@@ -53,11 +53,12 @@ describe("MCP default surface + DSCK loop", () => {
       "get_health",
     ];
     for (const name of removed) expect(TOOLS.map((tool) => tool.name)).not.toContain(name);
-    expect(TOOLS).toHaveLength(17);
+    expect(TOOLS).toHaveLength(18);
     expect(listToolDefinitions(true, "figma").map((tool) => tool.name)).toEqual(
       expect.arrayContaining(["approve_proposal", "reject_proposal", "list_dsci", "spec_map"]),
     );
-    expect(listToolDefinitions(true).length).toBe(TOOLS.length);
+    expect(listToolDefinitions(true).map((tool) => tool.name)).not.toContain("get_handoff");
+    expect(listToolDefinitions(true).length).toBe(TOOLS.length - 1);
     expect(() => callTool("get_recipe", { query: "sign-in" })).toThrow(/was removed[\s\S]*recipe/);
     expect(() => callTool("check_frame", { intent: "button" })).toThrow(/was removed[\s\S]*verify/);
   });

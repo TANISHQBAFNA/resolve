@@ -64,12 +64,15 @@ import { callCodeMapAlias } from "./codeMapMcp";
 import { SPEC_TOOLS, runSpecTool } from "./specMcp";
 import { DECISION_TOOLS, RECORD_PROPERTY, recordProblem, runDecisionTool, withDecisionRecord } from "./decisionMcp";
 import { composeProblem, runCompose } from "./composeCommand";
+import { CONFIGURE_TOOL, configureFromArgs } from "./configureCommand";
+import { HANDOFF_TOOL } from "./handoffCommand";
+import { graphIdProperty, screenContextProperties } from "./toolFields";
 import { recordVerifyUsage } from "./verifyRecord";
 
 export { recordVerifyUsage };
 
 /**
- * Optional MCP tools. The default surface is learn_library, recipe, recommend, resolve,
+ * Optional MCP tools. The default surface is learn_library, recipe, brief, recommend, configure, resolve,
  * get_example, verify_frame, and check_cousins. Set RESOLVE_MCP_ADVANCED=1 for the rest.
  * Do not Read graph.json. Graph stays on disk.
  */
@@ -80,30 +83,12 @@ export interface ToolDefinition {
   inputSchema: Record<string, unknown>;
 }
 
-const graphIdProperty = {
-  graphId: {
-    type: "string",
-    description: "Graph to query. Optional when exactly one graph is stored.",
-  },
-};
-
-/** Who the screen is for, and the accessibility bar. From the requirements or FSD, or the context pack. */
-const screenContextProperties = {
-  audience: {
-    type: "string",
-    description: "Who the screen is for, taken from the requirements or FSD. Overrides the context pack for this call. Leave off when the document does not say.",
-  },
-  a11y: {
-    type: "string",
-    description: 'Accessibility bar from the requirements or FSD, e.g. "wcag-aa". Overrides the context pack for this call. Leave off when the document does not say. Does not run an audit.',
-  },
-};
-
 export const DEFAULT_TOOL_NAMES = [
   "learn_library",
   "recipe",
   "brief",
   "recommend",
+  "configure",
   "resolve",
   "get_example",
   "verify_frame",
@@ -218,10 +203,11 @@ export const TOOLS: ToolDefinition[] = [
       required: ["intent"],
     },
   },
+  CONFIGURE_TOOL,
   {
     name: "brief",
     description:
-      "Before recommend on a screen request. Asks at most 3 multiple-choice questions, and only when the request fits the library and the answer would change the component. Topics: data shape (list, form, summary, counts), states (empty, loading, error, pending; more than one allowed), and platform. No screen-type goal question. Options are live masters. Platform is asked only when the best part comes in platform versions (Desktop Nav, Mobile Nav); a platform word alone is not a component. Nothing that fits returns no match and no questions. 'Just build' (also 'go ahead and build' or 'build without asking') asks nothing; with no match it returns no candidates. Pass answers to recommend and get_handoff; they change the parts. Unknown topic, unknown option, empty value, a duplicate, or more than 3 answers is an error. Do not invent a component. Do not Read graph.json.",
+      "Before recommend on a screen request. Asks at most 3 multiple-choice questions, and only when the request fits the library and the answer would change the component. Topics: data shape (list, form, summary, counts), states (empty, loading, error, pending; more than one allowed), and platform. No screen-type goal question. Options are live masters. Platform is asked only when the best part comes in platform versions (Desktop Nav, Mobile Nav); a platform word alone is not a component. Nothing that fits returns no match and no questions. 'Just build' (also 'go ahead and build' or 'build without asking') asks nothing; with no match it returns no candidates. Pass answers to recommend and configure; they change the parts. Unknown topic, unknown option, empty value, a duplicate, or more than 3 answers is an error. Do not invent a component. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -436,7 +422,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "get_ingredients",
     description:
-      "What is inside a component: the library parts placed directly in it, for a developer handoff. Follows one variant: pass variant (\"Size=Medium\"), else the first in the set. A placed instance id reads that copy's own parts at every level. Where the copy's insides were not learned, the card says the parts are from the main component (not checked on this screen, or not checked on the copy inside this component). Variant is refused for an instance id. Each part shows fileKey and figmaNodeId, its code component from .resolve/code-map.json, or that there is no code link (never guessed), plus selector, module or standalone, import path, inputs and outputs when the map entry has a selector. A structured card over 12,000 characters is shown less deep, then fewer parts per level, and says what was cut. Ask a part by name for its own card. Status is current, retired (old code, and what to use instead), unconfirmed (a guess from the layer name), other-library, or not-found. Exact name or id only. An unknown name says it was not found and to call recommend. Markdown by default. Advanced surface. Do not Read graph.json.",
+      "What is inside a component: the library parts placed directly in it. Follows one variant: pass variant (\"Size=Medium\"), else the first in the set. A placed instance id reads that copy's own parts at every level. Where the copy's insides were not learned, the card says the parts are from the main component (not checked on this screen, or not checked on the copy inside this component). Variant is refused for an instance id. Each part shows fileKey and figmaNodeId, its code component from .resolve/code-map.json, or that there is no code link (never guessed), plus selector, module or standalone, import path, inputs and outputs when the map entry has a selector. A structured card over 12,000 characters is shown less deep, then fewer parts per level, and says what was cut. Ask a part by name for its own card. Status is current, retired (old code, and what to use instead), unconfirmed (a guess from the layer name), other-library, or not-found. Exact name or id only. An unknown name says it was not found and to call recommend. Markdown by default. Advanced surface. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -448,33 +434,7 @@ export const TOOLS: ToolDefinition[] = [
       required: ["name"],
     },
   },
-  {
-    name: "get_handoff",
-    description:
-      "Developer handoff sheet for one or more designed screens (frames): recipe slots, each component placed on the screen with fileKey and figmaNodeId and its code from .resolve/code-map.json (unmapped when there is no entry; never guessed), selector, module, inputs and outputs, suggested inputs from Figma variant properties (Variant=Primary becomes variant=\"primary\") and a suggested template line, the parts inside each component, a PASS or FAIL line, approved decisions (who, when, why), and open questions. Never refuses: a retired component, a stale code link, a layer-name guess ('MCP metadata insufficient for component X. Use Figma REST or design_context.') or a missing component is listed under warnings, each with a next step to try. allowWeak makes a labelled draft (name-guess) with no warning; drafts are not for build. Over 40,000 characters of the structured card, parts are shown one level less deep at a time until it fits, and the card says how many parts are listed. Open questions and the summary counts always come from the full sheet. Markdown lists each part once, on its component, not again as a second parts table. A copy whose component is in no learned file is a not-found warning. A component from a library file that is not learned is other-library (no Figma id of this file, code unknown, not counted as unmapped). A not-found component is code unknown too. The card lists the other values of each Figma property (the placed one is left out). A recipe slot is placed, inside another component (the card names it), or missing. Placed and inside both count as covered. One copy fills one slot. A frame can be a pasted Figma link with node-id. Markdown by default. Advanced surface. Do not Read graph.json.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ...RECORD_PROPERTY,
-        ...graphIdProperty,
-        frame: { type: "string", description: "Frame name, graph id, figma node id or fileKey:nodeId." },
-        frames: { type: "array", items: { type: "string" }, description: "Several frames for one handoff pack." },
-        allowWeak: { type: "boolean", description: "Draft: allow components known only from layer names (labelled name-guess) or missing from the learned files (labelled not-found). Retired components stay a warning." },
-        recipe: { type: "string", description: "Recipe id or intent to check the screen against. Default: matched from the screen name." },
-        depth: { type: "number", description: "Levels of parts per component, 1-3. Default 3. Any other value is clamped, and depthNote says so." },
-        answers: {
-          type: "object",
-          description: "Briefing answers. Shape and state answers are added to the parts, not only listed as a note. At most 3 answers.",
-          additionalProperties: true,
-        },
-        pack: { type: "string" },
-        product: { type: "string" },
-        journey: { type: "string" },
-        domain: { type: "string" },
-        ...screenContextProperties,
-      },
-    },
-  },
+  HANDOFF_TOOL,
   ...SPEC_TOOLS,
   ...DECISION_TOOLS,
   {
@@ -779,6 +739,9 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         ...shared(bind.workspace, pack),
       });
     }
+
+    case "configure":
+      return configureFromArgs(args);
 
     case "recommend": {
       const { index } = context(args);

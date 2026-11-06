@@ -18,7 +18,7 @@ export const DECISION_TOOLS = [
   {
     name: "decision_record",
     description:
-      "List stored decision records (no ref), or read one back: what was asked, which parts were picked and why, what was rejected, and the recipe. Pass the path a brief, recipe compose or get_handoff call returned as decisionRecord, or a handoff folder's decision.json. Advanced surface.",
+      "List stored decision records (no ref), or read one back: what was asked, which parts were picked and why, what was rejected, and the recipe. Pass the path a brief or recipe compose call returned as decisionRecord. Advanced surface.",
     inputSchema: { type: "object", properties: { ref: { type: "string", description: "Record name from the list, or a path to a decision*.json file. Leave out to list the stored records." } } },
   },
 ];

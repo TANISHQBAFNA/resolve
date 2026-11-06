@@ -22,6 +22,8 @@ import { clearCache, saveGraph } from "@/server/store";
 import labeled from "../scoreboard/briefing/acme.json";
 import fitSet from "../scoreboard/briefing/acme-fit.json";
 
+process.env["RESOLVE_HANDOFF"] = "1";
+
 const FROZEN = "2026-01-01T00:00:00.000Z";
 
 function node(id: string, type: NodeType, name: string, extra: Partial<GraphNode> = {}): GraphNode {

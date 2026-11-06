@@ -313,12 +313,13 @@ describe("component properties", () => {
     expect(section).toContain("To apply: set Variant=Secondary, Has icon=true");
   });
 
-  it("does not add a default MCP tool", () => {
+  it("default MCP tool list includes configure", () => {
     expect(DEFAULT_TOOL_NAMES).toEqual([
       "learn_library",
       "recipe",
       "brief",
       "recommend",
+      "configure",
       "resolve",
       "get_example",
       "verify_frame",

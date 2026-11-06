@@ -45,7 +45,7 @@ function activeMode() {
 
 try {
   const mode = activeMode();
-  const names = ["resolve", ...(mode === "code" ? [] : ["resolve-figma"]), ...(mode === "figma" ? [] : ["resolve-code"])];
+  const names = ["resolve", "resolve-configure", ...(mode === "code" ? [] : ["resolve-figma"]), ...(mode === "figma" ? [] : ["resolve-code"])];
   const text = names.map(skillDescription).filter(Boolean).join("\n");
   if (!text) process.exit(0);
   process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: text } })}\n`);
