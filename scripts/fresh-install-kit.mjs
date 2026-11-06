@@ -36,6 +36,7 @@ export function commandPlan(screen, repo) {
     ["resolve-status", ""],
     ["design-system", file],
     ["find", "primary button"],
+    ["configure", "primary button"],
     ["brief", "a sign-in screen"],
     ["check", screen ?? ""],
     ["parts", screen ?? ""],

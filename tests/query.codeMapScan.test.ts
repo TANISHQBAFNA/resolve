@@ -292,7 +292,7 @@ export declare class HarborLiteComponent { static ɵcmp: i0.ɵɵComponentDeclara
   });
 
   it("keeps the older code-map tool names off every list; code_map is the one map tool", () => {
-    expect(listToolDefinitions(false)).toHaveLength(8);
+    expect(listToolDefinitions(false)).toHaveLength(9);
     const codeNames = listToolDefinitions(false, "code").map((tool) => tool.name);
     expect(codeNames.filter((name) => name.startsWith("code_map"))).toEqual(["code_map"]);
     for (const name of ["code_map_scan", "code_map_suggest", "code_map_review"]) {

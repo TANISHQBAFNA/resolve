@@ -358,7 +358,7 @@ describe("slash commands: uninstall", () => {
 describe("slash commands: MCP prompts and status", () => {
   it("exposes the same commands as prompts and leaves brief on the default tool list", () => {
     expect(listPrompts().map((p) => p.name)).toEqual(NAMES);
-    expect(listToolDefinitions(false)).toHaveLength(8);
+    expect(listToolDefinitions(false)).toHaveLength(9);
     const prompt = getPrompt("find", { input: "payee picker" })!;
     expect(prompt.messages[0]!.content.text).toContain("The designer typed: payee picker");
     expect(prompt.messages[0]!.content.text).toContain("recommend");

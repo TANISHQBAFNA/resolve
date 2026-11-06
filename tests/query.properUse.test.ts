@@ -51,12 +51,13 @@ function signature(findings: Array<{ severity: string; check: string; figmaNodeI
 describe("Acme proper use", () => {
   const index = graphOf("figma-rest");
 
-  it("keeps the default MCP tool list at 7", () => {
+  it("keeps the default MCP tool list", () => {
     expect([...DEFAULT_TOOL_NAMES]).toEqual([
       "learn_library",
       "recipe",
       "brief",
       "recommend",
+      "configure",
       "resolve",
       "get_example",
       "verify_frame",

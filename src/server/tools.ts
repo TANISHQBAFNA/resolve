@@ -63,12 +63,13 @@ import { callCodeMapAlias } from "./codeMapMcp";
 import { SPEC_TOOLS, runSpecTool } from "./specMcp";
 import { DECISION_TOOLS, RECORD_PROPERTY, recordProblem, runDecisionTool, withDecisionRecord } from "./decisionMcp";
 import { composeProblem, runCompose } from "./composeCommand";
+import { CONFIGURE_TOOL, configureFromArgs } from "./configureCommand";
 import { recordVerifyUsage } from "./verifyRecord";
 
 export { recordVerifyUsage };
 
 /**
- * Optional MCP tools. The default surface is learn_library, recipe, recommend, resolve,
+ * Optional MCP tools. The default surface is learn_library, recipe, brief, recommend, configure, resolve,
  * get_example, verify_frame, and check_cousins. Set RESOLVE_MCP_ADVANCED=1 for the rest.
  * Do not Read graph.json. Graph stays on disk.
  */
@@ -103,6 +104,7 @@ export const DEFAULT_TOOL_NAMES = [
   "recipe",
   "brief",
   "recommend",
+  "configure",
   "resolve",
   "get_example",
   "verify_frame",
@@ -217,6 +219,7 @@ export const TOOLS: ToolDefinition[] = [
       required: ["intent"],
     },
   },
+  CONFIGURE_TOOL,
   {
     name: "brief",
     description:
@@ -777,6 +780,9 @@ function dispatchTool(name: string, args: Record<string, unknown>): unknown {
         ...shared(bind.workspace, pack),
       });
     }
+
+    case "configure":
+      return configureFromArgs(args);
 
     case "recommend": {
       const { index } = context(args);
