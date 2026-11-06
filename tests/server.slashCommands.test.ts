@@ -257,6 +257,10 @@ describe("slash commands: install", () => {
         expect(text, `${dir}/${name}`).not.toContain("the local command from the same install");
         expect(text, `${dir}/${name}`).not.toContain("If the shell says the command is not found");
         if (name !== "code-map") expect(text, `${dir}/${name}`).not.toMatch(/`resolve-(figma|setup)\b/);
+        if (runs[name]) {
+          expect(text, `${dir}/${name}`).toContain("node bin/resolve-cli.mjs");
+          expect(text, `${dir}/${name}`).toContain("does not include `/configure`");
+        }
       }
     }
   });
