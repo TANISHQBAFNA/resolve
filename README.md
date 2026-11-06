@@ -96,7 +96,7 @@ Then fill in your **Figma token** and the **library file key**. For the code wor
 
 > Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md
 
-The version badge is the last published tag, `0.2.0`. That tag does not include `/configure`, the `resolve-configure` skill, or screen map. To try this revision, check out `main` and run `node bin/resolve-setup.mjs` from that checkout. Do not install `github:TANISHQBAFNA/resolve#v0.2.0` and expect those commands. Slash commands that still name `#v0.2.0` are pinned to that published tag.
+The version badge is the last published tag, `0.2.0`. That tag does not include `/configure`, the `resolve-configure` skill, or screen map. To try this revision, check out the repository, run `npm run build:server`, then in a scratch project run `node /absolute/path/to/resolve/bin/resolve-setup.mjs`. That writes this checkout's built server. Do not install `github:TANISHQBAFNA/resolve#v0.2.0` and expect those commands.
 
 **Grok Bot, Codex and other MCP agents.** Resolve is a standard MCP server, so any agent that can add one can use it. Steps for Grok Bot and Codex are in [INSTALL-FOR-AI.md](INSTALL-FOR-AI.md).
 
@@ -199,7 +199,7 @@ Resolve is open source under the [MIT License](LICENSE). You can use, copy, chan
 - **The developer export is not installed.** `commands/` and the Cursor plugin do not publish it. `resolve handoff` and `get_handoff` stay off unless `RESOLVE_HANDOFF=1`.
 - **Project copy.** `.resolve/local/` is written only inside a project, is added to `.gitignore`, and a hand edit is kept (with one warning) until you run `resolve sync`.
 - **Code map.** A shared ID (`ds@<semver>.<tier>.<name>`) on both sides now joins a Figma component to its code first, before any name.
-- **Pinned install.** The MCP entry that `resolve-setup` writes, the plugin settings, the slash commands and the CI example now pin `#v0.2.0`. `resolve-setup` leaves an older pinned `resolve` entry alone; run `npx -y -p github:TANISHQBAFNA/resolve#v0.2.0 resolve-setup --force` to replace only that entry.
+- **Checkout and release.** Setup from a git checkout writes that checkout's built server (`node` and `dist-server/mcp.mjs`, no working-directory override) and the same path in the shell commands. It replaces a `#v0.2.0` entry it used to write. A different `resolve` entry is left alone unless `--force`. A packed or `npx` install still writes `npx -y -p github:TANISHQBAFNA/resolve#v0.2.0 resolve-mcp`. The plugin files `mcp.json` and `.mcp.json` still name that tag.
 
 ## Upgrading from the old names
 

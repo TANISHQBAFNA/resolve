@@ -124,10 +124,12 @@ describe("plugin manifests", () => {
 
   it("starts the published server and takes the token and file key from plugin settings", () => {
     const setup = readFileSync(join(root, "bin/resolve-setup.mjs"), "utf8");
+    const runtime = readFileSync(join(root, "bin/install-runtime.mjs"), "utf8");
     const args = ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.2.0", "resolve-mcp"];
-    expect(setup).toContain(
+    expect(runtime).toContain(
       'export const MCP_ENTRY = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.2.0", "resolve-mcp"] }',
     );
+    expect(setup).toContain('from "./install-runtime.mjs"');
     for (const file of [".mcp.json", "mcp.json"]) {
       const doc = loadJson(join(root, file)) as {
         mcpServers: { resolve: { command: string; args: string[]; env: Record<string, string> } };
