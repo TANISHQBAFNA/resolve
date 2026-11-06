@@ -28,7 +28,6 @@ const CALLS: Record<string, string[]> = {
   check: ["verify_frame", "check_cousins", "node-id", "name-only", "wrong cousin", "missing required state"],
   "code-map": ["code-map scan", "code-map suggest", "code-map review", "suggested", "stop and ask"],
   parts: ["what's on this screen and its code twin (or unmapped)", "resolve-figma parts", "unmapped", "retired", "screen link", "stop and ask"],
-  handoff: ["developer build sheet", "resolve-figma handoff", "get_handoff", "node-id", "stop and ask"],
   "resolve-status": ["resolve-figma status", "version", "always-on rule"],
 };
 
@@ -37,8 +36,11 @@ const temp = (name: string) => {
   mkdirSync(dir, { recursive: true });
   return dir;
 };
-const setup = (args: string[], cwd: string, home = temp("home")) => {
-  const r = spawnSync(process.execPath, [bin, ...args], { cwd, encoding: "utf8", env: { ...process.env, HOME: home, FIGMA_ACCESS_TOKEN: "" } });
+const setup = (args: string[], cwd: string, home = temp("home"), handoff?: string) => {
+  const env: NodeJS.ProcessEnv = { ...process.env, HOME: home, FIGMA_ACCESS_TOKEN: "" };
+  if (handoff === undefined) delete env["RESOLVE_HANDOFF"];
+  else env["RESOLVE_HANDOFF"] = handoff;
+  const r = spawnSync(process.execPath, [bin, ...args], { cwd, encoding: "utf8", env });
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 };
 const read = (path: string) => readFileSync(path, "utf8");
@@ -78,6 +80,8 @@ describe("slash commands: install", () => {
         expect(text).not.toMatch(/figd\_|\bfile[ -]?key: [A-Za-z0-9]{16,}/i);
       }
     }
+    expect(existsSync(join(cwd, ".claude/commands/handoff.md"))).toBe(false);
+    expect(existsSync(join(cwd, ".cursor/commands/handoff.md"))).toBe(false);
     expect(read(join(cwd, "CLAUDE.md"))).toContain("Do not invent components");
     expect(read(join(cwd, "CLAUDE.md"))).toContain("Do not invent a product");
     expect(read(join(cwd, ".cursor/rules/resolve.mdc"))).toContain("alwaysApply: true");
@@ -358,7 +362,7 @@ describe("slash commands: uninstall", () => {
 describe("slash commands: MCP prompts and status", () => {
   it("exposes the same commands as prompts and leaves brief on the default tool list", () => {
     expect(listPrompts().map((p) => p.name)).toEqual(NAMES);
-    expect(listToolDefinitions(false)).toHaveLength(8);
+    expect(listToolDefinitions(false)).toHaveLength(9);
     const prompt = getPrompt("find", { input: "payee picker" })!;
     expect(prompt.messages[0]!.content.text).toContain("The designer typed: payee picker");
     expect(prompt.messages[0]!.content.text).toContain("recommend");

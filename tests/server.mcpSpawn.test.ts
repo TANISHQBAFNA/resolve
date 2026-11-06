@@ -94,9 +94,9 @@ describe("documented MCP install command", () => {
     expect(existsSync(mcpDist)).toBe(true);
     const viaMcpBin = await listToolsFrom(process.execPath, [mcpBin]);
     expect(new Set(viaMcpBin)).toEqual(
-      new Set(["learn_library", "recipe", "brief", "recommend", "resolve", "get_example", "verify_frame", "check_cousins"]),
+      new Set(["learn_library", "recipe", "brief", "recommend", "configure", "resolve", "get_example", "verify_frame", "check_cousins"]),
     );
-    expect(viaMcpBin).toHaveLength(8);
+    expect(viaMcpBin).toHaveLength(9);
 
     const viaCliArg = await listToolsFrom(process.execPath, [cliBin, "resolve-mcp"]);
     expect(viaCliArg).toEqual(viaMcpBin);

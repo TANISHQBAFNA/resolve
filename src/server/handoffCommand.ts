@@ -16,7 +16,9 @@ import {
 } from "@/core/query";
 import { presentToolResult } from "./cards";
 import { writeDecision } from "./decisionCommand";
+import { RECORD_PROPERTY } from "./decisionMcp";
 import { PACK_BIND_FLAGS } from "./cliUsage";
+import { graphIdProperty, screenContextProperties } from "./toolFields";
 import { bindFromFlags, flag, printJson, requireGraph, withJsonErrors } from "./cliArgs";
 import {
   loadRecipes,
@@ -165,3 +167,32 @@ function handoff(args: string[]): void {
   process.stdout.write(`${presentToolResult(result, "markdown", "get_handoff")}\n`);
   return;
 }
+
+export const HANDOFF_TOOL = {
+  name: "get_handoff",
+  description:
+    "Developer handoff sheet for one or more designed screens (frames): recipe slots, each component placed on the screen with fileKey and figmaNodeId and its code from .resolve/code-map.json (unmapped when there is no entry; never guessed), selector, module, inputs and outputs, suggested inputs from Figma variant properties (Variant=Primary becomes variant=\"primary\") and a suggested template line, the parts inside each component, a PASS or FAIL line, approved decisions (who, when, why), and open questions. Never refuses: a retired component, a stale code link, a layer-name guess ('MCP metadata insufficient for component X. Use Figma REST or design_context.') or a missing component is listed under warnings, each with a next step to try. allowWeak makes a labelled draft (name-guess) with no warning; drafts are not for build. Over 40,000 characters of the structured card, parts are shown one level less deep at a time until it fits, and the card says how many parts are listed. Open questions and the summary counts always come from the full sheet. Markdown lists each part once, on its component, not again as a second parts table. A copy whose component is in no learned file is a not-found warning. A component from a library file that is not learned is other-library (no Figma id of this file, code unknown, not counted as unmapped). A not-found component is code unknown too. The card lists the other values of each Figma property (the placed one is left out). A recipe slot is placed, inside another component (the card names it), or missing. Placed and inside both count as covered. One copy fills one slot. A frame can be a pasted Figma link with node-id. Markdown by default. Advanced surface. Do not Read graph.json.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      ...RECORD_PROPERTY,
+      ...graphIdProperty,
+      frame: { type: "string", description: "Frame name, graph id, figma node id or fileKey:nodeId." },
+      frames: { type: "array", items: { type: "string" }, description: "Several frames for one handoff pack." },
+      allowWeak: { type: "boolean", description: "Draft: allow components known only from layer names (labelled name-guess) or missing from the learned files (labelled not-found). Retired components stay a warning." },
+      recipe: { type: "string", description: "Recipe id or intent to check the screen against. Default: matched from the screen name." },
+      depth: { type: "number", description: "Levels of parts per component, 1-3. Default 3. Any other value is clamped, and depthNote says so." },
+      answers: {
+        type: "object",
+        description: "Briefing answers. Shape and state answers are added to the parts, not only listed as a note. At most 3 answers.",
+        additionalProperties: true,
+      },
+      pack: { type: "string" },
+      product: { type: "string" },
+      journey: { type: "string" },
+      domain: { type: "string" },
+      ...screenContextProperties,
+    },
+  },
+};
+

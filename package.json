@@ -22,6 +22,7 @@
   "files": [
     "bin",
     "commands",
+    "legacy",
     "dist-server",
     "docs",
     "templates",
@@ -61,8 +62,8 @@
   },
   "resolveSizeBudget": {
     "code": 1922,
-    "server": 7200,
-    "core": 35440
+    "server": 7274,
+    "core": 35667
   },
   "engines": {
     "node": ">=22.12.0"

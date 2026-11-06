@@ -19,6 +19,7 @@ import {
   writeStored,
 } from "./cliArgs";
 import { composeFromCli } from "./composeCommand";
+import { runConfigureCli } from "./configureCommand";
 import { runHandoff } from "./handoffCommand";
 import { runAddonCommand } from "./addonHook";
 import { contextFromFlags, recordFlag, runDecisions } from "./decisionCommand";
@@ -331,6 +332,10 @@ async function dispatchCli(argv: string[]): Promise<void> {
       runPickCommand(args);
       return;
     }
+
+    case "configure":
+      runConfigureCli(args);
+      return;
 
     case "recommend": {
       const asked = positionals(args)[0];

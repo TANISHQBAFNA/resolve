@@ -10,5 +10,4 @@ if (major < 22 || (major === 22 && minor < 12)) {
   );
 }
 process.env["RESOLVE_PROJECT_COPY"] = "0";
-// Handoff is opt-in (RESOLVE_HANDOFF=1). Its own tests run with it on; tests/handoff.optIn.test.ts checks the default (off).
-process.env["RESOLVE_HANDOFF"] = "1";
+// Handoff is opt-in. The harness does not set RESOLVE_HANDOFF. A test that runs the legacy command sets the flag itself.

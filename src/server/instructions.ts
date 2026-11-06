@@ -56,7 +56,7 @@ If freshness.stale, freshness.delta lists the pages or frames to re-fetch, then 
 
 Simplest thing that works. Reuse an existing component before anything new. One check: verify_frame.
 
-Default tools: learn_library, recipe, brief, recommend, resolve, get_example, verify_frame, check_cousins. Set RESOLVE_MCP_ADVANCED=1 for the rest. Do not Read or dump graph.json.
+Default tools: learn_library, recipe, brief, recommend, configure, resolve, get_example, verify_frame, check_cousins. Set RESOLVE_MCP_ADVANCED=1 for the rest. Do not Read or dump graph.json.
 `;
 
 /** Code pack: coded components in a repo instead of Figma masters. */

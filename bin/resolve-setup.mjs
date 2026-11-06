@@ -12,6 +12,7 @@ if (nodeVersionTooOld(process.version)) {
  * --global is Claude only (~/.claude skill and ~/.claude/CLAUDE.md). Cursor has no
  * global rules folder; its rule stays in the project.
  * Also the slash commands (commands/*.md): .claude/commands for Claude Code, .cursor/commands for Cursor.
+ * The legacy handoff command lives outside that directory and is copied only when RESOLVE_HANDOFF=1.
  * Re-runs only change a complete marked block. --uninstall removes only what Resolve wrote. Does not read tokens or other secrets.
  */
 import { accessSync, constants, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -34,7 +35,7 @@ export const CLAUDE_BLOCK = [
   "",
   "Resolve works best when the Figma MCP connection is active and a design system, library, or existing screens are learned. If either is missing, tell the user in plain words what is missing and how to add it. Connect Figma in this app, then map the file with learn_library. Do not guess. Do not invent components.",
   "",
-  "Map the file first. Set context before any component pick from the requirements or FSD: product, journey, audience, and a11y. The agent reads that document; Resolve does not. Do not ask for those four. Leave a field off when the document does not say it. Do not invent a product. A context pack is optional and matches only an exact product, and an exact journey when the document gives one. On a screen request, call brief before recommend (at most 3 questions). Then recipe, recommend, get_example, verify_frame, and check_cousins when a library and a product file are linked. Place only returned figmaNodeIds. An empty recommend means stop. Resolve is read-only.",
+  "Map the file first. Set context before any component pick from the requirements or FSD: product, journey, audience, and a11y. The agent reads that document; Resolve does not. Do not ask for those four. Leave a field off when the document does not say it. Do not invent a product. A context pack is optional and matches only an exact product, and an exact journey when the document gives one. On a screen request, call brief before recommend (at most 3 questions). Then recipe, recommend, get_example, verify_frame, and check_cousins when a library and a product file are linked. To choose and configure components for a screen, load the resolve-configure skill and guidelines.md. Place only returned figmaNodeIds. An empty recommend means stop. Resolve is read-only.",
   "",
 ].join("\n");
 
@@ -498,6 +499,23 @@ export function shippedCommands(root = packageRoot) {
     .map((file) => ({ name: file.replace(/\.md$/, ""), text: readFileSync(join(dir, file), "utf8") }));
 }
 
+/** The developer export command. Not in commands/, so a plugin install of that folder does not publish it. */
+export function legacyHandoffCommand(root = packageRoot) {
+  const path = join(root, "legacy", "commands", "handoff.md");
+  if (!existsSync(path)) return undefined;
+  return { name: "handoff", text: readFileSync(path, "utf8") };
+}
+
+/** Default commands, plus the legacy export only when RESOLVE_HANDOFF=1. */
+export function commandsToInstall(root = packageRoot, env = process.env) {
+  const commands = shippedCommands(root);
+  if (env["RESOLVE_HANDOFF"]?.trim() === "1") {
+    const legacy = legacyHandoffCommand(root);
+    if (legacy) commands.push(legacy);
+  }
+  return commands;
+}
+
 /** Cursor commands are plain markdown with no front matter; the user's words follow the command. */
 export function cursorCommand(text) {
   const { body } = splitFrontmatter(text);
@@ -588,11 +606,13 @@ export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot 
   const base = isGlobal ? home : cwd;
   const opts = { cwd, home, global: isGlobal };
   const record = loadRecord(opts);
-  const names = shippedCommands(root).map((c) => c.name);
+  const names = [...shippedCommands(root).map((c) => c.name), "handoff"];
   const owned = [
-    ...(isGlobal ? [] : [join(cwd, ".cursor", "rules", "resolve.mdc"), ...PACKS.map((p) => join(cwd, ".cursor", "rules", `resolve-${p}.mdc`))]),
+    ...(isGlobal ? [] : [join(cwd, ".cursor", "rules", "resolve.mdc"), ...PACKS.map((p) => join(cwd, ".cursor", "rules", `resolve-${p}.mdc`)), join(cwd, ".cursor", "rules", "resolve-configure.mdc")]),
     join(base, ".claude", "skills", "resolve", "SKILL.md"),
     ...PACKS.map((p) => join(base, ".claude", "skills", `resolve-${p}`, "SKILL.md")),
+    join(base, ".claude", "skills", "resolve-configure", "SKILL.md"),
+    join(base, ".claude", "skills", "resolve-configure", "guidelines.md"),
     ...names.map((n) => join(base, ".claude", "commands", `${n}.md`)),
     ...(isGlobal ? [] : names.map((n) => join(cwd, ".cursor", "commands", `${n}.md`))),
     isGlobal ? join(home, ".claude", "CLAUDE.md") : join(cwd, "CLAUDE.md"),
@@ -712,6 +732,8 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
       const packRule = join(cwd, ".cursor", "rules", `resolve-${pack}.mdc`);
       planned.push({ path: packRule, ...installOwned(readOrNull(packRule), readFileSync(join(root, "rules", `resolve-${pack}.mdc`), "utf8"), force) });
     }
+    const configureRule = join(cwd, ".cursor", "rules", "resolve-configure.mdc");
+    planned.push({ path: configureRule, ...installOwned(readOrNull(configureRule), readFileSync(join(root, "rules", "resolve-configure.mdc"), "utf8"), force) });
   }
   // Project files only. User-level files (~/.claude.json, ~/.cursor, ~/.codex) are never written.
   if (!isGlobal) {
@@ -723,7 +745,7 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
     );
   }
   // Slash commands. A command file you wrote yourself (no Resolve markers) is kept unless --force.
-  for (const command of shippedCommands(root)) {
+  for (const command of commandsToInstall(root)) {
     const claudeCommand = join(base, ".claude", "commands", `${command.name}.md`);
     planned.push({ path: claudeCommand, command: true, ...installOwned(readOrNull(claudeCommand), command.text, force) });
     if (!isGlobal) {
@@ -737,6 +759,10 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
     const packSkill = join(base, ".claude", "skills", `resolve-${pack}`, "SKILL.md");
     planned.push({ path: packSkill, ...installOwned(readOrNull(packSkill), readFileSync(join(root, "skills", `resolve-${pack}`, "SKILL.md"), "utf8"), force) });
   }
+  const configureSkill = join(base, ".claude", "skills", "resolve-configure", "SKILL.md");
+  const configureGuide = join(base, ".claude", "skills", "resolve-configure", "guidelines.md");
+  planned.push({ path: configureSkill, ...installOwned(readOrNull(configureSkill), readFileSync(join(root, "skills", "resolve-configure", "SKILL.md"), "utf8"), force) });
+  planned.push({ path: configureGuide, ...installOwned(readOrNull(configureGuide), readFileSync(join(root, "skills", "resolve-configure", "guidelines.md"), "utf8"), force) });
   planned.push({ path: claudePath, ...installClaude(readOrNull(claudePath)) });
   if (!isGlobal) {
     const gitPath = join(cwd, ".gitignore");
@@ -885,8 +911,9 @@ function main() {
     else if (arg === "--yes" || arg === "-y") yes = true;
     else if (arg === "--uninstall") uninstall = true;
     else if (arg === "--help" || arg === "-h") {
+      const slash = ["/design-system", "/find", "/brief", "/configure", "/check", "/parts", ...(process.env["RESOLVE_HANDOFF"]?.trim() === "1" ? ["/handoff"] : []), "/code-map", "/spec", "/resolve-status"].join(" ");
       process.stdout.write(
-        "Usage: resolve-setup [--dry-run] [--global] [--yes] [--force] [--uninstall]\nInstalls the Cursor rules and Claude skills (core, Figma pack, code pack), a marked CLAUDE.md block, the slash commands (.claude/commands and .cursor/commands: /design-system /find /brief /check /parts /handoff /code-map /spec /resolve-status, and for code /learn-code /pick-code /check-html), and adds the Resolve server to this project's .cursor/mcp.json and .mcp.json (other servers are kept; a file that is not valid JSON is left alone).\n--global writes into the home folder (~/.claude). It prints the paths and exits unless you pass --yes. It does not write MCP files.\n--force replaces a file that has no Resolve markers, or a different resolve entry in an MCP file.\nIt never writes ~/.claude.json, ~/.cursor or ~/.codex.\nRun it again to update: only files and blocks Resolve wrote are rewritten. A command or rule file you wrote yourself is kept.\n--uninstall removes only what Resolve wrote (its marked blocks and files, and its own resolve entry in the MCP files). Your own files and text stay.\n",
+        `Usage: resolve-setup [--dry-run] [--global] [--yes] [--force] [--uninstall]\nInstalls the Cursor rules and Claude skills (core, Figma pack, code pack), a marked CLAUDE.md block, the slash commands (.claude/commands and .cursor/commands: ${slash}, and for code /learn-code /pick-code /check-html), and adds the Resolve server to this project's .cursor/mcp.json and .mcp.json (other servers are kept; a file that is not valid JSON is left alone).\n--global writes into the home folder (~/.claude). It prints the paths and exits unless you pass --yes. It does not write MCP files.\n--force replaces a file that has no Resolve markers, or a different resolve entry in an MCP file.\nIt never writes ~/.claude.json, ~/.cursor or ~/.codex.\nRun it again to update: only files and blocks Resolve wrote are rewritten. A command or rule file you wrote yourself is kept.\n--uninstall removes only what Resolve wrote (its marked blocks and files, and its own resolve entry in the MCP files). Your own files and text stay.\n`,
       );
       return;
     } else {
