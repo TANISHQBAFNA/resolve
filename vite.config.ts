@@ -134,5 +134,7 @@ export default defineConfig({
     environment: "node",
     include: ["tests/**/*.test.ts", "addons/**/*.test.ts"],
     setupFiles: ["tests/noAmbientStore.ts"],
+    // Heavy graph tests run near 5s on shared CI runners and flake at the 5000ms default.
+    testTimeout: 20_000,
   },
 });
