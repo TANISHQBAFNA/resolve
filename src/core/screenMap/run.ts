@@ -37,6 +37,7 @@ export function screenMapTools(enabled: boolean) {
 export interface MapIo {
   cwd: string;
   enabled: boolean;
+  lookalikes?: boolean;
   loadGraph: () => DesignGraph | undefined;
   stdout?: (text: string) => void;
 }
@@ -53,13 +54,14 @@ export function runMapCall(name: string, args: Record<string, unknown>, io: MapI
     const doc = buildScreenMap(graph, {
       frameId: typeof args["frame"] === "string" ? args["frame"] : undefined,
       refs: args["refs"] === true,
+      lookalikes: io.lookalikes === true,
       ...(typeof args["builtAt"] === "string" ? { builtAt: args["builtAt"] } : {}),
     });
     const written = writeScreenMap(io.cwd, doc);
     const warnings = written.rebuilt ? [mapWarning("W-MAP-REBUILT", "Rebuilt this file version.")] : [];
     return { ok: true, path: written.path, fileKey: doc.fileKey, fileVersion: doc.fileVersion, warnings, next: warnings[0]?.next ?? "resolve map outline" };
   }
-  const loaded = loadMap(io.cwd, graph, typeof args["fileKey"] === "string" ? args["fileKey"] : graph?.fileKey);
+  const loaded = loadMap(io.cwd, graph, typeof args["fileKey"] === "string" ? args["fileKey"] : graph?.fileKey, typeof args["builtAt"] === "string" ? args["builtAt"] : undefined, io.lookalikes === true);
   if (!loaded.doc) return { warnings: loaded.warnings, next: loaded.warnings[0]?.next ?? "resolve learn" };
   const doc = loaded.doc;
   const view = name === "map_outline" ? outlineView(doc, { page, offset })
