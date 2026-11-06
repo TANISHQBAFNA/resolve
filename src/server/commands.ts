@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { PickRequest } from "../core/query/meaning/dsck";
 import { packFromFiles, stableShortlist, validateAiPick } from "../core/query/meaning/dsckPick";
 import type { Mode } from "./mode.ts";
+import { handoffEnabled } from "@/core/query/handoffGate";
 import { activeMode, includesPack } from "./mode.ts";
 import { aiPicksEnabled } from "./pluginSettings";
 
@@ -143,6 +144,7 @@ export function loadCommands(mode: Mode = activeMode()): CommandPrompt[] {
   if (!dir) return [];
   return readdirSync(dir)
     .filter((file) => file.endsWith(".md"))
+    .filter((file) => file !== "handoff.md" || handoffEnabled())
     .filter((file) => includesPack(mode, CODE_COMMANDS.includes(file.replace(/\.md$/, "")) ? "code" : "figma"))
     .sort()
     .map((file) => {

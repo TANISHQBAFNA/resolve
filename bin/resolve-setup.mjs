@@ -728,6 +728,7 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
   }
   // Slash commands. A command file you wrote yourself (no Resolve markers) is kept unless --force.
   for (const command of shippedCommands(root)) {
+    if (command.name === "handoff" && process.env["RESOLVE_HANDOFF"]?.trim() !== "1") continue;
     const claudeCommand = join(base, ".claude", "commands", `${command.name}.md`);
     planned.push({ path: claudeCommand, command: true, ...installOwned(readOrNull(claudeCommand), command.text, force) });
     if (!isGlobal) {
@@ -893,8 +894,9 @@ function main() {
     else if (arg === "--yes" || arg === "-y") yes = true;
     else if (arg === "--uninstall") uninstall = true;
     else if (arg === "--help" || arg === "-h") {
+      const slash = ["/design-system", "/find", "/brief", "/configure", "/check", "/parts", ...(process.env["RESOLVE_HANDOFF"]?.trim() === "1" ? ["/handoff"] : []), "/code-map", "/spec", "/resolve-status"].join(" ");
       process.stdout.write(
-        "Usage: resolve-setup [--dry-run] [--global] [--yes] [--force] [--uninstall]\nInstalls the Cursor rules and Claude skills (core, Figma pack, code pack), a marked CLAUDE.md block, the slash commands (.claude/commands and .cursor/commands: /design-system /find /brief /check /parts /handoff /code-map /spec /resolve-status, and for code /learn-code /pick-code /check-html), and adds the Resolve server to this project's .cursor/mcp.json and .mcp.json (other servers are kept; a file that is not valid JSON is left alone).\n--global writes into the home folder (~/.claude). It prints the paths and exits unless you pass --yes. It does not write MCP files.\n--force replaces a file that has no Resolve markers, or a different resolve entry in an MCP file.\nIt never writes ~/.claude.json, ~/.cursor or ~/.codex.\nRun it again to update: only files and blocks Resolve wrote are rewritten. A command or rule file you wrote yourself is kept.\n--uninstall removes only what Resolve wrote (its marked blocks and files, and its own resolve entry in the MCP files). Your own files and text stay.\n",
+        `Usage: resolve-setup [--dry-run] [--global] [--yes] [--force] [--uninstall]\nInstalls the Cursor rules and Claude skills (core, Figma pack, code pack), a marked CLAUDE.md block, the slash commands (.claude/commands and .cursor/commands: ${slash}, and for code /learn-code /pick-code /check-html), and adds the Resolve server to this project's .cursor/mcp.json and .mcp.json (other servers are kept; a file that is not valid JSON is left alone).\n--global writes into the home folder (~/.claude). It prints the paths and exits unless you pass --yes. It does not write MCP files.\n--force replaces a file that has no Resolve markers, or a different resolve entry in an MCP file.\nIt never writes ~/.claude.json, ~/.cursor or ~/.codex.\nRun it again to update: only files and blocks Resolve wrote are rewritten. A command or rule file you wrote yourself is kept.\n--uninstall removes only what Resolve wrote (its marked blocks and files, and its own resolve entry in the MCP files). Your own files and text stay.\n`,
       );
       return;
     } else {
