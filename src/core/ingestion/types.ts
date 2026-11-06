@@ -65,6 +65,10 @@ export const SourcePaintSchema = z.object({
   gapBound: z.boolean().optional(),
   radius: z.number().optional(),
   radiusBound: z.boolean().optional(),
+  /** Per-corner radii when the four corners are not one value. */
+  cornerRadii: z.object({ tl: z.number(), tr: z.number(), br: z.number(), bl: z.number() }).optional(),
+  /** Effect types only. No offsets, colours, or image blobs. */
+  effects: z.array(z.object({ type: z.string(), bound: z.boolean() })).optional(),
 });
 export type SourcePaint = z.infer<typeof SourcePaintSchema>;
 
@@ -107,6 +111,11 @@ export const SourceNodeSchema: z.ZodType<SourceNode> = z.lazy(() =>
     layoutSizingVertical: z.string().optional(),
     primaryAxisSizingMode: z.string().optional(),
     counterAxisSizingMode: z.string().optional(),
+    primaryAxisAlignItems: z.string().optional(),
+    counterAxisAlignItems: z.string().optional(),
+    layoutWrap: z.string().optional(),
+    /** Figma `componentPropertyReferences`. Values keep the raw property name. */
+    componentPropertyReferences: z.record(z.string(), z.string()).optional(),
     minHeight: z.number().optional(),
     minWidth: z.number().optional(),
     hasImageFill: z.boolean().optional(),
@@ -146,6 +155,10 @@ export interface SourceNode {
   layoutSizingVertical?: string;
   primaryAxisSizingMode?: string;
   counterAxisSizingMode?: string;
+  primaryAxisAlignItems?: string;
+  counterAxisAlignItems?: string;
+  layoutWrap?: string;
+  componentPropertyReferences?: Record<string, string>;
   minHeight?: number;
   minWidth?: number;
   hasImageFill?: boolean;

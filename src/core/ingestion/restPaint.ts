@@ -90,6 +90,9 @@ export function captureRestPaint(raw: unknown): SourcePaint | undefined {
   const paddingBound = PADDING.map((key) => boundSlot(node, [key], [], []));
   const gap = num(node["itemSpacing"]);
   const radius = num(node["cornerRadius"]);
+  const cornerRadii = readCornerRadii(node);
+  const uneven =
+    cornerRadii !== undefined && new Set([cornerRadii.tl, cornerRadii.tr, cornerRadii.br, cornerRadii.bl]).size > 1;
   const radiusBound = boundSlot(
     node,
     ["cornerRadius", "topLeftRadius", "topRightRadius", "bottomLeftRadius", "bottomRightRadius", "rectangleCornerRadii"],
@@ -106,11 +109,11 @@ export function captureRestPaint(raw: unknown): SourcePaint | undefined {
   }
   if (fontSize !== undefined) paint.fontSize = fontSize;
   if (weight !== undefined) paint.fontWeight = weight;
-  if (padding.some((value) => value !== undefined && value !== 0)) {
+  if (padding.every((value) => value !== undefined) || padding.some((value) => value !== undefined && value !== 0)) {
     paint.padding = padding.map((value) => value ?? 0);
     paint.paddingBound = paddingBound;
   }
-  if (gap !== undefined && gap !== 0) {
+  if (gap !== undefined) {
     paint.gap = gap;
     paint.gapBound = boundSlot(node, ["itemSpacing"], [], []);
   }
@@ -118,7 +121,26 @@ export function captureRestPaint(raw: unknown): SourcePaint | undefined {
     paint.radius = radius;
     paint.radiusBound = radiusBound;
   }
+  if (uneven && cornerRadii) paint.cornerRadii = cornerRadii;
+  if (effects.length) {
+    const nodeBound = !effectUnbound;
+    paint.effects = effects.map((entry) => {
+      const effect = rec(entry);
+      const own = Object.keys(rec(effect["boundVariables"])).length > 0;
+      return { type: str(effect["type"]) ?? "UNKNOWN", bound: nodeBound || own };
+    });
+  }
   return Object.keys(paint).length ? paint : undefined;
+}
+
+function readCornerRadii(node: Rec): NonNullable<SourcePaint["cornerRadii"]> | undefined {
+  const box = list(node["rectangleCornerRadii"]);
+  const tl = num(node["topLeftRadius"]) ?? num(box[0]);
+  const tr = num(node["topRightRadius"]) ?? num(box[1]);
+  const br = num(node["bottomRightRadius"]) ?? num(box[2]);
+  const bl = num(node["bottomLeftRadius"]) ?? num(box[3]);
+  if (tl === undefined && tr === undefined && br === undefined && bl === undefined) return undefined;
+  return { tl: tl ?? 0, tr: tr ?? 0, br: br ?? 0, bl: bl ?? 0 };
 }
 
 function nodeCarriesBindings(node: Rec): boolean {

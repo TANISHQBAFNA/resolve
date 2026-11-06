@@ -62,8 +62,9 @@ function related(familyName: string, hints: string[]): boolean {
   for (const token of hintTokens) {
     if ([...fam].some((part) => part.startsWith(token) || token.startsWith(part))) return true;
     for (const group of synonymFile.groups) {
-      const terms = group.terms.flatMap((term) => words(term));
-      if (terms.includes(token) && terms.some((term) => fam.has(term))) return true;
+      // A phrase counts only when every word of it is in the hints, the way recommend reads phrases.
+      const said = group.terms.filter((term) => words(term).every((part) => hintTokens.includes(part))).flatMap((term) => words(term));
+      if (said.includes(token) && group.terms.flatMap((term) => words(term)).some((term) => fam.has(term))) return true;
     }
   }
   return false;

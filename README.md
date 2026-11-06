@@ -155,12 +155,14 @@ Resolve never stops on a finding. Every problem is a warning with a `next:` step
 | `/pick-code <need>` | Code workflow. The right coded component, with its classes and markup. |
 | `/check-html <file>` | Code workflow. Unknown or deprecated classes, missing base classes, hard-coded values. |
 | `/resolve-status` | What is learned, whether the token and rule are set, and what to do next. |
+| `/map` | Opt-in. Walk an Acme screen tree: outline, one screen, a node, a journey, or drift. Warnings only. |
 
 ## Learn more
 
 | Topic | Where |
 | --- | --- |
 | A brief before the screens | [Design brief](docs/design-brief.md) |
+| A private screen tree | [Screen Map](docs/screen-map.md) |
 | A prototype before developers | [Prototype readiness](docs/readiness.md) |
 | How it works, step by step | [How it works in detail](docs/REFERENCE.md#how-it-works-in-detail) |
 | Proper-use checks | [Check that a screen uses the library properly](docs/REFERENCE.md#check-that-a-screen-uses-the-library-properly) |
