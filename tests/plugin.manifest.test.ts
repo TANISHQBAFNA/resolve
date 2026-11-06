@@ -113,7 +113,9 @@ describe("plugin manifests", () => {
     expect(existsSync(join(root, "skills/resolve/SKILL.md"))).toBe(true);
     expect(readFileSync(join(root, "rules/resolve.mdc"), "utf8")).toContain("alwaysApply: true");
     const commands = readdirSync(join(root, "commands")).filter((file) => file.endsWith(".md")).sort();
-    expect(commands).toEqual(["brief.md", "check-html.md", "check.md", "code-knowledge.md", "code-map.md", "configure.md", "design-system.md", "find.md", "handoff.md", "learn-code.md", "parts.md", "pick-code.md", "resolve-status.md", "spec.md"]);
+    expect(commands).toEqual(["brief.md", "check-html.md", "check.md", "code-knowledge.md", "code-map.md", "configure.md", "design-system.md", "find.md", "learn-code.md", "parts.md", "pick-code.md", "resolve-status.md", "spec.md"]);
+    expect(commands).not.toContain("handoff.md");
+    expect(existsSync(join(root, "legacy", "commands", "handoff.md"))).toBe(true);
     expect(statSync(join(root, cursorPlugin.rules)).isDirectory()).toBe(true);
     expect(statSync(join(root, cursorPlugin.skills)).isDirectory()).toBe(true);
     expect(statSync(join(root, cursorPlugin.commands)).isDirectory()).toBe(true);

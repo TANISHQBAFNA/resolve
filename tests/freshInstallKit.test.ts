@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DESIGNER } from "@/server/designerMessages";
 import { PHRASES, classify, commandPlan } from "../scripts/fresh-install-kit.mjs";
 
@@ -12,6 +12,15 @@ const done = (result: string) => ({ type: "result", result });
 const status = "npx -y -p github:TANISHQBAFNA/resolve#v0.2.0 resolve-figma status";
 
 describe("F4-R1 fresh-install kit", () => {
+  const saved = process.env["RESOLVE_HANDOFF"];
+  beforeEach(() => {
+    delete process.env["RESOLVE_HANDOFF"];
+  });
+  afterEach(() => {
+    if (saved === undefined) delete process.env["RESOLVE_HANDOFF"];
+    else process.env["RESOLVE_HANDOFF"] = saved;
+  });
+
   it("looks for the designer messages Resolve really prints", () => {
     expect(DESIGNER.notInstalled.startsWith(PHRASES.notInstalled)).toBe(true);
     expect(DESIGNER.nothingLearned.startsWith(PHRASES.nothingLearned)).toBe(true);
@@ -26,7 +35,11 @@ describe("F4-R1 fresh-install kit", () => {
     expect(commandPlan().map(([name]) => name).sort()).toEqual(shipped.filter((name) => !code.includes(name)));
     expect(commandPlan().map(([name]) => name)).toContain("spec");
     const link = "https://www.figma.com/design/KEY/File?node-id=1-2";
-    expect(Object.fromEntries(commandPlan(link))).toMatchObject({ parts: link, handoff: link, check: link, "design-system": "https://www.figma.com/design/KEY/File" });
+    expect(Object.fromEntries(commandPlan(link))).toMatchObject({ parts: link, check: link, "design-system": "https://www.figma.com/design/KEY/File" });
+    expect(Object.fromEntries(commandPlan(link))).not.toHaveProperty("handoff");
+    process.env["RESOLVE_HANDOFF"] = "1";
+    expect(commandPlan(link).map(([name]) => name)).toContain("handoff");
+    delete process.env["RESOLVE_HANDOFF"];
   });
 
   it("passes a command only when a call reached Resolve and came back with an answer", () => {
