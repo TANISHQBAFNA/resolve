@@ -1,0 +1,8 @@
+---
+description: When choosing and configuring real design-system components for a screen, load the resolve-configure skill and guidelines.md. Do not invent properties.
+alwaysApply: false
+---
+
+# Choose and configure
+
+Load `skills/resolve-configure/SKILL.md` and `skills/resolve-configure/guidelines.md`. Follow those files. This rule does not restate them.
