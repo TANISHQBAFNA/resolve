@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { PickRequest } from "../core/query/meaning/dsck";
 import { packFromFiles, stableShortlist, validateAiPick } from "../core/query/meaning/dsckPick";
 import type { Mode } from "./mode.ts";
-import { handoffEnabled } from "@/core/query/handoffGate";
+import { handoffEnabled } from "@/core/handoff/handoffGate";
 import { activeMode, includesPack } from "./mode.ts";
 import { aiPicksEnabled } from "./pluginSettings";
 
