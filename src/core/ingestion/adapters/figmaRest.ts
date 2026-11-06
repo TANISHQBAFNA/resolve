@@ -132,6 +132,16 @@ function collectStyleIds(raw: AnyRecord): Record<string, string> | undefined {
   return Object.keys(out).length ? out : undefined;
 }
 
+function propertyReferences(raw: AnyRecord): Record<string, string> | undefined {
+  const refs = asRecord(raw["componentPropertyReferences"]);
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(refs)) {
+    const text = asString(value)?.trim();
+    if (text) out[key] = text;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 function hasImageFill(raw: AnyRecord): boolean {
   return asArray(raw["fills"]).some((fill) => asString(asRecord(fill)["type"]) === "IMAGE");
 }
@@ -329,6 +339,14 @@ function walkNode(
   if (primaryAxisSizingMode) node.primaryAxisSizingMode = primaryAxisSizingMode;
   const counterAxisSizingMode = asString(raw["counterAxisSizingMode"]);
   if (counterAxisSizingMode) node.counterAxisSizingMode = counterAxisSizingMode;
+  const primaryAlign = asString(raw["primaryAxisAlignItems"]);
+  if (primaryAlign) node.primaryAxisAlignItems = primaryAlign;
+  const counterAlign = asString(raw["counterAxisAlignItems"]);
+  if (counterAlign) node.counterAxisAlignItems = counterAlign;
+  const layoutWrap = asString(raw["layoutWrap"]);
+  if (layoutWrap && layoutWrap !== "NO_WRAP") node.layoutWrap = layoutWrap;
+  const references = propertyReferences(raw);
+  if (references) node.componentPropertyReferences = references;
   const minHeight = asNumber(raw["minHeight"]);
   if (minHeight !== undefined) node.minHeight = minHeight;
   const minWidth = asNumber(raw["minWidth"]);
