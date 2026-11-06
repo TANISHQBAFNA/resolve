@@ -1,6 +1,7 @@
 import { TextInputError } from "@/core/ingestion/textStamps";
 import { READY_TOOL, runReadyTool } from "@/ready/run.ts";
 import { CODE_TOOL_NAMES, CODE_TOOLS, runCodeTool } from "./code/mcp.ts";
+import { mapToolsIfEnabled, runMapTool } from "./mapHook.ts";
 import { graphMasters } from "./graphMasters.ts";
 import { asStringList, parseLearnOutline } from "./toolArgs.ts";
 import type { Mode } from "./mode.ts";
@@ -122,7 +123,7 @@ const formatProperty = {
 export function listToolDefinitions(advanced = process.env["RESOLVE_MCP_ADVANCED"] === "1", mode: Mode = activeMode()): ToolDefinition[] {
   const allowed = new Set<string>(DEFAULT_TOOL_NAMES);
   const figma = includesPack(mode, "figma") ? (advanced ? TOOLS : TOOLS.filter((tool) => allowed.has(tool.name))).filter((tool) => tool.name !== "get_handoff" || handoffEnabled()) : [];
-  const tools = [...figma, ...(includesPack(mode, "code") ? [...CODE_TOOLS, READY_TOOL] : [])];
+  const tools = [...figma, ...(includesPack(mode, "code") ? [...CODE_TOOLS, READY_TOOL] : []), ...mapToolsIfEnabled()];
   // A shared input (format, graphId, a11y, freshness...) is described in full once; later tools point back to it.
   const firstSeen = new Map<string, string>();
   return tools.map((tool) => {
@@ -637,6 +638,7 @@ export function callTool(name: string, rawArgs: unknown): unknown {
     const instead = DEPRECATED_INSTEAD[name] ?? "the current tools";
     throw new ToolError(`Tool "${name}" was removed. Use ${instead}.`);
   }
+  if (name.startsWith("map_")) return withCost(runMapTool(name, (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>) as object);
   try {
     const aliased = callCodeMapAlias(name, rawArgs, (args) => context(args).index);
     if (aliased !== undefined) return aliased && typeof aliased === "object" && !Array.isArray(aliased) ? withCost(aliased) : aliased;

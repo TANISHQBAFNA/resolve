@@ -29,6 +29,11 @@ async function main(): Promise<void> {
     else runCodeCommand(argv.filter((arg) => arg !== "--pretty" && arg !== "code"), (await import("./graphMasters.ts")).graphMasters);
     return;
   }
+  if (command === "map") {
+    const { runMapCommand } = await import("./mapHook.ts");
+    runMapCommand(argv.filter((arg) => arg !== "map"));
+    return;
+  }
   const { runCli } = await import("./cli");
   await runCli(argv);
 }

@@ -144,7 +144,7 @@ export function loadCommands(mode: Mode = activeMode()): CommandPrompt[] {
   return readdirSync(dir)
     .filter((file) => file.endsWith(".md"))
     .filter((file) => includesPack(mode, CODE_COMMANDS.includes(file.replace(/\.md$/, "")) ? "code" : "figma"))
-    .sort()
+    .sort((left, right) => (left.replace(/\.md$/, "") < right.replace(/\.md$/, "") ? -1 : left.replace(/\.md$/, "") > right.replace(/\.md$/, "") ? 1 : 0))
     .map((file) => {
       const text = readFileSync(join(dir, file), "utf8");
       const match = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text);

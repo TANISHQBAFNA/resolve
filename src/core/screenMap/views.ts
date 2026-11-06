@@ -1,5 +1,7 @@
 import type { DesignGraph } from "@/core/model";
-import { indexGraph } from "@/core/query/GraphIndex";
+import { LAYER_NAME_GUESS } from "@/core/query/cardCopy";
+import { indexGraph, type GraphIndex } from "@/core/query/GraphIndex";
+import { isScreen } from "@/core/query/screenInventory";
 import { buildScreenMap, readScreenMap } from "./document";
 import type { MapNode, MapWarning, ScreenMapDocument } from "./types";
 
@@ -64,23 +66,14 @@ function pack<T extends Record<string, unknown>>(view: string, extra: T, warning
 export const findMapNode = (doc: ScreenMapDocument, id: string) =>
   doc.nodes[id] ?? Object.values(doc.nodes).find((node) => node.figmaNodeId === id);
 
-function chain(doc: ScreenMapDocument, id: string): MapNode[] {
-  const path: MapNode[] = [];
-  const seen = new Set<string>();
-  let cursor: string | undefined = id;
-  while (cursor && !seen.has(cursor)) {
-    const current: MapNode | undefined = doc.nodes[cursor];
-    if (!current) break;
-    seen.add(cursor);
-    path.unshift(current);
-    cursor = current.parentId;
-  }
-  return path;
+function screenOf(index: GraphIndex, doc: ScreenMapDocument, id: string): MapNode | undefined {
+  const screen = index.getHierarchyPath(id).find((node) => isScreen(index, node));
+  const hit = screen ?? index.getNode(id);
+  return hit ? doc.nodes[hit.id] : doc.nodes[id];
 }
 
-const screenOf = (doc: ScreenMapDocument, id: string) => chain(doc, id).find((node) => node.type === "screen") ?? doc.nodes[id];
 const guessed = (doc: ScreenMapDocument): MapWarning[] =>
-  Object.values(doc.nodes).some((node) => node.identity === "guessed") ? [warn("W-MAP-GUESSED", "Some identities were guessed from layer names.")] : [];
+  Object.values(doc.nodes).some((node) => node.identity === "guessed") ? [warn("W-MAP-GUESSED", LAYER_NAME_GUESS)] : [];
 
 export function loadMap(root: string, graph: DesignGraph | undefined, fileKey?: string, builtAt?: string) {
   const saved = readScreenMap(root, fileKey);
@@ -118,7 +111,7 @@ export function journeyView(doc: ScreenMapDocument, graph: DesignGraph, startId:
   const index = indexGraph(graph);
   const start = findMapNode(doc, startId);
   if (!start) return pack("journey", { steps: [], loops: [] }, [warn("W-MAP-NODE", `No node ${startId}.`)]);
-  const origin = screenOf(doc, start.id) ?? start;
+  const origin = screenOf(index, doc, start.id) ?? start;
   const steps: Array<Record<string, unknown>> = [];
   const loops: Array<Record<string, unknown>> = [];
   const seen = new Set<string>();
@@ -134,7 +127,7 @@ export function journeyView(doc: ScreenMapDocument, graph: DesignGraph, startId:
     for (const source of subtree(doc, node.id).nodes) {
       for (const edge of index.getEdges(source.id, { direction: "out", edgeTypes: ["PROTOTYPES_TO", "LINKS_TO"] })) {
         edges += 1;
-        const dest = screenOf(doc, edge.target);
+        const dest = screenOf(index, doc, edge.target);
         if (!dest) continue;
         const via = {
           from: node.id,
