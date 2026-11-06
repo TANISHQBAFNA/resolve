@@ -156,11 +156,13 @@ describe("plugin manifests", () => {
     }
   });
 
-  it("SessionStart reads the core skill and the active pack, and does not copy them", () => {
+  it("SessionStart reads the core skill, the configure skill, and the active pack, and does not copy them", () => {
     const descriptionOf = (path: string) => /^description:\s*(.+)\s*$/m.exec(readFileSync(join(root, path), "utf8"))?.[1];
     const core = descriptionOf("skills/resolve/SKILL.md");
+    const configure = descriptionOf("skills/resolve-configure/SKILL.md");
     const figma = descriptionOf("skills/resolve-figma/SKILL.md");
     expect(core).toContain("Load only that pack");
+    expect(configure).toContain("guidelines.md");
     expect(figma).toContain("call Resolve before drawing");
     const script = readFileSync(join(root, "scripts/resolve-session-start.mjs"), "utf8");
     expect(script).toContain('join(root, "skills", name, "SKILL.md")');
@@ -180,7 +182,7 @@ describe("plugin manifests", () => {
     });
     expect(run.status).toBe(0);
     const parsed = JSON.parse(run.stdout) as { hookSpecificOutput: { hookEventName: string; additionalContext: string } };
-    expect(parsed.hookSpecificOutput).toEqual({ hookEventName: "SessionStart", additionalContext: `${core}\n${figma}` });
+    expect(parsed.hookSpecificOutput).toEqual({ hookEventName: "SessionStart", additionalContext: `${core}\n${configure}\n${figma}` });
   });
 });
 
