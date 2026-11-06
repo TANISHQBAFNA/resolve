@@ -9,7 +9,7 @@ This chooses a real component and sets only properties the learned library allow
 1. If the input is empty, ask what the screen needs and stop.
 2. Call the MCP tool `configure` with `intent` set to the designer's words. If that tool is missing, run in the project folder: `resolve configure "<words>"`.
 3. Place only the returned id. Set a property only when its evidence is `request`. Leave `unset` properties unset. Place a child only when `slots` lists it.
-4. `visibility` is `unknown`. Do not guess which property shows or hides a child.
+4. Read `visibility`. When its `state` is `controlled`, each child names the property that shows or hides it. Use only that property. A `value` of `missing` stays unset. When its `state` is `unknown`, quote the reason and do not guess which property shows or hides a child.
 5. Show each warning and its `next:` line. A weak match stays weak. No match means stop. Never invent a component, a property value, or a child slot.
 
 ## If this fails
