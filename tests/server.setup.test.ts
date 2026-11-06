@@ -273,17 +273,20 @@ describe("resolve-setup", () => {
 
     const installDir = tempDir("npx");
     mkdirSync(installDir, { recursive: true });
+    const env: NodeJS.ProcessEnv = { ...process.env, npm_config_cache: join(packDir, "npm-cache"), NO_UPDATE_NOTIFIER: "1" };
+    delete env["RESOLVE_HANDOFF"];
     const viaPack = spawnSync("npx", ["-y", "-p", tgz, "resolve-setup"], {
       cwd: installDir,
       encoding: "utf8",
       timeout: 60_000,
-      env: { ...process.env, npm_config_cache: join(packDir, "npm-cache"), NO_UPDATE_NOTIFIER: "1" },
+      env,
     });
     expect(viaPack.status, viaPack.stderr).toBe(0);
     expect(existsSync(join(installDir, ".cursor/rules/resolve.mdc"))).toBe(true);
     expect(existsSync(join(installDir, ".claude/skills/resolve/SKILL.md"))).toBe(true);
     expect(readFileSync(join(installDir, "CLAUDE.md"), "utf8")).toContain("call Resolve before drawing");
-    expect(existsSync(join(installDir, ".claude/commands/handoff.md"))).toBe(true);
+    expect(existsSync(join(installDir, ".claude/commands/handoff.md"))).toBe(false);
+    expect(existsSync(join(installDir, ".claude/commands/configure.md"))).toBe(true);
     expect(existsSync(join(installDir, ".cursor/commands/find.md"))).toBe(true);
   }, 60_000);
 

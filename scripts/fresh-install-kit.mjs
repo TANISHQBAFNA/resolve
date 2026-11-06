@@ -29,22 +29,23 @@ export const PHRASES = {
 const STACK = /^\s*at .+:\d+:\d+\)?$/m;
 const BROKEN = /command not found|is not built|Cannot find module/i;
 
-/** Every shipped command and its input. Screen commands get --screen; /design-system gets that file's link. With a repo, the code commands run too. */
-export function commandPlan(screen, repo) {
+/** Every shipped command and its input. Screen commands get --screen; /design-system gets that file's link. With a repo, the code commands run too. The legacy export is included only when RESOLVE_HANDOFF=1. */
+export function commandPlan(screen, repo, env = process.env) {
   const file = screen ? screen.replace(/[?#].*$/, "") : "";
-  return [
+  const plan = [
     ["resolve-status", ""],
     ["design-system", file],
     ["find", "primary button"],
-    ["configure", "primary button"],
     ["brief", "a sign-in screen"],
+    ["configure", "primary button"],
     ["check", screen ?? ""],
     ["parts", screen ?? ""],
-    ["handoff", screen ?? ""],
     ["code-map", "review"],
     ["spec", screen ?? ""],
     ...(repo ? [["learn-code", repo], ["pick-code", "primary button"], ["check-html", ""], ["code-knowledge", "check"]] : []),
   ];
+  if (env["RESOLVE_HANDOFF"]?.trim() === "1") plan.push(["handoff", screen ?? ""]);
+  return plan;
 }
 
 const textOf = (content) =>

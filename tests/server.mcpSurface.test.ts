@@ -57,7 +57,8 @@ describe("MCP default surface + DSCK loop", () => {
     expect(listToolDefinitions(true, "figma").map((tool) => tool.name)).toEqual(
       expect.arrayContaining(["approve_proposal", "reject_proposal", "list_dsci", "spec_map"]),
     );
-    expect(listToolDefinitions(true).length).toBe(TOOLS.length);
+    expect(listToolDefinitions(true).map((tool) => tool.name)).not.toContain("get_handoff");
+    expect(listToolDefinitions(true).length).toBe(TOOLS.length - 1);
     expect(() => callTool("get_recipe", { query: "sign-in" })).toThrow(/was removed[\s\S]*recipe/);
     expect(() => callTool("check_frame", { intent: "button" })).toThrow(/was removed[\s\S]*verify/);
   });

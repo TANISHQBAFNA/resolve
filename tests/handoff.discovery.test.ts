@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,6 +51,11 @@ describe("handoff stays out of default discovery", () => {
     expect(on.status, on.stderr).toBe(0);
     expect(existsSync(join(onDir, ".claude/commands/handoff.md"))).toBe(true);
     expect(existsSync(join(onDir, ".cursor/commands/handoff.md"))).toBe(true);
+    const installed = readFileSync(join(onDir, ".claude/commands/handoff.md"), "utf8");
+    for (const phrase of ["developer build sheet", "resolve-figma handoff", "get_handoff", "node-id", "stop and ask", "Never invent a component"]) {
+      expect(installed).toContain(phrase);
+    }
+    expect(readdirSync(join(root, "commands"))).not.toContain("handoff.md");
   });
 
   it("MCP prompts and the brief tool omit handoff until the flag is set", () => {

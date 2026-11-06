@@ -138,22 +138,27 @@ export function runPickCommand(args: readonly string[], env: NodeJS.ProcessEnv =
 /** Code pack commands. Every other command belongs to the Figma pack. */
 export const CODE_COMMANDS = ["learn-code", "pick-code", "check-html", "code-knowledge"];
 
-/** Only the active pack's commands. */
+function promptFrom(name: string, text: string): CommandPrompt {
+  const match = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text);
+  const front = match?.[1] ?? "";
+  const field = (key: string) => new RegExp(`^${key}:\\s*(.*)$`, "m").exec(front)?.[1]?.trim() ?? "";
+  return { name, description: field("description"), argumentHint: field("argument-hint"), body: (match?.[2] ?? text).trim() };
+}
+
+/** Only the active pack's commands. The legacy export is added only when RESOLVE_HANDOFF=1. */
 export function loadCommands(mode: Mode = activeMode()): CommandPrompt[] {
   const dir = commandsDir();
   if (!dir) return [];
-  return readdirSync(dir)
+  const prompts = readdirSync(dir)
     .filter((file) => file.endsWith(".md"))
-    .filter((file) => file !== "handoff.md" || handoffEnabled())
     .filter((file) => includesPack(mode, CODE_COMMANDS.includes(file.replace(/\.md$/, "")) ? "code" : "figma"))
     .sort()
-    .map((file) => {
-      const text = readFileSync(join(dir, file), "utf8");
-      const match = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text);
-      const front = match?.[1] ?? "";
-      const field = (key: string) => new RegExp(`^${key}:\\s*(.*)$`, "m").exec(front)?.[1]?.trim() ?? "";
-      return { name: file.replace(/\.md$/, ""), description: field("description"), argumentHint: field("argument-hint"), body: (match?.[2] ?? text).trim() };
-    });
+    .map((file) => promptFrom(file.replace(/\.md$/, ""), readFileSync(join(dir, file), "utf8")));
+  if (handoffEnabled() && includesPack(mode, "figma")) {
+    const legacy = join(dirname(dir), "legacy", "commands", "handoff.md");
+    if (existsSync(legacy)) prompts.push(promptFrom("handoff", readFileSync(legacy, "utf8")));
+  }
+  return prompts;
 }
 
 export function listPrompts() {

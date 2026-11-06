@@ -25,6 +25,8 @@ import { callTool, listToolDefinitions } from "@/server/tools";
 import { appendBindAudit, clearCache, saveGraph, saveDsck } from "@/server/store";
 import { emptyDsck } from "@/core/query/dsck";
 
+process.env["RESOLVE_HANDOFF"] = "1";
+
 const FROZEN = "2026-01-01T00:00:00.000Z";
 
 it("M41-3 handoff markdown shows audience and a11y", () => {

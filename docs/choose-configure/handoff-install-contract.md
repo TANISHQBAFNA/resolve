@@ -1,45 +1,27 @@
-# Proposed test contract: handoff is not a default slash command
+# Handoff install contract
 
-Status: not applied. Needs Tanishk's approval before any assertion below is edited.
+Status: applied. Tanishk approved the assertion changes that take the developer export out of default discovery.
 
-The installer now skips `commands/handoff.md` unless `RESOLVE_HANDOFF=1`. MCP prompts do the same. The legacy file stays in `commands/` so the existing assertions below still pass. Those assertions were not changed.
+## What changed
 
-## Why the current assertions still pass
+`commands/handoff.md` moved to `legacy/commands/handoff.md`. The Cursor plugin `commands` field is `./commands`, so that directory is the published command list. The legacy file is outside it.
 
-`tests/noAmbientStore.ts` sets `RESOLVE_HANDOFF=1` for the whole vitest process. A setup run inside that process still installs the command. That is the opt-in path, not a machine where the variable is unset.
+`resolve-setup` copies `commands/*.md` always. It copies the legacy file only when `RESOLVE_HANDOFF=1`. Uninstall still deletes `.claude/commands/handoff.md` and `.cursor/commands/handoff.md` if an older install wrote them.
 
-## Old behaviour the assertions lock
+MCP prompts read `commands/` always, and the legacy file only when the flag is set.
 
-Default `resolve-setup` copies every file in `commands/`, including `handoff.md`, into `.claude/commands` and `.cursor/commands`. MCP `prompts/list` returns that name. The Cursor plugin `commands` field is the whole `commands/` directory, so a plugin install publishes `/handoff` too. `scripts/fresh-install-kit.mjs` plans a run for every command file.
+`commandPlan()` omits `handoff` unless `RESOLVE_HANDOFF=1` or the caller passes that env.
 
-## Desired behaviour
+`tests/noAmbientStore.ts` no longer sets `RESOLVE_HANDOFF`. Tests that run the legacy command set the flag in that file.
 
-With `RESOLVE_HANDOFF` unset:
+## Assertions
 
-- setup does not write `.claude/commands/handoff.md` or `.cursor/commands/handoff.md`
-- `prompts/list` does not include `handoff`
-- setup `--help` does not name `/handoff`
-- the Cursor plugin command directory does not publish `/handoff`
-- the fresh-install kit does not plan `/handoff`
+| Test | Before | After |
+| --- | --- | --- |
+| `tests/server.setup.test.ts` packed install | `handoff.md` exists | `handoff.md` is absent, `configure.md` exists, and the child env has the flag removed |
+| `tests/plugin.manifest.test.ts` | command list includes `handoff.md` | list matches `commands/` and does not include `handoff.md`; `legacy/commands/handoff.md` exists |
+| `tests/freshInstallKit.test.ts` | default plan includes `handoff` | default plan equals `commands/` and has no `handoff`; a plan with `RESOLVE_HANDOFF=1` includes it |
+| `tests/server.slashCommands.test.ts` | install loop reads every command, including handoff, because the harness flag was on | default install does not write `handoff.md`; the loop checks the commands that are actually shipped |
+| `tests/server.cards.test.ts`, `tests/query.specMap.test.ts`, `tests/server.mcpSurface.test.ts` | advanced tool list length 18, because the harness flag included `get_handoff` | `TOOLS` still has 18 entries, including `get_handoff`. With the flag unset, `listToolDefinitions(true)` is 17 and does not name it. `tests/handoff.optIn.test.ts` checks the flag turns that 18th tool back on |
 
-With `RESOLVE_HANDOFF=1`, the legacy command is installed, listed, and runnable. The implementation stays.
-
-## Assertions that would have to change
-
-Not edited in this PR.
-
-`tests/server.setup.test.ts`, the packed-install check:
-
-```diff
-- expect(existsSync(join(installDir, ".claude/commands/handoff.md"))).toBe(true);
-+ expect(existsSync(join(installDir, ".claude/commands/handoff.md"))).toBe(false);
-+ expect(existsSync(join(installDir, ".claude/commands/configure.md"))).toBe(true);
-```
-
-That child process currently inherits the vitest environment, so the new line is false only after the pack command is given an environment without `RESOLVE_HANDOFF`.
-
-`tests/plugin.manifest.test.ts` lists `handoff.md` inside `commands/`. Moving the file out of that directory (so the Cursor plugin stops publishing it) changes this exact list. Leave the file until that move is approved.
-
-`tests/freshInstallKit.test.ts` requires `commandPlan()` names to equal every `commands/*.md` file. Omitting `handoff` from the default plan fails that equality. Leave the plan until that assertion is approved.
-
-`tests/server.slashCommands.test.ts` reads every non-code command after setup, including `handoff`, and checks its phrases. That loop passes today because the harness sets `RESOLVE_HANDOFF=1`. A default-off loop should skip `handoff` unless the test sets the flag itself.
+The legacy CLI, MCP tool, and command text stay. They are not on the default install path.
