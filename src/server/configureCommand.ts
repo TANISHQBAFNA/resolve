@@ -5,21 +5,22 @@ import { resolveGraph } from "./store";
 const EMPTY = "Say what the screen needs, then run configure again.";
 const UNLEARNED = "Learn the library, then run configure again.";
 
+function configureReport(
+  ask: string,
+  graphId?: string,
+  context?: { journey?: string; screenType?: string },
+): ConfigureReport {
+  if (!ask.trim()) return configureGap(ask, "The request is empty.", EMPTY);
+  const resolved = resolveGraph(graphId);
+  if (!resolved) return configureGap(ask, "No design system is learned yet.", UNLEARNED);
+  return configureChoice(resolved.index, ask, context);
+}
+
 /** CLI `resolve configure`. Prints a card and returns. A gap is a warning, not a thrown error. */
 export function runConfigureCli(args: string[]): void {
-  const ask = positionals(args)[0] ?? "";
-  if (!ask.trim()) {
-    printJson(configureGap(ask, "The request is empty.", EMPTY));
-    return;
-  }
-  const resolved = resolveGraph(flag(args, "id"));
-  if (!resolved) {
-    printJson(configureGap(ask, "No design system is learned yet.", UNLEARNED));
-    return;
-  }
   const journey = flag(args, "journey");
   const screenType = flag(args, "screen-type");
-  printJson(configureChoice(resolved.index, ask, {
+  printJson(configureReport(positionals(args)[0] ?? "", flag(args, "id"), {
     ...(journey ? { journey } : {}),
     ...(screenType ? { screenType } : {}),
   }));
@@ -43,14 +44,9 @@ export const CONFIGURE_TOOL = {
 
 export function configureFromArgs(args: Record<string, unknown>): ConfigureReport {
   const intent = args["intent"] ?? args["request"];
-  const ask = typeof intent === "string" ? intent : "";
-  if (!ask.trim()) return configureGap(ask, "The request is empty.", EMPTY);
-  const graphId = typeof args["graphId"] === "string" ? args["graphId"] : undefined;
-  const resolved = resolveGraph(graphId);
-  if (!resolved) return configureGap(ask, "No design system is learned yet.", UNLEARNED);
   const journey = typeof args["journey"] === "string" ? args["journey"] : undefined;
   const screenType = typeof args["screenType"] === "string" ? args["screenType"] : undefined;
-  return configureChoice(resolved.index, ask, {
+  return configureReport(typeof intent === "string" ? intent : "", typeof args["graphId"] === "string" ? args["graphId"] : undefined, {
     ...(journey ? { journey } : {}),
     ...(screenType ? { screenType } : {}),
   });
