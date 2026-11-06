@@ -330,6 +330,11 @@ export function iconShelf(index: GraphIndex, node: GraphNode, workspace?: Worksp
   const anchors = nodeIconAnchors(index, node, workspace);
   return [...anchors.names, ...anchors.pages].some((value) => ICON_SHELF_WORD.test(value));
 }
+const ART_SHELF_WORD = /(?:^|[^a-z0-9])illustrations?(?:[^a-z0-9]|$)/;
+/** A master on an Illustrations page is artwork, not a part: `cards` there is a picture of cards. */
+export function artShelf(index: GraphIndex, node: GraphNode, workspace?: WorkspaceManifest): boolean {
+  return nodeIconAnchors(index, node, workspace).pages.some((value) => ART_SHELF_WORD.test(value));
+}
 let emittedIconLibraryWarningKey = "";
 export function emitIconLibraryWarningsOnce(lines: readonly string[]): void {
   if (!lines.length) return;

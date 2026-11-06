@@ -1,12 +1,11 @@
-import { tokensOf } from "../queryTokens";
+import { CHOOSE, DESCRIBING_WORD, ENTRY_NOUN, FILLER_HEAD, tokensOf } from "../queryTokens";
+import { modifierWord } from "../recommendLexicon";
 import { interpretInflections, onlyInflectedAsk, type SharedGuess } from "./inflections";
 import type { MeaningDictionary, MeaningEntry, MeaningLanguage, ParsedAttribute } from "./types";
 
 /** English function words. They are not a library's vocabulary. */
 const GAP_STOP = new Set(["a", "an", "the", "and", "or", "but", "of", "for", "to", "with", "on", "in", "my", "your", "our", "their", "from", "into"]);
 const PURPOSE_WORD = new Set(["to", "for", "on", "when"]);
-const CHOOSE = new Set(["choose", "pick", "grab", "select"]);
-const FILLER_HEAD = new Set(["something", "anything", "stuff", "thing", "things", "widget", "control", "way"]);
 const CONTRAST = /\b(?:rather\s+than|instead\s+of|not)\b/i;
 
 export interface MeaningDecision {
@@ -15,6 +14,8 @@ export interface MeaningDecision {
   shared: SharedGuess[];
   /** Shared nouns that make the lead a guess. */
   weakWords: string[];
+  /** Asked words no part here carries ("view" in "week view", "swipeable"). A pick without them is a stand-in. */
+  missing: string[];
   empty: boolean;
   leadName?: string;
   /** When a density list leads, the named part in the ask. */
@@ -438,7 +439,22 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
   }
   const dateUnits = new Set(["date", "day", "week", "month", "year"]);
   const timeUnits = new Set(["time", "hour", "minute"]);
-  const unitWords = askTokens.filter((token) => dateUnits.has(token) || timeUnits.has(token));
+  const unit = (word: string) => dateUnits.has(word) || timeUnits.has(word);
+  const namesNothing = (word: string) =>
+    tokensOf(word).length > 0 && !unit(word) && ![...CHOOSE].some((verb) => word.startsWith(verb)) &&
+    !live.some((entry) => entry.nameTokens.includes(word)) && !dictionary.synonymGroups.some((group) => group.includes(word));
+  // The part is said before the first link word ("timeline of match events in time order"), unless that lead is only a filler or entry word.
+  const words = kept.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const link = words.findIndex((word, i) => i > 0 && (DESCRIBING_WORD.has(word) || word === "of"));
+  const leadWords = link > 0 && tokensOf(words.slice(0, link).join(" ")).some((word) => !FILLER_HEAD.has(word) && !ENTRY_NOUN.has(word)) ? words.slice(0, link) : words;
+  const unitWords = leadWords.filter(unit);
+  // Words a pick must carry that this library names nowhere. A pick without them is a stand-in.
+  const missing = [
+    // "week view": a unit word in front of a noun the library does not name.
+    ...leadWords.filter((word, i) => i > 0 && unit(leadWords[i - 1]!) && namesNothing(word)),
+    // "swipeable card": what the part must be able to do.
+    ...askTokens.filter((word) => /^[a-z]{4,}(?:able|ible)$/.test(word) && namesNothing(word) && !modifierWord(word) && !wordMap(language).has(word)),
+  ];
   if (!leadName && unitWords.length) {
     const wantsTime = unitWords.some((token) => timeUnits.has(token));
     const picker = wantsTime
@@ -477,6 +493,7 @@ export function prepareAsk(raw: string, dictionary: MeaningDictionary): MeaningD
     tokens: read.tokens,
     shared: read.shared,
     weakWords,
+    missing,
     empty,
     ...(leadName ? { leadName } : {}),
     ...(secondName ? { secondName } : {}),
