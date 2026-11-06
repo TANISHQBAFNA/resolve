@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -55,6 +55,11 @@ describe("MCP instructions stay a short trigger", () => {
     const rule = readFileSync(join(root, "rules/resolve.mdc"), "utf8");
     expect(rule).toContain("alwaysApply: true");
     expect(readFileSync(join(root, "skills/resolve/SKILL.md"), "utf8")).toBe(readFileSync(join(root, ".cursor/skills/resolve/SKILL.md"), "utf8"));
+    for (const name of ["resolve", "resolve-figma", "resolve-code", "resolve-configure"]) {
+      const link = join(root, ".cursor/skills", name);
+      expect(lstatSync(link).isSymbolicLink(), name).toBe(true);
+      expect(realpathSync(link)).toBe(realpathSync(join(root, "skills", name)));
+    }
     const figmaRule = readFileSync(join(root, "rules/resolve-figma.mdc"), "utf8");
     expect(figmaRule).toContain("alwaysApply: false");
     for (const path of ["rules/resolve-figma.mdc", "skills/resolve-figma/SKILL.md", ".cursor/skills/resolve-figma/SKILL.md"]) {
