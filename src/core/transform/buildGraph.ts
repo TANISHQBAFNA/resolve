@@ -273,6 +273,11 @@ export function buildGraph(doc: SourceDocument, options: BuildGraphOptions = {})
     if (source.layoutSizingVertical) metadata["layoutSizingVertical"] = source.layoutSizingVertical;
     if (source.primaryAxisSizingMode) metadata["primaryAxisSizingMode"] = source.primaryAxisSizingMode;
     if (source.counterAxisSizingMode) metadata["counterAxisSizingMode"] = source.counterAxisSizingMode;
+    if (source.primaryAxisAlignItems) metadata["primaryAxisAlignItems"] = source.primaryAxisAlignItems;
+    if (source.counterAxisAlignItems) metadata["counterAxisAlignItems"] = source.counterAxisAlignItems;
+    if (source.layoutWrap) metadata["layoutWrap"] = source.layoutWrap;
+    if (source.componentPropertyReferences) metadata["componentPropertyReferences"] = source.componentPropertyReferences;
+    if (source.hasImageFill) metadata["hasImageFill"] = true;
     if (source.minHeight !== undefined) metadata["minHeight"] = source.minHeight;
     if (source.minWidth !== undefined) metadata["minWidth"] = source.minWidth;
     if (source.visible === false) metadata["hidden"] = true;

@@ -29,7 +29,7 @@ export function runConfigureCli(args: string[]): void {
 export const CONFIGURE_TOOL = {
   name: "configure",
   description:
-    "Choose one real component for a screen and set only properties the library allows. Returns the choice, allowed values, which values the request set, child slots the library lists, alternatives, and warnings. visibility is unknown: this graph does not name which property shows or hides a child. A gap is a warning with next. Do not invent a component or a property value. For the designer choosing and configuring. Do not Read graph.json.",
+    "Choose one real component for a screen and set only properties the library allows. Returns the choice, allowed values, which values the request set, child slots the library lists, alternatives, and warnings. visibility is unknown unless a captured child names a real property that shows or hides it. A gap is a warning with next. Do not invent a component or a property value. For the designer choosing and configuring. Do not Read graph.json.",
   inputSchema: {
     type: "object",
     properties: {

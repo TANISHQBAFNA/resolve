@@ -62,8 +62,8 @@
   },
   "resolveSizeBudget": {
     "code": 1922,
-    "server": 7230,
-    "core": 35100
+    "server": 7274,
+    "core": 35727
   },
   "engines": {
     "node": ">=22.12.0"

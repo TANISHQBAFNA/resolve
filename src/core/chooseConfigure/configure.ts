@@ -1,7 +1,9 @@
 import type { GraphIndex } from "@/core/query/GraphIndex";
 import type { GraphNode } from "@/core/model";
+import { cleanPropertyName } from "@/core/model/componentProperties";
 import { propertyBlock, type PropertyRow } from "@/core/query/componentProperties";
 import { recommendMasters } from "@/core/query/recommendMasters";
+import { controllingFromReferences } from "@/core/screenMap/capture";
 
 export interface ConfigureWarning {
   warning: string;
@@ -27,12 +29,27 @@ export interface ConfigureProperty {
   evidence: "request" | "unset";
 }
 
+export interface ControlledChild {
+  child: string;
+  property: string;
+  type: string;
+  hidden?: true;
+  overridden?: true;
+  value: true | false | "missing";
+}
+
+export type ConfigureVisibility =
+  | { state: "unknown"; reason: string }
+  | { state: "controlled"; children: ControlledChild[]; ignored?: string };
+
+const VISIBILITY_ABSENT = "This graph does not name which property shows or hides a child.";
+
 export interface ConfigureReport {
   ask: string;
   choice: ConfigureChoice | null;
   configuration: ConfigureProperty[];
   slots: string[];
-  visibility: "unknown";
+  visibility: ConfigureVisibility;
   alternatives: Array<{ id: string; name: string; why: string }>;
   warnings: ConfigureWarning[];
   next: string;
@@ -66,7 +83,7 @@ export function configureChoice(
       warning: "No component in the learned library matched.",
       next: "Name a component that is in the library, or learn the library. Do not invent one.",
     });
-    return finish(ask, null, [], [], [], warnings);
+    return finish(ask, null, [], [], [], warnings, { state: "unknown", reason: VISIBILITY_ABSENT });
   }
   if (card.match === "weak match") {
     warnings.push({ warning: "Weak match. The name is not a clear hit.", next: "Check the name before placing it." });
@@ -86,10 +103,12 @@ export function configureChoice(
     });
   }
   if (card.note) warnings.push({ warning: card.note, next: "Resolve the name clash before placing." });
-  warnings.push({
-    warning: "Which property shows or hides a child is not in this graph.",
-    next: "Leave visibility unset.",
-  });
+  const visibility = visibilityFor(index, lead.id);
+  if (visibility.state === "unknown") {
+    warnings.push({ warning: visibility.reason, next: "Leave visibility unset." });
+  } else if (visibility.ignored) {
+    warnings.push({ warning: visibility.ignored, next: "Leave that child unset." });
+  }
   const node = index.getNode(lead.id);
   const fromDefs = full?.properties ?? (node ? propertyBlock(index, node, ask)?.properties : undefined) ?? [];
   const rows = fromDefs.length ? fromDefs.map(publicProperty) : variantConfiguration(index, node, ask);
@@ -107,12 +126,13 @@ export function configureChoice(
     full?.slots ?? [],
     card.candidates.slice(1, 4).map((row) => ({ id: row.id, name: row.name, why: row.why })),
     warnings,
+    visibility,
   );
 }
 
 /** A gap before ranking: empty request, or no learned library. */
 export function configureGap(ask: string, warning: string, next: string): ConfigureReport {
-  return finish(ask, null, [], [], [], [{ warning, next }]);
+  return finish(ask, null, [], [], [], [{ warning, next }], { state: "unknown", reason: warning });
 }
 
 function basisOf(parts: string[]): ConfigureBasis {
@@ -163,15 +183,84 @@ function finish(
   slots: string[],
   alternatives: ConfigureReport["alternatives"],
   warnings: ConfigureWarning[],
+  visibility: ConfigureVisibility,
 ): ConfigureReport {
   return {
     ask,
     choice,
     configuration,
     slots,
-    visibility: "unknown",
+    visibility,
     alternatives,
     warnings,
     next: warnings[0]?.next ?? PLACE,
   };
+}
+
+function definitionsOf(index: GraphIndex, node: GraphNode): Array<{ name: string; type: string }> {
+  const set = node.componentSetId ? index.getNode(node.componentSetId) : undefined;
+  return [...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].map((row) => ({ name: row.name, type: row.type }));
+}
+
+function descendants(index: GraphIndex, id: string): GraphNode[] {
+  const out: GraphNode[] = [];
+  for (const child of index.getChildren(id)) out.push(child, ...descendants(index, child.id));
+  return out;
+}
+
+function booleanValue(node: GraphNode, property: string): true | false | "missing" {
+  const raw = node.metadata?.["componentProperties"];
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return "missing";
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (cleanPropertyName(key).name !== property) continue;
+    const inner = value && typeof value === "object" && "value" in value ? (value as { value: unknown }).value : value;
+    if (inner === true || inner === false) return inner;
+    return "missing";
+  }
+  return "missing";
+}
+
+/** A child is controlled only when its captured visible reference names a real property. */
+export function visibilityFor(index: GraphIndex, nodeId: string): ConfigureVisibility {
+  const lead = index.getNode(nodeId);
+  if (!lead) return { state: "unknown", reason: VISIBILITY_ABSENT };
+  const definitions = definitionsOf(index, lead);
+  const children: ControlledChild[] = [];
+  let guessed = false;
+  let unmatched = false;
+  for (const child of descendants(index, lead.id)) {
+    const raw = child.metadata?.["componentPropertyReferences"];
+    const visible = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>)["visible"] : undefined;
+    if (typeof visible !== "string" || !visible.trim()) continue;
+    if (child.metadata?.["identity"] === "inferred-from-name") {
+      guessed = true;
+      continue;
+    }
+    const control = controllingFromReferences({ visible }, definitions);
+    if (!control || !definitions.some((row) => row.name === control.property && row.type === control.type)) {
+      unmatched = true;
+      continue;
+    }
+    const hidden = child.metadata?.["hidden"] === true;
+    const overrides = child.metadata?.["overrides"];
+    const overridden = Array.isArray(overrides) && overrides.length > 0;
+    children.push({
+      child: child.name,
+      property: control.property,
+      type: control.type,
+      ...(hidden ? { hidden: true } : {}),
+      ...(overridden ? { overridden: true } : {}),
+      value: booleanValue(child, control.property),
+    });
+  }
+  if (children.length) {
+    return {
+      state: "controlled",
+      children,
+      ...(unmatched ? { ignored: "A visible reference does not match a property on this component." } : {}),
+    };
+  }
+  if (guessed) return { state: "unknown", reason: "The visible reference is on a guessed layer, so it is not a property." };
+  if (unmatched) return { state: "unknown", reason: "The visible reference does not match a property on this component." };
+  return { state: "unknown", reason: VISIBILITY_ABSENT };
 }

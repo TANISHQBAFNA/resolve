@@ -152,7 +152,7 @@ export function loadCommands(mode: Mode = activeMode()): CommandPrompt[] {
   const prompts = readdirSync(dir)
     .filter((file) => file.endsWith(".md"))
     .filter((file) => includesPack(mode, CODE_COMMANDS.includes(file.replace(/\.md$/, "")) ? "code" : "figma"))
-    .sort()
+    .sort((left, right) => (left.replace(/\.md$/, "") < right.replace(/\.md$/, "") ? -1 : left.replace(/\.md$/, "") > right.replace(/\.md$/, "") ? 1 : 0))
     .map((file) => promptFrom(file.replace(/\.md$/, ""), readFileSync(join(dir, file), "utf8")));
   if (handoffEnabled() && includesPack(mode, "figma")) {
     const legacy = join(dirname(dir), "legacy", "commands", "handoff.md");

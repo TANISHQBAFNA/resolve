@@ -21,6 +21,8 @@ export interface ResolveConfig {
   /** Extra component names that never auto-pair on the name alone. Built-in: stepper. */
   /** Keep Figma components that have no published key. Default skips them once any sibling is published. */
   includeUnpublished?: boolean;
+  /** Opt-in Screen Map. Absent means off. */
+  screenMap?: { enabled: boolean; lookalikes: boolean };
   configPath?: string;
   /** Folder that holds config.json and code-catalog.json. */
   storeDir: string;
@@ -130,6 +132,9 @@ export function readConfig(cwd: string = process.cwd(), env: Env = process.env):
   const fileNamespaces = list(file["figmaNamespaces"]);
   const figmaNamespaces = envNamespaces ? list(envNamespaces) : fileNamespaces.length ? fileNamespaces : undefined;
   const includeUnpublished = env["RESOLVE_INCLUDE_UNPUBLISHED"] === "1" || file["includeUnpublished"] === true;
+  const screenMapRaw = file["screenMap"];
+  const screenMapRecord = screenMapRaw && typeof screenMapRaw === "object" && !Array.isArray(screenMapRaw) ? screenMapRaw as { enabled?: unknown; lookalikes?: unknown } : undefined;
+  const screenMap = screenMapRecord ? { enabled: screenMapRecord.enabled === true, lookalikes: screenMapRecord.lookalikes === true } : undefined;
   const libraryFileKey = usable(env["RESOLVE_LIBRARY_FILE_KEY"]) ?? usable(file["libraryFileKey"]) ?? usable(file["figmaFileKey"]);
   const theme = usable(env["RESOLVE_THEME"]) ?? usable(file["theme"]);
   const cssEntry = usable(env["RESOLVE_CSS_ENTRY"]) ?? usable(file["cssEntry"]);
@@ -143,6 +148,7 @@ export function readConfig(cwd: string = process.cwd(), env: Env = process.env):
     localPrefixes: prefixes,
     ...(figmaNamespaces ? { figmaNamespaces } : {}),
     ...(includeUnpublished ? { includeUnpublished } : {}),
+    ...(screenMap ? { screenMap } : {}),
     ...(configPath ? { configPath } : {}),
     storeDir: configPath ? dirname(configPath) : nearestStore(cwd, env),
     ...(problem ? { problem } : {}),

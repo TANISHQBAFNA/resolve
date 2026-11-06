@@ -42,6 +42,8 @@ export function commandPlan(screen, repo, env = process.env) {
     ["parts", screen ?? ""],
     ["code-map", "review"],
     ["spec", screen ?? ""],
+    ["map", "outline"],
+    ["map-build", ""],
     ...(repo ? [["learn-code", repo], ["pick-code", "primary button"], ["check-html", ""], ["code-knowledge", "check"]] : []),
   ];
   if (env["RESOLVE_HANDOFF"]?.trim() === "1") plan.push(["handoff", screen ?? ""]);

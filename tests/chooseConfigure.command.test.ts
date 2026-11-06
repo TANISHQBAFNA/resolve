@@ -32,7 +32,7 @@ describe("configure from the learned graph", () => {
     const plain = configureChoice(index, "button");
     expect(plain.choice?.name).toBe("Button");
     expect(plain.configuration).toContainEqual(expect.objectContaining({ property: "Style", evidence: "unset" }));
-    expect(report.visibility).toBe("unknown");
+    expect(report.visibility).toEqual({ state: "unknown", reason: "This graph does not name which property shows or hides a child." });
     expect(report.warnings.some((row) => row.warning.includes("shows or hides"))).toBe(true);
     const text = JSON.stringify(report);
     expect(text).not.toMatch(/"angular"/);
@@ -84,6 +84,7 @@ describe("configure from the learned graph", () => {
     const core = readFileSync(join(root, "src", "core", "chooseConfigure", "configure.ts"), "utf8");
     const server = readFileSync(join(root, "src", "server", "configureCommand.ts"), "utf8");
     for (const text of [command, core, server]) expect(text).not.toMatch(/handoff/i);
-    expect(core).not.toMatch(/screenMap/);
+    expect(core).toContain('from "@/core/screenMap/capture"');
+    expect(core).not.toMatch(/handoff/i);
   });
 });

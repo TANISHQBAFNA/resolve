@@ -1,6 +1,7 @@
 import { TextInputError } from "@/core/ingestion/textStamps";
 import { READY_TOOL, runReadyTool } from "@/ready/run.ts";
 import { CODE_TOOL_NAMES, CODE_TOOLS, runCodeTool } from "./code/mcp.ts";
+import { mapToolsIfEnabled, runMapTool } from "./mapHook.ts";
 import { graphMasters } from "./graphMasters.ts";
 import { asStringList, parseLearnOutline } from "./toolArgs.ts";
 import type { Mode } from "./mode.ts";
@@ -64,6 +65,8 @@ import { SPEC_TOOLS, runSpecTool } from "./specMcp";
 import { DECISION_TOOLS, RECORD_PROPERTY, recordProblem, runDecisionTool, withDecisionRecord } from "./decisionMcp";
 import { composeProblem, runCompose } from "./composeCommand";
 import { CONFIGURE_TOOL, configureFromArgs } from "./configureCommand";
+import { HANDOFF_TOOL } from "./handoffCommand";
+import { graphIdProperty, screenContextProperties } from "./toolFields";
 import { recordVerifyUsage } from "./verifyRecord";
 
 export { recordVerifyUsage };
@@ -79,25 +82,6 @@ export interface ToolDefinition {
   description: string;
   inputSchema: Record<string, unknown>;
 }
-
-const graphIdProperty = {
-  graphId: {
-    type: "string",
-    description: "Graph to query. Optional when exactly one graph is stored.",
-  },
-};
-
-/** Who the screen is for, and the accessibility bar. From the requirements or FSD, or the context pack. */
-const screenContextProperties = {
-  audience: {
-    type: "string",
-    description: "Who the screen is for, taken from the requirements or FSD. Overrides the context pack for this call. Leave off when the document does not say.",
-  },
-  a11y: {
-    type: "string",
-    description: 'Accessibility bar from the requirements or FSD, e.g. "wcag-aa". Overrides the context pack for this call. Leave off when the document does not say. Does not run an audit.',
-  },
-};
 
 export const DEFAULT_TOOL_NAMES = [
   "learn_library",
@@ -124,7 +108,7 @@ const formatProperty = {
 export function listToolDefinitions(advanced = process.env["RESOLVE_MCP_ADVANCED"] === "1", mode: Mode = activeMode()): ToolDefinition[] {
   const allowed = new Set<string>(DEFAULT_TOOL_NAMES);
   const figma = includesPack(mode, "figma") ? (advanced ? TOOLS : TOOLS.filter((tool) => allowed.has(tool.name))).filter((tool) => tool.name !== "get_handoff" || handoffEnabled()) : [];
-  const tools = [...figma, ...(includesPack(mode, "code") ? [...CODE_TOOLS, READY_TOOL] : [])];
+  const tools = [...figma, ...(includesPack(mode, "code") ? [...CODE_TOOLS, READY_TOOL] : []), ...mapToolsIfEnabled()];
   // A shared input (format, graphId, a11y, freshness...) is described in full once; later tools point back to it.
   const firstSeen = new Map<string, string>();
   return tools.map((tool) => {
@@ -450,33 +434,7 @@ export const TOOLS: ToolDefinition[] = [
       required: ["name"],
     },
   },
-  {
-    name: "get_handoff",
-    description:
-      "Developer handoff sheet for one or more designed screens (frames): recipe slots, each component placed on the screen with fileKey and figmaNodeId and its code from .resolve/code-map.json (unmapped when there is no entry; never guessed), selector, module, inputs and outputs, suggested inputs from Figma variant properties (Variant=Primary becomes variant=\"primary\") and a suggested template line, the parts inside each component, a PASS or FAIL line, approved decisions (who, when, why), and open questions. Never refuses: a retired component, a stale code link, a layer-name guess ('MCP metadata insufficient for component X. Use Figma REST or design_context.') or a missing component is listed under warnings, each with a next step to try. allowWeak makes a labelled draft (name-guess) with no warning; drafts are not for build. Over 40,000 characters of the structured card, parts are shown one level less deep at a time until it fits, and the card says how many parts are listed. Open questions and the summary counts always come from the full sheet. Markdown lists each part once, on its component, not again as a second parts table. A copy whose component is in no learned file is a not-found warning. A component from a library file that is not learned is other-library (no Figma id of this file, code unknown, not counted as unmapped). A not-found component is code unknown too. The card lists the other values of each Figma property (the placed one is left out). A recipe slot is placed, inside another component (the card names it), or missing. Placed and inside both count as covered. One copy fills one slot. A frame can be a pasted Figma link with node-id. Markdown by default. Advanced surface. Do not Read graph.json.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ...RECORD_PROPERTY,
-        ...graphIdProperty,
-        frame: { type: "string", description: "Frame name, graph id, figma node id or fileKey:nodeId." },
-        frames: { type: "array", items: { type: "string" }, description: "Several frames for one handoff pack." },
-        allowWeak: { type: "boolean", description: "Draft: allow components known only from layer names (labelled name-guess) or missing from the learned files (labelled not-found). Retired components stay a warning." },
-        recipe: { type: "string", description: "Recipe id or intent to check the screen against. Default: matched from the screen name." },
-        depth: { type: "number", description: "Levels of parts per component, 1-3. Default 3. Any other value is clamped, and depthNote says so." },
-        answers: {
-          type: "object",
-          description: "Briefing answers. Shape and state answers are added to the parts, not only listed as a note. At most 3 answers.",
-          additionalProperties: true,
-        },
-        pack: { type: "string" },
-        product: { type: "string" },
-        journey: { type: "string" },
-        domain: { type: "string" },
-        ...screenContextProperties,
-      },
-    },
-  },
+  HANDOFF_TOOL,
   ...SPEC_TOOLS,
   ...DECISION_TOOLS,
   {
@@ -640,6 +598,7 @@ export function callTool(name: string, rawArgs: unknown): unknown {
     const instead = DEPRECATED_INSTEAD[name] ?? "the current tools";
     throw new ToolError(`Tool "${name}" was removed. Use ${instead}.`);
   }
+  if (name.startsWith("map_")) return withCost(runMapTool(name, (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>) as object);
   try {
     const aliased = callCodeMapAlias(name, rawArgs, (args) => context(args).index);
     if (aliased !== undefined) return aliased && typeof aliased === "object" && !Array.isArray(aliased) ? withCost(aliased) : aliased;
