@@ -52,9 +52,10 @@ describe("handoff stays out of default discovery", () => {
     expect(existsSync(join(onDir, ".claude/commands/handoff.md"))).toBe(true);
     expect(existsSync(join(onDir, ".cursor/commands/handoff.md"))).toBe(true);
     const installed = readFileSync(join(onDir, ".claude/commands/handoff.md"), "utf8");
-    for (const phrase of ["developer build sheet", "resolve-figma handoff", "get_handoff", "node-id", "stop and ask", "Never invent a component"]) {
+    for (const phrase of ["developer build sheet", "resolve-cli.mjs handoff", "get_handoff", "node-id", "stop and ask", "Never invent a component"]) {
       expect(installed).toContain(phrase);
     }
+    expect(installed).not.toContain("#v0.2.0");
     expect(readdirSync(join(root, "commands"))).not.toContain("handoff.md");
   });
 

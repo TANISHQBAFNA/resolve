@@ -155,6 +155,7 @@ describe("F4-R2: install hint on the first MCP reply", () => {
       [{ mcpServers: { resolve: { ...entry, env: { FIGMA_ACCESS_TOKEN: "${user_config.FIGMA_ACCESS_TOKEN}" } } } }, "plugin"],
       [{ mcpServers: { other: entry } }, "plugin"],
       [{ mcpServers: { resolve: entry } }, "project"],
+      [{ mcpServers: { resolve: { command: "/usr/bin/node", args: ["/tmp/resolve checkout/dist-server/mcp.mjs"] } } }, "project"],
     ];
     for (const [doc, kind] of cases) {
       const cwd = temp("kind");

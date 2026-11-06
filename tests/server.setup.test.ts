@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { MCP_ENTRY, runtimeFor } from "../bin/install-runtime.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const bin = join(root, "bin", "resolve-setup.mjs");
@@ -282,6 +283,12 @@ describe("resolve-setup", () => {
       env,
     });
     expect(viaPack.status, viaPack.stderr).toBe(0);
+    const packedMcp = JSON.parse(readFileSync(join(installDir, ".mcp.json"), "utf8")) as {
+      mcpServers: { resolve: { command: string; args: string[] } };
+    };
+    expect(packedMcp.mcpServers.resolve).toMatchObject({ type: "stdio", ...MCP_ENTRY, env: {} });
+    expect(packedMcp.mcpServers.resolve.args.join(" ")).not.toContain(installDir);
+    expect(packedMcp.mcpServers.resolve.args.join(" ")).not.toContain("_npx");
     expect(existsSync(join(installDir, ".cursor/rules/resolve.mdc"))).toBe(true);
     expect(existsSync(join(installDir, ".claude/skills/resolve/SKILL.md"))).toBe(true);
     expect(readFileSync(join(installDir, "CLAUDE.md"), "utf8")).toContain("call Resolve before drawing");
@@ -309,7 +316,7 @@ describe("resolve-setup", () => {
   });
 
   describe("project MCP files", () => {
-    const entry = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.2.0", "resolve-mcp"] };
+    const entry = runtimeFor(root).mcp;
     const project = (name: string) => {
       const cwd = tempDir(name);
       mkdirSync(cwd, { recursive: true });
@@ -320,6 +327,24 @@ describe("resolve-setup", () => {
       mkdirSync(dir, { recursive: true });
       return dir;
     };
+
+    it("replaces the published pin with this checkout and leaves a custom entry alone", () => {
+      const cwd = project("mcp-stale-pin");
+      mkdirSync(join(cwd, ".cursor"), { recursive: true });
+      const pin = { mcpServers: { resolve: MCP_ENTRY, other: { command: "notes" } } };
+      writeFileSync(join(cwd, ".cursor/mcp.json"), JSON.stringify(pin));
+      const replaced = setup([], cwd, home());
+      expect(replaced.status).toBe(0);
+      expect(JSON.parse(readFileSync(join(cwd, ".cursor/mcp.json"), "utf8"))).toEqual({
+        mcpServers: { resolve: entry, other: { command: "notes" } },
+      });
+      const custom = project("mcp-custom");
+      mkdirSync(join(custom, ".cursor"), { recursive: true });
+      const mine = { mcpServers: { resolve: { command: "node", args: ["/keep/other-mcp.mjs"] } } };
+      writeFileSync(join(custom, ".cursor/mcp.json"), JSON.stringify(mine));
+      expect(setup([], custom, home()).stdout).toContain("different resolve entry");
+      expect(JSON.parse(readFileSync(join(custom, ".cursor/mcp.json"), "utf8"))).toEqual(mine);
+    });
 
     it("creates .cursor/mcp.json and .mcp.json, and a second run changes nothing", () => {
       const cwd = project("mcp-new");

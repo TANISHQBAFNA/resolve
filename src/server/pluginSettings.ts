@@ -71,7 +71,10 @@ function setupServer(file: string): boolean {
       mcpServers?: { resolve?: { command?: unknown; args?: unknown; env?: unknown } };
     };
     const server = doc.mcpServers?.resolve;
-    if (server?.command !== "npx" || JSON.stringify(server.args) !== SETUP_ARGS) return false;
+    const args = JSON.stringify(server?.args);
+    const released = server?.command === "npx" && args === SETUP_ARGS;
+    const built = typeof server?.command === "string" && server.command.length > 0 && args.endsWith('/dist-server/mcp.mjs"]');
+    if (!released && !built) return false;
     const env = server.env && typeof server.env === "object" ? server.env : {};
     return ![...TOKEN_KEYS, ...FILE_KEY_KEYS].some((key) => key in env);
   } catch {

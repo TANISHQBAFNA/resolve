@@ -19,6 +19,9 @@ import { accessSync, constants, existsSync, mkdirSync, readdirSync, readFileSync
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { bindCommandText, MCP_ENTRY, runtimeFor } from "./install-runtime.mjs";
+
+export { MCP_ENTRY };
 
 export const BEGIN = "<!-- resolve-setup:begin -->";
 export const END = "<!-- resolve-setup:end -->";
@@ -257,15 +260,25 @@ export function ignoresWholeResolveStore(text) {
   });
 }
 
-/** The one server entry Resolve adds. Same command everywhere (Cursor, Claude Code, Codex). */
-export const MCP_ENTRY = { command: "npx", args: ["-y", "-p", "github:TANISHQBAFNA/resolve#v0.2.0", "resolve-mcp"] };
-
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function sameEntry(entry) {
-  return isPlainObject(entry) && entry.command === MCP_ENTRY.command && JSON.stringify(entry.args) === JSON.stringify(MCP_ENTRY.args);
+function argsEqual(entry, expected) {
+  return isPlainObject(entry) && entry.command === expected.command && JSON.stringify(entry.args) === JSON.stringify(expected.args);
+}
+
+/** The entry this install would write, plus the published pin a checkout replaces. */
+function ownedEntry(entry, runtime) {
+  return argsEqual(entry, runtime.mcp) || (runtime.kind === "checkout" && argsEqual(entry, MCP_ENTRY));
+}
+
+function runtimeOrRelease(root) {
+  try {
+    return runtimeFor(root);
+  } catch {
+    return { kind: "release", mcp: { command: MCP_ENTRY.command, args: [...MCP_ENTRY.args] }, cli: "", setup: "" };
+  }
 }
 
 function skipJsonString(raw, start) {
@@ -424,8 +437,9 @@ function insertResolveText(raw, entry) {
  * Backs off (skip) when the file is not a JSON object we can safely edit.
  * @returns {{ action: "create" | "update" | "unchanged" | "skip", text: string, note?: string }}
  */
-export function installMcp(current, { claude = false, force = false } = {}) {
-  const entry = claude ? { type: "stdio", ...MCP_ENTRY, env: {} } : { ...MCP_ENTRY };
+export function installMcp(current, { claude = false, force = false, root = packageRoot } = {}) {
+  const runtime = runtimeFor(root);
+  const entry = claude ? { type: "stdio", ...runtime.mcp, env: {} } : { ...runtime.mcp };
   const blank = current == null || current.trim() === "";
   if (blank) return { action: "create", text: writeJson({ mcpServers: { resolve: entry } }, { indent: 2, ending: "\n" }) };
   const raw = current.replace(/^\uFEFF/, "");
@@ -440,8 +454,9 @@ export function installMcp(current, { claude = false, force = false } = {}) {
   }
   const servers = isPlainObject(doc.mcpServers) ? doc.mcpServers : {};
   if (servers.resolve !== undefined) {
-    if (sameEntry(servers.resolve)) return { action: "unchanged", text: current };
-    if (!force) {
+    if (argsEqual(servers.resolve, runtime.mcp)) return { action: "unchanged", text: current };
+    const staleRelease = runtime.kind === "checkout" && argsEqual(servers.resolve, MCP_ENTRY);
+    if (!force && !staleRelease) {
       return { action: "skip", text: current, note: " (left alone: it already has a different resolve entry; --force replaces only that entry)" };
     }
   }
@@ -651,7 +666,7 @@ export function planUninstall({ cwd, home, global: isGlobal, root = packageRoot 
       } catch {
         continue;
       }
-      if (!isPlainObject(doc) || !isPlainObject(doc.mcpServers) || !sameEntry(doc.mcpServers.resolve)) continue;
+      if (!isPlainObject(doc) || !isPlainObject(doc.mcpServers) || !ownedEntry(doc.mcpServers.resolve, runtimeOrRelease(root))) continue;
       const { resolve: _gone, ...others } = doc.mcpServers;
       const created = record.created.includes(path);
       const original = record.originals[path];
@@ -718,6 +733,7 @@ export function runUninstall(opts) {
 }
 
 export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, packageRoot: root = packageRoot }) {
+  const runtime = runtimeFor(root);
   const base = isGlobal ? home : cwd;
   const claudePath = isGlobal ? join(home, ".claude", "CLAUDE.md") : join(cwd, "CLAUDE.md");
   const ruleSrc = readFileSync(join(root, "rules", "resolve.mdc"), "utf8");
@@ -740,17 +756,18 @@ export function runSetup({ cwd, home, global: isGlobal, dryRun, force = false, p
     const cursorMcp = join(cwd, ".cursor", "mcp.json");
     const claudeMcp = join(cwd, ".mcp.json");
     planned.push(
-      { path: cursorMcp, ...installMcp(readOrNull(cursorMcp), { force }) },
-      { path: claudeMcp, ...installMcp(readOrNull(claudeMcp), { claude: true, force }) },
+      { path: cursorMcp, ...installMcp(readOrNull(cursorMcp), { force, root }) },
+      { path: claudeMcp, ...installMcp(readOrNull(claudeMcp), { claude: true, force, root }) },
     );
   }
   // Slash commands. A command file you wrote yourself (no Resolve markers) is kept unless --force.
   for (const command of commandsToInstall(root)) {
     const claudeCommand = join(base, ".claude", "commands", `${command.name}.md`);
-    planned.push({ path: claudeCommand, command: true, ...installOwned(readOrNull(claudeCommand), command.text, force) });
+    const bound = bindCommandText(command.text, runtime);
+    planned.push({ path: claudeCommand, command: true, ...installOwned(readOrNull(claudeCommand), bound, force) });
     if (!isGlobal) {
       const cursorPath = join(cwd, ".cursor", "commands", `${command.name}.md`);
-      planned.push({ path: cursorPath, command: true, ...installOwned(readOrNull(cursorPath), cursorCommand(command.text), force) });
+      planned.push({ path: cursorPath, command: true, ...installOwned(readOrNull(cursorPath), cursorCommand(bound), force) });
     }
   }
   const skillPath = join(base, ".claude", "skills", "resolve", "SKILL.md");

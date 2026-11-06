@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { getPrompt, listPrompts } from "@/server/commands";
+import { runtimeFor } from "../bin/install-runtime.mjs";
 import { DESIGNER } from "@/server/designerMessages";
 import { attachMcpStdio } from "@/server/mcpSession";
 import { listToolDefinitions } from "@/server/tools";
@@ -27,8 +28,8 @@ const CALLS: Record<string, string[]> = {
   find: ["recommend", "resolve", "weak match"],
   check: ["verify_frame", "check_cousins", "node-id", "name-only", "wrong cousin", "missing required state"],
   "code-map": ["code-map scan", "code-map suggest", "code-map review", "suggested", "stop and ask"],
-  parts: ["what's on this screen and its code twin (or unmapped)", "resolve-figma parts", "unmapped", "retired", "screen link", "stop and ask"],
-  "resolve-status": ["resolve-figma status", "version", "always-on rule"],
+  parts: ["what's on this screen and its code twin (or unmapped)", "resolve-cli.mjs", "unmapped", "retired", "screen link", "stop and ask"],
+  "resolve-status": ["resolve-cli.mjs", "version", "always-on rule"],
 };
 
 const temp = (name: string) => {
@@ -238,17 +239,20 @@ describe("slash commands: install", () => {
     }
   });
 
-  it("F4-R1: the shell commands run the package from the project's MCP entry, never a bare local binary", () => {
+  it("F4-R1: shell commands use the same checkout server setup writes, not the published tag", () => {
     const cwd = temp("npx-spec");
     expect(setup([], cwd).status).toBe(0);
-    const entry = (JSON.parse(read(join(cwd, ".mcp.json"))) as { mcpServers: { resolve: { command: string; args: string[] } } }).mcpServers.resolve;
-    const spec = [entry.command, ...entry.args.slice(0, -1)].join(" ");
-    expect(spec).toBe("npx -y -p github:TANISHQBAFNA/resolve#v0.2.0");
+    const runtime = runtimeFor(root);
+    const entry = (JSON.parse(read(join(cwd, ".mcp.json"))) as { mcpServers: { resolve: { command: string; args: string[]; cwd?: string } } }).mcpServers.resolve;
+    expect(entry.command).toBe(runtime.mcp.command);
+    expect(entry.args).toEqual(runtime.mcp.args);
+    expect(entry.cwd).toBeUndefined();
+    expect(entry.args[0]).toMatch(/\/dist-server\/mcp\.mjs$/);
     const runs: Record<string, string[]> = {
-      "resolve-status": [`${spec} resolve-figma status`, `${spec} resolve-setup`],
-      parts: [`${spec} resolve-figma parts`],
-      handoff: [`${spec} resolve-figma handoff`],
-      "code-map": [`\`resolve-figma\` means \`${spec} resolve-figma\``],
+      "resolve-status": [`${runtime.cli} status`, runtime.setup],
+      parts: [`${runtime.cli} parts`],
+      handoff: [`${runtime.cli} handoff`],
+      "code-map": [`\`resolve-figma\` means \`${runtime.cli}\``],
     };
     for (const name of NAMES) {
       for (const dir of [".claude/commands", ".cursor/commands"]) {
@@ -256,13 +260,14 @@ describe("slash commands: install", () => {
         for (const run of runs[name] ?? []) expect(text, `${dir}/${name}`).toContain(run);
         expect(text, `${dir}/${name}`).not.toContain("the local command from the same install");
         expect(text, `${dir}/${name}`).not.toContain("If the shell says the command is not found");
+        expect(text, `${dir}/${name}`).not.toContain("node bin/resolve-cli.mjs");
+        if (runs[name]) expect(text, `${dir}/${name}`).not.toContain("#v0.2.0");
         if (name !== "code-map") expect(text, `${dir}/${name}`).not.toMatch(/`resolve-(figma|setup)\b/);
-        if (runs[name]) {
-          expect(text, `${dir}/${name}`).toContain("node bin/resolve-cli.mjs");
-          expect(text, `${dir}/${name}`).toContain("does not include `/configure`");
-        }
       }
     }
+    const prompt = getPrompt("resolve-status", {})!;
+    expect(prompt.messages[0]!.content.text).toContain(`${runtime.cli} status`);
+    expect(prompt.messages[0]!.content.text).not.toContain("#v0.2.0");
   });
 
   it("--global puts the Claude commands in ~/.claude/commands and writes no Cursor files", () => {

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { PickRequest } from "../core/query/meaning/dsck";
 import { packFromFiles, stableShortlist, validateAiPick } from "../core/query/meaning/dsckPick";
 import type { Mode } from "./mode.ts";
+import { bindCommandText, runtimeFor } from "../../bin/install-runtime.mjs";
 import { handoffEnabled } from "@/core/handoff/handoffGate";
 import { activeMode, includesPack } from "./mode.ts";
 import { aiPicksEnabled } from "./pluginSettings";
@@ -138,6 +139,14 @@ export function runPickCommand(args: readonly string[], env: NodeJS.ProcessEnv =
 /** Code pack commands. Every other command belongs to the Figma pack. */
 export const CODE_COMMANDS = ["learn-code", "pick-code", "check-html", "code-knowledge"];
 
+function promptText(text: string, root: string): string {
+  try {
+    return bindCommandText(text, runtimeFor(root));
+  } catch {
+    return text;
+  }
+}
+
 function promptFrom(name: string, text: string): CommandPrompt {
   const match = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text);
   const front = match?.[1] ?? "";
@@ -153,10 +162,10 @@ export function loadCommands(mode: Mode = activeMode()): CommandPrompt[] {
     .filter((file) => file.endsWith(".md"))
     .filter((file) => includesPack(mode, CODE_COMMANDS.includes(file.replace(/\.md$/, "")) ? "code" : "figma"))
     .sort((left, right) => (left.replace(/\.md$/, "") < right.replace(/\.md$/, "") ? -1 : left.replace(/\.md$/, "") > right.replace(/\.md$/, "") ? 1 : 0))
-    .map((file) => promptFrom(file.replace(/\.md$/, ""), readFileSync(join(dir, file), "utf8")));
+    .map((file) => promptFrom(file.replace(/\.md$/, ""), promptText(readFileSync(join(dir, file), "utf8"), dirname(dir))));
   if (handoffEnabled() && includesPack(mode, "figma")) {
     const legacy = join(dirname(dir), "legacy", "commands", "handoff.md");
-    if (existsSync(legacy)) prompts.push(promptFrom("handoff", readFileSync(legacy, "utf8")));
+    if (existsSync(legacy)) prompts.push(promptFrom("handoff", promptText(readFileSync(legacy, "utf8"), dirname(dir))));
   }
   return prompts;
 }
