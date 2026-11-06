@@ -1,5 +1,5 @@
 import type { GraphNode } from "@/core/model";
-import type { GraphIndex } from "./GraphIndex";
+import type { GraphIndex } from "../query/GraphIndex";
 import {
   ingredientCard,
   isNameInferredMaster,
@@ -8,16 +8,16 @@ import {
   retiredHooks,
   variantCardName,
   verifyFrame,
-} from "./agentSurface";
-import type { BindRulesFile } from "./bindRules";
-import type { ContextPack } from "./contextPacks";
+} from "../query/agentSurface";
+import type { BindRulesFile } from "../query/bindRules";
+import type { ContextPack } from "../query/contextPacks";
 import { buildHandoff, SCREEN_TYPES, type HandoffDecisionInput, type HandoffHooks, type HandoffPack, type VerifyLike } from "./handoff";
-import { realByKey } from "./ingredients";
-import { missingNodeSentence, readFigmaLink } from "./learnedLink";
-import type { BriefCandidate } from "./brief";
-import { fillRecipe, matchRecipe, type Recipe } from "./recipes";
-import type { DsckState } from "./dsck";
-import type { WorkspaceManifest } from "./workspace";
+import { realByKey } from "../query/ingredients";
+import { missingNodeSentence, readFigmaLink } from "../query/learnedLink";
+import type { BriefCandidate } from "../query/brief";
+import { fillRecipe, matchRecipe, type Recipe } from "../query/recipes";
+import type { DsckState } from "../query/dsck";
+import type { WorkspaceManifest } from "../query/workspace";
 
 export interface HandoffInput {
   draft?: boolean;

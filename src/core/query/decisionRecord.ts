@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod/v4";
 import { BRIEF_PLATFORM_IDS, BRIEF_SHAPE_IDS, BRIEF_STATE_IDS, type BriefCandidate, type BriefResult } from "./brief";
-import type { HandoffPack, HandoffScreen } from "./handoff";
+import type { HandoffPack, HandoffScreen } from "../handoff/handoff";
 
 /**
  * Decision record: what was asked, which parts were picked and why, what was

@@ -13,7 +13,7 @@ export {
   type DecisionRecord,
 } from "./core/query/decisionRecord";
 
-export type { HandoffComponent, HandoffPack, HandoffScreen } from "./core/query/handoff";
+export type { HandoffComponent, HandoffPack, HandoffScreen } from "./core/handoff/handoff";
 
 export { flag, positionals, printJson, withJsonErrors } from "./server/cliArgs";
 

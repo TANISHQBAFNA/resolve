@@ -55,15 +55,15 @@ export {
   type HandoffDecisionInput,
   type HandoffPack,
   type HandoffScreen,
-} from "./handoff";
+} from "../handoff/handoff";
 export {
   formatHandoffIndex,
   formatHandoffIngredients,
   formatHandoffRefusal,
   formatHandoffScreen,
   screenSlug,
-} from "./handoffFormat";
-export { handoffSheet, type HandoffInput } from "./handoffCard";
+} from "../handoff/handoffFormat";
+export { handoffSheet, type HandoffInput } from "../handoff/handoffCard";
 export {
   applyBriefIntent,
   assertBriefAnswers,
@@ -91,4 +91,4 @@ export {
 } from "./brief";
 export * from "./projectCopy";
 export * from "./cliFlags";
-export * from "./handoffGate";
+export * from "../handoff/handoffGate";

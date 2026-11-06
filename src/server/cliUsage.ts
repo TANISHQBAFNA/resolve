@@ -3,7 +3,7 @@ import { screenMapUsageLines } from "@/core/screenMap/run";
 import { readConfig } from "./mode";
 import { addonUsageLines } from "./addonHook";
 import { CODE_USAGE } from "./code/command.ts";
-import { handoffEnabled } from "@/core/query/handoffGate";
+import { handoffEnabled } from "@/core/handoff/handoffGate";
 /** Same flags `bindFromFlags` reads — keep help + usage errors in lockstep. */
 export const PACK_BIND_FLAGS =
   "[--pack <id>] [--product <name>] [--journey <step>] [--domain <domain>] [--audience <who>] [--a11y <bar>]";
