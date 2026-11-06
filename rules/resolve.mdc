@@ -13,6 +13,6 @@ Resolve is read-only. Use real components only. Never invent a component, class,
 2. Otherwise the config `mode` (`figma`, `code`, or `both`) in `.resolve/config.json`, or `RESOLVE_MODE`. `resolve mode` shows it.
 3. Still unclear: ask one short question.
 
-Then load only that pack: Figma is rule `resolve-figma`; code is rule `resolve-code`. Load both only when the task needs both, for example a Figma design and its coded prototype.
+Then load only that pack: Figma is rule `resolve-figma`; code is rule `resolve-code`. Load both only when the task needs both, for example a Figma design and its coded prototype. When the task is to choose and configure real components for a screen, also load rule `resolve-configure`.
 
 Full write-up, when this client can read MCP resources: `resolve://workflow`.

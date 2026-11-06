@@ -188,7 +188,7 @@ Resolve is open source under the [MIT License](LICENSE). You can use, copy, chan
 
 - **Findings never stop a run.** `verify`, `check`, `code check` and `brief check` print each finding as a warning with a `next:` step and exit 0. Add `--strict` when CI should fail on findings ([Using Resolve in CI](#using-resolve-in-ci)). Flag names ignore case, `--strict=true` works, and an unknown flag prints a warning instead of being dropped silently. A `verify` on a frame that is not in the learned library now says so with a `next:` step (exit 0, or 1 with `--strict`).
 - **The DSCK / DSCI rename.** Proposal files and ids saved before the rename are still read. Nothing is moved or deleted; new data goes to `dsck.json` and `dsci.json`.
-- **Handoff is off by default.** Resolve stops at the readiness check (`resolve brief check`). Set `RESOLVE_HANDOFF=1` to turn `resolve handoff` and `get_handoff` back on.
+- **The developer export is not installed.** `commands/` and the Cursor plugin do not publish it. `resolve handoff` and `get_handoff` stay off unless `RESOLVE_HANDOFF=1`.
 - **Project copy.** `.resolve/local/` is written only inside a project, is added to `.gitignore`, and a hand edit is kept (with one warning) until you run `resolve sync`.
 - **Code map.** A shared ID (`ds@<semver>.<tier>.<name>`) on both sides now joins a Figma component to its code first, before any name.
 - **Pinned install.** The MCP entry that `resolve-setup` writes, the plugin settings, the slash commands and the CI example now pin `#v0.2.0`. `resolve-setup` leaves an older pinned `resolve` entry alone; run `npx -y -p github:TANISHQBAFNA/resolve#v0.2.0 resolve-setup --force` to replace only that entry.

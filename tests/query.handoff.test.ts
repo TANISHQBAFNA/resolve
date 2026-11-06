@@ -25,6 +25,8 @@ import { callTool, listToolDefinitions } from "@/server/tools";
 import { appendBindAudit, clearCache, saveGraph, saveDsck } from "@/server/store";
 import { emptyDsck } from "@/core/query/dsck";
 
+process.env["RESOLVE_HANDOFF"] = "1";
+
 const FROZEN = "2026-01-01T00:00:00.000Z";
 
 it("M41-3 handoff markdown shows audience and a11y", () => {
@@ -444,7 +446,7 @@ describe("resolve handoff (CLI) and get_handoff (MCP)", () => {
   it("MCP: get_handoff is advanced only (the default surface stays at 7); allowWeak makes a draft", () => {
     saveGraph(fixedGraph());
     delete process.env["RESOLVE_MCP_ADVANCED"];
-    expect(listToolDefinitions(false)).toHaveLength(8);
+    expect(listToolDefinitions(false)).toHaveLength(9);
     expect(listToolDefinitions(false).map((t) => t.name)).not.toContain("get_handoff");
     expect(() => callTool("get_handoff", { frame: "Send money" })).toThrow("not on the default MCP surface");
     process.env["RESOLVE_MCP_ADVANCED"] = "1";

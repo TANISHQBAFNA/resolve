@@ -10,6 +10,8 @@ import { callTool } from "@/server/tools";
 import { attachMcpStdio } from "@/server/mcpSession";
 import { graph } from "./fixture";
 
+process.env["RESOLVE_HANDOFF"] = "1";
+
 const angular = (
   fileKey: string,
   id: string,
