@@ -73,7 +73,11 @@ export function recommendMasters(
   const reading = decision ? interpretInflections(roleWords, dictionary) : { tokens: roleWords, shared: [], attributes: [] };
   const sharedMiss = (name: string): string[] => {
     const lead = new Set(tokensOf(name));
-    return reading.shared.filter((guess) => guess.part.every((word) => lead.has(word)) && !lead.has(guess.word)).map((guess) => guess.word);
+    const carried = (word: string) => [...lead].some((part) => part.length >= 4 && word.startsWith(part.slice(0, 4)));
+    return [
+      ...reading.shared.filter((guess) => guess.part.every((word) => lead.has(word)) && !lead.has(guess.word)).map((guess) => guess.word),
+      ...(decision?.missing ?? []).filter((word) => !carried(word)),
+    ];
   };
   const roleTokens = tokensOf(brief.role);
   const phraseExpanded = new Set<string>();
