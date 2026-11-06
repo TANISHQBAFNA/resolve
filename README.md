@@ -24,7 +24,7 @@ Resolve gives your AI two things about your design system: **what your component
 
 ## Quick start
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/quick-dark.svg"><img src="docs/assets/v4/quick-light.svg" alt="Quick start in four steps: 1 Learn your library with /design-system, 2 Find a part with /find, 3 Ask your AI to design the screen, 4 Check it with /check." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/quick-dark.svg"><img src="docs/assets/v4/quick-light.svg" alt="Quick start: learn the library with /design-system, find a part with /find, choose and configure it with /configure, then check the screen with /check." width="100%"></picture>
 
 1. **Learn your library.** Paste the link to your design system file.
 
@@ -44,9 +44,13 @@ Resolve gives your AI two things about your design system: **what your component
    name: Payee picker | figmaNodeId: 30:30 | fileKey: ACMEUI | why: used 4× in file | ex: 20:31
    ```
 
-3. **Build a screen.** Ask in plain words.
+3. **Choose and configure.** For a screen, ask for the real component and only the properties the library allows.
 
-   > Design the Send money screen in the Acme Payments app using Resolve.
+   ```
+   /configure primary button on a sign-in screen
+   ```
+
+   Resolve returns one component, the values it could set, and a warning where it could not verify a property. It does not invent a component.
 
 4. **Check it.** Paste the link to that one screen.
 
@@ -91,6 +95,8 @@ Then fill in your **Figma token** and the **library file key**. For the code wor
 **Or let your AI install it in one project.** Paste this into the chat:
 
 > Install Resolve from https://github.com/TANISHQBAFNA/resolve — follow INSTALL-FOR-AI.md
+
+The version badge is the last published tag, `0.2.0`. That tag does not include `/configure`, the `resolve-configure` skill, or screen map. To try this revision, check out `main` and run `node bin/resolve-setup.mjs` from that checkout. Do not install `github:TANISHQBAFNA/resolve#v0.2.0` and expect those commands. Slash commands that still name `#v0.2.0` are pinned to that published tag.
 
 **Grok Bot, Codex and other MCP agents.** Resolve is a standard MCP server, so any agent that can add one can use it. Steps for Grok Bot and Codex are in [INSTALL-FOR-AI.md](INSTALL-FOR-AI.md).
 

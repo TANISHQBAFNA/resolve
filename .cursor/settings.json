@@ -1,7 +1,0 @@
-{
-  "plugins": {
-    "ponytail/ponytail": {
-      "enabled": true
-    }
-  }
-}
