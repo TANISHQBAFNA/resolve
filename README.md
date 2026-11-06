@@ -130,8 +130,10 @@ The code workflow reads a repo of HTML/CSS and builds a catalog of its real comp
 
 Resolve never stops on a finding. Every problem is a warning with a `next:` step, and the command exits 0, so a designer or an AI tool can keep going. A CI job wants the opposite, so add `--strict` to each check. With `--strict`, a finding gives its non-zero exit code and the job fails.
 
+A checkout of this repository runs the same checks with `node bin/resolve-cli.mjs` from that checkout. The block below is the last published tag, `0.2.0`. That tag does not include `/configure`.
+
 ```yaml
-# GitHub Actions step (Node 22 or newer)
+# GitHub Actions step for the published tag (Node 22 or newer). Not this checkout.
 - name: Check screens with Resolve
   run: |
     npx -y -p github:TANISHQBAFNA/resolve#v0.2.0 resolve-figma verify "Send money" --strict

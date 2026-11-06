@@ -2,9 +2,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const dir = join(process.cwd(), "eval", "runs", "2026-10-26");
+const dir = join(process.cwd(), "tests", "fixtures", "eval-invalid-2026-10-26");
 
-describe("2026-10-26 accuracy run", () => {
+describe("invalid 2026-10-26 accuracy fixture", () => {
   it("stays on disk and is marked invalid", () => {
     for (const file of ["meta.json", "runs.jsonl", "score.txt", "picks.json", "picks-run2.json", "run.log", "commands.txt"]) {
       expect(existsSync(join(dir, file)), file).toBe(true);
