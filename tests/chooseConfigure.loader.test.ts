@@ -26,7 +26,15 @@ describe("choose-and-configure guidance loaders", () => {
     expect(skill).toContain("Evidence contract");
     expect(skill).toContain("designer choosing and configuring");
     expect(skill).not.toMatch(/handoff/i);
-    expect(guide).toContain("This file is the only copy of these principles");
+    const canonical = readFileSync(join(root, "skills/resolve-configure/guidelines.md"), "utf8").trim();
+    const begin = "<!-- resolve-setup:begin -->";
+    const end = "<!-- resolve-setup:end -->";
+    const start = guide.indexOf(begin);
+    const stop = guide.indexOf(end);
+    expect(guide.slice(start + begin.length, stop).trim()).toBe(canonical);
+    expect(skill).toContain("guidelines.md");
+    const plugin = JSON.parse(readFileSync(join(root, ".cursor-plugin/plugin.json"), "utf8")) as { skills: string };
+    expect(readFileSync(join(root, plugin.skills, "resolve-configure/guidelines.md"), "utf8").trim()).toBe(canonical);
     expect(guide).toContain("Stop when the designer has a choice");
     expect(guide).not.toMatch(/handoff/i);
     expect(skill).not.toContain("This file is the only copy of these principles");
@@ -59,6 +67,7 @@ describe("choose-and-configure guidance loaders", () => {
       env: { ...process.env, RESOLVE_MODE: "figma", RESOLVE_REPO_PATH: "", CLAUDE_PLUGIN_ROOT: root },
     });
     expect(run.status).toBe(0);
-    expect(run.stdout).toContain("resolve-configure");
+    expect(run.stdout).toContain("guidelines.md");
+    expect(run.stdout).not.toContain("This file is the only copy of these principles");
   });
 });
