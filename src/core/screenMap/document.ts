@@ -3,12 +3,14 @@ import { join } from "node:path";
 import { cleanPropertyName } from "@/core/model/componentProperties";
 import type { DesignGraph, GraphNode } from "@/core/model";
 import { indexGraph, type GraphIndex } from "@/core/query/GraphIndex";
+import { realMastersNamed } from "@/core/query/masterNames";
 import { isScreen } from "@/core/query/screenInventory";
 import { projectMeta } from "./capture";
 import { SCREEN_MAP_VERSION, type MapDs, type MapIdentity, type MapNode, type ScreenMapDocument } from "./types";
 
 const TREE = new Set(["FILE", "PAGE", "SECTION", "FRAME", "AUTO_LAYOUT_CONTAINER", "GROUP", "LAYER", "TEXT_LAYER", "MEDIA_LAYER", "COMPONENT_SET", "MAIN_COMPONENT", "VARIANT", "COMPONENT_INSTANCE"]);
 const REGION = new Set(["FRAME", "AUTO_LAYOUT_CONTAINER", "GROUP", "SECTION"]);
+const DETACHED = new Set(["FRAME", "GROUP", "AUTO_LAYOUT_CONTAINER"]);
 const rec = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 
@@ -88,7 +90,10 @@ function toMapNode(index: GraphIndex, node: GraphNode, childIds: string[], inclu
     definitions: (set?.propertyDefinitions ?? main?.propertyDefinitions ?? node.propertyDefinitions)?.map((row) => ({ name: row.name, type: row.type })),
     textNode: node.type === "TEXT_LAYER" || node.metadata?.["figmaType"] === "TEXT",
   });
-  const flags = { ...projected.flags, ...(node.metadata?.["hidden"] === true ? { hidden: true } : {}) };
+  const insideInstance = index.getAncestors(node.id).some((item) => item.type === "COMPONENT_INSTANCE");
+  const detached = DETACHED.has(node.type) && !node.isInstance && node.metadata?.["hidden"] !== true && !insideInstance && realMastersNamed(index, node.name).length > 0;
+  const overridden = Array.isArray(node.metadata?.["overrides"]) && (node.metadata["overrides"] as unknown[]).length > 0;
+  const flags = { ...projected.flags, ...(node.metadata?.["hidden"] === true ? { hidden: true } : {}), ...(detached ? { detached: true } : {}), ...(overridden ? { overridden: true } : {}) };
   delete projected.flags;
   const parent = index.getParent(node.id);
   const identity = identityOf(index, node);
