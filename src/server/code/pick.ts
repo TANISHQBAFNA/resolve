@@ -1,4 +1,4 @@
-import { codeValueWarnings } from "@/core/query/codeValueGaps";
+import { codeValueWarnings } from "@/core/codeMap/codeValueGaps";
 import { byCode, type CatalogEntry, type CodeCatalog } from "./scan.ts";
 import { nameWords, RELATED, stem, tokens } from "./words.ts";
 

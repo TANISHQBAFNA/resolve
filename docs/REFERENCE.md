@@ -562,7 +562,7 @@ Then put the code map shown in [`code-map.json`](#resolvecode-mapjson--figma-to-
 | `ingest <file.json \| file.xml \| figma-url \| file-key>` | Reads a Figma file and adds it to the workspace. |
 | `learn --file-key <key>` | Same as the MCP `learn_library` tool: load a file from Figma `get_metadata` XML. |
 | `recipe [list \| "<name>"]` | Screen packs: the list of components a screen of that kind usually needs. |
-| `brief "<screen request>"` | Asks at most 3 multiple-choice questions before a screen is picked, and only when the request fits and the answer would change the component. States can take more than one answer. Nothing that fits says "No match." `--answer shape=table` (topics: shape, states, platform). |
+| `brief "<screen request>"` | Asks at most 3 multiple-choice questions before a screen is picked, and only when the request fits and the answer would change the component. States can take more than one answer. Nothing that fits says "No match." `--answer shape=table` (topics: shape, states, platform, part; part is asked when 2 or more parts compete). |
 | `recommend "<intent>"` | Ranked library components for a plain-words ask. `--answer <topic>=<option>` uses a briefing answer. |
 | `spec <spec.md \| ->` | Maps a Figma spec to library components. See [Figma specs](#figma-specs). |
 | `pick <request.json>` | Checks one AI pick. Off unless `RESOLVE_AI_PICKS=1`. When off, it says to use `recommend`. |

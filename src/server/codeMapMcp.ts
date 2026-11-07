@@ -1,8 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { scanAngularPackage } from "@/adapters/angular";
-import type { GraphIndex } from "@/core/query/GraphIndex";
-import { codeMapJson, entriesToCsv, readCodeMapDocument } from "@/core/query/codeMapCsv";
+import type { GraphIndex } from "@/core/read/GraphIndex";
+import { codeMapJson, entriesToCsv, readCodeMapDocument } from "@/core/codeMap/codeMapCsv";
 import { deprecationNotice } from "./deprecations";
 import { importReview, mapFile, preparedSuggestions, writeSuggestions } from "./codeMapCommand";
 

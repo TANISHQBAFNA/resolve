@@ -1,7 +1,7 @@
 import type { GraphEdge, GraphNode } from "@/core/model";
-import type { GraphIndex } from "@/core/query/GraphIndex";
-import { usageSummaryFor, type UsageSummary } from "@/core/query/analytics";
-import { extractSubgraph, levelForNode, type ViewMode } from "@/core/query/subgraph";
+import type { GraphIndex } from "@/core/read/GraphIndex";
+import { usageSummaryFor, type UsageSummary } from "@/core/read/analytics";
+import { extractSubgraph, levelForNode, type ViewMode } from "@/core/read/subgraph";
 
 /**
  * AI never receives the file. It receives a bounded subgraph around what the

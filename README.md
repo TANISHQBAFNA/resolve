@@ -146,17 +146,36 @@ A checkout of this repository runs the same checks with `node bin/resolve-cli.mj
 - Without `--strict` the same commands exit 0, so a job without it will always pass.
 - Exit codes per command: [Every command](docs/REFERENCE.md#every-command).
 
+## How a pick is chosen
+
+The words of the ask decide the job, not a shared word alone. A listed set that can be changed asks for a chooser. Options with a selected state ask for a single choice. A named pair such as Buy/Sell asks for a two-sided selector, not an on/off switch. A quantity stepper asks for a plus/minus number control. A removable or dismissible ask asks for a tag or chip. "Marks … as" asks for a tag or badge. Done, current, and locked are read as variant states.
+
+If the library has no part that does that job, Resolve can name a stand-in and mark the match **weak**. A weak match is not a sure pick. **No match** means stop. Do not invent a component. Configure sets only properties it can verify. The rest stay unknown. These rules are not an accuracy score. This page does not quote a pass rate.
+
+`/brief` asks at most three questions, and only when the answer would change the part. When two or more parts compete, one of those questions is which part.
+
+## Guidelines
+
+Setup from this checkout copies `skills/resolve-configure/`, including `guidelines.md`, into the project. The session-start hook names that skill. That is the file the host is pointed at. It is not proof that a signed-in Claude or Cursor session loaded it. You still have to ask in the signed-in app.
+
+## Where the code lives
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/tree-dark.svg"><img src="docs/assets/v4/tree-light.svg" alt="Feature folders: read, recommend, chooseConfigure, verify, codeMap, codeKnowledge, optional screenMap, and thin server adapters." width="100%"></picture>
+
+`src/core/read` is the shared graph. `recommend` ranks. `chooseConfigure` briefs, composes recipes, and configures. `verify` checks a placed screen. `codeMap` and `codeKnowledge` join Figma parts to code. `screenMap` is optional and stays off until `screenMap.enabled` is set. `src/server` is the CLI and MCP adapter. `src/core/query/index.ts` re-exports the same names so existing imports keep working. The developer export stays out of the default commands. It runs only when `RESOLVE_HANDOFF=1`.
+
 ## Commands
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/commands-dark.svg"><img src="docs/assets/v4/commands-light.svg" alt="A command palette listing /design-system, /find, /check, /parts, /code-map, /brief and /spec, each with what it does." width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/commands-dark.svg"><img src="docs/assets/v4/commands-light.svg" alt="Commands for this checkout: /design-system, /find, /configure, /brief, /check, /parts, /code-map, /spec, and opt-in /map." width="100%"></picture>
 
 | Type | You get |
 | --- | --- |
 | `/design-system <link>` | Resolve learns that Figma file and saves its components. |
 | `/find <phrase>` | The right component, a weak match marked as weak, or "no match". |
+| `/configure <words>` | One real component and the property values the library allows. Unverified properties stay unknown. |
 | `/check <link>` | Pass, or the retired, wrong and unknown parts plus proper-use problems. |
 | `/parts <link>` | Each component on the screen and its mapped code twin. Unmapped means stop and ask. |
-| `/brief` | Asks up to 3 quick questions before Resolve picks parts. |
+| `/brief` | Up to 3 questions before a pick, including which part when two or more compete. |
 | `/code-map` | One command: the import map, package scan/suggest/review, and coded joins (`--pairs`, `--unmatched`, `--suggest`). |
 | `/spec <link>` | Reads a Figma spec and maps each screen requirement to a real component, or says no match. |
 | `/learn-code [folder]` | Code workflow. Reads the repo and learns its real classes, variants and tokens. |

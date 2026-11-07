@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { scanAngularPackage } from "@/adapters/angular";
 import { isRetired } from "@/core/rules/retired";
-import { formatCodeMapReport } from "@/core/query/codeMap";
+import { formatCodeMapReport } from "@/core/codeMap/codeMap";
 import {
   codeMapFromCsv,
   codeMapJson,
@@ -11,12 +11,12 @@ import {
   mergeCodeMap,
   readCodeMapDocument,
   reviewEntries,
-} from "@/core/query/codeMapCsv";
-import { formatPackageDraft, formatReviewDrafts } from "@/core/query/draftScore";
-import { mergeSuggestions, suggestionEntries, suggestPairs } from "@/core/query/codeMapSuggest";
-import { overlayFile } from "@/core/query/overlayFile";
-import { codeMapCard, libraryCodeTargets } from "@/core/query/replacements";
-import type { GraphIndex } from "@/core/query/GraphIndex";
+} from "@/core/codeMap/codeMapCsv";
+import { formatPackageDraft, formatReviewDrafts } from "@/core/verify/draftScore";
+import { mergeSuggestions, suggestionEntries, suggestPairs } from "@/core/codeMap/codeMapSuggest";
+import { overlayFile } from "@/core/read/overlayFile";
+import { codeMapCard, libraryCodeTargets } from "@/core/recommend/replacements";
+import type { GraphIndex } from "@/core/read/GraphIndex";
 import { flag, printJson, requireGraph } from "./cliArgs";
 import { isRecord } from "./isRecord";
 import { storeRoot } from "./store";

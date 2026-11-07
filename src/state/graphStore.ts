@@ -2,10 +2,10 @@ import { create } from "zustand";
 import type { DesignGraph, NodeType } from "@/core/model";
 import type { IngestionSource } from "@/core/ingestion/types";
 import { buildGraph } from "@/core/transform";
-import { computeAnalytics, type GraphAnalytics } from "@/core/query/analytics";
-import { defaultFilterState, type FilterState } from "@/core/query/filters";
-import { indexGraph, type GraphIndex } from "@/core/query/GraphIndex";
-import type { GraphLevel, ViewMode } from "@/core/query/subgraph";
+import { computeAnalytics, type GraphAnalytics } from "@/core/read/analytics";
+import { defaultFilterState, type FilterState } from "@/core/read/filters";
+import { indexGraph, type GraphIndex } from "@/core/read/GraphIndex";
+import type { GraphLevel, ViewMode } from "@/core/read/subgraph";
 import { isExampleSource } from "@/state/sources";
 
 export type LoadStatus = "idle" | "loading" | "ready" | "error";

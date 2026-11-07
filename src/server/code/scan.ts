@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSy
 import { dirname, join, relative, resolve } from "node:path";
 import { applyVanilla, emptyCodeCatalog, openComponentSource } from "@/adapters/vanilla/read";
 import { parseDsId } from "@/core/rules/dsId";
-import { STORE_DIRS } from "../../core/query/overlayFile.ts";
+import { STORE_DIRS } from "../../core/read/overlayFile.ts";
 import type { ResolveConfig } from "../mode.ts";
 import { normHex, parseCss, selectorClasses, varRefs } from "./css.ts";
 import { parseHtml } from "./html.ts";

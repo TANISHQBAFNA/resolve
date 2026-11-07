@@ -1,8 +1,8 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { deltaAgainst, type ScoreDelta, type ScoreReport } from "@/core/query/scoreboard";
-import { pinnedHome } from "@/core/query/overlayFile";
+import { deltaAgainst, type ScoreDelta, type ScoreReport } from "@/core/recommend/scoreboard";
+import { pinnedHome } from "@/core/read/overlayFile";
 import { resolveWorkspaceName } from "./store";
 
 export interface ScoreTrendPoint {

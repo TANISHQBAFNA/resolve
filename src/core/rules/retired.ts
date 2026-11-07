@@ -1,5 +1,5 @@
 import type { GraphNode } from "@/core/model/graph";
-import type { GraphIndex } from "@/core/query/GraphIndex";
+import type { GraphIndex } from "@/core/read/GraphIndex";
 import { setOf } from "@/core/rules/family";
 
 /**

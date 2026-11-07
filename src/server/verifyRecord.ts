@@ -15,7 +15,7 @@ import {
   type GraphIndex,
   type Recipe,
 } from "@/core/query";
-import { hiddenUnder } from "@/core/query/placed";
+import { hiddenUnder } from "@/core/read/placed";
 import { loadRecipes, readPlaceholders, readDsck, readWorkspace, saveDsck } from "./store";
 
 function recipeAlreadyEncodes(pattern: { masterId: string; name: string }, recipes: Recipe[]): boolean {

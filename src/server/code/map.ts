@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { scoreUnmatched } from "@/core/query/draftScore";
+import { scoreUnmatched } from "@/core/verify/draftScore";
 import { dsIdOf, parseDsId, sameButVersion, type DsId } from "@/core/rules/dsId";
 import { figmaFolderKind, figmaIdentity, namespaceSet } from "@/core/rules/figmaNamespaces";
-import { codeMapCard } from "@/core/query/replacements";
+import { codeMapCard } from "@/core/recommend/replacements";
 import { buildDeclaredLinks, componentMapPath, manifestBodies, readComponentMap, readManifests } from "../componentMap.ts";
 import type { ResolveConfig } from "../mode.ts";
 import { awaitsReview, mappingStatus } from "../mappingStatus.ts";

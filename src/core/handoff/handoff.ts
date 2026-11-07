@@ -1,15 +1,15 @@
 import type { GraphNode } from "@/core/model";
 import { EXAMPLE_FILE_NOTE } from "@/core/transform/figmaUrl";
-import type { GraphIndex } from "../query/GraphIndex";
-import { bindingName, codeText, type AngularTwin, type Twin } from "../query/codeMap";
-import type { IngredientPart } from "../query/ingredients";
-import type { FilledRecipe, Recipe } from "../query/recipes";
-import type { ContextPack } from "../query/contextPacks";
-import type { DsciProposal } from "../query/dsck";
-import { designerPlacedInstances, hiddenUnder } from "../query/placed";
-import { copyValues, propertyBlock, type PropertyRow } from "../query/componentProperties";
-import { HANDOFF_NEXT } from "../query/nextSteps";
-import { nodeFileKey } from "../query/workspaceMerge";
+import type { GraphIndex } from "../read/GraphIndex";
+import { bindingName, codeText, type AngularTwin, type Twin } from "../codeMap/codeMap";
+import type { IngredientPart } from "../ingredients/ingredients";
+import type { FilledRecipe, Recipe } from "../chooseConfigure/recipes";
+import type { ContextPack } from "../chooseConfigure/contextPacks";
+import type { DsciProposal } from "../codeKnowledge/dsck";
+import { designerPlacedInstances, hiddenUnder } from "../read/placed";
+import { copyValues, propertyBlock, type PropertyRow } from "../read/componentProperties";
+import { HANDOFF_NEXT } from "../read/nextSteps";
+import { nodeFileKey } from "../read/workspaceMerge";
 
 /**
  * Handoff sheet (step 4): for a designed screen, one sheet a developer can build from.

@@ -28,8 +28,8 @@ import {
   type LearnUnit,
   type LearnUnitMaster,
 } from "@/core/ingestion/learnLibrary";
-import { unwrapLibraryList } from "@/core/query/recommendContext";
-import { applyFreshness, emptyDsck, type RemovedMaster } from "@/core/query/dsck";
+import { unwrapLibraryList } from "@/core/recommend/recommendContext";
+import { applyFreshness, emptyDsck, type RemovedMaster } from "@/core/codeKnowledge/dsck";
 import {
   loadFileGraph,
   loadLearnCheckpoint,

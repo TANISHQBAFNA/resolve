@@ -195,7 +195,7 @@ export const TOOLS: ToolDefinition[] = [
         budgetChars: { type: "number", description: "Hard cap on the structured card, in characters. Default 600. Markdown is shorter." },
         answers: {
           type: "object",
-          description: "Briefing answers. Topics: shape, states, platform. states may be a list. At most 3 answers. Unknown topic or option is an error.",
+          description: "Briefing answers. Topics: shape, states, platform, part. states may be a list. At most 3 answers. Unknown topic or option is an error.",
           additionalProperties: true,
         },
         ...freshnessProperties,
@@ -207,7 +207,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "brief",
     description:
-      "Before recommend on a screen request. Asks at most 3 multiple-choice questions, and only when the request fits the library and the answer would change the component. Topics: data shape (list, form, summary, counts), states (empty, loading, error, pending; more than one allowed), and platform. No screen-type goal question. Options are live masters. Platform is asked only when the best part comes in platform versions (Desktop Nav, Mobile Nav); a platform word alone is not a component. Nothing that fits returns no match and no questions. 'Just build' (also 'go ahead and build' or 'build without asking') asks nothing; with no match it returns no candidates. Pass answers to recommend and configure; they change the parts. Unknown topic, unknown option, empty value, a duplicate, or more than 3 answers is an error. Do not invent a component. Do not Read graph.json.",
+      "Before recommend on a screen request. Asks at most 3 multiple-choice questions, and only when the request fits the library and the answer would change the component. Topics: data shape (list, form, summary, counts), states (empty, loading, error, pending; more than one allowed), and platform. When 2+ parts compete for one ask, it asks which part. No screen-type goal question. Options are live masters. Platform is asked only when the best part comes in platform versions (Desktop Nav, Mobile Nav); a platform word alone is not a component. Nothing that fits returns no match and no questions. 'Just build' (also 'go ahead and build' or 'build without asking') asks nothing; with no match it returns no candidates. Pass answers to recommend and configure; they change the parts. Unknown topic, unknown option, empty value, a duplicate, or more than 3 answers is an error. Do not invent a component. Do not Read graph.json.",
     inputSchema: {
       type: "object",
       properties: {
@@ -216,7 +216,7 @@ export const TOOLS: ToolDefinition[] = [
         request: { type: "string", description: "The screen request, in the designer's words." },
         answers: {
           type: "object",
-          description: "Answers already given. shape and platform take one option. states takes one or more. At most 3 answers.",
+          description: "Answers already given. shape, platform, and part take one option. states takes one or more. At most 3 answers.",
           additionalProperties: true,
         },
         pack: { type: "string", description: "Context pack id. Same rules as recommend." },
@@ -571,7 +571,10 @@ function attachCardMeta(result: unknown, args: Record<string, unknown>): unknown
     );
   }
   const freshness = freshnessSummary(readDsck(), fileKey);
-  return freshness ? { ...result, freshness } : result;
+  if (!freshness) return result;
+  // The page outline is for re-fetching a stale file. A fresh file gets a page count, so the candidates keep the budget.
+  const { outline, ...rest } = freshness;
+  return { ...result, freshness: freshness.stale || !outline?.length ? freshness : { ...rest, pages: outline.length } };
 }
 
 function briefingAnswers(raw: unknown, index: ReturnType<typeof context>["index"]) {

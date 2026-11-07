@@ -2,9 +2,9 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFile
 import { join } from "node:path";
 import { cleanPropertyName } from "@/core/model/componentProperties";
 import type { DesignGraph, GraphNode } from "@/core/model";
-import { indexGraph, type GraphIndex } from "@/core/query/GraphIndex";
-import { realMastersNamed } from "@/core/query/masterNames";
-import { isScreen } from "@/core/query/screenInventory";
+import { indexGraph, type GraphIndex } from "@/core/read/GraphIndex";
+import { realMastersNamed } from "@/core/read/masterNames";
+import { isScreen } from "@/core/read/screenInventory";
 import { projectMeta } from "./capture";
 import { SCREEN_MAP_VERSION, type MapDs, type MapIdentity, type MapNode, type MasterBody, type ScreenMapDocument } from "./types";
 

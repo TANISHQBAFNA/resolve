@@ -1,6 +1,6 @@
-import type { GraphIndex } from "@/core/query/GraphIndex";
-import type { recommendMasters } from "@/core/query/recommendMasters";
-import { mapSpec, readSpec } from "@/core/query/specMap";
+import type { GraphIndex } from "@/core/read/GraphIndex";
+import type { recommendMasters } from "@/core/recommend/recommendMasters";
+import { mapSpec, readSpec } from "@/core/spec/specMap";
 
 /**
  * Advanced MCP tool. Same reader and ranking as `resolve spec`. The agent reads the Figma spec

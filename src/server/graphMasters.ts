@@ -1,4 +1,4 @@
-import { componentKeyOf } from "@/core/query/workspaceMerge";
+import { componentKeyOf } from "@/core/read/workspaceMerge";
 import { includesPack, activeMode, readConfig } from "./mode.ts";
 import { resolveGraph } from "./store";
 

@@ -1,7 +1,7 @@
 import type { DesignGraph } from "@/core/model";
-import { LAYER_NAME_GUESS } from "@/core/query/cardCopy";
-import { indexGraph, type GraphIndex } from "@/core/query/GraphIndex";
-import { isScreen } from "@/core/query/screenInventory";
+import { LAYER_NAME_GUESS } from "@/core/read/cardCopy";
+import { indexGraph, type GraphIndex } from "@/core/read/GraphIndex";
+import { isScreen } from "@/core/read/screenInventory";
 import { buildScreenMap, readScreenMap } from "./document";
 import type { MapNode, MapWarning, ScreenMapDocument } from "./types";
 

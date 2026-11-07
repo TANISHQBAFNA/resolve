@@ -1,7 +1,7 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { designerFailure } from "./designerMessages";
-import { normalizeCliArgs } from "@/core/query/cliFlags";
+import { normalizeCliArgs } from "@/core/read/cliFlags";
 
 /** Same file even when one path goes through a symlinked folder. */
 function samePath(left: string, right: string): boolean {

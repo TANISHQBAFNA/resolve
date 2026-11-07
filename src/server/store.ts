@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { IngestCheckpointStore, ScreensCheckpoint } from "@/core/ingestion/adapters/figmaRestSource";
 import { DesignGraphSchema, type DesignGraph } from "@/core/model";
-import { pinnedHome, STORE_DIRS } from "@/core/query/overlayFile";
+import { pinnedHome, STORE_DIRS } from "@/core/read/overlayFile";
 import { isRecord } from "./isRecord";
 import {
   assertIngestRoleChange,

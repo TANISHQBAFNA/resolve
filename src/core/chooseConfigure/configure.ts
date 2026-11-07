@@ -1,8 +1,8 @@
-import type { GraphIndex } from "@/core/query/GraphIndex";
+import type { GraphIndex } from "@/core/read/GraphIndex";
 import type { GraphNode } from "@/core/model";
 import { cleanPropertyName } from "@/core/model/componentProperties";
-import { propertyBlock, type PropertyRow } from "@/core/query/componentProperties";
-import { recommendMasters } from "@/core/query/recommendMasters";
+import { propertyBlock, type PropertyRow } from "@/core/read/componentProperties";
+import { recommendMasters } from "@/core/recommend/recommendMasters";
 import { controllingFromReferences } from "@/core/screenMap/capture";
 
 export interface ConfigureWarning {

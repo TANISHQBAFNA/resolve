@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { top1Label, top3Label } from "@/core/query/scoreLabels";
+import { top1Label, top3Label } from "@/core/recommend/scoreLabels";
 import { SCOREBOARD_LOAD_FAILURE, dataIfLive, viewFromLiveResponse, type LiveView } from "@/ui/liveCall";
 
 interface ToolRow {

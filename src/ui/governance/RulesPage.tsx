@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { COMPONENT_DEFINITION_TYPES } from "@/core/model";
-import { whyLine } from "@/core/query/bindRules";
+import { whyLine } from "@/core/codeKnowledge/bindRules";
 import { useGraphStore } from "@/state/graphStore";
 import { ScoreboardSection } from "@/ui/governance/ScoreboardSection";
 import { RULES_LOAD_FAILURE, dataIfLive, viewFromLiveResponse, type LiveView } from "@/ui/liveCall";

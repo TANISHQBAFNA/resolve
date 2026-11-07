@@ -1,5 +1,5 @@
-import { angularText, type AngularTwin } from "../query/codeMap";
-import { formatPropertyLines } from "../query/componentProperties";
+import { angularText, type AngularTwin } from "../codeMap/codeMap";
+import { formatPropertyLines } from "../read/componentProperties";
 import { clean, kebab, NAME_GUESS, where, type HandoffPack, type HandoffPart, type HandoffScreen, type InputHint } from "./handoff";
 
 
