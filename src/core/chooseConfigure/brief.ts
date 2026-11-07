@@ -109,15 +109,18 @@ export interface BriefCandidate {
 export interface BriefAnswers {
   shape?: string;
   platform?: string;
-  /** Which of two or more competing parts: a live master name or id. */
-  part?: string;
+  /**
+   * One chosen master per open part question. A string still means one answer.
+   * Repeat the answer, or pass a list, when more than one part is open.
+   */
+  part?: string[];
   states: string[];
 }
 
 export type BriefSkip = "just-build" | "recipe" | "decision" | "answered" | "one-candidate" | "no-match";
 
 export type BriefResult = (
-  | { questions: BriefQuestion[] }
+  | { questions: BriefQuestion[]; settled?: BriefCandidate[] }
   | { ready: true; assumptions: string[]; candidates: BriefCandidate[]; skip: BriefSkip }
 ) & {
   /** An offer only. Brief never composes; the person or agent runs recipe compose. */
@@ -255,7 +258,7 @@ function valuesOf(raw: unknown): string[] {
 }
 
 function countAnswers(answers: BriefAnswers): number {
-  return (answers.shape ? 1 : 0) + (answers.platform ? 1 : 0) + (answers.part ? 1 : 0) + answers.states.length;
+  return (answers.shape ? 1 : 0) + (answers.platform ? 1 : 0) + (answers.part?.length ?? 0) + answers.states.length;
 }
 
 function rejectOverCap(answers: BriefAnswers): void {
@@ -282,11 +285,19 @@ function assignTopic(answers: BriefAnswers, topic: string, raw: unknown, seenSin
     }
     return;
   }
+  if (id === "part") {
+    answers.part = answers.part ?? [];
+    for (const value of values) {
+      const key = value.toLowerCase();
+      if (answers.part.some((item) => item.toLowerCase() === key)) throw new BriefAnswerError(`Part "${value}" was given twice.`);
+      answers.part.push(value);
+    }
+    return;
+  }
   if (seenSingle.has(id)) throw new BriefAnswerError(`Topic ${id} was given twice.`);
   if (values.length > 1) throw new BriefAnswerError(`Topic ${id} takes one answer.`);
   seenSingle.add(id);
   if (id === "shape") answers.shape = values[0];
-  else if (id === "part") answers.part = values[0];
   else answers.platform = values[0];
 }
 
@@ -341,10 +352,14 @@ function assertKnown(answers: BriefAnswers | undefined, catalog: Catalog): Map<B
     }
     resolved.set("platform", [{ id, label: id, contrast: id, masterId: "" }]);
   }
-  if (answers.part) {
-    const choice = findChoice(catalog.parts, answers.part);
-    if (!choice) throw new BriefAnswerError(`Unknown option "${answers.part}" for part. Name one of the parts the question listed.`);
-    resolved.set("part", [choice]);
+  if (answers.part?.length) {
+    const choices: Choice[] = [];
+    for (const value of answers.part) {
+      const choice = findChoice(catalog.parts, value);
+      if (!choice) throw new BriefAnswerError(`Unknown option "${value}" for part. Name one of the parts the question listed.`);
+      choices.push(choice);
+    }
+    resolved.set("part", choices);
   }
   if (answers.states.length) {
     const choices: Choice[] = [];
@@ -506,12 +521,16 @@ function requirementGroups(request: string, masters: GraphNode[]): Map<string, G
   return groups;
 }
 
-function plainRequirements(group: GraphNode[], head: string): GraphNode[] {
-  const plain = group.filter((master) => {
-    const tokens = nameTokens(lastSegment(master.name)).filter((token) => token.length > 2);
-    return tokens.length === 1 && tokens[0] === head;
+function poolFor(group: GraphNode[], head: string, words: string[]): GraphNode[] {
+  const specific = group.filter((master) => {
+    const extra = nameTokens(lastSegment(master.name)).filter((token) => token.length > 2 && token !== head);
+    return extra.some((token) => words.some((word) => sameWordForm(word, token)));
   });
-  return plain.length ? plain : group;
+  if (specific.length === 1) return specific;
+  if (specific.length > 1) return specific;
+  const plain = group.filter((master) => nameTokens(lastSegment(master.name)).filter((token) => token.length > 2).length === 1);
+  if (plain.length === 1) return plain;
+  return plain.length > 1 ? plain : group;
 }
 
 function partsNamed(request: string, masters: GraphNode[]): GraphNode[] {
@@ -703,7 +722,7 @@ function briefRequest(input: BriefInput): BriefResult {
   const answeredStates = fromAnswer("states") || states.length > 0;
   const shapeFork = !answeredShape && shapes.length >= 2 ? shapes : listShapes;
 
-  const forks: Array<{ topic: BriefTopic; options: Choice[]; multiple?: true }> = [];
+  const forks: Array<{ topic: BriefTopic; options: Choice[]; multiple?: true; head?: string }> = [];
   const consider = (topic: BriefTopic, options: Choice[]) => {
     if (options.length < 2 || !fits) return;
     const distinct: Choice[] = [];
@@ -781,16 +800,21 @@ function briefRequest(input: BriefInput): BriefResult {
     if (recipe) for (const row of recipeCandidates(input, recipe)) push(row);
     else if (decision) push(candidateOf(decision.master));
     else {
-      for (const master of named) push(candidateOf(master), containsPhrase(stripped, master.name));
-      const chosenPart = resolved.get("part")?.[0];
+      for (const master of named) {
+        const heads = new Set(groups.keys());
+        if ([...heads].some((head) => nameTokens(master.name).includes(head))) continue;
+        push(candidateOf(master), containsPhrase(stripped, master.name));
+      }
+      const chosenParts = resolved.get("part") ?? [];
+      const words = contentTokens(stripped);
       for (const [head, group] of groups) {
-        const pool = plainRequirements(group, head);
+        const pool = poolFor(group, head, words);
         if (pool.length === 1 && pool[0]) {
           push(candidateOf(pool[0]));
           continue;
         }
-        const chosen = pool.find((master) => chosenPart && (chosenPart.id === master.id || chosenPart.label === master.name || chosenPart.masterId === master.id));
-        if (chosen) push(candidateOf(chosen));
+        const chosen = pool.filter((master) => chosenParts.some((part) => part.id === master.id || part.label === master.name || part.masterId === master.id));
+        for (const master of chosen) push(candidateOf(master));
       }
       for (const choice of [...(parts.length >= 2 ? [] : answeredShape ? shapes.slice(0, 1) : []), ...states]) {
         const master = masters.find((item) => item.id === choice.masterId);
@@ -822,22 +846,36 @@ function briefRequest(input: BriefInput): BriefResult {
   if (recipe) return ready("recipe", [`Recipe ${recipe.title} matches. Slots decide the parts.`], realCandidates());
   if (decision) return ready("decision", [`Approved decision: ${decision.summary}`], realCandidates());
 
-  const chosenPart = resolved.get("part")?.[0];
-  for (const [head, group] of groups) {
-    const pool = plainRequirements(group, head);
-    if (pool.length < 2) continue;
-    const answered = pool.some((master) => chosenPart && (chosenPart.id === master.id || chosenPart.label === master.name || chosenPart.masterId === master.id));
+  const chosenParts = resolved.get("part") ?? [];
+  const words = contentTokens(stripped);
+  const pools = [...groups.entries()].map(([head, group]) => ({ head, pool: poolFor(group, head, words) }));
+  const offered = pools.flatMap((row) => row.pool);
+  for (const part of chosenParts) {
+    const homes = pools.filter((row) => row.pool.some((master) => master.id === part.masterId || master.id === part.id));
+    if (!homes.length) {
+      const options = offered.map((master) => master.name).join(", ") || "none";
+      throw new BriefAnswerError(`Unknown option "${part.label}" for part. Options: ${options}.`);
+    }
+    if (homes.length === 1 && homes[0] && homes[0].pool.filter((master) => chosenParts.some((item) => item.masterId === master.id || item.id === master.id)).length > 1) {
+      throw new BriefAnswerError(`Topic part was given two answers for ${homes[0].head}.`);
+    }
+  }
+  for (const row of pools) {
+    if (row.pool.length < 2) continue;
+    const answered = row.pool.some((master) => chosenParts.some((part) => part.masterId === master.id || part.id === master.id));
     if (answered) continue;
-    forks.unshift({ topic: "part", options: pool.map((master) => ({ id: master.id, label: master.name, contrast: "", masterId: master.id })) });
+    forks.unshift({ topic: "part", head: row.head, options: row.pool.map((master) => ({ id: master.id, label: master.name, contrast: "", masterId: master.id })) });
   }
 
   const asked = forks.slice(0, BRIEF_QUESTION_CAP);
   if (asked.length) {
+    const settled = realCandidates();
     return {
+      ...(settled.length ? { settled } : {}),
       questions: asked.map((fork) => ({
         topic: fork.topic,
         prompt: fork.topic === "part"
-          ? `Which part: ${joinOr(fork.options.map((option) => option.label))}?`
+          ? `Which ${fork.head ?? "part"}: ${joinOr(fork.options.map((option) => option.label))}?`
           : `${joinOr(fork.options.map((option) => option.label))}: ${joinOr(fork.options.map((option) => option.contrast))}?${fork.multiple ? " Pick any that apply." : ""}`,
         options: fork.options.map((option) => ({ id: option.id, label: option.label })),
         ...(fork.multiple ? { multiple: true as const } : {}),

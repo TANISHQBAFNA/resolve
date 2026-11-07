@@ -244,9 +244,6 @@ function applyAsked(
         warning: `${componentName} is asked both on and off.`,
         next: booleans.length ? `Say which of ${booleans.map((def) => def.name).join(", ")} to set.` : "Say whether it is on or off.",
       });
-    } else if (reading && booleans.length === 1) {
-      const only = booleans[0];
-      if (only) add(only, reading, false);
     } else if (reading && booleans.length > 1) {
       warnings.push({
         warning: `${componentName} has more than one switch.`,

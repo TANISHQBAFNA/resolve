@@ -578,20 +578,40 @@ export function recommendMasters(
     const names = new Set(nameWords(entry));
     return [...propertyNames(entry)].some((token) => tokens.includes(token) && !names.has(token));
   });
-  const segmentTokens = (entry: Scored): string[] => {
-    const label = (setOf(index, entry.node)?.name ?? entry.node.name).split("/").pop() ?? "";
-    return label.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 1);
+  const optionWords = (entry: Scored): Set<string> => {
+    const words = new Set<string>();
+    for (const def of defined(entry)) for (const option of def.options ?? []) words.add(option.toLowerCase());
+    return words;
   };
-  const bareOwners = kept.filter((entry) => {
-    const parts = segmentTokens(entry);
-    return parts.length === 1 && parts[0] !== undefined && tokens.includes(parts[0]) && PLAIN_NOUN.has(parts[0]);
-  });
-  if (bareOwners.length) {
-    const floor = Math.max(...bareOwners.map((entry) => entry.score));
+  const askedWords = new Set<string>([...tokens, ...rawAsk.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)]);
+  const capable = kept.filter((entry) => [...optionWords(entry)].some((option) => askedWords.has(option)));
+  if (capable.length) {
+    const floor = Math.max(...capable.map((entry) => entry.score));
     for (const entry of kept) {
-      if (bareOwners.includes(entry)) continue;
-      const extra = segmentTokens(entry).filter((token) => !tokens.includes(token));
-      if (extra.length > 0 && segmentTokens(entry).some((token) => tokens.includes(token)) && entry.score >= floor) entry.score = floor - 1;
+      if (capable.includes(entry)) continue;
+      const matched = nameWords(entry).filter((token) => askedWords.has(token));
+      const lacks = capable.some((owner) => {
+        const wanted = [...optionWords(owner)].filter((option) => askedWords.has(option));
+        const keepsOwnControl = matched.some((token) => PLAIN_NOUN.has(token) && !nameWords(owner).includes(token));
+        return matched.length > 0 && !keepsOwnControl && wanted.some((option) => !optionWords(entry).has(option));
+      });
+      if (lacks && entry.score >= floor) entry.score = floor - 1;
+    }
+  }
+  const switchReading = tokens.some((token) => token === "on" || token === "off" || token === "switched" || token === "checked" || token === "enabled" || token === "disabled");
+  if (switchReading) {
+    for (const entry of kept) {
+      const booleans = defined(entry).filter((def) => def.type === "BOOLEAN");
+      const named = booleans.some((def) => tokensOf(def.name).some((token) => tokens.includes(token)));
+      if (!booleans.length || named) continue;
+      const mine = nameWords(entry).filter((token) => tokens.includes(token)).length;
+      const sibling = kept.find((other) => {
+        if (other === entry) return false;
+        const theirs = nameWords(other).filter((token) => tokens.includes(token)).length;
+        const unnamed = defined(other).some((def) => def.type === "BOOLEAN" && tokensOf(def.name).every((token) => !tokens.includes(token)));
+        return theirs >= mine && !unnamed;
+      });
+      if (sibling && entry.score >= sibling.score) entry.score = sibling.score - 1;
     }
   }
   const plainOwners = kept.filter((entry) => nameWords(entry).some((token) => tokens.includes(token) && PLAIN_NOUN.has(token)));
@@ -649,6 +669,12 @@ export function recommendMasters(
   // The role read from the wording already ranked these. Word-overlap filters would drop a part that shares no word.
   if (!kept[0]?.why.some((item) => item === "role" || item === "states")) kept = finishRank(kept, tokens, allowClip, purpose, componentWord);
   // A variant value is not a component once a real name already matched.
+  const answersAskedOption = (entry: Scored): boolean => {
+    const words = new Set(rawAsk.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+    const set = setOf(index, entry.node);
+    const defs = [...(entry.node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])];
+    return defs.some((def) => def.options?.some((option) => words.has(option.toLowerCase())));
+  };
   const grounded = (entry: Scored): boolean =>
     entry.exactName ||
     Boolean(entry.whyOverride) ||
@@ -658,7 +684,8 @@ export function recommendMasters(
     entry.why.includes("typo") ||
     entry.why.includes("role") ||
     entry.why.includes("states") ||
-    entry.why.includes("bind-rule");
+    entry.why.includes("bind-rule") ||
+    (entry.why.includes("variant") && answersAskedOption(entry));
   const variantWordOnly =
     askedTokens.length > 0 && askedTokens.every((token) => modifierWord(token));
   const hasGrounded = kept.some(grounded);

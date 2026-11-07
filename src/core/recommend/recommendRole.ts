@@ -66,7 +66,7 @@ export function askRole(ask: string): AskRole | undefined {
     return {
       kind: "selection",
       want: new Set(["selector", "selection", "interactive", "tile", "radio", "choice"]),
-      avoid: new Set(["badge", "label", "tag", "text", "dialog", "modal"]),
+      avoid: new Set(["badge", "label", "tag", "text", "dialog", "modal", "card"]),
     };
   }
   // "match score", "timeline of match events": a part named so still wins; else the stand-in, named. "score card" is a card.
