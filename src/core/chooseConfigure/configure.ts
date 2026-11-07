@@ -240,11 +240,8 @@ function applyAsked(
 
   for (const count of intentClauses(ask).counts) {
     const listed = live.filter((def) => def.type === "VARIANT" && (def.options ?? []).some((option) => option.toLowerCase() === count));
-    if (listed.length === 1 && !picks.has(listed[0]!.name)) {
-      add(listed[0]!, count, false);
-      continue;
-    }
-    if (listed.length > 1) continue;
+    if (listed.length === 1 && !picks.has(listed[0]!.name)) add(listed[0]!, count, false);
+    if (listed.length > 0) continue;
     const stepProp = live.filter((def) => def.type === "VARIANT" && tokensOf(def.name).some((token) => token === "step" || token === "steps" || token === "count"));
     if (stepProp.length === 1 && !picks.has(stepProp[0]!.name)) add(stepProp[0]!, count, false);
     else if (stepProp.length === 0) {
@@ -255,7 +252,17 @@ function applyAsked(
     }
   }
   for (const assignment of intentClauses(ask).assignments) {
-    const prop = live.find((def) => tokensOf(def.name).includes(assignment.property));
+    const matches = live.filter((def) => tokensOf(def.name).includes(assignment.property));
+    if (matches.length > 1) {
+      const chosen = matches.filter((def) => picks.has(def.name));
+      if (chosen.length === 1) continue;
+      warnings.push({
+        warning: `${componentName} has more than one property for ${assignment.property}.`,
+        next: `Say which of ${matches.map((def) => def.name).join(", ")} takes ${assignment.value}.`,
+      });
+      continue;
+    }
+    const prop = matches[0];
     if (!prop) {
       warnings.push({
         warning: `${componentName} has no property ${assignment.property}, so "${assignment.value}" cannot be applied.`,

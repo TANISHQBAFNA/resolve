@@ -562,8 +562,7 @@ export function intentClauses(ask: string): { identity: string[]; settings: stri
     if (words[index] === "with") {
       const property = words[index + 1] ?? "";
       const value = words[index + 2] ?? "";
-      const narrative = new Set(["a", "an", "the", "beside", "next", "to", "it", "shown", "showing", "show", "and", "of", "on"]);
-      if (property && value && !narrative.has(property) && !narrative.has(value) && !/^\d+$/.test(property)) assignments.push({ property, value });
+      if (property === "color" && value && !/^\d+$/.test(value)) assignments.push({ property, value });
     }
   }
   const tailNumber = words[words.length - 1];
