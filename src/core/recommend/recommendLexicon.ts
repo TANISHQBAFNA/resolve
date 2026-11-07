@@ -261,19 +261,37 @@ function optionValueTokens(index: GraphIndex, node: GraphNode): Set<string> {
   return tokens;
 }
 
+function owningSet(index: GraphIndex, node: GraphNode): GraphNode | undefined {
+  if (node.type === "COMPONENT_SET") return node;
+  const direct = setOf(index, node);
+  if (direct) return direct;
+  const lower = node.name.toLowerCase();
+  let best: GraphNode | undefined;
+  for (const item of index.getNodesByType("COMPONENT_SET")) {
+    if (!lower.startsWith(`${item.name.toLowerCase()}/`)) continue;
+    if (!best || item.name.length > best.name.length) best = item;
+  }
+  return best;
+}
+
 /**
- * The component's own name. A path segment that only repeats a property name or one of its
- * option values (`header/action-toggle`, `card/layout-horizontal`) is not a second component.
+ * The component's own name. An extra path segment that only repeats a property or an option
+ * (`header/action-toggle`, `button/type-negative`) is a decoration. The master's own name stays,
+ * even when one of its properties shares a word with that name (`icon button` on Button).
  */
 export function identityPath(index: GraphIndex, node: GraphNode): string {
   if (VARIANT_PROP_NAME.test(node.name)) {
     const set = setOf(index, node);
     return set && !VARIANT_PROP_NAME.test(set.name) ? set.name : node.name;
   }
-  const layers = optionValueTokens(index, node);
-  const segments = node.name.split("/").map((part) => part.trim()).filter(Boolean);
-  const kept = segments.filter((segment) => tokensOf(segment).some((token) => !layers.has(token)));
-  return (kept.length ? kept : segments).join("/") || node.name;
+  const owner = owningSet(index, node);
+  if (!owner || owner.id === node.id || node.name.toLowerCase() === owner.name.toLowerCase()) return node.name;
+  const prefix = `${owner.name.toLowerCase()}/`;
+  if (!node.name.toLowerCase().startsWith(prefix)) return node.name;
+  const layers = optionValueTokens(index, owner);
+  const extra = node.name.slice(owner.name.length + 1).split("/").map((part) => part.trim()).filter(Boolean);
+  const kept = extra.filter((segment) => tokensOf(segment).some((token) => !layers.has(token)));
+  return [owner.name, ...kept].join("/");
 }
 
 export function identityHaystack(index: GraphIndex, node: GraphNode, set?: GraphNode, host = ""): string {
