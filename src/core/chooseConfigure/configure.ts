@@ -215,6 +215,7 @@ function applyAsked(
     } else if (hit.def.type === "BOOLEAN") {
       const reading = readingBeside(atoms, hit);
       if (reading) add(hit.def, reading, false);
+      else if (!atoms.some((atom) => OFF_WORD.has(atom.norm))) add(hit.def, "true", false);
     }
     if (hit.def.type === "VARIANT") {
       for (const option of hit.def.options ?? []) {
@@ -284,6 +285,20 @@ function applyAsked(
     const match = matchValue(def, raw);
     asked.set(def.name, match);
     if (match.invalid) warnings.push(invalidValue(def, raw));
+  }
+
+  const unit = new Set(["percent", "percentage", "px", "pt", "rem", "em"]);
+  for (let index = 0; index < atoms.length; index += 1) {
+    const atom = atoms[index];
+    if (!atom || !/^\d+$/.test(atom.norm)) continue;
+    const trailing = index === atoms.length - 1 || unit.has(atoms[index + 1]?.norm ?? "");
+    if (!trailing) continue;
+    const used = [...picks.values()].some((list) => list.some((pick) => normOf(pick.raw) === atom.norm));
+    if (used) continue;
+    warnings.push({
+      warning: `${componentName} cannot apply "${atom.raw}".`,
+      next: `Name the property that takes ${atom.raw}, or pick a component that has one.`,
+    });
   }
 
   const out = rows.map((row) => {
@@ -385,6 +400,7 @@ function valueBeside(atoms: Atom[], hit: PropertyHit, componentWords: Set<string
     if (atom.norm === "show" || atom.norm === "showing") continue;
     if (otherProperty(atom)) break;
     if (hit.def.type === "BOOLEAN" && (ON_WORD.has(atom.norm) || OFF_WORD.has(atom.norm) || atom.norm === "shown")) break;
+    if (hit.def.type === "BOOLEAN") continue;
     return atom.raw;
   }
   if (hit.def.type === "TEXT") return undefined;

@@ -4,7 +4,7 @@ import { DESCRIBING_WORD, tokensOf } from "../read/queryTokens";
 import { PLAIN_NOUN } from "./recommendLexicon";
 
 export interface AskRole {
-  kind: "chooser" | "selection" | "two-way" | "number" | "dismissible" | "marker" | "stand-in";
+  kind: "chooser" | "selection" | "two-way" | "number" | "dismissible" | "marker" | "stand-in" | "entry";
   /** Family name words that do this job. */
   want: ReadonlySet<string>;
   /** Family name words for a part that looks close but does another job. */
@@ -57,7 +57,10 @@ export function askRole(ask: string): AskRole | undefined {
   if (CHANGE_VERB.test(text) && OPTION_SET.test(text)) {
     return { kind: "chooser", want: new Set(["menu", "dropdown", "select", "segmented"]), avoid: DISPLAY_ONLY };
   }
-  // "failed payment status label": a badge or tag that shows the state, not the card that only shares the subject.
+  // "enter the code with a countdown beside it" is a code field. A dial code is a phone number.
+  if (/\b(?:enter|type)\b/.test(text) && /\bcode\b/.test(text) && !/\b(?:phone|dial|telephone|mobile)\b/.test(text)) {
+    return { kind: "entry", want: new Set(["code", "pin", "otp"]), avoid: new Set(["phone", "dial", "telephone"]) };
+  }
   if (/\b(?:badge|tag|label)\b/.test(text) && !/\b(?:badge|tag|label)\s*=/.test(text) && /\b(?:failed|failure|error|success|pending|disabled)\b/.test(text)) {
     return { kind: "marker", want: new Set(["badge", "tag"]), avoid: new Set(["card", "dialog", "modal"]) };
   }

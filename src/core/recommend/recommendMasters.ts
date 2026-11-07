@@ -299,6 +299,13 @@ export function recommendMasters(
           hits.variant += 1;
         }
       }
+      if (clauses.counts.length && tokensOf(stripTier(nameHaystack)).some((token) => token === "step" || token === "steps" || token === "stepper" || inflectsName("step", token))) {
+        const options = [...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].flatMap((def) => def.options ?? []).map((option) => option.toLowerCase());
+        if (clauses.counts.some((count) => options.includes(count))) {
+          lexical += LEXICAL_WEIGHT.variant;
+          hits.variant += 1;
+        }
+      }
       lexical += repeatedSynonym(nameHaystack, tokens, allowClip, askedHead) * 20;
       // Only a generic word before the tail ("picker for fruit") still needs the tail to fit.
       const rawMiss = beforePurposeTail.length && !beforePurposeTail.every((token) => GENERIC_NAME_TOKENS.has(token)) ? beforePurposeTail : tokens;

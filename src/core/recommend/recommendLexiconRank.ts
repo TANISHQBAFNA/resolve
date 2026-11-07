@@ -526,7 +526,7 @@ export function contiguousPhrase(ask: string, term: string): boolean {
  * "upload progress at 60 percent" asks for progress. "6 digits" and "show countdown" set the control already named.
  * A trailing generic noun is not the control when a state and a more specific noun are both present.
  */
-export function intentClauses(ask: string): { identity: string[]; settings: string[]; head?: string } {
+export function intentClauses(ask: string): { identity: string[]; settings: string[]; head?: string; counts: string[] } {
   const words = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
   const assigned = new Set([...ask.matchAll(/\b([a-z][a-z0-9]*)\s*=/gi)].map((match) => match[1]!.toLowerCase()));
   const contentBefore = (index: number) =>
@@ -554,13 +554,24 @@ export function intentClauses(ask: string): { identity: string[]; settings: stri
     }
     if (word === "shown" && index > 0) settings.add(span[index - 1]!);
   }
+  const counts: string[] = [];
+  for (let index = 0; index < words.length - 1; index += 1) {
+    if (/^\d+$/.test(words[index]!) && /^(?:step|steps|stepper)$/.test(words[index + 1]!)) counts.push(words[index]!);
+  }
+  const tailNumber = words[words.length - 1];
+  if (tailNumber && /^\d+$/.test(tailNumber)) {
+    settings.add(tailNumber);
+    const property = words[words.length - 2];
+    const at = words.length - 2;
+    if (property && at > 0 && contentBefore(at)) settings.add(property);
+  }
   let identity = tokensOf(span.filter((word) => !settings.has(word) && !assigned.has(word) && !STATE_WORD.has(word)).join(" "));
   const last = identity[identity.length - 1];
   const earlierSpecific = [...identity.slice(0, -1)].reverse().find((token) => !GENERIC_NAME_TOKENS.has(token));
   if (last && GENERIC_NAME_TOKENS.has(last) && earlierSpecific && span.some((word) => STATE_WORD.has(word))) {
     identity = identity.filter((token) => token !== last);
   }
-  return { identity, settings: [...settings], head: identity[identity.length - 1] };
+  return { identity, settings: [...settings], head: identity[identity.length - 1], counts };
 }
 
 export function tokenHits(
