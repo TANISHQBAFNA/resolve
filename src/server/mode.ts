@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
-import { acceptedPinnedHome, STORE_DIRS } from "../core/query/overlayFile.ts";
+import { acceptedPinnedHome, STORE_DIRS } from "../core/read/overlayFile.ts";
 
 /** Which workflow is active. Self-contained so the code engine runs without a bundler. */
 export type Mode = "figma" | "code" | "both";

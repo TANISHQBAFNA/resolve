@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { BRIEF_EXIT, checkBrief, checkHandoffPack, inventoryTable, type BriefReport } from "@/core/query/designBrief";
+import { BRIEF_EXIT, checkBrief, checkHandoffPack, inventoryTable, type BriefReport } from "@/core/chooseConfigure/designBrief";
 import { hasStrict, printJson, strictExit } from "./cliArgs";
 
 export const BRIEF_CHECK_USAGE = 'Usage: resolve brief check <brief.md | handoff-folder> [--suggest] [--json] [--strict]';

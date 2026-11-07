@@ -1,5 +1,5 @@
 import type { GraphNode } from "@/core/model";
-import type { GraphIndex } from "../query/GraphIndex";
+import type { GraphIndex } from "../read/GraphIndex";
 import {
   ingredientCard,
   isNameInferredMaster,
@@ -8,16 +8,16 @@ import {
   retiredHooks,
   variantCardName,
   verifyFrame,
-} from "../query/agentSurface";
-import type { BindRulesFile } from "../query/bindRules";
-import type { ContextPack } from "../query/contextPacks";
+} from "../read/agentSurface";
+import type { BindRulesFile } from "../codeKnowledge/bindRules";
+import type { ContextPack } from "../chooseConfigure/contextPacks";
 import { buildHandoff, SCREEN_TYPES, type HandoffDecisionInput, type HandoffHooks, type HandoffPack, type VerifyLike } from "./handoff";
-import { realByKey } from "../query/ingredients";
-import { missingNodeSentence, readFigmaLink } from "../query/learnedLink";
-import type { BriefCandidate } from "../query/brief";
-import { fillRecipe, matchRecipe, type Recipe } from "../query/recipes";
-import type { DsckState } from "../query/dsck";
-import type { WorkspaceManifest } from "../query/workspace";
+import { realByKey } from "../ingredients/ingredients";
+import { missingNodeSentence, readFigmaLink } from "../read/learnedLink";
+import type { BriefCandidate } from "../chooseConfigure/brief";
+import { fillRecipe, matchRecipe, type Recipe } from "../chooseConfigure/recipes";
+import type { DsckState } from "../codeKnowledge/dsck";
+import type { WorkspaceManifest } from "../read/workspace";
 
 export interface HandoffInput {
   draft?: boolean;

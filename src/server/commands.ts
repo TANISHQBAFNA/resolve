@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { PickRequest } from "../core/query/meaning/dsck";
-import { packFromFiles, stableShortlist, validateAiPick } from "../core/query/meaning/dsckPick";
+import type { PickRequest } from "../core/read/meaning/dsck";
+import { packFromFiles, stableShortlist, validateAiPick } from "../core/read/meaning/dsckPick";
 import type { Mode } from "./mode.ts";
 import { bindCommandText, runtimeFor } from "../../bin/install-runtime.mjs";
 import { handoffEnabled } from "@/core/handoff/handoffGate";

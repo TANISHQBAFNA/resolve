@@ -1,6 +1,6 @@
-import { ruleLabel, whyLine, type BindRule, type BindRuleWarning } from "@/core/query/bindRules";
-import { patternsOf, type DsckState } from "@/core/query/dsck";
-import { groupDsciProposals, pendingImprovementCount } from "@/core/query/dsci";
+import { ruleLabel, whyLine, type BindRule, type BindRuleWarning } from "@/core/codeKnowledge/bindRules";
+import { patternsOf, type DsckState } from "@/core/codeKnowledge/dsck";
+import { groupDsciProposals, pendingImprovementCount } from "@/core/codeKnowledge/dsci";
 import { loadDsck, readBindRules } from "./store";
 
 export interface GovernanceView {

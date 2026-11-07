@@ -43,7 +43,7 @@ export function usage(): void {
       "      Options are live masters. Returns questions, or ready with assumptions and candidates.",
       "      A matching recipe, an approved screen decision, one candidate, or 'just build' asks nothing.",
       "      Nothing that fits returns no match and no candidates. 'just build', 'go ahead and build', and 'build without asking' do the same.",
-      "      --answer <topic>=<option>. Topics: shape, states, platform. states can repeat. At most 3 answers.",
+      "      --answer <topic>=<option>. Topics: shape, states, platform, part. states can repeat. At most 3 answers.",
       "      An unknown topic or option, an empty value, a duplicate, or more than 3 answers is an error.",
       "  resolve brief check <brief.md | handoff-folder> [--suggest] [--json] [--strict]",
       "      Readiness check for a design brief (templates/design-brief/brief.md) or a Resolve handoff pack (the --out folder).",

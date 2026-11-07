@@ -1,4 +1,4 @@
-import { trimmedStrings } from "@/core/query/recommendSupport";
+import { trimmedStrings } from "@/core/recommend/recommendSupport";
 
 export function parseLearnOutline(value: unknown): Array<{ id: string; name: string; kind: "page" | "frame" }> | undefined {
   if (!Array.isArray(value)) return undefined;

@@ -1,4 +1,4 @@
-import type { GraphAnalytics } from "@/core/query/analytics";
+import type { GraphAnalytics } from "@/core/read/analytics";
 
 export type HealthTone = "ok" | "watch" | "risk";
 

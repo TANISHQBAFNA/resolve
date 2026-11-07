@@ -25,9 +25,9 @@ import { runAddonCommand } from "./addonHook";
 import { contextFromFlags, recordFlag, runDecisions } from "./decisionCommand";
 import { dirname, join, resolve } from "node:path";
 import { isFigmaLiveTarget } from "@/core/ingestion/figmaFileKey";
-import { overlayFile } from "@/core/query/overlayFile";
-import { publishedVerdict, verifyExitCode } from "@/core/query/properUse";
-import { VERIFY_MISSING_FRAME, verifyNext } from "@/core/query/nextSteps";
+import { overlayFile } from "@/core/read/overlayFile";
+import { publishedVerdict, verifyExitCode } from "@/core/verify/properUse";
+import { VERIFY_MISSING_FRAME, verifyNext } from "@/core/read/nextSteps";
 import {
   componentUsageCard,
   listRecipes,
@@ -76,8 +76,8 @@ import {
   loadGoldenCases,
   scoreExitCode,
   scoreGraph,
-} from "@/core/query/scoreboard";
-import { formatPhraseTable, isSampleLibrary, loadPhraseCases, phraseExitCode, scorePhrases } from "@/core/query/phraseScore";
+} from "@/core/recommend/scoreboard";
+import { formatPhraseTable, isSampleLibrary, loadPhraseCases, phraseExitCode, scorePhrases } from "@/core/recommend/phraseScore";
 import {
   clearCache,
   deleteGraph,
@@ -105,7 +105,7 @@ import { formatGaps, readGaps, recordGap } from "./gaps";
 import { isLinkMapRequest, runLinkMap } from "./code/command";
 import { graphMasters } from "./graphMasters";
 import { refuseBadRows, runCodeMapExtra } from "./codeMapCommand";
-import { formatSpecMap, mapSpec, readSpec } from "@/core/query/specMap";
+import { formatSpecMap, mapSpec, readSpec } from "@/core/spec/specMap";
 import { runBriefCheck } from "./briefCheckCommand";
 import { recordVerifyUsage } from "./tools";
 import { learnLibrary } from "./learn";

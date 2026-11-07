@@ -1,25 +1,25 @@
-export * from "./GraphIndex";
-export * from "./analytics";
-export * from "./search";
-export * from "./filters";
-export * from "./subgraph";
-export * from "./communities";
-export * from "./projection";
-export * from "./agentSurface";
-export * from "./contextPacks";
-export * from "./recipes";
-export * from "./recipeCompose";
-export * from "./decisionRecord";
-export * from "./workspace";
-export * from "./workspaceMerge";
-export * from "./cousins";
-export * from "./placeReady";
-export * from "./dsck";
-export * from "./bindRules";
-export * from "./dsci";
-export * from "./dsciDecide";
-export * from "./screenJobs";
-export * from "./examples";
+export * from "../read/GraphIndex";
+export * from "../read/analytics";
+export * from "../read/search";
+export * from "../read/filters";
+export * from "../read/subgraph";
+export * from "../read/communities";
+export * from "../read/projection";
+export * from "../read/agentSurface";
+export * from "../chooseConfigure/contextPacks";
+export * from "../chooseConfigure/recipes";
+export * from "../chooseConfigure/recipeCompose";
+export * from "../decisions/decisionRecord";
+export * from "../read/workspace";
+export * from "../read/workspaceMerge";
+export * from "../verify/cousins";
+export * from "../chooseConfigure/placeReady";
+export * from "../codeKnowledge/dsck";
+export * from "../codeKnowledge/bindRules";
+export * from "../codeKnowledge/dsci";
+export * from "../codeKnowledge/dsciDecide";
+export * from "../chooseConfigure/screenJobs";
+export * from "../chooseConfigure/examples";
 export {
   directPartInstances,
   formatIngredientCard,
@@ -32,9 +32,9 @@ export {
   type IngredientCoverage,
   type IngredientPart,
   type PartStatus,
-} from "./ingredients";
-export { angularText, bindingName, codeText, formatCodeMapReport, listCodeMapEntries, tidySelector, type AngularTwin, type CodeMapListed } from "./codeMap";
-export { checkComponentFiles, checkComponentName, checkNamesFromNodes, type CodeMapCheckResult } from "./codeMapCheck";
+} from "../ingredients/ingredients";
+export { angularText, bindingName, codeText, formatCodeMapReport, listCodeMapEntries, tidySelector, type AngularTwin, type CodeMapListed } from "../codeMap/codeMap";
+export { checkComponentFiles, checkComponentName, checkNamesFromNodes, type CodeMapCheckResult } from "../codeMap/codeMapCheck";
 export {
   A11Y_LEVELS,
   assertContextPackDocument,
@@ -44,8 +44,8 @@ export {
   validateContextPackDocument,
   type PackIssue,
   type PackValidation,
-} from "./packValidate";
-export { codeMapFromCsv, codeMapJson, codeMapTemplate, CSV_COLUMNS, csvIsReviewSheet, entryKeys, entryLabel, entriesToCsv, mergeCodeMap, parseCsv, readCodeMapDocument, reviewEntries } from "./codeMapCsv";
+} from "../chooseConfigure/packValidate";
+export { codeMapFromCsv, codeMapJson, codeMapTemplate, CSV_COLUMNS, csvIsReviewSheet, entryKeys, entryLabel, entriesToCsv, mergeCodeMap, parseCsv, readCodeMapDocument, reviewEntries } from "../codeMap/codeMapCsv";
 export {
   angularTemplate,
   figmaLink,
@@ -88,7 +88,7 @@ export {
   type BriefResult,
   type BriefSkip,
   type BriefTopic,
-} from "./brief";
-export * from "./projectCopy";
-export * from "./cliFlags";
+} from "../chooseConfigure/brief";
+export * from "../read/projectCopy";
+export * from "../read/cliFlags";
 export * from "../handoff/handoffGate";

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 526" width="1200" height="526" role="img">
+<title>Source</title>
+<desc>Feature folders: read, recommend, chooseConfigure, verify, codeMap, codeKnowledge, optional screenMap, and thin server adapters.</desc>
+<rect x="80" y="16" width="1040" height="494" rx="8" fill="#161B22" stroke="#30363D"/>
+<text x="110" y="58" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="22" fill="#C9D1D9">src/core and the server</text>
+<text x="110" y="88" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="22" font-weight="700" fill="#2DD4BF">read</text>
+<text x="430" y="88" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="22" fill="#E6EDF3">Shared graph index, search, meaning</text>
+<text x="110" y="140" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="22" font-weight="700" fill="#2DD4BF">recommend</text>
+<text x="430" y="140" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="22" fill="#E6EDF3">Ranking from the job the words describe</text>
+<text x="110" y="192" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="22" font-weight="700" fill="#2DD4BF">chooseConfigure</text>
+<text x="430" y="192" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="22" fill="#E6EDF3">Brief, recipes, configure</text>
+<text x="110" y="244" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="22" font-weight="700" fill="#2DD4BF">verify</text>
+<text x="430" y="244" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="22" fill="#E6EDF3">Check a placed screen</text>
+<text x="110" y="296" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="22" font-weight="700" fill="#2DD4BF">codeMap</text>
+<text x="430" y="296" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="22" fill="#E6EDF3">Figma part to code part</text>
+<text x="110" y="348" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="22" font-weight="700" fill="#2DD4BF">codeKnowledge</text>
+<text x="430" y="348" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="22" fill="#E6EDF3">Coded ingredients and recipes</text>
+<text x="110" y="400" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="22" font-weight="700" fill="#2DD4BF">screenMap</text>
+<text x="430" y="400" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="22" fill="#E6EDF3">Optional private screen tree</text>
+<text x="110" y="452" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="22" font-weight="700" fill="#2DD4BF">server</text>
+<text x="430" y="452" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="22" fill="#E6EDF3">Thin CLI and MCP adapters</text>
+</svg>

@@ -7,8 +7,8 @@ import {
   type IngredientCard,
   type IngredientCoverage,
 } from "@/core/query";
-import { formatPropertyLines, type PropertyRow } from "@/core/query/componentProperties";
-import { publishedVerdict } from "@/core/query/properUse";
+import { formatPropertyLines, type PropertyRow } from "@/core/read/componentProperties";
+import { publishedVerdict } from "@/core/verify/properUse";
 import { isRecord } from "./isRecord";
 import { formatStatus, type StatusReport } from "./status";
 

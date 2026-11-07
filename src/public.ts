@@ -11,13 +11,13 @@ export {
   recordFromHandoff,
   type DecisionPick,
   type DecisionRecord,
-} from "./core/query/decisionRecord";
+} from "./core/decisions/decisionRecord";
 
 export type { HandoffComponent, HandoffPack, HandoffScreen } from "./core/handoff/handoff";
 
 export { flag, positionals, printJson, withJsonErrors } from "./server/cliArgs";
 
-export { withCost } from "./core/query/cost";
+export { withCost } from "./core/read/cost";
 
 /** CLI process status. 0 is a written export. 1 is a refused export or a file that could not be written. */
 export const EXIT_OK = 0;

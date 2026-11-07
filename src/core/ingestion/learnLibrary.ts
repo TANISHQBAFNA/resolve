@@ -10,7 +10,7 @@ import {
   realComponentIdFromAttrs,
 } from "./adapters/figmaMcp";
 import { settleInstanceBindings } from "./designContextIds";
-import type { WorkspaceFileRole } from "@/core/query/workspace";
+import type { WorkspaceFileRole } from "@/core/read/workspace";
 
 export interface LearnCatalogItem {
   name?: string;

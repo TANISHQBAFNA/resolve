@@ -189,38 +189,30 @@ Library counts, health, the scoreboard, and the rules page. There is no graph ca
 
 ```
 src/
-├─ core/                      # zero UI dependencies, fully unit tested
-│  ├─ model/                  # node types, edge types, GraphNode/GraphEdge schemas, id namespacing
-│  ├─ ingestion/              # source -> SourceDocument
-│  │  ├─ types.ts             # the ingestion contract + IngestionSource interface
-│  │  └─ adapters/            # figmaRest.ts, mockSource.ts, jsonSource.ts
-│  ├─ transform/              # SourceDocument -> DesignGraph
-│  │  ├─ classify.ts          # raw Figma type -> semantic node type
-│  │  ├─ figmaUrl.ts          # deep links
-│  │  └─ buildGraph.ts        # nodes, edges, reverse edges, warnings
-│  ├─ query/                  # read model
-│  │  ├─ GraphIndex.ts        # indexes + traversal
-│  │  ├─ analytics.ts         # usage, orphans, unused, blast radius
-│  │  ├─ search.ts            # query language
-│  │  ├─ filters.ts           # filter state + predicate
-│  │  └─ subgraph.ts          # levels, view modes, progressive disclosure
-│  └─ ai/                     # bounded context assembly
-│     ├─ context.ts           # AiGraphContext
-│     └─ serialize.ts         # JSON + markdown prompt
-├─ state/                     # Zustand store
-├─ ui/
-│  ├─ overview/               # library counts, health, scoreboard
-│  ├─ governance/             # rules page
-│  └─ panels/                 # import and Figma load
-├─ mock/                      # REST-shaped fixture + variables fixture
-└─ styles/                    # tokens.css, app.css
-docs/
+├─ core/
+│  ├─ model/                  # node and edge schemas
+│  ├─ ingestion/              # a Figma or JSON source becomes a document
+│  ├─ transform/              # that document becomes a graph
+│  ├─ read/                   # shared graph index, search, screen inventory, meaning dictionary
+│  ├─ recommend/              # ranking, including the role read from the ask
+│  ├─ chooseConfigure/        # brief, recipes, and configure
+│  ├─ verify/                 # check a placed screen
+│  ├─ codeMap/                # Figma part to code part
+│  ├─ codeKnowledge/          # coded ingredients and recipes
+│  ├─ ingredients/            # parts inside one component
+│  ├─ spec/                   # a written spec mapped to real parts
+│  ├─ decisions/              # a recorded pick
+│  ├─ screenMap/              # optional private screen tree
+│  ├─ handoff/                # off unless RESOLVE_HANDOFF=1
+│  ├─ query/index.ts          # re-exports the same names for existing imports
+│  └─ ai/                     # a short context for an agent
+├─ server/                    # thin CLI and MCP adapters
+├─ state/                     # the browser store
+└─ ui/                        # library counts, health, rules
 ```
 
 The automated suite is not in this checkout. It is kept outside the repository.
 
-The dependency rule is one-directional: `ui` → `state` → `core`, and within
-core `ai`/`query` → `transform` → `ingestion` → `model`. Nothing in `core`
-imports React.
+Features call `read/` for the graph. They do not import each other unless one feature's result is an input to the next, as brief calls recommend. Nothing in `core` imports React.
 
-`query/communities.ts` and `core/layout/force.ts` still exist. They do not draw a screen. The `orient` MCP tool was removed; see [Where a rule lives](#where-a-rule-lives).
+`read/communities.ts` and `layout/force.ts` still exist. They do not draw a screen. The `orient` MCP tool was removed; see [Where a rule lives](#where-a-rule-lives).

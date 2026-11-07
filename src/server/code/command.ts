@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
-import { actorName } from "@/core/query/bindRulesFit";
-import { formatCodeMapReport } from "@/core/query/codeMap";
-import { confirmSharedId } from "@/core/query/draftScore";
+import { actorName } from "@/core/codeKnowledge/bindRulesFit";
+import { formatCodeMapReport } from "@/core/codeMap/codeMap";
+import { confirmSharedId } from "@/core/verify/draftScore";
 import { namespaceSet } from "@/core/rules/figmaNamespaces";
 import { printJson, strictExit } from "../cliArgs";
 import { confirmComponentPairs, confirmEvidenceTier, proposalsFromReport, readComponentMap, writeDraft } from "../componentMap.ts";
