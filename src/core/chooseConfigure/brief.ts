@@ -484,11 +484,16 @@ const SHAPE_WORD = new Set(["form", "forms", "screen", "screens", "page", "pages
  * Masters the request names by a word of their own, apart from a shape word.
  * "Input value" does not count for "form". "Checkbox" and "Button" do.
  */
+function lastSegment(name: string): string {
+  return name.split("/").map((part) => part.trim()).filter(Boolean).pop() ?? name;
+}
+
 function partsNamed(request: string, masters: GraphNode[]): GraphNode[] {
   const words = contentTokens(request);
   const hits = masters.filter((master) => {
-    const own = nameTokens(master.name).filter((token) => token.length > 2 && !SHAPE_WORD.has(token));
-    return own.length > 0 && own.every((token) => words.some((word) => sameWordForm(word, token)));
+    const own = nameTokens(lastSegment(master.name)).filter((token) => token.length > 2 && !SHAPE_WORD.has(token));
+    const head = own[own.length - 1];
+    return Boolean(head && words.some((word) => sameWordForm(word, head)));
   });
   const kept = hits.filter((master) => {
     const own = nameTokens(master.name);
@@ -653,8 +658,8 @@ function briefRequest(input: BriefInput): BriefResult {
 
   const notes: string[] = [];
   const fromAnswer = (topic: BriefTopic) => resolved.has(topic);
-  const manyParts = parts.length >= 2 && !resolved.has("part");
-  if (fromAnswer("shape") || (!manyParts && shapes.length === 1)) {
+  const manyParts = parts.length >= 2;
+  if (!manyParts && (fromAnswer("shape") || shapes.length === 1)) {
     const choice = resolved.get("shape")?.[0] ?? shapes[0];
     if (choice) notes.push(`${fromAnswer("shape") ? "You answered" : "Request already says"} ${TOPIC_NAME.shape}: ${choice.label}.`);
   }
@@ -750,7 +755,8 @@ function briefRequest(input: BriefInput): BriefResult {
     else if (decision) push(candidateOf(decision.master));
     else {
       for (const master of named) push(candidateOf(master), containsPhrase(stripped, master.name));
-      for (const choice of [...(answeredShape ? shapes.slice(0, 1) : []), ...states]) {
+      for (const master of parts) push(candidateOf(master));
+      for (const choice of [...(parts.length >= 2 ? [] : answeredShape ? shapes.slice(0, 1) : []), ...states]) {
         const master = masters.find((item) => item.id === choice.masterId);
         if (master) push(candidateOf(master));
       }
@@ -779,10 +785,6 @@ function briefRequest(input: BriefInput): BriefResult {
 
   if (recipe) return ready("recipe", [`Recipe ${recipe.title} matches. Slots decide the parts.`], realCandidates());
   if (decision) return ready("decision", [`Approved decision: ${decision.summary}`], realCandidates());
-
-  if (manyParts) {
-    forks.unshift({ topic: "part", options: parts.map((master) => ({ id: master.id, label: master.name, contrast: "", masterId: master.id })) });
-  }
 
   const asked = forks.slice(0, BRIEF_QUESTION_CAP);
   if (asked.length) {

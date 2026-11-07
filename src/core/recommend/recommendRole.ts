@@ -58,8 +58,16 @@ export function askRole(ask: string): AskRole | undefined {
     return { kind: "chooser", want: new Set(["menu", "dropdown", "select", "segmented"]), avoid: DISPLAY_ONLY };
   }
   // "ride option row with price, ETA and a selected state": pick one of several.
-  if (/\boptions?\b/.test(text) && /\bselected\b/.test(text)) {
-    return { kind: "selection", want: new Set(["selector", "selection", "interactive", "tile"]), avoid: new Set(["badge", "label", "tag", "text"]) };
+  // "choose one option from three" and "one of three" are the same job. A dialog is not that control.
+  if (
+    (/\boptions?\b/.test(text) && /\bselected\b/.test(text)) ||
+    /\b(?:one of (?:two|three|four|\d+)|choose one|pick one)\b/.test(text)
+  ) {
+    return {
+      kind: "selection",
+      want: new Set(["selector", "selection", "interactive", "tile", "radio", "choice"]),
+      avoid: new Set(["badge", "label", "tag", "text", "dialog", "modal"]),
+    };
   }
   // "match score", "timeline of match events": a part named so still wins; else the stand-in, named. "score card" is a card.
   const missingPart = STAND_INS.find(([word]) => words.includes(word));

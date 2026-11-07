@@ -164,6 +164,21 @@ interface AskedValue {
   invalid: boolean;
 }
 
+const CONJUNCTION = new Set(["and", "or", "with", "plus", "then", "a", "an", "the", "to", "of", "in"]);
+const ON_WORD = new Set(["on", "yes", "true", "shown", "show", "switched", "checked", "enabled"]);
+const OFF_WORD = new Set(["off", "no", "false", "hidden", "hide", "unchecked", "disabled"]);
+
+interface Atom {
+  raw: string;
+  norm: string;
+}
+
+interface PropertyHit {
+  def: ComponentProperty;
+  at: number;
+  end: number;
+}
+
 /** Assignments the request states, checked against this component's own properties. A library default is not a request. */
 function applyAsked(
   ask: string,
@@ -172,39 +187,96 @@ function applyAsked(
   componentName: string,
 ): { rows: ConfigureProperty[]; warnings: ConfigureWarning[] } {
   const warnings: ConfigureWarning[] = [];
-  const asked = new Map<string, AskedValue>();
-  for (const def of defs) {
-    if (def.type === "SLOT") continue;
-    const explicit = explicitValue(def.name, ask);
-    if (explicit === undefined) continue;
-    const match = matchValue(def, explicit);
-    asked.set(def.name, match);
-    if (match.invalid) warnings.push(invalidValue(def, explicit));
-  }
-  for (const key of unknownKeys(ask, defs)) {
-    warnings.push({
-      warning: `${componentName} has no property ${key}.`,
-      next: defs.length ? `${componentName} has ${defs.map((def) => def.name).join(", ")}.` : "This component lists no properties.",
-    });
-  }
-  const claimed = new Set(asked.keys());
-  const componentWords = new Set(wordsOf(componentName));
-  for (const def of defs) {
-    if (def.type === "SLOT" || claimed.has(def.name)) continue;
-    const named = nameInAsk(def.name, ask);
-    const following = named ? valueAfter(def.name, ask, defs) : undefined;
-    if (following) {
-      const match = matchValue(def, following);
-      asked.set(def.name, match);
-      if (match.invalid) warnings.push(invalidValue(def, following));
+  const live = defs.filter((def) => def.type !== "SLOT");
+  const atoms = atomsOf(ask);
+  const hits = propertyHits(atoms, live);
+  const componentWords = new Set(nameTokens(componentName));
+  const covered = new Set<number>();
+  for (const hit of hits) for (let index = hit.at; index < hit.end; index += 1) covered.add(index);
+  const picks = new Map<string, Array<{ raw: string; explicit: boolean }>>();
+  const add = (def: ComponentProperty, raw: string, explicit: boolean) => {
+    const list = picks.get(def.name) ?? [];
+    list.push({ raw, explicit });
+    picks.set(def.name, list);
+  };
+
+  for (const hit of hits) {
+    const written = explicitRaw(atoms, hit, hits);
+    if (written !== undefined) {
+      add(hit.def, written, true);
       continue;
     }
-    const option = uniqueOption(def, ask, defs, componentWords);
-    if (option) asked.set(def.name, { value: option, raw: option, invalid: false });
+    const near = nearbyValue(atoms, hit, componentWords);
+    if (near) add(hit.def, near, false);
+    if (hit.def.type === "VARIANT") {
+      for (const option of hit.def.options ?? []) {
+        if (atoms.some((atom) => atom.norm === option.toLowerCase() && !componentWords.has(atom.norm))) add(hit.def, option, false);
+      }
+    } else if (!near && hit.def.type === "BOOLEAN") {
+      const reading = readingBeside(atoms, hit);
+      if (reading) add(hit.def, reading, false);
+    }
   }
+
+  for (const def of live) {
+    if (def.type !== "VARIANT" || !def.options?.length || picks.has(def.name)) continue;
+    const seen = def.options.filter((option) => atoms.some((atom, index) => !covered.has(index) && atom.norm === option.toLowerCase() && !componentWords.has(atom.norm)));
+    for (const option of seen) add(def, option, false);
+  }
+
+  const namedBoolean = hits.some((hit) => hit.def.type === "BOOLEAN");
+  if (!namedBoolean) {
+    const booleans = live.filter((def) => def.type === "BOOLEAN" && !def.optionsUnknown);
+    const reading = loneReading(atoms);
+    if (reading === "conflict") {
+      warnings.push({
+        warning: `${componentName} is asked both on and off.`,
+        next: booleans.length ? `Say which of ${booleans.map((def) => def.name).join(", ")} to set.` : "Say whether it is on or off.",
+      });
+    } else if (reading && booleans.length === 1) {
+      const only = booleans[0];
+      if (only) add(only, reading, false);
+    } else if (reading && booleans.length > 1) {
+      warnings.push({
+        warning: `${componentName} has more than one switch.`,
+        next: `Name which one: ${booleans.map((def) => def.name).join(", ")}.`,
+      });
+    }
+  }
+
+  for (const key of unknownKeys(atoms, hits)) {
+    warnings.push({
+      warning: `${componentName} has no property ${key}.`,
+      next: live.length ? `${componentName} has ${live.map((def) => def.name).join(", ")}.` : "This component lists no properties.",
+    });
+  }
+
+  const asked = new Map<string, AskedValue>();
+  const blocked = new Set<string>();
+  for (const def of live) {
+    const list = picks.get(def.name);
+    if (!list?.length) continue;
+    const explicit = list.filter((pick) => pick.explicit);
+    const use = explicit.length ? explicit : list;
+    const distinct = [...new Map(use.map((pick) => [pick.raw.trim().toLowerCase(), pick.raw])).values()];
+    if (distinct.length > 1) {
+      blocked.add(def.name);
+      warnings.push({
+        warning: `${def.name} is asked as both ${distinct.join(" and ")}.`,
+        next: `Say which ${def.name} to use. ${def.name} allows ${allowedText(def)}.`,
+      });
+      continue;
+    }
+    const raw = distinct[0] ?? "";
+    const match = matchValue(def, raw);
+    asked.set(def.name, match);
+    if (match.invalid) warnings.push(invalidValue(def, raw));
+  }
+
   const out = rows.map((row) => {
     const match = asked.get(row.property);
     const base = publicProperty(row);
+    if (blocked.has(row.property)) return unset(base);
     if (!match) return base;
     if (match.invalid) return unset(base);
     return { ...base, set: match.value, evidence: "request" as const };
@@ -222,49 +294,124 @@ function invalidValue(def: ComponentProperty, raw: string): ConfigureWarning {
   return { warning: `${def.name} does not allow "${raw}".`, next: `${def.name} allows ${allowed}.` };
 }
 
-function explicitValue(name: string, ask: string): string | undefined {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = ask.match(new RegExp(`(?:^|\\s)${escaped}\\s*=\\s*([^,;\\n]+?)(?=\\s+[A-Za-z][\\w-]*\\s*=|$)`, "i"));
-  return match?.[1]?.trim() || undefined;
+function atomsOf(ask: string): Atom[] {
+  const atoms: Atom[] = [];
+  for (const part of ask.split(/(\s+|=)/)) {
+    if (!part || /^\s+$/.test(part)) continue;
+    if (part === "=") {
+      atoms.push({ raw: "=", norm: "=" });
+      continue;
+    }
+    const raw = part.replace(/^[("']+|[)"',;]+$/g, "");
+    if (!raw) continue;
+    atoms.push({ raw, norm: raw.toLowerCase().replace(/[^a-z0-9]+/g, "") });
+  }
+  return atoms.filter((atom) => atom.norm.length > 0);
 }
 
-function unknownKeys(ask: string, defs: ComponentProperty[]): string[] {
-  const known = new Set(defs.map((def) => def.name.toLowerCase()));
+function nameTokens(value: string): string[] {
+  return value.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 0);
+}
+
+function propertyHits(atoms: Atom[], defs: ComponentProperty[]): PropertyHit[] {
+  const words = atoms.map((atom, index) => ({ atom, index })).filter((row) => row.atom.norm !== "=");
+  const ordered = [...defs].sort((a, b) => nameTokens(b.name).length - nameTokens(a.name).length || b.name.length - a.name.length);
+  const used = new Set<number>();
+  const hits: PropertyHit[] = [];
+  for (const def of ordered) {
+    const tokens = nameTokens(def.name);
+    if (!tokens.length) continue;
+    let found = false;
+    for (let i = 0; i <= words.length - tokens.length; i += 1) {
+      const span = words.slice(i, i + tokens.length);
+      if (span.some((row) => used.has(row.index))) continue;
+      if (!span.every((row, offset) => row.atom.norm === tokens[offset])) continue;
+      for (const row of span) used.add(row.index);
+      hits.push({ def, at: span[0]!.index, end: span[span.length - 1]!.index + 1 });
+      found = true;
+      break;
+    }
+    if (found || def.type !== "BOOLEAN") continue;
+    const distinctive = [...tokens].sort((a, b) => b.length - a.length)[0];
+    if (!distinctive || distinctive.length < 4) continue;
+    const at = words.find((row) => !used.has(row.index) && row.atom.norm === distinctive);
+    if (!at) continue;
+    const reading = words.some((row) => Math.abs(row.index - at.index) <= 3 && (ON_WORD.has(row.atom.norm) || OFF_WORD.has(row.atom.norm) || row.atom.norm === "shown"));
+    if (!reading) continue;
+    used.add(at.index);
+    hits.push({ def, at: at.index, end: at.index + 1 });
+  }
+  return hits;
+}
+
+function explicitRaw(atoms: Atom[], hit: PropertyHit, hits: PropertyHit[]): string | undefined {
+  const next = atoms[hit.end];
+  if (next?.norm !== "=") return undefined;
+  const stop = Math.min(...hits.filter((other) => other.at > hit.end).map((other) => other.at), atoms.length);
+  const raw: string[] = [];
+  for (let index = hit.end + 1; index < stop; index += 1) {
+    const atom = atoms[index];
+    if (!atom || atom.norm === "=" || CONJUNCTION.has(atom.norm)) break;
+    raw.push(atom.raw);
+  }
+  const value = raw.join(" ").trim();
+  return value || undefined;
+}
+
+function nearbyValue(atoms: Atom[], hit: PropertyHit, componentWords: Set<string>): string | undefined {
+  const usable = (atom: Atom | undefined) => Boolean(atom && atom.norm !== "=" && !CONJUNCTION.has(atom.norm) && !componentWords.has(atom.norm) && !ON_WORD.has(atom.norm) && !OFF_WORD.has(atom.norm));
+  const previous = atoms[hit.at - 1];
+  const following = atoms[hit.end];
+  if (hit.def.type === "TEXT") {
+    if (following?.norm === "=") return undefined;
+    if (usable(following) && !optionOfAny(following!.norm, [hit.def])) return following!.raw;
+    return undefined;
+  }
+  const options = new Set((hit.def.options ?? []).map((option) => option.toLowerCase()));
+  if (previous && options.has(previous.norm)) return previous.raw;
+  if (following && following.norm !== "=" && options.has(following.norm)) return following.raw;
+  return undefined;
+}
+
+function optionOfAny(norm: string, defs: ComponentProperty[]): boolean {
+  return defs.some((def) => def.options?.some((option) => option.toLowerCase() === norm));
+}
+
+function readingBeside(atoms: Atom[], hit: PropertyHit): string | undefined {
+  const around = [atoms[hit.at - 1], atoms[hit.end], atoms[hit.end + 1]].filter((atom): atom is Atom => Boolean(atom));
+  const on = around.some((atom) => ON_WORD.has(atom.norm) || atom.norm === "shown");
+  const off = around.some((atom) => OFF_WORD.has(atom.norm));
+  if (on && off) return undefined;
+  if (off) return "false";
+  if (on || hit.def.type === "BOOLEAN") return "true";
+  return undefined;
+}
+
+function loneReading(atoms: Atom[]): "true" | "false" | "conflict" | undefined {
+  const on = atoms.some((atom) => ON_WORD.has(atom.norm));
+  const off = atoms.some((atom) => OFF_WORD.has(atom.norm));
+  if (on && off) return "conflict";
+  if (on) return "true";
+  if (off) return "false";
+  return undefined;
+}
+
+function unknownKeys(atoms: Atom[], hits: PropertyHit[]): string[] {
+  const ends = new Set(hits.map((hit) => hit.end - 1));
   const found: string[] = [];
-  for (const match of ask.matchAll(/(?:^|\s)([A-Za-z][\w-]*)\s*=/g)) {
-    const key = match[1] ?? "";
-    if (!key || known.has(key.toLowerCase())) continue;
-    found.push(key);
+  for (let index = 0; index < atoms.length - 1; index += 1) {
+    const atom = atoms[index];
+    if (!atom || atoms[index + 1]?.norm !== "=" || atom.norm === "=") continue;
+    if (ends.has(index)) continue;
+    found.push(atom.raw);
   }
   return found;
 }
 
-function nameInAsk(name: string, ask: string): boolean {
-  const tokens = wordsOf(name);
-  if (!tokens.length) return false;
-  const words = wordsOf(ask);
-  return tokens.every((token) => words.includes(token));
-}
-
-function valueAfter(name: string, ask: string, defs: ComponentProperty[]): string | undefined {
-  const tokens = wordsOf(name);
-  const words = wordsOf(ask);
-  const at = words.findIndex((_, index) => tokens.every((token, offset) => words[index + offset] === token));
-  const next = at >= 0 ? words[at + tokens.length] : undefined;
-  if (!next || next === "with") return undefined;
-  if (defs.some((def) => def.name !== name && wordsOf(def.name).includes(next))) return undefined;
-  return next;
-}
-
-function uniqueOption(def: ComponentProperty, ask: string, defs: ComponentProperty[], componentWords: Set<string>): string | undefined {
-  if (def.type !== "VARIANT" || !def.options?.length) return undefined;
-  const words = new Set(wordsOf(ask));
-  const hits = def.options.filter((option) => words.has(option.toLowerCase()) && !componentWords.has(option.toLowerCase()));
-  if (hits.length !== 1) return undefined;
-  const value = hits[0];
-  if (!value) return undefined;
-  const elsewhere = defs.some((other) => other.name !== def.name && other.options?.some((option) => option.toLowerCase() === value.toLowerCase()));
-  return elsewhere ? undefined : value;
+function allowedText(def: ComponentProperty): string {
+  if (def.type === "BOOLEAN") return "true or false";
+  if (def.options?.length) return def.options.join(", ");
+  return "the values listed for this property";
 }
 
 function matchValue(def: ComponentProperty, raw: string): AskedValue {
@@ -278,14 +425,10 @@ function matchValue(def: ComponentProperty, raw: string): AskedValue {
     const hit = [...options].find((option) => option === needle);
     return hit ? { value: hit, raw, invalid: false } : { value: "", raw, invalid: true };
   }
-  if (def.type === "TEXT" && !def.options?.length) return { value: raw.trim(), raw, invalid: false };
+  if (def.type === "TEXT" && !def.options?.length) return { value: raw.trim(), raw: raw.trim(), invalid: false };
   const hit = def.options?.find((option) => option.toLowerCase() === needle);
   if (hit) return { value: hit, raw, invalid: false };
   return { value: "", raw, invalid: true };
-}
-
-function wordsOf(value: string): string[] {
-  return value.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 0);
 }
 
 /** Variant values live on the set's children when the component has no property definitions. */

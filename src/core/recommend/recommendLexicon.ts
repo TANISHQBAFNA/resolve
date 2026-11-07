@@ -550,6 +550,7 @@ export {
   askGate,
   wholeNameTypo,
   genericOnlyMiss,
+  jobNoun,
   withoutGenericCousins,
   nounBeatsExtras,
   dropUnmatchedWeak,

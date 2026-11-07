@@ -249,7 +249,18 @@ function genericQuery(query: string): boolean {
   const group = SYNONYM_OF.get(query);
   return Boolean(group?.some((word) => word !== query && GENERIC_NAME_TOKENS.has(word)));
 }
-/** Generic-only overlap drops when another word names a different part. */
+const STATE_WORD = new Set(["error", "empty", "failed", "failure", "disabled", "loading", "success", "pending", "invalid", "state"]);
+
+/** The part the request is about: the first control word, skipping a leading state word. */
+export function jobNoun(tokens: string[], componentWord?: (token: string) => boolean): string | undefined {
+  for (const token of tokens) {
+    if (!token || STATE_WORD.has(token)) continue;
+    if (PLAIN_NOUN.has(token) || GENERIC_NAME_TOKENS.has(token) || genericQuery(token) || componentWord?.(token)) return token;
+  }
+  return undefined;
+}
+
+/** Generic-only overlap drops when another word names a different part. The part named first stays. */
 export function genericOnlyMiss(
   name: string,
   queryTokens: string[],
@@ -263,6 +274,8 @@ export function genericOnlyMiss(
     queryTokens.some((query) => tokenMatchesName(query, token, allowClip)),
   );
   if (!matched.length) return false;
+  const job = jobNoun(queryTokens, componentWord);
+  if (job && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
   if (matched.some((token) => !GENERIC_NAME_TOKENS.has(token))) return false;
   const uncovered = queryTokens.filter((query) => {
     if (genericQuery(query) || query === "primary" || query === "main" || query === "submit") return false;
@@ -296,8 +309,10 @@ export function withoutGenericCousins<T extends { node: { name: string }; setNam
     entries.some((entry) => tokensOf(familyOf(entry)).some((name) => name === token || inflectsName(token, name))),
   );
   if (!covered.length) return entries;
+  const job = jobNoun(queryTokens);
   return entries.filter((entry) => {
     const names = tokensOf(familyOf(entry));
+    if (job && names.some((name) => name === job || tokenMatchesName(job, name, allowClip))) return true;
     const misses = covered.some((token) => !names.some((name) => name === token || inflectsName(token, name)));
     if (!misses) return true;
     const tail = tokensOf(familyOf(entry).split("/").pop() ?? "");
@@ -373,6 +388,11 @@ export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: 
       continue;
     }
     const names = familyNames(entry);
+    const job = jobNoun(content, componentWord);
+    if (job && nounHit(job, names, allowClip)) {
+      next.push(entry);
+      continue;
+    }
     const unmatched = content.filter((token) => !nounHit(token, names, allowClip));
     if (!unmatched.length) {
       // A lone generic word ("picker") fits several parts: it stays weak.

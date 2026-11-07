@@ -29,6 +29,7 @@ import {
 } from "./contextPacks";
 import type { WorkspaceManifest } from "../read/workspace";
 import { inflectionStems } from "../read/screenInventory";
+import { GENERIC_NAME_TOKENS } from "../read/queryTokens";
 
 /**
  * Screen recipes — named packs of library masters for a common screen job.
@@ -342,6 +343,17 @@ export function matchRecipe(recipes: Recipe[], query: string, minShare = 0): Rec
     }
   }
   return best?.recipe;
+}
+
+/** A recipe that only shares a generic word ("input") is not a near match for a named part. */
+function specificNearest(recipes: Recipe[], query: string): Recipe | undefined {
+  const nearest = matchRecipe(recipes, query);
+  if (!nearest) return undefined;
+  const scene = new Set(["error", "empty", "failed", "failure", "state", "loading", "disabled", "success", "pending", "invalid"]);
+  const asked = tokensOf(query).filter((token) => !GENERIC_NAME_TOKENS.has(token) && !scene.has(token));
+  const haystack = new Set(tokensOf([nearest.id, nearest.title, ...nearest.intentAliases].join(" ")));
+  if (asked.length > 0 && !asked.some((token) => haystack.has(token))) return undefined;
+  return nearest;
 }
 
 /** Every recipe a loose query hits, best first. Exact id/title/alias stays a single hit. */
@@ -772,7 +784,7 @@ export function recipeCard(
   // Below half the request's words, the nearest starter is not this screen: say no recipe.
   const recipe = matchRecipe(recipes, query, 0.5);
   if (!recipe) {
-    const nearest = matchRecipe(recipes, query);
+    const nearest = specificNearest(recipes, query);
     return withCost({
       found: false as const,
       query,
