@@ -195,7 +195,7 @@ export const TOOLS: ToolDefinition[] = [
         budgetChars: { type: "number", description: "Hard cap on the structured card, in characters. Default 600. Markdown is shorter." },
         answers: {
           type: "object",
-          description: "Briefing answers. Topics: shape, states, platform, part. states may be a list. At most 3 answers. Unknown topic or option is an error.",
+          description: "Briefing answers. Topics: shape, states, platform, part. states and part may be lists. Pass every part chosen so far. At most 3 answers. Unknown topic or option is an error.",
           additionalProperties: true,
         },
         ...freshnessProperties,
@@ -216,7 +216,7 @@ export const TOOLS: ToolDefinition[] = [
         request: { type: "string", description: "The screen request, in the designer's words." },
         answers: {
           type: "object",
-          description: "Answers already given. shape, platform, and part take one option. states takes one or more. At most 3 answers.",
+          description: "Answers already given. shape and platform take one option. states takes one or more. part takes one option per open part question: pass every part chosen so far, as a list or repeated. At most 3 answers. A part value must be one of that question's options.",
           additionalProperties: true,
         },
         pack: { type: "string", description: "Context pack id. Same rules as recommend." },

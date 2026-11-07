@@ -249,7 +249,16 @@ function genericQuery(query: string): boolean {
   const group = SYNONYM_OF.get(query);
   return Boolean(group?.some((word) => word !== query && GENERIC_NAME_TOKENS.has(word)));
 }
-/** Generic-only overlap drops when another word names a different part. */
+const STATE_WORD = new Set(["error", "empty", "failed", "failure", "disabled", "loading", "success", "pending", "invalid", "state"]);
+
+/** The part the request is about: a plain control word, otherwise the first component word. */
+export function jobNoun(tokens: string[], componentWord?: (token: string) => boolean): string | undefined {
+  const plain = tokens.find((token) => token && !STATE_WORD.has(token) && (PLAIN_NOUN.has(token) || genericQuery(token)));
+  if (plain) return plain;
+  return tokens.find((token) => token && !STATE_WORD.has(token) && componentWord?.(token));
+}
+
+/** Generic-only overlap drops when another word names a different part. The part named first stays. */
 export function genericOnlyMiss(
   name: string,
   queryTokens: string[],
@@ -263,6 +272,8 @@ export function genericOnlyMiss(
     queryTokens.some((query) => tokenMatchesName(query, token, allowClip)),
   );
   if (!matched.length) return false;
+  const job = jobNoun(queryTokens, componentWord);
+  if (job && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
   if (matched.some((token) => !GENERIC_NAME_TOKENS.has(token))) return false;
   const uncovered = queryTokens.filter((query) => {
     if (genericQuery(query) || query === "primary" || query === "main" || query === "submit") return false;
@@ -296,8 +307,10 @@ export function withoutGenericCousins<T extends { node: { name: string }; setNam
     entries.some((entry) => tokensOf(familyOf(entry)).some((name) => name === token || inflectsName(token, name))),
   );
   if (!covered.length) return entries;
+  const job = jobNoun(queryTokens);
   return entries.filter((entry) => {
     const names = tokensOf(familyOf(entry));
+    if (job && names.some((name) => name === job || tokenMatchesName(job, name, allowClip))) return true;
     const misses = covered.some((token) => !names.some((name) => name === token || inflectsName(token, name)));
     if (!misses) return true;
     const tail = tokensOf(familyOf(entry).split("/").pop() ?? "");
@@ -373,6 +386,11 @@ export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: 
       continue;
     }
     const names = familyNames(entry);
+    const job = jobNoun(content, componentWord);
+    if (job && nounHit(job, names, allowClip)) {
+      next.push(entry);
+      continue;
+    }
     const unmatched = content.filter((token) => !nounHit(token, names, allowClip));
     if (!unmatched.length) {
       // A lone generic word ("picker") fits several parts: it stays weak.
@@ -392,7 +410,9 @@ export function headTokenBonus(familyName: string, tokens: string[], allowClip: 
   const nav = tokens.includes("nav") || tokens.includes("navigation");
   const bottom = tokens.some((token) => token === "bottom" || token === "footer");
   if (nav && !bottom && names.has("header")) return 25;
-  const head = [...tokens].reverse().find((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token));
+  const head =
+    tokens.find((token) => plainNounToken(token) && !modifierWord(token) && !SIZE_OR_A11Y.has(token)) ??
+    [...tokens].reverse().find((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token));
   if (!head || !nounHit(head, names, allowClip)) return 0;
   const sided = bottom || tokens.some((token) => token === "top" || token === "header");
   if (sided && (head === "nav" || head === "navigation") && !names.has(bottom ? "footer" : "header")) return 0;
@@ -613,22 +633,26 @@ function iconOnlyTail(role: string): boolean {
     tokens.length > 0 && tokens.every((token) => token === "icon" || token === "glyph" || token === "symbol")
   );
 }
-/** Words after "with" are the role, unless they are only a modifier. */
+/**
+ * Words before "with" are the part when they name one. Words after are context
+ * ("OTP entry with countdown"). When only the words after name a part ("screen with a button"), those are the part.
+ */
 export function splitBrief(
   intent: string,
   componentWord?: (token: string) => boolean,
 ): { role: string; scene: string } {
   const parts = intent.split(/\s+with\s+/i);
   if (parts.length < 2) return { role: intent.trim(), scene: "" };
-  const scene = (parts[0] ?? "").trim();
-  const role = parts.slice(1).join(" ").trim();
-  if (scene && iconOnlyTail(role)) return { role: scene, scene: "" };
+  const before = (parts[0] ?? "").trim();
+  const after = parts.slice(1).join(" ").trim();
+  if (before && iconOnlyTail(after)) return { role: before, scene: "" };
   if (componentWord) {
-    const roleHits = tokensOf(role).some(componentWord);
-    const sceneHits = tokensOf(scene).some(componentWord);
-    if (!roleHits && sceneHits) return { role: intent.trim(), scene: "" };
+    const beforeHits = tokensOf(before).some(componentWord);
+    const afterHits = tokensOf(after).some(componentWord);
+    if (beforeHits) return { role: before, scene: after };
+    if (afterHits) return { role: after, scene: before };
   }
-  return { scene, role };
+  return { role: intent.trim(), scene: "" };
 }
 export function replacedByName(node: GraphNode): string | undefined {
   const meta = node.metadata?.["replacedBy"];
