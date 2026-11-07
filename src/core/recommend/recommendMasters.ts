@@ -300,10 +300,7 @@ export function recommendMasters(
         }
       }
       if (clauses.counts.length && tokensOf(stripTier(nameHaystack)).some((token) => token === "step" || token === "steps" || token === "stepper" || inflectsName("step", token))) {
-        const defs = [...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])];
-        const options = defs.flatMap((def) => def.options ?? []).map((option) => option.toLowerCase());
-        const countOwner = defs.some((def) => def.type === "VARIANT" && tokensOf(def.name).some((token) => token === "step" || token === "steps" || token === "count"));
-        if (countOwner) lexical += LEXICAL_WEIGHT.variant;
+        const options = [...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].flatMap((def) => def.options ?? []).map((option) => option.toLowerCase());
         if (clauses.counts.some((count) => options.includes(count))) {
           lexical += LEXICAL_WEIGHT.variant;
           hits.variant += 1;
@@ -471,6 +468,24 @@ export function recommendMasters(
     }
     if (entry.deprecated) retired.push(entry);
     else scored.push(entry);
+  }
+  if (clauses.counts.length) {
+    const allows = (entry: Scored) => {
+      const defs = [...(entry.node.propertyDefinitions ?? []), ...(setOf(index, entry.node)?.propertyDefinitions ?? [])];
+      const options = defs.flatMap((def) => def.options ?? []).map((option) => option.toLowerCase());
+      return clauses.counts.some((count) => options.includes(count));
+    };
+    if (![...scored, ...retired].some(allows)) {
+      for (const entry of [...scored, ...retired]) {
+        const defs = [...(entry.node.propertyDefinitions ?? []), ...(setOf(index, entry.node)?.propertyDefinitions ?? [])];
+        const named = tokensOf(stripTier(setOf(index, entry.node)?.name ?? entry.node.name));
+        const stepNamed = named.some((token) => token === "step" || token === "steps" || token === "stepper" || inflectsName("step", token));
+        const countOwner = defs.some((def) => def.type === "VARIANT" && tokensOf(def.name).some((token) => token === "step" || token === "steps" || token === "count"));
+        if (!stepNamed || !countOwner) continue;
+        entry.lexical += LEXICAL_WEIGHT.variant;
+        entry.score += LEXICAL_WEIGHT.variant * 1000;
+      }
+    }
   }
 
   const publicCovered = scored.reduce((best, entry) => Math.max(best, entry.covered), 0);
