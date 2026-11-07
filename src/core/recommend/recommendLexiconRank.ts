@@ -251,13 +251,11 @@ function genericQuery(query: string): boolean {
 }
 const STATE_WORD = new Set(["error", "empty", "failed", "failure", "disabled", "loading", "success", "pending", "invalid", "state"]);
 
-/** The part the request is about: the first control word, skipping a leading state word. */
+/** The part the request is about: a plain control word, otherwise the first component word. */
 export function jobNoun(tokens: string[], componentWord?: (token: string) => boolean): string | undefined {
-  for (const token of tokens) {
-    if (!token || STATE_WORD.has(token)) continue;
-    if (PLAIN_NOUN.has(token) || GENERIC_NAME_TOKENS.has(token) || genericQuery(token) || componentWord?.(token)) return token;
-  }
-  return undefined;
+  const plain = tokens.find((token) => token && !STATE_WORD.has(token) && (PLAIN_NOUN.has(token) || genericQuery(token)));
+  if (plain) return plain;
+  return tokens.find((token) => token && !STATE_WORD.has(token) && componentWord?.(token));
 }
 
 /** Generic-only overlap drops when another word names a different part. The part named first stays. */

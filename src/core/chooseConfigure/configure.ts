@@ -200,27 +200,38 @@ function applyAsked(
     picks.set(def.name, list);
   };
 
+  const consumed = new Set<string>();
   for (const hit of hits) {
     const written = explicitRaw(atoms, hit, hits);
     if (written !== undefined) {
       add(hit.def, written, true);
+      consumed.add(normOf(written));
       continue;
     }
-    const near = nearbyValue(atoms, hit, componentWords);
-    if (near) add(hit.def, near, false);
+    const near = valueBeside(atoms, hit, componentWords, live);
+    if (near) {
+      add(hit.def, near, false);
+      consumed.add(normOf(near));
+    } else if (hit.def.type === "BOOLEAN") {
+      const reading = readingBeside(atoms, hit);
+      if (reading) add(hit.def, reading, false);
+    }
     if (hit.def.type === "VARIANT") {
       for (const option of hit.def.options ?? []) {
         if (atoms.some((atom) => atom.norm === option.toLowerCase() && !componentWords.has(atom.norm))) add(hit.def, option, false);
       }
-    } else if (!near && hit.def.type === "BOOLEAN") {
-      const reading = readingBeside(atoms, hit);
-      if (reading) add(hit.def, reading, false);
     }
   }
 
   for (const def of live) {
     if (def.type !== "VARIANT" || !def.options?.length || picks.has(def.name)) continue;
-    const seen = def.options.filter((option) => atoms.some((atom, index) => !covered.has(index) && atom.norm === option.toLowerCase() && !componentWords.has(atom.norm)));
+    const seen = def.options.filter((option) => {
+      const norm = option.toLowerCase();
+      if (consumed.has(norm) || componentWords.has(norm)) return false;
+      if (!atoms.some((atom) => atom.norm === norm)) return false;
+      const owners = live.filter((other) => other.type === "VARIANT" && other.options?.some((item) => item.toLowerCase() === norm));
+      return owners.length === 1;
+    });
     for (const option of seen) add(def, option, false);
   }
 
@@ -240,6 +251,11 @@ function applyAsked(
       warnings.push({
         warning: `${componentName} has more than one switch.`,
         next: `Name which one: ${booleans.map((def) => def.name).join(", ")}.`,
+      });
+    } else if ((reading === "true" || reading === "false") && booleans.length === 0) {
+      warnings.push({
+        warning: `${componentName} has no switch property, so ${reading === "true" ? "on" : "off"} cannot be set.`,
+        next: "Leave the switch unset. This component does not show a boolean that can turn it on or off.",
       });
     }
   }
@@ -358,23 +374,26 @@ function explicitRaw(atoms: Atom[], hit: PropertyHit, hits: PropertyHit[]): stri
   return value || undefined;
 }
 
-function nearbyValue(atoms: Atom[], hit: PropertyHit, componentWords: Set<string>): string | undefined {
-  const usable = (atom: Atom | undefined) => Boolean(atom && atom.norm !== "=" && !CONJUNCTION.has(atom.norm) && !componentWords.has(atom.norm) && !ON_WORD.has(atom.norm) && !OFF_WORD.has(atom.norm));
-  const previous = atoms[hit.at - 1];
-  const following = atoms[hit.end];
-  if (hit.def.type === "TEXT") {
-    if (following?.norm === "=") return undefined;
-    if (usable(following) && !optionOfAny(following!.norm, [hit.def])) return following!.raw;
-    return undefined;
-  }
-  const options = new Set((hit.def.options ?? []).map((option) => option.toLowerCase()));
-  if (previous && options.has(previous.norm)) return previous.raw;
-  if (following && following.norm !== "=" && options.has(following.norm)) return following.raw;
-  return undefined;
+function normOf(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
-function optionOfAny(norm: string, defs: ComponentProperty[]): boolean {
-  return defs.some((def) => def.options?.some((option) => option.toLowerCase() === norm));
+function valueBeside(atoms: Atom[], hit: PropertyHit, componentWords: Set<string>, defs: ComponentProperty[]): string | undefined {
+  const skip = (atom: Atom | undefined) => !atom || atom.norm === "=" || CONJUNCTION.has(atom.norm) || atom.norm === "at" || atom.norm === "beside" || componentWords.has(atom.norm);
+  const otherProperty = (atom: Atom) => defs.some((def) => def.name !== hit.def.name && nameTokens(def.name).includes(atom.norm));
+  for (let index = hit.end; index < atoms.length; index += 1) {
+    const atom = atoms[index];
+    if (!atom || atom.norm === "=") break;
+    if (skip(atom)) continue;
+    if (otherProperty(atom)) break;
+    if (hit.def.type === "BOOLEAN" && (ON_WORD.has(atom.norm) || OFF_WORD.has(atom.norm) || atom.norm === "shown")) break;
+    return atom.raw;
+  }
+  if (hit.def.type === "TEXT") return undefined;
+  const previous = atoms[hit.at - 1];
+  if (!previous || skip(previous) || otherProperty(previous)) return undefined;
+  const allowed = hit.def.options?.some((option) => option.toLowerCase() === previous.norm) || /^\d+$/.test(previous.norm);
+  return allowed ? previous.raw : undefined;
 }
 
 function readingBeside(atoms: Atom[], hit: PropertyHit): string | undefined {

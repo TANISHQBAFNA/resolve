@@ -17,7 +17,7 @@ import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "../read/queryTokens";
 import { allSynonymGroups, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { finishRecommendCard, type Scored } from "./recommendMastersCard";
-import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, jobNoun, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { askRole, roleFit, statesCovered } from "./recommendRole";
 import { type RecommendContext } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
@@ -69,7 +69,7 @@ function valuesBeside(ask: string, index: GraphIndex, nameSets: readonly Set<str
   const props = new Set<string>();
   for (const node of index.getNodesByType(...MASTER_TYPES)) {
     for (const prop of node.propertyDefinitions ?? []) {
-      for (const token of tokensOf(prop.name)) if (!names.has(token)) props.add(token);
+      for (const token of tokensOf(prop.name)) props.add(token);
     }
   }
   const into = new Set<string>();
@@ -268,8 +268,6 @@ export function recommendMasters(
       if (lexical === 0 && aliasBonus === 0 && fit <= 0 && !stateLift) return undefined;
       lexical += aliasBonus + fit + stateLift;
       lexical += headTokenBonus(familyLabel, headTokens, allowClip, false) + categoryHeadBonus(familyLabel, tokens, allowClip);
-      const job = jobNoun(tokens, componentWord);
-      if (job && tokensOf(familyLabel).some((token) => tokenMatchesName(job, token, allowClip))) lexical += 160;
       lexical += repeatedSynonym(familyLabel, tokens, allowClip) * 20;
       // Only a generic word before the tail ("picker for fruit") still needs the tail to fit.
       const rawMiss = beforePurposeTail.length && !beforePurposeTail.every((token) => GENERIC_NAME_TOKENS.has(token)) ? beforePurposeTail : tokens;
@@ -566,6 +564,62 @@ export function recommendMasters(
     b.score - a.score ||
     Number(a.deprecated) - Number(b.deprecated) ||
     a.node.name.localeCompare(b.node.name);
+  const defined = (entry: Scored) => {
+    const set = setOf(index, entry.node);
+    return [...(entry.node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])];
+  };
+  const nameWords = (entry: Scored): string[] => tokensOf(setOf(index, entry.node)?.name ?? entry.node.name);
+  const propertyNames = (entry: Scored): Set<string> => {
+    const words = new Set<string>();
+    for (const def of defined(entry)) for (const token of tokensOf(def.name)) words.add(token);
+    return words;
+  };
+  const owners = kept.filter((entry) => {
+    const names = new Set(nameWords(entry));
+    return [...propertyNames(entry)].some((token) => tokens.includes(token) && !names.has(token));
+  });
+  const segmentTokens = (entry: Scored): string[] => {
+    const label = (setOf(index, entry.node)?.name ?? entry.node.name).split("/").pop() ?? "";
+    return label.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 1);
+  };
+  const bareOwners = kept.filter((entry) => {
+    const parts = segmentTokens(entry);
+    return parts.length === 1 && parts[0] !== undefined && tokens.includes(parts[0]) && PLAIN_NOUN.has(parts[0]);
+  });
+  if (bareOwners.length) {
+    const floor = Math.max(...bareOwners.map((entry) => entry.score));
+    for (const entry of kept) {
+      if (bareOwners.includes(entry)) continue;
+      const extra = segmentTokens(entry).filter((token) => !tokens.includes(token));
+      if (extra.length > 0 && segmentTokens(entry).some((token) => tokens.includes(token)) && entry.score >= floor) entry.score = floor - 1;
+    }
+  }
+  const plainOwners = kept.filter((entry) => nameWords(entry).some((token) => tokens.includes(token) && PLAIN_NOUN.has(token)));
+  if (plainOwners.length) {
+    const floor = Math.max(...plainOwners.map((entry) => entry.score));
+    for (const entry of kept) {
+      if (plainOwners.includes(entry)) continue;
+      const matched = nameWords(entry).filter((token) => tokens.includes(token));
+      if (matched.length > 0 && matched.every((token) => !PLAIN_NOUN.has(token)) && entry.score >= floor) entry.score = floor - 1;
+    }
+  }
+  if (owners.length) {
+    const floor = Math.max(...owners.map((entry) => entry.score));
+    const demoted = new Set<string>();
+    for (const entry of kept) {
+      if (owners.includes(entry)) continue;
+      const matched = nameWords(entry).filter((token) => tokens.includes(token));
+      const onlySettings = matched.length > 0 && owners.some((owner) => matched.every((token) => propertyNames(owner).has(token)));
+      const sameNoun = nameWords(entry).some((token) => tokens.includes(token) && owners.some((owner) => nameWords(owner).includes(token)));
+      if (!onlySettings && !sameNoun) continue;
+      if (entry.score >= floor) entry.score = floor - 1;
+      demoted.add(setOf(index, entry.node)?.id ?? entry.node.id);
+    }
+    for (const entry of kept) {
+      const family = setOf(index, entry.node)?.id ?? entry.node.id;
+      if (demoted.has(family) && !owners.includes(entry) && entry.score >= floor) entry.score = floor - 1;
+    }
+  }
   kept.sort(byMasterRank);
 
   if (options.bindRules?.rules.length) {

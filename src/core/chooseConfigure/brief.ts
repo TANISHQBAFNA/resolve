@@ -488,6 +488,32 @@ function lastSegment(name: string): string {
   return name.split("/").map((part) => part.trim()).filter(Boolean).pop() ?? name;
 }
 
+function segmentHeads(name: string): string[] {
+  return nameTokens(lastSegment(name)).filter((token) => token.length > 2 && !SHAPE_WORD.has(token));
+}
+
+function requirementGroups(request: string, masters: GraphNode[]): Map<string, GraphNode[]> {
+  const words = contentTokens(request);
+  const groups = new Map<string, GraphNode[]>();
+  for (const master of masters) {
+    const own = segmentHeads(master.name);
+    const head = own[own.length - 1];
+    if (!head || !words.some((word) => sameWordForm(word, head))) continue;
+    const list = groups.get(head) ?? [];
+    list.push(master);
+    groups.set(head, list);
+  }
+  return groups;
+}
+
+function plainRequirements(group: GraphNode[], head: string): GraphNode[] {
+  const plain = group.filter((master) => {
+    const tokens = nameTokens(lastSegment(master.name)).filter((token) => token.length > 2);
+    return tokens.length === 1 && tokens[0] === head;
+  });
+  return plain.length ? plain : group;
+}
+
 function partsNamed(request: string, masters: GraphNode[]): GraphNode[] {
   const words = contentTokens(request);
   const hits = masters.filter((master) => {
@@ -631,6 +657,7 @@ function briefRequest(input: BriefInput): BriefResult {
   const role = askRole(stripped);
   const named = namedMasters(stripped, masters).filter((master) => roleFit(role, master.name).points >= 0).filter((master) => !platformComponentName(master.name) || containsPhrase(stripped, master.name));
   const parts = partsNamed(stripped, masters).filter((master) => !platformComponentName(master.name));
+  const groups = requirementGroups(stripped, parts);
   const recipe = recipeMatch(recipes, stripped);
   const decision = recipe ? undefined : decisionMatch(stripped, input.decisions ?? [], masters);
   const lead = rank(stripped);
@@ -755,7 +782,16 @@ function briefRequest(input: BriefInput): BriefResult {
     else if (decision) push(candidateOf(decision.master));
     else {
       for (const master of named) push(candidateOf(master), containsPhrase(stripped, master.name));
-      for (const master of parts) push(candidateOf(master));
+      const chosenPart = resolved.get("part")?.[0];
+      for (const [head, group] of groups) {
+        const pool = plainRequirements(group, head);
+        if (pool.length === 1 && pool[0]) {
+          push(candidateOf(pool[0]));
+          continue;
+        }
+        const chosen = pool.find((master) => chosenPart && (chosenPart.id === master.id || chosenPart.label === master.name || chosenPart.masterId === master.id));
+        if (chosen) push(candidateOf(chosen));
+      }
       for (const choice of [...(parts.length >= 2 ? [] : answeredShape ? shapes.slice(0, 1) : []), ...states]) {
         const master = masters.find((item) => item.id === choice.masterId);
         if (master) push(candidateOf(master));
@@ -785,6 +821,15 @@ function briefRequest(input: BriefInput): BriefResult {
 
   if (recipe) return ready("recipe", [`Recipe ${recipe.title} matches. Slots decide the parts.`], realCandidates());
   if (decision) return ready("decision", [`Approved decision: ${decision.summary}`], realCandidates());
+
+  const chosenPart = resolved.get("part")?.[0];
+  for (const [head, group] of groups) {
+    const pool = plainRequirements(group, head);
+    if (pool.length < 2) continue;
+    const answered = pool.some((master) => chosenPart && (chosenPart.id === master.id || chosenPart.label === master.name || chosenPart.masterId === master.id));
+    if (answered) continue;
+    forks.unshift({ topic: "part", options: pool.map((master) => ({ id: master.id, label: master.name, contrast: "", masterId: master.id })) });
+  }
 
   const asked = forks.slice(0, BRIEF_QUESTION_CAP);
   if (asked.length) {
