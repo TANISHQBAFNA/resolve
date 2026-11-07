@@ -578,26 +578,6 @@ export function recommendMasters(
     const names = new Set(nameWords(entry));
     return [...propertyNames(entry)].some((token) => tokens.includes(token) && !names.has(token));
   });
-  const optionWords = (entry: Scored): Set<string> => {
-    const words = new Set<string>();
-    for (const def of defined(entry)) for (const option of def.options ?? []) words.add(option.toLowerCase());
-    return words;
-  };
-  const askedWords = new Set<string>([...tokens, ...rawAsk.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)]);
-  const capable = kept.filter((entry) => [...optionWords(entry)].some((option) => askedWords.has(option)));
-  if (capable.length) {
-    const floor = Math.max(...capable.map((entry) => entry.score));
-    for (const entry of kept) {
-      if (capable.includes(entry)) continue;
-      const matched = nameWords(entry).filter((token) => askedWords.has(token));
-      const lacks = capable.some((owner) => {
-        const wanted = [...optionWords(owner)].filter((option) => askedWords.has(option));
-        const keepsOwnControl = matched.some((token) => PLAIN_NOUN.has(token) && !nameWords(owner).includes(token));
-        return matched.length > 0 && !keepsOwnControl && wanted.some((option) => !optionWords(entry).has(option));
-      });
-      if (lacks && entry.score >= floor) entry.score = floor - 1;
-    }
-  }
   const switchReading = tokens.some((token) => token === "on" || token === "off" || token === "switched" || token === "checked" || token === "enabled" || token === "disabled");
   if (switchReading) {
     for (const entry of kept) {
