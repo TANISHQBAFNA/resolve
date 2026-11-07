@@ -14,11 +14,11 @@ import { isWeakerNameStub, MASTER_TYPES, preferNamedMaster, realMastersNamed, RE
 import { prepareAsk, purposeFallback, type MeaningDecision } from "../read/meaning/parse";
 import { meaningDictionary } from "../read/meaning/buildDictionary";
 import { interpretInflections, onlyInflectedAsk } from "../read/meaning/inflections";
-import { DESCRIBING_WORD, GENERIC_NAME_TOKENS, navFamily, tokensOf } from "../read/queryTokens";
+import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "../read/queryTokens";
 import { allSynonymGroups, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { finishRecommendCard, type Scored } from "./recommendMastersCard";
-import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentClauses, contiguousPhrase, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { askRole, roleFit, statesCovered } from "./recommendRole";
 import { type RecommendContext } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
@@ -146,13 +146,9 @@ export function recommendMasters(
     publicNameSets.some((names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false));
   const brief = splitBrief(partBeforeLink(intent, publicNameSets, false, screenWords(index)) ?? intent, namesHit);
   const roleWords = withSynonymStopwords(brief.role, tokensOf(brief.role));
-  const HEAD_SKIP = new Set(["error", "failed", "failure", "disabled", "loading", "success", "pending", "invalid", "state", "default", "percent"]);
-  const assignedWord = new Set([...rawAsk.matchAll(/\b([a-z][a-z0-9]*)\s*=/gi)].map((match) => match[1]!.toLowerCase()));
-  const rawRole = brief.role.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-  const roleLink = rawRole.findIndex((word) => DESCRIBING_WORD.has(word));
-  const spoken = new Set(tokensOf(rawRole.join(" ")));
-  const roleHeadLead = (roleLink > 0 ? rawRole.slice(0, roleLink) : rawRole).filter((token) => spoken.has(token) && !HEAD_SKIP.has(token) && !assignedWord.has(token) && !/^\d+$/.test(token));
-  const askedHead = roleHeadLead[roleHeadLead.length - 1];
+  const clauses = intentClauses(rawAsk);
+  const identity = new Set(clauses.identity);
+  const askedHead = clauses.head;
   const reading = decision ? interpretInflections(roleWords, dictionary) : { tokens: roleWords, shared: [], attributes: [] };
   const sharedMiss = (name: string): string[] => {
     const lead = new Set(tokensOf(name));
@@ -162,15 +158,13 @@ export function recommendMasters(
       ...(decision?.missing ?? []).filter((word) => !carried(word)),
     ];
   };
-  const roleTokens = tokensOf(brief.role);
   const phraseExpanded = new Set<string>();
   const expandBlocked = new Set([
     "list", "table", "row", "rows", "item", "items", "card", "cards", "data",
     "top", "bottom", "left", "right", "header", "footer", "mobile", "desktop", "compact", "comfortable",
   ]);
-  const askedSet = new Set(roleTokens);
   for (const group of allSynonymGroups()) {
-    const said = group.terms.filter((term) => term.includes(" ") && tokensOf(term).every((token) => askedSet.has(token)));
+    const said = group.terms.filter((term) => term.includes(" ") && contiguousPhrase(rawAsk, term));
     if (!said.length) continue;
     for (const term of group.terms) {
       if (said.includes(term)) continue;
@@ -265,6 +259,8 @@ export function recommendMasters(
       tokens,
       allowClip,
       `${matched.describe} ${detail.describe}`,
+      identity,
+      askedHead ? new Set([askedHead]) : undefined,
     );
     const extraHits = extraTokens.length
       ? tokenHits(nameHaystack, matched.variant, extraTokens, allowClip, matched.describe)
@@ -292,7 +288,17 @@ export function recommendMasters(
       ({ points: fit, standIn } = roleFit(role, familyLabel, variantText));
       if (lexical === 0 && aliasBonus === 0 && fit <= 0 && !stateLift) return undefined;
       lexical += aliasBonus + fit + stateLift;
-      lexical += headTokenBonus(nameHaystack, roleHeadLead, allowClip, false) + categoryHeadBonus(nameHaystack, tokens, allowClip);
+      const bareName = tokensOf(stripTier(nameHaystack));
+      const trailingUnasked = bareName.length > 1 && !identity.has(bareName[bareName.length - 1]!) && bareName.slice(0, -1).some((token) => identity.has(token));
+      lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, clauses.identity, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
+      if (hits.name > 0) {
+        const propNames = new Set([...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].flatMap((def) => tokensOf(def.name)));
+        for (const word of clauses.settings) {
+          if (word === askedHead || !propNames.has(word) || identity.has(word)) continue;
+          lexical += LEXICAL_WEIGHT.variant;
+          hits.variant += 1;
+        }
+      }
       lexical += repeatedSynonym(nameHaystack, tokens, allowClip, askedHead) * 20;
       // Only a generic word before the tail ("picker for fruit") still needs the tail to fit.
       const rawMiss = beforePurposeTail.length && !beforePurposeTail.every((token) => GENERIC_NAME_TOKENS.has(token)) ? beforePurposeTail : tokens;
@@ -648,6 +654,8 @@ export function recommendMasters(
       const onlySettings = matched.length > 0 && owners.some((owner) => matched.every((token) => propertyNames(owner).has(token)));
       const sameNoun = nameWords(entry).some((token) => tokens.includes(token) && owners.some((owner) => nameWords(owner).includes(token)));
       if (onlySettings && askedHead && matched.some((token) => token === askedHead || inflectsName(askedHead, token))) continue;
+      const ownAsked = nameWords(entry).filter((token) => identity.has(token));
+      if (ownAsked.some((token) => !owners.some((owner) => nameWords(owner).includes(token)))) continue;
       if (!onlySettings && !sameNoun) continue;
       if (entry.score >= floor) entry.score = floor - 1;
       demoted.add(setOf(index, entry.node)?.id ?? entry.node.id);

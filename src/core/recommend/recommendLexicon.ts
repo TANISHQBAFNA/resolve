@@ -624,6 +624,8 @@ export {
   mastersToRank,
   CATEGORY_TAIL,
   partBeforeLink,
+  contiguousPhrase,
+  intentClauses,
   askGate,
   wholeNameTypo,
   genericOnlyMiss,

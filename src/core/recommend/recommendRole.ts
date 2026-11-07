@@ -59,7 +59,7 @@ export function askRole(ask: string): AskRole | undefined {
   }
   // "failed payment status label": a badge or tag that shows the state, not the card that only shares the subject.
   if (/\b(?:badge|tag|label)\b/.test(text) && !/\b(?:badge|tag|label)\s*=/.test(text) && /\b(?:failed|failure|error|success|pending|disabled)\b/.test(text)) {
-    return { kind: "marker", want: new Set(["badge", "label", "tag"]), avoid: new Set(["card", "dialog", "modal"]) };
+    return { kind: "marker", want: new Set(["badge", "tag"]), avoid: new Set(["card", "dialog", "modal"]) };
   }
   // "ride option row with price, ETA and a selected state": pick one of several.
   // "choose one option from three" and "one of three" are the same job. A dialog is not that control.

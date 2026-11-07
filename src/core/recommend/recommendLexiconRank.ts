@@ -513,12 +513,64 @@ export function nameTokenFor(token: string, names: Set<string>, used: Set<string
   }
   return undefined;
 }
+/** A multiword synonym counts only when those words sit together in the request. */
+export function contiguousPhrase(ask: string, term: string): boolean {
+  const words = ask.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 1);
+  const parts = term.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 1);
+  if (parts.length < 2) return false;
+  return words.some((_, index) => parts.every((part, offset) => words[index + offset] === part));
+}
+
+/**
+ * The requested control, apart from a setting clause and a state.
+ * "upload progress at 60 percent" asks for progress. "6 digits" and "show countdown" set the control already named.
+ * A trailing generic noun is not the control when a state and a more specific noun are both present.
+ */
+export function intentClauses(ask: string): { identity: string[]; settings: string[]; head?: string } {
+  const words = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const assigned = new Set([...ask.matchAll(/\b([a-z][a-z0-9]*)\s*=/gi)].map((match) => match[1]!.toLowerCase()));
+  const contentBefore = (index: number) =>
+    words.slice(0, index).some((word) => word.length > 1 && !STATE_WORD.has(word) && !/^\d+$/.test(word));
+  let end = words.length;
+  for (let index = 1; index < words.length; index += 1) {
+    if (DESCRIBING_WORD.has(words[index]!) && contentBefore(index)) {
+      end = index;
+      break;
+    }
+  }
+  const settings = new Set<string>();
+  for (const word of words.slice(end)) settings.add(word);
+  const span = words.slice(0, end);
+  for (let index = 0; index < span.length; index += 1) {
+    const word = span[index]!;
+    const next = span[index + 1];
+    if (/^\d+$/.test(word) && next && contentBefore(index)) {
+      settings.add(word);
+      settings.add(next);
+    }
+    if ((word === "show" || word === "showing") && next && contentBefore(index)) {
+      settings.add(word);
+      settings.add(next);
+    }
+    if (word === "shown" && index > 0) settings.add(span[index - 1]!);
+  }
+  let identity = tokensOf(span.filter((word) => !settings.has(word) && !assigned.has(word) && !STATE_WORD.has(word)).join(" "));
+  const last = identity[identity.length - 1];
+  const earlierSpecific = [...identity.slice(0, -1)].reverse().find((token) => !GENERIC_NAME_TOKENS.has(token));
+  if (last && GENERIC_NAME_TOKENS.has(last) && earlierSpecific && span.some((word) => STATE_WORD.has(word))) {
+    identity = identity.filter((token) => token !== last);
+  }
+  return { identity, settings: [...settings], head: identity[identity.length - 1] };
+}
+
 export function tokenHits(
   nameHaystack: string,
   variantText: string,
   tokens: string[],
   allowClip: boolean,
   describeText = "",
+  identity?: ReadonlySet<string>,
+  nameOnly?: ReadonlySet<string>,
 ): TokenHits {
   const names = new Set(tokensOf(nameHaystack));
   const variants = new Set(tokensOf(variantText));
@@ -547,7 +599,12 @@ export function tokenHits(
     for (const token of phraseTokens) coveredQuery.add(token);
   }
   const pending: string[] = [];
+  const variantOnly: string[] = [];
   for (const token of tokens) {
+    if (identity && !identity.has(token)) {
+      variantOnly.push(token);
+      continue;
+    }
     if (coveredQuery.has(token)) continue;
     const hit = nameTokenFor(token, names, used);
     if (hit) {
@@ -569,7 +626,8 @@ export function tokenHits(
     } else still.push(token);
   }
   const afterVariant: string[] = [];
-  for (const token of still) {
+  for (const token of [...variantOnly, ...still]) {
+    if (nameOnly?.has(token)) continue;
     const syn = termsFor(token, allowClip);
     const sameState = token === "failed" || token === "failure" ? ["error", "failed", "failure"] : token === "error" ? ["failed", "failure"] : [];
     const hit = [...variants].find(

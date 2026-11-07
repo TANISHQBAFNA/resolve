@@ -382,6 +382,7 @@ function valueBeside(atoms: Atom[], hit: PropertyHit, componentWords: Set<string
     const atom = atoms[index];
     if (!atom || atom.norm === "=") break;
     if (skip(atom)) continue;
+    if (atom.norm === "show" || atom.norm === "showing") continue;
     if (otherProperty(atom)) break;
     if (hit.def.type === "BOOLEAN" && (ON_WORD.has(atom.norm) || OFF_WORD.has(atom.norm) || atom.norm === "shown")) break;
     return atom.raw;
