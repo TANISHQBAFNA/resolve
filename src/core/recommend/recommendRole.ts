@@ -57,16 +57,23 @@ export function askRole(ask: string): AskRole | undefined {
   if (CHANGE_VERB.test(text) && OPTION_SET.test(text)) {
     return { kind: "chooser", want: new Set(["menu", "dropdown", "select", "segmented"]), avoid: DISPLAY_ONLY };
   }
+  // "failed payment status label": a badge or tag that shows the state, not the card that only shares the subject.
+  if (/\b(?:badge|tag|label)\b/.test(text) && !/\b(?:badge|tag|label)\s*=/.test(text) && /\b(?:failed|failure|error|success|pending|disabled)\b/.test(text)) {
+    return { kind: "marker", want: new Set(["badge", "label", "tag"]), avoid: new Set(["card", "dialog", "modal"]) };
+  }
   // "ride option row with price, ETA and a selected state": pick one of several.
   // "choose one option from three" and "one of three" are the same job. A dialog is not that control.
   if (
     (/\boptions?\b/.test(text) && /\bselected\b/.test(text)) ||
     /\b(?:one of (?:two|three|four|\d+)|choose one|pick one)\b/.test(text)
   ) {
+    const countWord = text.match(/\b(?:one of|from|of) (two|three|four|\d+)\b/)?.[1];
+    const count = countWord === "two" ? "2" : countWord === "three" ? "3" : countWord === "four" ? "4" : countWord;
     return {
       kind: "selection",
       want: new Set(["selector", "selection", "interactive", "tile", "radio", "choice"]),
       avoid: new Set(["badge", "label", "tag", "text", "dialog", "modal", "card"]),
+      ...(count ? { values: new Set([count]) } : {}),
     };
   }
   // "match score", "timeline of match events": a part named so still wins; else the stand-in, named. "score card" is a card.

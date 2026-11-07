@@ -139,15 +139,9 @@ export function partBeforeLink(ask: string, nameSets: NameSets, allowClip: boole
   if (lead.every((token) => screens.includes(token))) return undefined;
   // "field to pick the date": a bare entry word takes its kind from what it takes. "card showing a chip" and "button to open" still lead.
   if (lead.every((token) => ENTRY_NOUN.has(token))) return undefined;
-  const leadSets = nameSets.filter((names) => lead.some((token) => namedIn(names, token, allowClip)));
-  if (!leadSets.length) return undefined;
-  const tail = tokensOf(words.slice(at + 1).join(" ")).filter(
-    (token) =>
-      token === "row" ||
-      token === "rows" ||
-      !nameSets.some((names) => namedIn(names, token, allowClip)) ||
-      leadSets.some((names) => namedIn(names, token, allowClip)),
-  );
+  if (!nameSets.some((names) => lead.some((token) => namedIn(names, token, allowClip)))) return undefined;
+  // Keep the words after the link. "code with a countdown" is still a code, and the countdown is evidence.
+  const tail = tokensOf(words.slice(at + 1).join(" "));
   return [...lead, words[at]!, ...tail].join(" ");
 }
 
@@ -404,16 +398,17 @@ export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: 
   return next;
 }
 
-export function headTokenBonus(familyName: string, tokens: string[], allowClip: boolean, exactName: boolean): number {
+export function headTokenBonus(familyName: string, tokens: string[], _allowClip: boolean, exactName: boolean): number {
   if (exactName) return 0;
   const names = new Set(tokensOf(familyName));
   const nav = tokens.includes("nav") || tokens.includes("navigation");
   const bottom = tokens.some((token) => token === "bottom" || token === "footer");
   if (nav && !bottom && names.has("header")) return 25;
-  const head =
-    tokens.find((token) => plainNounToken(token) && !modifierWord(token) && !SIZE_OR_A11Y.has(token)) ??
-    [...tokens].reverse().find((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token));
-  if (!head || !nounHit(head, names, allowClip)) return 0;
+  const stateWord = new Set(["error", "failed", "failure", "disabled", "loading", "success", "pending", "invalid", "state", "default", "percent"]);
+  const controlNoun = new Set(["button", "input", "field", "label", "text", "area"]);
+  const head = [...tokens].reverse().find((token) => !stateWord.has(token) && !SIZE_OR_A11Y.has(token) && (!modifierWord(token) || controlNoun.has(token)));
+  const headNamed = Boolean(head && [...names].some((name) => name === head || inflectsName(head, name)));
+  if (!head || !headNamed) return 0;
   const sided = bottom || tokens.some((token) => token === "top" || token === "header");
   if (sided && (head === "nav" || head === "navigation") && !names.has(bottom ? "footer" : "header")) return 0;
   return 15;
@@ -576,8 +571,9 @@ export function tokenHits(
   const afterVariant: string[] = [];
   for (const token of still) {
     const syn = termsFor(token, allowClip);
+    const sameState = token === "failed" || token === "failure" ? ["error", "failed", "failure"] : token === "error" ? ["failed", "failure"] : [];
     const hit = [...variants].find(
-      (part) => !used.has(part) && (part === token || Boolean(syn?.includes(part) && part !== token)),
+      (part) => !used.has(part) && (part === token || sameState.includes(part) || Boolean(syn?.includes(part) && part !== token)),
     );
     if (hit) {
       variant += 1;
@@ -599,11 +595,12 @@ export function tokenHits(
   return { name, synonym, variant, describe, covered, specific };
 }
 /** "header title" restates header. A second word for a name already matched still counts. */
-export function repeatedSynonym(nameHaystack: string, tokens: string[], allowClip: boolean): number {
+export function repeatedSynonym(nameHaystack: string, tokens: string[], allowClip: boolean, head?: string): number {
   const names = new Set(tokensOf(nameHaystack));
   const used = new Set<string>();
   let extra = 0;
   for (const token of tokens) {
+    if (token === head) continue;
     const hit = nameTokenFor(token, names, used);
     if (hit) {
       used.add(hit);
