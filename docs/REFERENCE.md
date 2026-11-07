@@ -791,9 +791,9 @@ The shell spelling `code map` still runs. It prints one notice (`Deprecated: cod
 These three commands extend the map. They do not replace `--init` or `--import`.
 
 ```bash
-npm run resolve -- code-map scan fixtures/acme-ui-angular
-npm run resolve -- code-map suggest fixtures/acme-ui-angular
-npm run resolve -- code-map suggest fixtures/acme-ui-angular --write
+npm run resolve -- code-map scan <folder>
+npm run resolve -- code-map suggest <folder>
+npm run resolve -- code-map suggest <folder> --write
 npm run resolve -- code-map review
 npm run resolve -- code-map review --import code-map-review.csv
 ```
@@ -808,7 +808,7 @@ npm run resolve -- code-map review --import code-map-review.csv
 
 **Versions.** Each entry can store `figmaVersion` (the learned library's Figma version) and `packageVersion` (the component package version). The map file can store the same two at the top. When the learned library version changes, or the package version on the file changes, `code-map` lists those entries under `Needs re-review`. They stay mapped until someone reviews them.
 
-**Fixture regression guards, not accuracy.** Two made-up Acme fixtures keep the pairing code from regressing. They were written alongside the code, so they are not blind runs and not real-data accuracy. On the small one (`fixtures/acme-ui-angular`) 9 of 9 pairs are `suggested`. The larger one (`fixtures/pr63-edge`) has 49 hand-labelled pairs, a second package and noise classes: on that key, `suggested` pairs score precision 1 and recall 43/49, and `partial` pairs score precision 5/6 and recall 5/49. Pagination is not matched to Paginator. Avatar is `partial` for both the Acme class and the unprefixed class, and neither is `suggested`. A retired part is not suggested and never shows its old code. The suite checks these fixture numbers. On a real design system some `suggested` pairs are wrong, so a person confirms each pair: do not accept suggestions in bulk.
+**Suggestions are not accuracy.** On a real design system some `suggested` pairs are wrong, so a person confirms each pair: do not accept suggestions in bulk. The made-up Acme folders used while the pairing code was written are not in this checkout.
 
 `--retired` prints every retired part and its replacement, one per line (`Retired: 1`, then `Old Button [ACMEUI 30:50] -> use Button`). The retired part's own code is not shown. `--json` prints the same data with the same keys whether or not there is a map (`configured` is `true` or `false`; the lists are `unmapped`, `ambiguous`, `conflicts`, `retired`, `stale`, `replacements`, `ignored`). Two keys appear only when the map has selector entries: `angular` (the selector counts) and `angularIgnored` (entries whose selector fields were dropped). A part with a bad `replacedBy` is listed under `Bad replacedBy` / `replacements`. Details are in [`code-map.json`](#resolvecode-mapjson--figma-to-code-twins) below. With no map, it prints `No code map. Add .resolve/code-map.json next to synonyms.json.`
 
@@ -1083,7 +1083,7 @@ What Resolve does, exactly. It depends on whether you have a code map:
 - **Small cards.** `recommend` stays within 600 characters, `resolve` within 2,000 and `recipe` within 2,000. `verify` aims for 600 when it finds a problem; a check that passes many components can be longer (about 760 for five). The largest seen on the repo's test set: recommend 600, verify 559, resolve 978, recipe 964. A verify card that shows retired parts stays within 600 unless the failures alone are longer (about 17 invented names); then the card is as long as it was before the code map, plus the short pointer to `resolve code-map --retired`.
 - **No token in the repo.** Never store a Figma token in files.
 
-Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
+Numbers recorded from earlier checks. The automated suite that produced them is not in this checkout. `score` still runs against a phrase folder you pass:
 
 | Check | Result |
 | --- | --- |
@@ -1093,7 +1093,7 @@ Numbers from the repo's own checks (run `npm test` and `score` to reproduce):
 | 8-screen public-style library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
 | Ingredient card (Acme example library) | Payee picker = Avatar + Button, Payment method row = Avatar + Button; invented parts 0; unmapped parts shown as unmapped |
 | Selector code map (Acme example) | 4 selector entries load with 0 ignored; the CSV example imports to the same map; 14 bad selector values dropped with a reason while the code line stays; 5 real selector forms and input aliases accepted |
-| Tests | About 1,300 unit and CLI tests plus 16 browser tests (`npm test` and `npm run test:e2e` print the current count) |
+| Automated suite | Not in this checkout. About 1,300 unit and CLI checks and 16 browser checks existed at commit 55283ba and are kept outside the repository. This checkout does not run them. |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](SCOREBOARD.md).
 
@@ -1128,7 +1128,7 @@ code: AcmePayeePickerComponent from '@acme/payments-angular'
 angular: <acme-payee-picker>, standalone
 ```
 
-The same 14 Acme cards (three recommends, three resolves, one example, two verifies, one recipe, the recipe list, cousins, one ingredient card, and one screen build sheet) are 4,547 tokens as today's JSON and 3,350 as Markdown. Tokens are `ceil(characters / 4)`, summed per card. Removing the filler accounts for about half of that drop (the stripped JSON is 3,995). The count is locked in `tests/server.cards.test.ts`.
+The same 14 Acme cards (three recommends, three resolves, one example, two verifies, one recipe, the recipe list, cousins, one ingredient card, and one screen build sheet) are 4,547 tokens as today's JSON and 3,350 as Markdown. Tokens are `ceil(characters / 4)`, summed per card. Removing the filler accounts for about half of that drop (the stripped JSON is 3,995). Those character counts are from that earlier measurement. The file that locked them is not in this checkout.
 
 ### How Resolve tells the AI about properties
 
@@ -1214,7 +1214,6 @@ cd resolve
 npm install
 npm run build:server
 npm run resolve -- help
-npm test          # the full test suite
 npm run build     # typecheck + browser build + server build
 ```
 

@@ -1,7 +1,0 @@
-{
-  "designSystem": {
-    "name": "acme",
-    "source": "../ds",
-    "ref": "v1.4.0"
-  }
-}

@@ -1,5 +1,0 @@
-# Screens
-
-- Pay
-- Review
-- Receipt
