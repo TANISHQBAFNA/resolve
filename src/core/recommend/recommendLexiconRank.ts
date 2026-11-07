@@ -556,7 +556,8 @@ export function intentClauses(ask: string): { identity: string[]; settings: stri
   }
   const counts: string[] = [];
   for (let index = 0; index < words.length - 1; index += 1) {
-    if (/^\d+$/.test(words[index]!) && /^(?:step|steps|stepper)$/.test(words[index + 1]!)) counts.push(words[index]!);
+    if (/^\d+$/.test(words[index]!) && /^(?:step|steps|stepper)$/.test(words[index + 1] ?? "")) counts.push(words[index]!);
+    if (/^(?:step|steps|stepper)$/.test(words[index]!) && /^\d+$/.test(words[index + 1] ?? "")) counts.push(words[index + 1]!);
   }
   const tailNumber = words[words.length - 1];
   if (tailNumber && /^\d+$/.test(tailNumber)) {

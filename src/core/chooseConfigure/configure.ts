@@ -4,6 +4,8 @@ import type { ComponentProperty } from "@/core/model/componentProperties";
 import { cleanPropertyName } from "@/core/model/componentProperties";
 import { propertyBlock, type PropertyRow } from "@/core/read/componentProperties";
 import { recommendMasters } from "@/core/recommend/recommendMasters";
+import { intentClauses } from "@/core/recommend/recommendLexicon";
+import { tokensOf } from "@/core/read/queryTokens";
 import { controllingFromReferences } from "@/core/screenMap/capture";
 
 export interface ConfigureWarning {
@@ -236,6 +238,23 @@ function applyAsked(
     for (const option of seen) add(def, option, false);
   }
 
+  for (const count of intentClauses(ask).counts) {
+    const listed = live.filter((def) => (def.options ?? []).some((option) => option.toLowerCase() === count));
+    if (listed.length === 1 && !picks.has(listed[0]!.name)) {
+      add(listed[0]!, count, false);
+      continue;
+    }
+    if (listed.length > 0) continue;
+    const stepProp = live.filter((def) => tokensOf(def.name).some((token) => token === "step" || token === "steps" || token === "count"));
+    if (stepProp.length === 1 && !picks.has(stepProp[0]!.name)) add(stepProp[0]!, count, false);
+    else if (stepProp.length === 0) {
+      warnings.push({
+        warning: `${componentName} cannot apply "${count}".`,
+        next: `${componentName} has no step count that takes ${count}.`,
+      });
+    }
+  }
+
   const namedBoolean = hits.some((hit) => hit.def.type === "BOOLEAN");
   if (!namedBoolean) {
     const booleans = live.filter((def) => def.type === "BOOLEAN" && !def.optionsUnknown);
@@ -364,7 +383,7 @@ function propertyHits(atoms: Atom[], defs: ComponentProperty[]): PropertyHit[] {
     if (!distinctive || distinctive.length < 4) continue;
     const at = words.find((row) => !used.has(row.index) && row.atom.norm === distinctive);
     if (!at) continue;
-    const reading = words.some((row) => Math.abs(row.index - at.index) <= 3 && (ON_WORD.has(row.atom.norm) || OFF_WORD.has(row.atom.norm) || row.atom.norm === "shown"));
+    const reading = words.some((row) => Math.abs(row.index - at.index) <= 3 && (ON_WORD.has(row.atom.norm) || OFF_WORD.has(row.atom.norm) || row.atom.norm === "shown" || row.atom.norm === "with"));
     if (!reading) continue;
     used.add(at.index);
     hits.push({ def, at: at.index, end: at.index + 1 });

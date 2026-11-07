@@ -291,11 +291,11 @@ export function recommendMasters(
       const bareName = tokensOf(stripTier(nameHaystack));
       const trailingUnasked = bareName.length > 1 && !identity.has(bareName[bareName.length - 1]!) && bareName.slice(0, -1).some((token) => identity.has(token));
       lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, clauses.identity, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
-      if (hits.name > 0) {
+      if (hits.name > 0 || fit > 0) {
         const propNames = new Set([...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].flatMap((def) => tokensOf(def.name)));
         for (const word of clauses.settings) {
           if (word === askedHead || !propNames.has(word) || identity.has(word)) continue;
-          lexical += LEXICAL_WEIGHT.variant;
+          lexical += hits.name > 0 ? LEXICAL_WEIGHT.variant : LEXICAL_WEIGHT.name + LEXICAL_WEIGHT.variant;
           hits.variant += 1;
         }
       }

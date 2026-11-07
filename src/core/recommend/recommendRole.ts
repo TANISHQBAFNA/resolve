@@ -57,8 +57,14 @@ export function askRole(ask: string): AskRole | undefined {
   if (CHANGE_VERB.test(text) && OPTION_SET.test(text)) {
     return { kind: "chooser", want: new Set(["menu", "dropdown", "select", "segmented"]), avoid: DISPLAY_ONLY };
   }
-  // "enter the code with a countdown beside it" is a code field. A dial code is a phone number.
-  if (/\b(?:enter|type)\b/.test(text) && /\bcode\b/.test(text) && !/\b(?:phone|dial|telephone|mobile)\b/.test(text)) {
+  // Entering a code, or a code entry, is the whole field. A dial code or a country code is a phone number.
+  const phoneCode = /\b(?:phone|telephone|mobile|country|dial)\b/.test(text);
+  const codeAt = words.indexOf("code");
+  const beside = words[codeAt - 1];
+  const after = words[codeAt + 1];
+  const codeEntry = codeAt >= 0 && (beside === "entry" || beside === "entering" || after === "entry" || after === "field");
+  const enteringCode = codeAt >= 0 && /\b(?:enter\w*|type|input)\b/.test(text);
+  if (!phoneCode && (codeEntry || enteringCode)) {
     return { kind: "entry", want: new Set(["code", "pin", "otp"]), avoid: new Set(["phone", "dial", "telephone"]) };
   }
   if (/\b(?:badge|tag|label)\b/.test(text) && !/\b(?:badge|tag|label)\s*=/.test(text) && /\b(?:failed|failure|error|success|pending|disabled)\b/.test(text)) {
