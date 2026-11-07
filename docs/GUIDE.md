@@ -97,7 +97,7 @@ When the names differ and there is no shared ID, `code-map --suggest` ranks a dr
 
 ## Check a prototype
 
-When the screen is a working HTML, CSS and JS prototype, run `resolve ready` on the project folder before it goes to developers. The folder holds `project.config.json` (the design system pin: a local path or a git URL, plus a ref), `2-brief/screens.md`, and `4-code/prototype` with `vendor/<name>@<ref>`. Resolve writes `5-readiness/report.md`. Each item is a pass or a warning with a next step. The command exits 0. `--strict` is opt-in. See [Prototype readiness](readiness.md). The Acme example is `fixtures/acme-ready/good`.
+When the screen is a working HTML, CSS and JS prototype, run `resolve ready` on the project folder before it goes to developers. The folder holds `project.config.json` (the design system pin: a local path or a git URL, plus a ref), `2-brief/screens.md`, and `4-code/prototype` with `vendor/<name>@<ref>`. Resolve writes `5-readiness/report.md`. Each item is a pass or a warning with a next step. The command exits 0. `--strict` is opt-in. See [Prototype readiness](readiness.md). The Acme sample folder is not in this checkout.
 
 ## Happy path (what you do, what you get)
 

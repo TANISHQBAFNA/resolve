@@ -16,6 +16,6 @@ With `addons/hello/hook.json` and `addons/hello/bin/hello.mjs` in place:
 - `resolve --help` lists the `usage` lines.
 - Delete the folder and the command is gone. Resolve works the same without it.
 
-An add-on that needs Resolve's data should read the files Resolve writes (for example the `handoff --out` folder) and import only `src/public.ts`. Tests named `addons/<name>/**/*.test.ts` run with `npm test`.
+An add-on that needs Resolve's data should read the files Resolve writes (for example the `handoff --out` folder) and import only `src/public.ts`.
 
 Add-on folders are listed in `.gitignore`, so an add-on you install here stays out of this repo.

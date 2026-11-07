@@ -56,6 +56,6 @@ The id shape is `ds@<semver>.<tier>.<name>`, for example `ds@1.4.0.core.button`.
 resolve ready [project] [--json] [--strict] [--out <file>]
 ```
 
-`--out` writes the report there instead of `5-readiness/report.md`. `--json` prints the same result as JSON. The Acme example that passes is `fixtures/acme-ready/good`. `fixtures/acme-ready/problems` has one of each warning.
+`--out` writes the report there instead of `5-readiness/report.md`. `--json` prints the same result as JSON. The Acme sample folders are not in this checkout.
 
 With `--strict`, the exit code is 1 when the project folder is missing, 2 for components, 3 for the vendor copy, 4 for tokens, 5 for variants, 6 for screens, and 7 for accessibility. The lowest code wins. Without `--strict`, the exit is 0.

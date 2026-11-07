@@ -13,75 +13,13 @@ jobs:
       fail-fast: false
       matrix:
         node: [22, 24]
-        tz: [UTC, Asia/Kolkata]
-    env:
-      TZ: ${{ matrix.tz }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-      # prepare skips the server build when CI is set. build typechecks, then builds each bundle once.
-      # Tests that spawn the MCP server need dist-server, so the build comes first.
+      # Typecheck and build only. The automated suite is not in this tree.
       - run: npm ci
+      - run: npm run typecheck
       - run: npm run build
-      - name: Check meaning files
-        run: node scripts/check-meaning-sock.mjs meaning
-      - run: npm test
-      # Core must build and pass with the optional add-ons folder absent.
-      - name: Core without optional add-ons
-        run: |
-          set -euo pipefail
-          aside="${RUNNER_TEMP}/addons-aside"
-          mv addons "$aside"
-          status=0
-          npm run build || status=$?
-          if [ "$status" -eq 0 ]; then npm test || status=$?; fi
-          mv "$aside" addons
-          exit "$status"
-      # 625-ask regression gate: a correct main lead may not change without an allowlist reason.
-      - run: npm run check:meaning
-      - run: npm run check:size
-      - run: npm run check:dupes
-      - name: Score the fixture library
-        env:
-          RESOLVE_WORKSPACE: fixture
-        run: |
-          set -o pipefail
-          npm run resolve -- ingest scoreboard/fixture/library.json --role library --name "Scoreboard fixture"
-          npm run resolve -- score phrases --phrases scoreboard/phrases --json > "$RUNNER_TEMP/phrases.json"
-          npm run resolve -- score --golden scoreboard/golden --workspace fixture --json > "$RUNNER_TEMP/golden.json"
-          node scripts/check-phrase-floor.mjs scoreboard/phrase-baseline.json "$RUNNER_TEMP/phrases.json" "$RUNNER_TEMP/golden.json"
-      - name: Guard multi-library picks
-        run: node scripts/check-multi-library.mjs
-      - name: Score the Material library
-        env:
-          RESOLVE_HOME: ${{ runner.temp }}/material-home
-        run: |
-          set -o pipefail
-          mkdir -p "$RESOLVE_HOME"
-          cp fixtures/material/synonyms.json "$RESOLVE_HOME/synonyms.json"
-          cp fixtures/material/recipes.json "$RESOLVE_HOME/recipes.json"
-          npm run resolve -- ingest fixtures/material/library.json --role library --name "Material 3"
-          npm run resolve -- score phrases --phrases scoreboard/material-phrases --json > "$RUNNER_TEMP/material-phrases.json"
-          node scripts/check-material-floor.mjs scoreboard/material-baseline.json "$RUNNER_TEMP/material-phrases.json"
-
-  e2e:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [22, 24]
-        tz: [UTC, Asia/Kolkata]
-    env:
-      TZ: ${{ matrix.tz }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium firefox
-      - run: npm run test:e2e

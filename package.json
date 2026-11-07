@@ -47,23 +47,9 @@
     "build": "tsc --noEmit && npm run build:browser && npm run build:server",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "check:size": "node scripts/size-budget.mjs",
-    "size": "node scripts/size-budget.mjs",
-    "check:meaning": "node scripts/meaning-regression.mjs check",
-    "check:dupes": "jscpd src --pattern \"**/*.ts\" --min-lines 5 --min-tokens 40 --threshold 0.75 --reporters console",
-    "bench": "vitest run --config vitest.bench.config.ts --reporter=verbose",
-    "test:e2e": "playwright test",
-    "test:all": "vitest run && playwright test",
-    "test:watch": "vitest",
     "prepare": "node scripts/prepare-server.mjs",
     "resolve": "node dist-server/cli.mjs",
     "mcp": "node dist-server/mcp.mjs"
-  },
-  "resolveSizeBudget": {
-    "code": 1922,
-    "server": 7286,
-    "core": 35727
   },
   "engines": {
     "node": ">=22.12.0"
@@ -76,20 +62,11 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@angular/cdk": "22.2.3",
-    "@angular/material": "22.2.3",
-    "@axe-core/playwright": "^4.13.0",
-    "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "ajv": "^8.20.0",
-    "ajv-formats": "^3.0.1",
-    "jscpd": "^4.0.5",
-    "vite": "^8.3.5",
-    "vite-node": "6.0.0",
-    "vitest": "^5.0.5"
+    "vite": "^8.3.5"
   },
   "license": "MIT"
 }

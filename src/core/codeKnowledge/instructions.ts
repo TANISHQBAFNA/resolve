@@ -24,7 +24,7 @@ export function knowledgeInstructions(): string {
     "   A proposed row is not a link. Do not mark a row confirmed yourself.",
     "",
     "Schemas: schemas/dsck.schema.json and schemas/dsci.schema.json.",
-    "Acme example: fixtures/acme-code-knowledge/.",
+    "A sample coded folder is not shipped in this checkout.",
     "",
   ].join("\n");
 }

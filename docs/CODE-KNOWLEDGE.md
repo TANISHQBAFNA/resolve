@@ -57,4 +57,4 @@ Running the check again writes a new proposed draft.
 
 ## Acme
 
-`fixtures/acme-code-knowledge/` is a small Acme UI repo (a button, a field, and a pay form) plus four AI files: a good draft, a draft whose evidence line is not in the file, a draft that fails the schema, and a draft that disagrees with the scanner (`danger` where the scanner has `primary`).
+A small Acme sample (a button, a field, and a pay form, plus draft files) is not in this checkout.

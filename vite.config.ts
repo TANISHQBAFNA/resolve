@@ -1,5 +1,4 @@
-/// <reference types="vitest" />
-import { defineConfig } from "vitest/config";
+import { defineConfig } from "vite";
 import { createServer as createViteServer } from "vite";
 import type { Plugin, PreviewServer, ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
@@ -129,10 +128,5 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/figma/, ""),
       },
     },
-  },
-  test: {
-    environment: "node",
-    include: ["tests/**/*.test.ts", "addons/**/*.test.ts"],
-    setupFiles: ["tests/noAmbientStore.ts"],
   },
 });

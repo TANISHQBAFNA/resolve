@@ -214,12 +214,13 @@ src/
 │  └─ panels/                 # import and Figma load
 ├─ mock/                      # REST-shaped fixture + variables fixture
 └─ styles/                    # tokens.css, app.css
-tests/                        # vitest, core only
 docs/
 ```
+
+The automated suite is not in this checkout. It is kept outside the repository.
 
 The dependency rule is one-directional: `ui` → `state` → `core`, and within
 core `ai`/`query` → `transform` → `ingestion` → `model`. Nothing in `core`
 imports React.
 
-`query/communities.ts` and `core/layout/force.ts` still exist for tests. They do not draw a screen. The `orient` MCP tool was removed; see [Where a rule lives](#where-a-rule-lives).
+`query/communities.ts` and `core/layout/force.ts` still exist. They do not draw a screen. The `orient` MCP tool was removed; see [Where a rule lives](#where-a-rule-lives).

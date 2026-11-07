@@ -1,7 +1,0 @@
-main {
-  color: var(--ink);
-  background: var(--paper);
-  margin: 0;
-  padding: var(--space-3) 0;
-  gap: var(--space-2);
-}
