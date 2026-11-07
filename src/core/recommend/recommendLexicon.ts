@@ -221,6 +221,65 @@ export function familyHaystack(node: GraphNode, set: GraphNode | undefined, host
   if (set && set.id !== node.id) return `${stripTier(set.name)} ${stripTier(node.name)}`;
   return stripTier(node.name);
 }
+
+/** Option values of this component, including variant children and a set named by a path prefix. */
+function optionValueTokens(index: GraphIndex, node: GraphNode): Set<string> {
+  const hosts: GraphNode[] = [];
+  const seen = new Set<string>();
+  const add = (item?: GraphNode) => {
+    if (!item || seen.has(item.id)) return;
+    seen.add(item.id);
+    hosts.push(item);
+    if (item.type === "COMPONENT_SET") for (const child of index.getVariantsOf(item.id)) add(child);
+  };
+  add(node);
+  add(setOf(index, node));
+  if (node.type !== "COMPONENT_SET" && !node.componentSetId) {
+    const lower = node.name.toLowerCase();
+    let best: GraphNode | undefined;
+    for (const item of index.getNodesByType("COMPONENT_SET")) {
+      if (!lower.startsWith(`${item.name.toLowerCase()}/`)) continue;
+      if (!best || item.name.length > best.name.length) best = item;
+    }
+    add(best);
+  }
+  const tokens = new Set<string>();
+  for (const item of hosts) {
+    for (const value of Object.values(item.variantProperties ?? {})) {
+      for (const token of tokensOf(String(value))) if (token.length > 1) tokens.add(token);
+    }
+    for (const def of item.propertyDefinitions ?? []) {
+      for (const token of tokensOf(def.name)) if (token.length > 1) tokens.add(token);
+      for (const option of def.options ?? []) for (const token of tokensOf(option)) if (token.length > 1) tokens.add(token);
+    }
+    if (VARIANT_PROP_NAME.test(item.name)) {
+      for (const part of item.name.split(",")) {
+        for (const token of tokensOf(part.split("=").slice(1).join("="))) if (token.length > 1) tokens.add(token);
+      }
+    }
+  }
+  return tokens;
+}
+
+/**
+ * The component's own name. A path segment that only repeats a property name or one of its
+ * option values (`header/action-toggle`, `card/layout-horizontal`) is not a second component.
+ */
+export function identityPath(index: GraphIndex, node: GraphNode): string {
+  if (VARIANT_PROP_NAME.test(node.name)) {
+    const set = setOf(index, node);
+    return set && !VARIANT_PROP_NAME.test(set.name) ? set.name : node.name;
+  }
+  const layers = optionValueTokens(index, node);
+  const segments = node.name.split("/").map((part) => part.trim()).filter(Boolean);
+  const kept = segments.filter((segment) => tokensOf(segment).some((token) => !layers.has(token)));
+  return (kept.length ? kept : segments).join("/") || node.name;
+}
+
+export function identityHaystack(index: GraphIndex, node: GraphNode, set?: GraphNode, host = ""): string {
+  if (VARIANT_PROP_NAME.test(node.name)) return familyHaystack(node, set, host);
+  return identityPath(index, node);
+}
 /** Variant values and property options. Property names (State, Type, Size) are not words. */
 export function variantValueText(node: GraphNode): string {
   const props = node.variantProperties;
@@ -508,7 +567,7 @@ export function liveNameSets(index: GraphIndex): Set<string>[] {
       sets.push(new Set(tokensOf(set?.name || familyNameOf(node.name, set?.name))));
       continue;
     }
-    sets.push(new Set(tokensOf(node.name)));
+    sets.push(new Set(tokensOf(identityHaystack(index, node))));
   }
   return sets;
 }

@@ -72,6 +72,12 @@ export function searchDetail(index: GraphIndex, node: GraphNode, set?: GraphNode
   addNode(node);
   addNode(set);
   const root = node.type === "COMPONENT_SET" ? node : (set ?? node);
+  if (root.type === "COMPONENT_SET") {
+    for (const child of index.getVariantsOf(root.id)) {
+      const values = variantValueText(child);
+      if (values) variant.push(values);
+    }
+  }
   const walk = (id: string, depth: number) => {
     if (depth > 2) return;
     for (const child of index.getChildren(id)) {

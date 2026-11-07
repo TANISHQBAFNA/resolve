@@ -17,7 +17,7 @@ import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "../read/queryTokens";
 import { allSynonymGroups, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { finishRecommendCard, type Scored } from "./recommendMastersCard";
-import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { askRole, roleFit, statesCovered } from "./recommendRole";
 import { type RecommendContext } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
@@ -38,6 +38,10 @@ function settingTokens(index: GraphIndex, nameSets: readonly Set<string>[]): Set
     }
   };
   for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    for (const value of Object.values(node.variantProperties ?? {})) add(String(value));
+    if (node.name.includes("=")) {
+      for (const part of node.name.split(",")) add(part.split("=").slice(1).join("="));
+    }
     for (const prop of node.propertyDefinitions ?? []) {
       add(prop.name);
       for (const option of prop.options ?? []) add(option);
@@ -48,6 +52,8 @@ function settingTokens(index: GraphIndex, nameSets: readonly Set<string>[]): Set
       }
     }
   }
+  // "switched on" is a reading of the named control, including when this library shows no boolean.
+  for (const token of ["on", "off", "switched", "checked", "enabled", "disabled"]) add(token);
   return into;
 }
 
@@ -230,7 +236,7 @@ export function recommendMasters(
           (set!.name.toLowerCase() === intentNeedle ||
             collapsedName(set!.name) === collapsedAsk ||
             phraseNamesMatch(intentNeedle, set!.name))));
-    const nameHaystack = familyLabel;
+    const nameHaystack = identityHaystack(index, node, set, host);
     const matched = matchHaystack(node, set);
     const detail = searchDetail(index, node, set);
     const variantText = `${matched.variant} ${detail.variant}`;
@@ -267,13 +273,13 @@ export function recommendMasters(
       ({ points: fit, standIn } = roleFit(role, familyLabel, variantText));
       if (lexical === 0 && aliasBonus === 0 && fit <= 0 && !stateLift) return undefined;
       lexical += aliasBonus + fit + stateLift;
-      lexical += headTokenBonus(familyLabel, headTokens, allowClip, false) + categoryHeadBonus(familyLabel, tokens, allowClip);
-      lexical += repeatedSynonym(familyLabel, tokens, allowClip) * 20;
+      lexical += headTokenBonus(nameHaystack, headTokens, allowClip, false) + categoryHeadBonus(nameHaystack, tokens, allowClip);
+      lexical += repeatedSynonym(nameHaystack, tokens, allowClip) * 20;
       // Only a generic word before the tail ("picker for fruit") still needs the tail to fit.
       const rawMiss = beforePurposeTail.length && !beforePurposeTail.every((token) => GENERIC_NAME_TOKENS.has(token)) ? beforePurposeTail : tokens;
       const missTokens = rawMiss.filter((token) => !settings.has(token));
-      if (fit <= 0 && !stateLift && genericOnlyMiss(familyLabel, missTokens, allowClip, componentWord, synonymWord)) return undefined;
-      const nameTokens = tokensOf(familyLabel);
+      if (fit <= 0 && !stateLift && genericOnlyMiss(nameHaystack, missTokens, allowClip, componentWord, synonymWord)) return undefined;
+      const nameTokens = tokensOf(nameHaystack);
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
       const onlyContainer = headTokens !== headBase && nameTokens.every((token) => ["list", "lists", "group", "set"].includes(token));
       if (nameTokens.length > 0 && matched === nameTokens.length && !onlyContainer) lexical += 25;

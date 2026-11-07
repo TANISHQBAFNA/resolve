@@ -7,6 +7,7 @@ import { exactRecipe, fillRecipe, type Recipe } from "./recipes";
 import { meaningDictionary } from "../read/meaning/buildDictionary";
 import { prepareAsk } from "../read/meaning/parse";
 import { artShelf } from "../recommend/recommendContext";
+import { identityPath } from "../recommend/recommendLexicon";
 import { recommendMasters } from "../recommend/recommendMasters";
 import { askRole, roleFit } from "../recommend/recommendRole";
 import type { RecommendContext } from "../recommend/recommendSupport";
@@ -486,9 +487,13 @@ function platformSaid(request: string, index: GraphIndex): PlatformId | undefine
   return said[0];
 }
 
-function namedMasters(request: string, masters: GraphNode[]): GraphNode[] {
+function partLabel(index: GraphIndex, node: GraphNode): string {
+  return identityPath(index, node) || node.name;
+}
+
+function namedMasters(request: string, index: GraphIndex, masters: GraphNode[]): GraphNode[] {
   return masters
-    .filter((master) => containsPhrase(request, master.name))
+    .filter((master) => containsPhrase(request, partLabel(index, master)))
     .sort((a, b) => b.name.length - a.name.length);
 }
 
@@ -507,42 +512,79 @@ function segmentHeads(name: string): string[] {
   return nameTokens(lastSegment(name)).filter((token) => token.length > 2 && !SHAPE_WORD.has(token));
 }
 
-function requirementGroups(request: string, masters: GraphNode[]): Map<string, GraphNode[]> {
+function requirementGroups(request: string, index: GraphIndex, masters: GraphNode[]): Map<string, GraphNode[]> {
   const words = contentTokens(request);
   const groups = new Map<string, GraphNode[]>();
   for (const master of masters) {
-    const own = segmentHeads(master.name);
+    const own = segmentHeads(partLabel(index, master));
     const head = own[own.length - 1];
     if (!head || !words.some((word) => sameWordForm(word, head))) continue;
-    const list = groups.get(head) ?? [];
+    const key = [...groups.keys()].find((item) => sameWordForm(item, head)) ?? head;
+    const list = groups.get(key) ?? [];
     list.push(master);
-    groups.set(head, list);
+    groups.set(key, list);
+  }
+  // "email field" stays open when no component is named email. The plain input is the uncertain field.
+  const fieldKey = [...groups.keys()].find((key) => sameWordForm(key, "field"));
+  if (fieldKey) {
+    const at = words.findIndex((word) => sameWordForm(word, fieldKey));
+    const qualifier = at > 0 ? words[at - 1] : undefined;
+    const named = qualifier
+      ? masters.some((master) => nameTokens(partLabel(index, master)).some((token) => sameWordForm(token, qualifier)))
+      : true;
+    if (qualifier && qualifier.length > 2 && !named) {
+      const list = groups.get(fieldKey) ?? [];
+      for (const master of liveMasters(index)) {
+        const tokens = nameTokens(lastSegment(partLabel(index, master))).filter((token) => token.length > 2);
+        if (tokens.length === 1 && tokens[0] === "input" && !list.some((item) => item.id === master.id)) list.push(master);
+      }
+      groups.set(fieldKey, list);
+    }
   }
   return groups;
 }
 
-function poolFor(group: GraphNode[], head: string, words: string[]): GraphNode[] {
-  const specific = group.filter((master) => {
-    const extra = nameTokens(lastSegment(master.name)).filter((token) => token.length > 2 && token !== head);
-    return extra.some((token) => words.some((word) => sameWordForm(word, token)));
-  });
-  if (specific.length === 1) return specific;
-  if (specific.length > 1) return specific;
-  const plain = group.filter((master) => nameTokens(lastSegment(master.name)).filter((token) => token.length > 2).length === 1);
-  if (plain.length === 1) return plain;
-  return plain.length > 1 ? plain : group;
+function distinctParts(index: GraphIndex, group: GraphNode[]): GraphNode[] {
+  const byLabel = new Map<string, GraphNode>();
+  for (const master of group) {
+    const key = partLabel(index, master);
+    const prev = byLabel.get(key);
+    if (!prev || master.type === "COMPONENT_SET" || (prev.type !== "COMPONENT_SET" && master.name.length < prev.name.length)) byLabel.set(key, master);
+  }
+  return [...byLabel.values()];
 }
 
-function partsNamed(request: string, masters: GraphNode[]): GraphNode[] {
+function poolFor(group: GraphNode[], head: string, words: string[], index: GraphIndex, heads: readonly string[]): GraphNode[] {
+  const specific = group.filter((master) => {
+    const extra = nameTokens(lastSegment(partLabel(index, master))).filter(
+      (token) => token.length > 2 && !sameWordForm(token, head) && !heads.some((other) => other !== head && sameWordForm(token, other)),
+    );
+    return extra.some((token) => words.some((word) => sameWordForm(word, token)));
+  });
+  const finish = (rows: GraphNode[]) => distinctParts(index, rows);
+  if (specific.length === 1) return finish(specific);
+  if (specific.length > 1) return finish(specific);
+  const plain = group.filter((master) => {
+    const tokens = nameTokens(lastSegment(partLabel(index, master))).filter((token) => token.length > 2);
+    return tokens.length === 1 && tokens[0] !== "input";
+  });
+  if (plain.length === 1) return finish(plain);
+  return finish(plain.length > 1 ? plain : group);
+}
+
+function partsNamed(request: string, index: GraphIndex, masters: GraphNode[]): GraphNode[] {
   const words = contentTokens(request);
   const hits = masters.filter((master) => {
-    const own = nameTokens(lastSegment(master.name)).filter((token) => token.length > 2 && !SHAPE_WORD.has(token));
+    const own = nameTokens(lastSegment(partLabel(index, master))).filter((token) => token.length > 2 && !SHAPE_WORD.has(token));
     const head = own[own.length - 1];
     return Boolean(head && words.some((word) => sameWordForm(word, head)));
   });
   const kept = hits.filter((master) => {
-    const own = nameTokens(master.name);
-    return !hits.some((other) => other.id !== master.id && nameTokens(other.name).length > own.length && own.every((token) => nameTokens(other.name).includes(token)));
+    const own = nameTokens(partLabel(index, master));
+    return !hits.some((other) => {
+      const theirs = nameTokens(partLabel(index, other));
+      return other.id !== master.id && theirs.length > own.length && own.every((token) => theirs.includes(token));
+    });
   });
   return kept.sort((a, b) => {
     const at = (master: GraphNode) => {
@@ -674,9 +716,9 @@ function briefRequest(input: BriefInput): BriefResult {
   const platform = platformSaid(stripped, input.index);
   // A role read from the wording ("Buy/Sell toggle") drops a named part that does another job (Toggle).
   const role = askRole(stripped);
-  const named = namedMasters(stripped, masters).filter((master) => roleFit(role, master.name).points >= 0).filter((master) => !platformComponentName(master.name) || containsPhrase(stripped, master.name));
-  const parts = partsNamed(stripped, masters).filter((master) => !platformComponentName(master.name));
-  const groups = requirementGroups(stripped, parts);
+  const named = namedMasters(stripped, input.index, masters).filter((master) => roleFit(role, partLabel(input.index, master)).points >= 0).filter((master) => !platformComponentName(master.name) || containsPhrase(stripped, partLabel(input.index, master)));
+  const parts = partsNamed(stripped, input.index, masters).filter((master) => !platformComponentName(master.name));
+  const groups = requirementGroups(stripped, input.index, parts);
   const recipe = recipeMatch(recipes, stripped);
   const decision = recipe ? undefined : decisionMatch(stripped, input.decisions ?? [], masters);
   const lead = rank(stripped);
@@ -808,7 +850,7 @@ function briefRequest(input: BriefInput): BriefResult {
       const chosenParts = resolved.get("part") ?? [];
       const words = contentTokens(stripped);
       for (const [head, group] of groups) {
-        const pool = poolFor(group, head, words);
+        const pool = poolFor(group, head, words, input.index, [...groups.keys()]);
         if (pool.length === 1 && pool[0]) {
           push(candidateOf(pool[0]));
           continue;
@@ -848,7 +890,8 @@ function briefRequest(input: BriefInput): BriefResult {
 
   const chosenParts = resolved.get("part") ?? [];
   const words = contentTokens(stripped);
-  const pools = [...groups.entries()].map(([head, group]) => ({ head, pool: poolFor(group, head, words) }));
+  const heads = [...groups.keys()];
+  const pools = [...groups.entries()].map(([head, group]) => ({ head, pool: poolFor(group, head, words, input.index, heads) }));
   const offered = pools.flatMap((row) => row.pool);
   for (const part of chosenParts) {
     const homes = pools.filter((row) => row.pool.some((master) => master.id === part.masterId || master.id === part.id));
