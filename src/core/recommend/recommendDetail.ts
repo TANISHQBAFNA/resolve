@@ -54,13 +54,6 @@ export function searchDetail(index: GraphIndex, node: GraphNode, set?: GraphNode
     seen.add(item.id);
     const values = variantValueText(item);
     if (values) variant.push(values);
-    const props = item.variantProperties;
-    const propNames = [
-      ...Object.keys(props ?? {}),
-      ...(item.propertyDefinitions ?? []).map((def) => def.name),
-    ].filter((name) => !modifierWord(name.toLowerCase()));
-    // A property name ("Header", "Steps") says what the part holds, like a description; only values are variants.
-    if (propNames.length) describe.push(propNames.join(" "));
     for (const def of item.propertyDefinitions ?? []) {
       if (def.description) describe.push(def.description);
       if (def.options?.length) variant.push(def.options.join(" "));
