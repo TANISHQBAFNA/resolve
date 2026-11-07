@@ -477,6 +477,32 @@ function namedMasters(request: string, masters: GraphNode[]): GraphNode[] {
     .sort((a, b) => b.name.length - a.name.length);
 }
 
+/** Words that name a data shape or a screen, not a distinct part. */
+const SHAPE_WORD = new Set(["form", "forms", "screen", "screens", "page", "pages", "input", "inputs", "value", "values", "text", "item", "items"]);
+
+/**
+ * Masters the request names by a word of their own, apart from a shape word.
+ * "Input value" does not count for "form". "Checkbox" and "Button" do.
+ */
+function partsNamed(request: string, masters: GraphNode[]): GraphNode[] {
+  const words = contentTokens(request);
+  const hits = masters.filter((master) => {
+    const own = nameTokens(master.name).filter((token) => token.length > 2 && !SHAPE_WORD.has(token));
+    return own.length > 0 && own.every((token) => words.some((word) => sameWordForm(word, token)));
+  });
+  const kept = hits.filter((master) => {
+    const own = nameTokens(master.name);
+    return !hits.some((other) => other.id !== master.id && nameTokens(other.name).length > own.length && own.every((token) => nameTokens(other.name).includes(token)));
+  });
+  return kept.sort((a, b) => {
+    const at = (master: GraphNode) => {
+      const token = nameTokens(master.name).find((part) => !SHAPE_WORD.has(part));
+      return token ? words.findIndex((word) => sameWordForm(word, token)) : words.length;
+    };
+    return at(a) - at(b);
+  });
+}
+
 function joinOr(parts: string[]): string {
   if (parts.length <= 2) return parts.join(" or ");
   return `${parts.slice(0, -1).join(", ")}, or ${parts[parts.length - 1]}`;
@@ -599,6 +625,7 @@ function briefRequest(input: BriefInput): BriefResult {
   // A role read from the wording ("Buy/Sell toggle") drops a named part that does another job (Toggle).
   const role = askRole(stripped);
   const named = namedMasters(stripped, masters).filter((master) => roleFit(role, master.name).points >= 0).filter((master) => !platformComponentName(master.name) || containsPhrase(stripped, master.name));
+  const parts = partsNamed(stripped, masters).filter((master) => !platformComponentName(master.name));
   const recipe = recipeMatch(recipes, stripped);
   const decision = recipe ? undefined : decisionMatch(stripped, input.decisions ?? [], masters);
   const lead = rank(stripped);
@@ -622,11 +649,12 @@ function briefRequest(input: BriefInput): BriefResult {
       ? catalog.shape.filter((choice) => choice.id === "cards" || choice.id === "table")
       : [];
   const listAsk = listShapes.length === 2;
-  const fits = Boolean(recipe || decision || shapes.length || states.length || named.length || leadFit || answerFit);
+  const fits = Boolean(recipe || decision || shapes.length || states.length || named.length || parts.length || leadFit || answerFit);
 
   const notes: string[] = [];
   const fromAnswer = (topic: BriefTopic) => resolved.has(topic);
-  if (fromAnswer("shape") || shapes.length === 1) {
+  const manyParts = parts.length >= 2 && !resolved.has("part");
+  if (fromAnswer("shape") || (!manyParts && shapes.length === 1)) {
     const choice = resolved.get("shape")?.[0] ?? shapes[0];
     if (choice) notes.push(`${fromAnswer("shape") ? "You answered" : "Request already says"} ${TOPIC_NAME.shape}: ${choice.label}.`);
   }
@@ -639,7 +667,7 @@ function briefRequest(input: BriefInput): BriefResult {
     if (label) notes.push(`${fromAnswer("platform") ? "You answered" : "Request already says"} ${TOPIC_NAME.platform}: ${label}.`);
   }
 
-  const answeredShape = fromAnswer("shape") || shapes.length === 1;
+  const answeredShape = fromAnswer("shape") || (!manyParts && shapes.length === 1);
   const answeredStates = fromAnswer("states") || states.length > 0;
   const shapeFork = !answeredShape && shapes.length >= 2 ? shapes : listShapes;
 
@@ -751,6 +779,10 @@ function briefRequest(input: BriefInput): BriefResult {
 
   if (recipe) return ready("recipe", [`Recipe ${recipe.title} matches. Slots decide the parts.`], realCandidates());
   if (decision) return ready("decision", [`Approved decision: ${decision.summary}`], realCandidates());
+
+  if (manyParts) {
+    forks.unshift({ topic: "part", options: parts.map((master) => ({ id: master.id, label: master.name, contrast: "", masterId: master.id })) });
+  }
 
   const asked = forks.slice(0, BRIEF_QUESTION_CAP);
   if (asked.length) {

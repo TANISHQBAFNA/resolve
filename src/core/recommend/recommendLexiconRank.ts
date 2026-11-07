@@ -392,7 +392,9 @@ export function headTokenBonus(familyName: string, tokens: string[], allowClip: 
   const nav = tokens.includes("nav") || tokens.includes("navigation");
   const bottom = tokens.some((token) => token === "bottom" || token === "footer");
   if (nav && !bottom && names.has("header")) return 25;
-  const head = [...tokens].reverse().find((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token));
+  const head =
+    tokens.find((token) => plainNounToken(token) && !modifierWord(token) && !SIZE_OR_A11Y.has(token)) ??
+    [...tokens].reverse().find((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token));
   if (!head || !nounHit(head, names, allowClip)) return 0;
   const sided = bottom || tokens.some((token) => token === "top" || token === "header");
   if (sided && (head === "nav" || head === "navigation") && !names.has(bottom ? "footer" : "header")) return 0;
@@ -613,22 +615,26 @@ function iconOnlyTail(role: string): boolean {
     tokens.length > 0 && tokens.every((token) => token === "icon" || token === "glyph" || token === "symbol")
   );
 }
-/** Words after "with" are the role, unless they are only a modifier. */
+/**
+ * Words before "with" are the part when they name one. Words after are context
+ * ("OTP entry with countdown"). When only the words after name a part ("screen with a button"), those are the part.
+ */
 export function splitBrief(
   intent: string,
   componentWord?: (token: string) => boolean,
 ): { role: string; scene: string } {
   const parts = intent.split(/\s+with\s+/i);
   if (parts.length < 2) return { role: intent.trim(), scene: "" };
-  const scene = (parts[0] ?? "").trim();
-  const role = parts.slice(1).join(" ").trim();
-  if (scene && iconOnlyTail(role)) return { role: scene, scene: "" };
+  const before = (parts[0] ?? "").trim();
+  const after = parts.slice(1).join(" ").trim();
+  if (before && iconOnlyTail(after)) return { role: before, scene: "" };
   if (componentWord) {
-    const roleHits = tokensOf(role).some(componentWord);
-    const sceneHits = tokensOf(scene).some(componentWord);
-    if (!roleHits && sceneHits) return { role: intent.trim(), scene: "" };
+    const beforeHits = tokensOf(before).some(componentWord);
+    const afterHits = tokensOf(after).some(componentWord);
+    if (beforeHits) return { role: before, scene: after };
+    if (afterHits) return { role: after, scene: before };
   }
-  return { scene, role };
+  return { role: intent.trim(), scene: "" };
 }
 export function replacedByName(node: GraphNode): string | undefined {
   const meta = node.metadata?.["replacedBy"];

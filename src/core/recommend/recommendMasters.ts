@@ -27,6 +27,60 @@ import { isRemovedByAbsence, patternFor, type DsckState } from "../codeKnowledge
 import { isLibraryFileKey, type WorkspaceManifest } from "../read/workspace";
 import { nodeFileKey } from "../read/workspaceMerge";
 
+/** Property names and allowed values from this graph. They are settings, not a second component. */
+function settingTokens(index: GraphIndex, nameSets: readonly Set<string>[]): Set<string> {
+  const names = new Set(nameSets.flatMap((set) => [...set]));
+  const into = new Set<string>();
+  const add = (value: string) => {
+    for (const token of tokensOf(value)) {
+      if (token.length < 2 || names.has(token)) continue;
+      into.add(token);
+    }
+  };
+  for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    for (const prop of node.propertyDefinitions ?? []) {
+      add(prop.name);
+      for (const option of prop.options ?? []) add(option);
+      if (prop.type === "BOOLEAN") {
+        for (const token of ["true", "false", "on", "off"]) if (!names.has(token)) into.add(token);
+      }
+    }
+  }
+  return into;
+}
+
+/** Both sides of prop=value are a setting, even when this library has no such property or value. */
+function writtenValues(ask: string): Set<string> {
+  const into = new Set<string>();
+  for (const match of ask.matchAll(/(?:^|\s)([A-Za-z][\w-]*)\s*=\s*([A-Za-z0-9][\w-]*)/g)) {
+    for (const token of [match[1], match[2]]) {
+      const lower = (token ?? "").toLowerCase();
+      if (lower.length >= 2) into.add(lower);
+    }
+  }
+  return into;
+}
+
+/** The word after a property name is the requested value, valid or not. The name comes from this graph. */
+function valuesBeside(ask: string, index: GraphIndex, nameSets: readonly Set<string>[]): Set<string> {
+  const names = new Set(nameSets.flatMap((set) => [...set]));
+  const props = new Set<string>();
+  for (const node of index.getNodesByType(...MASTER_TYPES)) {
+    for (const prop of node.propertyDefinitions ?? []) {
+      for (const token of tokensOf(prop.name)) if (!names.has(token)) props.add(token);
+    }
+  }
+  const into = new Set<string>();
+  const words = tokensOf(ask);
+  for (let i = 0; i < words.length - 1; i += 1) {
+    const token = words[i];
+    const next = words[i + 1];
+    if (!token || !next || !props.has(token) || names.has(next) || props.has(next)) continue;
+    into.add(next);
+  }
+  return into;
+}
+
 /** Rank library masters for one intent. Context breaks ties. Never invents a component. */
 export function recommendMasters(
   index: GraphIndex,
@@ -47,9 +101,11 @@ export function recommendMasters(
   loadSynonymOverlay();
   usePropertyHints([...BUILTIN_PROPERTY_HINTS, ...hintsFromFile(), ...(options.context?.propertyHints ?? [])]);
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
+  const rawAsk = intent;
   const echoIntent = intent.length > 200 ? `${intent.slice(0, 199)}…` : intent;
   const role = askRole(intent);
   const publicNameSets = liveNameSets(index);
+  const settings = new Set([...settingTokens(index, publicNameSets), ...writtenValues(rawAsk), ...valuesBeside(rawAsk, index, publicNameSets)]);
   const dictionary = meaningDictionary(index);
   const catalogNames: string[] = [];
   for (const node of index.getNodesByType(...MASTER_TYPES)) {
@@ -212,7 +268,8 @@ export function recommendMasters(
       lexical += headTokenBonus(familyLabel, headTokens, allowClip, false) + categoryHeadBonus(familyLabel, tokens, allowClip);
       lexical += repeatedSynonym(familyLabel, tokens, allowClip) * 20;
       // Only a generic word before the tail ("picker for fruit") still needs the tail to fit.
-      const missTokens = beforePurposeTail.length && !beforePurposeTail.every((token) => GENERIC_NAME_TOKENS.has(token)) ? beforePurposeTail : tokens;
+      const rawMiss = beforePurposeTail.length && !beforePurposeTail.every((token) => GENERIC_NAME_TOKENS.has(token)) ? beforePurposeTail : tokens;
+      const missTokens = rawMiss.filter((token) => !settings.has(token));
       if (fit <= 0 && !stateLift && genericOnlyMiss(familyLabel, missTokens, allowClip, componentWord, synonymWord)) return undefined;
       const nameTokens = tokensOf(familyLabel);
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
@@ -429,7 +486,7 @@ export function recommendMasters(
     }
   }
 
-  const domainExempt = new Set<string>([...contextWords(options.context), ...screenWords(index)]);
+  const domainExempt = new Set<string>([...contextWords(options.context), ...screenWords(index), ...settings]);
   const gate = askGate(brief.role, askedTokens, publicNameSets, domainExempt, allowClip);
   // A role read from the wording names the part even when no word does ("switch between Day/Week").
   if (gate.outOfDomain && !scored.some((entry) => entry.why.includes("role") || entry.why.includes("states"))) {
@@ -589,7 +646,7 @@ export function recommendMasters(
     seenFamily.add(key);
     collapsed.push(asFamilyRow(entry));
   }
-  flagUncovered(collapsed, intentNeedle, tokens, (entry) => stripTier(entry.setName || setOf(index, entry.node)?.name || entry.node.name), componentWord, purpose);
+  flagUncovered(collapsed, intentNeedle, tokens.filter((token) => !settings.has(token)), (entry) => stripTier(entry.setName || setOf(index, entry.node)?.name || entry.node.name), componentWord, purpose);
   const navAsk = /(?:^| )(?:nav|navigation)(?: bar)?$/.test(tokens.join(" "));
   kept = collapsed.filter((entry) => {
     if (navAsk && !entry.exactName && !navFamily(tokensOf(stripTier(entry.setName || entry.node.name)), tokens)) return false;
