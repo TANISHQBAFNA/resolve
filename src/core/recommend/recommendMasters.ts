@@ -167,15 +167,17 @@ export function recommendMasters(
   // master, so those tokens stay in the lexical score and context breaks the tie.
   const exclusiveSlot = slotRole && !intentNamesMaster(index, askedTokens);
   const familyTokens = slotTokens.filter((token) => !SLOT_QUALIFIERS.has(token));
+  const sceneTokens = exclusiveSlot
+    ? [...new Set([...tokensOf(brief.scene), ...askedTokens])]
+    : tokensOf(brief.scene);
+  // Words after "with" stay available as evidence. "code with a countdown" is still a code, and the countdown still counts.
+  const featureTokens = sceneTokens.filter((token) => token.length > 2);
   const tokens = exclusiveSlot
     ? familyTokens.length
       ? familyTokens
       : askedTokens
-    : [...new Set([...askedTokens, ...(slotRole ? familyTokens : [])])];
+    : [...new Set([...askedTokens, ...featureTokens, ...(slotRole ? familyTokens : [])])];
   const extraTokens = exclusiveSlot ? askedTokens.filter((token) => !slotTokens.includes(token)) : [];
-  const sceneTokens = exclusiveSlot
-    ? [...new Set([...tokensOf(brief.scene), ...askedTokens])]
-    : tokensOf(brief.scene);
   const placeTokens = [...new Set([...tokens, ...extraTokens, ...sceneTokens, ...slotTokens])];
   const nestedByScreen = mastersByScreen(index);
   const ctx = contextTokenGroups(options.context);
@@ -564,10 +566,15 @@ export function recommendMasters(
     return !entry.node.componentSetId || !setIds.has(entry.node.componentSetId);
   });
 
+  const nameTokensOf = (entry: Scored) => tokensOf(stripTier(setOf(index, entry.node)?.name ?? entry.node.name));
+  const unaskedName = (entry: Scored) => nameTokensOf(entry).filter((token) => !tokens.includes(token)).length;
+  const askedName = (entry: Scored) => nameTokensOf(entry).filter((token) => tokens.includes(token)).length;
   const byMasterRank = (a: Scored, b: Scored) =>
     Number(b.exactName) - Number(a.exactName) ||
     (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
     b.score - a.score ||
+    unaskedName(a) - unaskedName(b) ||
+    askedName(b) - askedName(a) ||
     Number(a.deprecated) - Number(b.deprecated) ||
     a.node.name.localeCompare(b.node.name);
   const defined = (entry: Scored) => {
@@ -580,7 +587,10 @@ export function recommendMasters(
     for (const def of defined(entry)) for (const token of tokensOf(def.name)) words.add(token);
     return words;
   };
+  // A base/ primitive is already penalized. It must not set the ceiling for the public part of the same role.
+  const setsCap = (entry: Scored) => !isInternalPart(index, entry.node);
   const owners = kept.filter((entry) => {
+    if (!setsCap(entry)) return false;
     const names = new Set(nameWords(entry));
     return [...propertyNames(entry)].some((token) => tokens.includes(token) && !names.has(token));
   });
@@ -600,12 +610,15 @@ export function recommendMasters(
       if (sibling && entry.score >= sibling.score) entry.score = sibling.score - 1;
     }
   }
-  const plainOwners = kept.filter((entry) => nameWords(entry).some((token) => tokens.includes(token) && PLAIN_NOUN.has(token)));
+  const plainOwners = kept.filter((entry) => setsCap(entry) && nameWords(entry).some((token) => tokens.includes(token) && PLAIN_NOUN.has(token)));
   if (plainOwners.length) {
     const floor = Math.max(...plainOwners.map((entry) => entry.score));
     for (const entry of kept) {
-      if (plainOwners.includes(entry)) continue;
+      if (plainOwners.includes(entry) || !setsCap(entry)) continue;
       const matched = nameWords(entry).filter((token) => tokens.includes(token));
+      const specific = matched.filter((token) => !PLAIN_NOUN.has(token));
+      // "filter chips": filter is the family. A file chip that only shares chip does not cap it.
+      if (specific.length && !plainOwners.some((owner) => specific.every((token) => nameWords(owner).includes(token)))) continue;
       if (matched.length > 0 && matched.every((token) => !PLAIN_NOUN.has(token)) && entry.score >= floor) entry.score = floor - 1;
     }
   }
