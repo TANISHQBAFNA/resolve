@@ -300,7 +300,10 @@ export function recommendMasters(
         }
       }
       if (clauses.counts.length && tokensOf(stripTier(nameHaystack)).some((token) => token === "step" || token === "steps" || token === "stepper" || inflectsName("step", token))) {
-        const options = [...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].flatMap((def) => def.options ?? []).map((option) => option.toLowerCase());
+        const defs = [...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])];
+        const options = defs.flatMap((def) => def.options ?? []).map((option) => option.toLowerCase());
+        const countOwner = defs.some((def) => def.type === "VARIANT" && tokensOf(def.name).some((token) => token === "step" || token === "steps" || token === "count"));
+        if (countOwner) lexical += LEXICAL_WEIGHT.variant;
         if (clauses.counts.some((count) => options.includes(count))) {
           lexical += LEXICAL_WEIGHT.variant;
           hits.variant += 1;

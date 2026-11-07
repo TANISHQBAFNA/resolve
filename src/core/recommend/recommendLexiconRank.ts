@@ -526,7 +526,7 @@ export function contiguousPhrase(ask: string, term: string): boolean {
  * "upload progress at 60 percent" asks for progress. "6 digits" and "show countdown" set the control already named.
  * A trailing generic noun is not the control when a state and a more specific noun are both present.
  */
-export function intentClauses(ask: string): { identity: string[]; settings: string[]; head?: string; counts: string[] } {
+export function intentClauses(ask: string): { identity: string[]; settings: string[]; head?: string; counts: string[]; assignments: { property: string; value: string }[] } {
   const words = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
   const assigned = new Set([...ask.matchAll(/\b([a-z][a-z0-9]*)\s*=/gi)].map((match) => match[1]!.toLowerCase()));
   const contentBefore = (index: number) =>
@@ -555,9 +555,16 @@ export function intentClauses(ask: string): { identity: string[]; settings: stri
     if (word === "shown" && index > 0) settings.add(span[index - 1]!);
   }
   const counts: string[] = [];
+  const assignments: { property: string; value: string }[] = [];
   for (let index = 0; index < words.length - 1; index += 1) {
     if (/^\d+$/.test(words[index]!) && /^(?:step|steps|stepper)$/.test(words[index + 1] ?? "")) counts.push(words[index]!);
     if (/^(?:step|steps|stepper)$/.test(words[index]!) && /^\d+$/.test(words[index + 1] ?? "")) counts.push(words[index + 1]!);
+    if (words[index] === "with") {
+      const property = words[index + 1] ?? "";
+      const value = words[index + 2] ?? "";
+      const narrative = new Set(["a", "an", "the", "beside", "next", "to", "it", "shown", "showing", "show", "and", "of", "on"]);
+      if (property && value && !narrative.has(property) && !narrative.has(value) && !/^\d+$/.test(property)) assignments.push({ property, value });
+    }
   }
   const tailNumber = words[words.length - 1];
   if (tailNumber && /^\d+$/.test(tailNumber)) {
@@ -572,7 +579,7 @@ export function intentClauses(ask: string): { identity: string[]; settings: stri
   if (last && GENERIC_NAME_TOKENS.has(last) && earlierSpecific && span.some((word) => STATE_WORD.has(word))) {
     identity = identity.filter((token) => token !== last);
   }
-  return { identity, settings: [...settings], head: identity[identity.length - 1], counts };
+  return { identity, settings: [...settings], head: identity[identity.length - 1], counts, assignments };
 }
 
 export function tokenHits(

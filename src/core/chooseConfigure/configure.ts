@@ -239,13 +239,13 @@ function applyAsked(
   }
 
   for (const count of intentClauses(ask).counts) {
-    const listed = live.filter((def) => (def.options ?? []).some((option) => option.toLowerCase() === count));
+    const listed = live.filter((def) => def.type === "VARIANT" && (def.options ?? []).some((option) => option.toLowerCase() === count));
     if (listed.length === 1 && !picks.has(listed[0]!.name)) {
       add(listed[0]!, count, false);
       continue;
     }
-    if (listed.length > 0) continue;
-    const stepProp = live.filter((def) => tokensOf(def.name).some((token) => token === "step" || token === "steps" || token === "count"));
+    if (listed.length > 1) continue;
+    const stepProp = live.filter((def) => def.type === "VARIANT" && tokensOf(def.name).some((token) => token === "step" || token === "steps" || token === "count"));
     if (stepProp.length === 1 && !picks.has(stepProp[0]!.name)) add(stepProp[0]!, count, false);
     else if (stepProp.length === 0) {
       warnings.push({
@@ -253,6 +253,17 @@ function applyAsked(
         next: `${componentName} has no step count that takes ${count}.`,
       });
     }
+  }
+  for (const assignment of intentClauses(ask).assignments) {
+    const prop = live.find((def) => tokensOf(def.name).includes(assignment.property));
+    if (!prop) {
+      warnings.push({
+        warning: `${componentName} has no property ${assignment.property}, so "${assignment.value}" cannot be applied.`,
+        next: `Leave ${assignment.property} unset. Do not invent a property.`,
+      });
+      continue;
+    }
+    if (!picks.has(prop.name)) add(prop, assignment.value, false);
   }
 
   const namedBoolean = hits.some((hit) => hit.def.type === "BOOLEAN");

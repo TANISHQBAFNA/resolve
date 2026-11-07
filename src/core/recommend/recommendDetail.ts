@@ -26,13 +26,13 @@ function pageNamesComponent(name: string): boolean {
  */
 export function hostFamilyName(index: GraphIndex, node: GraphNode, set?: GraphNode): string {
   const setName = set?.name.trim() ?? "";
-  if (setName && !VARIANT_PROP_NAME.test(setName)) return setName;
-  if (!VARIANT_PROP_NAME.test(node.name) && node.name.trim()) return "";
+  if (set && set.id !== node.id && setName && !VARIANT_PROP_NAME.test(setName)) return setName;
   let current = index.getParent(node.id);
   while (current && !SKIP_HOST.has(current.type)) {
     const name = current.name.trim();
     if (
       name &&
+      current.id !== node.id &&
       !VARIANT_PROP_NAME.test(name) &&
       (current.type === "FRAME" || current.type === "SECTION" || current.type === "COMPONENT_SET")
     ) {
@@ -41,7 +41,7 @@ export function hostFamilyName(index: GraphIndex, node: GraphNode, set?: GraphNo
     current = index.getParent(current.id);
   }
   if (current?.type === "PAGE" && pageNamesComponent(current.name)) return current.name.trim();
-  return setName;
+  return "";
 }
 
 /** Variant values, property names, descriptions, and layer names. Not nested components. */

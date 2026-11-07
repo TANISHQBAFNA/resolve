@@ -295,8 +295,11 @@ export function identityPath(index: GraphIndex, node: GraphNode): string {
 }
 
 export function identityHaystack(index: GraphIndex, node: GraphNode, set?: GraphNode, host = ""): string {
-  if (VARIANT_PROP_NAME.test(node.name)) return familyHaystack(node, set, host);
-  return identityPath(index, node);
+  const path = VARIANT_PROP_NAME.test(node.name) ? familyHaystack(node, set, host) : identityPath(index, node);
+  if (!host || VARIANT_PROP_NAME.test(node.name)) return path;
+  const parts = path.toLowerCase().split(/[^a-z0-9]+/);
+  if (parts.includes(host.toLowerCase())) return path;
+  return `${host} ${path}`;
 }
 /** Variant values and property options. Property names (State, Type, Size) are not words. */
 export function variantValueText(node: GraphNode): string {
