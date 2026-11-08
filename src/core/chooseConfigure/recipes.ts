@@ -337,6 +337,7 @@ export function matchRecipe(recipes: Recipe[], query: string, minShare = 0): Rec
     );
     const score = tokens.reduce((count, token) => count + (haystack.has(token) ? 1 : 0), 0);
     if (score === 0 || score < tokens.length * minShare) continue;
+    if (tokens.length > 1 && score < 2) continue;
     if (!best || score > best.score || (score === best.score && recipe.title < best.recipe.title)) {
       best = { recipe, score };
     }
@@ -772,11 +773,10 @@ export function recipeCard(
   // Below half the request's words, the nearest starter is not this screen: say no recipe.
   const recipe = matchRecipe(recipes, query, 0.5);
   if (!recipe) {
-    const nearest = matchRecipe(recipes, query);
     return withCost({
       found: false as const,
       query,
-      hint: `No recipe matched.${nearest ? ` ${nearest.title} shares too few words; not used.` : ""} Call list_recipes, or recommend with a free-text brief. Do not Read graph.json.`,
+      hint: "No recipe matched. Call list_recipes, or recommend with a free-text brief. Do not Read graph.json.",
     });
   }
   const pack = bind ? packForRecipe(recipe, bind) : undefined;
