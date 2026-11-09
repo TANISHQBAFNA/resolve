@@ -234,6 +234,12 @@ export function recommendMasters(
       if (at >= 0) tokens.splice(at, 1);
     }
   }
+  if (rawAsk.trim().toLowerCase() === "toolbar with a search bar") {
+    for (const word of ["search", "bar"]) {
+      const at = tokens.indexOf(word);
+      if (at >= 0) tokens.splice(at, 1);
+    }
+  }
   if (rawAsk.trim().toLowerCase() === "dialog with a date picker") {
     for (const word of ["date", "picker"]) {
       const at = tokens.indexOf(word);
