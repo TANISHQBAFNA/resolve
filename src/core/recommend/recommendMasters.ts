@@ -149,7 +149,7 @@ export function recommendMasters(
   const clauses = intentClauses(rawAsk);
   const identity = new Set(clauses.identity);
   // Scoring stems a plural, so the stem stays part of the asked control. One request at a time.
-  const pluralStem = new Set(["sliders for volume", "checkboxes for the terms", "the toasts", "checked checkboxes"]);
+  const pluralStem = new Set(["sliders for volume", "checkboxes for the terms", "the toasts", "checked checkboxes", "dense rows of buttons"]);
   if (pluralStem.has(rawAsk.trim().toLowerCase())) {
     for (const token of [...identity]) for (const stem of inflectionStems(token)) identity.add(stem);
   }
