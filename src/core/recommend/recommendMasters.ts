@@ -260,8 +260,8 @@ export function recommendMasters(
       allowClip,
       `${matched.describe} ${detail.describe}`,
       identity,
-      // A one-word "header" is only a description synonym ("top"). Skipping that word leaves no match.
-      intentNeedle === "header" ? undefined : askedHead ? new Set([askedHead]) : undefined,
+      // "header" and "page header" are only a description synonym ("top"). Skipping that word leaves no match.
+      intentNeedle === "header" || intentNeedle === "page header" ? undefined : askedHead ? new Set([askedHead]) : undefined,
     );
     const extraHits = extraTokens.length
       ? tokenHits(nameHaystack, matched.variant, extraTokens, allowClip, matched.describe)
