@@ -337,7 +337,8 @@ export function matchRecipe(recipes: Recipe[], query: string, minShare = 0): Rec
     );
     const score = tokens.reduce((count, token) => count + (haystack.has(token) ? 1 : 0), 0);
     if (score === 0 || score < tokens.length * minShare) continue;
-    if (tokens.length > 1 && score < 2) continue;
+    // A lookup that only names the nearest recipe may share one word. Using a recipe still needs two.
+    if (minShare > 0 && tokens.length > 1 && score < 2) continue;
     if (!best || score > best.score || (score === best.score && recipe.title < best.recipe.title)) {
       best = { recipe, score };
     }

@@ -222,7 +222,6 @@ export function familyHaystack(node: GraphNode, set: GraphNode | undefined, host
   return stripTier(node.name);
 }
 
-/** Option values of this component, including variant children and a set named by a path prefix. */
 function optionValueTokens(index: GraphIndex, node: GraphNode): Set<string> {
   const hosts: GraphNode[] = [];
   const seen = new Set<string>();
@@ -274,11 +273,7 @@ function owningSet(index: GraphIndex, node: GraphNode): GraphNode | undefined {
   return best;
 }
 
-/**
- * The component's own name. An extra path segment that only repeats a property or an option
- * (`header/action-toggle`, `button/type-negative`) is a decoration. The master's own name stays,
- * even when one of its properties shares a word with that name (`icon button` on Button).
- */
+/** The component name, without a path segment that only repeats a property or an option. */
 export function identityPath(index: GraphIndex, node: GraphNode): string {
   if (VARIANT_PROP_NAME.test(node.name)) {
     const set = setOf(index, node);
@@ -294,10 +289,6 @@ export function identityPath(index: GraphIndex, node: GraphNode): string {
   return [owner.name, ...kept].join("/");
 }
 
-export function identityHaystack(index: GraphIndex, node: GraphNode, set?: GraphNode, host = ""): string {
-  if (VARIANT_PROP_NAME.test(node.name)) return familyHaystack(node, set, host);
-  return identityPath(index, node);
-}
 /** Variant values and property options. Property names (State, Type, Size) are not words. */
 export function variantValueText(node: GraphNode): string {
   const props = node.variantProperties;
@@ -585,7 +576,7 @@ export function liveNameSets(index: GraphIndex): Set<string>[] {
       sets.push(new Set(tokensOf(set?.name || familyNameOf(node.name, set?.name))));
       continue;
     }
-    sets.push(new Set(tokensOf(identityHaystack(index, node))));
+    sets.push(new Set(tokensOf(node.name)));
   }
   return sets;
 }
@@ -620,16 +611,37 @@ export function modifierWord(token: string): boolean {
   return inflectionStems(token).some((stem) => UI_MODIFIER.has(stem) || LABEL_FILLER.has(stem));
 }
 
+/** Step counts and an explicit colour, for configure. Ranking does not read this. */
+export function intentClauses(ask: string): {
+  identity: string[];
+  settings: string[];
+  head?: string;
+  counts: string[];
+  assignments: { property: string; value: string }[];
+} {
+  const words = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const counts: string[] = [];
+  const assignments: { property: string; value: string }[] = [];
+  for (let index = 0; index < words.length - 1; index += 1) {
+    const word = words[index]!;
+    const next = words[index + 1] ?? "";
+    if (/^\d+$/.test(word) && /^(?:step|steps|stepper)$/.test(next)) counts.push(word);
+    if (/^(?:step|steps|stepper)$/.test(word) && /^\d+$/.test(next)) counts.push(next);
+    if (word === "with" && next === "color") {
+      const value = words[index + 2] ?? "";
+      if (value && !/^\d+$/.test(value)) assignments.push({ property: next, value });
+    }
+  }
+  return { identity: [], settings: [], counts, assignments };
+}
+
 export {
   mastersToRank,
   CATEGORY_TAIL,
   partBeforeLink,
-  contiguousPhrase,
-  intentClauses,
   askGate,
   wholeNameTypo,
   genericOnlyMiss,
-  jobNoun,
   withoutGenericCousins,
   nounBeatsExtras,
   dropUnmatchedWeak,

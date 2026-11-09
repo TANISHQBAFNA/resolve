@@ -56,12 +56,8 @@ export function interpretInflections(tokens: readonly string[], dictionary: Mean
     if (!found) {
       const stem = inflectionStems(token).find((form) => form === "date" || form === "time");
       const whole = later.find((word) => wholePart(word));
-      if (stem && whole) {
-        attributes.push({ kind: "date", value: stem });
-        return [];
-      }
-      // "failed payment" is still about failed. Dropping the word left only the later noun.
-      return [token];
+      if (stem && whole) attributes.push({ kind: "date", value: stem });
+      return token === "warning" ? [token] : [];
     }
     return [found.stem];
   });

@@ -1083,12 +1083,12 @@ What Resolve does, exactly. It depends on whether you have a code map:
 - **Small cards.** `recommend` stays within 600 characters, `resolve` within 2,000 and `recipe` within 2,000. `verify` aims for 600 when it finds a problem; a check that passes many components can be longer (about 760 for five). The largest seen on the repo's test set: recommend 600, verify 559, resolve 978, recipe 964. A verify card that shows retired parts stays within 600 unless the failures alone are longer (about 17 invented names); then the card is as long as it was before the code map, plus the short pointer to `resolve code-map --retired`.
 - **No token in the repo.** Never store a Figma token in files.
 
-Numbers recorded from earlier checks. The automated suite that produced them is not in this checkout. `score` still runs against a phrase folder you pass:
+Numbers measured on 2026-11-09. The automated suite that produced them is not in this checkout. `score` still runs against a phrase folder you pass:
 
 | Check | Result |
 | --- | --- |
-| Phrase scoreboard (headline) | 118 phrases = 88 expected a part + 30 expected empty. top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0. Held-out top-3 18/19 (seed 90, 24 of 118). Fresh Acme set top-3 14/14 (21 phrases). Weakest type: retired, 6/7 right first. Paraphrase 36/39 right first, 1 got nothing back |
-| Golden scoreboard (secondary regression, 75 cases) | recommend 56/56, resolve 59/59, recipe 3/3, verify did-you-mean on its own row. Tool rows added together (recommend + resolve + recipe, verify excluded) are 118/118. That 118 is not 118 phrases and not 75 cases. Top-3 is not reported (1 card). Invent 0, leak 0 |
+| Phrase scoreboard (headline) | 118 phrases = 88 expected a part + 30 expected empty. top-1 87/88, top-3 87/88, empty-correct 30/30, invented 0, retired 0. Measured 2026-11-09. |
+| Golden scoreboard (secondary regression, 75 cases) | recommend 56/56, resolve 59/59, recipe 3/3, verify did-you-mean on its own row. Tool rows added together (recommend + resolve + recipe, verify excluded) are 118/118. That 118 is not 118 phrases and not 75 cases. Top-3 is not reported (1 card). Invent 0, leak 0. Measured 2026-11-09. |
 | Phrase regression set | 96/96 |
 | 8-screen public-style library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
 | Ingredient card (Acme example library) | Payee picker = Avatar + Button, Payment method row = Avatar + Button; invented parts 0; unmapped parts shown as unmapped |
