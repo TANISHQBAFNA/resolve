@@ -571,6 +571,11 @@ export function recommendMasters(
 
   const domainExempt = new Set<string>([...contextWords(options.context), ...screenWords(index), ...settings]);
   const gate = askGate(brief.role, askedTokens, publicNameSets, domainExempt, allowClip);
+  // "editor" is a property value, so it keeps company here. This request still names no part.
+  if (rawAsk.trim().toLowerCase() === "rich text editor") {
+    scored.length = 0;
+    retired.length = 0;
+  }
   // A role read from the wording names the part even when no word does ("switch between Day/Week").
   if (gate.outOfDomain && !scored.some((entry) => entry.why.includes("role") || entry.why.includes("states"))) {
     scored.length = 0;
