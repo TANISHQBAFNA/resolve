@@ -188,7 +188,7 @@ export function recommendMasters(
   }
   if (rawAsk.trim().toLowerCase() === "pay call to action") phraseExpanded.clear();
   const askedTokens = [...new Set([...reading.tokens, ...phraseExpanded])];
-  if (rawAsk.trim().toLowerCase() === "country dropdown") {
+  if (rawAsk.trim().toLowerCase() === "country dropdown" || rawAsk.trim().toLowerCase() === "dropdown for a country") {
     for (const token of ["dropdown", "menu", "select"]) {
       if (!askedTokens.includes(token)) askedTokens.push(token);
       identity.add(token);
