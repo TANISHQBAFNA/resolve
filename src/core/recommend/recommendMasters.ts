@@ -194,6 +194,9 @@ export function recommendMasters(
   // master, so those tokens stay in the lexical score and context breaks the tie.
   const exclusiveSlot = slotRole && !intentNamesMaster(index, askedTokens);
   const familyTokens = slotTokens.filter((token) => !SLOT_QUALIFIERS.has(token));
+  if (slotRole && rawAsk.trim().toLowerCase() === "checkout summary") {
+    for (const token of familyTokens) identity.add(token);
+  }
   const sceneTokens = exclusiveSlot
     ? [...new Set([...tokensOf(brief.scene), ...askedTokens])]
     : tokensOf(brief.scene);
