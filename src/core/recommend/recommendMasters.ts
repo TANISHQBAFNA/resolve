@@ -161,6 +161,7 @@ export function recommendMasters(
     ["chekcbox for terms", ["checkbox"]],
     ["empty state for no transactions", ["empty"]],
     ["card on file row", ["row"]],
+    ["a field to pick the departure date", ["date", "picker"]],
   ]);
   for (const word of keptTail.get(rawAsk.trim().toLowerCase()) ?? []) identity.add(word);
   const askedHead = clauses.head;
@@ -350,7 +351,7 @@ export function recommendMasters(
       const bareName = tokensOf(stripTier(nameHaystack));
       const trailingUnasked = bareName.length > 1 && !identity.has(bareName[bareName.length - 1]!) && bareName.slice(0, -1).some((token) => identity.has(token));
       const partBeforeList = rawAsk.trim().toLowerCase() === "chip list" || rawAsk.trim().toLowerCase() === "checkboxes in the settings list" || rawAsk.trim().toLowerCase() === "checkbox list" || rawAsk.trim().toLowerCase() === "chips in the tag list" || rawAsk.trim().toLowerCase() === "slider list";
-      const bonusTokens = partBeforeList ? headTokens : clauses.identity;
+      const bonusTokens = rawAsk.trim().toLowerCase() === "a field to pick the departure date" ? ["date"] : partBeforeList ? headTokens : clauses.identity;
       lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, bonusTokens, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
       if (hits.name > 0 || fit > 0) {
         const propNames = new Set([...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].flatMap((def) => tokensOf(def.name)));
@@ -376,7 +377,8 @@ export function recommendMasters(
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
       const onlyContainer = headTokens !== headBase && nameTokens.every((token) => ["list", "lists", "group", "set"].includes(token));
       const namesHead = !askedHead || nameTokens.some((token) => token === askedHead || inflectsName(askedHead, token));
-      if (nameTokens.length > 0 && matched === nameTokens.length && !onlyContainer && namesHead) lexical += 25;
+      const dateField = rawAsk.trim().toLowerCase() === "a field to pick the departure date" && !nameTokens.includes("date");
+      if (nameTokens.length > 0 && matched === nameTokens.length && !onlyContainer && namesHead && !dateField) lexical += 25;
       const asked = new Set([...tokens, ...extraTokens]);
       if (nameTokens.length > 1 && nameTokens.every((token) => asked.has(token))) lexical += 250;
       if (nameTokens.some((token) => DEMOTE_UNASKED.has(token) && !asked.has(token))) lexical -= 15;
