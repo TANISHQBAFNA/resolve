@@ -153,7 +153,10 @@ export function recommendMasters(
   if (pluralStem.has(rawAsk.trim().toLowerCase())) {
     for (const token of [...identity]) for (const stem of inflectionStems(token)) identity.add(stem);
   }
-  const keptTail = new Map<string, string[]>([["button to save the form", ["save"]]]);
+  const keptTail = new Map<string, string[]>([
+    ["button to save the form", ["save"]],
+    ["button to pay the invoice", ["pay"]],
+  ]);
   for (const word of keptTail.get(rawAsk.trim().toLowerCase()) ?? []) identity.add(word);
   const askedHead = clauses.head;
   const reading = decision ? interpretInflections(roleWords, dictionary) : { tokens: roleWords, shared: [], attributes: [] };
