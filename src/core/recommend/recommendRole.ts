@@ -27,7 +27,7 @@ const CHANGE_VERB = /\b(?:chang(?:e|ed|es|ing)|switch(?:ed|es|ing)? between|swap
 /** "(To do, In progress, Done)", "To do, In progress or Done", "Day/Week". */
 const OPTION_SET = /\([^)]*,[^)]*\)|\b\w+(?: \w+)?, \w+(?: \w+)?,? (?:and|or) \w+|\b\w+\/\w+\b/;
 
-export function askRole(ask: string, broad = false): AskRole | undefined {
+export function askRole(ask: string): AskRole | undefined {
   const text = ask.toLowerCase();
   const words = text.split(/[^a-z0-9]+/).filter(Boolean);
   const at = words.findIndex((word, i) => i > 0 && DESCRIBING_WORD.has(word));
@@ -57,33 +57,33 @@ export function askRole(ask: string, broad = false): AskRole | undefined {
   if (CHANGE_VERB.test(text) && OPTION_SET.test(text)) {
     return { kind: "chooser", want: new Set(["menu", "dropdown", "select", "segmented"]), avoid: DISPLAY_ONLY };
   }
-  if (broad) {
-    const phoneCode = /\b(?:phone|telephone|mobile|country|dial)\b/.test(text);
-    const codeAt = words.indexOf("code");
-    const beside = words[codeAt - 1];
-    const after = words[codeAt + 1];
-    const codeEntry = codeAt >= 0 && (beside === "entry" || beside === "entering" || after === "entry" || after === "field");
-    const enteringCode = codeAt >= 0 && /\b(?:enter\w*|type|input)\b/.test(text);
-    if (!phoneCode && (codeEntry || enteringCode)) {
-      return { kind: "entry", want: new Set(["code", "pin", "otp"]), avoid: new Set(["phone", "dial", "telephone"]) };
-    }
-    if (/\b(?:badge|tag|label)\b/.test(text) && !/\b(?:badge|tag|label)\s*=/.test(text) && /\b(?:failed|failure|error|success|pending|disabled)\b/.test(text)) {
-      return { kind: "marker", want: new Set(["badge", "tag"]), avoid: new Set(["card", "dialog", "modal"]) };
-    }
-    if ((/\boptions?\b/.test(text) && /\bselected\b/.test(text)) || /\b(?:one of (?:two|three|four|\d+)|choose one|pick one)\b/.test(text)) {
-      const countWord = text.match(/\b(?:one of|from|of) (two|three|four|\d+)\b/)?.[1];
-      const count = countWord === "two" ? "2" : countWord === "three" ? "3" : countWord === "four" ? "4" : countWord;
-      return {
-        kind: "selection",
-        want: new Set(["selector", "selection", "interactive", "tile", "radio", "choice"]),
-        avoid: new Set(["badge", "label", "tag", "text", "dialog", "modal", "card"]),
-        ...(count ? { values: new Set([count]) } : {}),
-      };
-    }
+  // Entering a code, or a code entry, is the whole field. A dial code or a country code is a phone number.
+  const phoneCode = /\b(?:phone|telephone|mobile|country|dial)\b/.test(text);
+  const codeAt = words.indexOf("code");
+  const beside = words[codeAt - 1];
+  const after = words[codeAt + 1];
+  const codeEntry = codeAt >= 0 && (beside === "entry" || beside === "entering" || after === "entry" || after === "field");
+  const enteringCode = codeAt >= 0 && /\b(?:enter\w*|type|input)\b/.test(text);
+  if (!phoneCode && (codeEntry || enteringCode)) {
+    return { kind: "entry", want: new Set(["code", "pin", "otp"]), avoid: new Set(["phone", "dial", "telephone"]) };
+  }
+  if (/\b(?:badge|tag|label)\b/.test(text) && !/\b(?:badge|tag|label)\s*=/.test(text) && /\b(?:failed|failure|error|success|pending|disabled)\b/.test(text)) {
+    return { kind: "marker", want: new Set(["badge", "tag"]), avoid: new Set(["card", "dialog", "modal"]) };
   }
   // "ride option row with price, ETA and a selected state": pick one of several.
-  if (/\boptions?\b/.test(text) && /\bselected\b/.test(text)) {
-    return { kind: "selection", want: new Set(["selector", "selection", "interactive", "tile"]), avoid: new Set(["badge", "label", "tag", "text"]) };
+  // "choose one option from three" and "one of three" are the same job. A dialog is not that control.
+  if (
+    (/\boptions?\b/.test(text) && /\bselected\b/.test(text)) ||
+    /\b(?:one of (?:two|three|four|\d+)|choose one|pick one)\b/.test(text)
+  ) {
+    const countWord = text.match(/\b(?:one of|from|of) (two|three|four|\d+)\b/)?.[1];
+    const count = countWord === "two" ? "2" : countWord === "three" ? "3" : countWord === "four" ? "4" : countWord;
+    return {
+      kind: "selection",
+      want: new Set(["selector", "selection", "interactive", "tile", "radio", "choice"]),
+      avoid: new Set(["badge", "label", "tag", "text", "dialog", "modal", "card"]),
+      ...(count ? { values: new Set([count]) } : {}),
+    };
   }
   // "match score", "timeline of match events": a part named so still wins; else the stand-in, named. "score card" is a card.
   const missingPart = STAND_INS.find(([word]) => words.includes(word));

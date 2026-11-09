@@ -131,7 +131,7 @@ function describingTail(ask: string, nameSets: NameSets, allowClip: boolean): Se
  * ("nav bar on mobile" keeps mobile, for Mobile Nav).
  * Undefined when nothing before that word names a part, or it names a screen ("dashboard with a button").
  */
-export function partBeforeLink(ask: string, nameSets: NameSets, allowClip: boolean, screens: readonly string[], keepTail = false): string | undefined {
+export function partBeforeLink(ask: string, nameSets: NameSets, allowClip: boolean, screens: readonly string[]): string | undefined {
   const { words, at } = describingSplit(ask, nameSets, allowClip);
   if (at < 1) return undefined;
   const lead = tokensOf(words.slice(0, at).join(" "));
@@ -139,17 +139,9 @@ export function partBeforeLink(ask: string, nameSets: NameSets, allowClip: boole
   if (lead.every((token) => screens.includes(token))) return undefined;
   // "field to pick the date": a bare entry word takes its kind from what it takes. "card showing a chip" and "button to open" still lead.
   if (lead.every((token) => ENTRY_NOUN.has(token))) return undefined;
-  const leadSets = nameSets.filter((names) => lead.some((token) => namedIn(names, token, allowClip)));
-  if (!leadSets.length) return undefined;
-  const tail = keepTail
-    ? tokensOf(words.slice(at + 1).join(" "))
-    : tokensOf(words.slice(at + 1).join(" ")).filter(
-        (token) =>
-          token === "row" ||
-          token === "rows" ||
-          !nameSets.some((names) => namedIn(names, token, allowClip)) ||
-          leadSets.some((names) => namedIn(names, token, allowClip)),
-      );
+  if (!nameSets.some((names) => lead.some((token) => namedIn(names, token, allowClip)))) return undefined;
+  // Keep the words after the link. "code with a countdown" is still a code, and the countdown is evidence.
+  const tail = tokensOf(words.slice(at + 1).join(" "));
   return [...lead, words[at]!, ...tail].join(" ");
 }
 
@@ -213,8 +205,9 @@ export function askGate(
   let trailingJunk = false;
   for (let i = head + 1; i < content.length; i += 1) {
     const token = content[i];
-    if (token && describe.has(token)) continue;
-    if (!token || !keepsCompany(token, content[i - 1], exempt)) trailingJunk = true;
+    if (token && (describe.has(token) || phraseWords.has(token))) continue;
+    const companyExempt = new Set([...exempt].filter((word) => modifierWord(word)));
+    if (!token || !keepsCompany(token, content[i - 1], companyExempt)) trailingJunk = true;
   }
   // A long whole name ("snackbar", "datepicker") stays a match when one extra word follows.
   // Short names ("chip shop", "divider wall") stay empty: the extra word is the subject.
@@ -253,26 +246,11 @@ function genericQuery(query: string): boolean {
 }
 const STATE_WORD = new Set(["error", "empty", "failed", "failure", "disabled", "loading", "success", "pending", "invalid", "state"]);
 
-/**
- * A recovered lead has to share the request's own word, or a value the component actually offers.
- * A generic tail ("picker") does not make a different part match.
- */
-export function recoveredLeadFits(name: string, ask: string, optionValues: readonly string[] = []): boolean {
-  const names = tokensOf(name);
-  const asked = tokensOf(ask);
-  const shared = names.filter((token) => asked.some((word) => word === token || inflectsName(word, token)));
-  if (shared.some((token) => !GENERIC_NAME_TOKENS.has(token))) return true;
-  const specific = asked.filter((token) => !GENERIC_NAME_TOKENS.has(token) && !STATE_WORD.has(token) && !modifierWord(token) && !/^\d+$/.test(token));
-  if (shared.length > 0 && specific.length === 0) return true;
-  const values = new Set(optionValues.map((value) => value.toLowerCase()));
-  return specific.some((token) => values.has(token));
-}
-
 /** The part the request is about: a plain control word, otherwise the first component word. */
 export function jobNoun(tokens: string[], componentWord?: (token: string) => boolean): string | undefined {
-  const plain = tokens.find((token) => !STATE_WORD.has(token) && (PLAIN_NOUN.has(token) || genericQuery(token)));
+  const plain = tokens.find((token) => token && !STATE_WORD.has(token) && (PLAIN_NOUN.has(token) || genericQuery(token)));
   if (plain) return plain;
-  return tokens.find((token) => !STATE_WORD.has(token) && componentWord?.(token));
+  return tokens.find((token) => token && !STATE_WORD.has(token) && componentWord?.(token));
 }
 
 /** Generic-only overlap drops when another word names a different part. The part named first stays. */
@@ -282,7 +260,6 @@ export function genericOnlyMiss(
   allowClip: boolean,
   componentWord: (token: string) => boolean,
   synonymWord: (token: string) => boolean = () => false,
-  keepJob = false,
 ): boolean {
   const nameTokens = tokensOf(name);
   if (!nameTokens.length || !queryTokens.length) return false;
@@ -290,10 +267,8 @@ export function genericOnlyMiss(
     queryTokens.some((query) => tokenMatchesName(query, token, allowClip)),
   );
   if (!matched.length) return false;
-  if (keepJob) {
-    const job = jobNoun(queryTokens, componentWord);
-    if (job && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
-  }
+  const job = jobNoun(queryTokens, componentWord);
+  if (job && !genericQuery(job) && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
   if (matched.some((token) => !GENERIC_NAME_TOKENS.has(token))) return false;
   const uncovered = queryTokens.filter((query) => {
     if (genericQuery(query) || query === "primary" || query === "main" || query === "submit") return false;
@@ -318,7 +293,6 @@ export function withoutGenericCousins<T extends { node: { name: string }; setNam
   entries: T[],
   queryTokens: string[],
   allowClip: boolean,
-  keepJob = false,
 ): T[] {
   const familyOf = (entry: T): string => familyNameOf(entry.node.name, entry.setName);
   const modifiers = queryTokens.filter(
@@ -328,10 +302,10 @@ export function withoutGenericCousins<T extends { node: { name: string }; setNam
     entries.some((entry) => tokensOf(familyOf(entry)).some((name) => name === token || inflectsName(token, name))),
   );
   if (!covered.length) return entries;
-  const job = keepJob ? jobNoun(queryTokens) : undefined;
+  const job = jobNoun(queryTokens);
   return entries.filter((entry) => {
     const names = tokensOf(familyOf(entry));
-    if (job && names.some((name) => name === job || tokenMatchesName(job, name, allowClip))) return true;
+    if (job && !genericQuery(job) && names.some((name) => name === job || tokenMatchesName(job, name, allowClip))) return true;
     const misses = covered.some((token) => !names.some((name) => name === token || inflectsName(token, name)));
     if (!misses) return true;
     const tail = tokensOf(familyOf(entry).split("/").pop() ?? "");
@@ -391,13 +365,12 @@ export function nounBeatsExtras<T extends { node: { name: string }; setName?: st
 }
 
 /** A weak pick that leaves a real word unmatched is not an offer. Purpose tails stay. */
-export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: string; weak?: boolean }>(
+export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: string; weak?: boolean; why?: string[] }>(
   entries: T[],
   queryTokens: string[],
   allowClip: boolean,
   purpose: ReadonlySet<string>,
   componentWord: (token: string) => boolean,
-  keepJob = false,
 ): T[] {
   const content = queryTokens.filter((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token) && !purpose.has(token));
   if (!content.length) return entries;
@@ -408,8 +381,9 @@ export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: 
       continue;
     }
     const names = familyNames(entry);
-    const job = keepJob ? jobNoun(content, componentWord) : undefined;
-    if (job && nounHit(job, names, allowClip)) {
+    if (queryTokens.length === 1 && content.length === 1 && !nounHit(content[0]!, names, allowClip) && !entry.why?.includes("synonym")) continue;
+    const job = jobNoun(content, componentWord);
+    if (job && !genericQuery(job) && nounHit(job, names, allowClip)) {
       next.push(entry);
       continue;
     }
@@ -426,14 +400,17 @@ export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: 
   return next;
 }
 
-export function headTokenBonus(familyName: string, tokens: string[], allowClip: boolean, exactName: boolean): number {
+export function headTokenBonus(familyName: string, tokens: string[], _allowClip: boolean, exactName: boolean): number {
   if (exactName) return 0;
   const names = new Set(tokensOf(familyName));
   const nav = tokens.includes("nav") || tokens.includes("navigation");
   const bottom = tokens.some((token) => token === "bottom" || token === "footer");
   if (nav && !bottom && names.has("header")) return 25;
-  const head = [...tokens].reverse().find((token) => !modifierWord(token) && !SIZE_OR_A11Y.has(token));
-  if (!head || !nounHit(head, names, allowClip)) return 0;
+  const stateWord = new Set(["error", "failed", "failure", "disabled", "loading", "success", "pending", "invalid", "state", "default", "percent"]);
+  const controlNoun = new Set(["button", "input", "field", "label", "text", "area"]);
+  const head = [...tokens].reverse().find((token) => !stateWord.has(token) && !SIZE_OR_A11Y.has(token) && (!modifierWord(token) || controlNoun.has(token)));
+  const headNamed = Boolean(head && [...names].some((name) => name === head || inflectsName(head, name)));
+  if (!head || !headNamed) return 0;
   const sided = bottom || tokens.some((token) => token === "top" || token === "header");
   if (sided && (head === "nav" || head === "navigation") && !names.has(bottom ? "footer" : "header")) return 0;
   return 15;
@@ -520,17 +497,15 @@ export function finishRank<T extends { node: { name: string }; setName?: string;
   allowClip: boolean,
   purpose: ReadonlySet<string>,
   componentWord: (token: string) => boolean,
-  keepJob = false,
 ): T[] {
   const cousins = withoutGenericCousins(
     entries,
     queryTokens.filter((token) => !purpose.has(token)),
     allowClip,
-    keepJob,
   );
   const nouns = nounBeatsExtras(cousins, queryTokens, allowClip);
   const plain = plainNounOverComposite(nouns, queryTokens);
-  return dropUnmatchedWeak(plain, queryTokens, allowClip, purpose, componentWord, keepJob);
+  return dropUnmatchedWeak(plain, queryTokens, allowClip, purpose, componentWord);
 }
 
 export function nameTokenFor(token: string, names: Set<string>, used: Set<string>): string | undefined {
@@ -540,12 +515,112 @@ export function nameTokenFor(token: string, names: Set<string>, used: Set<string
   }
   return undefined;
 }
+/** A multiword synonym counts only when those words sit together in the request. */
+export function contiguousPhrase(ask: string, term: string): boolean {
+  const words = ask.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 1);
+  const parts = term.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 1);
+  if (parts.length < 2) return false;
+  return words.some((_, index) => parts.every((part, offset) => words[index + offset] === part));
+}
+
+/**
+ * The requested control, apart from a setting clause and a state.
+ * A describing word ends the control only for the words after it that name a different part.
+ * A number, and a word shown or hidden, stay settings. A trailing generic noun is not the control when a state and a more specific noun are both present.
+ */
+export function intentClauses(ask: string, nameSets?: NameSets): { identity: string[]; settings: string[]; head?: string; counts: string[]; assignments: { property: string; value: string }[] } {
+  const words = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const assigned = new Set([...ask.matchAll(/\b([a-z][a-z0-9]*)\s*=/gi)].map((match) => match[1]!.toLowerCase()));
+  const contentBefore = (index: number) =>
+    words.slice(0, index).some((word) => word.length > 1 && !STATE_WORD.has(word) && !/^\d+$/.test(word));
+  let end = words.length;
+  let boundary = -1;
+  for (let index = 1; index < words.length; index += 1) {
+    if (DESCRIBING_WORD.has(words[index]!) && contentBefore(index)) {
+      boundary = index;
+      break;
+    }
+  }
+  if (!nameSets && boundary > 0) end = boundary;
+  const settings = new Set<string>();
+  for (const word of words.slice(end)) settings.add(word);
+  const span = words.slice(0, end);
+  for (let index = 0; index < span.length; index += 1) {
+    const word = span[index]!;
+    const next = span[index + 1];
+    if (/^\d+$/.test(word) && next && contentBefore(index)) {
+      settings.add(word);
+      settings.add(next);
+    }
+    if ((word === "show" || word === "showing") && next && contentBefore(index)) {
+      settings.add(word);
+      settings.add(next);
+    }
+    if (word === "shown" && index > 0) settings.add(span[index - 1]!);
+  }
+  if (nameSets && boundary > 0) {
+    const lead = words.slice(0, boundary);
+    const leadSets = nameSets.filter((names) => lead.some((token) => namedIn(names, token, false)));
+    const leadIsSpecific = lead.some((token) => !genericQuery(token) && !GENERIC_NAME_TOKENS.has(token) && nameSets.some((names) => namedIn(names, token, false)));
+    const purposeLink = new Set(["to", "for", "that", "after", "with", "showing", "holding"]);
+    const leadContent = lead.filter((token) => token !== "a" && token !== "an" && token !== "the");
+    const entryLead = words[boundary] === "to" && leadContent.length > 0 && leadContent.every((token) => ENTRY_NOUN.has(token));
+    if (leadSets.length && !entryLead && (purposeLink.has(words[boundary] ?? "") || leadIsSpecific)) {
+      for (const word of words.slice(boundary + 1)) {
+        if (word.length < 3 || DESCRIBING_WORD.has(word)) continue;
+        const namedByLead = leadSets.some((names) => namedIn(names, word, false));
+        if (!namedByLead) settings.add(word);
+      }
+    }
+  }
+  const counts: string[] = [];
+  const assignments: { property: string; value: string }[] = [];
+  for (let index = 0; index < words.length - 1; index += 1) {
+    if (/^\d+$/.test(words[index]!) && /^(?:step|steps|stepper)$/.test(words[index + 1] ?? "")) counts.push(words[index]!);
+    if (/^(?:step|steps|stepper)$/.test(words[index]!) && /^\d+$/.test(words[index + 1] ?? "")) counts.push(words[index + 1]!);
+    if (words[index] === "with") {
+      const property = words[index + 1] ?? "";
+      const value = words[index + 2] ?? "";
+      if (property === "color" && value && !/^\d+$/.test(value)) assignments.push({ property, value });
+    }
+  }
+  const tailNumber = words[words.length - 1];
+  if (tailNumber && /^\d+$/.test(tailNumber)) {
+    settings.add(tailNumber);
+    const property = words[words.length - 2];
+    const at = words.length - 2;
+    if (property && at > 0 && contentBefore(at)) settings.add(property);
+  }
+  const keptWords = span.filter((word) => !settings.has(word) && !assigned.has(word));
+  const otherNamesAPart = nameSets
+    ? keptWords.some((word) => !STATE_WORD.has(word) && nameSets.some((names) => namedIn(names, word, false)))
+    : true;
+  let identity = tokensOf(keptWords.filter((word) => (otherNamesAPart ? !STATE_WORD.has(word) : true)).join(" "));
+  const last = identity[identity.length - 1];
+  const earlierSpecific = [...identity.slice(0, -1)].reverse().find((token) => !GENERIC_NAME_TOKENS.has(token));
+  if (last && GENERIC_NAME_TOKENS.has(last) && earlierSpecific && span.some((word) => STATE_WORD.has(word))) {
+    identity = identity.filter((token) => token !== last);
+  }
+  return { identity, settings: [...settings], head: identity[identity.length - 1], counts, assignments };
+}
+
+function identityHas(identity: ReadonlySet<string>, token: string): boolean {
+  if (identity.has(token)) return true;
+  for (const word of identity) {
+    if (inflectsName(word, token) || inflectsName(token, word)) return true;
+    if (tokenTypo(word, token) || tokenTypo(token, word)) return true;
+  }
+  return false;
+}
+
 export function tokenHits(
   nameHaystack: string,
   variantText: string,
   tokens: string[],
   allowClip: boolean,
   describeText = "",
+  identity?: ReadonlySet<string>,
+  nameOnly?: ReadonlySet<string>,
 ): TokenHits {
   const names = new Set(tokensOf(nameHaystack));
   const variants = new Set(tokensOf(variantText));
@@ -574,7 +649,12 @@ export function tokenHits(
     for (const token of phraseTokens) coveredQuery.add(token);
   }
   const pending: string[] = [];
+  const variantOnly: string[] = [];
   for (const token of tokens) {
+    if (identity && !identityHas(identity, token)) {
+      variantOnly.push(token);
+      continue;
+    }
     if (coveredQuery.has(token)) continue;
     const hit = nameTokenFor(token, names, used);
     if (hit) {
@@ -596,10 +676,15 @@ export function tokenHits(
     } else still.push(token);
   }
   const afterVariant: string[] = [];
-  for (const token of still) {
+  for (const token of [...variantOnly, ...still]) {
+    if (nameOnly?.has(token)) {
+      afterVariant.push(token);
+      continue;
+    }
     const syn = termsFor(token, allowClip);
+    const sameState = token === "failed" || token === "failure" ? ["error", "failed", "failure"] : token === "error" ? ["failed", "failure"] : [];
     const hit = [...variants].find(
-      (part) => !used.has(part) && (part === token || Boolean(syn?.includes(part) && part !== token)),
+      (part) => !used.has(part) && (part === token || sameState.includes(part) || Boolean(syn?.includes(part) && part !== token)),
     );
     if (hit) {
       variant += 1;
@@ -615,17 +700,19 @@ export function tokenHits(
     if (hit) {
       describe += 1;
       covered += 1;
+      if (tokens.length === 1 && syn?.includes(hit) && hit !== token) synonym += 1;
       used.add(hit);
     }
   }
   return { name, synonym, variant, describe, covered, specific };
 }
 /** "header title" restates header. A second word for a name already matched still counts. */
-export function repeatedSynonym(nameHaystack: string, tokens: string[], allowClip: boolean): number {
+export function repeatedSynonym(nameHaystack: string, tokens: string[], allowClip: boolean, head?: string): number {
   const names = new Set(tokensOf(nameHaystack));
   const used = new Set<string>();
   let extra = 0;
   for (const token of tokens) {
+    if (token === head) continue;
     const hit = nameTokenFor(token, names, used);
     if (hit) {
       used.add(hit);
@@ -656,32 +743,25 @@ function iconOnlyTail(role: string): boolean {
   );
 }
 /**
- * Words before "with" are the part when they name one. Words after are context.
- * When only the words after name a part, those are the part.
+ * Words before "with" are the part when they name one. Words after are context
+ * ("OTP entry with countdown"). When only the words after name a part ("screen with a button"), those are the part.
  */
 export function splitBrief(
   intent: string,
   componentWord?: (token: string) => boolean,
-  partFirst = false,
 ): { role: string; scene: string } {
   const parts = intent.split(/\s+with\s+/i);
   if (parts.length < 2) return { role: intent.trim(), scene: "" };
   const before = (parts[0] ?? "").trim();
   const after = parts.slice(1).join(" ").trim();
   if (before && iconOnlyTail(after)) return { role: before, scene: "" };
-  if (partFirst && componentWord) {
+  if (componentWord) {
     const beforeHits = tokensOf(before).some(componentWord);
     const afterHits = tokensOf(after).some(componentWord);
     if (beforeHits) return { role: before, scene: after };
     if (afterHits) return { role: after, scene: before };
-    return { role: before, scene: after };
   }
-  if (componentWord) {
-    const roleHits = tokensOf(after).some(componentWord);
-    const sceneHits = tokensOf(before).some(componentWord);
-    if (!roleHits && sceneHits) return { role: intent.trim(), scene: "" };
-  }
-  return { role: after, scene: before };
+  return { role: intent.trim(), scene: "" };
 }
 export function replacedByName(node: GraphNode): string | undefined {
   const meta = node.metadata?.["replacedBy"];

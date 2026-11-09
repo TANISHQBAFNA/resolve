@@ -3,6 +3,8 @@ import { synonymIn } from "../../recommend/recommendLexicon";
 import { inflectionStems } from "../screenInventory";
 import type { MeaningDictionary, ParsedAttribute } from "./types";
 
+const STATE_WORD = new Set(["error", "failed", "failure", "fail", "disabled", "disable", "loading", "success", "pending", "invalid"]);
+
 /** A shared noun ("item") kept an -ed/-ing word only as a guess. */
 export interface SharedGuess {
   word: string;
@@ -56,8 +58,13 @@ export function interpretInflections(tokens: readonly string[], dictionary: Mean
     if (!found) {
       const stem = inflectionStems(token).find((form) => form === "date" || form === "time");
       const whole = later.find((word) => wholePart(word));
-      if (stem && whole) attributes.push({ kind: "date", value: stem });
-      return token === "warning" ? [token] : [];
+      if (stem && whole) {
+        attributes.push({ kind: "date", value: stem });
+        return [];
+      }
+      const stems = inflectionStems(token);
+      const state = stems.some((form) => STATE_WORD.has(form)) || STATE_WORD.has(token);
+      return state || token === "warning" ? [token] : [];
     }
     return [found.stem];
   });

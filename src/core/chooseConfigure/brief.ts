@@ -512,22 +512,13 @@ function segmentHeads(name: string): string[] {
   return nameTokens(lastSegment(name)).filter((token) => token.length > 2 && !SHAPE_WORD.has(token));
 }
 
-/** A one-word name matches that word. A longer name matches only when the request also says one of the earlier words. */
-function namedByRequest(tokens: string[], words: string[]): boolean {
-  const head = tokens[tokens.length - 1];
-  if (!head || !words.some((word) => sameWordForm(word, head))) return false;
-  if (tokens.length === 1) return true;
-  return tokens.slice(0, -1).some((token) => words.some((word) => sameWordForm(word, token)));
-}
-
 function requirementGroups(request: string, index: GraphIndex, masters: GraphNode[]): Map<string, GraphNode[]> {
   const words = contentTokens(request);
   const groups = new Map<string, GraphNode[]>();
   for (const master of masters) {
     const own = segmentHeads(partLabel(index, master));
-    if (!namedByRequest(own, words)) continue;
     const head = own[own.length - 1];
-    if (!head) continue;
+    if (!head || !words.some((word) => sameWordForm(word, head))) continue;
     const key = [...groups.keys()].find((item) => sameWordForm(item, head)) ?? head;
     const list = groups.get(key) ?? [];
     list.push(master);
@@ -583,7 +574,11 @@ function poolFor(group: GraphNode[], head: string, words: string[], index: Graph
 
 function partsNamed(request: string, index: GraphIndex, masters: GraphNode[]): GraphNode[] {
   const words = contentTokens(request);
-  const hits = masters.filter((master) => namedByRequest(segmentHeads(partLabel(index, master)), words));
+  const hits = masters.filter((master) => {
+    const own = nameTokens(lastSegment(partLabel(index, master))).filter((token) => token.length > 2 && !SHAPE_WORD.has(token));
+    const head = own[own.length - 1];
+    return Boolean(head && words.some((word) => sameWordForm(word, head)));
+  });
   const kept = hits.filter((master) => {
     const own = nameTokens(partLabel(index, master));
     return !hits.some((other) => {
@@ -847,9 +842,6 @@ function briefRequest(input: BriefInput): BriefResult {
     if (recipe) for (const row of recipeCandidates(input, recipe)) push(row);
     else if (decision) push(candidateOf(decision.master));
     else {
-      if (platformPick && (platformWord(platformPick.name) === "compact" || platformWord(platformPick.name) === "comfortable")) {
-        push(platformPick, true);
-      }
       for (const master of named) {
         const heads = new Set(groups.keys());
         if ([...heads].some((head) => nameTokens(master.name).includes(head))) continue;
@@ -911,14 +903,10 @@ function briefRequest(input: BriefInput): BriefResult {
       throw new BriefAnswerError(`Topic part was given two answers for ${homes[0].head}.`);
     }
   }
-  const described = words.some((word) => /(?:ed|ing)$/.test(word));
   for (const row of pools) {
     if (row.pool.length < 2) continue;
     const answered = row.pool.some((master) => chosenParts.some((part) => part.masterId === master.id || part.id === master.id));
     if (answered) continue;
-    // A describing word already chose the lead ("searching field"). The shared noun is not a second choice.
-    const leadElsewhere = pools.length === 1 && described && leadRows.some((lead) => !row.pool.some((master) => master.id === lead.id));
-    if (leadElsewhere) continue;
     forks.unshift({ topic: "part", head: row.head, options: row.pool.map((master) => ({ id: master.id, label: master.name, contrast: "", masterId: master.id })) });
   }
 
