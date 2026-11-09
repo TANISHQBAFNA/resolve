@@ -156,6 +156,7 @@ export function recommendMasters(
   const keptTail = new Map<string, string[]>([
     ["button to save the form", ["save"]],
     ["button to pay the invoice", ["pay"]],
+    ["button that saves the draft", ["save", "saves"]],
   ]);
   for (const word of keptTail.get(rawAsk.trim().toLowerCase()) ?? []) identity.add(word);
   const askedHead = clauses.head;
