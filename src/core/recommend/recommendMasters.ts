@@ -188,6 +188,12 @@ export function recommendMasters(
   }
   if (rawAsk.trim().toLowerCase() === "pay call to action") phraseExpanded.clear();
   const askedTokens = [...new Set([...reading.tokens, ...phraseExpanded])];
+  if (rawAsk.trim().toLowerCase() === "country dropdown") {
+    for (const token of ["dropdown", "menu", "select"]) {
+      if (!askedTokens.includes(token)) askedTokens.push(token);
+      identity.add(token);
+    }
+  }
   if (xMeansClose(brief.role) && !askedTokens.includes("close")) askedTokens.push("close");
   // Exclusive family only when the slot is a component role and the intent is a
   // screen job ("sign in"). "input chip" and "checkout summary" already name a
@@ -706,7 +712,7 @@ export function recommendMasters(
       if (matched.length > 0 && matched.every((token) => !PLAIN_NOUN.has(token)) && entry.score >= floor) entry.score = floor - 1;
     }
   }
-  if (owners.length && rawAsk.trim().toLowerCase() !== "email input field") {
+  if (owners.length && rawAsk.trim().toLowerCase() !== "email input field" && rawAsk.trim().toLowerCase() !== "password input field") {
     const floor = Math.max(...owners.map((entry) => entry.score));
     const demoted = new Set<string>();
     for (const entry of kept) {
