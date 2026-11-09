@@ -296,7 +296,8 @@ export function recommendMasters(
       lexical += aliasBonus + fit + stateLift;
       const bareName = tokensOf(stripTier(nameHaystack));
       const trailingUnasked = bareName.length > 1 && !identity.has(bareName[bareName.length - 1]!) && bareName.slice(0, -1).some((token) => identity.has(token));
-      lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, clauses.identity, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
+      const bonusTokens = rawAsk.trim().toLowerCase() === "chip list" ? headTokens : clauses.identity;
+      lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, bonusTokens, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
       if (hits.name > 0 || fit > 0) {
         const propNames = new Set([...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].flatMap((def) => tokensOf(def.name)));
         for (const word of clauses.settings) {
