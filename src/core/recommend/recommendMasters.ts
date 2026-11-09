@@ -17,7 +17,9 @@ import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "../read/queryTokens";
 import { allSynonymGroups, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { finishRecommendCard, type Scored } from "./recommendMastersCard";
-import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, inflectsName, intentClauses, intentNamesMaster, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
+
+type RecommendCard = ReturnType<typeof finishRecommendCard>;
+import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentClauses, intentNamesMaster, recoveredLeadFits, isInternalPart, variantValueText, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { askRole, roleFit, statesCovered } from "./recommendRole";
 import { type RecommendContext } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
@@ -42,15 +44,17 @@ export function recommendMasters(
     lexicalOnly?: boolean;
     /** Skip purpose and word-form fallback. The regression gate uses this to see which leads those paths added. */
     skipFallback?: boolean;
+    /** Second pass when the first pass found nothing. Keeps a part the request names. */
+    wording?: boolean;
   } = {},
-) {
+): RecommendCard {
   loadSynonymOverlay();
   usePropertyHints([...BUILTIN_PROPERTY_HINTS, ...hintsFromFile(), ...(options.context?.propertyHints ?? [])]);
   const budgetChars = options.budgetChars ?? RECOMMEND_BUDGET;
   const askedWording = intent;
   const echoIntent = intent.length > 200 ? `${intent.slice(0, 199)}…` : intent;
-  const role = askRole(intent);
-  const publicNameSets = liveNameSets(index);
+  const role = askRole(intent, options.wording === true);
+  const publicNameSets = liveNameSets(index, options.wording === true);
   const dictionary = meaningDictionary(index);
   const catalogNames: string[] = [];
   for (const node of index.getNodesByType(...MASTER_TYPES)) {
@@ -71,7 +75,8 @@ export function recommendMasters(
   const slotRole = slotIsComponentRole(slotTokens);
   const namesHit = (token: string) =>
     publicNameSets.some((names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false));
-  const brief = splitBrief(partBeforeLink(intent, publicNameSets, false, screenWords(index)) ?? intent, namesHit);
+  const linked = partBeforeLink(intent, publicNameSets, false, screenWords(index), options.wording === true) ?? intent;
+  const brief = splitBrief(linked, namesHit, options.wording === true);
   const roleWords = withSynonymStopwords(brief.role, tokensOf(brief.role));
   const reading = decision ? interpretInflections(roleWords, dictionary) : { tokens: roleWords, shared: [], attributes: [] };
   const sharedMiss = (name: string): string[] => {
@@ -173,10 +178,17 @@ export function recommendMasters(
           (set!.name.toLowerCase() === intentNeedle ||
             collapsedName(set!.name) === collapsedAsk ||
             phraseNamesMatch(intentNeedle, set!.name))));
-    const nameHaystack = familyLabel;
+    const nameHaystack = options.wording ? identityHaystack(index, node, set, host) : familyLabel;
     const matched = matchHaystack(node, set);
     const detail = searchDetail(index, node, set);
-    const variantText = `${matched.variant} ${detail.variant}`;
+    let variantText = `${matched.variant} ${detail.variant}`;
+    if (options.wording) {
+      const root = node.type === "COMPONENT_SET" ? node : (set ?? node);
+      if (root.type === "COMPONENT_SET") {
+        const extra = index.getVariantsOf(root.id).map((child) => variantValueText(child)).filter(Boolean);
+        if (extra.length) variantText = `${variantText} ${extra.join(" ")}`;
+      }
+    }
     const hits = tokenHits(
       nameHaystack,
       variantText,
@@ -214,7 +226,8 @@ export function recommendMasters(
       lexical += repeatedSynonym(familyLabel, tokens, allowClip) * 20;
       // Only a generic word before the tail ("picker for fruit") still needs the tail to fit.
       const missTokens = beforePurposeTail.length && !beforePurposeTail.every((token) => GENERIC_NAME_TOKENS.has(token)) ? beforePurposeTail : tokens;
-      if (fit <= 0 && !stateLift && genericOnlyMiss(familyLabel, missTokens, allowClip, componentWord, synonymWord)) return undefined;
+      const missName = options.wording ? nameHaystack : familyLabel;
+      if (fit <= 0 && !stateLift && genericOnlyMiss(missName, missTokens, allowClip, componentWord, synonymWord, options.wording === true)) return undefined;
       const nameTokens = tokensOf(familyLabel);
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
       const onlyContainer = headTokens !== headBase && nameTokens.every((token) => ["list", "lists", "group", "set"].includes(token));
@@ -553,7 +566,7 @@ export function recommendMasters(
 
   kept = kept.filter((entry) => !isNameInferredMaster(entry.node));
   // The role read from the wording already ranked these. Word-overlap filters would drop a part that shares no word.
-  if (!kept[0]?.why.some((item) => item === "role" || item === "states")) kept = finishRank(kept, tokens, allowClip, purpose, componentWord);
+  if (!kept[0]?.why.some((item) => item === "role" || item === "states")) kept = finishRank(kept, tokens, allowClip, purpose, componentWord, options.wording === true);
   // A variant value is not a component once a real name already matched.
   const grounded = (entry: Scored): boolean =>
     entry.exactName ||
@@ -620,6 +633,10 @@ export function recommendMasters(
     return !isWeakerNameStub(index, entry.node, preferred);
   });
   if (decision?.empty) kept = kept.filter((entry) => entry.why.includes("typo"));
+  if (!options.wording && kept.length === 0 && !decision?.empty) {
+    const recovered = recommendMasters(index, askedWording, { ...options, wording: true });
+    if (recovered.candidates.length > 0) return recovered;
+  }
   const loneWord = tokensOf(echoIntent).length === 1 ? tokensOf(echoIntent)[0] : undefined;
   const stemNamesPart = Boolean(
     loneWord &&
@@ -756,6 +773,15 @@ export function recommendMasters(
           covered: tokens.length,
         };
     kept = [lead, ...kept.filter((entry) => entry.node.id !== exactPick.id)];
+  }
+
+  if (options.wording && kept[0]) {
+    const lead = kept[0];
+    const defs = [...(lead.node.propertyDefinitions ?? []), ...(setOf(index, lead.node)?.propertyDefinitions ?? [])];
+    const values = defs.flatMap((def) => def.options ?? []);
+    const name = stripTier(lead.setName || setOf(index, lead.node)?.name || lead.node.name);
+    const byRole = lead.why.includes("role") || lead.why.includes("states");
+    if (!byRole && !recoveredLeadFits(name, askedWording, values)) kept = [];
   }
 
   return finishRecommendCard({

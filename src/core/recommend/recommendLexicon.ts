@@ -289,6 +289,12 @@ export function identityPath(index: GraphIndex, node: GraphNode): string {
   return [owner.name, ...kept].join("/");
 }
 
+/** The name ranking should use. A property-only variant uses its family. A path that only repeats an option does not. */
+export function identityHaystack(index: GraphIndex, node: GraphNode, set?: GraphNode, host = ""): string {
+  if (VARIANT_PROP_NAME.test(node.name)) return familyHaystack(node, set, host);
+  return identityPath(index, node);
+}
+
 /** Variant values and property options. Property names (State, Type, Size) are not words. */
 export function variantValueText(node: GraphNode): string {
   const props = node.variantProperties;
@@ -563,7 +569,7 @@ export function isPrivateMaster(index: GraphIndex, node: GraphNode): boolean {
   return Boolean(set && isPrivateMasterName(set.name));
 }
 
-export function liveNameSets(index: GraphIndex): Set<string>[] {
+export function liveNameSets(index: GraphIndex, identity = false): Set<string>[] {
   const sets: Set<string>[] = [];
   for (const node of index.getNodesByType(...MASTER_TYPES)) {
     if (isRetired(index, node) || isPrivateMaster(index, node)) continue;
@@ -576,7 +582,7 @@ export function liveNameSets(index: GraphIndex): Set<string>[] {
       sets.push(new Set(tokensOf(set?.name || familyNameOf(node.name, set?.name))));
       continue;
     }
-    sets.push(new Set(tokensOf(node.name)));
+    sets.push(new Set(tokensOf(identity ? identityHaystack(index, node) : node.name)));
   }
   return sets;
 }
@@ -642,6 +648,7 @@ export {
   askGate,
   wholeNameTypo,
   genericOnlyMiss,
+  recoveredLeadFits,
   withoutGenericCousins,
   nounBeatsExtras,
   dropUnmatchedWeak,
