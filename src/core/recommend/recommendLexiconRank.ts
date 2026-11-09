@@ -526,7 +526,7 @@ export function contiguousPhrase(ask: string, term: string): boolean {
 
 /**
  * The requested control, apart from a setting clause and a state.
- * "upload progress at 60 percent" asks for progress. "6 digits" and "show countdown" set the control already named.
+ * A describing word ends the control. A number, and the word it sets, stay settings.
  * A trailing generic noun is not the control when a state and a more specific noun are both present.
  */
 export function intentClauses(ask: string): { identity: string[]; settings: string[]; head?: string; counts: string[]; assignments: { property: string; value: string }[] } {
