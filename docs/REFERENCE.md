@@ -1087,8 +1087,8 @@ Numbers measured on 2026-11-09. The automated suite that produced them is not in
 
 | Check | Result |
 | --- | --- |
-| Phrase scoreboard (headline) | 118 phrases = 88 expected a part + 30 expected empty. top-1 87/88, top-3 87/88, empty-correct 30/30, invented 0, retired 0. Measured 2026-11-09. |
-| Golden scoreboard (secondary regression, 75 cases) | recommend 56/56, resolve 59/59, recipe 3/3, verify did-you-mean on its own row. Tool rows added together (recommend + resolve + recipe, verify excluded) are 118/118. That 118 is not 118 phrases and not 75 cases. Top-3 is not reported (1 card). Invent 0, leak 0. Measured 2026-11-09. |
+| Phrase scoreboard (headline) | 118 phrases = 88 expected a part + 30 expected empty. top-1 87/88, top-3 87/88, empty-correct 30/30, invented 0, retired 0. Measured 2026-11-09 at 5b2060aecf9e5577c9b3a1360f2f528460fc4cce. |
+| Golden scoreboard (secondary regression, 75 cases) | recommend 56/56, resolve 59/59, recipe 3/3, verify did-you-mean on its own row. Tool rows added together (recommend + resolve + recipe, verify excluded) are 118/118. That 118 is not 118 phrases and not 75 cases. Top-3 is not reported (1 card). Invent 0, leak 0. Measured 2026-11-09 at 5b2060aecf9e5577c9b3a1360f2f528460fc4cce. |
 | Phrase regression set | 96/96 |
 | 8-screen public-style library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
 | Ingredient card (Acme example library) | Payee picker = Avatar + Button, Payment method row = Avatar + Button; invented parts 0; unmapped parts shown as unmapped |
