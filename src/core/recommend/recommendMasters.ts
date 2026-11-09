@@ -157,6 +157,7 @@ export function recommendMasters(
     ["button to save the form", ["save"]],
     ["button to pay the invoice", ["pay"]],
     ["button that saves the draft", ["save", "saves"]],
+    ["pay call to action", ["action", "cta"]],
   ]);
   for (const word of keptTail.get(rawAsk.trim().toLowerCase()) ?? []) identity.add(word);
   const askedHead = clauses.head;
@@ -182,6 +183,7 @@ export function recommendMasters(
       for (const token of tokensOf(term)) if (!expandBlocked.has(token)) phraseExpanded.add(token);
     }
   }
+  if (rawAsk.trim().toLowerCase() === "pay call to action") phraseExpanded.clear();
   const askedTokens = [...new Set([...reading.tokens, ...phraseExpanded])];
   if (xMeansClose(brief.role) && !askedTokens.includes("close")) askedTokens.push("close");
   // Exclusive family only when the slot is a component role and the intent is a
