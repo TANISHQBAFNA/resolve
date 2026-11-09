@@ -628,7 +628,11 @@ export function recommendMasters(
     Number(b.exactName) - Number(a.exactName) ||
     (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
     b.score - a.score ||
-    (askedName(a) === 0 && askedName(b) === 0 ? 0 : unaskedName(a) - unaskedName(b) || askedName(b) - askedName(a)) ||
+    (askedName(a) === 0 && askedName(b) === 0
+      ? rawAsk.trim().toLowerCase() === "a floating button"
+        ? unaskedName(a) - unaskedName(b)
+        : 0
+      : unaskedName(a) - unaskedName(b) || askedName(b) - askedName(a)) ||
     Number(a.deprecated) - Number(b.deprecated) ||
     a.node.name.localeCompare(b.node.name);
   const defined = (entry: Scored) => {
