@@ -1087,8 +1087,8 @@ Numbers measured on 2026-11-09. The automated suite that produced them is not in
 
 | Check | Result |
 | --- | --- |
-| Phrase scoreboard (headline) | 118 phrases = 88 expected a part + 30 expected empty. top-1 87/88, top-3 87/88, empty-correct 30/30, invented 0, retired 0. Measured 2026-11-09 at 26c68e9de44992b666659ac68e54320129fad318. |
-| Golden scoreboard (secondary regression, 75 cases) | recommend 56/56, resolve 59/59, recipe 3/3, verify did-you-mean on its own row. Tool rows added together (recommend + resolve + recipe, verify excluded) are 118/118. That 118 is not 118 phrases and not 75 cases. Top-3 is not reported (1 card). Invent 0, leak 0. Measured 2026-11-09 at 26c68e9de44992b666659ac68e54320129fad318. |
+| Phrase scoreboard (headline) | 118 phrases = 88 expected a part + 30 expected empty. top-1 84/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0. Measured 2026-11-09 at 161b6236b7f0ff7d2d05c61b9994395075033ff5. |
+| Golden scoreboard (secondary regression, 75 cases) | recommend 53/56, resolve 57/59, recipe 3/3. Invent 0. Measured 2026-11-09 at 161b6236b7f0ff7d2d05c61b9994395075033ff5. |
 | Automated suite | Not in this checkout. The tests live outside the repository. |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](SCOREBOARD.md).
