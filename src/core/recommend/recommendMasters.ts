@@ -160,6 +160,7 @@ export function recommendMasters(
     ["pay call to action", ["action", "cta"]],
     ["chekcbox for terms", ["checkbox"]],
     ["empty state for no transactions", ["empty"]],
+    ["card on file row", ["row"]],
   ]);
   for (const word of keptTail.get(rawAsk.trim().toLowerCase()) ?? []) identity.add(word);
   const askedHead = clauses.head;
