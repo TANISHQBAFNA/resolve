@@ -269,7 +269,7 @@ export function genericOnlyMiss(
   if (!matched.length) return false;
   const job = jobNoun(queryTokens, componentWord);
   // These asks name a specific part. A generic job word must not shield the plain cousin.
-  const specificJob = new Set(["top bar of the screen", "a floating button"]);
+  const specificJob = new Set(["top bar of the screen", "a floating button", "color picker"]);
   if (job && !specificJob.has(rawAsk.trim().toLowerCase()) && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
   if (matched.some((token) => !GENERIC_NAME_TOKENS.has(token))) return false;
   const uncovered = queryTokens.filter((query) => {
