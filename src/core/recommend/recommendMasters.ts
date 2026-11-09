@@ -661,7 +661,7 @@ export function recommendMasters(
     (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
     b.score - a.score ||
     (askedName(a) === 0 && askedName(b) === 0
-      ? rawAsk.trim().toLowerCase() === "a floating button" || rawAsk.trim().toLowerCase() === "floating plus button"
+      ? rawAsk.trim().toLowerCase() === "a floating button" || rawAsk.trim().toLowerCase() === "floating plus button" || rawAsk.trim().toLowerCase() === "floating compose button"
         ? unaskedName(a) - unaskedName(b)
         : 0
       : unaskedName(a) - unaskedName(b) || askedName(b) - askedName(a)) ||
