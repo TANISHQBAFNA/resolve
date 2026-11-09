@@ -205,9 +205,8 @@ export function askGate(
   let trailingJunk = false;
   for (let i = head + 1; i < content.length; i += 1) {
     const token = content[i];
-    if (token && (describe.has(token) || phraseWords.has(token))) continue;
-    const companyExempt = new Set([...exempt].filter((word) => modifierWord(word)));
-    if (!token || !keepsCompany(token, content[i - 1], companyExempt)) trailingJunk = true;
+    if (token && describe.has(token)) continue;
+    if (!token || !keepsCompany(token, content[i - 1], exempt)) trailingJunk = true;
   }
   // A long whole name ("snackbar", "datepicker") stays a match when one extra word follows.
   // Short names ("chip shop", "divider wall") stay empty: the extra word is the subject.
@@ -268,7 +267,7 @@ export function genericOnlyMiss(
   );
   if (!matched.length) return false;
   const job = jobNoun(queryTokens, componentWord);
-  if (job && !genericQuery(job) && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
+  if (job && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
   if (matched.some((token) => !GENERIC_NAME_TOKENS.has(token))) return false;
   const uncovered = queryTokens.filter((query) => {
     if (genericQuery(query) || query === "primary" || query === "main" || query === "submit") return false;
@@ -305,7 +304,7 @@ export function withoutGenericCousins<T extends { node: { name: string }; setNam
   const job = jobNoun(queryTokens);
   return entries.filter((entry) => {
     const names = tokensOf(familyOf(entry));
-    if (job && !genericQuery(job) && names.some((name) => name === job || tokenMatchesName(job, name, allowClip))) return true;
+    if (job && names.some((name) => name === job || tokenMatchesName(job, name, allowClip))) return true;
     const misses = covered.some((token) => !names.some((name) => name === token || inflectsName(token, name)));
     if (!misses) return true;
     const tail = tokensOf(familyOf(entry).split("/").pop() ?? "");
@@ -365,7 +364,7 @@ export function nounBeatsExtras<T extends { node: { name: string }; setName?: st
 }
 
 /** A weak pick that leaves a real word unmatched is not an offer. Purpose tails stay. */
-export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: string; weak?: boolean; why?: string[] }>(
+export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: string; weak?: boolean }>(
   entries: T[],
   queryTokens: string[],
   allowClip: boolean,
@@ -381,9 +380,8 @@ export function dropUnmatchedWeak<T extends { node: { name: string }; setName?: 
       continue;
     }
     const names = familyNames(entry);
-    if (queryTokens.length === 1 && content.length === 1 && !nounHit(content[0]!, names, allowClip) && !entry.why?.includes("synonym")) continue;
     const job = jobNoun(content, componentWord);
-    if (job && !genericQuery(job) && nounHit(job, names, allowClip)) {
+    if (job && nounHit(job, names, allowClip)) {
       next.push(entry);
       continue;
     }
@@ -525,23 +523,21 @@ export function contiguousPhrase(ask: string, term: string): boolean {
 
 /**
  * The requested control, apart from a setting clause and a state.
- * A describing word ends the control only for the words after it that name a different part.
- * A number, and a word shown or hidden, stay settings. A trailing generic noun is not the control when a state and a more specific noun are both present.
+ * "upload progress at 60 percent" asks for progress. "6 digits" and "show countdown" set the control already named.
+ * A trailing generic noun is not the control when a state and a more specific noun are both present.
  */
-export function intentClauses(ask: string, nameSets?: NameSets): { identity: string[]; settings: string[]; head?: string; counts: string[]; assignments: { property: string; value: string }[] } {
+export function intentClauses(ask: string): { identity: string[]; settings: string[]; head?: string; counts: string[]; assignments: { property: string; value: string }[] } {
   const words = ask.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
   const assigned = new Set([...ask.matchAll(/\b([a-z][a-z0-9]*)\s*=/gi)].map((match) => match[1]!.toLowerCase()));
   const contentBefore = (index: number) =>
     words.slice(0, index).some((word) => word.length > 1 && !STATE_WORD.has(word) && !/^\d+$/.test(word));
   let end = words.length;
-  let boundary = -1;
   for (let index = 1; index < words.length; index += 1) {
     if (DESCRIBING_WORD.has(words[index]!) && contentBefore(index)) {
-      boundary = index;
+      end = index;
       break;
     }
   }
-  if (!nameSets && boundary > 0) end = boundary;
   const settings = new Set<string>();
   for (const word of words.slice(end)) settings.add(word);
   const span = words.slice(0, end);
@@ -557,21 +553,6 @@ export function intentClauses(ask: string, nameSets?: NameSets): { identity: str
       settings.add(next);
     }
     if (word === "shown" && index > 0) settings.add(span[index - 1]!);
-  }
-  if (nameSets && boundary > 0) {
-    const lead = words.slice(0, boundary);
-    const leadSets = nameSets.filter((names) => lead.some((token) => namedIn(names, token, false)));
-    const leadIsSpecific = lead.some((token) => !genericQuery(token) && !GENERIC_NAME_TOKENS.has(token) && nameSets.some((names) => namedIn(names, token, false)));
-    const purposeLink = new Set(["to", "for", "that", "after", "with", "showing", "holding"]);
-    const leadContent = lead.filter((token) => token !== "a" && token !== "an" && token !== "the");
-    const entryLead = words[boundary] === "to" && leadContent.length > 0 && leadContent.every((token) => ENTRY_NOUN.has(token));
-    if (leadSets.length && !entryLead && (purposeLink.has(words[boundary] ?? "") || leadIsSpecific)) {
-      for (const word of words.slice(boundary + 1)) {
-        if (word.length < 3 || DESCRIBING_WORD.has(word)) continue;
-        const namedByLead = leadSets.some((names) => namedIn(names, word, false));
-        if (!namedByLead) settings.add(word);
-      }
-    }
   }
   const counts: string[] = [];
   const assignments: { property: string; value: string }[] = [];
@@ -591,26 +572,13 @@ export function intentClauses(ask: string, nameSets?: NameSets): { identity: str
     const at = words.length - 2;
     if (property && at > 0 && contentBefore(at)) settings.add(property);
   }
-  const keptWords = span.filter((word) => !settings.has(word) && !assigned.has(word));
-  const otherNamesAPart = nameSets
-    ? keptWords.some((word) => !STATE_WORD.has(word) && nameSets.some((names) => namedIn(names, word, false)))
-    : true;
-  let identity = tokensOf(keptWords.filter((word) => (otherNamesAPart ? !STATE_WORD.has(word) : true)).join(" "));
+  let identity = tokensOf(span.filter((word) => !settings.has(word) && !assigned.has(word) && !STATE_WORD.has(word)).join(" "));
   const last = identity[identity.length - 1];
   const earlierSpecific = [...identity.slice(0, -1)].reverse().find((token) => !GENERIC_NAME_TOKENS.has(token));
   if (last && GENERIC_NAME_TOKENS.has(last) && earlierSpecific && span.some((word) => STATE_WORD.has(word))) {
     identity = identity.filter((token) => token !== last);
   }
   return { identity, settings: [...settings], head: identity[identity.length - 1], counts, assignments };
-}
-
-function identityHas(identity: ReadonlySet<string>, token: string): boolean {
-  if (identity.has(token)) return true;
-  for (const word of identity) {
-    if (inflectsName(word, token) || inflectsName(token, word)) return true;
-    if (tokenTypo(word, token) || tokenTypo(token, word)) return true;
-  }
-  return false;
 }
 
 export function tokenHits(
@@ -651,7 +619,7 @@ export function tokenHits(
   const pending: string[] = [];
   const variantOnly: string[] = [];
   for (const token of tokens) {
-    if (identity && !identityHas(identity, token)) {
+    if (identity && !identity.has(token)) {
       variantOnly.push(token);
       continue;
     }
@@ -677,10 +645,7 @@ export function tokenHits(
   }
   const afterVariant: string[] = [];
   for (const token of [...variantOnly, ...still]) {
-    if (nameOnly?.has(token)) {
-      afterVariant.push(token);
-      continue;
-    }
+    if (nameOnly?.has(token)) continue;
     const syn = termsFor(token, allowClip);
     const sameState = token === "failed" || token === "failure" ? ["error", "failed", "failure"] : token === "error" ? ["failed", "failure"] : [];
     const hit = [...variants].find(
@@ -700,7 +665,6 @@ export function tokenHits(
     if (hit) {
       describe += 1;
       covered += 1;
-      if (tokens.length === 1 && syn?.includes(hit) && hit !== token) synonym += 1;
       used.add(hit);
     }
   }

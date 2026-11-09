@@ -146,7 +146,7 @@ export function recommendMasters(
     publicNameSets.some((names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false));
   const brief = splitBrief(partBeforeLink(intent, publicNameSets, false, screenWords(index)) ?? intent, namesHit);
   const roleWords = withSynonymStopwords(brief.role, tokensOf(brief.role));
-  const clauses = intentClauses(rawAsk, publicNameSets);
+  const clauses = intentClauses(rawAsk);
   const identity = new Set(clauses.identity);
   const askedHead = clauses.head;
   const reading = decision ? interpretInflections(roleWords, dictionary) : { tokens: roleWords, shared: [], attributes: [] };
@@ -178,7 +178,6 @@ export function recommendMasters(
   // master, so those tokens stay in the lexical score and context breaks the tie.
   const exclusiveSlot = slotRole && !intentNamesMaster(index, askedTokens);
   const familyTokens = slotTokens.filter((token) => !SLOT_QUALIFIERS.has(token));
-  if (slotRole) for (const token of familyTokens) identity.add(token);
   const sceneTokens = exclusiveSlot
     ? [...new Set([...tokensOf(brief.scene), ...askedTokens])]
     : tokensOf(brief.scene);
@@ -291,7 +290,7 @@ export function recommendMasters(
       lexical += aliasBonus + fit + stateLift;
       const bareName = tokensOf(stripTier(nameHaystack));
       const trailingUnasked = bareName.length > 1 && !identity.has(bareName[bareName.length - 1]!) && bareName.slice(0, -1).some((token) => identity.has(token));
-      lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, headTokens, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
+      lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, clauses.identity, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
       if (hits.name > 0 || fit > 0) {
         const propNames = new Set([...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].flatMap((def) => tokensOf(def.name)));
         for (const word of clauses.settings) {
@@ -310,8 +309,7 @@ export function recommendMasters(
       lexical += repeatedSynonym(nameHaystack, tokens, allowClip, askedHead) * 20;
       // Only a generic word before the tail ("picker for fruit") still needs the tail to fit.
       const rawMiss = beforePurposeTail.length && !beforePurposeTail.every((token) => GENERIC_NAME_TOKENS.has(token)) ? beforePurposeTail : tokens;
-      const clauseSettings = new Set(clauses.settings);
-      const missTokens = rawMiss.filter((token) => !settings.has(token) && !clauseSettings.has(token));
+      const missTokens = rawMiss.filter((token) => !settings.has(token));
       if (fit <= 0 && !stateLift && genericOnlyMiss(nameHaystack, missTokens, allowClip, componentWord, synonymWord)) return undefined;
       const nameTokens = tokensOf(nameHaystack);
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
@@ -618,16 +616,13 @@ export function recommendMasters(
   });
 
   const nameTokensOf = (entry: Scored) => tokensOf(stripTier(setOf(index, entry.node)?.name ?? entry.node.name));
-  const lexicalEvidence = (entry: Scored) => entry.why.some((item) => item === "name" || item === "synonym" || item === "description");
   const unaskedName = (entry: Scored) => nameTokensOf(entry).filter((token) => !tokens.includes(token)).length;
   const askedName = (entry: Scored) => nameTokensOf(entry).filter((token) => tokens.includes(token)).length;
   const byMasterRank = (a: Scored, b: Scored) =>
     Number(b.exactName) - Number(a.exactName) ||
     (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
     b.score - a.score ||
-    (askedName(a) === 0 && askedName(b) === 0 && !lexicalEvidence(a) && !lexicalEvidence(b)
-      ? 0
-      : unaskedName(a) - unaskedName(b) || askedName(b) - askedName(a)) ||
+    (askedName(a) === 0 && askedName(b) === 0 ? 0 : unaskedName(a) - unaskedName(b) || askedName(b) - askedName(a)) ||
     Number(a.deprecated) - Number(b.deprecated) ||
     a.node.name.localeCompare(b.node.name);
   const defined = (entry: Scored) => {
@@ -693,14 +688,6 @@ export function recommendMasters(
     for (const entry of kept) {
       const family = setOf(index, entry.node)?.id ?? entry.node.id;
       if (demoted.has(family) && !owners.includes(entry) && entry.score >= floor) entry.score = floor - 1;
-    }
-  }
-  const namedLead = kept.filter((entry) => entry.why.includes("name") || entry.why.includes("synonym"));
-  if (namedLead.length) {
-    const namedFloor = Math.max(...namedLead.map((entry) => entry.score));
-    for (const entry of kept) {
-      if (entry.why.includes("name") || entry.why.includes("synonym")) continue;
-      if (entry.score >= namedFloor) entry.score = namedFloor - 1;
     }
   }
   kept.sort(byMasterRank);
