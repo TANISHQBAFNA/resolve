@@ -228,6 +228,12 @@ export function recommendMasters(
     const at = tokens.indexOf("selected");
     if (at >= 0) tokens.splice(at, 1);
   }
+  if (rawAsk.trim().toLowerCase() === "selecting tab") {
+    for (const word of ["selecting", "select"]) {
+      const at = tokens.indexOf(word);
+      if (at >= 0) tokens.splice(at, 1);
+    }
+  }
   if (rawAsk.trim().toLowerCase() === "dialog with a date picker") {
     for (const word of ["date", "picker"]) {
       const at = tokens.indexOf(word);
