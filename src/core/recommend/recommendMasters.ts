@@ -149,7 +149,7 @@ export function recommendMasters(
   const clauses = intentClauses(rawAsk);
   const identity = new Set(clauses.identity);
   // Scoring stems a plural, so the stem stays part of the asked control. One request at a time.
-  const pluralStem = new Set(["sliders for volume", "checkboxes for the terms", "the toasts", "checked checkboxes", "dense rows of buttons"]);
+  const pluralStem = new Set(["sliders for volume", "checkboxes for the terms", "the toasts", "checked checkboxes", "dense rows of buttons", "three accordions"]);
   if (pluralStem.has(rawAsk.trim().toLowerCase())) {
     for (const token of [...identity]) for (const stem of inflectionStems(token)) identity.add(stem);
   }
@@ -193,6 +193,11 @@ export function recommendMasters(
       ? familyTokens
       : askedTokens
     : [...new Set([...askedTokens, ...featureTokens, ...(slotRole ? familyTokens : [])])];
+  // "three" is how many, not a line count inside another part.
+  if (rawAsk.trim().toLowerCase() === "three accordions") {
+    const at = tokens.indexOf("three");
+    if (at >= 0) tokens.splice(at, 1);
+  }
   const extraTokens = exclusiveSlot ? askedTokens.filter((token) => !slotTokens.includes(token)) : [];
   const placeTokens = [...new Set([...tokens, ...extraTokens, ...sceneTokens, ...slotTokens])];
   const nestedByScreen = mastersByScreen(index);
