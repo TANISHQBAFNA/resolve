@@ -158,6 +158,7 @@ export function recommendMasters(
     ["button to pay the invoice", ["pay"]],
     ["button that saves the draft", ["save", "saves"]],
     ["pay call to action", ["action", "cta"]],
+    ["chekcbox for terms", ["checkbox"]],
   ]);
   for (const word of keptTail.get(rawAsk.trim().toLowerCase()) ?? []) identity.add(word);
   const askedHead = clauses.head;
