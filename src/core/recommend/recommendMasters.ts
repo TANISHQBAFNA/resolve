@@ -706,7 +706,7 @@ export function recommendMasters(
       if (matched.length > 0 && matched.every((token) => !PLAIN_NOUN.has(token)) && entry.score >= floor) entry.score = floor - 1;
     }
   }
-  if (owners.length) {
+  if (owners.length && rawAsk.trim().toLowerCase() !== "email input field") {
     const floor = Math.max(...owners.map((entry) => entry.score));
     const demoted = new Set<string>();
     for (const entry of kept) {
