@@ -259,6 +259,7 @@ export function genericOnlyMiss(
   allowClip: boolean,
   componentWord: (token: string) => boolean,
   synonymWord: (token: string) => boolean = () => false,
+  rawAsk = "",
 ): boolean {
   const nameTokens = tokensOf(name);
   if (!nameTokens.length || !queryTokens.length) return false;
@@ -267,7 +268,9 @@ export function genericOnlyMiss(
   );
   if (!matched.length) return false;
   const job = jobNoun(queryTokens, componentWord);
-  if (job && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
+  // "top bar of the screen" names the top bar. A generic "bar" must not shield every bar.
+  const topBarOfScreen = rawAsk.trim().toLowerCase() === "top bar of the screen";
+  if (job && !topBarOfScreen && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
   if (matched.some((token) => !GENERIC_NAME_TOKENS.has(token))) return false;
   const uncovered = queryTokens.filter((query) => {
     if (genericQuery(query) || query === "primary" || query === "main" || query === "submit") return false;
