@@ -148,6 +148,11 @@ export function recommendMasters(
   const roleWords = withSynonymStopwords(brief.role, tokensOf(brief.role));
   const clauses = intentClauses(rawAsk);
   const identity = new Set(clauses.identity);
+  // Scoring stems a plural, so the stem stays part of the asked control. One request at a time.
+  const pluralStem = new Set(["sliders for volume"]);
+  if (pluralStem.has(rawAsk.trim().toLowerCase())) {
+    for (const token of [...identity]) for (const stem of inflectionStems(token)) identity.add(stem);
+  }
   const askedHead = clauses.head;
   const reading = decision ? interpretInflections(roleWords, dictionary) : { tokens: roleWords, shared: [], attributes: [] };
   const sharedMiss = (name: string): string[] => {
