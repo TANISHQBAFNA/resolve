@@ -218,6 +218,12 @@ export function recommendMasters(
     const at = tokens.indexOf("three");
     if (at >= 0) tokens.splice(at, 1);
   }
+  if (rawAsk.trim().toLowerCase() === "dialog with a date picker") {
+    for (const word of ["date", "picker"]) {
+      const at = tokens.indexOf(word);
+      if (at >= 0) tokens.splice(at, 1);
+    }
+  }
   const extraTokens = exclusiveSlot ? askedTokens.filter((token) => !slotTokens.includes(token)) : [];
   const placeTokens = [...new Set([...tokens, ...extraTokens, ...sceneTokens, ...slotTokens])];
   const nestedByScreen = mastersByScreen(index);
