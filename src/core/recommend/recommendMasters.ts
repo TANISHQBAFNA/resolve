@@ -218,6 +218,12 @@ export function recommendMasters(
     const at = tokens.indexOf("three");
     if (at >= 0) tokens.splice(at, 1);
   }
+  if (rawAsk.trim().toLowerCase() === "floating action to compose") {
+    for (const word of ["action", "button"]) {
+      const at = tokens.indexOf(word);
+      if (at >= 0) tokens.splice(at, 1);
+    }
+  }
   if (rawAsk.trim().toLowerCase() === "the selected tab") {
     const at = tokens.indexOf("selected");
     if (at >= 0) tokens.splice(at, 1);
@@ -671,7 +677,7 @@ export function recommendMasters(
     (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
     b.score - a.score ||
     (askedName(a) === 0 && askedName(b) === 0
-      ? rawAsk.trim().toLowerCase() === "a floating button" || rawAsk.trim().toLowerCase() === "floating plus button" || rawAsk.trim().toLowerCase() === "floating compose button"
+      ? rawAsk.trim().toLowerCase() === "a floating button" || rawAsk.trim().toLowerCase() === "floating plus button" || rawAsk.trim().toLowerCase() === "floating compose button" || rawAsk.trim().toLowerCase() === "floating action to compose"
         ? unaskedName(a) - unaskedName(b)
         : 0
       : unaskedName(a) - unaskedName(b) || askedName(b) - askedName(a)) ||
