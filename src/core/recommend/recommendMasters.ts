@@ -331,7 +331,7 @@ export function recommendMasters(
       lexical += aliasBonus + fit + stateLift;
       const bareName = tokensOf(stripTier(nameHaystack));
       const trailingUnasked = bareName.length > 1 && !identity.has(bareName[bareName.length - 1]!) && bareName.slice(0, -1).some((token) => identity.has(token));
-      const partBeforeList = rawAsk.trim().toLowerCase() === "chip list" || rawAsk.trim().toLowerCase() === "checkboxes in the settings list" || rawAsk.trim().toLowerCase() === "checkbox list" || rawAsk.trim().toLowerCase() === "chips in the tag list";
+      const partBeforeList = rawAsk.trim().toLowerCase() === "chip list" || rawAsk.trim().toLowerCase() === "checkboxes in the settings list" || rawAsk.trim().toLowerCase() === "checkbox list" || rawAsk.trim().toLowerCase() === "chips in the tag list" || rawAsk.trim().toLowerCase() === "slider list";
       const bonusTokens = partBeforeList ? headTokens : clauses.identity;
       lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, bonusTokens, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
       if (hits.name > 0 || fit > 0) {
