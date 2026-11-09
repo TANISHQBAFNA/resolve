@@ -149,7 +149,7 @@ export function recommendMasters(
   const clauses = intentClauses(rawAsk);
   const identity = new Set(clauses.identity);
   // Scoring stems a plural, so the stem stays part of the asked control. One request at a time.
-  const pluralStem = new Set(["sliders for volume", "checkboxes for the terms", "the toasts", "checked checkboxes", "dense rows of buttons", "three accordions"]);
+  const pluralStem = new Set(["sliders for volume", "checkboxes for the terms", "the toasts", "checked checkboxes", "dense rows of buttons", "three accordions", "checkboxes in the settings list"]);
   if (pluralStem.has(rawAsk.trim().toLowerCase())) {
     for (const token of [...identity]) for (const stem of inflectionStems(token)) identity.add(stem);
   }
@@ -312,7 +312,8 @@ export function recommendMasters(
       lexical += aliasBonus + fit + stateLift;
       const bareName = tokensOf(stripTier(nameHaystack));
       const trailingUnasked = bareName.length > 1 && !identity.has(bareName[bareName.length - 1]!) && bareName.slice(0, -1).some((token) => identity.has(token));
-      const bonusTokens = rawAsk.trim().toLowerCase() === "chip list" ? headTokens : clauses.identity;
+      const partBeforeList = rawAsk.trim().toLowerCase() === "chip list" || rawAsk.trim().toLowerCase() === "checkboxes in the settings list";
+      const bonusTokens = partBeforeList ? headTokens : clauses.identity;
       lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, bonusTokens, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
       if (hits.name > 0 || fit > 0) {
         const propNames = new Set([...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].flatMap((def) => tokensOf(def.name)));
