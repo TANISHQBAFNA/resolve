@@ -4,7 +4,7 @@ import { setOf } from "@/core/rules/family";
 import { collapsedName, isNameInferredMaster, isPrivateMasterName } from "@/core/rules/names";
 import type { GraphIndex } from "../read/GraphIndex";
 import { familyNameOf, MASTER_TYPES } from "../read/masterNames";
-import { CHOOSE, DESCRIBING_WORD, ENTRY_NOUN, FILLER_HEAD, GENERIC_NAME_TOKENS, navFamily, STOPWORDS, tokensOf } from "../read/queryTokens";
+import { CHOOSE, DESCRIBING_WORD, ENTRY_NOUN, FILLER_HEAD, GENERIC_NAME_TOKENS, navFamily, tokensOf } from "../read/queryTokens";
 import { adjacentSwap, typoHeavy, wordSlip } from "../read/typo";
 import { allSynonymGroups, artShelf, fromIconLibrary, iconShelf, SYNONYM_OF } from "./recommendContext";
 import type { WorkspaceManifest } from "../read/workspace";
@@ -244,17 +244,6 @@ function genericQuery(query: string): boolean {
   return Boolean(group?.some((word) => word !== query && GENERIC_NAME_TOKENS.has(word)));
 }
 const STATE_WORD = new Set(["error", "empty", "failed", "failure", "disabled", "loading", "success", "pending", "invalid", "state"]);
-
-/** Singular of a plural head, when that singular is a real part word and not a generic, stop, or state word. */
-export function pluralHeadStem(head: string): string | undefined {
-  const stem = head.length > 4 && head.endsWith("ies")
-    ? `${head.slice(0, -3)}y`
-    : head.length > 3 && head.endsWith("s") && !head.endsWith("ss")
-      ? head.slice(0, -1)
-      : undefined;
-  if (!stem || STOPWORDS.has(stem) || STATE_WORD.has(stem) || GENERIC_NAME_TOKENS.has(stem)) return undefined;
-  return stem;
-}
 
 /** The part the request is about: a plain control word, otherwise the first component word. */
 export function jobNoun(tokens: string[], componentWord?: (token: string) => boolean): string | undefined {
@@ -632,18 +621,8 @@ export function tokenHits(
   }
   const pending: string[] = [];
   const variantOnly: string[] = [];
-  const pluralSurface = (token: string) =>
-    Boolean(identity?.has(`${token}s`) || identity?.has(`${token}es`) || (token.endsWith("y") && identity?.has(`${token.slice(0, -1)}ies`)));
-  // A rewritten singular stays the asked control only when it is a real plural of a part.
-  // "message" and "text" are generic words: bridging them replaces the singular's lead.
-  // A stopword or a state word is not a plural of a part.
-  const bridgedPlural = (token: string) => {
-    if (!identity || identity.has(token) || STOPWORDS.has(token) || STATE_WORD.has(token) || token === "message" || token === "text") return false;
-    return pluralSurface(token);
-  };
-  const inIdentity = (token: string) => !identity || identity.has(token) || bridgedPlural(token);
   for (const token of tokens) {
-    if (!inIdentity(token)) {
+    if (identity && !identity.has(token)) {
       variantOnly.push(token);
       continue;
     }

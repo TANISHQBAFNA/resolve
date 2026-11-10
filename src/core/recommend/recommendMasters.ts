@@ -18,7 +18,7 @@ import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "../read/queryTokens";
 import { allSynonymGroups, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { finishRecommendCard, type Scored } from "./recommendMastersCard";
-import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentClauses, contiguousPhrase, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, pluralHeadStem, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentClauses, contiguousPhrase, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { askRole, roleFit, statesCovered } from "./recommendRole";
 import { type RecommendContext } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
@@ -201,6 +201,31 @@ export function recommendMasters(
       identity.add(token);
     }
   }
+  // A plural stem is added only when the word itself is not already a name or a lexicon term.
+  // Words that merely end in s (ss, us, is, ics, ous, ness, or a short word) are left alone.
+  const exactTerm = new Set<string>();
+  for (const group of allSynonymGroups()) {
+    for (const term of group.terms) {
+      const word = term.trim().toLowerCase();
+      if (word && !word.includes(" ")) exactTerm.add(word);
+    }
+  }
+  for (const names of publicNameSets) for (const token of names) exactTerm.add(token);
+  const addedPluralStem = new Set<string>();
+  const notAPlural = /(?:ss|us|is|ics|ous|ness)$/;
+  const stateWord = new Set(["error", "empty", "failed", "failure", "disabled", "loading", "success", "pending", "invalid", "state"]);
+  for (const word of [...identity]) {
+    if (word.length < 4 || exactTerm.has(word) || notAPlural.test(word)) continue;
+    const stems = [
+      ...(/[^aeiou]ies$/.test(word) ? [`${word.slice(0, -3)}y`] : []),
+      ...(word.endsWith("es") ? [word.slice(0, -2)] : []),
+      ...(word.endsWith("s") ? [word.slice(0, -1)] : []),
+    ];
+    const stem = stems.find((item) => item.length >= 3 && exactTerm.has(item) && tokensOf(item).length > 0 && !stateWord.has(item) && item !== "message" && item !== "text");
+    if (!stem || identity.has(stem)) continue;
+    identity.add(stem);
+    addedPluralStem.add(stem);
+  }
   if (xMeansClose(brief.role) && !askedTokens.includes("close")) askedTokens.push("close");
   // Exclusive family only when the slot is a component role and the intent is a
   // screen job ("sign in"). "input chip" and "checkout summary" already name a
@@ -332,9 +357,9 @@ export function recommendMasters(
       // "header" and "page header" are only a description synonym ("top"). Skipping that word leaves no match.
       intentNeedle === "header" || intentNeedle === "page header" || rawAsk.trim().toLowerCase() === "heading for a settings screen"
         ? undefined
-        : askedHead
-          ? new Set([askedHead, ...(pluralHeadStem(askedHead) ? [pluralHeadStem(askedHead)!] : [])])
-          : undefined,
+    : askedHead
+      ? new Set([askedHead, ...[...addedPluralStem].filter((stem) => askedHead === `${stem}s` || askedHead === `${stem}es` || (stem.endsWith("y") && askedHead === `${stem.slice(0, -1)}ies`))])
+      : undefined,
     );
     const extraHits = extraTokens.length
       ? tokenHits(nameHaystack, matched.variant, extraTokens, allowClip, matched.describe)
