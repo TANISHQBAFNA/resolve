@@ -48,6 +48,9 @@ export const DSCI_TYPE_LABELS: Record<DsciProposalType, string> = {
   "variant-candidate": "Variant candidates",
   "deprecation-candidate": "Deprecation candidates",
   "wrong-cousin": "Wrong-cousin hotspots",
+  "edge": "Usage edges",
+  "component-job": "Component jobs",
+  "job": "Element jobs",
 };
 
 export const DEFAULT_DSCI_CAP = 12;
@@ -82,6 +85,9 @@ export function proposalTypeOf(proposal: DsciProposal): DsciProposalType {
   if (proposal.type && (DSCI_PROPOSAL_TYPES as readonly string[]).includes(proposal.type)) {
     return proposal.type;
   }
+  if (proposal.type === "edge" && proposal.suggestedEdge) return "edge";
+  if (proposal.type === "component-job" && proposal.suggestedComponentJob) return "component-job";
+  if (proposal.type === "job" && proposal.suggestedJob) return "job";
   return "require-rule";
 }
 
@@ -245,6 +251,9 @@ const TYPE_RANK: Record<DsciProposalType, number> = {
   "require-rule": 2,
   "deprecation-candidate": 3,
   "variant-candidate": 4,
+  "edge": 5,
+  "component-job": 6,
+  "job": 7,
 };
 
 function evidenceScreens(proposal: DsciProposal): number {
@@ -791,7 +800,9 @@ export function groupDsciProposals(
   for (const type of DSCI_PROPOSAL_TYPES) byType.set(type, []);
   for (const proposal of proposals) {
     const type = proposalTypeOf(proposal);
-    byType.get(type)!.push(normalizeProposal(proposal));
+    const bucket = byType.get(type);
+    if (!bucket) continue;
+    bucket.push(normalizeProposal(proposal));
   }
   return DSCI_PROPOSAL_TYPES.map((type) => ({
     type,

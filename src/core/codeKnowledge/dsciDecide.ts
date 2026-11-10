@@ -185,6 +185,18 @@ export function applyDsciDecision(
         recipeAfter: updated,
       });
     }
+    case "edge":
+    case "component-job":
+    case "job":
+      return recordedDecision(
+        dsck,
+        rules,
+        proposalId,
+        action,
+        who,
+        when,
+        note ?? "Recorded for review. Figma was not edited.",
+      );
     case "variant-candidate":
     case "deprecation-candidate": {
       if (action === "approve" && type === "variant-candidate" && proposal.suggestedVariant?.masterId) {

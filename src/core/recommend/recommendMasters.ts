@@ -21,6 +21,7 @@ import { finishRecommendCard, type Scored } from "./recommendMastersCard";
 import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentClauses, contiguousPhrase, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SIZE_OR_A11Y, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { askRole, roleFit, statesCovered } from "./recommendRole";
 import { type RecommendContext } from "./recommendSupport";
+import { noteGraphShadow } from "./graphShadow";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
 import { inflectionStems, overlap, similarUsage } from "../read/screenInventory";
 import { usePropertyHints } from "../read/synonymLayer";
@@ -1050,7 +1051,7 @@ export function recommendMasters(
     kept = [lead, ...kept.filter((entry) => entry.node.id !== exactPick.id)];
   }
 
-  return finishRecommendCard({
+  const card = finishRecommendCard({
     kept,
     decision,
     index,
@@ -1068,4 +1069,6 @@ export function recommendMasters(
     bindQuery,
     lowConfidence,
   });
+  noteGraphShadow(index, rawAsk, options);
+  return card;
 }

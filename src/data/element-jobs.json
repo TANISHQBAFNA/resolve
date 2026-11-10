@@ -1,0 +1,245 @@
+{
+  "version": 1,
+  "jobs": [
+    {
+      "id": "submit",
+      "group": "act",
+      "meaning": "Send what is in the form or confirm the action.",
+      "words": ["submit", "save", "pay", "send", "confirm"]
+    },
+    {
+      "id": "cancel",
+      "group": "act",
+      "meaning": "Stop the action without sending it.",
+      "words": ["cancel", "abort"]
+    },
+    {
+      "id": "navigate",
+      "group": "act",
+      "meaning": "Move to another place.",
+      "words": ["navigate", "navigation", "link"]
+    },
+    {
+      "id": "open-menu",
+      "group": "act",
+      "meaning": "Open a list of actions.",
+      "words": ["menu", "overflow"]
+    },
+    {
+      "id": "dismiss",
+      "group": "act",
+      "meaning": "Close or remove what is in the way.",
+      "words": ["dismiss", "close"]
+    },
+    {
+      "id": "go-back",
+      "group": "act",
+      "meaning": "Return to the previous place.",
+      "words": ["back"]
+    },
+    {
+      "id": "enter-text",
+      "group": "enter",
+      "meaning": "Type a text value.",
+      "words": ["text", "textarea"]
+    },
+    {
+      "id": "enter-number",
+      "group": "enter",
+      "meaning": "Type or step a number.",
+      "words": ["number", "numeric", "quantity"]
+    },
+    {
+      "id": "pick-date",
+      "group": "enter",
+      "meaning": "Choose a date or a time.",
+      "words": ["date", "calendar", "time"]
+    },
+    {
+      "id": "pick-one",
+      "group": "enter",
+      "meaning": "Choose one option.",
+      "words": ["radio", "option"]
+    },
+    {
+      "id": "pick-many",
+      "group": "enter",
+      "meaning": "Choose more than one option.",
+      "words": ["checkbox"]
+    },
+    {
+      "id": "search",
+      "group": "enter",
+      "meaning": "Find something by typing.",
+      "words": ["search", "query"]
+    },
+    {
+      "id": "enter-secret",
+      "group": "enter",
+      "meaning": "Type a hidden value.",
+      "words": ["password", "pin", "secret"]
+    },
+    {
+      "id": "upload",
+      "group": "enter",
+      "meaning": "Add a file from the device.",
+      "words": ["upload", "attach"]
+    },
+    {
+      "id": "on-off",
+      "group": "choose a setting",
+      "meaning": "Turn one setting on or off.",
+      "words": ["switch", "toggle"]
+    },
+    {
+      "id": "one-of-two",
+      "group": "choose a setting",
+      "meaning": "Choose one of two sides.",
+      "words": ["segmented", "binary"]
+    },
+    {
+      "id": "choose-from-list",
+      "group": "choose a setting",
+      "meaning": "Choose a value from a list that stays closed until opened.",
+      "words": ["dropdown", "combobox"]
+    },
+    {
+      "id": "set-level",
+      "group": "choose a setting",
+      "meaning": "Set a value along a range.",
+      "words": ["slider", "range"]
+    },
+    {
+      "id": "show-items",
+      "group": "show",
+      "meaning": "Show a series of items.",
+      "words": ["list", "item", "feed"]
+    },
+    {
+      "id": "show-table",
+      "group": "show",
+      "meaning": "Show rows and columns.",
+      "words": ["table", "grid"]
+    },
+    {
+      "id": "show-status",
+      "group": "show",
+      "meaning": "Show the state of something.",
+      "words": ["alert", "banner", "status"]
+    },
+    {
+      "id": "show-progress",
+      "group": "show",
+      "meaning": "Show how far something has gone.",
+      "words": ["progress", "spinner", "loading"]
+    },
+    {
+      "id": "show-media",
+      "group": "show",
+      "meaning": "Show an image or a moving picture.",
+      "words": ["image", "video", "avatar"]
+    },
+    {
+      "id": "show-chart",
+      "group": "show",
+      "meaning": "Show a measured trend.",
+      "words": ["chart", "plot"]
+    },
+    {
+      "id": "field-message",
+      "group": "tell",
+      "meaning": "Tell the person about one field.",
+      "words": ["helper", "hint", "error"]
+    },
+    {
+      "id": "page-message",
+      "group": "tell",
+      "meaning": "Tell the person about the page.",
+      "words": ["message", "notice"]
+    },
+    {
+      "id": "toast",
+      "group": "tell",
+      "meaning": "Tell the person briefly, then leave.",
+      "words": ["toast"]
+    },
+    {
+      "id": "empty-state",
+      "group": "tell",
+      "meaning": "Tell the person there is nothing here yet.",
+      "words": ["empty"]
+    },
+    {
+      "id": "tooltip",
+      "group": "tell",
+      "meaning": "Tell the person more on hover or focus.",
+      "words": ["tooltip", "popover"]
+    },
+    {
+      "id": "tag",
+      "group": "mark",
+      "meaning": "Mark an item with a removable word.",
+      "words": ["tag", "chip"]
+    },
+    {
+      "id": "badge",
+      "group": "mark",
+      "meaning": "Mark an item with a short status.",
+      "words": ["badge", "pill"]
+    },
+    {
+      "id": "count",
+      "group": "mark",
+      "meaning": "Mark how many.",
+      "words": ["count", "counter"]
+    },
+    {
+      "id": "page-header",
+      "group": "structure",
+      "meaning": "Name the page and its main actions.",
+      "words": ["header"]
+    },
+    {
+      "id": "section",
+      "group": "structure",
+      "meaning": "Group a part of the page.",
+      "words": ["section", "accordion"]
+    },
+    {
+      "id": "card",
+      "group": "structure",
+      "meaning": "Group related content in one block.",
+      "words": ["card"]
+    },
+    {
+      "id": "tabs",
+      "group": "structure",
+      "meaning": "Switch between peer views.",
+      "words": ["tab", "tabs"]
+    },
+    {
+      "id": "step-indicator",
+      "group": "structure",
+      "meaning": "Show which step this is.",
+      "words": ["stepper", "wizard"]
+    },
+    {
+      "id": "dialog",
+      "group": "structure",
+      "meaning": "Hold a task above the page.",
+      "words": ["dialog", "modal"]
+    },
+    {
+      "id": "divider",
+      "group": "structure",
+      "meaning": "Separate two regions.",
+      "words": ["divider", "separator"]
+    },
+    {
+      "id": "breadcrumb",
+      "group": "structure",
+      "meaning": "Show the path to this page.",
+      "words": ["breadcrumb", "trail"]
+    }
+  ]
+}

@@ -17,7 +17,30 @@ export type DsciProposalType =
   | "recipe-update"
   | "variant-candidate"
   | "deprecation-candidate"
-  | "wrong-cousin";
+  | "wrong-cousin"
+  | "edge"
+  | "component-job"
+  | "job";
+
+/** Review state for an AI-proposed job or edge. Only `confirmed` ranks. Confirmation is Tanishk's. */
+export type GraphReviewState = "proposed" | "confirmed" | "denied";
+
+export interface DsciSuggestedEdge {
+  kind: "contains" | "used-with" | "stands-in-for" | "replaces";
+  fromId: string;
+  toId: string;
+}
+
+export interface DsciSuggestedComponentJob {
+  masterId: string;
+  jobId: string;
+}
+
+export interface DsciSuggestedJob {
+  id: string;
+  meaning: string;
+  words: string[];
+}
 
 export interface DsciEvidenceItem {
   frameId?: string;
@@ -150,6 +173,11 @@ export interface DsciProposal {
   suggestedNewRecipe?: Recipe;
   suggestedVariant?: DsciSuggestedVariant;
   suggestedDeprecation?: DsciSuggestedDeprecation;
+  /** AI proposal review. Absent on older rows, which keep `status`. */
+  review?: GraphReviewState;
+  suggestedEdge?: DsciSuggestedEdge;
+  suggestedComponentJob?: DsciSuggestedComponentJob;
+  suggestedJob?: DsciSuggestedJob;
   namingFix?: string;
   decisionNote?: string;
 }
