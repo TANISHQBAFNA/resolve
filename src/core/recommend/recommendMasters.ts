@@ -18,7 +18,7 @@ import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "../read/queryTokens";
 import { allSynonymGroups, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { finishRecommendCard, type Scored } from "./recommendMastersCard";
-import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentClauses, contiguousPhrase, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentClauses, contiguousPhrase, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SIZE_OR_A11Y, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { askRole, roleFit, statesCovered } from "./recommendRole";
 import { type RecommendContext } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
@@ -211,10 +211,15 @@ export function recommendMasters(
     }
   }
   for (const names of publicNameSets) for (const token of names) exactTerm.add(token);
-  const addedPluralStem = new Set<string>();
   const notAPlural = /(?:ss|us|is|ics|ous|ness)$/;
   const stateWord = new Set(["error", "empty", "failed", "failure", "disabled", "loading", "success", "pending", "invalid", "state"]);
-  for (const word of [...identity]) {
+  // A plain control, once it is a name hit, crowds out the part named by the other word.
+  const plainControl = new Set(["button", "cta", "action", "icon"]);
+  const partName = new Set<string>();
+  for (const names of publicNameSets) for (const token of names) if (!GENERIC_NAME_TOKENS.has(token)) partName.add(token);
+  const originalIdentity = [...identity];
+  let loneHeadStem: string | undefined;
+  for (const word of originalIdentity) {
     if (word.length < 4 || exactTerm.has(word) || notAPlural.test(word)) continue;
     const stems = [
       ...(/[^aeiou]ies$/.test(word) ? [`${word.slice(0, -3)}y`] : []),
@@ -223,8 +228,13 @@ export function recommendMasters(
     ];
     const stem = stems.find((item) => item.length >= 3 && exactTerm.has(item) && tokensOf(item).length > 0 && !stateWord.has(item) && item !== "message" && item !== "text");
     if (!stem || identity.has(stem)) continue;
+    const hasOther = originalIdentity.some((item) => item !== word);
+    // A single size word that is also a part name keeps the description. A longer ask still names the control.
+    const otherWords = originalIdentity.filter((item) => item !== word);
+    const onlySizedPart = otherWords.length === 1 && partName.has(otherWords[0]!) && SIZE_OR_A11Y.has(otherWords[0]!);
+    if (onlySizedPart && (GENERIC_NAME_TOKENS.has(stem) || plainControl.has(stem))) continue;
     identity.add(stem);
-    addedPluralStem.add(stem);
+    if (!hasOther && word === askedHead) loneHeadStem = stem;
   }
   if (xMeansClose(brief.role) && !askedTokens.includes("close")) askedTokens.push("close");
   // Exclusive family only when the slot is a component role and the intent is a
@@ -358,7 +368,7 @@ export function recommendMasters(
       intentNeedle === "header" || intentNeedle === "page header" || rawAsk.trim().toLowerCase() === "heading for a settings screen"
         ? undefined
     : askedHead
-      ? new Set([askedHead, ...[...addedPluralStem].filter((stem) => askedHead === `${stem}s` || askedHead === `${stem}es` || (stem.endsWith("y") && askedHead === `${stem.slice(0, -1)}ies`))])
+      ? new Set(loneHeadStem ? [askedHead, loneHeadStem] : [askedHead])
       : undefined,
     );
     const extraHits = extraTokens.length
