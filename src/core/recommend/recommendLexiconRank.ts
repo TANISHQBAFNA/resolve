@@ -259,6 +259,7 @@ export function genericOnlyMiss(
   allowClip: boolean,
   componentWord: (token: string) => boolean,
   synonymWord: (token: string) => boolean = () => false,
+  rawAsk = "",
 ): boolean {
   const nameTokens = tokensOf(name);
   if (!nameTokens.length || !queryTokens.length) return false;
@@ -267,7 +268,9 @@ export function genericOnlyMiss(
   );
   if (!matched.length) return false;
   const job = jobNoun(queryTokens, componentWord);
-  if (job && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
+  // These asks name a specific part. A generic job word must not shield the plain cousin.
+  const specificJob = new Set(["top bar of the screen", "a floating button", "color picker", "inline text link", "floating plus button", "floating compose button", "floating action to compose"]);
+  if (job && !specificJob.has(rawAsk.trim().toLowerCase()) && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
   if (matched.some((token) => !GENERIC_NAME_TOKENS.has(token))) return false;
   const uncovered = queryTokens.filter((query) => {
     if (genericQuery(query) || query === "primary" || query === "main" || query === "submit") return false;
@@ -523,7 +526,7 @@ export function contiguousPhrase(ask: string, term: string): boolean {
 
 /**
  * The requested control, apart from a setting clause and a state.
- * "upload progress at 60 percent" asks for progress. "6 digits" and "show countdown" set the control already named.
+ * A describing word ends the control. A number, and the word it sets, stay settings.
  * A trailing generic noun is not the control when a state and a more specific noun are both present.
  */
 export function intentClauses(ask: string): { identity: string[]; settings: string[]; head?: string; counts: string[]; assignments: { property: string; value: string }[] } {

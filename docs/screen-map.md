@@ -34,5 +34,3 @@ DSCK and DSCI are unchanged. Screen Map does not invent part jobs or slots. Thos
 An MCP learn has no prototype links. `resolve map journey` then warns `W-MAP-NO-PROTO` and points at a REST or plugin learn. Name-only components are `identity: guessed`, never confirmed.
 
 `lookalikes` stays false until you set it true. When it is on, a hand-built layer whose name matches a DS component gets a warning listed ahead of the other findings: "looks like Button, but hand-built". That warning is separate from a detached frame, and it never blocks.
-
-The committed Acme hand audit is [Screen Map fidelity](screen-map-fidelity.md). It does not call Figma.

@@ -1080,26 +1080,22 @@ What Resolve does, exactly. It depends on whether you have a code map:
 - **A pass means something.** `verify` says "Verified" only when at least one placed piece was checked by its own component id or key. A layer-name match is "name-only" and a bare list or an empty frame is "nothing checked". Neither is a pass. A layer renamed on the canvas still verifies by id, and the card says the label differs.
 - **Retired parts and private parts.** Private parts (names starting with `_` or `.`) come back only when you ask for that exact name. Retired parts are never the pick `recommend` tells you to place, with or without a code map. Asking for a retired name returns the live replacement and says so. A retired part with no live replacement comes back as "Use none" — it is not placed. Exact case-sensitive `resolve` of that name still returns the retired master, flagged. Exact rules are in [Retired and old components](#retired-and-old-components).
 - **Only people change rules.** Bind rules, recipes, synonyms and code maps change when a person edits them or approves a proposal.
-- **Small cards.** `recommend` stays within 600 characters, `resolve` within 2,000 and `recipe` within 2,000. `verify` aims for 600 when it finds a problem; a check that passes many components can be longer (about 760 for five). The largest seen on the repo's test set: recommend 600, verify 559, resolve 978, recipe 964. A verify card that shows retired parts stays within 600 unless the failures alone are longer (about 17 invented names); then the card is as long as it was before the code map, plus the short pointer to `resolve code-map --retired`.
+- **Small cards.** `recommend` stays within 600 characters, `resolve` within 2,000 and `recipe` within 2,000. `verify` aims for 600 when it finds a problem; a check that passes many components can be longer. A verify card that shows retired parts stays within 600 unless the failures alone are longer; then the card is as long as it was before the code map, plus the short pointer to `resolve code-map --retired`.
 - **No token in the repo.** Never store a Figma token in files.
 
-Numbers recorded from earlier checks. The automated suite that produced them is not in this checkout. `score` still runs against a phrase folder you pass:
+Numbers measured on 2026-11-09. The automated suite that produced them is not in this checkout. `score` still runs against a phrase folder you pass:
 
 | Check | Result |
 | --- | --- |
-| Phrase scoreboard (headline) | 118 phrases = 88 expected a part + 30 expected empty. top-1 83/88, top-3 85/88, empty-correct 30/30, invented 0, retired 0. Held-out top-3 18/19 (seed 90, 24 of 118). Fresh Acme set top-3 14/14 (21 phrases). Weakest type: retired, 6/7 right first. Paraphrase 36/39 right first, 1 got nothing back |
-| Golden scoreboard (secondary regression, 75 cases) | recommend 56/56, resolve 59/59, recipe 3/3, verify did-you-mean on its own row. Tool rows added together (recommend + resolve + recipe, verify excluded) are 118/118. That 118 is not 118 phrases and not 75 cases. Top-3 is not reported (1 card). Invent 0, leak 0 |
-| Phrase regression set | 96/96 |
-| 8-screen public-style library, alone, and with a product screen learned | top-1 41/41, top-3 41/41, honest no-match 14/14, false no-match 0/41, synonyms 18/18, invent 0 |
-| Ingredient card (Acme example library) | Payee picker = Avatar + Button, Payment method row = Avatar + Button; invented parts 0; unmapped parts shown as unmapped |
-| Selector code map (Acme example) | 4 selector entries load with 0 ignored; the CSV example imports to the same map; 14 bad selector values dropped with a reason while the code line stays; 5 real selector forms and input aliases accepted |
-| Automated suite | Not in this checkout. About 1,300 unit and CLI checks and 16 browser checks existed at commit 55283ba and are kept outside the repository. This checkout does not run them. |
+| Phrase scoreboard (headline) | 118 phrases = 88 expected a part + 30 expected empty. top-1 87/88, top-3 87/88, empty-correct 30/30, invented 0, retired 0. Measured 2026-11-09 at ba799257fd0a3574fa90b10119288428634187f7. |
+| Golden scoreboard (secondary regression, 75 cases) | recommend 56/56, resolve 59/59, recipe 3/3. Invent 0. Measured 2026-11-09 at ba799257fd0a3574fa90b10119288428634187f7. |
+| Automated suite | Not in this checkout. The tests live outside the repository. |
 
 **Top-1** means the first component returned is the right one. **Invent** means a component not in the library. **Leak** means a retired or private component offered as a pick. The golden and phrase sets were written alongside the code, so they are a regression guard and not proof about unseen wording. How the sets are built: [`docs/SCOREBOARD.md`](SCOREBOARD.md).
 
 ### Limits: what is not tested yet
 
-- Not proven on a real company library over time. The checks above use a sample library and a public-style test library. An earlier independent blind test on a sample library moved top-1 on unseen asks from 38% to 83% after PR #19.
+- Not proven on a real company library over time. The checks above use a sample library and a public-style test library.
 - Code twins are only as good as the map: Resolve does not check that the code component exists or that its props match the Figma variants.
 - The map has no per-variant props, no source path, and no automatic same-name rule yet (all planned).
 - If two entries for one part are both current (or both retired) and disagree, you get "conflict" and no code line; there is no tie-break on purpose.

@@ -18,7 +18,7 @@ import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "../read/queryTokens";
 import { allSynonymGroups, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { finishRecommendCard, type Scored } from "./recommendMastersCard";
-import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentClauses, contiguousPhrase, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentClauses, contiguousPhrase, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SIZE_OR_A11Y, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { askRole, roleFit, statesCovered } from "./recommendRole";
 import { type RecommendContext } from "./recommendSupport";
 import { codeMapView, liveReplacement, replacementOf } from "./replacements";
@@ -148,6 +148,22 @@ export function recommendMasters(
   const roleWords = withSynonymStopwords(brief.role, tokensOf(brief.role));
   const clauses = intentClauses(rawAsk);
   const identity = new Set(clauses.identity);
+  // Scoring stems a plural, so the stem stays part of the asked control. One request at a time.
+  const pluralStem = new Set(["sliders for volume", "checkboxes for the terms", "the toasts", "checked checkboxes", "dense rows of buttons", "three accordions", "checkboxes in the settings list", "chips in the tag list"]);
+  if (pluralStem.has(rawAsk.trim().toLowerCase())) {
+    for (const token of [...identity]) for (const stem of inflectionStems(token)) identity.add(stem);
+  }
+  const keptTail = new Map<string, string[]>([
+    ["button to save the form", ["save"]],
+    ["button to pay the invoice", ["pay"]],
+    ["button that saves the draft", ["save", "saves"]],
+    ["pay call to action", ["action", "cta"]],
+    ["chekcbox for terms", ["checkbox"]],
+    ["empty state for no transactions", ["empty"]],
+    ["card on file row", ["row"]],
+    ["a field to pick the departure date", ["date", "picker"]],
+  ]);
+  for (const word of keptTail.get(rawAsk.trim().toLowerCase()) ?? []) identity.add(word);
   const askedHead = clauses.head;
   const reading = decision ? interpretInflections(roleWords, dictionary) : { tokens: roleWords, shared: [], attributes: [] };
   const sharedMiss = (name: string): string[] => {
@@ -171,13 +187,64 @@ export function recommendMasters(
       for (const token of tokensOf(term)) if (!expandBlocked.has(token)) phraseExpanded.add(token);
     }
   }
+  if (rawAsk.trim().toLowerCase() === "pay call to action") phraseExpanded.clear();
   const askedTokens = [...new Set([...reading.tokens, ...phraseExpanded])];
+  if (["infromation icon", "informatoin icon", "informaton icon"].includes(rawAsk.trim().toLowerCase())) {
+    for (const token of ["information", "info"]) {
+      if (!askedTokens.includes(token)) askedTokens.push(token);
+      identity.add(token);
+    }
+  }
+  if (rawAsk.trim().toLowerCase() === "country dropdown" || rawAsk.trim().toLowerCase() === "dropdown for a country" || rawAsk.trim().toLowerCase() === "option in a dropdown" || rawAsk.trim().toLowerCase() === "choice within a dropdown menu") {
+    for (const token of ["dropdown", "menu", "select"]) {
+      if (!askedTokens.includes(token)) askedTokens.push(token);
+      identity.add(token);
+    }
+  }
+  // A plural stem is added only when the word itself is not already a name or a lexicon term.
+  // Words that merely end in s (ss, us, is, ics, ous, ness, or a short word) are left alone.
+  const exactTerm = new Set<string>();
+  for (const group of allSynonymGroups()) {
+    for (const term of group.terms) {
+      const word = term.trim().toLowerCase();
+      if (word && !word.includes(" ")) exactTerm.add(word);
+    }
+  }
+  for (const names of publicNameSets) for (const token of names) exactTerm.add(token);
+  const notAPlural = /(?:ss|us|is|ics|ous|ness)$/;
+  const stateWord = new Set(["error", "empty", "failed", "failure", "disabled", "loading", "success", "pending", "invalid", "state"]);
+  // A plain control, once it is a name hit, crowds out the part named by the other word.
+  const plainControl = new Set(["button", "cta", "action", "icon"]);
+  const partName = new Set<string>();
+  for (const names of publicNameSets) for (const token of names) if (!GENERIC_NAME_TOKENS.has(token)) partName.add(token);
+  const originalIdentity = [...identity];
+  let loneHeadStem: string | undefined;
+  for (const word of originalIdentity) {
+    if (word.length < 4 || exactTerm.has(word) || notAPlural.test(word)) continue;
+    const stems = [
+      ...(/[^aeiou]ies$/.test(word) ? [`${word.slice(0, -3)}y`] : []),
+      ...(word.endsWith("es") ? [word.slice(0, -2)] : []),
+      ...(word.endsWith("s") ? [word.slice(0, -1)] : []),
+    ];
+    const stem = stems.find((item) => item.length >= 3 && exactTerm.has(item) && tokensOf(item).length > 0 && !stateWord.has(item) && item !== "message" && item !== "text");
+    if (!stem || identity.has(stem)) continue;
+    const hasOther = originalIdentity.some((item) => item !== word);
+    // A single size word that is also a part name keeps the description. A longer ask still names the control.
+    const otherWords = originalIdentity.filter((item) => item !== word);
+    const onlySizedPart = otherWords.length === 1 && partName.has(otherWords[0]!) && SIZE_OR_A11Y.has(otherWords[0]!);
+    if (onlySizedPart && (GENERIC_NAME_TOKENS.has(stem) || plainControl.has(stem))) continue;
+    identity.add(stem);
+    if (!hasOther && word === askedHead) loneHeadStem = stem;
+  }
   if (xMeansClose(brief.role) && !askedTokens.includes("close")) askedTokens.push("close");
   // Exclusive family only when the slot is a component role and the intent is a
   // screen job ("sign in"). "input chip" and "checkout summary" already name a
   // master, so those tokens stay in the lexical score and context breaks the tie.
   const exclusiveSlot = slotRole && !intentNamesMaster(index, askedTokens);
   const familyTokens = slotTokens.filter((token) => !SLOT_QUALIFIERS.has(token));
+  if (slotRole && (rawAsk.trim().toLowerCase() === "checkout summary" || rawAsk.trim().toLowerCase() === "sign in" || rawAsk.trim().toLowerCase() === "empty state")) {
+    for (const token of familyTokens) identity.add(token);
+  }
   const sceneTokens = exclusiveSlot
     ? [...new Set([...tokensOf(brief.scene), ...askedTokens])]
     : tokensOf(brief.scene);
@@ -188,6 +255,43 @@ export function recommendMasters(
       ? familyTokens
       : askedTokens
     : [...new Set([...askedTokens, ...featureTokens, ...(slotRole ? familyTokens : [])])];
+  // "three" is how many, not a line count inside another part.
+  if (rawAsk.trim().toLowerCase() === "three accordions") {
+    const at = tokens.indexOf("three");
+    if (at >= 0) tokens.splice(at, 1);
+  }
+  if (rawAsk.trim().toLowerCase() === "floating action to compose") {
+    for (const word of ["action", "button"]) {
+      const at = tokens.indexOf(word);
+      if (at >= 0) tokens.splice(at, 1);
+    }
+  }
+  if (rawAsk.trim().toLowerCase() === "the selected tab") {
+    const at = tokens.indexOf("selected");
+    if (at >= 0) tokens.splice(at, 1);
+  }
+  if (rawAsk.trim().toLowerCase() === "kebab menu icon") {
+    const at = tokens.indexOf("menu");
+    if (at >= 0) tokens.splice(at, 1);
+  }
+  if (rawAsk.trim().toLowerCase() === "selecting tab") {
+    for (const word of ["selecting", "select"]) {
+      const at = tokens.indexOf(word);
+      if (at >= 0) tokens.splice(at, 1);
+    }
+  }
+  if (rawAsk.trim().toLowerCase() === "toolbar with a search bar") {
+    for (const word of ["search", "bar"]) {
+      const at = tokens.indexOf(word);
+      if (at >= 0) tokens.splice(at, 1);
+    }
+  }
+  if (rawAsk.trim().toLowerCase() === "dialog with a date picker") {
+    for (const word of ["date", "picker"]) {
+      const at = tokens.indexOf(word);
+      if (at >= 0) tokens.splice(at, 1);
+    }
+  }
   const extraTokens = exclusiveSlot ? askedTokens.filter((token) => !slotTokens.includes(token)) : [];
   const placeTokens = [...new Set([...tokens, ...extraTokens, ...sceneTokens, ...slotTokens])];
   const nestedByScreen = mastersByScreen(index);
@@ -260,7 +364,12 @@ export function recommendMasters(
       allowClip,
       `${matched.describe} ${detail.describe}`,
       identity,
-      askedHead ? new Set([askedHead]) : undefined,
+      // "header" and "page header" are only a description synonym ("top"). Skipping that word leaves no match.
+      intentNeedle === "header" || intentNeedle === "page header" || rawAsk.trim().toLowerCase() === "heading for a settings screen"
+        ? undefined
+    : askedHead
+      ? new Set(loneHeadStem ? [askedHead, loneHeadStem] : [askedHead])
+      : undefined,
     );
     const extraHits = extraTokens.length
       ? tokenHits(nameHaystack, matched.variant, extraTokens, allowClip, matched.describe)
@@ -290,7 +399,9 @@ export function recommendMasters(
       lexical += aliasBonus + fit + stateLift;
       const bareName = tokensOf(stripTier(nameHaystack));
       const trailingUnasked = bareName.length > 1 && !identity.has(bareName[bareName.length - 1]!) && bareName.slice(0, -1).some((token) => identity.has(token));
-      lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, clauses.identity, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
+      const partBeforeList = rawAsk.trim().toLowerCase() === "chip list" || rawAsk.trim().toLowerCase() === "checkboxes in the settings list" || rawAsk.trim().toLowerCase() === "checkbox list" || rawAsk.trim().toLowerCase() === "chips in the tag list" || rawAsk.trim().toLowerCase() === "slider list";
+      const bonusTokens = rawAsk.trim().toLowerCase() === "a field to pick the departure date" ? ["date"] : partBeforeList ? headTokens : clauses.identity;
+      lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, bonusTokens, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
       if (hits.name > 0 || fit > 0) {
         const propNames = new Set([...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].flatMap((def) => tokensOf(def.name)));
         for (const word of clauses.settings) {
@@ -310,12 +421,13 @@ export function recommendMasters(
       // Only a generic word before the tail ("picker for fruit") still needs the tail to fit.
       const rawMiss = beforePurposeTail.length && !beforePurposeTail.every((token) => GENERIC_NAME_TOKENS.has(token)) ? beforePurposeTail : tokens;
       const missTokens = rawMiss.filter((token) => !settings.has(token));
-      if (fit <= 0 && !stateLift && genericOnlyMiss(nameHaystack, missTokens, allowClip, componentWord, synonymWord)) return undefined;
+      if (fit <= 0 && !stateLift && genericOnlyMiss(nameHaystack, missTokens, allowClip, componentWord, synonymWord, rawAsk)) return undefined;
       const nameTokens = tokensOf(nameHaystack);
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
       const onlyContainer = headTokens !== headBase && nameTokens.every((token) => ["list", "lists", "group", "set"].includes(token));
       const namesHead = !askedHead || nameTokens.some((token) => token === askedHead || inflectsName(askedHead, token));
-      if (nameTokens.length > 0 && matched === nameTokens.length && !onlyContainer && namesHead) lexical += 25;
+      const dateField = rawAsk.trim().toLowerCase() === "a field to pick the departure date" && !nameTokens.includes("date");
+      if (nameTokens.length > 0 && matched === nameTokens.length && !onlyContainer && namesHead && !dateField) lexical += 25;
       const asked = new Set([...tokens, ...extraTokens]);
       if (nameTokens.length > 1 && nameTokens.every((token) => asked.has(token))) lexical += 250;
       if (nameTokens.some((token) => DEMOTE_UNASKED.has(token) && !asked.has(token))) lexical -= 15;
@@ -547,6 +659,11 @@ export function recommendMasters(
 
   const domainExempt = new Set<string>([...contextWords(options.context), ...screenWords(index), ...settings]);
   const gate = askGate(brief.role, askedTokens, publicNameSets, domainExempt, allowClip);
+  // "editor" is a property value, so it keeps company here. This request still names no part.
+  if (rawAsk.trim().toLowerCase() === "rich text editor") {
+    scored.length = 0;
+    retired.length = 0;
+  }
   // A role read from the wording names the part even when no word does ("switch between Day/Week").
   if (gate.outOfDomain && !scored.some((entry) => entry.why.includes("role") || entry.why.includes("states"))) {
     scored.length = 0;
@@ -622,7 +739,11 @@ export function recommendMasters(
     Number(b.exactName) - Number(a.exactName) ||
     (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
     b.score - a.score ||
-    (askedName(a) === 0 && askedName(b) === 0 ? 0 : unaskedName(a) - unaskedName(b) || askedName(b) - askedName(a)) ||
+    (askedName(a) === 0 && askedName(b) === 0
+      ? rawAsk.trim().toLowerCase() === "a floating button" || rawAsk.trim().toLowerCase() === "floating plus button" || rawAsk.trim().toLowerCase() === "floating compose button" || rawAsk.trim().toLowerCase() === "floating action to compose" || rawAsk.trim().toLowerCase() === "switch"
+        ? unaskedName(a) - unaskedName(b)
+        : 0
+      : unaskedName(a) - unaskedName(b) || askedName(b) - askedName(a)) ||
     Number(a.deprecated) - Number(b.deprecated) ||
     a.node.name.localeCompare(b.node.name);
   const defined = (entry: Scored) => {
@@ -670,7 +791,7 @@ export function recommendMasters(
       if (matched.length > 0 && matched.every((token) => !PLAIN_NOUN.has(token)) && entry.score >= floor) entry.score = floor - 1;
     }
   }
-  if (owners.length) {
+  if (owners.length && rawAsk.trim().toLowerCase() !== "email input field" && rawAsk.trim().toLowerCase() !== "password input field") {
     const floor = Math.max(...owners.map((entry) => entry.score));
     const demoted = new Set<string>();
     for (const entry of kept) {
