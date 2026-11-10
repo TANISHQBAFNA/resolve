@@ -638,6 +638,7 @@ export {
   plainNounOverComposite,
   finishRank,
   nameTokenFor,
+  pluralHeadStem,
   tokenHits,
   repeatedSynonym,
   lexicalScore,
