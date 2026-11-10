@@ -4,7 +4,7 @@ import { setOf } from "@/core/rules/family";
 import { collapsedName, isNameInferredMaster, isPrivateMasterName } from "@/core/rules/names";
 import type { GraphIndex } from "../read/GraphIndex";
 import { familyNameOf, MASTER_TYPES } from "../read/masterNames";
-import { CHOOSE, DESCRIBING_WORD, ENTRY_NOUN, FILLER_HEAD, GENERIC_NAME_TOKENS, navFamily, tokensOf } from "../read/queryTokens";
+import { CHOOSE, DESCRIBING_WORD, ENTRY_NOUN, FILLER_HEAD, GENERIC_NAME_TOKENS, navFamily, STOPWORDS, tokensOf } from "../read/queryTokens";
 import { adjacentSwap, typoHeavy, wordSlip } from "../read/typo";
 import { allSynonymGroups, artShelf, fromIconLibrary, iconShelf, SYNONYM_OF } from "./recommendContext";
 import type { WorkspaceManifest } from "../read/workspace";
@@ -621,8 +621,16 @@ export function tokenHits(
   }
   const pending: string[] = [];
   const variantOnly: string[] = [];
+  const inIdentity = (token: string) => {
+    if (!identity) return true;
+    if (identity.has(token)) return true;
+    // The ask was rewritten to the singular. The plural surface is still the asked control.
+    // A stopword or a state word is not that control: the singular ask does not name a part either.
+    if (STOPWORDS.has(token) || STATE_WORD.has(token)) return false;
+    return identity.has(`${token}s`) || identity.has(`${token}es`) || (token.endsWith("y") && identity.has(`${token.slice(0, -1)}ies`));
+  };
   for (const token of tokens) {
-    if (identity && !identity.has(token)) {
+    if (identity && !inIdentity(token)) {
       variantOnly.push(token);
       continue;
     }

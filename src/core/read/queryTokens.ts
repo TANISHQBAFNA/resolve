@@ -1,7 +1,7 @@
 /** Recommend tokenizer. Stopwords stay here so other rankers keep their own lists. */
 
 
-const STOPWORDS = new Set([
+export const STOPWORDS = new Set([
   "a",
   "an",
   "the",

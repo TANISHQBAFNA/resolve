@@ -320,7 +320,11 @@ export function recommendMasters(
       `${matched.describe} ${detail.describe}`,
       identity,
       // "header" and "page header" are only a description synonym ("top"). Skipping that word leaves no match.
-      intentNeedle === "header" || intentNeedle === "page header" || rawAsk.trim().toLowerCase() === "heading for a settings screen" ? undefined : askedHead ? new Set([askedHead]) : undefined,
+      intentNeedle === "header" || intentNeedle === "page header" || rawAsk.trim().toLowerCase() === "heading for a settings screen"
+        ? undefined
+        : askedHead
+          ? new Set([askedHead, ...(askedHead.endsWith("s") && !askedHead.endsWith("ss") && askedHead.length > 3 ? [askedHead.slice(0, -1)] : [])])
+          : undefined,
     );
     const extraHits = extraTokens.length
       ? tokenHits(nameHaystack, matched.variant, extraTokens, allowClip, matched.describe)
