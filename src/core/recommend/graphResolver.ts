@@ -24,6 +24,7 @@ import {
  */
 
 export interface GraphLead {
+  id: string;
   lead: string;
   weak: boolean;
   empty: boolean;
@@ -114,7 +115,7 @@ function replacement(graph: ComponentGraph, node: ComponentNode): ComponentNode 
 }
 
 function emptyLead(jobs: string[]): GraphLead {
-  return { lead: "", weak: false, empty: true, jobs, evidence: [], next: "No component holds this job." };
+  return { id: "", lead: "", weak: false, empty: true, jobs, evidence: [], next: "No component holds this job." };
 }
 
 /** Resolve one ask through the component graph. The word scorer is not called. */
@@ -172,6 +173,7 @@ export function resolveByGraph(index: GraphIndex, ask: string, input: GraphResol
   if (identity) {
     const note = variantNote(identity, attributes);
     return {
+      id: identity.id,
       lead: identity.name,
       weak: false,
       empty: false,
@@ -275,7 +277,7 @@ export function resolveByGraph(index: GraphIndex, ask: string, input: GraphResol
       .sort((a, b) => b.ties - a.ties || a.node.synonyms.length - b.node.synonyms.length || a.node.name.localeCompare(b.node.name));
     const lead = weak[0];
     if (!lead) return emptyLead(jobIds);
-    return { lead: lead.node.name, weak: true, empty: false, jobs: jobIds, evidence: ["tie-break"] };
+    return { id: lead.node.id, lead: lead.node.name, weak: true, empty: false, jobs: jobIds, evidence: ["tie-break"] };
   }
   const best = Math.max(...pool.map((row) => row.score));
   let band = pool.filter((row) => row.score === best);
@@ -288,6 +290,7 @@ export function resolveByGraph(index: GraphIndex, ask: string, input: GraphResol
   if (!winner) return emptyLead(jobIds);
   const note = variantNote(winner.node, attributes);
   return {
+    id: winner.node.id,
     lead: winner.node.name,
     weak: false,
     empty: false,
