@@ -1069,6 +1069,6 @@ export function recommendMasters(
     bindQuery,
     lowConfidence,
   });
-  noteGraphShadow(index, rawAsk, options);
+  noteGraphShadow(index, rawAsk, options, card);
   return card;
 }

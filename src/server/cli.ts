@@ -78,6 +78,7 @@ import {
   scoreGraph,
 } from "@/core/recommend/scoreboard";
 import { formatPhraseTable, isSampleLibrary, loadPhraseCases, phraseExitCode, scorePhrases } from "@/core/recommend/phraseScore";
+import { formatShadowSummary, summarizeShadowReport } from "@/core/recommend/graphShadowReport";
 import {
   clearCache,
   deleteGraph,
@@ -763,6 +764,23 @@ async function dispatchCli(argv: string[]): Promise<void> {
       const report = statusReport();
       if (args.includes("--json")) printJson(report);
       else process.stdout.write(`${presentToolResult(report, "markdown", "status")}\n`);
+      return;
+    }
+
+    case "graph-shadow": {
+      const file = positionals(args)[0];
+      if (!file) throw new Error("Usage: resolve graph-shadow <report.jsonl>");
+      const target = resolve(file);
+      if (!existsSync(target) || !statSync(target).isFile()) throw new Error(`No shadow report at ${target}.`);
+      let text: string;
+      try {
+        text = readFileSync(target, "utf8");
+      } catch {
+        throw new Error(`Could not read ${target}.`);
+      }
+      const summary = summarizeShadowReport(text);
+      if (args.includes("--json")) printJson(summary);
+      else process.stdout.write(formatShadowSummary(summary));
       return;
     }
 
