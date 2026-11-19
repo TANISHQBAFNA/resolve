@@ -17,11 +17,6 @@ export interface AskRole {
   standIn?: { words: ReadonlySet<string>; part: string };
 }
 
-/** Parts most libraries lack, and the part that stands in, named: a progress bar for a score, a list for a timeline. */
-const STAND_INS: [string, string, string][] = [
-  ["score", "progress", "a score"],
-  ["timeline", "list", "a timeline"],
-];
 const DISPLAY_ONLY = new Set(["summary", "badge", "label", "tag", "text", "card", "chip", "avatar", "banner"]);
 const CHANGE_VERB = /\b(?:chang(?:e|ed|es|ing)|switch(?:ed|es|ing)? between|swap(?:ped|s)?|edit(?:ed|able)? inline)\b/;
 /** "(To do, In progress, Done)", "To do, In progress or Done", "Day/Week". */
@@ -84,12 +79,6 @@ export function askRole(ask: string): AskRole | undefined {
       avoid: new Set(["badge", "label", "tag", "text", "dialog", "modal", "card"]),
       ...(count ? { values: new Set([count]) } : {}),
     };
-  }
-  // "match score", "timeline of match events": a part named so still wins; else the stand-in, named. "score card" is a card.
-  const missingPart = STAND_INS.find(([word]) => words.includes(word));
-  if (missingPart && !words.some((word) => PLAIN_NOUN.has(word))) {
-    const [word, standIn, part] = missingPart;
-    return { kind: "stand-in", want: new Set([word]), avoid: new Set(), standIn: { words: new Set([standIn]), part } };
   }
   return undefined;
 }

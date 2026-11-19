@@ -259,7 +259,7 @@ export function genericOnlyMiss(
   allowClip: boolean,
   componentWord: (token: string) => boolean,
   synonymWord: (token: string) => boolean = () => false,
-  rawAsk = "",
+  _rawAsk = "",
 ): boolean {
   const nameTokens = tokensOf(name);
   if (!nameTokens.length || !queryTokens.length) return false;
@@ -268,9 +268,7 @@ export function genericOnlyMiss(
   );
   if (!matched.length) return false;
   const job = jobNoun(queryTokens, componentWord);
-  // These asks name a specific part. A generic job word must not shield the plain cousin.
-  const specificJob = new Set(["top bar of the screen", "a floating button", "color picker", "inline text link", "floating plus button", "floating compose button", "floating action to compose"]);
-  if (job && !specificJob.has(rawAsk.trim().toLowerCase()) && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
+  if (job && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
   if (matched.some((token) => !GENERIC_NAME_TOKENS.has(token))) return false;
   const uncovered = queryTokens.filter((query) => {
     if (genericQuery(query) || query === "primary" || query === "main" || query === "submit") return false;

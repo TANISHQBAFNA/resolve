@@ -1,4 +1,5 @@
 import { codeValueWarnings } from "@/core/codeMap/codeValueGaps";
+import { pickByCatalog, type GraphPick } from "./catalogGraph.ts";
 import { byCode, type CatalogEntry, type CodeCatalog } from "./scan.ts";
 import { nameWords, RELATED, stem, tokens } from "./words.ts";
 
@@ -49,7 +50,55 @@ function score(entry: CatalogEntry, terms: Map<string, number>, rarity: (word: s
 export const rankOrder = (a: { total: number; entry: CatalogEntry }, b: { total: number; entry: CatalogEntry }) =>
   Math.round(b.total * 1e6) - Math.round(a.total * 1e6) || (a.entry.kind === b.entry.kind ? 0 : a.entry.kind === "block" ? -1 : 1) || byCode(a.entry.name, b.entry.name);
 
+function graphCards(catalog: CodeCatalog, query: string, limit: number) {
+  const ranked = pickByCatalog(catalog.components, query).slice(0, Math.max(1, Math.min(limit, 3)));
+  const byName = new Map(catalog.components.map((entry) => [entry.name, entry]));
+  const components = ranked.flatMap((pick) => {
+    const entry = byName.get(pick.name);
+    return entry ? [cardFor(entry, pick)] : [];
+  });
+  return {
+    query,
+    components,
+    ...(components.length
+      ? { guidance: "Use the first pick. Its settings are values the component file allows. A low confidence means ask before placing it." }
+      : { message: "No component matches. Say so; do not invent a class. Try other words or list components with resolve code scan." }),
+  };
+}
+
+function cardFor(entry: CatalogEntry, pick: GraphPick) {
+  const code = entry.code;
+  const primary = code?.primary ?? "";
+  return {
+    name: entry.name,
+    kind: entry.kind,
+    score: pick.score,
+    description: entry.description,
+    ...(entry.status ? { status: entry.status } : {}),
+    settings: pick.settings,
+    states: pick.states,
+    reasons: pick.reasons,
+    confidence: pick.confidence,
+    edges: pick.edges,
+    variants: entry.variants.slice(0, 16),
+    ...(code
+      ? {
+          classes: code.roots,
+          markup: code.markup,
+          css: code.cssFile,
+          modifiers: [...(code.modifiers[primary] ?? []), ...Object.entries(code.modifiers).filter(([root]) => root !== primary).flatMap(([, list]) => list)].slice(0, 20),
+          ...(code.deprecated.length ? { avoid: code.deprecated.map((c) => `.${c}`) } : {}),
+          elements: code.elements.slice(0, 12),
+        }
+      : {}),
+    rules: entry.rules,
+    ...(entry.aliases ? { aliases: entry.aliases } : {}),
+    ...(entry.figma ? { figma: entry.figma, matchedBy: entry.matchedBy, ...(entry.figmaAlso ? { figmaAlso: entry.figmaAlso } : {}), ...codeValueWarnings(entry.figma.properties, code?.modifiers) } : {}),
+  };
+}
+
 export function pickComponents(catalog: CodeCatalog, query: string, limit = 5) {
+  if (catalog.components.some((entry) => entry.spec)) return graphCards(catalog, query, limit);
   const terms = new Map<string, number>();
   for (const word of tokens(query)) {
     terms.set(word, 1);
