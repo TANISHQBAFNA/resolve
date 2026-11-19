@@ -19,8 +19,9 @@ import {
 } from "./componentGraph";
 
 /**
- * Shadow resolver. It explains a lead from the component graph.
- * Callers that serve designers keep returning the word scorer.
+ * Resolve a lead from the component graph. Confirmed jobs and extracted
+ * edges count. A proposed edge does not. The word scorer is only a fallback
+ * when this returns no lead.
  */
 
 export interface GraphLead {
