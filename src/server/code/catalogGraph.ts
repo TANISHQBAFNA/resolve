@@ -69,6 +69,10 @@ function cite(spec: CatalogSpec, field: string): Provenance {
   return { source: "code", file: spec.file, field };
 }
 
+function affirmed(text: string, pattern: RegExp): boolean {
+  return text.split(/(?<=\.)\s+/).some((sentence) => pattern.test(sentence) && !/\bnot\b|\bnever\b|n't/i.test(sentence));
+}
+
 function jobsOf(spec: CatalogSpec): NodeFacts["jobs"] {
   const jobs: NodeFacts["jobs"] = [];
   const add = (id: string, evidence: string, confidence = 1) => {
@@ -76,15 +80,16 @@ function jobsOf(spec: CatalogSpec): NodeFacts["jobs"] {
     jobs.push({ id, evidence: evidence.trim(), confidence });
   };
   const a11y = spec.a11y.join(" ");
-  if (/radiogroup/i.test(a11y)) add("choose-one", a11y);
-  if (/tablist|role=["']tab["']/i.test(a11y)) add("switch-view", a11y);
-  if (/role=["']switch["']/i.test(a11y)) add("on-off", a11y);
-  if (/\bdialog\b|alertdialog/i.test(a11y)) add("confirm", a11y);
-  if (/listbox|combobox/i.test(a11y)) add("pick-list", a11y);
-  if (/navigation/i.test(a11y)) add("navigate", a11y);
+  if (affirmed(a11y, /radiogroup/i)) add("choose-one", a11y);
+  if (affirmed(a11y, /tablist|role=["']tab["']/i)) add("switch-view", a11y);
+  if (affirmed(a11y, /role=["']switch["']/i)) add("on-off", a11y);
+  if (affirmed(a11y, /\bdialog\b|alertdialog/i)) add("confirm", a11y);
+  if (affirmed(a11y, /listbox|combobox/i)) add("pick-list", a11y);
+  if (affirmed(a11y, /\bnavigation\b/i)) add("navigate", a11y);
   for (const rule of spec.do) {
     if (/side navigation/i.test(rule)) add("navigate", rule);
     if (/app bar/i.test(rule)) add("app-bar", rule);
+    if (/float it|temporary confirmation/i.test(rule)) add("toast", rule);
     if (/system reports|system status/i.test(rule)) add("report-status", rule);
     if (/inside tables/i.test(rule)) add("report-status", rule, 0.9);
     if (/splits by status|filter tabs/i.test(rule)) add("filter-split", rule);
@@ -129,15 +134,28 @@ function factsOf(entry: CatalogEntry): NodeFacts | undefined {
   };
 }
 
-const USE = /use (?:a |an |the )?(?:recipes\/)?([a-z][a-z0-9-]{1,40})/gi;
+const USE = /use (?:a |an |the )?(?:recipes\/)?([a-z][a-z0-9-]+(?: [a-z][a-z0-9-]+){0,3})/gi;
 
-function targetName(raw: string, names: Set<string>): string | undefined {
-  const id = raw.toLowerCase();
-  if (names.has(id)) return id;
-  if (id === "radio") return [...names].find((name) => name.includes("radio"));
-  if (id === "badge") return names.has("badge") ? "badge" : undefined;
-  if (id === "tabs") return names.has("tabs") ? "tabs" : undefined;
-  return [...names].find((name) => name === id || name.endsWith(`-${id}`));
+function listedTypes(evidence: string): string[] {
+  const found = evidence.match(/\(([^)]+)\)/);
+  if (!found?.[1]) return [];
+  return found[1].split(/,|\bor\b/).map((part) => part.trim().toLowerCase()).filter((part) => part.length > 2);
+}
+
+function targetNames(raw: string, names: Set<string>, nodes: NodeFacts[]): string[] {
+  const phrase = raw.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const hyphen = phrase.replace(/ /g, "-");
+  if (names.has(hyphen)) return [hyphen];
+  if (names.has(phrase)) return [phrase];
+  const head = phrase.split(" ")[0] ?? "";
+  if (head === "radio") {
+    const found = [...names].find((name) => name.includes("radio"));
+    return found ? [found] : [];
+  }
+  if (names.has(head)) return [head];
+  const named = [...names].find((name) => name === head || name.endsWith(`-${head}`));
+  if (named) return [named];
+  return nodes.filter((node) => node.spec.properties.some((item) => item.options?.some((optionRow) => optionRow.value.toLowerCase() === head))).map((node) => node.entry.name);
 }
 
 function edgesOf(nodes: NodeFacts[]): CatalogEdge[] {
@@ -146,7 +164,7 @@ function edgesOf(nodes: NodeFacts[]): CatalogEdge[] {
   for (const node of nodes) {
     const spec = node.spec;
     for (const used of spec.uses) {
-      const to = targetName(used, names);
+      const to = targetNames(used, names, nodes)[0];
       if (!to || to === node.entry.name) continue;
       edges.push({
         kind: "built-from",
@@ -162,19 +180,20 @@ function edgesOf(nodes: NodeFacts[]): CatalogEdge[] {
       USE.lastIndex = 0;
       let match: RegExpExecArray | null;
       while ((match = USE.exec(rule))) {
-        const to = targetName(match[1] ?? "", names);
-        if (!to || to === node.entry.name) continue;
+        const targets = targetNames(match[1] ?? "", names, nodes).filter((name) => name !== node.entry.name);
         const job = /status/i.test(rule) ? "report-status" : /password|amount|dropdown|typed data/i.test(rule) ? "field" : /fewer than four|\bradio\b/i.test(rule) ? "choose-one" : /empty/i.test(rule) ? "empty" : /plain (?:single-line|free) text/i.test(rule) ? "plain" : undefined;
-        edges.push({
-          kind: "instead-of",
-          from: node.entry.name,
-          to,
-          ...(job ? { job } : {}),
-          provenance: cite(spec, spec.dont.some((line) => line.includes(rule)) ? "rules.dont" : "rules.do"),
-          evidence: rule,
-          confidence: 0.9,
-          review: "extracted",
-        });
+        for (const to of targets) {
+          edges.push({
+            kind: "instead-of",
+            from: node.entry.name,
+            to,
+            ...(job ? { job } : {}),
+            provenance: cite(spec, spec.dont.some((line) => line.includes(rule)) ? "rules.dont" : "rules.do"),
+            evidence: rule,
+            confidence: 0.9,
+            review: "extracted",
+          });
+        }
       }
     }
     const segmented = spec.properties.flatMap((item) => item.options ?? []).find((item) => /as tabs/i.test(item.use ?? ""));
@@ -221,7 +240,12 @@ function readAsk(ask: string): Reading {
   if (/\b(status|chip)\b/.test(q) && !jobs.has("removable")) jobs.add("report-status");
   if (/\b(navigation|submenu|destinations)\b/.test(q)) jobs.add("navigate");
   if (/\b(dialog|confirmation)\b/.test(q)) jobs.add("confirm");
-  if (/\b(switch|immediately)\b/.test(q)) jobs.add("on-off");
+  if (/\bfloat\w*\b|\btemporary\b|\bgoes away\b/.test(q)) {
+    jobs.add("toast");
+    jobs.delete("confirm");
+  }
+  if (/\bswitch between\b|\bswitch\b.+\b(views|panels|sections|pages)\b/.test(q)) jobs.add("switch-view");
+  else if (/\b(immediately|on\/off)\b/.test(q) || (/\bswitch\b/.test(q) && !/\btabs?\b/.test(q))) jobs.add("on-off");
   if (/\b(search box|placeholder)\b/.test(q)) jobs.add("search");
   if (/\bcolumn headers?\b/.test(q)) jobs.add("column");
   if (/\b(body cells|table cells?)\b/.test(q)) jobs.add("cell");
@@ -232,7 +256,7 @@ function readAsk(ask: string): Reading {
   else if (/\b(above the table|splits)\b/.test(q)) context = "filter";
   else if (/\b(navigation|submenu)\b/.test(q)) context = "nav";
   else if (/\b(on the form|editable|required field|labelled field)\b/.test(q)) context = "form";
-  if (/\b(field|labelled)\b/.test(q)) jobs.add("field");
+  if (/\bfield\b|\bon the form\b/.test(q)) jobs.add("field");
   if (/\bcheckbox\b/.test(q)) jobs.add("check");
   const dataType = /\bpassword\b/.test(q) ? "password" : /\bamount\b/.test(q) ? "amount" : /\bemail\b/.test(q) ? "email" : undefined;
   return {
@@ -240,7 +264,7 @@ function readAsk(ask: string): Reading {
     context,
     ...(count ? { count } : {}),
     wantsEmpty: jobs.has("empty") && !jobs.has("loading"),
-    wantsField: context === "form" || /\b(field|labelled|on the form)\b/.test(q),
+    wantsField: context === "form" || /\bfield\b|\bon the form\b/.test(q),
     wantsInner: /\b(open list|under that|search box|no visible label)\b/.test(q),
     ...(dataType ? { dataType } : {}),
     words: tokens(q),
@@ -294,6 +318,22 @@ function settingsFor(node: NodeFacts, ask: string, reading: Reading): Record<str
     if (unpinned && /submenu|flyout|beside/i.test(q)) set("state", unpinned.value);
   }
   if (/\bno visible label\b/.test(q) && prop(node.spec, "showLabel")) set("showLabel", "false");
+  const folded = q.replace(/\bcentre\b/g, "center");
+  for (const item of node.spec.properties) {
+    if (!item.options?.length || settings[item.name]) continue;
+    const hits = item.options.filter((optionRow) => {
+      const value = optionRow.value.toLowerCase();
+      if (value.length < 4) return false;
+      const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`).test(folded);
+    });
+    const best = hits.sort((a, b) => b.value.length - a.value.length)[0];
+    if (best) set(item.name, best.value);
+  }
+  if (reading.jobs.has("removable")) {
+    const dismiss = node.spec.properties.find((item) => /dismiss/i.test(item.name));
+    if (dismiss) set(dismiss.name, "true");
+  }
   return settings;
 }
 
@@ -315,8 +355,41 @@ interface Scored {
   edges: CatalogEdge[];
 }
 
+function lexical(node: NodeFacts, words: string[]): number {
+  const name = new Set(tokens(node.entry.name.replace(/-/g, " ")));
+  const described = new Set(tokens([
+    node.spec.summary,
+    ...node.spec.do,
+    ...node.spec.dont,
+    ...node.spec.properties.flatMap((item) => [item.name, item.use ?? "", ...(item.options ?? []).flatMap((optionRow) => [optionRow.value, optionRow.use ?? ""])]),
+  ].join(" ")));
+  let total = 0;
+  for (const word of words) {
+    const named = [...name].some((part) => part === word || (word.length >= 4 && part.startsWith(word)));
+    if (named) total += 8;
+    else if (described.has(word)) total += 2;
+  }
+  return Math.min(total, 24);
+}
+
 function rankNodes(nodes: NodeFacts[], edges: CatalogEdge[], ask: string): Scored[] {
   const reading = readAsk(ask);
+  const roleWords = new Map<string, string>();
+  for (const node of nodes) {
+    const a11y = node.spec.a11y.join("\n");
+    if (affirmed(a11y, /tablist|role=["']tab["']/i)) roleWords.set("tab", "switch-view");
+    if (affirmed(a11y, /radiogroup/i)) roleWords.set("radio", "choose-one");
+    if (affirmed(a11y, /role=["']switch["']/i)) roleWords.set("switch", "on-off");
+  }
+  for (const word of reading.words) {
+    const job = roleWords.get(word);
+    if (job) reading.jobs.add(job);
+  }
+  if (reading.jobs.has("switch-view")) reading.jobs.delete("on-off");
+  if (reading.context === "filter") reading.jobs.add("filter-split");
+  const docs = new Map(nodes.map((node) => [node.entry.name, new Set(tokens(node.spec.summary))]));
+  const seen = new Map<string, number>();
+  for (const words of docs.values()) for (const word of words) seen.set(word, (seen.get(word) ?? 0) + 1);
   const scored: Scored[] = [];
   for (const node of nodes) {
     const reasons: Scored["reasons"] = {};
@@ -327,6 +400,36 @@ function rankNodes(nodes: NodeFacts[], edges: CatalogEdge[], ask: string): Score
       score += 100 * job.confidence;
       reasons.job = job.evidence;
     }
+    const mine = docs.get(node.entry.name);
+    let rare = 0;
+    if (mine) {
+      for (const word of reading.words) {
+        if (word.length < 6 || (seen.get(word) ?? 9) > 2 || !mine.has(word)) continue;
+        rare += 1;
+      }
+    }
+    if (rare) {
+      score += reasons.job ? 10 * rare : 35 * rare;
+      reasons.job = reasons.job || node.spec.summary || node.spec.do[0];
+    }
+    const opening = tokens(node.spec.summary).slice(0, 2);
+    if (opening.length === 2 && opening.every((word) => reading.words.includes(word))) {
+      score += 20;
+      reasons.job = reasons.job || node.spec.summary;
+    }
+    let lineHit = 0;
+    for (const item of node.spec.properties) {
+      for (const optionRow of item.options ?? []) {
+        const line = new Set(tokens(`${optionRow.value} ${optionRow.use ?? ""}`));
+        const hit = reading.words.filter((word) => word.length >= 3 && line.has(word)).length;
+        if (hit > lineHit) lineHit = hit;
+      }
+    }
+    if (lineHit >= 3) score += 12;
+    if (reading.jobs.has("action") && /\bholds?\b/i.test(node.spec.summary) && !reading.words.includes("bar")) score -= 15;
+    for (const word of reading.words) {
+      if (word.length >= 4 && option(node.spec, "dataType", word)) score += 20;
+    }
     if (reading.wantsEmpty && node.notEmpty) {
       score -= 120;
       reasons.constraint = node.spec.dont.find((rule) => /empty/i.test(rule));
@@ -335,12 +438,18 @@ function rankNodes(nodes: NodeFacts[], edges: CatalogEdge[], ask: string): Score
       score -= 90;
       reasons.constraint = node.spec.dont.find((rule) => /status/i.test(rule));
     }
-    const applies = (edge: CatalogEdge) =>
-      Boolean(edge.job) &&
-      (reading.jobs.has(edge.job!) ||
-        (edge.job === "field" && (reading.dataType === "password" || reading.dataType === "amount" || reading.jobs.has("secret"))) ||
-        (edge.job === "plain" && reading.jobs.has("field") && !reading.dataType && !reading.jobs.has("amount") && !reading.jobs.has("secret")) ||
-        (edge.job === "choose-one" && reading.jobs.has("choose-one") && (reading.count === undefined || reading.count < 4) && !/\blong list\b/.test(ask.toLowerCase())));
+    const applies = (edge: CatalogEdge) => {
+      const types = listedTypes(edge.evidence);
+      if (types.length && reading.dataType && !types.includes(reading.dataType)) return false;
+      const cut = edge.evidence.toLowerCase().lastIndexOf(" use ");
+      const condition = tokens(cut >= 0 ? edge.evidence.slice(0, cut) : edge.evidence).filter((word) => word.length > 3);
+      const conditionHit = condition.filter((word) => reading.words.includes(word)).length >= 2;
+      return conditionHit || (Boolean(edge.job) &&
+        (reading.jobs.has(edge.job!) ||
+          (edge.job === "field" && (reading.dataType === "password" || reading.dataType === "amount" || reading.jobs.has("secret"))) ||
+          (edge.job === "plain" && reading.jobs.has("field") && !reading.dataType && !reading.jobs.has("amount") && !reading.jobs.has("secret")) ||
+          (edge.job === "choose-one" && reading.jobs.has("choose-one") && (reading.count === undefined || reading.count < 4) && !/\blong list\b/.test(ask.toLowerCase()))));
+    };
     let penalized = false;
     let boosted = false;
     for (const edge of edges) {
@@ -425,7 +534,7 @@ function rankNodes(nodes: NodeFacts[], edges: CatalogEdge[], ask: string): Score
     if (reading.jobs.has("search") && reading.wantsInner) {
       const inside = edges.some((edge) => edge.kind === "built-from" && edge.to === node.entry.name && nodes.some((other) => other.entry.name === edge.from && other.jobs.some((item) => item.id === "search")));
       if (inside && node.field) {
-        score += 40;
+        score += 70;
         reasons.context = "The search box inside the bar.";
       }
       if (node.jobs.some((item) => item.id === "search") && node.spec.uses.length > 1) score -= 40;
@@ -450,7 +559,15 @@ function rankNodes(nodes: NodeFacts[], edges: CatalogEdge[], ask: string): Score
       reasons.constraint = node.spec.dont.find((rule) => /more than five/i.test(rule));
     }
     if (/\blong list\b/.test(ask.toLowerCase()) && option(node.spec, "dataType", "dropdown")) score += 35;
+    score += lexical(node, reading.words);
     if (score > 0) scored.push({ node, score, reasons, edges: used });
+  }
+  for (const edge of edges) {
+    if (edge.kind !== "instead-of" || edge.review !== "extracted") continue;
+    const source = scored.find((row) => row.node.entry.name === edge.from && row.edges.includes(edge));
+    const target = scored.find((row) => row.node.entry.name === edge.to && row.edges.includes(edge));
+    if (!source || !target) continue;
+    if (target.score >= source.score - 5 && target.score <= source.score) target.score = source.score + 1;
   }
   scored.sort((a, b) => b.score - a.score || (a.node.entry.name < b.node.entry.name ? -1 : 1));
   return scored;
@@ -477,7 +594,7 @@ export function pickByCatalog(entries: CatalogEntry[], ask: string): GraphPick[]
     states: statesOf(row.node.spec).slice(0, 8),
     reasons: row.reasons,
     confidence: confidenceOf(row, all[index + 1]),
-    edges: row.edges,
+    edges: [...row.edges, ...edges.filter((edge) => edge.kind === "built-from" && edge.from === row.node.entry.name && edge.review === "extracted" && !row.edges.includes(edge))].slice(0, 8),
     score: Math.round(row.score),
   }));
 }
