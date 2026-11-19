@@ -202,11 +202,29 @@ export function askGate(
   }
   if (hit.filter(Boolean).length !== 1) return open;
   const head = hit.lastIndexOf(true);
+  const headTokenEarly = content[head] ?? "";
+  // A generic word ("text") plus a word that names no part ("editor") is not that part.
+  const genericHead = GENERIC_NAME_TOKENS.has(headTokenEarly);
+  const finishesPhrase = (token: string, previous: string | undefined) =>
+    Boolean(previous && allSynonymGroups().some((group) => group.terms.some((term) => {
+      const parts = tokensOf(term);
+      const at = parts.indexOf(previous);
+      return at >= 0 && parts[at + 1] === token;
+    })));
   let trailingJunk = false;
+  let phraseOpen = false;
   for (let i = head + 1; i < content.length; i += 1) {
     const token = content[i];
     if (token && describe.has(token)) continue;
-    if (!token || !keepsCompany(token, content[i - 1], exempt)) trailingJunk = true;
+    if (token && finishesPhrase(token, content[i - 1])) {
+      phraseOpen = true;
+      continue;
+    }
+    // Words after a finished synonym ("drop down for a country") say what it is for.
+    if (phraseOpen) continue;
+    // A one-letter slip of a real name is that name, not junk after a generic word.
+    if (token && slips(token)) continue;
+    if (!token || genericHead || !keepsCompany(token, content[i - 1], exempt)) trailingJunk = true;
   }
   // A long whole name ("snackbar", "datepicker") stays a match when one extra word follows.
   // Short names ("chip shop", "divider wall") stay empty: the extra word is the subject.
@@ -268,7 +286,9 @@ export function genericOnlyMiss(
   );
   if (!matched.length) return false;
   const job = jobNoun(queryTokens, componentWord);
-  if (job && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
+  // A generic piece of a name ("text", "picker", "card") must not shield the plain cousin
+  // when the request also names something that piece does not cover.
+  if (job && !GENERIC_NAME_TOKENS.has(job) && matched.some((token) => token === job || tokenMatchesName(job, token, allowClip))) return false;
   if (matched.some((token) => !GENERIC_NAME_TOKENS.has(token))) return false;
   const uncovered = queryTokens.filter((query) => {
     if (genericQuery(query) || query === "primary" || query === "main" || query === "submit") return false;
@@ -574,6 +594,14 @@ export function intentClauses(ask: string): { identity: string[]; settings: stri
     if (property && at > 0 && contentBefore(at)) settings.add(property);
   }
   let identity = tokensOf(span.filter((word) => !settings.has(word) && !assigned.has(word) && !STATE_WORD.has(word)).join(" "));
+  // A state word is the control when nothing else names a part ("empty state for no results").
+  if (!identity.length) identity = tokensOf(span.filter((word) => STATE_WORD.has(word) && word !== "state").join(" "));
+  // "card on file row": the word after "on" is the part, and the cut left only a generic noun.
+  if (identity.length > 0 && identity.every((token) => GENERIC_NAME_TOKENS.has(token)) && end < words.length) {
+    const tail = tokensOf(words.slice(end).filter((word) => !DESCRIBING_WORD.has(word)).join(" "));
+    const last = tail[tail.length - 1];
+    if (last && GENERIC_NAME_TOKENS.has(last) && !identity.includes(last)) identity.push(last);
+  }
   const last = identity[identity.length - 1];
   const earlierSpecific = [...identity.slice(0, -1)].reverse().find((token) => !GENERIC_NAME_TOKENS.has(token));
   if (last && GENERIC_NAME_TOKENS.has(last) && earlierSpecific && span.some((word) => STATE_WORD.has(word))) {

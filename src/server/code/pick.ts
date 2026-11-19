@@ -1,5 +1,5 @@
 import { codeValueWarnings } from "@/core/codeMap/codeValueGaps";
-import { pickByCatalog, type GraphPick } from "./catalogGraph.ts";
+import { pickByCatalog, settingsForEntry, type GraphPick } from "./catalogGraph.ts";
 import { byCode, type CatalogEntry, type CodeCatalog } from "./scan.ts";
 import { nameWords, RELATED, stem, tokens } from "./words.ts";
 
@@ -50,10 +50,36 @@ function score(entry: CatalogEntry, terms: Map<string, number>, rarity: (word: s
 export const rankOrder = (a: { total: number; entry: CatalogEntry }, b: { total: number; entry: CatalogEntry }) =>
   Math.round(b.total * 1e6) - Math.round(a.total * 1e6) || (a.entry.kind === b.entry.kind ? 0 : a.entry.kind === "block" ? -1 : 1) || byCode(a.entry.name, b.entry.name);
 
+function lexicalPicks(catalog: CodeCatalog, query: string, limit: number): GraphPick[] {
+  const terms = new Map<string, number>();
+  for (const word of tokens(query)) {
+    terms.set(word, 1);
+    for (const [other, weight] of RELATED.get(word) ?? []) if ((terms.get(other) ?? 0) < weight) terms.set(other, weight);
+  }
+  const have = (f: Features, w: string) => f.name.has(w) || f.alias.has(w) || f.variants.has(w) || f.classes.has(w) || f.text.has(w) || f.doc.has(w);
+  const rarity = (word: string) => 1 - 0.5 * (catalog.components.filter((e) => have(features(e), word)).length / Math.max(1, catalog.components.length));
+  return catalog.components
+    .map((entry) => ({ entry, ...score(entry, terms, rarity) }))
+    .filter((row) => row.total > 0)
+    .sort(rankOrder)
+    .slice(0, limit)
+    .map(({ entry, total }) => ({
+      name: entry.name,
+      settings: settingsForEntry(entry, query),
+      states: [],
+      reasons: {},
+      confidence: "low" as const,
+      edges: [],
+      score: Math.round(total * 10) / 10,
+    }));
+}
+
 function graphCards(catalog: CodeCatalog, query: string, limit: number) {
-  const ranked = pickByCatalog(catalog.components, query).slice(0, Math.max(1, Math.min(limit, 3)));
+  const cap = Math.max(1, Math.min(limit, 3));
+  const ranked = pickByCatalog(catalog.components, query).slice(0, cap);
+  const picks = ranked.length ? ranked : lexicalPicks(catalog, query, cap);
   const byName = new Map(catalog.components.map((entry) => [entry.name, entry]));
-  const components = ranked.flatMap((pick) => {
+  const components = picks.flatMap((pick) => {
     const entry = byName.get(pick.name);
     return entry ? [cardFor(entry, pick)] : [];
   });

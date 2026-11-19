@@ -18,7 +18,7 @@ import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "../read/queryTokens";
 import { allSynonymGroups, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { finishRecommendCard, type Scored } from "./recommendMastersCard";
-import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentClauses, contiguousPhrase, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SIZE_OR_A11Y, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentClauses, contiguousPhrase, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SIZE_OR_A11Y, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, tokenTypo, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { askRole, roleFit, statesCovered } from "./recommendRole";
 import { type RecommendContext } from "./recommendSupport";
 import { noteGraphShadow } from "./graphShadow";
@@ -145,10 +145,15 @@ export function recommendMasters(
   const slotRole = slotIsComponentRole(slotTokens);
   const namesHit = (token: string) =>
     publicNameSets.some((names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false));
-  const brief = splitBrief(partBeforeLink(intent, publicNameSets, false, screenWords(index)) ?? intent, namesHit);
+  const linked = partBeforeLink(intent, publicNameSets, false, screenWords(index));
+  const brief = splitBrief(linked ?? intent, namesHit);
   const roleWords = withSynonymStopwords(brief.role, tokensOf(brief.role));
   const clauses = intentClauses(rawAsk);
   const identity = new Set(clauses.identity);
+  // When the leftover words name no part, a state word that does ("empty") is the part.
+  if (![...identity].some((token) => namesHit(token))) {
+    for (const token of tokensOf(rawAsk)) if (token !== "state" && namesHit(token)) identity.add(token);
+  }
   const askedHead = clauses.head;
   const reading = decision ? interpretInflections(roleWords, dictionary) : { tokens: roleWords, shared: [], attributes: [] };
   const sharedMiss = (name: string): string[] => {
@@ -214,6 +219,8 @@ export function recommendMasters(
   // master, so those tokens stay in the lexical score and context breaks the tie.
   const exclusiveSlot = slotRole && !intentNamesMaster(index, askedTokens);
   const familyTokens = slotTokens.filter((token) => !SLOT_QUALIFIERS.has(token));
+  // The slot names the part to fill. Its words belong to the identity for every ask, not a fixed sentence.
+  if (slotRole) for (const token of familyTokens) identity.add(token);
   const sceneTokens = exclusiveSlot
     ? [...new Set([...tokensOf(brief.scene), ...askedTokens])]
     : tokensOf(brief.scene);
@@ -224,6 +231,10 @@ export function recommendMasters(
       ? familyTokens
       : askedTokens
     : [...new Set([...askedTokens, ...featureTokens, ...(slotRole ? familyTokens : [])])];
+  // A corrected spelling stays part of the asked control, so the fix is not dropped.
+  for (const token of tokens) {
+    if ([...identity].some((word) => word !== token && (tokenTypo(word, token) || tokenTypo(token, word)))) identity.add(token);
+  }
   const extraTokens = exclusiveSlot ? askedTokens.filter((token) => !slotTokens.includes(token)) : [];
   const placeTokens = [...new Set([...tokens, ...extraTokens, ...sceneTokens, ...slotTokens])];
   const nestedByScreen = mastersByScreen(index);
@@ -978,7 +989,22 @@ export function recommendMasters(
       const set = setOf(index, entry.node);
       return entry.node.name.toLowerCase() === leadName || set?.name.toLowerCase() === leadName;
     });
-    if (hit) {
+    const phrase = (name: string) => {
+      const asked = ` ${rawAsk.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+      const label = ` ${name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+      return label.trim().length >= 3 && asked.includes(label);
+    };
+    const labelOf = (entry: Scored) => setOf(index, entry.node)?.name ?? entry.node.name;
+    const phraseWords = (name: string) => (phrase(name) ? name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).length : 0);
+    const top = kept[0];
+    const topWords = top ? phraseWords(labelOf(top)) : 0;
+    const leadWords = hit ? phraseWords(labelOf(hit)) : 0;
+    const weak = !top || (!top.exactName && !top.why.some((item) => item === "name" || item === "synonym" || item === "typo"));
+    // A longer name that is written in the request beats a shorter cousin.
+    // The graph moves the lead only when that lead is at least as exact, or the word scorer has no name.
+    // A corrected typo is a near-exact name, so a cousin that is not written in the request stays behind it.
+    const promote = Boolean(hit) && leadWords >= topWords && (leadWords > 0 || (weak && topWords === 0 && !top?.why.includes("typo")));
+    if (hit && promote) {
       if (!hit.why.includes("graph")) hit.why.push("graph");
       kept = [hit, ...kept.filter((entry) => entry !== hit)];
     }

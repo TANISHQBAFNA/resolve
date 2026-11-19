@@ -198,6 +198,13 @@ function asText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/** A default is a real setting even when it is a boolean or a number. */
+function asDefault(value: unknown): string | undefined {
+  if (typeof value === "boolean" || typeof value === "number") return String(value);
+  const text = asText(value);
+  return text || undefined;
+}
+
 function asList(value: unknown): string[] {
   if (typeof value === "string" && value.trim()) return [value.trim()];
   if (!Array.isArray(value)) return [];
@@ -246,7 +253,7 @@ function oneProperty(item: unknown): CatalogProperty[] {
   return [{
     name,
     kind: asText(row["kind"]) || "text",
-    ...(asText(row["default"]) ? { default: asText(row["default"]) } : {}),
+    ...(asDefault(row["default"]) ? { default: asDefault(row["default"]) } : {}),
     ...(asText(row["use"]) ? { use: asText(row["use"]) } : {}),
     ...(options.length ? { options } : {}),
   }];
