@@ -1,6 +1,7 @@
 import { codeValueWarnings } from "@/core/codeMap/codeValueGaps";
+import { pickByCatalog, type GraphPick } from "./catalogGraph.ts";
 import { byCode, type CatalogEntry, type CodeCatalog } from "./scan.ts";
-import { nameWords, RELATED, stem, tokens } from "./words.ts";
+import { expandTerms, nameWords, stem, tokens } from "./words.ts";
 
 export { stem };
 
@@ -49,12 +50,90 @@ function score(entry: CatalogEntry, terms: Map<string, number>, rarity: (word: s
 export const rankOrder = (a: { total: number; entry: CatalogEntry }, b: { total: number; entry: CatalogEntry }) =>
   Math.round(b.total * 1e6) - Math.round(a.total * 1e6) || (a.entry.kind === b.entry.kind ? 0 : a.entry.kind === "block" ? -1 : 1) || byCode(a.entry.name, b.entry.name);
 
+function clipReason(text: string | undefined): string | undefined {
+  if (!text) return undefined;
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return undefined;
+  return clean.length > 180 ? `${clean.slice(0, 177)}…` : clean;
+}
+
+/** What the host model is allowed to choose from: at most three, settings included. */
+function shortlistOf(components: Array<{ name: string; settings?: Record<string, string>; defaults?: Record<string, string>; states?: string[]; reasons?: GraphPick["reasons"]; confidence?: GraphPick["confidence"]; description?: string }>): Array<{ name: string; settings: Record<string, string>; defaults: Record<string, string>; states: string[]; reasons: GraphPick["reasons"]; confidence: GraphPick["confidence"] }> {
+  return components.slice(0, 3).map((card) => {
+    const reasons: GraphPick["reasons"] = { ...(card.reasons ?? {}) };
+    if (!reasons.context && card.description) reasons.context = card.description;
+    const short: GraphPick["reasons"] = {};
+    const job = clipReason(reasons.job);
+    const constraint = clipReason(reasons.constraint);
+    const context = clipReason(reasons.context);
+    if (job) short.job = job;
+    if (constraint) short.constraint = constraint;
+    if (context) short.context = context;
+    return {
+      name: card.name,
+      settings: card.settings ?? {},
+      defaults: card.defaults ?? {},
+      states: card.states ?? [],
+      reasons: short,
+      confidence: card.confidence ?? "low",
+    };
+  });
+}
+
+function graphCards(catalog: CodeCatalog, query: string, limit: number) {
+  const cap = Math.max(1, Math.min(limit, 3));
+  const picks = pickByCatalog(catalog.components, query).slice(0, cap);
+  const byName = new Map(catalog.components.map((entry) => [entry.name, entry]));
+  const components = picks.flatMap((pick) => {
+    const entry = byName.get(pick.name);
+    return entry ? [cardFor(entry, pick)] : [];
+  });
+  const shortlist = shortlistOf(components);
+  return {
+    query,
+    shortlist,
+    components,
+    ...(components.length
+      ? { guidance: "Pick one row of shortlist, or say nothing fits. Copy only settings: those are the values this request decides. Leave defaults as the component already defines them. Do not invent a component or a setting value." }
+      : { message: "No component matches. Say so; do not invent a class. Try other words or list components with resolve code scan." }),
+  };
+}
+
+function cardFor(entry: CatalogEntry, pick: GraphPick) {
+  const code = entry.code;
+  const primary = code?.primary ?? "";
+  return {
+    name: entry.name,
+    kind: entry.kind,
+    score: pick.score,
+    description: entry.description,
+    ...(entry.status ? { status: entry.status } : {}),
+    settings: pick.settings,
+    defaults: pick.defaults,
+    states: pick.states,
+    reasons: pick.reasons,
+    confidence: pick.confidence,
+    edges: pick.edges,
+    variants: entry.variants.slice(0, 16),
+    ...(code
+      ? {
+          classes: code.roots,
+          markup: code.markup,
+          css: code.cssFile,
+          modifiers: [...(code.modifiers[primary] ?? []), ...Object.entries(code.modifiers).filter(([root]) => root !== primary).flatMap(([, list]) => list)].slice(0, 20),
+          ...(code.deprecated.length ? { avoid: code.deprecated.map((c) => `.${c}`) } : {}),
+          elements: code.elements.slice(0, 12),
+        }
+      : {}),
+    rules: entry.rules,
+    ...(entry.aliases ? { aliases: entry.aliases } : {}),
+    ...(entry.figma ? { figma: entry.figma, matchedBy: entry.matchedBy, ...(entry.figmaAlso ? { figmaAlso: entry.figmaAlso } : {}), ...codeValueWarnings(entry.figma.properties, code?.modifiers) } : {}),
+  };
+}
+
 export function pickComponents(catalog: CodeCatalog, query: string, limit = 5) {
-  const terms = new Map<string, number>();
-  for (const word of tokens(query)) {
-    terms.set(word, 1);
-    for (const [other, weight] of RELATED.get(word) ?? []) if ((terms.get(other) ?? 0) < weight) terms.set(other, weight);
-  }
+  if (catalog.components.some((entry) => entry.spec)) return graphCards(catalog, query, limit);
+  const terms = expandTerms(query);
   // A word found in most components says little; a rare one says more.
   const have = (f: Features, w: string) => f.name.has(w) || f.alias.has(w) || f.variants.has(w) || f.classes.has(w) || f.text.has(w) || f.doc.has(w);
   const rarity = (word: string) => 1 - 0.5 * (catalog.components.filter((e) => have(features(e), word)).length / Math.max(1, catalog.components.length));
@@ -92,9 +171,10 @@ export function pickComponents(catalog: CodeCatalog, query: string, limit = 5) {
   });
   return {
     query,
+    shortlist: shortlistOf(components),
     components,
     ...(components.length
-      ? { guidance: "Use only the classes listed here. Match variants by name. If a modifier you need is not listed, say so instead of inventing it." }
+      ? { guidance: "Pick one row of shortlist, or say nothing fits. Copy only settings. Leave defaults as the component already defines them. Do not invent a component or a setting value." }
       : { message: "No component matches. Say so; do not invent a class. Try other words or list components with resolve code scan." }),
   };
 }

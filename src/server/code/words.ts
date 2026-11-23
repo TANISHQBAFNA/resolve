@@ -10,12 +10,12 @@ const GROUPS = [
   "modal dialog popup overlay sheet drawer lightbox",
   "alert toast snackbar banner notification callout",
   "button btn cta",
-  "badge pill chip tag status",
-  "table grid datagrid list",
+  "badge pill",
+  "table grid datagrid",
   "input textbox textfield field textarea",
   "select dropdown picker combobox",
   "switch toggle",
-  "tab nav navigation",
+  "nav navigation",
   "card tile panel",
   "metric kpi stat",
   "progress spinner loader loading",
@@ -29,7 +29,7 @@ const GROUPS = [
 /** One-way: what a verb or state in a request usually needs. */
 const INTENTS: Record<string, string> = {
   confirm: "dialog modal", delete: "dialog modal confirm", remove: "dialog modal confirm", destroy: "dialog modal confirm", discard: "dialog modal confirm",
-  warn: "alert", error: "alert", success: "alert", pending: "badge", choose: "select",
+  warn: "alert", choose: "select",
 };
 
 /** Light normaliser so "deleting", "deleted", "deletion" and "delete" meet: plural, a derivational suffix, then a final "e". */
@@ -45,6 +45,16 @@ export function stem(word: string): string {
 
 export function tokens(text: string): string[] {
   return (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length > 1 && !STOP.has(w)).map(stem);
+}
+
+/** Ask words, plus related words at a lower weight. One helper for every ranker. */
+export function expandTerms(text: string): Map<string, number> {
+  const terms = new Map<string, number>();
+  for (const word of tokens(text)) {
+    terms.set(word, Math.max(terms.get(word) ?? 0, 1));
+    for (const [other, weight] of RELATED.get(word) ?? []) if ((terms.get(other) ?? 0) < weight) terms.set(other, weight);
+  }
+  return terms;
 }
 
 export const RELATED = new Map<string, Array<[string, number]>>();

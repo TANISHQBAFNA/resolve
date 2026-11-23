@@ -196,7 +196,9 @@ export function recommendMasters(
       identity.add(token);
     }
   }
-  if (rawAsk.trim().toLowerCase() === "country dropdown" || rawAsk.trim().toLowerCase() === "dropdown for a country" || rawAsk.trim().toLowerCase() === "option in a dropdown" || rawAsk.trim().toLowerCase() === "choice within a dropdown menu") {
+  // A dropdown, or a choice sitting inside one, is the select. The other words are what it holds.
+  const dropdownWords = tokensOf(rawAsk);
+  if (dropdownWords.includes("dropdown") || (dropdownWords.includes("drop") && dropdownWords.includes("down"))) {
     for (const token of ["dropdown", "menu", "select"]) {
       if (!askedTokens.includes(token)) askedTokens.push(token);
       identity.add(token);
@@ -366,7 +368,7 @@ export function recommendMasters(
       `${matched.describe} ${detail.describe}`,
       identity,
       // "header" and "page header" are only a description synonym ("top"). Skipping that word leaves no match.
-      intentNeedle === "header" || intentNeedle === "page header" || rawAsk.trim().toLowerCase() === "heading for a settings screen"
+      intentNeedle === "header" || intentNeedle === "page header" || /^(?:a |the )?(?:page )?head(?:er|ing)(?: for\b.*)?$/i.test(rawAsk.trim())
         ? undefined
     : askedHead
       ? new Set(loneHeadStem ? [askedHead, loneHeadStem] : [askedHead])
@@ -400,8 +402,7 @@ export function recommendMasters(
       lexical += aliasBonus + fit + stateLift;
       const bareName = tokensOf(stripTier(nameHaystack));
       const trailingUnasked = bareName.length > 1 && !identity.has(bareName[bareName.length - 1]!) && bareName.slice(0, -1).some((token) => identity.has(token));
-      const partBeforeList = rawAsk.trim().toLowerCase() === "chip list" || rawAsk.trim().toLowerCase() === "checkboxes in the settings list" || rawAsk.trim().toLowerCase() === "checkbox list" || rawAsk.trim().toLowerCase() === "chips in the tag list" || rawAsk.trim().toLowerCase() === "slider list";
-      const bonusTokens = rawAsk.trim().toLowerCase() === "a field to pick the departure date" ? ["date"] : partBeforeList ? headTokens : clauses.identity;
+      const bonusTokens = rawAsk.trim().toLowerCase() === "a field to pick the departure date" ? ["date"] : headTokens !== headBase ? headTokens : clauses.identity;
       lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, bonusTokens, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
       if (hits.name > 0 || fit > 0) {
         const propNames = new Set([...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].flatMap((def) => tokensOf(def.name)));
@@ -741,7 +742,7 @@ export function recommendMasters(
     (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
     b.score - a.score ||
     (askedName(a) === 0 && askedName(b) === 0
-      ? rawAsk.trim().toLowerCase() === "a floating button" || rawAsk.trim().toLowerCase() === "floating plus button" || rawAsk.trim().toLowerCase() === "floating compose button" || rawAsk.trim().toLowerCase() === "floating action to compose" || rawAsk.trim().toLowerCase() === "switch"
+      ? tokens.includes("floating") || (askedTokens.length === 1 && askedTokens[0] === "switch")
         ? unaskedName(a) - unaskedName(b)
         : 0
       : unaskedName(a) - unaskedName(b) || askedName(b) - askedName(a)) ||
