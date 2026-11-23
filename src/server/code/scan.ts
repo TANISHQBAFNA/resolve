@@ -35,6 +35,8 @@ export interface CatalogEntry {
   parts?: string[];
   /** Shared ID (ds@semver.tier.name) from a `data-ds-id` on the component's root in the repo's HTML. */
   dsId?: string;
+  /** Structure read from component.json. Settings come from this, not from sample text. */
+  spec?: CatalogSpec;
   code?: {
     roots: string[];
     primary: string;
@@ -70,6 +72,32 @@ export interface CodeCatalog {
 }
 
 export type FigmaMaster = FigmaRef;
+
+/** One option as the component file states it. */
+export interface CatalogOption {
+  value: string;
+  use?: string;
+}
+
+export interface CatalogProperty {
+  name: string;
+  kind: string;
+  default?: string;
+  use?: string;
+  options?: CatalogOption[];
+}
+
+/** Facts read from the component file. */
+export interface CatalogSpec {
+  file: string;
+  summary: string;
+  uses: string[];
+  parts: { name: string; note?: string }[];
+  a11y: string[];
+  do: string[];
+  dont: string[];
+  properties: CatalogProperty[];
+}
 
 const SKIP = new Set(["node_modules", ".git", "dist", "build", ".next", ".cache", "coverage", ...STORE_DIRS]);
 const BLOCK_DIRS = new Set(["building-blocks", "blocks", "components", "primitives"]);
