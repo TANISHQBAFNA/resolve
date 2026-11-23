@@ -74,6 +74,35 @@ function lexicalPicks(catalog: CodeCatalog, query: string, limit: number): Graph
     }));
 }
 
+function clipReason(text: string | undefined): string | undefined {
+  if (!text) return undefined;
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return undefined;
+  return clean.length > 180 ? `${clean.slice(0, 177)}…` : clean;
+}
+
+/** What the host model is allowed to choose from: at most three, settings included. */
+function shortlistOf(components: Array<{ name: string; settings?: Record<string, string>; states?: string[]; reasons?: GraphPick["reasons"]; confidence?: GraphPick["confidence"]; description?: string }>): Array<{ name: string; settings: Record<string, string>; states: string[]; reasons: GraphPick["reasons"]; confidence: GraphPick["confidence"] }> {
+  return components.slice(0, 3).map((card) => {
+    const reasons: GraphPick["reasons"] = { ...(card.reasons ?? {}) };
+    if (!reasons.context && card.description) reasons.context = card.description;
+    const short: GraphPick["reasons"] = {};
+    const job = clipReason(reasons.job);
+    const constraint = clipReason(reasons.constraint);
+    const context = clipReason(reasons.context);
+    if (job) short.job = job;
+    if (constraint) short.constraint = constraint;
+    if (context) short.context = context;
+    return {
+      name: card.name,
+      settings: card.settings ?? {},
+      states: card.states ?? [],
+      reasons: short,
+      confidence: card.confidence ?? "low",
+    };
+  });
+}
+
 function graphCards(catalog: CodeCatalog, query: string, limit: number) {
   const cap = Math.max(1, Math.min(limit, 3));
   const ranked = pickByCatalog(catalog.components, query).slice(0, cap);
@@ -83,11 +112,13 @@ function graphCards(catalog: CodeCatalog, query: string, limit: number) {
     const entry = byName.get(pick.name);
     return entry ? [cardFor(entry, pick)] : [];
   });
+  const shortlist = shortlistOf(components);
   return {
     query,
+    shortlist,
     components,
     ...(components.length
-      ? { guidance: "Use the first pick. Its settings are values the component file allows. A low confidence means ask before placing it." }
+      ? { guidance: "Pick one row of shortlist. Place that component with its settings object. Do not invent a component or a setting value. A low confidence means ask before placing it." }
       : { message: "No component matches. Say so; do not invent a class. Try other words or list components with resolve code scan." }),
   };
 }
@@ -167,9 +198,10 @@ export function pickComponents(catalog: CodeCatalog, query: string, limit = 5) {
   });
   return {
     query,
+    shortlist: shortlistOf(components),
     components,
     ...(components.length
-      ? { guidance: "Use only the classes listed here. Match variants by name. If a modifier you need is not listed, say so instead of inventing it." }
+      ? { guidance: "Pick one row of shortlist. Place that component with its settings object. Do not invent a component or a setting value." }
       : { message: "No component matches. Say so; do not invent a class. Try other words or list components with resolve code scan." }),
   };
 }
