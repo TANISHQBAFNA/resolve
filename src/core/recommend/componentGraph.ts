@@ -46,9 +46,6 @@ export interface ComponentLink {
   sources: string[];
   review: ReviewState;
   evidence: string[];
-  /** Where the edge came from. An AI edge stays proposed and does not count. */
-  provenance?: { source: "code" | "screen" | "ai"; file?: string; field?: string };
-  confidence?: number;
 }
 
 export interface ComponentVariant {
@@ -132,20 +129,11 @@ function addJob(node: ComponentNode, job: HeldJob): void {
   for (const item of job.evidence) if (!existing.evidence.includes(item)) existing.evidence.push(item);
 }
 
-function proof(link: ComponentLink): ComponentLink {
-  const source = link.review === "proposed" ? "ai" : link.sources.includes("dsck") ? "screen" : "code";
-  return {
-    ...link,
-    provenance: link.provenance ?? { source },
-    confidence: link.confidence ?? (link.review === "proposed" ? 0 : link.review === "confirmed" ? 1 : 0.9),
-  };
-}
-
 function addLink(into: Map<string, ComponentLink>, link: ComponentLink): void {
   const key = `${link.kind}|${link.from}|${link.to}`;
   const existing = into.get(key);
   if (!existing) {
-    into.set(key, proof({ ...link, sources: [...link.sources], evidence: [...link.evidence] }));
+    into.set(key, { ...link, sources: [...link.sources], evidence: [...link.evidence] });
     return;
   }
   existing.count += link.count;
@@ -393,6 +381,8 @@ export function buildComponentGraph(index: GraphIndex, input: GraphBuildInput = 
       attributes: entry.attributes.map((attribute) => ({ ...attribute, values: [...attribute.values] })),
       screens: 0,
     };
+    const nameTokens = new Set([...tokensOf(entry.name), ...entry.synonyms.flatMap((term) => tokensOf(term))]);
+    for (const job of jobsFromTokens([...nameTokens], "library-text", "confirmed", entry.name)) addJob(node, job);
     nodes.set(node.id, node);
   }
   for (const pattern of input.dsck ? patternsOf(input.dsck) : []) {
@@ -498,7 +488,7 @@ export function buildComponentGraph(index: GraphIndex, input: GraphBuildInput = 
     }
     if (row.status !== "confirmed") continue;
     for (const alias of row.aliases) if (!node.synonyms.includes(alias)) node.synonyms.push(alias);
-    for (const job of jobsFromTokens(row.aliases.flatMap((alias) => tokensOf(alias)), "mapping", "proposed", row.figma)) addJob(node, job);
+    for (const job of jobsFromTokens(row.aliases.flatMap((alias) => tokensOf(alias)), "mapping", "confirmed", row.figma)) addJob(node, job);
   }
   const extraJobs: Array<{ id: string; words: string[] }> = [];
   const proposedJobs = applyProposals(index, input.dsck?.proposals ?? [], nodes, links, extraJobs);

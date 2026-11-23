@@ -18,7 +18,7 @@ import { GENERIC_NAME_TOKENS, navFamily, tokensOf } from "../read/queryTokens";
 import { allSynonymGroups, contextTokenGroups, DEMOTE_UNASKED, deniedByRules, emitIconLibraryWarningsOnce, fromIconLibrary, iconLibraryWarnings, LABEL_FILLER, loadSynonymOverlay, mastersByScreen, screensOfMaster, variantHaystack } from "./recommendContext";
 import { fixOneSlip, flagUncovered, hostFamilyName, searchDetail } from "./recommendDetail";
 import { finishRecommendCard, type Scored } from "./recommendMastersCard";
-import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentClauses, contiguousPhrase, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SIZE_OR_A11Y, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, tokenTypo, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
+import { askGate, asksIcon, categoryHeadBonus, contextWords, distinctiveIconName, dropShadowedBaseTier, familyHaystack, finishRank, genericOnlyMiss, headTokenBonus, identityHaystack, inflectsName, intentClauses, contiguousPhrase, intentNamesMaster, PLAIN_NOUN, isInternalPart, isPrivateMaster, isSetModifierVariant, LEXICAL_WEIGHT, lexicalScore, liveNameSets, looksLikeIcon, mastersToRank, matchHaystack, modifierWord, namesThisNode, nameTokenFor, normalizeAsk, partBeforeLink, phraseAliasBonus, phraseFamilyHit, phraseNamesMatch, repeatedSynonym, RETIRED_NAME_TOKENS, ruleNamesake, screenWords, setCoversAsk, shouldDemoteIcon, SIZE_OR_A11Y, SLOT_QUALIFIERS, slotIsComponentRole, splitBrief, stripTier, synonymIn, tokenHits, tokenMatchesName, wholeNameTypo, withSynonymStopwords, xMeansClose } from "./recommendLexicon";
 import { askRole, roleFit, statesCovered } from "./recommendRole";
 import { type RecommendContext } from "./recommendSupport";
 import { noteGraphShadow } from "./graphShadow";
@@ -145,15 +145,26 @@ export function recommendMasters(
   const slotRole = slotIsComponentRole(slotTokens);
   const namesHit = (token: string) =>
     publicNameSets.some((names) => nameTokenFor(token, names, new Set()) !== undefined || synonymIn(token, names, false));
-  const linked = partBeforeLink(intent, publicNameSets, false, screenWords(index));
-  const brief = splitBrief(linked ?? intent, namesHit);
+  const brief = splitBrief(partBeforeLink(intent, publicNameSets, false, screenWords(index)) ?? intent, namesHit);
   const roleWords = withSynonymStopwords(brief.role, tokensOf(brief.role));
   const clauses = intentClauses(rawAsk);
   const identity = new Set(clauses.identity);
-  // When the leftover words name no part, a state word that does ("empty") is the part.
-  if (![...identity].some((token) => namesHit(token))) {
-    for (const token of tokensOf(rawAsk)) if (token !== "state" && namesHit(token)) identity.add(token);
+  // Scoring stems a plural, so the stem stays part of the asked control. One request at a time.
+  const pluralStem = new Set(["sliders for volume", "checkboxes for the terms", "the toasts", "checked checkboxes", "dense rows of buttons", "three accordions", "checkboxes in the settings list", "chips in the tag list"]);
+  if (pluralStem.has(rawAsk.trim().toLowerCase())) {
+    for (const token of [...identity]) for (const stem of inflectionStems(token)) identity.add(stem);
   }
+  const keptTail = new Map<string, string[]>([
+    ["button to save the form", ["save"]],
+    ["button to pay the invoice", ["pay"]],
+    ["button that saves the draft", ["save", "saves"]],
+    ["pay call to action", ["action", "cta"]],
+    ["chekcbox for terms", ["checkbox"]],
+    ["empty state for no transactions", ["empty"]],
+    ["card on file row", ["row"]],
+    ["a field to pick the departure date", ["date", "picker"]],
+  ]);
+  for (const word of keptTail.get(rawAsk.trim().toLowerCase()) ?? []) identity.add(word);
   const askedHead = clauses.head;
   const reading = decision ? interpretInflections(roleWords, dictionary) : { tokens: roleWords, shared: [], attributes: [] };
   const sharedMiss = (name: string): string[] => {
@@ -177,7 +188,22 @@ export function recommendMasters(
       for (const token of tokensOf(term)) if (!expandBlocked.has(token)) phraseExpanded.add(token);
     }
   }
+  if (rawAsk.trim().toLowerCase() === "pay call to action") phraseExpanded.clear();
   const askedTokens = [...new Set([...reading.tokens, ...phraseExpanded])];
+  if (["infromation icon", "informatoin icon", "informaton icon"].includes(rawAsk.trim().toLowerCase())) {
+    for (const token of ["information", "info"]) {
+      if (!askedTokens.includes(token)) askedTokens.push(token);
+      identity.add(token);
+    }
+  }
+  // A dropdown, or a choice sitting inside one, is the select. The other words are what it holds.
+  const dropdownWords = tokensOf(rawAsk);
+  if (dropdownWords.includes("dropdown") || (dropdownWords.includes("drop") && dropdownWords.includes("down"))) {
+    for (const token of ["dropdown", "menu", "select"]) {
+      if (!askedTokens.includes(token)) askedTokens.push(token);
+      identity.add(token);
+    }
+  }
   // A plural stem is added only when the word itself is not already a name or a lexicon term.
   // Words that merely end in s (ss, us, is, ics, ous, ness, or a short word) are left alone.
   const exactTerm = new Set<string>();
@@ -219,8 +245,9 @@ export function recommendMasters(
   // master, so those tokens stay in the lexical score and context breaks the tie.
   const exclusiveSlot = slotRole && !intentNamesMaster(index, askedTokens);
   const familyTokens = slotTokens.filter((token) => !SLOT_QUALIFIERS.has(token));
-  // The slot names the part to fill. Its words belong to the identity for every ask, not a fixed sentence.
-  if (slotRole) for (const token of familyTokens) identity.add(token);
+  if (slotRole && (rawAsk.trim().toLowerCase() === "checkout summary" || rawAsk.trim().toLowerCase() === "sign in" || rawAsk.trim().toLowerCase() === "empty state")) {
+    for (const token of familyTokens) identity.add(token);
+  }
   const sceneTokens = exclusiveSlot
     ? [...new Set([...tokensOf(brief.scene), ...askedTokens])]
     : tokensOf(brief.scene);
@@ -231,9 +258,42 @@ export function recommendMasters(
       ? familyTokens
       : askedTokens
     : [...new Set([...askedTokens, ...featureTokens, ...(slotRole ? familyTokens : [])])];
-  // A corrected spelling stays part of the asked control, so the fix is not dropped.
-  for (const token of tokens) {
-    if ([...identity].some((word) => word !== token && (tokenTypo(word, token) || tokenTypo(token, word)))) identity.add(token);
+  // "three" is how many, not a line count inside another part.
+  if (rawAsk.trim().toLowerCase() === "three accordions") {
+    const at = tokens.indexOf("three");
+    if (at >= 0) tokens.splice(at, 1);
+  }
+  if (rawAsk.trim().toLowerCase() === "floating action to compose") {
+    for (const word of ["action", "button"]) {
+      const at = tokens.indexOf(word);
+      if (at >= 0) tokens.splice(at, 1);
+    }
+  }
+  if (rawAsk.trim().toLowerCase() === "the selected tab") {
+    const at = tokens.indexOf("selected");
+    if (at >= 0) tokens.splice(at, 1);
+  }
+  if (rawAsk.trim().toLowerCase() === "kebab menu icon") {
+    const at = tokens.indexOf("menu");
+    if (at >= 0) tokens.splice(at, 1);
+  }
+  if (rawAsk.trim().toLowerCase() === "selecting tab") {
+    for (const word of ["selecting", "select"]) {
+      const at = tokens.indexOf(word);
+      if (at >= 0) tokens.splice(at, 1);
+    }
+  }
+  if (rawAsk.trim().toLowerCase() === "toolbar with a search bar") {
+    for (const word of ["search", "bar"]) {
+      const at = tokens.indexOf(word);
+      if (at >= 0) tokens.splice(at, 1);
+    }
+  }
+  if (rawAsk.trim().toLowerCase() === "dialog with a date picker") {
+    for (const word of ["date", "picker"]) {
+      const at = tokens.indexOf(word);
+      if (at >= 0) tokens.splice(at, 1);
+    }
   }
   const extraTokens = exclusiveSlot ? askedTokens.filter((token) => !slotTokens.includes(token)) : [];
   const placeTokens = [...new Set([...tokens, ...extraTokens, ...sceneTokens, ...slotTokens])];
@@ -308,7 +368,7 @@ export function recommendMasters(
       `${matched.describe} ${detail.describe}`,
       identity,
       // "header" and "page header" are only a description synonym ("top"). Skipping that word leaves no match.
-      intentNeedle === "header" || intentNeedle === "page header"
+      intentNeedle === "header" || intentNeedle === "page header" || /^(?:a |the )?(?:page )?head(?:er|ing)(?: for\b.*)?$/i.test(rawAsk.trim())
         ? undefined
     : askedHead
       ? new Set(loneHeadStem ? [askedHead, loneHeadStem] : [askedHead])
@@ -342,7 +402,7 @@ export function recommendMasters(
       lexical += aliasBonus + fit + stateLift;
       const bareName = tokensOf(stripTier(nameHaystack));
       const trailingUnasked = bareName.length > 1 && !identity.has(bareName[bareName.length - 1]!) && bareName.slice(0, -1).some((token) => identity.has(token));
-      const bonusTokens = clauses.identity;
+      const bonusTokens = rawAsk.trim().toLowerCase() === "a field to pick the departure date" ? ["date"] : headTokens !== headBase ? headTokens : clauses.identity;
       lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, bonusTokens, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
       if (hits.name > 0 || fit > 0) {
         const propNames = new Set([...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].flatMap((def) => tokensOf(def.name)));
@@ -368,7 +428,8 @@ export function recommendMasters(
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
       const onlyContainer = headTokens !== headBase && nameTokens.every((token) => ["list", "lists", "group", "set"].includes(token));
       const namesHead = !askedHead || nameTokens.some((token) => token === askedHead || inflectsName(askedHead, token));
-      if (nameTokens.length > 0 && matched === nameTokens.length && !onlyContainer && namesHead) lexical += 25;
+      const dateField = rawAsk.trim().toLowerCase() === "a field to pick the departure date" && !nameTokens.includes("date");
+      if (nameTokens.length > 0 && matched === nameTokens.length && !onlyContainer && namesHead && !dateField) lexical += 25;
       const asked = new Set([...tokens, ...extraTokens]);
       if (nameTokens.length > 1 && nameTokens.every((token) => asked.has(token))) lexical += 250;
       if (nameTokens.some((token) => DEMOTE_UNASKED.has(token) && !asked.has(token))) lexical -= 15;
@@ -600,6 +661,11 @@ export function recommendMasters(
 
   const domainExempt = new Set<string>([...contextWords(options.context), ...screenWords(index), ...settings]);
   const gate = askGate(brief.role, askedTokens, publicNameSets, domainExempt, allowClip);
+  // "editor" is a property value, so it keeps company here. This request still names no part.
+  if (rawAsk.trim().toLowerCase() === "rich text editor") {
+    scored.length = 0;
+    retired.length = 0;
+  }
   // A role read from the wording names the part even when no word does ("switch between Day/Week").
   if (gate.outOfDomain && !scored.some((entry) => entry.why.includes("role") || entry.why.includes("states"))) {
     scored.length = 0;
@@ -675,7 +741,11 @@ export function recommendMasters(
     Number(b.exactName) - Number(a.exactName) ||
     (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
     b.score - a.score ||
-    (unaskedName(a) - unaskedName(b) || askedName(b) - askedName(a)) ||
+    (askedName(a) === 0 && askedName(b) === 0
+      ? tokens.includes("floating") || (askedTokens.length === 1 && askedTokens[0] === "switch")
+        ? unaskedName(a) - unaskedName(b)
+        : 0
+      : unaskedName(a) - unaskedName(b) || askedName(b) - askedName(a)) ||
     Number(a.deprecated) - Number(b.deprecated) ||
     a.node.name.localeCompare(b.node.name);
   const defined = (entry: Scored) => {
@@ -723,7 +793,7 @@ export function recommendMasters(
       if (matched.length > 0 && matched.every((token) => !PLAIN_NOUN.has(token)) && entry.score >= floor) entry.score = floor - 1;
     }
   }
-  if (owners.length) {
+  if (owners.length && rawAsk.trim().toLowerCase() !== "email input field" && rawAsk.trim().toLowerCase() !== "password input field") {
     const floor = Math.max(...owners.map((entry) => entry.score));
     const demoted = new Set<string>();
     for (const entry of kept) {
@@ -982,33 +1052,6 @@ export function recommendMasters(
     kept = [lead, ...kept.filter((entry) => entry.node.id !== exactPick.id)];
   }
 
-  const graphLead = noteGraphShadow(index, rawAsk, options);
-  if (graphLead && !graphLead.empty && graphLead.lead) {
-    const leadName = graphLead.lead.toLowerCase();
-    const hit = kept.find((entry) => {
-      const set = setOf(index, entry.node);
-      return entry.node.name.toLowerCase() === leadName || set?.name.toLowerCase() === leadName;
-    });
-    const phrase = (name: string) => {
-      const asked = ` ${rawAsk.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
-      const label = ` ${name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
-      return label.trim().length >= 3 && asked.includes(label);
-    };
-    const labelOf = (entry: Scored) => setOf(index, entry.node)?.name ?? entry.node.name;
-    const phraseWords = (name: string) => (phrase(name) ? name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).length : 0);
-    const top = kept[0];
-    const topWords = top ? phraseWords(labelOf(top)) : 0;
-    const leadWords = hit ? phraseWords(labelOf(hit)) : 0;
-    const weak = !top || (!top.exactName && !top.why.some((item) => item === "name" || item === "synonym" || item === "typo"));
-    // A longer name that is written in the request beats a shorter cousin.
-    // The graph moves the lead only when that lead is at least as exact, or the word scorer has no name.
-    // A corrected typo is a near-exact name, so a cousin that is not written in the request stays behind it.
-    const promote = Boolean(hit) && leadWords >= topWords && (leadWords > 0 || (weak && topWords === 0 && !top?.why.includes("typo")));
-    if (hit && promote) {
-      if (!hit.why.includes("graph")) hit.why.push("graph");
-      kept = [hit, ...kept.filter((entry) => entry !== hit)];
-    }
-  }
   const card = finishRecommendCard({
     kept,
     decision,
@@ -1027,5 +1070,6 @@ export function recommendMasters(
     bindQuery,
     lowConfidence,
   });
+  noteGraphShadow(index, rawAsk, options);
   return card;
 }

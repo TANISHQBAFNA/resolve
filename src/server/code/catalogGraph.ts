@@ -1,5 +1,5 @@
 import type { CatalogEntry, CatalogSpec } from "./scan.ts";
-import { RELATED, tokens } from "./words.ts";
+import { expandTerms, tokens } from "./words.ts";
 
 /**
  * Jobs come from the component file's own structure: accessibility roles,
@@ -28,7 +28,10 @@ export interface CatalogEdge {
 
 export interface GraphPick {
   name: string;
+  /** Values this request decides. The host copies these. */
   settings: Record<string, string>;
+  /** The component file's own defaults for everything the request leaves alone. */
+  defaults: Record<string, string>;
   states: string[];
   reasons: { job?: string; constraint?: string; context?: string };
   confidence: Confidence;
@@ -162,10 +165,36 @@ function chooseOption(options: OptionFact[], words: string[], skip: Set<string>)
   return undefined;
 }
 
-/** Every choosable property gets a value: the role match, otherwise the file's own default. */
-export function settingsForEntry(entry: CatalogEntry, ask: string): Record<string, string> {
+const STATE_WORD = new Set(["view", "readonly", "read", "error", "empty", "loading", "disabled", "default", "base", "filled", "hover", "pressed", "focus"]);
+
+function isStateProperty(name: string, options: OptionFact[]): boolean {
+  if (name.toLowerCase() === "state") return true;
+  return options.length > 0 && options.every((option) => tokens(option.value).every((word) => STATE_WORD.has(word)));
+}
+
+/** The request describes how the control behaves. Word overlap with an option line does not. */
+function behaviourState(ask: string, options: OptionFact[]): string | undefined {
+  const text = subject(ask);
+  const value = (stems: string[]) => options.find((option) => tokens(option.value).some((word) => stems.includes(word)))?.value;
+  const showsSaved = /\b(?:show|shows|showing|saved|existing|already)\b/i.test(text) && /\b(?:value|values|saved|existing|filled|current)\b/i.test(text);
+  if (showsSaved || /\bread-?only\b/i.test(text)) return value(["view", "readonly", "read"]);
+  if (/\breview\b/i.test(text) && !/\bedit\b/i.test(text)) return value(["view", "readonly"]);
+  if (/\bempty\b|\bnothing\b|\bno results\b/i.test(text)) return value(["empty"]);
+  if (/\bloading\b|\bwaiting\b|\bfetching\b/i.test(text)) return value(["loading"]);
+  if (/\berror\b|\binvalid\b/i.test(text)) return value(["error"]);
+  return undefined;
+}
+
+function declaredDefault(value: string | undefined, options: OptionFact[]): string | undefined {
+  if (!value) return undefined;
+  if (value === "true" || value === "false") return value;
+  return options.some((option) => option.value.toLowerCase() === value.toLowerCase()) ? value : undefined;
+}
+
+/** Decided values only. Everything else is the file's default, and sample text is left out. */
+export function settingsForEntry(entry: CatalogEntry, ask: string): { settings: Record<string, string>; defaults: Record<string, string>; states: string[] } {
   const spec = entry.spec;
-  if (!spec) return {};
+  if (!spec) return { settings: {}, defaults: {}, states: [] };
   const words = tokens(subject(ask));
   const seenOn = new Map<string, number>();
   for (const property of spec.properties) {
@@ -175,31 +204,25 @@ export function settingsForEntry(entry: CatalogEntry, ask: string): Record<strin
   }
   const skip = new Set([...seenOn].filter(([, count]) => count > 1).map(([word]) => word));
   const settings: Record<string, string> = {};
+  const defaults: Record<string, string> = {};
+  const states: string[] = [];
   for (const property of spec.properties) {
     const options = (property.options ?? []).map((option) => ({ property: property.name, value: option.value, use: option.use ?? "" }));
-    const chosen = options.length ? chooseOption(options, words, skip) : undefined;
-    const value = chosen ?? property.default ?? options[0]?.value;
-    if (value) settings[property.name] = value;
+    const state = isStateProperty(property.name, options);
+    const chosen = state ? behaviourState(ask, options) : options.length ? chooseOption(options, words, skip) : undefined;
+    if (chosen) {
+      settings[property.name] = chosen;
+      if (state) states.push(chosen);
+      continue;
+    }
+    const fallback = declaredDefault(property.default, options);
+    if (fallback) defaults[property.name] = fallback;
   }
-  return settings;
+  return { settings, defaults, states };
 }
 
-function settingsFor(node: NodeFacts, ask: string): Record<string, string> {
+function settingsFor(node: NodeFacts, ask: string): { settings: Record<string, string>; defaults: Record<string, string>; states: string[] } {
   return settingsForEntry(node.entry, ask);
-}
-
-function statesOf(node: NodeFacts): string[] {
-  const named = new Set(node.options.map((option) => option.value.toLowerCase()));
-  return ["error", "empty", "loading", "disabled"].filter((state) => [...named].some((value) => value.includes(state)));
-}
-
-function askTerms(ask: string): Map<string, number> {
-  const terms = new Map<string, number>();
-  for (const word of tokens(ask)) {
-    terms.set(word, 1);
-    for (const [other, weight] of RELATED.get(word) ?? []) if ((terms.get(other) ?? 0) < weight) terms.set(other, weight);
-  }
-  return terms;
 }
 
 function lexical(node: NodeFacts, terms: Map<string, number>): number {
@@ -250,7 +273,7 @@ export function pickByCatalog(entries: CatalogEntry[], ask: string): GraphPick[]
   const nodes = nodesOf(entries);
   if (!nodes.length) return [];
   const edges = edgesOf(nodes);
-  const terms = askTerms(ask);
+  const terms = expandTerms(ask);
   const direct = new Set([...terms].filter(([, weight]) => weight === 1).map(([word]) => word));
   const words = [...direct];
   const optionDf = new Map<string, number>();
@@ -283,15 +306,15 @@ export function pickByCatalog(entries: CatalogEntry[], ask: string): GraphPick[]
       score += 36;
       reasons.job = node.entry.name;
     }
+    const headWord = tokens(subject(ask)).at(-1);
     const boosted = new Set<string>();
     for (const option of node.options) {
-      for (const word of tokens(option.value)) {
-        if (boosted.has(word) || !direct.has(word) || (optionDf.get(word) ?? 9) > 2) continue;
-        boosted.add(word);
-        score += 18;
-      }
-      for (const word of tokens(option.use)) {
-        if (boosted.has(word) || !direct.has(word) || (useDf.get(word) ?? 9) > 2) continue;
+      const valueWords = new Set(tokens(option.value));
+      for (const word of [...valueWords, ...tokens(option.use)]) {
+        if (boosted.has(word) || !direct.has(word)) continue;
+        const rare = (valueWords.has(word) ? optionDf : useDf).get(word) ?? 9;
+        // A side word in an option line does not pull the component in. The head noun, or the option value itself, does.
+        if (rare > 2 || (word !== headWord && !valueWords.has(word))) continue;
         boosted.add(word);
         score += 18;
       }
@@ -318,7 +341,8 @@ export function pickByCatalog(entries: CatalogEntry[], ask: string): GraphPick[]
       score += 16;
       reasons.context = node.spec.summary;
     }
-    if (score > 0) scored.push({ node, score, reasons, edges: used });
+    const signal = named || Boolean(role) || used.some((edge) => edge.to === node.entry.name) || boosted.size > 0;
+    if (signal && score > 0) scored.push({ node, score, reasons, edges: used });
   }
   scored.sort((a, b) => b.score - a.score || (a.node.entry.name < b.node.entry.name ? -1 : 1));
   return scored.slice(0, 3).map((row, index, all) => {
@@ -326,10 +350,12 @@ export function pickByCatalog(entries: CatalogEntry[], ask: string): GraphPick[]
     const dims = [row.reasons.job, row.reasons.constraint, row.reasons.context].filter(Boolean).length;
     const gap = row.score - (all[index + 1]?.score ?? 0);
     const confidence: Confidence = dims >= 2 && gap >= 20 ? "high" : dims >= 1 && row.score >= 40 ? "medium" : "low";
+    const chosen = settingsFor(row.node, ask);
     return {
       name: row.node.entry.name,
-      settings: settingsFor(row.node, ask),
-      states: statesOf(row.node),
+      settings: chosen.settings,
+      defaults: chosen.defaults,
+      states: chosen.states,
       reasons: row.reasons,
       confidence,
       edges: [...row.edges, ...built].slice(0, 8),

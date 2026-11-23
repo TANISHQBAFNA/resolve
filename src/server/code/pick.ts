@@ -1,7 +1,7 @@
 import { codeValueWarnings } from "@/core/codeMap/codeValueGaps";
-import { pickByCatalog, settingsForEntry, type GraphPick } from "./catalogGraph.ts";
+import { pickByCatalog, type GraphPick } from "./catalogGraph.ts";
 import { byCode, type CatalogEntry, type CodeCatalog } from "./scan.ts";
-import { nameWords, RELATED, stem, tokens } from "./words.ts";
+import { expandTerms, nameWords, stem, tokens } from "./words.ts";
 
 export { stem };
 
@@ -50,30 +50,6 @@ function score(entry: CatalogEntry, terms: Map<string, number>, rarity: (word: s
 export const rankOrder = (a: { total: number; entry: CatalogEntry }, b: { total: number; entry: CatalogEntry }) =>
   Math.round(b.total * 1e6) - Math.round(a.total * 1e6) || (a.entry.kind === b.entry.kind ? 0 : a.entry.kind === "block" ? -1 : 1) || byCode(a.entry.name, b.entry.name);
 
-function lexicalPicks(catalog: CodeCatalog, query: string, limit: number): GraphPick[] {
-  const terms = new Map<string, number>();
-  for (const word of tokens(query)) {
-    terms.set(word, 1);
-    for (const [other, weight] of RELATED.get(word) ?? []) if ((terms.get(other) ?? 0) < weight) terms.set(other, weight);
-  }
-  const have = (f: Features, w: string) => f.name.has(w) || f.alias.has(w) || f.variants.has(w) || f.classes.has(w) || f.text.has(w) || f.doc.has(w);
-  const rarity = (word: string) => 1 - 0.5 * (catalog.components.filter((e) => have(features(e), word)).length / Math.max(1, catalog.components.length));
-  return catalog.components
-    .map((entry) => ({ entry, ...score(entry, terms, rarity) }))
-    .filter((row) => row.total > 0)
-    .sort(rankOrder)
-    .slice(0, limit)
-    .map(({ entry, total }) => ({
-      name: entry.name,
-      settings: settingsForEntry(entry, query),
-      states: [],
-      reasons: {},
-      confidence: "low" as const,
-      edges: [],
-      score: Math.round(total * 10) / 10,
-    }));
-}
-
 function clipReason(text: string | undefined): string | undefined {
   if (!text) return undefined;
   const clean = text.replace(/\s+/g, " ").trim();
@@ -82,7 +58,7 @@ function clipReason(text: string | undefined): string | undefined {
 }
 
 /** What the host model is allowed to choose from: at most three, settings included. */
-function shortlistOf(components: Array<{ name: string; settings?: Record<string, string>; states?: string[]; reasons?: GraphPick["reasons"]; confidence?: GraphPick["confidence"]; description?: string }>): Array<{ name: string; settings: Record<string, string>; states: string[]; reasons: GraphPick["reasons"]; confidence: GraphPick["confidence"] }> {
+function shortlistOf(components: Array<{ name: string; settings?: Record<string, string>; defaults?: Record<string, string>; states?: string[]; reasons?: GraphPick["reasons"]; confidence?: GraphPick["confidence"]; description?: string }>): Array<{ name: string; settings: Record<string, string>; defaults: Record<string, string>; states: string[]; reasons: GraphPick["reasons"]; confidence: GraphPick["confidence"] }> {
   return components.slice(0, 3).map((card) => {
     const reasons: GraphPick["reasons"] = { ...(card.reasons ?? {}) };
     if (!reasons.context && card.description) reasons.context = card.description;
@@ -96,6 +72,7 @@ function shortlistOf(components: Array<{ name: string; settings?: Record<string,
     return {
       name: card.name,
       settings: card.settings ?? {},
+      defaults: card.defaults ?? {},
       states: card.states ?? [],
       reasons: short,
       confidence: card.confidence ?? "low",
@@ -105,8 +82,7 @@ function shortlistOf(components: Array<{ name: string; settings?: Record<string,
 
 function graphCards(catalog: CodeCatalog, query: string, limit: number) {
   const cap = Math.max(1, Math.min(limit, 3));
-  const ranked = pickByCatalog(catalog.components, query).slice(0, cap);
-  const picks = ranked.length ? ranked : lexicalPicks(catalog, query, cap);
+  const picks = pickByCatalog(catalog.components, query).slice(0, cap);
   const byName = new Map(catalog.components.map((entry) => [entry.name, entry]));
   const components = picks.flatMap((pick) => {
     const entry = byName.get(pick.name);
@@ -118,7 +94,7 @@ function graphCards(catalog: CodeCatalog, query: string, limit: number) {
     shortlist,
     components,
     ...(components.length
-      ? { guidance: "Pick one row of shortlist. Place that component with its settings object. Do not invent a component or a setting value. A low confidence means ask before placing it." }
+      ? { guidance: "Pick one row of shortlist, or say nothing fits. Copy only settings: those are the values this request decides. Leave defaults as the component already defines them. Do not invent a component or a setting value." }
       : { message: "No component matches. Say so; do not invent a class. Try other words or list components with resolve code scan." }),
   };
 }
@@ -133,6 +109,7 @@ function cardFor(entry: CatalogEntry, pick: GraphPick) {
     description: entry.description,
     ...(entry.status ? { status: entry.status } : {}),
     settings: pick.settings,
+    defaults: pick.defaults,
     states: pick.states,
     reasons: pick.reasons,
     confidence: pick.confidence,
@@ -156,11 +133,7 @@ function cardFor(entry: CatalogEntry, pick: GraphPick) {
 
 export function pickComponents(catalog: CodeCatalog, query: string, limit = 5) {
   if (catalog.components.some((entry) => entry.spec)) return graphCards(catalog, query, limit);
-  const terms = new Map<string, number>();
-  for (const word of tokens(query)) {
-    terms.set(word, 1);
-    for (const [other, weight] of RELATED.get(word) ?? []) if ((terms.get(other) ?? 0) < weight) terms.set(other, weight);
-  }
+  const terms = expandTerms(query);
   // A word found in most components says little; a rare one says more.
   const have = (f: Features, w: string) => f.name.has(w) || f.alias.has(w) || f.variants.has(w) || f.classes.has(w) || f.text.has(w) || f.doc.has(w);
   const rarity = (word: string) => 1 - 0.5 * (catalog.components.filter((e) => have(features(e), word)).length / Math.max(1, catalog.components.length));
@@ -201,7 +174,7 @@ export function pickComponents(catalog: CodeCatalog, query: string, limit = 5) {
     shortlist: shortlistOf(components),
     components,
     ...(components.length
-      ? { guidance: "Pick one row of shortlist. Place that component with its settings object. Do not invent a component or a setting value." }
+      ? { guidance: "Pick one row of shortlist, or say nothing fits. Copy only settings. Leave defaults as the component already defines them. Do not invent a component or a setting value." }
       : { message: "No component matches. Say so; do not invent a class. Try other words or list components with resolve code scan." }),
   };
 }
