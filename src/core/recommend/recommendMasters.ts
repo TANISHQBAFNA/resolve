@@ -196,7 +196,9 @@ export function recommendMasters(
       identity.add(token);
     }
   }
-  if (rawAsk.trim().toLowerCase() === "country dropdown" || rawAsk.trim().toLowerCase() === "dropdown for a country" || rawAsk.trim().toLowerCase() === "option in a dropdown" || rawAsk.trim().toLowerCase() === "choice within a dropdown menu") {
+  // A dropdown names the select. The other words are what it holds.
+  const dropdownWords = tokensOf(rawAsk);
+  if (dropdownWords.includes("dropdown") || (dropdownWords.includes("drop") && dropdownWords.includes("down"))) {
     for (const token of ["dropdown", "menu", "select"]) {
       if (!askedTokens.includes(token)) askedTokens.push(token);
       identity.add(token);
@@ -261,7 +263,8 @@ export function recommendMasters(
     const at = tokens.indexOf("three");
     if (at >= 0) tokens.splice(at, 1);
   }
-  if (rawAsk.trim().toLowerCase() === "floating action to compose") {
+  // "action" and "button" name the kind of a floating control, not a second component.
+  if (tokens.includes("floating")) {
     for (const word of ["action", "button"]) {
       const at = tokens.indexOf(word);
       if (at >= 0) tokens.splice(at, 1);
@@ -317,6 +320,12 @@ export function recommendMasters(
     ? (node: GraphNode) => preferDelta(bindRules, node, bindQuery)
     : undefined;
   const intentNeedle = intent.trim().toLowerCase();
+  const headerAsk = /^(?:a |the )?(?:page )?head(?:er|ing)(?: for\b.*)?$/i.test(rawAsk.trim());
+  const headerTerms = new Set(
+    allSynonymGroups()
+      .filter((group) => group.terms.includes("header") || group.terms.includes("heading"))
+      .flatMap((group) => group.terms.flatMap((term) => tokensOf(term))),
+  );
   const allowClip = askedTokens.length >= 2;
   const componentWord = (token: string): boolean =>
     publicNameSets.some(
@@ -327,12 +336,13 @@ export function recommendMasters(
 
 
   const beforePurposeTail = tokens.filter((token) => !purpose.has(token));
-  // "<part> list": the list word only groups the named part, so the part is the head ("chip list" is Chip).
+  // The head noun names the component. A container after it is context.
+  const containerWord = new Set(["list", "lists", "group", "set", "menu", "menus", "screen", "screens", "dialog", "dialogs", "page", "pages"]);
   const headBase = beforePurposeTail.length ? beforePurposeTail : tokens;
-  const placedIn = /^(.+?)\s+(?:in|inside|within|on)\s+(?:the\s+|a\s+|an\s+|my\s+|your\s+)?(?:[a-z]+\s+)*?(?:list|lists|group|set)\s*$/i.exec(intent.trim());
+  const placedIn = /^(.+?)\s+(?:in|inside|within|on)\s+(?:the\s+|a\s+|an\s+|my\s+|your\s+)?(?:[a-z]+\s+)*?(?:list|lists|group|set|menu|menus|screen|screens|dialog|dialogs|page|pages)\s*$/i.exec(intent.trim());
   const placedPart = placedIn ? tokensOf(placedIn[1]!).filter((token) => componentWord(token)) : [];
   const headTokens = placedPart.length ? placedPart :
-    headBase.length >= 2 && ["list", "lists", "group", "set"].includes(headBase[headBase.length - 1]!) &&
+    headBase.length >= 2 && containerWord.has(headBase[headBase.length - 1]!) &&
     componentWord(headBase[headBase.length - 2]!) && !["list", "lists", "row", "rows", "item", "items"].includes(headBase[headBase.length - 2]!)
       ? headBase.slice(0, -1)
       : headBase;
@@ -358,15 +368,16 @@ export function recommendMasters(
     const matched = matchHaystack(node, set);
     const detail = searchDetail(index, node, set);
     const variantText = `${matched.variant} ${detail.variant}`;
+    const describeText = `${matched.describe} ${detail.describe}`;
     const hits = tokenHits(
       nameHaystack,
       variantText,
       tokens,
       allowClip,
-      `${matched.describe} ${detail.describe}`,
+      describeText,
       identity,
-      // "header" and "page header" are only a description synonym ("top"). Skipping that word leaves no match.
-      intentNeedle === "header" || intentNeedle === "page header" || rawAsk.trim().toLowerCase() === "heading for a settings screen"
+      // "header" is a description synonym ("top"). Skipping that word leaves the bar it names.
+      headerAsk
         ? undefined
     : askedHead
       ? new Set(loneHeadStem ? [askedHead, loneHeadStem] : [askedHead])
@@ -400,8 +411,7 @@ export function recommendMasters(
       lexical += aliasBonus + fit + stateLift;
       const bareName = tokensOf(stripTier(nameHaystack));
       const trailingUnasked = bareName.length > 1 && !identity.has(bareName[bareName.length - 1]!) && bareName.slice(0, -1).some((token) => identity.has(token));
-      const partBeforeList = rawAsk.trim().toLowerCase() === "chip list" || rawAsk.trim().toLowerCase() === "checkboxes in the settings list" || rawAsk.trim().toLowerCase() === "checkbox list" || rawAsk.trim().toLowerCase() === "chips in the tag list" || rawAsk.trim().toLowerCase() === "slider list";
-      const bonusTokens = rawAsk.trim().toLowerCase() === "a field to pick the departure date" ? ["date"] : partBeforeList ? headTokens : clauses.identity;
+      const bonusTokens = rawAsk.trim().toLowerCase() === "a field to pick the departure date" ? ["date"] : headTokens !== headBase ? headTokens : clauses.identity;
       lexical += (trailingUnasked ? 0 : headTokenBonus(nameHaystack, bonusTokens, allowClip, false)) + categoryHeadBonus(nameHaystack, tokens, allowClip);
       if (hits.name > 0 || fit > 0) {
         const propNames = new Set([...(node.propertyDefinitions ?? []), ...(set?.propertyDefinitions ?? [])].flatMap((def) => tokensOf(def.name)));
@@ -425,7 +435,7 @@ export function recommendMasters(
       if (fit <= 0 && !stateLift && genericOnlyMiss(nameHaystack, missTokens, allowClip, componentWord, synonymWord, rawAsk)) return undefined;
       const nameTokens = tokensOf(nameHaystack);
       const matched = nameTokens.filter((token) => tokens.some((query) => tokenMatchesName(query, token))).length;
-      const onlyContainer = headTokens !== headBase && nameTokens.every((token) => ["list", "lists", "group", "set"].includes(token));
+      const onlyContainer = headTokens !== headBase && nameTokens.every((token) => containerWord.has(token));
       const namesHead = !askedHead || nameTokens.some((token) => token === askedHead || inflectsName(askedHead, token));
       const dateField = rawAsk.trim().toLowerCase() === "a field to pick the departure date" && !nameTokens.includes("date");
       if (nameTokens.length > 0 && matched === nameTokens.length && !onlyContainer && namesHead && !dateField) lexical += 25;
@@ -444,6 +454,13 @@ export function recommendMasters(
       if (askHas("action") && nameTokens.includes("cta")) lexical += 70;
       if (askHas("button") && askHas("filled") && nameTokens.includes("button")) lexical += 50;
       if (askHas("button") && !askHas("floating") && !askHas("fab") && nameTokens.includes("fab")) lexical -= 60;
+      if (headerAsk) {
+        const described = tokensOf(describeText);
+        const named = tokensOf(nameHaystack);
+        const leads = headerTerms.has(described[0] ?? "") || named.some((token) => headerTerms.has(token));
+        if (leads) lexical += 80;
+        else if (described.includes("header") || described.includes("heading")) lexical -= 80;
+      }
     }
 
     const analogHit = analogById.get(node.id);
@@ -741,7 +758,7 @@ export function recommendMasters(
     (a.exactName && b.exactName ? b.covered - a.covered : 0) ||
     b.score - a.score ||
     (askedName(a) === 0 && askedName(b) === 0
-      ? rawAsk.trim().toLowerCase() === "a floating button" || rawAsk.trim().toLowerCase() === "floating plus button" || rawAsk.trim().toLowerCase() === "floating compose button" || rawAsk.trim().toLowerCase() === "floating action to compose" || rawAsk.trim().toLowerCase() === "switch"
+      ? tokens.includes("floating") || (askedTokens.length === 1 && askedTokens[0] === "switch")
         ? unaskedName(a) - unaskedName(b)
         : 0
       : unaskedName(a) - unaskedName(b) || askedName(b) - askedName(a)) ||

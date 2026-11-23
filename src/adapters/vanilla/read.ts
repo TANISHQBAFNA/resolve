@@ -5,7 +5,7 @@ import { join, relative } from "node:path";
 import { parseDsId } from "@/core/rules/dsId";
 import { parseCss, selectorClasses, varRefs } from "@/server/code/css";
 import { parseHtml, type HtmlDoc, type HtmlTag } from "@/server/code/html";
-import type { CatalogEntry, CodeCatalog } from "@/server/code/scan";
+import type { CatalogEntry, CatalogProperty, CatalogSpec, CodeCatalog } from "@/server/code/scan";
 
 /**
  * Vanilla HTML/CSS/JS component folder in, catalog entries out.
@@ -61,6 +61,7 @@ interface Hit {
   variants: string[];
   markup: string;
   files: string[];
+  spec?: CatalogSpec;
 }
 
 export function emptyCodeCatalog(repoPath: string, warnings: string[]): CodeCatalog {
@@ -85,6 +86,12 @@ export function applyVanilla(root: string, entries: CatalogEntry[]): { warnings:
     const existing = have.get(hit.name);
     if (existing) {
       if (!existing.dsId && hit.dsId) existing.dsId = hit.dsId;
+      if (hit.spec) {
+        existing.spec = hit.spec;
+        if (!existing.description && hit.spec.summary) existing.description = hit.spec.summary;
+        const said = [...hit.spec.do, ...hit.spec.dont];
+        if (said.length) existing.rules = [...new Set([...existing.rules, ...said])].slice(0, 12);
+      }
       continue;
     }
     const entry = toEntry(hit);
@@ -171,7 +178,9 @@ function compose(
     for (const style of doc.styles) collectCss(style.css, classes, tokens);
   }
   for (const file of css) collectCss(readText(file.abs), classes, tokens);
-  const fromJson = json ? readManifestId(json.rel, readText(json.abs), warnings) : {};
+  const rawJson = json ? readText(json.abs) : "";
+  const fromJson = json ? readManifestId(json.rel, rawJson, warnings) : {};
+  const spec = json && rawJson ? readSpec(json.rel, rawJson) : undefined;
   const dsId = chooseId(name, htmlId, fromJson.dsId, warnings);
   return {
     name,
@@ -181,7 +190,89 @@ function compose(
     variants: [...variants].sort(byCode),
     markup,
     files: [...docs.map(({ file }) => file.rel), ...css.map((file) => file.rel), ...(json ? [json.rel] : [])].sort(byCode),
+    ...(spec ? { spec } : {}),
   };
+}
+
+function asText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function asDefault(value: unknown): string | undefined {
+  if (typeof value === "boolean" || typeof value === "number") return String(value);
+  const text = asText(value);
+  return text || undefined;
+}
+
+function asList(value: unknown): string[] {
+  if (typeof value === "string" && value.trim()) return [value.trim()];
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => (typeof item === "string" && item.trim() ? [item.trim()] : []));
+}
+
+/** Properties, parts, rules and a11y from a component file. A bad file yields nothing. */
+function readSpec(rel: string, text: string): CatalogSpec | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text.replace(/^\uFEFF/, ""));
+  } catch {
+    return undefined;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
+  const row = parsed as Record<string, unknown>;
+  const rules = row["rules"] && typeof row["rules"] === "object" && !Array.isArray(row["rules"]) ? (row["rules"] as Record<string, unknown>) : {};
+  const properties = Array.isArray(row["properties"]) ? row["properties"].flatMap((item) => oneProperty(item)) : [];
+  const parts = Array.isArray(row["parts"])
+    ? row["parts"].flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const part = item as Record<string, unknown>;
+        const name = asText(part["name"]);
+        return name ? [{ name, ...(asText(part["note"]) ? { note: asText(part["note"]) } : {}) }] : [];
+      })
+    : [];
+  return {
+    file: rel,
+    summary: asText(row["summary"]),
+    uses: asList(row["uses"]),
+    parts,
+    a11y: asList(row["a11y"]),
+    do: asList(rules["do"]),
+    dont: asList(rules["dont"]),
+    properties,
+  };
+}
+
+function oneProperty(item: unknown): CatalogProperty[] {
+  if (!item || typeof item !== "object") return [];
+  const row = item as Record<string, unknown>;
+  const name = asText(row["name"]);
+  if (!name) return [];
+  const options = optionsOf(row["options"]);
+  const fallback = asDefault(row["default"]);
+  return [{
+    name,
+    kind: asText(row["kind"]) || "text",
+    ...(fallback ? { default: fallback } : {}),
+    ...(asText(row["use"]) ? { use: asText(row["use"]) } : {}),
+    ...(options.length ? { options } : {}),
+  }];
+}
+
+function optionsOf(value: unknown): { value: string; use?: string }[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => {
+      if (typeof item === "string" && item.trim()) return [{ value: item.trim() }];
+      if (!item || typeof item !== "object") return [];
+      const row = item as Record<string, unknown>;
+      const name = asText(row["value"] ?? row["name"]);
+      return name ? [{ value: name, ...(asText(row["use"]) ? { use: asText(row["use"]) } : {}) }] : [];
+    });
+  }
+  if (!value || typeof value !== "object") return [];
+  return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) => {
+    const use = item && typeof item === "object" ? asText((item as Record<string, unknown>)["use"]) : "";
+    return key.trim() ? [{ value: key.trim(), ...(use ? { use } : {}) }] : [];
+  });
 }
 
 function chooseId(name: string, htmlRaw: string | undefined, jsonRaw: string | undefined, warnings: string[]): string | undefined {
@@ -307,10 +398,11 @@ function toEntry(hit: Hit): CatalogEntry {
   return {
     name: hit.name,
     kind: "block",
-    description: "",
+    description: hit.spec?.summary ?? "",
     variants: hit.variants,
-    rules: [],
+    rules: hit.spec ? [...hit.spec.do, ...hit.spec.dont].slice(0, 12) : [],
     ...(hit.dsId ? { dsId: hit.dsId } : {}),
+    ...(hit.spec ? { spec: hit.spec } : {}),
     code: {
       roots: roots.sort(byCode),
       primary,

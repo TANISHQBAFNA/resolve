@@ -33,7 +33,7 @@ Full workflow, when this client can read MCP resources: `resolve://figma`.
 For ANY HTML, CSS, or JS screen or component built on the repo's design system, call Resolve before writing markup. Needs `repoPath` in `.resolve/config.json` (or `RESOLVE_REPO_PATH`); `cssEntry` and `theme` are optional. No `repoPath`: ask the user for it and stop.
 
 1. `code_scan` once, and again when the design system changes. It builds the catalog: components, variants, rules, real markup, deprecated classes, tokens. Never Read `.resolve/code-catalog.json`.
-2. `code_pick` with what the screen needs, for each part. Build with the returned classes, variants and markup only. A modifier needs its base class. Never use a class listed under `avoid`. Use tokens, not literal colours or sizes.
+2. `code_pick` with what the screen needs, for each part. Build with the returned classes, variants and markup only. A modifier needs its base class. Never use a class listed under `avoid`. Use tokens, not literal colours or sizes. Copy only `settings`. Leave `defaults`. An empty pick means nothing fits.
 3. `code_check` on the HTML file before you finish. Fix every error, check again, report what is left. Nothing fits: say so. Never invent a class.
 4. `ready` on a prototype project (`4-code/prototype`) before it goes to developers. It writes `5-readiness/report.md`. Findings are warnings. `--strict` is opt-in.
 
